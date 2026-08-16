@@ -1,7 +1,12 @@
 class LiveSession {
   constructor(store) {
-    this._wss = "wss://live.clocktower.online:8080/";
-    // this._wss = "ws://localhost:8081/"; // uncomment if using local server with NODE_ENV=development
+    // Golem fork: live sessions go through OUR relay on the same host the app
+    // is served from (Caddy proxies /ws to it), so the fork never leans on the
+    // upstream project's infrastructure. Local dev keeps the localhost relay.
+    this._wss =
+      process.env.NODE_ENV === "development"
+        ? "ws://localhost:8081/"
+        : `wss://${window.location.host}/ws/`;
     this._socket = null;
     this._isSpectator = true;
     this._gamestate = [];
