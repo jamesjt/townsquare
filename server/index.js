@@ -14,18 +14,26 @@ const PING_INTERVAL = 30000; // 30 seconds
 
 const options = {};
 
-if (process.env.NODE_ENV !== "development") {
+// Golem fork: BEHIND_PROXY=1 runs a PLAIN ws server on PORT — the reverse
+// proxy (Caddy) terminates TLS and forwards /ws, so the upstream cert.pem /
+// key.pem self-termination path is skipped entirely. NODE_ENV=development
+// keeps upstream's local behaviour.
+const behindProxy =
+  process.env.BEHIND_PROXY === "1" || process.env.NODE_ENV === "development";
+
+if (!behindProxy) {
   options.cert = fs.readFileSync("cert.pem");
   options.key = fs.readFileSync("key.pem");
 }
 
 const server = https.createServer(options);
 const wss = new WebSocket.Server({
-  ...(process.env.NODE_ENV === "development" ? { port: 8081 } : { server }),
+  ...(behindProxy ? { port: Number(process.env.PORT) || 8081 } : { server }),
   verifyClient: info =>
     info.origin &&
     !!info.origin.match(
-      /^https?:\/\/([^.]+\.github\.io|localhost|clocktower\.online|eddbra1nprivatetownsquare\.xyz)/i
+      // Golem fork: our domains admitted alongside upstream's.
+      /^https?:\/\/([^.]+\.github\.io|localhost|clocktower\.online|eddbra1nprivatetownsquare\.xyz|([^.]+\.)?golem-studios?\.com)/i
     )
 });
 
