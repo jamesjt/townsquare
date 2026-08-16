@@ -153,7 +153,9 @@ html,
 body {
   font-size: 1.2em;
   line-height: 1.4;
-  background: url("assets/background.jpg") center center;
+  // Golem fork: our clocktower art is the shipped default (upstream's
+  // background.jpg stays in the tree untouched).
+  background: url("assets/background-clocktower.png") center center;
   background-size: cover;
   color: white;
   height: 100%;
