@@ -46,6 +46,27 @@
       >
       on how to write a custom character definition file.
       <b>Only load custom JSON files from sources that you trust!</b>
+
+      <!-- Golem fork: the script VAULT — save/share/fork by link. -->
+      <h3>Script vault</h3>
+      <ul class="scripts" v-if="recents.length">
+        <li v-for="entry in recents" :key="entry.id" @click="loadFromVault(entry.id)">
+          {{ entry.name }}
+          <small>({{ entry.editKey ? "yours" : entry.role }})</small>
+        </li>
+      </ul>
+      <div class="button-group">
+        <div class="button" @click="promptVaultLoad">
+          <font-awesome-icon icon="link" /> Load by link
+        </div>
+        <div class="button" @click="saveToVault">
+          <font-awesome-icon icon="file-upload" /> Save current script
+        </div>
+        <div class="button" v-if="recents.length" @click="copyLinks">
+          <font-awesome-icon icon="clipboard" /> Export my links
+        </div>
+      </div>
+
       <h3>Some popular custom scripts:</h3>
       <ul class="scripts">
         <li
@@ -84,6 +105,7 @@
 import editionJSON from "../../editions";
 import { mapMutations, mapState } from "vuex";
 import Modal from "./Modal";
+import * as vault from "../../golem/scripts";
 
 export default {
   components: {
@@ -93,6 +115,10 @@ export default {
     return {
       editions: editionJSON,
       isCustom: false,
+      // Golem fork: the vault shelf + which vault script is currently loaded
+      // (the fork/update decision key on save).
+      recents: vault.getRecents(),
+      vaultSourceId: null,
       scripts: [
         [
           "Deadly Penance Day",
@@ -122,7 +148,96 @@ export default {
     };
   },
   computed: mapState(["modals"]),
+  // Golem fork: a ?script=<id> share link auto-loads its script on arrival.
+  // The QUERY string is used (not the hash) because the hash is the live
+  // session's join token upstream — the two must coexist on one URL.
+  created() {
+    const id = new URLSearchParams(window.location.search).get("script");
+    if (id) this.loadFromVault(id);
+  },
   methods: {
+    // ── Golem fork: the script vault ─────────────────────────────────────
+    async loadFromVault(id) {
+      try {
+        const script = await vault.loadScript(id);
+        // roles verbatim; carry the vault name in as _meta so the script's
+        // name survives the round trip and seeds the save prompt later.
+        const roles = Array.isArray(script.roles) ? script.roles.slice() : [];
+        if (!roles.some(r => r && r.id === "_meta")) {
+          roles.unshift({ id: "_meta", name: script.name, author: script.author });
+        }
+        this.parseRoles(roles);
+        this.vaultSourceId = script.id;
+        this.recents = vault.getRecents();
+      } catch (e) {
+        alert("Could not load that script: " + e.message);
+      }
+    },
+    promptVaultLoad() {
+      const ref = prompt("Paste a script link (or its id)");
+      const id = vault.parseScriptRef(ref);
+      if (id) this.loadFromVault(id);
+      else if (ref) alert("That does not look like a script link.");
+    },
+    async saveToVault() {
+      // The CURRENT custom script = what the store holds. Plain base-role
+      // entries collapse back to id references; custom roles ship whole.
+      const custom = this.$store.state.roles;
+      if (this.$store.state.edition.id !== "custom" || !custom.size) {
+        alert("Load or build a custom script first — the vault stores custom scripts.");
+        return;
+      }
+      const meta = this.$store.state.edition;
+      const name = prompt("Script name", meta.name || "My script");
+      if (!name) return;
+      // A role whose id exists upstream collapses back to a bare id reference
+      // (the Script Tool convention); a custom role ships whole, minus the
+      // store's derived display fields.
+      const base = this.$store.getters.rolesJSONbyId;
+      const roles = [];
+      custom.forEach(role => {
+        if (base.has(role.id)) {
+          roles.push(role.id);
+        } else {
+          const rest = { ...role };
+          delete rest.imageAlt; // the store's derived display field
+          roles.push(rest);
+        }
+      });
+      try {
+        const { script, created, forked } = await vault.saveScript({
+          name,
+          author: meta.author,
+          roles,
+          sourceId: this.vaultSourceId
+        });
+        this.vaultSourceId = script.id;
+        this.recents = vault.getRecents();
+        const link = vault.shareLink(script.id);
+        const what = forked
+          ? "Forked into your own copy"
+          : created
+            ? "Saved"
+            : "Updated";
+        try {
+          await navigator.clipboard.writeText(link);
+          alert(`${what}. Share link copied:\n${link}`);
+        } catch (e) {
+          alert(`${what}. Share link:\n${link}`);
+        }
+      } catch (e) {
+        alert("Save failed: " + e.message);
+      }
+    },
+    async copyLinks() {
+      try {
+        await navigator.clipboard.writeText(vault.exportLinks());
+        alert("Your script links (edit keys included) are on the clipboard — paste them somewhere safe.");
+      } catch (e) {
+        alert(vault.exportLinks());
+      }
+    },
+    // ── upstream methods ─────────────────────────────────────────────────
     openUpload() {
       this.$refs.upload.click();
     },
