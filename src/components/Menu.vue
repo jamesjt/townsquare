@@ -30,19 +30,21 @@
       <font-awesome-icon icon="broadcast-tower" />
       {{ session.playerCount }}
     </span>
-    <div class="menu" :class="{ open: grimoire.isMenuOpen }">
-      <font-awesome-icon icon="cog" @click="toggleMenu" />
+    <!-- Golem fork: the gear is gone — the tab row IS the menu, always
+         visible. Clicking a tab opens its section; clicking the open tab
+         collapses back to the bare toolbar. -->
+    <div class="menu open" :class="{ collapsed: tab === null }">
       <ul>
         <li class="tabs" :class="tab">
-          <font-awesome-icon icon="book-open" @click="tab = 'grimoire'" />
-          <font-awesome-icon icon="broadcast-tower" @click="tab = 'session'" />
+          <font-awesome-icon icon="book-open" @click="setTab('grimoire')" />
+          <font-awesome-icon icon="broadcast-tower" @click="setTab('session')" />
           <font-awesome-icon
             icon="users"
             v-if="!session.isSpectator"
-            @click="tab = 'players'"
+            @click="setTab('players')"
           />
-          <font-awesome-icon icon="theater-masks" @click="tab = 'characters'" />
-          <font-awesome-icon icon="question" @click="tab = 'help'" />
+          <font-awesome-icon icon="theater-masks" @click="setTab('characters')" />
+          <font-awesome-icon icon="question" @click="setTab('help')" />
         </li>
 
         <template v-if="tab === 'grimoire'">
@@ -223,10 +225,22 @@ export default {
   },
   data() {
     return {
-      tab: "grimoire"
+      // Golem fork: null = collapsed to the bare toolbar (the default).
+      tab: null
     };
   },
+  watch: {
+    // The intro screen's "Menu" button flips the store flag the old gear used;
+    // honour it by expanding the first section.
+    "grimoire.isMenuOpen"(open) {
+      if (open && this.tab === null) this.tab = "grimoire";
+    }
+  },
   methods: {
+    // Click the open tab → collapse to the toolbar; click another → switch.
+    setTab(name) {
+      this.tab = this.tab === name ? null : name;
+    },
     setBackground() {
       const background = prompt("Enter custom background URL");
       if (background || background === "") {
@@ -403,29 +417,12 @@ export default {
 }
 
 .menu {
+  // Golem fork: no gear, no fold-away rotation — the tab row is a standing
+  // toolbar; only the SECTION below it comes and goes.
   width: 220px;
-  transform-origin: 200px 22px;
-  transition: transform 500ms cubic-bezier(0.68, -0.55, 0.27, 1.55);
-  transform: rotate(-90deg);
   position: absolute;
   right: 0;
   top: 0;
-
-  &.open {
-    transform: rotate(0deg);
-  }
-
-  > svg {
-    cursor: pointer;
-    background: rgba(0, 0, 0, 0.5);
-    border: 3px solid black;
-    width: 40px;
-    height: 50px;
-    margin-bottom: -8px;
-    border-bottom: 0;
-    border-radius: 10px 10px 0 0;
-    padding: 5px 5px 15px;
-  }
 
   a {
     color: white;
@@ -445,6 +442,7 @@ export default {
     box-shadow: 0 0 10px black;
     border: 3px solid black;
     border-radius: 10px 0 10px 10px;
+    // Golem fork: collapsed = the toolbar alone, corners fully rounded.
 
     li {
       padding: 2px 5px;
