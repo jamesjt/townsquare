@@ -10,11 +10,6 @@
         <li @click="press('j')">Join<em>[J]</em></li>
         <li @click="press('c')">Create<em>[C]</em></li>
       </ul>
-      <div class="footer">
-        Not affiliated with The Pandemonium Institute. "Blood on the
-        Clocktower" is a trademark of Steven Medway and The Pandemonium
-        Institute.
-      </div>
     </div>
     <a
       class="redirect"
