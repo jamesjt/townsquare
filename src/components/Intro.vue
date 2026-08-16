@@ -31,7 +31,11 @@ export default {
   },
   methods: {
     press(key) {
-      document.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+      // The hotkey listener lives on the App root element (@keyup), so a
+      // document-dispatched synthetic event never reaches it. Intro is App's
+      // direct child — call the one handler with the same payload the key
+      // would carry: still exactly one flow per verb.
+      this.$parent.keyup({ key, ctrlKey: false, metaKey: false });
     }
   }
 };
