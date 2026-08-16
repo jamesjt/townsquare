@@ -145,6 +145,10 @@ wss.on("connection", function connection(ws, req) {
   ws.on("pong", heartbeat);
   // handle message
   ws.on("message", function incoming(data) {
+    // Golem fork: ws v8 delivers a Buffer where v7 delivered a string; the
+    // string methods below crashed the whole relay on the FIRST message.
+    // Normalising here makes the ws major version irrelevant.
+    data = data.toString();
     metrics.messages_incoming.inc();
     // check rate limit (max 5msg/second)
     ws.counter++;

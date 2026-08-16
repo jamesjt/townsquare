@@ -2,18 +2,16 @@
   <div class="intro">
     <img src="static/apple-icon.png" alt="" class="logo" />
     <div>
-      Welcome to the (unofficial)
-      <b>Virtual Town Square and Grimoire</b> for Blood on the Clocktower!
-      Please add more players through the
-      <span class="button" @click="toggleMenu">
-        <font-awesome-icon icon="cog" /> Menu
-      </span>
-      on the top right or by pressing <b>[A]</b>. You can also join a game
-      session by pressing <b>[J]</b>.<br />
+      <!-- Golem fork: the walkthrough paragraph is three themed doors. Each
+           button drives the SAME path as its hotkey (a synthetic keyup), so
+           there is exactly one host/join/create flow to maintain. -->
+      <ul class="doors">
+        <li @click="press('h')">Host<em>[H]</em></li>
+        <li @click="press('j')">Join<em>[J]</em></li>
+        <li @click="press('c')">Create<em>[C]</em></li>
+      </ul>
       <div class="footer">
-        This project is free and open source and can be found on
-        <a href="https://github.com/bra1n/townsquare" target="_blank">GitHub</a
-        >. It is not affiliated with The Pandemonium Institute. "Blood on the
+        Not affiliated with The Pandemonium Institute. "Blood on the
         Clocktower" is a trademark of Steven Medway and The Pandemonium
         Institute.
       </div>
@@ -30,15 +28,17 @@
 </template>
 
 <script>
-import { mapMutations } from "vuex";
-
 export default {
   data() {
     return {
       language: window.navigator.userLanguage || window.navigator.language
     };
   },
-  methods: mapMutations(["toggleMenu"])
+  methods: {
+    press(key) {
+      document.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+    }
+  }
 };
 </script>
 
@@ -59,6 +59,45 @@ export default {
   a {
     color: white;
   }
+
+  // Golem fork: the three doors, in the editions' display face.
+  ul.doors {
+    list-style-type: none;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    padding: 10px 0;
+    margin: 0;
+
+    li {
+      font-family: PiratesBay, sans-serif;
+      letter-spacing: 1px;
+      font-size: 140%;
+      cursor: pointer;
+      padding: 10px 25px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 3px solid black;
+      border-radius: 10px;
+      box-shadow: 0 0 10px black;
+      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
+        1px 1px 0 #000;
+      transition: color 250ms;
+
+      &:hover {
+        color: red;
+      }
+
+      em {
+        display: block;
+        font-family: sans-serif;
+        font-style: normal;
+        font-size: 50%;
+        opacity: 0.6;
+        margin-top: 4px;
+      }
+    }
+  }
+
   a.redirect {
     display: block;
     text-decoration: none;
