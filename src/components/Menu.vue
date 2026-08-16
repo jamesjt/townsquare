@@ -204,26 +204,9 @@
             Game State JSON
             <em><font-awesome-icon icon="file-code"/></em>
           </li>
-          <li>
-            <a href="https://discord.gg/Gd7ybwWbFk" target="_blank">
-              Join Discord
-            </a>
-            <em>
-              <a href="https://discord.gg/Gd7ybwWbFk" target="_blank">
-                <font-awesome-icon :icon="['fab', 'discord']" />
-              </a>
-            </em>
-          </li>
-          <li>
-            <a href="https://github.com/bra1n/townsquare" target="_blank">
-              Source code
-            </a>
-            <em>
-              <a href="https://github.com/bra1n/townsquare" target="_blank">
-                <font-awesome-icon :icon="['fab', 'github']" />
-              </a>
-            </em>
-          </li>
+          <!-- Golem fork: the upstream Discord + source-code items are removed
+               from the menu. Source availability (GPL) is carried by our public
+               fork, credited on the intro screen. -->
         </template>
       </ul>
     </div>
