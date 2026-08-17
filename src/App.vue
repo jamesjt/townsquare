@@ -608,16 +608,16 @@ video#background {
   }
   /* hour positions on the measured tick rays (image px from viewport
      center, dial center offset +15,-20.5 already folded in) */
-  .dl-c1 { left: calc(50% + 91.9 * var(--fpx)); top: calc(50% + -167.6 * var(--fpx)); }
-  .dl-l  { left: calc(50% + 153.3 * var(--fpx)); top: calc(50% + -112.4 * var(--fpx)); }
-  .dl-o1 { left: calc(50% + 180.5 * var(--fpx)); top: calc(50% + -34.0 * var(--fpx)); }
-  .dl-c2 { left: calc(50% + 164.1 * var(--fpx)); top: calc(50% + 52.5 * var(--fpx)); }
-  .dl-k  { left: calc(50% + 105.0 * var(--fpx)); top: calc(50% + 119.0 * var(--fpx)); }
+  .dl-c1 { left: calc(50% + 96.9 * var(--fpx)); top: calc(50% + -172.6 * var(--fpx)); }
+  .dl-l  { left: calc(50% + 163.3 * var(--fpx)); top: calc(50% + -117.4 * var(--fpx)); }
+  .dl-o1 { left: calc(50% + 177.5 * var(--fpx)); top: calc(50% + -34.0 * var(--fpx)); }
+  .dl-c2 { left: calc(50% + 156.1 * var(--fpx)); top: calc(50% + 47.5 * var(--fpx)); }
+  .dl-k  { left: calc(50% + 105.0 * var(--fpx)); top: calc(50% + 109.0 * var(--fpx)); }
   .dl-t  { left: calc(50% + -85.4 * var(--fpx)); top: calc(50% + 111.7 * var(--fpx)); }
-  .dl-o2 { left: calc(50% + -136.5 * var(--fpx)); top: calc(50% + 47.4 * var(--fpx)); }
-  .dl-w  { left: calc(50% + -150.5 * var(--fpx)); top: calc(50% + -33.5 * var(--fpx)); }
-  .dl-e  { left: calc(50% + -126.5 * var(--fpx)); top: calc(50% + -107.2 * var(--fpx)); }
-  .dl-r  { left: calc(50% + -72.5 * var(--fpx)); top: calc(50% + -161.6 * var(--fpx)); }
+  .dl-o2 { left: calc(50% + -139.5 * var(--fpx)); top: calc(50% + 47.4 * var(--fpx)); }
+  .dl-w  { left: calc(50% + -162.5 * var(--fpx)); top: calc(50% + -33.5 * var(--fpx)); }
+  .dl-e  { left: calc(50% + -141.5 * var(--fpx)); top: calc(50% + -117.2 * var(--fpx)); }
+  .dl-r  { left: calc(50% + -82.5 * var(--fpx)); top: calc(50% + -176.6 * var(--fpx)); }
 }
 
 /* Night phase backdrop */
