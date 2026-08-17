@@ -296,7 +296,13 @@ export default {
           this.$store.commit("toggleGrimoire");
           break;
         case "a":
-          this.$refs.menu.addPlayer();
+          // Golem fork: sessionless, A opens the Almanac (the third door);
+          // in-session it keeps upstream's meaning — add player.
+          if (!this.session.sessionId && this.$refs.intro) {
+            this.$refs.intro.openCreate();
+          } else {
+            this.$refs.menu.addPlayer();
+          }
           break;
         case "h":
           // Golem fork: sessionless routes to the SAME panel the Host door
@@ -324,14 +330,10 @@ export default {
           break;
         case "c":
           if (this.session.isSpectator) return;
-          // Golem fork: sessionless → Intro.openCreate (the Create door's
-          // script editor). In-session, unchanged — the roles reference
-          // modal.
-          if (!this.session.sessionId && this.$refs.intro) {
-            this.$refs.intro.openCreate();
-          } else {
-            this.$store.commit("toggleModal", "roles");
-          }
+          // In-session: the roles modal, as upstream. (The sessionless
+          // Almanac moved to the A key with the door's rename.)
+          if (!this.session.sessionId) break;
+          this.$store.commit("toggleModal", "roles");
           break;
         case "v":
           if (this.session.voteHistory.length || !this.session.isSpectator) {

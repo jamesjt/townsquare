@@ -64,8 +64,8 @@
           </li>
           <li @click="openCreate">
             <span class="key"
-              ><img :src="blood.C.src" class="blood-cap-c" alt="C"
-            /></span>reate
+              ><img :src="blood.A.src" class="blood-cap-a" alt="A"
+            /></span>lmanac
           </li>
         </ul>
 
@@ -420,15 +420,15 @@ export default {
             name: s.name || s.id,
             icon: edCustom,
             blurb: this.vaultBlurb(s.id),
-            source: meta && meta.author ? `by ${meta.author}` : "Vault"
+            source: meta && meta.author ? `by ${meta.author}` : "Almanac"
           });
         });
       cards.push({
         id: "__custom",
-        name: "Custom / vault…",
+        name: "Almanac…",
         icon: edCustom,
         blurb: "Build your own script, or load any script by link.",
-        source: "Vault"
+        source: "Almanac"
       });
       return cards;
     },

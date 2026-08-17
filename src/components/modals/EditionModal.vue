@@ -29,12 +29,12 @@
       </ul>
     </div>
     <div class="custom" v-else>
-      <h3>Scripts & roles</h3>
+      <h3>The Almanac</h3>
 
       <!-- Golem fork: the script VAULT — save/share/fork by link. The three
            official scripts are UNOWNABLE bases (no edit key exists), so every
            save of one forks into the saver's own copy. -->
-      <h3>Script vault</h3>
+      <h3>Saved scripts</h3>
       <ul class="scripts" v-if="recents.length">
         <li v-for="entry in recents" :key="entry.id" @click="loadFromVault(entry.id)">
           {{ entry.name }}
