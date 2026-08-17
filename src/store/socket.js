@@ -207,6 +207,9 @@ class LiveSession {
       case "bye":
         this._handleBye(params);
         break;
+      case "playername":
+        this._updatePlayerName(params);
+        break;
       case "pronouns":
         this._updatePlayerPronouns(params);
         break;

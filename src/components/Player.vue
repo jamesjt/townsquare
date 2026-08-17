@@ -82,6 +82,18 @@
         />
       </div>
 
+      <!-- Golem fork: ONE-TAP CLAIM — a seatless spectator sees an empty seat
+           as claimable directly; no hidden name-menu required. -->
+      <div
+        class="claim-overlay"
+        v-if="canOneTapClaim"
+        @click="oneTapClaim"
+        title="Take this seat"
+      >
+        <font-awesome-icon icon="chair" />
+        <span>Claim</span>
+      </div>
+
       <!-- Claimed seat icon -->
       <font-awesome-icon
         icon="chair"
@@ -249,8 +261,24 @@ export default {
   data() {
     return {
       isMenuOpen: false,
+      // Golem fork: the name to apply once a one-tap claim lands.
+      pendingName: null,
       isSwap: false
     };
+  },
+  watch: {
+    // Golem fork: the host confirming our claim sets player.id to our own id —
+    // that is the moment the pending name becomes this seat's name.
+    "player.id"(id) {
+      if (id === this.session.playerId && this.pendingName) {
+        this.$store.commit("players/update", {
+          player: this.player,
+          property: "name",
+          value: this.pendingName
+        });
+        this.pendingName = null;
+      }
+    }
   },
   methods: {
     changePronouns() {
@@ -335,6 +363,22 @@ export default {
       this.$emit("trigger", ["claimSeat"]);
     },
     /**
+     * Golem fork: claim in one tap — ask the player's name first (remembered
+     * per browser), claim the seat, and name it once the claim lands (the
+     * watcher below fires when the host confirms).
+     */
+    oneTapClaim() {
+      const remembered = localStorage.getItem("golem.playerName") || "";
+      const name = prompt("Your name", remembered);
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (trimmed) {
+        localStorage.setItem("golem.playerName", trimmed);
+        this.pendingName = trimmed;
+      }
+      this.$emit("trigger", ["claimSeat"]);
+    },
+    /**
      * Allow the ST to override a locked vote.
      */
     vote() {
@@ -350,6 +394,40 @@ export default {
 </script>
 
 <style lang="scss">
+/* Golem fork: the one-tap claim overlay on an empty seat. */
+.player .claim-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  color: white;
+  text-shadow: 0 0 4px black;
+  opacity: 0;
+  transition: opacity 200ms;
+  svg {
+    height: 28px;
+    width: auto;
+  }
+  span {
+    font-family: PiratesBay, sans-serif;
+    letter-spacing: 1px;
+  }
+  &:hover {
+    opacity: 1;
+    color: red;
+  }
+}
+
 @import "../vars.scss";
 
 .fold-enter-active,
