@@ -1011,15 +1011,14 @@ export default {
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
-    gap: 14px;
+    gap: 4px;
     padding: 10px 0;
     margin: 0 auto;
     // narrow enough to sit INSIDE the dial's letter ring, never over it —
-    // hugging the words (halved side padding, rider 2026-08-17); nudged up
-    // so the middle door (Join) centers on the dial's hub, which sits a
-    // touch above the stack's un-nudged vertical middle.
-    width: min(150px, 50vw);
-    transform: translateY(-2vh);
+    // user-calibrated 2026-08-17: 120px wide, 10px right of true center,
+    // whole stack raised 35px beyond the hub nudge so Join sits on the hub.
+    width: min(120px, 50vw);
+    transform: translate(10px, calc(-2vh - 35px));
 
     li {
       font-family: PiratesBay, sans-serif;
@@ -1028,7 +1027,7 @@ export default {
       cursor: pointer;
       text-align: center;
       padding: 10px 7px;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.9);
       border: 3px solid black;
       border-radius: 10px;
       box-shadow: 0 0 10px black;
@@ -1038,6 +1037,13 @@ export default {
 
       &:hover {
         color: red;
+      }
+
+      // user-calibrated 2026-08-17: Join (the middle door) reads largest;
+      // Host and Create sit 25% smaller.
+      &:nth-child(1),
+      &:nth-child(3) {
+        font-size: 105%;
       }
 
       .key {
