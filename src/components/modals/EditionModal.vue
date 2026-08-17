@@ -29,37 +29,12 @@
       </ul>
     </div>
     <div class="custom" v-else>
-      <h3>Load custom script / characters</h3>
-      To play with a custom script, you need to select the characters you want
-      to play with in the official
-      <a href="https://script.bloodontheclocktower.com/" target="_blank"
-        >Script Tool</a
-      >
-      and then upload the generated "custom-list.json" either directly here or
-      provide a URL to such a hosted JSON file.<br />
-      <br />
-      To play with custom characters, please read
-      <a
-        href="https://github.com/bra1n/townsquare#custom-characters"
-        target="_blank"
-        >the documentation</a
-      >
-      on how to write a custom character definition file.
-      <b>Only load custom JSON files from sources that you trust!</b>
+      <h3>Scripts & roles</h3>
 
       <!-- Golem fork: the script VAULT — save/share/fork by link. The three
            official scripts are UNOWNABLE bases (no edit key exists), so every
            save of one forks into the saver's own copy. -->
       <h3>Script vault</h3>
-      <ul class="scripts">
-        <li
-          v-for="[slug, label] in officials"
-          :key="slug"
-          @click="loadFromVault(slug)"
-        >
-          {{ label }} <small>(official)</small>
-        </li>
-      </ul>
       <ul class="scripts" v-if="recents.length">
         <li v-for="entry in recents" :key="entry.id" @click="loadFromVault(entry.id)">
           {{ entry.name }}
@@ -235,16 +210,6 @@
         </div>
       </div>
 
-      <h3>Some popular custom scripts:</h3>
-      <ul class="scripts">
-        <li
-          v-for="(script, index) in scripts"
-          :key="index"
-          @click="handleURL(script[1])"
-        >
-          {{ script[0] }}
-        </li>
-      </ul>
       <input
         type="file"
         ref="upload"
@@ -257,9 +222,6 @@
         </div>
         <div class="button" @click="promptURL">
           <font-awesome-icon icon="link" /> Enter URL
-        </div>
-        <div class="button" @click="readFromClipboard">
-          <font-awesome-icon icon="clipboard" /> Use JSON from Clipboard
         </div>
         <div class="button" @click="isCustom = false">
           <font-awesome-icon icon="undo" /> Back
