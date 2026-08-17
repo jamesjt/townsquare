@@ -19,6 +19,23 @@
         </ul>
       </template>
       <template v-else>
+        <!-- Golem fork: the page TITLE — "BLOOD" in the blood alphabet, a
+             quiet "on the" beneath it; the dial's CLOCKTOWER letters in the
+             art complete the name. DOM overlay (not baked into the
+             background), pinned to the sky band above the clock face. Static
+             PNGs — nothing animates, so the kill-switch has nothing to kill. -->
+        <div class="title" aria-label="Blood on the Clocktower">
+          <div class="blood-word">
+            <img
+              v-for="(g, i) in titleGlyphs"
+              :key="i"
+              :src="g.src"
+              :style="g.style"
+              :alt="g.alt"
+            />
+          </div>
+          <div class="on-the">On the</div>
+        </div>
         <ul class="doors" v-if="!mode">
           <li @click="openHost">
             <span class="key"
@@ -106,17 +123,38 @@
               <font-awesome-icon icon="random" />
             </span>
           </div>
+          <!-- Golem fork: the script picker is a card GRID, not a <select> —
+               official editions wear their artwork, vault scripts the custom
+               mark; the closed trigger wears the picked card's icon + name.
+               Escape / click-out close it (document listeners, removed on
+               close and on destroy). -->
           <div class="field">
             <label>Script</label>
-            <select v-model="scriptId" @change="scriptTouched = true">
-              <option v-if="attachedScriptId" value="__attached">
-                This town's saved script
-              </option>
-              <option v-for="e in editionList" :key="e.id" :value="e.id">{{
-                e.name
-              }}</option>
-              <option value="__custom">Custom / vault…</option>
-            </select>
+            <div class="script-pick" ref="scriptPick">
+              <div
+                class="trigger"
+                :class="{ open: scriptGridOpen }"
+                @click="toggleScriptGrid"
+              >
+                <img class="icon" :src="pickedCard.icon" alt="" />
+                <span class="name">{{ pickedCard.name }}</span>
+                <font-awesome-icon icon="chevron-down" class="caret" />
+              </div>
+              <div class="grid" v-if="scriptGridOpen">
+                <div
+                  class="card"
+                  v-for="c in scriptCards"
+                  :key="c.id"
+                  :class="{ picked: scriptId === c.id }"
+                  @click="pickScript(c)"
+                >
+                  <img :src="c.icon" alt="" />
+                  <span class="cname">{{ c.name }}</span>
+                  <span class="blurb" v-if="c.blurb">{{ c.blurb }}</span>
+                  <span class="source">{{ c.source }}</span>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- FT-847: owned towns. Hosting claims the town by default (the
                name + later its script save to the server, keyed to THIS
@@ -230,15 +268,32 @@ import bloodJ from "../assets/blood/blood-J.png";
 import bloodC from "../assets/blood/blood-C.png";
 import bloodA from "../assets/blood/blood-A.png";
 import bloodMetrics from "../assets/blood/metrics.json";
+// Golem fork: the page title's "BLOOD" — the FT-846 blood alphabet archive
+// (O2 is the variant, so the double O never repeats a letterform).
+import titleB from "../assets/blood/alphabet/B.png";
+import titleL from "../assets/blood/alphabet/L.png";
+import titleO from "../assets/blood/alphabet/O.png";
+import titleO2 from "../assets/blood/alphabet/O2.png";
+import titleD from "../assets/blood/alphabet/D.png";
+import alphabetMetrics from "../assets/blood/alphabet/metrics.json";
+// Golem fork: the script grid's card art — official editions wear their own
+// logos; vault/custom cards wear the custom-script mark.
+import edTb from "../assets/editions/tb.png";
+import edBmr from "../assets/editions/bmr.png";
+import edSnv from "../assets/editions/snv.png";
+import edLuf from "../assets/editions/luf.png";
+import edCustom from "../assets/editions/custom.png";
+import { getRecents, peekScript } from "../golem/scripts";
 
 // Golem fork (FT-846): the door initials are pre-rendered blood letters
 // (Creepster + an SVG goo/drip/crust treatment, baked at 2x). Baked PNGs, not
 // the live filter, because the filter's radii fall below one device pixel at
 // door size and quantize the letterforms apart.
 // Metrics are image px against a 180px reference font with the glyph baseline
-// at image y=400; the drop-cap displays at 1.45x the key font, so ems convert
-// as 1.45 / (180 * 2x).
-const BLOOD_EM_PER_PX = 1.45 / 360;
+// at image y=400; the drop-cap displays at 1.09x the key font (the 1.45x
+// original, sized down ~25% for the vertical door stack), so ems convert as
+// 1.09 / (180 * 2x).
+const BLOOD_EM_PER_PX = 1.09 / 360;
 const BLOOD = {
   H: { src: bloodH, ...bloodMetrics.H },
   J: { src: bloodJ, ...bloodMetrics.J },
@@ -246,11 +301,104 @@ const BLOOD = {
   A: { src: bloodA, ...bloodMetrics.A }
 };
 
+// The title's blood glyphs. The alphabet archive is original-artwork scans on
+// its own scale ({w, h, baseline} image px), so ems normalize by the letters'
+// above-baseline height (~370px ≈ 1em): the title font-size IS the letter
+// height, and each drip sinks below the shared baseline by its own overhang.
+const TITLE_EM_PER_PX = 1 / 370;
+const TITLE_GLYPHS = [
+  ["B", titleB],
+  ["L", titleL],
+  ["O", titleO],
+  ["O2", titleO2],
+  ["D", titleD]
+];
+
+// One-line flavor per official edition (level-appropriate, ours to write —
+// editions.json carries only the long prose descriptions).
+const OFFICIAL_BLURBS = {
+  tb: "Deception and deduction in a sleepy town — the first-timers' script.",
+  bmr: "Death comes in the night; keep the town alive long enough to win.",
+  snv: "Madness and altered minds — nobody is sure of anything.",
+  luf: "A freewheeling veteran brew of the strangest minds."
+};
+const EDITION_ICONS = { tb: edTb, bmr: edBmr, snv: edSnv, luf: edLuf };
+
 export default {
   computed: {
     ...mapState(["session", "edition"]),
     editionList() {
       return editionJSON;
+    },
+    // Golem fork: the title's BLOOD letter row (see TITLE_EM_PER_PX above).
+    titleGlyphs() {
+      const em = px => (px * TITLE_EM_PER_PX).toFixed(3) + "em";
+      return TITLE_GLYPHS.map(([key, src]) => {
+        const m = alphabetMetrics[key];
+        return {
+          src,
+          alt: key[0],
+          style: {
+            width: em(m.w),
+            height: em(m.h),
+            verticalAlign: "-" + em(m.h - m.baseline)
+          }
+        };
+      });
+    },
+    // Golem fork: the script grid's cards — the town's saved script (when
+    // owned), the officials in editions.json order, the vault shelf, and the
+    // custom/vault door last. Vault blurbs fill in lazily from scriptMeta.
+    scriptCards() {
+      const cards = [];
+      if (this.attachedScriptId) {
+        cards.push({
+          id: "__attached",
+          name: "This town's saved script",
+          icon: edCustom,
+          blurb: this.vaultBlurb(this.attachedScriptId),
+          source: "This town"
+        });
+      }
+      this.editionList.forEach(e => {
+        cards.push({
+          id: e.id,
+          name: e.name,
+          icon: EDITION_ICONS[e.id] || edCustom,
+          blurb: OFFICIAL_BLURBS[e.id] || "",
+          source: "Official"
+        });
+      });
+      this.vaultShelf
+        .filter(s => s.id !== this.attachedScriptId)
+        .forEach(s => {
+          const meta = this.scriptMeta[s.id];
+          cards.push({
+            id: s.id,
+            name: s.name || s.id,
+            icon: edCustom,
+            blurb: this.vaultBlurb(s.id),
+            source: (meta && meta.author) || "Vault"
+          });
+        });
+      cards.push({
+        id: "__custom",
+        name: "Custom / vault…",
+        icon: edCustom,
+        blurb: "Build your own script, or load any script by link.",
+        source: "Vault"
+      });
+      return cards;
+    },
+    // What the CLOSED trigger wears: the picked card's icon + name.
+    pickedCard() {
+      return (
+        this.scriptCards.find(c => c.id === this.scriptId) || {
+          id: this.scriptId,
+          name: this.scriptId,
+          icon: edCustom
+        }
+      );
     },
     townIdClean() {
       return normalizeTownId(this.townId);
@@ -322,7 +470,11 @@ export default {
       statusTimer: null,
       // FT-847: owned towns.
       meta: {}, // id → server public meta {name, scriptId, ...}
-      scriptTouched: false // the user chose a script by hand this visit
+      scriptTouched: false, // the user chose a script by hand this visit
+      // Golem fork: the script grid.
+      scriptGridOpen: false,
+      vaultShelf: [], // recents-shelf entries snapshotted on openHost
+      scriptMeta: {} // script id → {count, author} (lazy, best-effort)
     };
   },
   watch: {
@@ -338,10 +490,16 @@ export default {
     },
     townIdClean() {
       this.syncAttached();
+    },
+    // Leaving the panel (Back, or a join) drops the grid AND its document
+    // listeners — the v-else-if unmounts the DOM but not the listeners.
+    mode() {
+      this.closeScriptGrid();
     }
   },
   beforeDestroy() {
     clearInterval(this.statusTimer);
+    this.closeScriptGrid();
   },
   methods: {
     async mintChecked() {
@@ -415,6 +573,7 @@ export default {
         ? this.edition.id
         : "__custom";
       this.scriptTouched = false;
+      this.vaultShelf = getRecents().slice(0, 8);
       this.watchTowns();
       this.refreshMeta();
       this.prefillTownId();
@@ -455,6 +614,58 @@ export default {
           ? this.edition.id
           : "__custom";
       }
+    },
+    // ── Golem fork: the script grid ──────────────────────────────────────
+    toggleScriptGrid() {
+      this.scriptGridOpen ? this.closeScriptGrid() : this.openScriptGrid();
+    },
+    openScriptGrid() {
+      this.scriptGridOpen = true;
+      document.addEventListener("mousedown", this.onScriptDocDown);
+      document.addEventListener("keydown", this.onScriptDocKey);
+      // Best-effort vault metadata (role count + author) — blank until known.
+      // peekScript never touches the recents shelf.
+      const wanted = [
+        ...this.vaultShelf.map(s => s.id),
+        this.attachedScriptId
+      ].filter(id => id && !this.scriptMeta[id]);
+      wanted.forEach(id => {
+        peekScript(id)
+          .then(script => {
+            const roles = Array.isArray(script.roles) ? script.roles : [];
+            const meta = roles.find(r => r && r.id === "_meta") || {};
+            this.$set(this.scriptMeta, id, {
+              count: roles.filter(r => r && r.id !== "_meta").length,
+              author: script.author || meta.author || ""
+            });
+          })
+          .catch(() => {});
+      });
+    },
+    closeScriptGrid() {
+      this.scriptGridOpen = false;
+      document.removeEventListener("mousedown", this.onScriptDocDown);
+      document.removeEventListener("keydown", this.onScriptDocKey);
+    },
+    onScriptDocDown(e) {
+      const pick = this.$refs.scriptPick;
+      if (pick && !pick.contains(e.target)) this.closeScriptGrid();
+    },
+    onScriptDocKey(e) {
+      if (e.key === "Escape") this.closeScriptGrid();
+    },
+    pickScript(card) {
+      this.scriptId = card.id;
+      this.scriptTouched = true;
+      this.closeScriptGrid();
+    },
+    /** "N roles · by <author>" once the lazy peek lands; blank until then. */
+    vaultBlurb(id) {
+      const m = this.scriptMeta[id];
+      if (!m) return "";
+      const parts = [`${m.count} role${m.count === 1 ? "" : "s"}`];
+      if (m.author) parts.push(`by ${m.author}`);
+      return parts.join(" · ");
     },
     /** Display name for a shelf row: cached/server name, else the id. */
     townLabel(t) {
@@ -537,6 +748,12 @@ export default {
         // vault path as a ?script= link (no re-attach round trip).
         const editionModal = this.$parent.$refs.edition;
         if (editionModal) editionModal.loadFromVault(this.attachedScriptId, false);
+      } else if (!editionJSON.some(e => e.id === this.scriptId)) {
+        // Golem fork: a vault script picked from the grid — the same load
+        // path as a ?script= link; attach=true saves it onto an owned town
+        // (best-effort inside, spectators/guests skipped).
+        const editionModal = this.$parent.$refs.edition;
+        if (editionModal) editionModal.loadFromVault(this.scriptId, true);
       }
     },
     confirmJoin() {
@@ -585,15 +802,14 @@ export default {
 }
 
 // Intro
+// Golem fork: NO outer box — the doors and panels carry their own chrome,
+// and the stack centers over the clock face (the dial sits at the cover-fit
+// background's center, which is the viewport center #app already flexes to).
 .intro {
   text-align: center;
-  width: 50%;
+  width: min(92vw, 460px);
   font-size: 120%;
   position: absolute;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 3px solid black;
-  border-radius: 10px;
   z-index: 3;
   display: flex;
   justify-content: center;
@@ -601,19 +817,67 @@ export default {
     color: white;
   }
 
+  > div {
+    width: 100%;
+  }
+
+  // Golem fork: the page title — BLOOD (blood alphabet) / "on the" — pinned
+  // to the sky band above the face; the dial's letters finish the name.
+  // Fixed, so it holds the top-center regardless of the stack's height.
+  .title {
+    position: fixed;
+    // clears the fixed top-right toolbar band (~44px) at short heights
+    top: max(48px, 5vh);
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+    z-index: 3;
+
+    .blood-word {
+      font-size: min(10vh, 9vw, 76px);
+      line-height: 1;
+      white-space: nowrap;
+
+      img {
+        display: inline-block;
+        margin: 0 0.025em;
+        filter: drop-shadow(0 0.05em 0.08em rgba(0, 0, 0, 0.65));
+      }
+    }
+    .on-the {
+      margin-top: 1vh;
+      font-family: "Roboto Condensed", sans-serif;
+      font-size: min(3vh, 21px);
+      letter-spacing: 0.5em;
+      text-indent: 0.5em; // recenter the letter-spaced run
+      text-transform: uppercase;
+      color: #e8e2d8;
+      opacity: 0.9;
+      text-shadow: 0 1px 3px black, 0 0 10px rgba(0, 0, 0, 0.9);
+    }
+  }
+
   // Golem fork: the three doors, in the editions' display face.
   .hint {
     margin: 6px 0 0;
+    // legible over the raw art now that the outer box is gone
+    text-shadow: 0 1px 3px black, 0 0 8px black;
     b { color: #c00; text-shadow: 0 0 4px black; }
   }
 
   ul.doors {
     list-style-type: none;
     display: flex;
+    // Golem fork: a VERTICAL stack centered over the clock face — each door
+    // keeps its own box; nothing wraps them.
+    flex-direction: column;
+    align-items: stretch;
     justify-content: center;
-    gap: 15px;
+    gap: 14px;
     padding: 10px 0;
-    margin: 0;
+    margin: 0 auto;
+    width: min(300px, 80vw);
 
     li {
       font-family: PiratesBay, sans-serif;
@@ -653,9 +917,17 @@ export default {
   }
 
   // Golem fork: the Host / Join entry panels (replacing browser dialogs).
+  // Each panel carries its OWN box now (the intro's outer box is gone) and
+  // centers over the dial with the rest of the stack.
   .panel {
     width: 100%;
     max-width: 420px;
+    margin: 0 auto;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 3px solid black;
+    border-radius: 10px;
+    box-shadow: 0 0 10px black;
     text-align: left;
 
     > .hint {
@@ -760,6 +1032,119 @@ export default {
       }
       select option {
         background: black;
+      }
+
+      // Golem fork: the script grid picker (the <select>'s replacement).
+      .script-pick {
+        position: relative;
+        flex-grow: 1;
+        min-width: 0;
+
+        .trigger {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(0, 0, 0, 0.7);
+          border: 2px solid black;
+          border-radius: 6px;
+          padding: 4px 10px;
+          font-size: 90%;
+          cursor: pointer;
+
+          .icon {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            flex-shrink: 0;
+          }
+          .name {
+            flex-grow: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
+          }
+          .caret {
+            opacity: 0.7;
+            font-size: 75%;
+            transition: transform 150ms;
+          }
+          &:hover,
+          &.open {
+            border-color: #400;
+          }
+          &.open .caret {
+            transform: rotate(180deg);
+          }
+        }
+
+        .grid {
+          position: absolute;
+          top: calc(100% + 4px);
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(560px, 94vw);
+          max-height: 48vh;
+          overflow-y: auto;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+          padding: 8px;
+          background: rgba(10, 4, 4, 0.95);
+          border: 2px solid #400;
+          border-radius: 8px;
+          box-shadow: 0 0 12px black;
+          z-index: 20;
+
+          .card {
+            display: grid;
+            grid-template-columns: 44px 1fr;
+            grid-template-areas: "icon name" "icon blurb" "icon source";
+            column-gap: 10px;
+            align-content: start;
+            padding: 7px 8px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+
+            img {
+              grid-area: icon;
+              width: 44px;
+              height: 44px;
+              object-fit: contain;
+              align-self: center;
+            }
+            .cname {
+              grid-area: name;
+              font-size: 90%;
+              font-weight: bold;
+            }
+            .blurb {
+              grid-area: blurb;
+              font-size: 70%;
+              opacity: 0.75;
+              line-height: 1.3;
+            }
+            .source {
+              grid-area: source;
+              font-size: 60%;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              opacity: 0.5;
+              margin-top: 3px;
+            }
+
+            &:hover {
+              border-color: #630;
+              background: rgba(255, 0, 0, 0.08);
+            }
+            &.picked {
+              border-color: #400;
+              background: rgba(0, 0, 0, 0.6);
+            }
+          }
+        }
       }
       .tool {
         cursor: pointer;

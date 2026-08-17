@@ -74,6 +74,16 @@ export function parseScriptRef(text) {
   return /^[A-Za-z0-9_-]{8,}$/.test(tail) ? tail : null;
 }
 
+/** GET a script DTO WITHOUT touching the recents shelf — metadata peeks
+ *  (e.g. the Host panel's script grid showing role counts) must not reorder
+ *  or upsert history the way loadScript's remember() does. */
+export async function peekScript(id) {
+  const res = await fetch(`${API}/${id}`);
+  if (!res.ok) throw new Error(`script not found (${res.status})`);
+  const { script } = await res.json();
+  return script;
+}
+
 /** GET a script. Returns the DTO ({id, name, roles, parentId, version}). */
 export async function loadScript(id) {
   const res = await fetch(`${API}/${id}`);
