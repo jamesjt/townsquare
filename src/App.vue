@@ -25,12 +25,13 @@
     <transition name="blur">
       <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
            town centre is the tools panel — from zero seats up. TownInfo
-           returns once the game starts; Intro only when nothing is happening
-           at all. -->
+           returns once the game starts; Intro ONLY when sessionless (FT-852:
+           a player in a session always sees the live town square — seats
+           appear as the host adds them; no waiting screen). -->
       <HostTools
         v-if="showHostTools && !session.nomination"
       ></HostTools>
-      <Intro v-else-if="!players.length"></Intro>
+      <Intro v-else-if="!session.sessionId && !players.length"></Intro>
       <TownInfo
         v-else-if="!session.nomination"
       ></TownInfo>
@@ -101,8 +102,18 @@
       >
         <font-awesome-icon :icon="pillCopied ? 'check' : 'copy'" />
       </span>
-      <span class="leave" @click="$refs.menu.leaveSession()" title="Leave this session">
-        <font-awesome-icon icon="times-circle" /> Leave
+      <!-- FT-852: two-click arm instead of a native confirm() — browser
+           dialogs are silently auto-dismissed in dialog-less contexts
+           (driven browser panes, embeds), which made this control read as
+           dead. First click arms for 3s, second click leaves. -->
+      <span
+        class="leave"
+        :class="{ armed: leaveArmed }"
+        @click="pillLeave"
+        :title="leaveArmed ? 'Click again to confirm' : 'Leave this session'"
+      >
+        <font-awesome-icon icon="times-circle" />
+        {{ leaveArmed ? "Sure?" : "Leave" }}
       </span>
     </div>
     <!-- FT-850: game recording + town records (see the components). -->
@@ -183,6 +194,8 @@ export default {
       this.dealAt = dealTimeFor(sessionId);
       this.endGameOpen = false;
       this.statsOpen = false;
+      clearTimeout(this.leaveTimer);
+      this.leaveArmed = false;
     }
   },
   mounted() {
@@ -227,10 +240,27 @@ export default {
       // the session by the time the root component's data runs).
       endGameOpen: false,
       statsOpen: false,
-      dealAt: dealTimeFor(this.$store.state.session.sessionId)
+      dealAt: dealTimeFor(this.$store.state.session.sessionId),
+      // FT-852: the pill Leave's two-click arm.
+      leaveArmed: false,
+      leaveTimer: null
     };
   },
   methods: {
+    // FT-852: arm on the first click, leave on the second — no native
+    // confirm() anywhere in the pill (see the template note).
+    pillLeave() {
+      if (!this.leaveArmed) {
+        this.leaveArmed = true;
+        this.leaveTimer = setTimeout(() => {
+          this.leaveArmed = false;
+        }, 3000);
+        return;
+      }
+      clearTimeout(this.leaveTimer);
+      this.leaveArmed = false;
+      this.$refs.menu.leaveSession(true);
+    },
     copyPillLink() {
       this.$refs.menu.copySessionUrl();
       this.pillCopied = true;
@@ -417,6 +447,10 @@ ul {
     &:hover {
       color: red;
     }
+  }
+  // FT-852: the armed Leave reads as the question it is.
+  .leave.armed {
+    color: red;
   }
 }
 

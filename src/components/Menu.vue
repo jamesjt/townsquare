@@ -215,8 +215,15 @@ export default {
         this.$store.commit("session/setSessionId", sessionId);
       }
     },
-    leaveSession() {
-      if (confirm("Are you sure you want to leave the active live game?")) {
+    // FT-852: `confirmed === true` (the pill's own two-click arm) skips the
+    // native confirm() — browser dialogs are silently auto-dismissed in
+    // dialog-less contexts (driven browser panes, embeds), which returned
+    // false and deadened the caller.
+    leaveSession(confirmed) {
+      if (
+        confirmed === true ||
+        confirm("Are you sure you want to leave the active live game?")
+      ) {
         this.$store.commit("session/setSpectator", false);
         this.$store.commit("session/setSessionId", "");
       }

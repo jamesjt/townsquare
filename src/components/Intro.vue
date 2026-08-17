@@ -5,7 +5,9 @@
            button drives the SAME path as its hotkey (a synthetic keyup), so
            there is exactly one host/join/create flow to maintain. -->
       <!-- In a session with no seats yet, the next step is SEATS, not doors:
-           the host adds them; a player waits for the storyteller. -->
+           the host adds them. (FT-852: the player waiting screen is retired —
+           App only renders Intro when sessionless; a player in a session
+           always sees the live town square.) -->
       <template v-if="session.sessionId && !session.isSpectator">
         <p class="hint">Hosting <b>{{ session.sessionId }}</b> — add seats to build the town.</p>
         <ul class="doors">
@@ -16,10 +18,6 @@
           </li>
         </ul>
       </template>
-      <p class="hint" v-else-if="session.sessionId && session.isSpectator">
-        Joined <b>{{ session.sessionId }}</b> — waiting for the storyteller to
-        add seats…
-      </p>
       <template v-else>
         <ul class="doors" v-if="!mode">
           <li @click="openHost">
