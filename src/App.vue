@@ -180,7 +180,9 @@ body {
   line-height: 1.4;
   // Golem fork: our clocktower art is the shipped default (upstream's
   // background.jpg stays in the tree untouched).
-  background: url("assets/background-clocktower.png") center center;
+  // The dark ground paints FIRST — while the 2.3MB art is still downloading,
+  // the page reads as night instead of flashing white behind the intro.
+  background: #0b0d12 url("assets/background-clocktower.png") center center;
   background-size: cover;
   color: white;
   height: 100%;
