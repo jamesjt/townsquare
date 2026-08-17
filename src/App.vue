@@ -24,7 +24,15 @@
     <div class="backdrop"></div>
     <transition name="blur">
       <Intro v-if="!players.length"></Intro>
-      <TownInfo v-if="players.length && !session.nomination"></TownInfo>
+      <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
+           town centre is the tools panel; TownInfo returns once the game
+           starts, and for players / local play. -->
+      <HostTools
+        v-else-if="!session.nomination && showHostTools"
+      ></HostTools>
+      <TownInfo
+        v-else-if="!session.nomination"
+      ></TownInfo>
       <Vote v-if="session.nomination"></Vote>
     </transition>
     <TownSquare></TownSquare>
@@ -71,6 +79,7 @@ import { mapState } from "vuex";
 import { version } from "../package.json";
 import TownSquare from "./components/TownSquare";
 import TownInfo from "./components/TownInfo";
+import HostTools from "./components/HostTools";
 import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
@@ -93,6 +102,7 @@ export default {
     ReferenceModal,
     Intro,
     TownInfo,
+    HostTools,
     TownSquare,
     Menu,
     EditionModal,
@@ -101,7 +111,15 @@ export default {
   },
   computed: {
     ...mapState(["grimoire", "session"]),
-    ...mapState("players", ["players"])
+    ...mapState("players", ["players"]),
+    // Golem fork: the building phase = hosting live, roles not yet dealt.
+    showHostTools() {
+      return (
+        !!this.session.sessionId &&
+        !this.session.isSpectator &&
+        !this.session.isRolesDistributed
+      );
+    }
   },
   // Golem fork: THE BOOT GATE — the ordering the user asked for, literally:
   // background first, fonts second, content third. The UI stays hidden (dark
