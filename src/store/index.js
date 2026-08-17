@@ -88,7 +88,12 @@ const customRole = {
   remindersGlobal: [],
   setup: false,
   team: "townsfolk",
-  isCustom: true
+  isCustom: true,
+  // Golem fork (FT-851): appended LAST so upstream's numeric key mapping is
+  // unchanged. golemIcon = an official role id whose bundled icon this custom
+  // role reuses; golemRoleId = the role-library id (lineage/edit handle).
+  golemIcon: "",
+  golemRoleId: ""
 };
 
 export default new Vuex.Store({
@@ -217,7 +222,14 @@ export default new Vuex.Store({
         // default empty icons and placeholders, clean up firstNight / otherNight
         .map(role => {
           if (rolesJSONbyId.get(role.id)) return role;
-          role.imageAlt = // map team to generic icon
+          // Golem fork (FT-851): a custom role that borrows an OFFICIAL
+          // role's icon names it in golemIcon — the bundled asset renders
+          // without the remote-image opt-in. Unknown ids fall back to the
+          // team-generic token.
+          role.imageAlt =
+            (role.golemIcon && rolesJSONbyId.has(role.golemIcon)
+              ? role.golemIcon
+              : null) ||
             {
               townsfolk: "good",
               outsider: "outsider",
