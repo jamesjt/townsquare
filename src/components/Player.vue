@@ -86,12 +86,29 @@
            as claimable directly; no hidden name-menu required. -->
       <div
         class="claim-overlay"
+        :class="{ asking: askName }"
         v-if="canOneTapClaim"
         @click="oneTapClaim"
         title="Take this seat"
       >
-        <font-awesome-icon icon="chair" />
-        <span>Claim</span>
+        <template v-if="!askName">
+          <font-awesome-icon icon="chair" />
+          <span>Claim</span>
+        </template>
+        <!-- First claim on this browser: ask the name in place, no dialog. -->
+        <template v-else>
+          <input
+            ref="nameInput"
+            v-model="claimName"
+            placeholder="Your name"
+            spellcheck="false"
+            @click.stop
+            @keyup.enter.stop="submitClaimName"
+          />
+          <span class="go" @click.stop="submitClaimName">
+            <font-awesome-icon icon="check" />
+          </span>
+        </template>
       </div>
 
       <!-- Claimed seat icon -->
@@ -272,6 +289,9 @@ export default {
       isMenuOpen: false,
       // Golem fork: the name to apply once a one-tap claim lands.
       pendingName: null,
+      // Golem fork: first claim on this browser asks the name in place.
+      askName: false,
+      claimName: "",
       isSwap: false
     };
   },
@@ -377,14 +397,34 @@ export default {
      * watcher below fires when the host confirms).
      */
     oneTapClaim() {
-      const remembered = localStorage.getItem("golem.playerName") || "";
-      const name = prompt("Your name", remembered);
-      if (name === null) return;
-      const trimmed = name.trim();
-      if (trimmed) {
-        localStorage.setItem("golem.playerName", trimmed);
-        this.pendingName = trimmed;
+      if (this.askName) {
+        // A stray click on the overlay while typing just refocuses the field.
+        const input = this.$refs.nameInput;
+        if (input) input.focus();
+        return;
       }
+      const remembered = (
+        localStorage.getItem("golem.playerName") || ""
+      ).trim();
+      if (!remembered) {
+        // No name on this browser yet — ask in place, then claim.
+        this.askName = true;
+        this.claimName = "";
+        this.$nextTick(() => {
+          const input = this.$refs.nameInput;
+          if (input) input.focus();
+        });
+        return;
+      }
+      this.pendingName = remembered;
+      this.$emit("trigger", ["claimSeat"]);
+    },
+    submitClaimName() {
+      const name = this.claimName.trim();
+      if (!name) return;
+      localStorage.setItem("golem.playerName", name);
+      this.pendingName = name;
+      this.askName = false;
       this.$emit("trigger", ["claimSeat"]);
     },
     /**
@@ -434,6 +474,31 @@ export default {
   &:hover {
     opacity: 1;
     color: red;
+  }
+  /* While asking the name, the overlay must not fade away under the cursor. */
+  &.asking {
+    opacity: 1;
+    cursor: default;
+  }
+  input {
+    width: 80%;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border: 2px solid black;
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 80%;
+    text-align: center;
+    outline: none;
+    &:focus {
+      border-color: #400;
+    }
+  }
+  .go {
+    cursor: pointer;
+    &:hover {
+      color: red;
+    }
   }
 }
 

@@ -1,3 +1,7 @@
+// Golem fork: every session entry path (panel, hash link, toolbar) lands on
+// setSessionId — remembering the town HERE catches them all.
+const { rememberTown } = require("../golem/towns");
+
 module.exports = store => {
   const updatePagetitle = isPublic =>
     (document.title = `Blood on the Clocktower ${
@@ -172,6 +176,7 @@ module.exports = store => {
             "session",
             JSON.stringify([state.session.isSpectator, payload])
           );
+          rememberTown(payload, state.session.isSpectator ? "player" : "host");
         } else {
           localStorage.removeItem("session");
         }

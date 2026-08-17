@@ -151,8 +151,10 @@ export default {
     };
   },
   methods: {
-    keyup({ key, ctrlKey, metaKey }) {
+    keyup({ key, ctrlKey, metaKey, target }) {
       if (ctrlKey || metaKey) return;
+      // Golem fork: keys typed into a field are typing, not hotkeys.
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
       switch (key.toLocaleLowerCase()) {
         case "g":
           this.$store.commit("toggleGrimoire");

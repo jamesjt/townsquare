@@ -1,4 +1,5 @@
 const fs = require("fs");
+const http = require("http");
 const https = require("https");
 const WebSocket = require("ws");
 const client = require("prom-client");
@@ -27,8 +28,44 @@ if (!behindProxy) {
 }
 
 const server = https.createServer(options);
+
+// Golem fork: the town status API. The relay is the only thing that knows
+// which towns are awake, so in proxy mode the ws port answers plain GETs too
+// (Caddy already forwards all of /ws* here — upgrades and GETs alike).
+//   GET /ws/status?towns=a,b,c → { a: { players, host }, ... }
+function handleStatus(req, res) {
+  const url = new URL(req.url, "http://relay");
+  if (req.method === "GET" && url.pathname.replace(/\/+$/, "") === "/ws/status") {
+    const out = {};
+    (url.searchParams.get("towns") || "")
+      .toLocaleLowerCase()
+      .split(",")
+      .map(town => town.trim())
+      .filter(Boolean)
+      .slice(0, 20)
+      .forEach(town => {
+        const live = (channels[town] || []).filter(
+          ws => ws && ws.readyState === WebSocket.OPEN
+        );
+        out[town] = {
+          players: live.length,
+          host: live.some(ws => ws.playerId === "host")
+        };
+      });
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(JSON.stringify(out));
+  } else {
+    res.statusCode = 404;
+    res.end();
+  }
+}
+
+// In proxy mode the relay owns a plain HTTP server (status + ws upgrades);
+// standalone keeps upstream's TLS self-termination.
+const proxyServer = behindProxy ? http.createServer(handleStatus) : null;
 const wss = new WebSocket.Server({
-  ...(behindProxy ? { port: Number(process.env.PORT) || 8081 } : { server }),
+  ...(behindProxy ? { server: proxyServer } : { server }),
   verifyClient: info =>
     info.origin &&
     !!info.origin.match(
@@ -36,6 +73,7 @@ const wss = new WebSocket.Server({
       /^https?:\/\/([^.]+\.github\.io|localhost|clocktower\.online|eddbra1nprivatetownsquare\.xyz|([^.]+\.)?golem-studios?\.com)/i
     )
 });
+if (proxyServer) proxyServer.listen(Number(process.env.PORT) || 8081);
 
 function noop() {}
 
