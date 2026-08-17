@@ -51,6 +51,22 @@
         />
       </span>
       <small>{{ claimedCount }} claimed</small>
+      <!-- FT-847 follow-up: the toolbar's Players tab retired — Randomize
+           and Remove all weren't covered by the stepper (single-seat, empty
+           only), so they relocate here rather than dropping. -->
+      <span class="tools" v-if="players.length">
+        <font-awesome-icon
+          icon="dice"
+          :class="{ disabled: players.length <= 2 }"
+          @click="randomizeSeatings"
+          title="Randomize seat order"
+        />
+        <font-awesome-icon
+          icon="trash-alt"
+          @click="clearAllPlayers"
+          title="Remove all seats"
+        />
+      </span>
     </div>
 
     <div class="row">
@@ -189,6 +205,22 @@ export default {
         }
       }
     },
+    // FT-847 follow-up: relocated from the retired Players toolbar tab.
+    randomizeSeatings() {
+      if (this.players.length <= 2) return;
+      if (confirm("Are you sure you want to randomize seatings?")) {
+        this.$store.dispatch("players/randomize");
+      }
+    },
+    clearAllPlayers() {
+      if (!this.players.length) return;
+      if (confirm("Are you sure you want to remove all players?")) {
+        if (this.session.nomination) {
+          this.$store.commit("session/nomination");
+        }
+        this.$store.commit("players/clear");
+      }
+    },
     start() {
       if (!this.canStart) {
         // The button explains itself instead of doing nothing.
@@ -246,6 +278,23 @@ export default {
       }
       b {
         min-width: 26px;
+      }
+    }
+    .tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      svg {
+        cursor: pointer;
+        opacity: 0.7;
+        &:hover {
+          color: red;
+          opacity: 1;
+        }
+        &.disabled {
+          opacity: 0.3;
+          pointer-events: none;
+        }
       }
     }
     .value {

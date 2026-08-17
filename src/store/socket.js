@@ -1,3 +1,5 @@
+import { sessionIdFromPath } from "../golem/towns";
+
 class LiveSession {
   constructor(store) {
     // Golem fork: live sessions go through OUR relay on the same host the app
@@ -956,11 +958,18 @@ export default store => {
     }
   });
 
-  // check for session Id in hash
-  const sessionId = window.location.hash.substr(1);
+  // check for a session id in the hash (legacy links) or a clean invite
+  // path (/<town>, current links) — hash wins if somehow both are present.
+  const hashSessionId = window.location.hash.substr(1);
+  const sessionId = hashSessionId || sessionIdFromPath(window.location.pathname);
   if (sessionId) {
     store.commit("session/setSpectator", true);
     store.commit("session/setSessionId", sessionId);
     store.commit("toggleGrimoire", false);
+    if (!hashSessionId) {
+      // clean invite path: drop it from the address bar once joined, same
+      // as the hash-clearing behaviour on leave (line above, setSessionId "").
+      window.history.replaceState(null, "", window.location.origin + window.location.search);
+    }
   }
 };

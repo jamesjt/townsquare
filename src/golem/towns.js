@@ -18,10 +18,14 @@ const API =
 const KEY = "golem.towns";
 const MAX = 12;
 
-/** All remembered towns, newest first; filter by role ("host" | "player"). */
+/** All remembered towns, newest first; filter by role ("host" | "player").
+ *  Entries with no id are dropped defensively — a shelf written by a much
+ *  older build should never be able to poison position 0 with junk. */
 export function listTowns(role = null) {
   try {
-    const all = JSON.parse(localStorage.getItem(KEY)) || [];
+    const all = (JSON.parse(localStorage.getItem(KEY)) || []).filter(
+      town => town && town.id
+    );
     return role ? all.filter(town => town.role === role) : all;
   } catch (e) {
     return [];
@@ -168,6 +172,32 @@ export function normalizeTownId(id) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 24)
     .replace(/-+$/g, "");
+}
+
+// Static app routes a clean /<town> link must never shadow.
+const RESERVED_PATHS = new Set([
+  "api",
+  "ws",
+  "js",
+  "css",
+  "img",
+  "fonts",
+  "media",
+  "static",
+  "index.html"
+]);
+
+/**
+ * A town id from a clean invite path (/<town>), or "" if the current path
+ * isn't one — a single segment matching the town alphabet, not a reserved
+ * app route. Boot parsing accepts this alongside the legacy #<town> hash.
+ */
+export function sessionIdFromPath(pathname) {
+  const segment = String(pathname || "").replace(/^\/+|\/+$/g, "");
+  if (!segment || segment.includes("/")) return "";
+  if (!/^[a-z0-9_-]{1,24}$/i.test(segment)) return "";
+  if (RESERVED_PATHS.has(segment.toLocaleLowerCase())) return "";
+  return segment;
 }
 
 // A readable, flavorful default the host can still edit.

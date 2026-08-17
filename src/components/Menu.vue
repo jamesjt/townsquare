@@ -10,11 +10,6 @@
       <ul>
         <li class="tabs" :class="tab">
           <font-awesome-icon icon="book-open" @click="setTab('grimoire')" />
-          <font-awesome-icon
-            icon="users"
-            v-if="!session.isSpectator"
-            @click="setTab('players')"
-          />
           <font-awesome-icon icon="theater-masks" @click="setTab('characters')" />
           <font-awesome-icon icon="question" @click="setTab('help')" />
         </li>
@@ -57,10 +52,6 @@
               />
             </em>
           </li>
-          <li @click="setBackground">
-            Background image
-            <em><font-awesome-icon icon="image"/></em>
-          </li>
           <li v-if="!edition.isOfficial" @click="imageOptIn">
             <small>Show Custom Images</small>
             <em
@@ -84,20 +75,6 @@
               ><font-awesome-icon
                 :icon="['fas', grimoire.isMuted ? 'volume-mute' : 'volume-up']"
             /></em>
-          </li>
-        </template>
-
-        <template v-if="tab === 'players' && !session.isSpectator">
-          <!-- Users -->
-          <li class="headline">Players</li>
-          <li @click="addPlayer" v-if="players.length < 20">Add<em>[A]</em></li>
-          <li @click="randomizeSeatings" v-if="players.length > 2">
-            Randomize
-            <em><font-awesome-icon icon="dice"/></em>
-          </li>
-          <li @click="clearPlayers" v-if="players.length">
-            Remove all
-            <em><font-awesome-icon icon="trash-alt"/></em>
           </li>
         </template>
 
@@ -195,8 +172,7 @@ export default {
       }
     },
     copySessionUrl() {
-      const url = window.location.href.split("#")[0];
-      const link = url + "#" + this.session.sessionId;
+      const link = window.location.origin + "/" + this.session.sessionId;
       navigator.clipboard.writeText(link);
     },
     distributeRoles() {
@@ -226,7 +202,11 @@ export default {
         "Enter the channel number / name of the session you want to join"
       );
       if (sessionId.match(/^https?:\/\//i)) {
-        sessionId = sessionId.split("#").pop();
+        const hashAt = sessionId.indexOf("#");
+        sessionId =
+          hashAt >= 0
+            ? sessionId.slice(hashAt + 1)
+            : sessionId.replace(/^https?:\/\/[^/]+\/?/i, "").split(/[/?]/)[0];
       }
       if (sessionId) {
         this.$store.commit("session/clearVoteHistory");

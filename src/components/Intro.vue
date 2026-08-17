@@ -1,6 +1,5 @@
 <template>
   <div class="intro">
-    <img src="static/apple-icon.png" alt="" class="logo" />
     <div>
       <!-- Golem fork: the walkthrough paragraph is three themed doors. Each
            button drives the SAME path as its hotkey (a synthetic keyup), so
@@ -63,15 +62,25 @@
             <label>Town</label>
             <div class="town-input">
               <input
+                ref="townInput"
                 v-model="townId"
                 spellcheck="false"
                 autocomplete="off"
+                @input="onTownInput"
                 @focus="onTownFocus"
                 @blur="onTownBlur"
                 @keydown.esc="townDropdownOpen = false"
                 @keyup.enter="confirmHost"
               />
-              <ul class="recents" v-if="townDropdownOpen && recentTowns.length">
+              <span
+                class="caret"
+                :class="{ open: townDropdownOpen }"
+                title="Show remembered towns"
+                @mousedown.prevent="openTownDropdown"
+              >
+                <font-awesome-icon icon="chevron-down" />
+              </span>
+              <ul class="recents" v-if="townDropdownOpen">
                 <li v-for="t in recentTowns" :key="t.id">
                   <span
                     class="name"
@@ -89,6 +98,9 @@
                     @mousedown.prevent="forgetRecent(t)"
                     >{{ forgetConfirm === t.id ? "sure?" : "×" }}</span
                   >
+                </li>
+                <li class="new-town" @mousedown.prevent="pickNewTown">
+                  <span class="name">+ New town</span>
                 </li>
               </ul>
             </div>
@@ -257,25 +269,36 @@ export default {
       return (m && m.scriptId) || null;
     },
     shareLink() {
-      const url = window.location.href.split("#")[0];
-      return url + "#" + this.townIdClean;
+      // Clean path link — no hash. window.location.origin ignores whatever
+      // path/hash happens to be open right now (e.g. a joined /<town>).
+      return window.location.origin + "/" + this.townIdClean;
     },
     canJoin() {
       return !!(this.joinIdClean && this.joinName.trim());
     },
     joinIdClean() {
       let raw = this.joinId.trim();
-      if (raw.match(/^https?:\/\//i)) raw = raw.split("#").pop();
+      if (raw.match(/^https?:\/\//i)) {
+        const hashAt = raw.indexOf("#");
+        raw =
+          hashAt >= 0
+            ? raw.slice(hashAt + 1)
+            : raw.replace(/^https?:\/\/[^/]+\/?/i, "").split(/[/?]/)[0];
+      }
       return normalizeTownId(raw);
     },
     // Shelf entries offered under the Town field: newest first (either
-    // role), filtered to the typed prefix once the user starts typing.
-    // listTowns() reads localStorage directly (untracked), so shelfVersion
-    // is the explicit reactive dependency forgetRecent() bumps on mutation.
+    // role). Filtered to the typed prefix only once the user has actually
+    // EDITED the field (townEdited) — a prefilled/minted value that happens
+    // to share no prefix with the shelf must never filter history to
+    // nothing. listTowns() reads localStorage directly (untracked), so
+    // shelfVersion is the explicit reactive dependency forgetRecent() bumps
+    // on mutation.
     recentTowns() {
       this.shelfVersion; // eslint-disable-line no-unused-expressions
-      const typed = (this.townId || "").toLocaleLowerCase();
       const all = listTowns();
+      if (!this.townEdited) return all.slice(0, 8);
+      const typed = (this.townId || "").toLocaleLowerCase();
       const list = typed ? all.filter(t => t.id.startsWith(typed)) : all;
       return list.slice(0, 8);
     }
@@ -288,6 +311,7 @@ export default {
       mode: null, // null = doors | "host" | "join"
       townId: "",
       townDropdownOpen: false,
+      townEdited: false, // true once the user has actually typed — gates the prefix filter
       forgetConfirm: null, // id awaiting a second click to confirm forgetting
       shelfVersion: 0, // bumped on shelf mutation to invalidate recentTowns
       scriptId: "",
@@ -328,8 +352,11 @@ export default {
       if (this.townId === placeholder) this.townId = checked;
     },
     /** Default the Town field: the shelf's newest entry (either role), or a
-     *  freshly minted name when the shelf is empty (prior behavior). */
+     *  freshly minted name when the shelf is empty (prior behavior). Always
+     *  a PROGRAMMATIC set, so townEdited resets — the dropdown shows the
+     *  full shelf until the user actually types. */
     prefillTownId() {
+      this.townEdited = false;
       const shelf = listTowns();
       if (shelf.length) {
         this.townId = shelf[0].id;
@@ -337,6 +364,11 @@ export default {
       }
       this.townId = mintTownId(); // synchronous placeholder while checking
       this.mintChecked();
+    },
+    /** Real keystrokes only (v-model's programmatic sets don't fire native
+     *  input events) — from here on the dropdown filters by what's typed. */
+    onTownInput() {
+      this.townEdited = true;
     },
     onTownFocus() {
       this.townDropdownOpen = true;
@@ -347,10 +379,23 @@ export default {
         this.townDropdownOpen = false;
       }, 150);
     },
+    /** The caret: click (or refocus) opens the full list, same as focus. */
+    openTownDropdown() {
+      this.townDropdownOpen = true;
+      if (this.$refs.townInput) this.$refs.townInput.focus();
+    },
     pickRecent(t) {
       this.townId = t.id;
+      this.townEdited = false;
       this.townDropdownOpen = false;
       this.forgetConfirm = null;
+    },
+    /** The dropdown's trailing row: mint a fresh name, same minter reroll
+     *  uses, straight into the field. */
+    async pickNewTown() {
+      this.townEdited = false;
+      this.townDropdownOpen = false;
+      await this.reroll();
     },
     /** Forget a shelf entry (client-side only). An owned entry needs a
      *  second click — forgetting it discards the edit key for good. */
@@ -448,6 +493,7 @@ export default {
     },
     async reroll() {
       this.townId = await mintAvailableTownId();
+      this.townEdited = false;
     },
     copyShare() {
       try {
@@ -730,6 +776,27 @@ export default {
 
         input {
           width: 100%;
+          padding-right: 28px;
+        }
+
+        .caret {
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: 26px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0.7;
+          font-size: 75%;
+
+          &:hover,
+          &.open {
+            opacity: 1;
+            color: red;
+          }
         }
 
         ul.recents {
@@ -801,6 +868,21 @@ export default {
                 font-size: 70%;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+              }
+            }
+          }
+
+          li.new-town {
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            margin-top: 2px;
+            padding-top: 7px;
+
+            .name {
+              cursor: pointer;
+              opacity: 0.8;
+              &:hover {
+                opacity: 1;
+                color: red;
               }
             }
           }

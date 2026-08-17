@@ -1,6 +1,6 @@
 // Golem fork: every session entry path (panel, hash link, toolbar) lands on
 // setSessionId — remembering the town HERE catches them all.
-const { rememberTown } = require("../golem/towns");
+const { rememberTown, sessionIdFromPath } = require("../golem/towns");
 
 module.exports = store => {
   const updatePagetitle = isPublic =>
@@ -67,7 +67,11 @@ module.exports = store => {
   if (localStorage.getItem("playerId")) {
     store.commit("session/setPlayerId", localStorage.getItem("playerId"));
   }
-  if (localStorage.getItem("session") && !window.location.hash.substr(1)) {
+  if (
+    localStorage.getItem("session") &&
+    !window.location.hash.substr(1) &&
+    !sessionIdFromPath(window.location.pathname)
+  ) {
     const [spectator, sessionId] = JSON.parse(localStorage.getItem("session"));
     store.commit("session/setSpectator", spectator);
     store.commit("session/setSessionId", sessionId);
