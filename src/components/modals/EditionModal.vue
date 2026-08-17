@@ -118,6 +118,11 @@ export default {
       // Golem fork: the vault shelf + which vault script is currently loaded
       // (the fork/update decision key on save).
       recents: vault.getRecents(),
+      officials: [
+        ["trouble-brewing", "Trouble Brewing"],
+        ["bad-moon-rising", "Bad Moon Rising"],
+        ["sects-and-violets", "Sects & Violets"]
+      ],
       vaultSourceId: null,
       scripts: [
         [
