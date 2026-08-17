@@ -43,7 +43,15 @@
         <h3 class="almanac-title">
           <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
         </h3>
-        <select class="wb-script-select" :value="selectValue" @change="onScriptSelect">
+        <!-- keyed by the shelf size: when a fresh script mints its option in
+             the same patch as the value change, Vue 2 sets the value before
+             the option exists — re-creating the select re-applies it -->
+        <select
+          class="wb-script-select"
+          :key="'sel-' + recents.length"
+          :value="selectValue"
+          @change="onScriptSelect"
+        >
           <option value="" disabled>Choose a script…</option>
           <optgroup label="Officials">
             <option
