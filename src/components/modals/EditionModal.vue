@@ -47,8 +47,19 @@
       on how to write a custom character definition file.
       <b>Only load custom JSON files from sources that you trust!</b>
 
-      <!-- Golem fork: the script VAULT — save/share/fork by link. -->
+      <!-- Golem fork: the script VAULT — save/share/fork by link. The three
+           official scripts are UNOWNABLE bases (no edit key exists), so every
+           save of one forks into the saver's own copy. -->
       <h3>Script vault</h3>
+      <ul class="scripts">
+        <li
+          v-for="[slug, label] in officials"
+          :key="slug"
+          @click="loadFromVault(slug)"
+        >
+          {{ label }} <small>(official)</small>
+        </li>
+      </ul>
       <ul class="scripts" v-if="recents.length">
         <li v-for="entry in recents" :key="entry.id" @click="loadFromVault(entry.id)">
           {{ entry.name }}
