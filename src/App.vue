@@ -394,22 +394,22 @@ export default {
 ::-webkit-scrollbar-thumb {
   background:
     radial-gradient(
-      ellipse 70% 14px at 50% calc(100% - 4px),
-      rgba(255, 70, 70, 0.6),
+      ellipse 55% 8px at 50% calc(100% - 3px),
+      rgba(255, 70, 70, 0.35),
       transparent 70%
     ),
-    linear-gradient(to bottom, #3d0404, #7c0d0d 30%, #a01414 75%, #5c0707);
-  border-radius: 4px 4px 8px 8px / 4px 4px 16px 16px;
+    linear-gradient(to bottom, #3d0404, #7c0d0d 30%, #a01414 78%, #6b0808);
+  border-radius: 4px 4px 6px 6px / 4px 4px 9px 9px;
   min-height: 36px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background:
     radial-gradient(
-      ellipse 70% 14px at 50% calc(100% - 4px),
-      rgba(255, 90, 90, 0.75),
+      ellipse 55% 8px at 50% calc(100% - 3px),
+      rgba(255, 90, 90, 0.45),
       transparent 70%
     ),
-    linear-gradient(to bottom, #4d0505, #9c1111 30%, #c41919 75%, #740909);
+    linear-gradient(to bottom, #4d0505, #9c1111 30%, #c41919 78%, #7f0a0a);
 }
 ::-webkit-scrollbar-corner {
   background: #000;
