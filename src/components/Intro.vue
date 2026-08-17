@@ -877,14 +877,16 @@ export default {
     gap: 14px;
     padding: 10px 0;
     margin: 0 auto;
-    width: min(300px, 80vw);
+    // narrow enough to sit INSIDE the dial's letter ring, never over it
+    width: min(190px, 50vw);
 
     li {
       font-family: PiratesBay, sans-serif;
       letter-spacing: 1px;
       font-size: 140%;
       cursor: pointer;
-      padding: 10px 25px;
+      text-align: center;
+      padding: 10px 14px;
       background: rgba(0, 0, 0, 0.7);
       border: 3px solid black;
       border-radius: 10px;
