@@ -17,5 +17,11 @@ The background art, in variants (creative director, 2026-08-16):
 
 ## blood/
 - `blood-pack.jpg` — 16 blood splatters. JPG with a baked checkerboard, NOT
-  transparent: cut individual splatters to alpha PNGs before using as decals
-  (seat death marks, vote stamps, panel dressing).
+  transparent — the source `cut/` was extracted from.
+- `cut/blood-01..16.png` — the splatters as true-alpha PNGs, ready for decal
+  use (seat death marks, vote stamps, panel dressing). Recipe: alpha keyed off
+  min(G,B) against the neutral checker (soft ramp 120→~195), edge colors
+  un-mixed against the mid checker gray, connected-component grouping so each
+  splat keeps its own satellite droplets (a plain grid cut bled neighbors'
+  spray across cell lines).
+- `cut-contact-sheet.png` — all 16 over a dark ground, for eyeballing edges.
