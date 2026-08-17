@@ -599,7 +599,7 @@ video#background {
   font-family: "Times New Roman", Times, serif;
   font-weight: bold;
   font-size: calc(82 * var(--fpx));
-  color: #180d05;
+  color: #0a0502;
   text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
   .dl {
     position: absolute;

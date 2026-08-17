@@ -1004,19 +1004,21 @@ export default {
     align-items: stretch;
     justify-content: center;
     // FT-852: sized in door face-pixels (--dfpx — face-proportional with a
-    // phone cap, see App.vue); the translate keeps TRUE face pixels (--fpx)
-    // because it anchors Join's center to the dial hub (+15,-20.5 image px).
+    // phone cap, see App.vue). ANCHORED THE SAME WAY THE DIAL LETTERS ARE:
+    // fixed to the app box at the hub point (+15,-20.5 image px) — NOT
+    // centered inside .intro, whose 460px overlay box moves with the
+    // viewport (the drift that kept eating the calibration). Nudge with
+    // --stack-trim, in image pixels, positive = down.
+    --stack-trim: 0;
+    position: fixed;
+    left: calc(50% + 15 * var(--fpx));
+    top: calc(50% + (-20.5 + var(--stack-trim)) * var(--fpx));
+    transform: translate(-50%, -50%);
+    margin: 0;
     gap: calc(5.5 * var(--dfpx));
     padding: calc(14 * var(--dfpx)) 0;
-    margin: 0 auto;
     width: calc(164 * var(--dfpx));
     font-size: calc(53 * var(--dfpx));
-    // the -3px is the user's optical trim above the geometric hub anchor
-    // (was -33, brought back down 30 on their call)
-    transform: translate(
-      calc(15 * var(--fpx)),
-      calc(-20.5 * var(--fpx) - 3px)
-    );
 
     li {
       font-family: PiratesBay, sans-serif;
@@ -1079,11 +1081,16 @@ export default {
   // Each panel carries its OWN box now (the intro's outer box is gone) and
   // centers over the dial with the rest of the stack.
   .panel {
-    width: 100%;
-    max-width: 420px;
-    margin: 0 auto;
+    // FT-852: hub-anchored exactly like the doors and the dial letters —
+    // one coordinate system for everything sitting on the clock face.
+    position: fixed;
+    left: calc(50% + 15 * var(--fpx));
+    top: calc(50% + -20.5 * var(--fpx));
+    transform: translate(-50%, -50%);
+    width: min(92vw, 420px);
+    margin: 0;
     padding: 12px 14px;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.9);
     border: 3px solid black;
     border-radius: 10px;
     box-shadow: 0 0 10px black;
