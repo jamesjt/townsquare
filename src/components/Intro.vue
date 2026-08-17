@@ -1033,10 +1033,17 @@ export default {
       }
 
       // user-calibrated 2026-08-17: Join (the middle door) reads largest;
-      // Host and Create sit 25% smaller.
+      // Host and Create sit 25% smaller. Hard height ceilings (user spec):
+      // Join 70px, the others 50px — flex keeps the words centered when a
+      // ceiling binds, and the stack stays symmetric so Join keeps the hub.
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-height: 70px;
       &:nth-child(1),
       &:nth-child(3) {
         font-size: 75%;
+        max-height: 50px;
       }
 
       .key {
