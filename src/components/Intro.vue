@@ -10,7 +10,11 @@
       <template v-if="session.sessionId && !session.isSpectator">
         <p class="hint">Hosting <b>{{ session.sessionId }}</b> — add seats to build the town.</p>
         <ul class="doors">
-          <li @click="press('a')"><span class="key">A</span>dd Players</li>
+          <li @click="press('a')">
+            <span class="key"
+              ><img :src="blood.A.src" :style="bloodStyle('A')" alt="A"
+            /></span>dd Players
+          </li>
         </ul>
       </template>
       <p class="hint" v-else-if="session.sessionId && session.isSpectator">
@@ -18,9 +22,21 @@
         add seats…
       </p>
       <ul class="doors" v-else>
-        <li @click="press('h')"><span class="key">H</span>ost</li>
-        <li @click="press('j')"><span class="key">J</span>oin</li>
-        <li @click="press('c')"><span class="key">C</span>reate</li>
+        <li @click="press('h')">
+          <span class="key"
+            ><img :src="blood.H.src" :style="bloodStyle('H')" alt="H"
+          /></span>ost
+        </li>
+        <li @click="press('j')">
+          <span class="key"
+            ><img :src="blood.J.src" :style="bloodStyle('J')" alt="J"
+          /></span>oin
+        </li>
+        <li @click="press('c')">
+          <span class="key"
+            ><img :src="blood.C.src" :style="bloodStyle('C')" alt="C"
+          /></span>reate
+        </li>
       </ul>
     </div>
     <a
@@ -36,15 +52,46 @@
 
 <script>
 import { mapState } from "vuex";
+import bloodH from "../assets/blood/blood-H.png";
+import bloodJ from "../assets/blood/blood-J.png";
+import bloodC from "../assets/blood/blood-C.png";
+import bloodA from "../assets/blood/blood-A.png";
+import bloodMetrics from "../assets/blood/metrics.json";
+
+// Golem fork (FT-846): the door initials are pre-rendered blood letters
+// (Creepster + an SVG goo/drip/crust treatment, baked at 2x). Baked PNGs, not
+// the live filter, because the filter's radii fall below one device pixel at
+// door size and quantize the letterforms apart.
+// Metrics are image px against a 180px reference font with the glyph baseline
+// at image y=400; the drop-cap displays at 1.45x the key font, so ems convert
+// as 1.45 / (180 * 2x).
+const BLOOD_EM_PER_PX = 1.45 / 360;
+const BLOOD = {
+  H: { src: bloodH, ...bloodMetrics.H },
+  J: { src: bloodJ, ...bloodMetrics.J },
+  C: { src: bloodC, ...bloodMetrics.C },
+  A: { src: bloodA, ...bloodMetrics.A }
+};
 
 export default {
   computed: mapState(["session"]),
   data() {
     return {
-      language: window.navigator.userLanguage || window.navigator.language
+      language: window.navigator.userLanguage || window.navigator.language,
+      blood: BLOOD
     };
   },
   methods: {
+    bloodStyle(ch) {
+      const m = BLOOD[ch];
+      const em = (px) => (px * BLOOD_EM_PER_PX).toFixed(3) + "em";
+      return {
+        width: em(m.w),
+        height: em(m.h),
+        // sink the drip overhang below the text baseline
+        verticalAlign: "-" + em(m.below)
+      };
+    },
     press(key) {
       // The hotkey listener lives on the App root element (@keyup), so a
       // document-dispatched synthetic event never reaches it. Intro is App's
@@ -127,6 +174,13 @@ export default {
         text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
           1px 1px 0 #000;
         display: inline-block;
+
+        // Golem fork (FT-846): the baked blood drop-cap; drips hang over the
+        // door edge, above its border.
+        img {
+          position: relative;
+          z-index: 2;
+        }
       }
     }
   }
