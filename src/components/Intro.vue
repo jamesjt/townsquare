@@ -10,7 +10,7 @@
       <template v-if="session.sessionId && !session.isSpectator">
         <p class="hint">Hosting <b>{{ session.sessionId }}</b> — add seats to build the town.</p>
         <ul class="doors">
-          <li @click="press('a')">Add Players<em>[A]</em></li>
+          <li @click="press('a')"><span class="key">A</span>dd Players</li>
         </ul>
       </template>
       <p class="hint" v-else-if="session.sessionId && session.isSpectator">
@@ -18,9 +18,9 @@
         add seats…
       </p>
       <ul class="doors" v-else>
-        <li @click="press('h')">Host<em>[H]</em></li>
-        <li @click="press('j')">Join<em>[J]</em></li>
-        <li @click="press('c')">Create<em>[C]</em></li>
+        <li @click="press('h')"><span class="key">H</span>ost</li>
+        <li @click="press('j')"><span class="key">J</span>oin</li>
+        <li @click="press('c')"><span class="key">C</span>reate</li>
       </ul>
     </div>
     <a
@@ -106,13 +106,10 @@ export default {
         color: red;
       }
 
-      em {
-        display: block;
-        font-family: sans-serif;
-        font-style: normal;
-        font-size: 50%;
-        opacity: 0.6;
-        margin-top: 4px;
+      .key {
+        color: #c00;
+        text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
+          1px 1px 0 #000;
       }
     }
   }
