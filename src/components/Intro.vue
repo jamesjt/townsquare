@@ -219,7 +219,7 @@
               title="Open the town"
               @click="confirmHost"
             >
-              <font-awesome-icon icon="door-open" />
+              <font-awesome-icon icon="bell" />
             </button>
           </div>
         </div>
@@ -269,7 +269,7 @@
               title="Enter the town"
               @click="confirmJoin"
             >
-              <font-awesome-icon icon="door-open" />
+              <font-awesome-icon icon="sign-in-alt" />
             </button>
           </div>
         </div>
