@@ -70,6 +70,27 @@
       >
         <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
       </span>
+      <!-- FT-850: TOWN RECORDS — the pill's stats door, open to anyone in
+           the session. -->
+      <span
+        class="stats"
+        @click="statsOpen = true"
+        title="Town records"
+      >
+        <font-awesome-icon icon="chart-bar" />
+      </span>
+      <!-- FT-850: once the host has dealt characters, the game can END here —
+           pick the winner, the record lands on the golem server. Gated on the
+           stashed deal moment (upstream's isRolesDistributed is a 2s pulse,
+           not a durable flag). -->
+      <span
+        class="endgame"
+        v-if="!session.isSpectator && dealAt"
+        @click="endGameOpen = true"
+        title="End the game and record who won"
+      >
+        <font-awesome-icon icon="flag-checkered" /> End game
+      </span>
       <!-- FT-847 follow-up: the toolbar's "Copy player link" retired with the
            broadcast-tower tab — it wasn't otherwise covered, so it relocates
            here rather than dropping. -->
@@ -84,6 +105,17 @@
         <font-awesome-icon icon="times-circle" /> Leave
       </span>
     </div>
+    <!-- FT-850: game recording + town records (see the components). -->
+    <EndGameOverlay
+      v-if="endGameOpen"
+      @close="endGameOpen = false"
+      @recorded="dealAt = null"
+    />
+    <StatsOverlay
+      v-if="statsOpen"
+      :town-id="session.sessionId"
+      @close="statsOpen = false"
+    />
   </div>
 </template>
 
@@ -104,9 +136,14 @@ import NightOrderModal from "./components/modals/NightOrderModal";
 import FabledModal from "@/components/modals/FabledModal";
 import VoteHistoryModal from "@/components/modals/VoteHistoryModal";
 import GameStateModal from "@/components/modals/GameStateModal";
+import EndGameOverlay from "./components/EndGameOverlay";
+import StatsOverlay from "./components/StatsOverlay";
+import { markDealt, dealTimeFor } from "./golem/stats";
 
 export default {
   components: {
+    EndGameOverlay,
+    StatsOverlay,
     GameStateModal,
     VoteHistoryModal,
     FabledModal,
@@ -139,7 +176,30 @@ export default {
   // ground only) until the background art AND the display fonts are ready,
   // then fades in whole. A 4s cap means a slow network degrades to the old
   // progressive load rather than an indefinite blank.
+  // FT-850: hosting or joining a (different) session re-reads that session's
+  // stashed deal moment and drops any overlay left open from the last one.
+  watch: {
+    "session.sessionId"(sessionId) {
+      this.dealAt = dealTimeFor(sessionId);
+      this.endGameOpen = false;
+      this.statsOpen = false;
+    }
+  },
   mounted() {
+    // FT-850: the DEAL MOMENT — the host committing session/distributeRoles
+    // with a truthy payload is the instant the characters go out. Stash it
+    // (the recorded game's startedAt) and mirror it reactively so the pill
+    // grows its End-game door; localStorage alone wouldn't re-render.
+    this.$store.subscribe(({ type, payload }) => {
+      if (
+        type === "session/distributeRoles" &&
+        payload &&
+        !this.session.isSpectator
+      ) {
+        markDealt(this.session.sessionId);
+        this.dealAt = dealTimeFor(this.session.sessionId);
+      }
+    });
     const bg = new Promise(resolve => {
       const img = new Image();
       img.onload = resolve;
@@ -160,7 +220,14 @@ export default {
     return {
       booted: false,
       version,
-      pillCopied: false
+      pillCopied: false,
+      // FT-850: game recording + stats state. dealAt mirrors the stashed
+      // deal moment for the current session (null = no game underway) — a
+      // reload mid-game re-reads it here (persistence has already restored
+      // the session by the time the root component's data runs).
+      endGameOpen: false,
+      statsOpen: false,
+      dealAt: dealTimeFor(this.$store.state.session.sessionId)
     };
   },
   methods: {
@@ -342,6 +409,8 @@ ul {
     animation: blink 1s infinite;
   }
   .nomlog,
+  .stats,
+  .endgame,
   .copylink,
   .leave {
     cursor: pointer;

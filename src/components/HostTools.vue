@@ -81,7 +81,7 @@
       <span class="label">Roles</span>
       <span class="value" @click="toggleModal('roles')">
         {{ rolesAssigned }} / {{ players.length }} assigned
-        <font-awesome-icon icon="dice" />
+        <font-awesome-icon icon="random" />
       </span>
     </div>
 
@@ -156,7 +156,7 @@ export default {
         return `Waiting on ${open} ${open === 1 ? "seat" : "seats"} to be claimed…`;
       }
       if (this.rolesAssigned < this.players.length)
-        return "Assign roles (the dice) before starting.";
+        return "Assign roles (the shuffle) before starting.";
       return "Everyone seated and cast — deal the characters.";
     }
   },
