@@ -61,11 +61,37 @@
           </ul>
           <div class="field">
             <label>Town</label>
-            <input
-              v-model="townId"
-              spellcheck="false"
-              @keyup.enter="confirmHost"
-            />
+            <div class="town-input">
+              <input
+                v-model="townId"
+                spellcheck="false"
+                autocomplete="off"
+                @focus="onTownFocus"
+                @blur="onTownBlur"
+                @keydown.esc="townDropdownOpen = false"
+                @keyup.enter="confirmHost"
+              />
+              <ul class="recents" v-if="townDropdownOpen && recentTowns.length">
+                <li v-for="t in recentTowns" :key="t.id">
+                  <span
+                    class="name"
+                    :title="t.id"
+                    @mousedown.prevent="pickRecent(t)"
+                  >
+                    {{ townLabel(t) }}
+                    <small class="tid" v-if="townLabel(t) !== t.id">{{ t.id }}</small>
+                  </span>
+                  <small class="yours" v-if="t.editKey">yours</small>
+                  <span
+                    class="forget"
+                    :class="{ sure: forgetConfirm === t.id }"
+                    :title="t.editKey ? 'Forget this town (click again to confirm — you\'ll lose its edit key)' : 'Forget this town'"
+                    @mousedown.prevent="forgetRecent(t)"
+                    >{{ forgetConfirm === t.id ? "sure?" : "×" }}</span
+                  >
+                </li>
+              </ul>
+            </div>
             <span class="tool" @click="reroll" title="Roll a new name">
               <font-awesome-icon icon="random" />
             </span>
@@ -82,24 +108,17 @@
               <option value="__custom">Custom / vault…</option>
             </select>
           </div>
-          <!-- FT-847: owned towns. Claiming saves the town's name (and later
-               its script) on the server, keyed to THIS browser — the same
-               anonymous edit-key model as the script vault. -->
-          <div class="field keep" v-if="!ownsPicked">
-            <label></label>
-            <label class="tick">
-              <input type="checkbox" v-model="keepTown" />
-              Keep this town — remember its name &amp; script
-            </label>
-          </div>
-          <div class="field keep" v-else>
+          <!-- FT-847: owned towns. Hosting claims the town by default (the
+               name + later its script save to the server, keyed to THIS
+               browser — the same anonymous edit-key model as the script
+               vault); a taken name just hosts as a guest of that town. -->
+          <div class="field keep" v-if="ownsPicked">
             <label></label>
             <small class="owned-note"
               >yours — its name{{ attachedScriptId ? " and script" : "" }}
               travel with it</small
             >
           </div>
-          <p class="claim-error" v-if="claimError">{{ claimError }}</p>
           <div class="field">
             <label>Link</label>
             <span
@@ -193,7 +212,8 @@ import {
   normalizeTownId,
   editKeyFor,
   claimTown,
-  townMeta
+  townMeta,
+  removeTown
 } from "../golem/towns";
 import bloodH from "../assets/blood/blood-H.png";
 import bloodJ from "../assets/blood/blood-J.png";
@@ -247,6 +267,17 @@ export default {
       let raw = this.joinId.trim();
       if (raw.match(/^https?:\/\//i)) raw = raw.split("#").pop();
       return normalizeTownId(raw);
+    },
+    // Shelf entries offered under the Town field: newest first (either
+    // role), filtered to the typed prefix once the user starts typing.
+    // listTowns() reads localStorage directly (untracked), so shelfVersion
+    // is the explicit reactive dependency forgetRecent() bumps on mutation.
+    recentTowns() {
+      this.shelfVersion; // eslint-disable-line no-unused-expressions
+      const typed = (this.townId || "").toLocaleLowerCase();
+      const all = listTowns();
+      const list = typed ? all.filter(t => t.id.startsWith(typed)) : all;
+      return list.slice(0, 8);
     }
   },
   data() {
@@ -255,7 +286,10 @@ export default {
       blood: BLOOD,
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
-      townId: mintTownId(),
+      townId: "",
+      townDropdownOpen: false,
+      forgetConfirm: null, // id awaiting a second click to confirm forgetting
+      shelfVersion: 0, // bumped on shelf mutation to invalidate recentTowns
       scriptId: "",
       joinId: "",
       joinName: "",
@@ -266,8 +300,6 @@ export default {
       statusTimer: null,
       // FT-847: owned towns.
       meta: {}, // id → server public meta {name, scriptId, ...}
-      keepTown: false,
-      claimError: "",
       scriptTouched: false // the user chose a script by hand this visit
     };
   },
@@ -283,15 +315,8 @@ export default {
       if (live !== value) this.townId = live;
     },
     townIdClean() {
-      this.claimError = "";
       this.syncAttached();
     }
-  },
-  created() {
-    // Upgrade the synchronous placeholder townId to an availability-checked
-    // one, but only if the user hasn't already typed over it during the
-    // round trip.
-    this.mintChecked();
   },
   beforeDestroy() {
     clearInterval(this.statusTimer);
@@ -302,6 +327,44 @@ export default {
       const checked = await mintAvailableTownId();
       if (this.townId === placeholder) this.townId = checked;
     },
+    /** Default the Town field: the shelf's newest entry (either role), or a
+     *  freshly minted name when the shelf is empty (prior behavior). */
+    prefillTownId() {
+      const shelf = listTowns();
+      if (shelf.length) {
+        this.townId = shelf[0].id;
+        return;
+      }
+      this.townId = mintTownId(); // synchronous placeholder while checking
+      this.mintChecked();
+    },
+    onTownFocus() {
+      this.townDropdownOpen = true;
+    },
+    onTownBlur() {
+      // delay so a click on a dropdown row registers before it disappears
+      setTimeout(() => {
+        this.townDropdownOpen = false;
+      }, 150);
+    },
+    pickRecent(t) {
+      this.townId = t.id;
+      this.townDropdownOpen = false;
+      this.forgetConfirm = null;
+    },
+    /** Forget a shelf entry (client-side only). An owned entry needs a
+     *  second click — forgetting it discards the edit key for good. */
+    forgetRecent(t) {
+      if (t.editKey && this.forgetConfirm !== t.id) {
+        this.forgetConfirm = t.id;
+        return;
+      }
+      this.forgetConfirm = null;
+      removeTown(t.id);
+      this.hostTowns = this.sortOwnedFirst(listTowns("host"));
+      this.joinTowns = listTowns("player");
+      this.shelfVersion++;
+    },
     openHost() {
       this.mode = "host";
       this.hostTowns = this.sortOwnedFirst(listTowns("host"));
@@ -309,9 +372,9 @@ export default {
         ? this.edition.id
         : "__custom";
       this.scriptTouched = false;
-      this.claimError = "";
       this.watchTowns();
       this.refreshMeta();
+      this.prefillTownId();
     },
     openJoin() {
       this.mode = "join";
@@ -400,16 +463,12 @@ export default {
     async confirmHost() {
       const id = this.townIdClean;
       if (!id) return;
-      this.claimError = "";
-      // FT-847: claim first when asked to keep — but BEST-EFFORT: a dead API
-      // never blocks plain hosting; only an honest "taken" does.
-      if (this.keepTown && !editKeyFor(id)) {
+      // FT-847: claiming is the default now — best-effort, never blocks
+      // hosting. A "taken" name isn't an error: friend groups hosting each
+      // other's towns is expected, so it just hosts as a guest of that town.
+      if (!editKeyFor(id)) {
         try {
-          const claimed = await claimTown(id, id);
-          if (claimed.taken) {
-            this.claimError = `“${id}” is already someone's town — roll a new name, or untick “Keep” to host it anyway.`;
-            return;
-          }
+          await claimTown(id, id);
         } catch (e) {
           // unreachable / server error → host without keeping, quietly
         }
@@ -664,6 +723,89 @@ export default {
           color: red;
         }
       }
+      .town-input {
+        position: relative;
+        flex-grow: 1;
+        min-width: 0;
+
+        input {
+          width: 100%;
+        }
+
+        ul.recents {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          margin: 4px 0 0;
+          padding: 4px;
+          list-style: none;
+          background: rgba(0, 0, 0, 0.9);
+          border: 2px solid #400;
+          border-radius: 6px;
+          max-height: 200px;
+          overflow-y: auto;
+          z-index: 10;
+
+          li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 90%;
+
+            &:hover {
+              background: rgba(255, 0, 0, 0.15);
+            }
+            .name {
+              flex-grow: 1;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              cursor: pointer;
+
+              small.tid {
+                opacity: 0.5;
+                margin-left: 4px;
+              }
+              &:hover {
+                color: red;
+              }
+            }
+            small.yours {
+              flex-shrink: 0;
+              opacity: 1;
+              color: #c66;
+              border: 1px solid #400;
+              border-radius: 4px;
+              padding: 0 5px;
+              font-size: 65%;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .forget {
+              flex-shrink: 0;
+              cursor: pointer;
+              opacity: 0.6;
+              padding: 0 3px;
+              font-size: 85%;
+
+              &:hover {
+                opacity: 1;
+                color: red;
+              }
+              &.sure {
+                opacity: 1;
+                color: #e88;
+                font-size: 70%;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              }
+            }
+          }
+        }
+      }
       .share {
         flex-grow: 1;
         min-width: 0;
@@ -685,39 +827,12 @@ export default {
       }
     }
 
-    // FT-847: the keep-this-town row + claim feedback.
+    // FT-847: the owned-town note (hosting claims by default now).
     .field.keep {
-      .tick {
-        flex-grow: 1;
-        min-width: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        font-size: 85%;
-        opacity: 0.9;
-
-        input[type="checkbox"] {
-          flex-grow: 0;
-          width: 15px;
-          height: 15px;
-          accent-color: #400;
-          cursor: pointer;
-        }
-        &:hover {
-          color: red;
-        }
-      }
       .owned-note {
         font-size: 80%;
         color: #c66;
       }
-    }
-    .claim-error {
-      margin: 4px 0 0;
-      font-size: 80%;
-      color: #e88;
-      text-shadow: 0 0 3px black;
     }
 
     .acts {

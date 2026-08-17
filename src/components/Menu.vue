@@ -10,7 +10,6 @@
       <ul>
         <li class="tabs" :class="tab">
           <font-awesome-icon icon="book-open" @click="setTab('grimoire')" />
-          <font-awesome-icon icon="broadcast-tower" @click="setTab('session')" />
           <font-awesome-icon
             icon="users"
             v-if="!session.isSpectator"
@@ -86,44 +85,6 @@
                 :icon="['fas', grimoire.isMuted ? 'volume-mute' : 'volume-up']"
             /></em>
           </li>
-        </template>
-
-        <template v-if="tab === 'session'">
-          <!-- Session -->
-          <li class="headline" v-if="session.sessionId">
-            {{ session.isSpectator ? "Playing" : "Hosting" }}
-          </li>
-          <li class="headline" v-else>
-            Live Session
-          </li>
-          <template v-if="!session.sessionId">
-            <li @click="hostSession">Host (Storyteller)<em>[H]</em></li>
-            <li @click="joinSession">Join (Player)<em>[J]</em></li>
-          </template>
-          <template v-else>
-            <li v-if="session.ping">
-              Delay to {{ session.isSpectator ? "host" : "players" }}
-              <em>{{ session.ping }}ms</em>
-            </li>
-            <li @click="copySessionUrl">
-              Copy player link
-              <em><font-awesome-icon icon="copy"/></em>
-            </li>
-            <li v-if="!session.isSpectator" @click="distributeRoles">
-              Send Characters
-              <em><font-awesome-icon icon="theater-masks"/></em>
-            </li>
-            <li
-              v-if="session.voteHistory.length || !session.isSpectator"
-              @click="toggleModal('voteHistory')"
-            >
-              Vote history<em>[V]</em>
-            </li>
-            <li @click="leaveSession">
-              Leave Session
-              <em>{{ session.sessionId }}</em>
-            </li>
-          </template>
         </template>
 
         <template v-if="tab === 'players' && !session.isSpectator">
@@ -449,7 +410,6 @@ export default {
         &.grimoire .fa-book-open,
         &.players .fa-users,
         &.characters .fa-theater-masks,
-        &.session .fa-broadcast-tower,
         &.help .fa-question {
           background: linear-gradient(
             to bottom,

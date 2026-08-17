@@ -70,6 +70,16 @@
       >
         <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
       </span>
+      <!-- FT-847 follow-up: the toolbar's "Copy player link" retired with the
+           broadcast-tower tab — it wasn't otherwise covered, so it relocates
+           here rather than dropping. -->
+      <span
+        class="copylink"
+        @click="copyPillLink"
+        :title="pillCopied ? 'Copied!' : 'Copy the player link'"
+      >
+        <font-awesome-icon :icon="pillCopied ? 'check' : 'copy'" />
+      </span>
       <span class="leave" @click="$refs.menu.leaveSession()" title="Leave this session">
         <font-awesome-icon icon="times-circle" /> Leave
       </span>
@@ -149,10 +159,18 @@ export default {
   data() {
     return {
       booted: false,
-      version
+      version,
+      pillCopied: false
     };
   },
   methods: {
+    copyPillLink() {
+      this.$refs.menu.copySessionUrl();
+      this.pillCopied = true;
+      setTimeout(() => {
+        this.pillCopied = false;
+      }, 1500);
+    },
     keyup({ key, ctrlKey, metaKey, target }) {
       if (ctrlKey || metaKey) return;
       // Golem fork: keys typed into a field are typing, not hotkeys.
@@ -324,6 +342,7 @@ ul {
     animation: blink 1s infinite;
   }
   .nomlog,
+  .copylink,
   .leave {
     cursor: pointer;
     &:hover {

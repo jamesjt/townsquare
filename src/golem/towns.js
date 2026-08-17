@@ -63,6 +63,14 @@ export function editKeyFor(id) {
   return (entry && entry.editKey) || null;
 }
 
+/** Forget a shelf entry (client-side only — the server row is untouched).
+ *  Forgetting an OWNED entry discards its locally-held edit key for good. */
+export function removeTown(id) {
+  const clean = normalizeTownId(id);
+  const towns = listTowns().filter(town => town.id !== clean);
+  localStorage.setItem(KEY, JSON.stringify(towns));
+}
+
 /**
  * Claim a town id (POST). On success the shelf entry gains the edit key —
  * its single appearance — and the display name.
