@@ -127,7 +127,9 @@
                official editions wear their artwork, vault scripts the custom
                mark; the closed trigger wears the picked card's icon + name.
                Escape / click-out close it (document listeners, removed on
-               close and on destroy). -->
+               close and on destroy). Cards are icon-forward (icon + name only
+               on the face); the blurb + source ride a hover/focus tooltip
+               (skipped on touch — tap still selects). -->
           <div class="field">
             <label>Script</label>
             <div class="script-pick" ref="scriptPick">
@@ -140,19 +142,33 @@
                 <span class="name">{{ pickedCard.name }}</span>
                 <font-awesome-icon icon="chevron-down" class="caret" />
               </div>
-              <div class="grid" v-if="scriptGridOpen">
+              <div class="grid" v-if="scriptGridOpen" @scroll="hideTip">
                 <div
                   class="card"
                   v-for="c in scriptCards"
                   :key="c.id"
                   :class="{ picked: scriptId === c.id }"
+                  tabindex="0"
                   @click="pickScript(c)"
+                  @keydown.enter="pickScript(c)"
+                  @keydown.space.prevent="pickScript(c)"
+                  @mouseenter="showTip($event, c)"
+                  @mouseleave="hideTip"
+                  @focus="showTip($event, c)"
+                  @blur="hideTip"
                 >
-                  <img :src="c.icon" alt="" />
+                  <img class="icon" :src="c.icon" alt="" />
                   <span class="cname">{{ c.name }}</span>
-                  <span class="blurb" v-if="c.blurb">{{ c.blurb }}</span>
-                  <span class="source">{{ c.source }}</span>
                 </div>
+              </div>
+              <div
+                class="card-tip"
+                ref="cardTip"
+                v-if="tipCard"
+                :style="tipStyle"
+              >
+                <p class="tip-blurb" v-if="tipCard.blurb">{{ tipCard.blurb }}</p>
+                <p class="tip-source" v-if="tipCard.source">{{ tipCard.source }}</p>
               </div>
             </div>
           </div>
@@ -366,7 +382,7 @@ export default {
           name: e.name,
           icon: EDITION_ICONS[e.id] || edCustom,
           blurb: OFFICIAL_BLURBS[e.id] || "",
-          source: "Official"
+          source: "OFFICIAL"
         });
       });
       this.vaultShelf
@@ -378,7 +394,7 @@ export default {
             name: s.name || s.id,
             icon: edCustom,
             blurb: this.vaultBlurb(s.id),
-            source: (meta && meta.author) || "Vault"
+            source: meta && meta.author ? `by ${meta.author}` : "Vault"
           });
         });
       cards.push({
@@ -399,6 +415,10 @@ export default {
           icon: edCustom
         }
       );
+    },
+    // The card currently under the hover/focus tooltip, if any.
+    tipCard() {
+      return this.scriptCards.find(c => c.id === this.tipCardId) || null;
     },
     townIdClean() {
       return normalizeTownId(this.townId);
@@ -474,7 +494,13 @@ export default {
       // Golem fork: the script grid.
       scriptGridOpen: false,
       vaultShelf: [], // recents-shelf entries snapshotted on openHost
-      scriptMeta: {} // script id → {count, author} (lazy, best-effort)
+      scriptMeta: {}, // script id → {count, author} (lazy, best-effort)
+      // Icon-forward cards: blurb + source moved off the face into a hover/
+      // keyboard-focus tooltip. tipCardId is null when nothing is showing;
+      // tipStyle is computed against the hovered/focused card's rect so the
+      // tooltip never clips the grid's edges.
+      tipCardId: null,
+      tipStyle: { top: "-9999px", left: "-9999px" }
     };
   },
   watch: {
@@ -644,6 +670,7 @@ export default {
     },
     closeScriptGrid() {
       this.scriptGridOpen = false;
+      this.hideTip();
       document.removeEventListener("mousedown", this.onScriptDocDown);
       document.removeEventListener("keydown", this.onScriptDocKey);
     },
@@ -658,6 +685,34 @@ export default {
       this.scriptId = card.id;
       this.scriptTouched = true;
       this.closeScriptGrid();
+    },
+    /** Card face is icon-forward; blurb + source ride this tooltip instead.
+     *  Skips hover on touch (no fine pointer) — tap still selects via click.
+     *  Keyboard focus always shows it, touch or not. */
+    showTip(e, card) {
+      const viaHover = e.type === "mouseenter";
+      if (viaHover && !window.matchMedia("(hover: hover)").matches) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      this.tipCardId = card.id;
+      this.$nextTick(() => this.positionTip(rect));
+    },
+    hideTip() {
+      this.tipCardId = null;
+    },
+    /** Centers the tooltip over the card, then clamps it inside the
+     *  viewport so it never clips at the grid's edges — flips below the
+     *  card when there isn't room above. */
+    positionTip(rect) {
+      const tip = this.$refs.cardTip;
+      if (!tip) return;
+      const margin = 8;
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      let left = rect.left + rect.width / 2 - tw / 2;
+      left = Math.min(Math.max(left, margin), window.innerWidth - tw - margin);
+      let top = rect.top - th - margin;
+      if (top < margin) top = rect.bottom + margin;
+      this.tipStyle = { top: `${top}px`, left: `${left}px` };
     },
     /** "N roles · by <author>" once the lazy peek lands; blank until then. */
     vaultBlurb(id) {
@@ -877,8 +932,12 @@ export default {
     gap: 14px;
     padding: 10px 0;
     margin: 0 auto;
-    // narrow enough to sit INSIDE the dial's letter ring, never over it
-    width: min(190px, 50vw);
+    // narrow enough to sit INSIDE the dial's letter ring, never over it —
+    // hugging the words (halved side padding, rider 2026-08-17); nudged up
+    // so the middle door (Join) centers on the dial's hub, which sits a
+    // touch above the stack's un-nudged vertical middle.
+    width: min(150px, 50vw);
+    transform: translateY(-2vh);
 
     li {
       font-family: PiratesBay, sans-serif;
@@ -886,7 +945,7 @@ export default {
       font-size: 140%;
       cursor: pointer;
       text-align: center;
-      padding: 10px 14px;
+      padding: 10px 7px;
       background: rgba(0, 0, 0, 0.7);
       border: 3px solid black;
       border-radius: 10px;
@@ -1080,6 +1139,11 @@ export default {
           }
         }
 
+        // Icon-forward grid: the icon dominates, the name sits under it,
+        // nothing else on the card face — the blurb + source ride the
+        // separate .card-tip tooltip below. 3 columns reads better than 2
+        // once the card is just an icon + a name (checked at the 420px
+        // panel width the .grid overflows from).
         .grid {
           position: absolute;
           top: calc(100% + 4px);
@@ -1089,7 +1153,7 @@ export default {
           max-height: 48vh;
           overflow-y: auto;
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(3, 1fr);
           gap: 6px;
           padding: 8px;
           background: rgba(10, 4, 4, 0.95);
@@ -1099,45 +1163,31 @@ export default {
           z-index: 20;
 
           .card {
-            display: grid;
-            grid-template-columns: 44px 1fr;
-            grid-template-areas: "icon name" "icon blurb" "icon source";
-            column-gap: 10px;
-            align-content: start;
-            padding: 7px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 6px;
+            padding: 10px 6px;
             border: 1px solid transparent;
             border-radius: 6px;
             cursor: pointer;
-            text-align: left;
+            text-align: center;
+            outline: none;
 
-            img {
-              grid-area: icon;
-              width: 44px;
-              height: 44px;
+            .icon {
+              width: 56px;
+              height: 56px;
               object-fit: contain;
-              align-self: center;
             }
             .cname {
-              grid-area: name;
-              font-size: 90%;
+              font-size: 80%;
               font-weight: bold;
-            }
-            .blurb {
-              grid-area: blurb;
-              font-size: 70%;
-              opacity: 0.75;
-              line-height: 1.3;
-            }
-            .source {
-              grid-area: source;
-              font-size: 60%;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              opacity: 0.5;
-              margin-top: 3px;
+              line-height: 1.25;
             }
 
-            &:hover {
+            &:hover,
+            &:focus {
               border-color: #630;
               background: rgba(255, 0, 0, 0.08);
             }
@@ -1145,6 +1195,37 @@ export default {
               border-color: #400;
               background: rgba(0, 0, 0, 0.6);
             }
+          }
+        }
+
+        // The dark-idiom hover/focus tooltip that carries the blurb + source
+        // off the card face. Fixed-positioned and sized/placed in JS
+        // (positionTip) so it's never clipped by the grid's own scroll
+        // container, and flips above/below the card to stay on-screen.
+        .card-tip {
+          position: fixed;
+          max-width: 220px;
+          padding: 8px 10px;
+          background: rgba(10, 4, 4, 0.97);
+          border: 2px solid #400;
+          border-radius: 8px;
+          box-shadow: 0 0 12px black;
+          text-align: left;
+          z-index: 30;
+          pointer-events: none;
+
+          .tip-blurb {
+            margin: 0;
+            font-size: 80%;
+            line-height: 1.35;
+            opacity: 0.9;
+          }
+          .tip-source {
+            margin: 4px 0 0;
+            font-size: 65%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
           }
         }
       }
