@@ -237,6 +237,15 @@ export default {
     index: function() {
       return this.players.indexOf(this.player);
     },
+    // Golem fork: a seatless spectator looking at an unclaimed seat.
+    canOneTapClaim: function() {
+      return (
+        !!this.session.sessionId &&
+        this.session.isSpectator &&
+        !this.player.id &&
+        !this.players.some(p => p.id === this.session.playerId)
+      );
+    },
     voteLocked: function() {
       const session = this.session;
       const players = this.players.length;
