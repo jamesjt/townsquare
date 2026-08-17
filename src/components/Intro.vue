@@ -26,9 +26,10 @@
              PNGs — nothing animates, so the kill-switch has nothing to kill. -->
         <div class="title" aria-label="Blood on the Clocktower">
           <!-- Golem fork: clicking the word cycles its lettering — 0 the
-               blood-alphabet PNGs, 1 gold official-style (Pirata One, OFL),
-               2 the same lettering in blood red. Persisted so the choice
-               survives reloads; fixed row height so nothing below shifts. -->
+               blood-alphabet PNGs, 1 the official-style gold logo art
+               (extracted from the source header, FT-853). Persisted so the
+               choice survives reloads; fixed row height so nothing below
+               shifts. -->
           <div
             class="blood-word"
             title="Click to change the lettering"
@@ -43,14 +44,12 @@
                 :alt="g.alt"
               />
             </template>
-            <span
-              v-else
-              class="lettered"
-              :class="titleStyle === 1 ? 'gold' : 'red'"
-              >Blood</span
-            >
+            <img v-else class="blood-logo" :src="bloodLogo" alt="Blood" />
           </div>
-          <div class="on-the">On the</div>
+          <div class="on-the">
+            <template v-if="titleStyle === 0">On the</template>
+            <img v-else class="onthe-logo" :src="ontheLogo" alt="on the" />
+          </div>
         </div>
         <ul class="doors" v-if="!mode">
           <li @click="openHost">
@@ -63,7 +62,7 @@
               ><img :src="blood.J.src" class="blood-cap-j" alt="J"
             /></span>oin
           </li>
-          <li @click="press('c')">
+          <li @click="openCreate">
             <span class="key"
               ><img :src="blood.C.src" class="blood-cap-c" alt="C"
             /></span>reate
@@ -90,7 +89,7 @@
             </li>
           </ul>
           <div class="field">
-            <label>Town</label>
+            <label title="Town name"><font-awesome-icon icon="home" /></label>
             <div class="town-input">
               <input
                 ref="townInput"
@@ -147,7 +146,7 @@
                on the face); the blurb + source ride a hover/focus tooltip
                (skipped on touch — tap still selects). -->
           <div class="field">
-            <label>Script</label>
+            <label title="Script"><font-awesome-icon icon="scroll" /></label>
             <div class="script-pick" ref="scriptPick">
               <div
                 class="trigger"
@@ -200,7 +199,7 @@
             >
           </div>
           <div class="field">
-            <label>Link</label>
+            <label title="Invite link"><font-awesome-icon icon="link" /></label>
             <span
               class="share"
               @click="copyShare"
@@ -211,13 +210,16 @@
             </span>
           </div>
           <div class="acts">
-            <span class="back" @click="mode = null">Back</span>
+            <span class="back" title="Back" @click="mode = null"
+              ><font-awesome-icon icon="arrow-left"
+            /></span>
             <button
               class="confirm"
               :class="{ disabled: !townIdClean }"
+              title="Open the town"
               @click="confirmHost"
             >
-              Open the town
+              <font-awesome-icon icon="door-open" />
             </button>
           </div>
         </div>
@@ -240,7 +242,7 @@
             </li>
           </ul>
           <div class="field">
-            <label>Town</label>
+            <label title="Town name"><font-awesome-icon icon="home" /></label>
             <input
               v-model="joinId"
               spellcheck="false"
@@ -249,7 +251,7 @@
             />
           </div>
           <div class="field">
-            <label>Name</label>
+            <label title="Your name"><font-awesome-icon icon="user" /></label>
             <input
               v-model="joinName"
               spellcheck="false"
@@ -258,13 +260,16 @@
             />
           </div>
           <div class="acts">
-            <span class="back" @click="mode = null">Back</span>
+            <span class="back" title="Back" @click="mode = null"
+              ><font-awesome-icon icon="arrow-left"
+            /></span>
             <button
               class="confirm"
               :class="{ disabled: !canJoin }"
+              title="Enter the town"
               @click="confirmJoin"
             >
-              Enter the town
+              <font-awesome-icon icon="door-open" />
             </button>
           </div>
         </div>
@@ -308,6 +313,11 @@ import titleO from "../assets/blood/alphabet/O.png";
 import titleO2 from "../assets/blood/alphabet/O2.png";
 import titleD from "../assets/blood/alphabet/D.png";
 import alphabetMetrics from "../assets/blood/alphabet/metrics.json";
+// Golem fork (FT-853): the title's alternate lettering — official-style gold
+// logo art extracted from the source header (Blood + the small "on the"
+// script), keyed to transparent PNGs.
+import bloodLogo from "../assets/title/blood-logo.png";
+import ontheLogo from "../assets/title/onthe-logo.png";
 // Golem fork: the script grid's card art — official editions wear their own
 // logos; vault/custom cards wear the custom-script mark.
 import edTb from "../assets/editions/tb.png";
@@ -486,17 +496,17 @@ export default {
     }
   },
   data() {
-    // Golem fork: the title lettering choice (0 blood PNGs | 1 gold | 2 red),
-    // remembered across reloads. Anything unparseable falls back to 0.
-    const savedTitleStyle = parseInt(
-      localStorage.getItem("golem.titleStyle"),
-      10
-    );
+    // Golem fork: the title lettering choice (0 blood PNGs | 1 gold logo
+    // art), remembered across reloads. Any old/unparseable value (including
+    // the retired red state, 2) clamps to 1; anything else falls back to 0.
+    const savedTitleStyle =
+      parseInt(localStorage.getItem("golem.titleStyle"), 10) >= 1 ? 1 : 0;
     return {
       language: window.navigator.userLanguage || window.navigator.language,
       blood: BLOOD,
-      titleStyle:
-        savedTitleStyle >= 0 && savedTitleStyle <= 2 ? savedTitleStyle : 0,
+      bloodLogo,
+      ontheLogo,
+      titleStyle: savedTitleStyle,
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
       townId: "",
@@ -845,10 +855,18 @@ export default {
       this.$store.commit("toggleGrimoire", false);
       this.$store.commit("session/setSessionId", id);
     },
-    /** Golem fork: click the title word → next lettering (0 → 1 → 2 → 0). */
+    /** Golem fork: click the title word → next lettering (0 → 1 → 0). */
     cycleTitleStyle() {
-      this.titleStyle = (this.titleStyle + 1) % 3;
+      this.titleStyle = (this.titleStyle + 1) % 2;
       localStorage.setItem("golem.titleStyle", String(this.titleStyle));
+    },
+    /** Golem fork: the Create door opens the script editor straight to its
+     *  Custom Script surface — same access pattern as the "Custom / vault…"
+     *  script-grid card in confirmHost. */
+    openCreate() {
+      this.$store.commit("toggleModal", "edition");
+      const editionModal = this.$parent.$refs.edition;
+      if (editionModal) editionModal.isCustom = true;
     },
     press(key) {
       // The hotkey listener lives on the App root element (@keyup), so a
@@ -872,14 +890,6 @@ export default {
 @font-face {
   font-family: WetPaint;
   src: url("../assets/fonts/rubikwetpaint.ttf");
-  font-display: swap;
-}
-// Pirata One (SIL OFL 1.1 — see pirataone-OFL.txt beside it) — the closest
-// freely-bundlable letterform to the official wordmark's blackletter; used by
-// the title's gold/red lettering states.
-@font-face {
-  font-family: PirataOne;
-  src: url("../assets/fonts/pirataone.ttf");
   font-display: swap;
 }
 
@@ -936,42 +946,18 @@ export default {
         filter: drop-shadow(0 0.05em 0.08em rgba(0, 0, 0, 0.65));
       }
 
-      // The gold/red official-style lettering (Pirata One). Gradient fill
-      // via background-clip; the dark edge + drop are filter shadows so the
-      // gradient stays clean. Pinned to the PNG row's baseline band.
-      .lettered {
+      // Golem fork (FT-853): state 1's official-style gold logo art — fills
+      // the same fixed row height as the PNG-glyph state, so nothing shifts.
+      img.blood-logo {
         position: absolute;
         left: 50%;
-        bottom: 0.08em;
+        top: 0;
+        bottom: 0;
         transform: translateX(-50%);
-        font-family: PirataOne, serif;
-        font-size: 1.55em;
-        line-height: 1;
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-        filter: drop-shadow(1px 1px 0 #1a1208) drop-shadow(-1px -1px 0 #1a1208)
-          drop-shadow(0 0.04em 0.07em rgba(0, 0, 0, 0.7));
-
-        &.gold {
-          background-image: linear-gradient(
-            180deg,
-            #f3dfa0 0%,
-            #e8c56a 22%,
-            #c99b3f 55%,
-            #8a6420 85%,
-            #6f4e18 100%
-          );
-        }
-        &.red {
-          background-image: linear-gradient(
-            180deg,
-            #e0555e 0%,
-            #c0121c 38%,
-            #8d0d14 75%,
-            #6d0a10 100%
-          );
-        }
+        height: 100%;
+        width: auto;
+        margin: 0;
+        filter: drop-shadow(0 0.05em 0.08em rgba(0, 0, 0, 0.65));
       }
     }
     .on-the {
@@ -984,6 +970,17 @@ export default {
       color: #e8e2d8;
       opacity: 0.9;
       text-shadow: 0 1px 3px black, 0 0 10px rgba(0, 0, 0, 0.9);
+
+      // Golem fork (FT-853): state 1's onthe-logo image — matched to the
+      // text row's own height so the title block doesn't shift.
+      img.onthe-logo {
+        display: inline-block;
+        height: min(3vh, 21px);
+        width: auto;
+        vertical-align: middle;
+        filter: drop-shadow(0 1px 3px black)
+          drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
+      }
     }
   }
 
@@ -1175,10 +1172,13 @@ export default {
       gap: 10px;
       margin-bottom: 8px;
 
+      // Golem fork: labels are icon-only now (title attr carries the
+      // tooltip) — the column shrinks to the glyph, fields widen to fill it.
       label {
-        width: 55px;
+        width: 26px;
         flex-shrink: 0;
         opacity: 0.8;
+        text-align: center;
       }
       input,
       select {
@@ -1497,18 +1497,21 @@ export default {
       .back {
         cursor: pointer;
         opacity: 0.7;
+        font-size: 130%;
+        line-height: 1;
         &:hover {
           color: red;
           opacity: 1;
         }
       }
+      // Golem fork: the confirm button is icon-only (door-open) — it's the
+      // primary action, so the icon reads LARGE at a glance.
       button.confirm {
-        font-family: PiratesBay, sans-serif;
-        letter-spacing: 1px;
-        font-size: 110%;
+        font-size: 170%;
+        line-height: 1;
         color: white;
         cursor: pointer;
-        padding: 8px 20px;
+        padding: 8px 24px;
         background: rgba(0, 0, 0, 0.7);
         border: 3px solid #400;
         border-radius: 10px;

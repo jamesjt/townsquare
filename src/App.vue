@@ -47,7 +47,10 @@
       <HostTools
         v-if="showHostTools && !session.nomination"
       ></HostTools>
-      <Intro v-else-if="!session.sessionId && !players.length"></Intro>
+      <Intro
+        ref="intro"
+        v-else-if="!session.sessionId && !players.length"
+      ></Intro>
       <TownInfo
         v-else-if="!session.nomination"
       ></TownInfo>
@@ -296,10 +299,18 @@ export default {
           this.$refs.menu.addPlayer();
           break;
         case "h":
-          this.$refs.menu.hostSession();
+          // Golem fork: sessionless routes to the SAME panel the Host door
+          // opens (Intro.openHost) — the legacy prompt() path only remains
+          // reachable in-session, where it's already a no-op (guarded).
+          if (this.session.sessionId) this.$refs.menu.hostSession();
+          else if (this.$refs.intro) this.$refs.intro.openHost();
           break;
         case "j":
-          this.$refs.menu.joinSession();
+          // Golem fork: sessionless → Intro.openJoin (the Join door's own
+          // panel). In-session, unchanged — joinSession() drives the leave
+          // flow there.
+          if (this.session.sessionId) this.$refs.menu.joinSession();
+          else if (this.$refs.intro) this.$refs.intro.openJoin();
           break;
         case "r":
           this.$store.commit("toggleModal", "reference");
@@ -313,7 +324,14 @@ export default {
           break;
         case "c":
           if (this.session.isSpectator) return;
-          this.$store.commit("toggleModal", "roles");
+          // Golem fork: sessionless → Intro.openCreate (the Create door's
+          // script editor). In-session, unchanged — the roles reference
+          // modal.
+          if (!this.session.sessionId && this.$refs.intro) {
+            this.$refs.intro.openCreate();
+          } else {
+            this.$store.commit("toggleModal", "roles");
+          }
           break;
         case "v":
           if (this.session.voteHistory.length || !this.session.isSpectator) {
