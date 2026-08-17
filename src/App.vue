@@ -583,7 +583,13 @@ video#background {
    it rides the face at any viewport. Adjust letters by editing the plain
    numbers below (they are image pixels). */
 #app {
-  --fpx: max(0.05981vw, 0.10627vh);
+  /* container units so the face math reads the SAME box the background
+     paints in — mobile browser bars make vh lie; cqh doesn't. */
+  container-type: size;
+  --fpx: max(0.05981cqw, 0.10627cqh);
+  /* the door stack's unit: face-proportional but CAPPED so the cover-fit
+     zoom on portrait phones can't balloon the buttons. */
+  --dfpx: min(var(--fpx), 0.145vmin);
 }
 #app > .dial-letters {
   position: absolute;

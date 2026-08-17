@@ -1003,14 +1003,14 @@ export default {
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
-    // FT-852: everything in face pixels (--fpx, see App.vue) so the stack
-    // scales with the clock face; the translate is the dial-center offset
-    // (+15,-20.5 image px), which puts Join's center on the hub exactly.
-    gap: calc(5.5 * var(--fpx));
-    padding: calc(14 * var(--fpx)) 0;
+    // FT-852: sized in door face-pixels (--dfpx — face-proportional with a
+    // phone cap, see App.vue); the translate keeps TRUE face pixels (--fpx)
+    // because it anchors Join's center to the dial hub (+15,-20.5 image px).
+    gap: calc(5.5 * var(--dfpx));
+    padding: calc(14 * var(--dfpx)) 0;
     margin: 0 auto;
-    width: calc(164 * var(--fpx));
-    font-size: calc(53 * var(--fpx));
+    width: calc(164 * var(--dfpx));
+    font-size: calc(53 * var(--dfpx));
     transform: translate(calc(15 * var(--fpx)), calc(-20.5 * var(--fpx)));
 
     li {
