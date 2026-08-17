@@ -1,35 +1,8 @@
 <template>
   <div id="controls">
-    <span
-      class="nomlog-summary"
-      v-show="session.voteHistory.length && session.sessionId"
-      @click="toggleModal('voteHistory')"
-      :title="
-        `${session.voteHistory.length} recent ${
-          session.voteHistory.length == 1 ? 'nomination' : 'nominations'
-        }`
-      "
-    >
-      <font-awesome-icon icon="book-dead" />
-      {{ session.voteHistory.length }}
-    </span>
-    <span
-      class="session"
-      :class="{
-        spectator: session.isSpectator,
-        reconnecting: session.isReconnecting
-      }"
-      v-if="session.sessionId"
-      @click="leaveSession"
-      :title="
-        `${session.playerCount} other players in this session${
-          session.ping ? ' (' + session.ping + 'ms latency)' : ''
-        }`
-      "
-    >
-      <font-awesome-icon icon="broadcast-tower" />
-      {{ session.playerCount }}
-    </span>
+    <!-- Golem fork: the session badge + vote-history count moved to the
+         BOTTOM-RIGHT session pill (App.vue) — up here they sat ON TOP of the
+         standing toolbar and stole its clicks. -->
     <!-- Golem fork: the gear is gone — the tab row IS the menu, always
          visible. Clicking a tab opens its section; clicking the open tab
          collapses back to the bare toolbar. -->

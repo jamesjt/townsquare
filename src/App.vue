@@ -36,7 +36,32 @@
     <VoteHistoryModal />
     <GameStateModal />
     <Gradients />
-    <span id="version">v{{ version }}</span>
+    <!-- Golem fork: the version corner is the SESSION PILL — which room you
+         are in, who is with you, the vote-history count, and the door out.
+         Nothing renders when there is no session. -->
+    <div id="session-pill" v-if="session.sessionId">
+      <span
+        class="who"
+        :class="{ reconnecting: session.isReconnecting }"
+        :title="session.ping ? session.ping + 'ms latency' : ''"
+      >
+        <font-awesome-icon icon="broadcast-tower" />
+        {{ session.isSpectator ? "Playing in" : "Hosting" }}
+        <b>{{ session.sessionId }}</b>
+        · {{ session.playerCount }} {{ session.playerCount === 1 ? "player" : "players" }}
+      </span>
+      <span
+        class="nomlog"
+        v-if="session.voteHistory.length"
+        @click="$store.commit('toggleModal', 'voteHistory')"
+        :title="session.voteHistory.length + ' recent nominations'"
+      >
+        <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
+      </span>
+      <span class="leave" @click="$refs.menu.leaveSession()" title="Leave this session">
+        <font-awesome-icon icon="times-circle" /> Leave
+      </span>
+    </div>
   </div>
 </template>
 
@@ -217,13 +242,40 @@ ul {
   }
 }
 
-#version {
+#session-pill {
   position: absolute;
-  text-align: right;
   right: 10px;
   bottom: 10px;
-  font-size: 60%;
-  opacity: 0.5;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 3px solid black;
+  border-radius: 10px;
+  box-shadow: 0 0 10px black;
+  font-size: 80%;
+
+  b {
+    color: #c00;
+  }
+  .who.reconnecting {
+    animation: blink 1s infinite;
+  }
+  .nomlog,
+  .leave {
+    cursor: pointer;
+    &:hover {
+      color: red;
+    }
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .blur-enter-active,
