@@ -52,7 +52,11 @@
               @click="townId = t.id"
             >
               <span class="dot" :class="dotClass(t.id)"></span>
-              <span class="name">{{ t.id }}</span>
+              <span class="name" :title="t.id">
+                {{ townLabel(t) }}
+                <small class="tid" v-if="townLabel(t) !== t.id">{{ t.id }}</small>
+              </span>
+              <small class="yours" v-if="t.editKey">yours</small>
               <small>{{ statusLabel(t.id) }}</small>
             </li>
           </ul>
@@ -69,13 +73,34 @@
           </div>
           <div class="field">
             <label>Script</label>
-            <select v-model="scriptId">
+            <select v-model="scriptId" @change="scriptTouched = true">
+              <option v-if="attachedScriptId" value="__attached">
+                This town's saved script
+              </option>
               <option v-for="e in editionList" :key="e.id" :value="e.id">{{
                 e.name
               }}</option>
               <option value="__custom">Custom / vault…</option>
             </select>
           </div>
+          <!-- FT-847: owned towns. Claiming saves the town's name (and later
+               its script) on the server, keyed to THIS browser — the same
+               anonymous edit-key model as the script vault. -->
+          <div class="field keep" v-if="!ownsPicked">
+            <label></label>
+            <label class="tick">
+              <input type="checkbox" v-model="keepTown" />
+              Keep this town — remember its name &amp; script
+            </label>
+          </div>
+          <div class="field keep" v-else>
+            <label></label>
+            <small class="owned-note"
+              >yours — its name{{ attachedScriptId ? " and script" : "" }}
+              travel with it</small
+            >
+          </div>
+          <p class="claim-error" v-if="claimError">{{ claimError }}</p>
           <div class="field">
             <label>Link</label>
             <span
@@ -109,7 +134,10 @@
               @click="joinId = t.id"
             >
               <span class="dot" :class="dotClass(t.id)"></span>
-              <span class="name">{{ t.id }}</span>
+              <span class="name" :title="t.id">
+                {{ townLabel(t) }}
+                <small class="tid" v-if="townLabel(t) !== t.id">{{ t.id }}</small>
+              </span>
               <small>{{ statusLabel(t.id) }}</small>
             </li>
           </ul>
@@ -162,7 +190,10 @@ import {
   listTowns,
   townStatuses,
   mintTownId,
-  normalizeTownId
+  normalizeTownId,
+  editKeyFor,
+  claimTown,
+  townMeta
 } from "../golem/towns";
 import bloodH from "../assets/blood/blood-H.png";
 import bloodJ from "../assets/blood/blood-J.png";
@@ -194,6 +225,17 @@ export default {
     townIdClean() {
       return normalizeTownId(this.townId);
     },
+    // FT-847: does THIS browser hold the picked town's edit key?
+    ownsPicked() {
+      return !!(this.townIdClean && editKeyFor(this.townIdClean));
+    },
+    // The script an OWNED picked town carries in its server meta (if any).
+    attachedScriptId() {
+      const id = this.townIdClean;
+      if (!id || !editKeyFor(id)) return null;
+      const m = this.meta[id];
+      return (m && m.scriptId) || null;
+    },
     shareLink() {
       const url = window.location.href.split("#")[0];
       return url + "#" + this.townIdClean;
@@ -221,8 +263,29 @@ export default {
       joinTowns: [],
       statuses: {},
       copied: false,
-      statusTimer: null
+      statusTimer: null,
+      // FT-847: owned towns.
+      meta: {}, // id → server public meta {name, scriptId, ...}
+      keepTown: false,
+      claimError: "",
+      scriptTouched: false // the user chose a script by hand this visit
     };
+  },
+  watch: {
+    // Live-normalize the host field: junk chars become dashes, capped at 24 —
+    // the id the socket joins IS the id on the screen. (Edge dashes survive
+    // while typing; townIdClean applies the full trim.)
+    townId(value) {
+      const live = String(value || "")
+        .toLocaleLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .slice(0, 24);
+      if (live !== value) this.townId = live;
+    },
+    townIdClean() {
+      this.claimError = "";
+      this.syncAttached();
+    }
   },
   beforeDestroy() {
     clearInterval(this.statusTimer);
@@ -230,17 +293,56 @@ export default {
   methods: {
     openHost() {
       this.mode = "host";
-      this.hostTowns = listTowns("host");
+      this.hostTowns = this.sortOwnedFirst(listTowns("host"));
       this.scriptId = editionJSON.some(e => e.id === this.edition.id)
         ? this.edition.id
         : "__custom";
+      this.scriptTouched = false;
+      this.claimError = "";
       this.watchTowns();
+      this.refreshMeta();
     },
     openJoin() {
       this.mode = "join";
       this.joinTowns = listTowns("player");
       this.joinName = localStorage.getItem("golem.playerName") || "";
       this.watchTowns();
+      this.refreshMeta();
+    },
+    /** FT-847: owned towns lead the shelf; recency holds within each group. */
+    sortOwnedFirst(towns) {
+      return towns
+        .slice()
+        .sort((a, b) => (b.editKey ? 1 : 0) - (a.editKey ? 1 : 0));
+    },
+    /** Best-effort batch meta: display names + attached scripts. */
+    refreshMeta() {
+      const ids = [
+        ...new Set([...listTowns("host"), ...listTowns("player")].map(t => t.id))
+      ];
+      townMeta(ids).then(meta => {
+        this.meta = meta;
+        // re-list: townMeta cached fresh display names onto the shelf
+        if (this.mode === "host")
+          this.hostTowns = this.sortOwnedFirst(listTowns("host"));
+        if (this.mode === "join") this.joinTowns = listTowns("player");
+        this.syncAttached();
+      });
+    },
+    /** Keep the script select honest about an owned town's saved script. */
+    syncAttached() {
+      if (this.attachedScriptId) {
+        if (!this.scriptTouched) this.scriptId = "__attached";
+      } else if (this.scriptId === "__attached") {
+        this.scriptId = editionJSON.some(e => e.id === this.edition.id)
+          ? this.edition.id
+          : "__custom";
+      }
+    },
+    /** Display name for a shelf row: cached/server name, else the id. */
+    townLabel(t) {
+      const m = this.meta[t.id];
+      return (m && m.name) || t.name || t.id;
     },
     /** Poll the relay for awake/quiet while a panel is open. */
     watchTowns() {
@@ -284,10 +386,28 @@ export default {
         // clipboard is a bonus, never a blocker
       }
     },
-    confirmHost() {
+    async confirmHost() {
       const id = this.townIdClean;
       if (!id) return;
-      if (this.scriptId !== "__custom" && this.scriptId !== this.edition.id) {
+      this.claimError = "";
+      // FT-847: claim first when asked to keep — but BEST-EFFORT: a dead API
+      // never blocks plain hosting; only an honest "taken" does.
+      if (this.keepTown && !editKeyFor(id)) {
+        try {
+          const claimed = await claimTown(id, id);
+          if (claimed.taken) {
+            this.claimError = `“${id}” is already someone's town — roll a new name, or untick “Keep” to host it anyway.`;
+            return;
+          }
+        } catch (e) {
+          // unreachable / server error → host without keeping, quietly
+        }
+      }
+      if (
+        this.scriptId !== "__custom" &&
+        this.scriptId !== "__attached" &&
+        this.scriptId !== this.edition.id
+      ) {
         const edition = editionJSON.find(e => e.id === this.scriptId);
         if (edition) this.$store.commit("setEdition", edition);
       }
@@ -298,6 +418,11 @@ export default {
       // "Custom / vault…" hands off to the script picker once the town is up.
       if (this.scriptId === "__custom") {
         this.$store.commit("toggleModal", "edition");
+      } else if (this.scriptId === "__attached" && this.attachedScriptId) {
+        // FT-847: an owned town carries its script — load it through the same
+        // vault path as a ?script= link (no re-attach round trip).
+        const editionModal = this.$parent.$refs.edition;
+        if (editionModal) editionModal.loadFromVault(this.attachedScriptId, false);
       }
     },
     confirmJoin() {
@@ -452,10 +577,25 @@ export default {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+
+          small.tid {
+            opacity: 0.5;
+            margin-left: 4px;
+          }
         }
         small {
           opacity: 0.7;
           white-space: nowrap;
+        }
+        small.yours {
+          opacity: 1;
+          color: #c66;
+          border: 1px solid #400;
+          border-radius: 4px;
+          padding: 0 5px;
+          font-size: 65%;
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
         .dot {
           flex-shrink: 0;
@@ -532,6 +672,41 @@ export default {
           color: red;
         }
       }
+    }
+
+    // FT-847: the keep-this-town row + claim feedback.
+    .field.keep {
+      .tick {
+        flex-grow: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 85%;
+        opacity: 0.9;
+
+        input[type="checkbox"] {
+          flex-grow: 0;
+          width: 15px;
+          height: 15px;
+          accent-color: #400;
+          cursor: pointer;
+        }
+        &:hover {
+          color: red;
+        }
+      }
+      .owned-note {
+        font-size: 80%;
+        color: #c66;
+      }
+    }
+    .claim-error {
+      margin: 4px 0 0;
+      font-size: 80%;
+      color: #e88;
+      text-shadow: 0 0 3px black;
     }
 
     .acts {

@@ -117,6 +117,8 @@ import editionJSON from "../../editions";
 import { mapMutations, mapState } from "vuex";
 import Modal from "./Modal";
 import * as vault from "../../golem/scripts";
+import * as towns from "../../golem/towns";
+import { flashHint } from "../../golem/hint";
 
 export default {
   components: {
@@ -173,7 +175,7 @@ export default {
   },
   methods: {
     // ── Golem fork: the script vault ─────────────────────────────────────
-    async loadFromVault(id) {
+    async loadFromVault(id, attach = true) {
       try {
         const script = await vault.loadScript(id);
         // roles verbatim; carry the vault name in as _meta so the script's
@@ -185,9 +187,26 @@ export default {
         this.parseRoles(roles);
         this.vaultSourceId = script.id;
         this.recents = vault.getRecents();
+        // FT-847: the host of an OWNED town picked a vault script → save it
+        // to the town (skipped when the town itself supplied the script).
+        if (attach) this.maybeAttachToTown(script.id);
       } catch (e) {
         alert("Could not load that script: " + e.message);
       }
+    },
+    /**
+     * FT-847: attach the loaded script to the current town — only when this
+     * browser HOSTS the session AND holds the town's edit key. Spectators are
+     * never prompted; failures are silent (best-effort, like all town calls).
+     */
+    maybeAttachToTown(scriptId) {
+      const { session } = this.$store.state;
+      if (session.isSpectator || !session.sessionId) return;
+      if (!towns.editKeyFor(session.sessionId)) return;
+      towns
+        .updateTown(session.sessionId, { scriptId })
+        .then(town => flashHint(`Script saved to ${town.name || town.id}`))
+        .catch(() => {});
     },
     promptVaultLoad() {
       const ref = prompt("Paste a script link (or its id)");
@@ -229,6 +248,9 @@ export default {
         });
         this.vaultSourceId = script.id;
         this.recents = vault.getRecents();
+        // FT-847: a save/fork lands a (possibly new) script id — keep the
+        // owned town pointing at what its host actually plays.
+        this.maybeAttachToTown(script.id);
         const link = vault.shareLink(script.id);
         const what = forked
           ? "Forked into your own copy"

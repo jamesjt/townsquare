@@ -38,7 +38,9 @@
     </transition>
     <TownSquare></TownSquare>
     <Menu ref="menu"></Menu>
-    <EditionModal />
+    <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
+         through the same vault path as a ?script= link. -->
+    <EditionModal ref="edition" />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />

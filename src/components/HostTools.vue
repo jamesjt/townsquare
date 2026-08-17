@@ -7,6 +7,32 @@
   <div class="host-tools">
     <h3>Build the town</h3>
 
+    <!-- FT-847: an OWNED town (this browser holds its edit key) can be
+         renamed in place — the new name lands on the server and the shelf. -->
+    <div class="row" v-if="ownedKey">
+      <span class="label">Town</span>
+      <span
+        class="value"
+        v-if="!renaming"
+        @click="startRename"
+        title="Rename your town"
+      >
+        {{ townName }}
+        <font-awesome-icon icon="pen" />
+      </span>
+      <input
+        v-else
+        ref="rename"
+        v-model="renameDraft"
+        spellcheck="false"
+        maxlength="200"
+        @keyup.enter="commitRename"
+        @keyup.esc="renaming = false"
+        @blur="commitRename"
+      />
+      <small v-if="renameNote">{{ renameNote }}</small>
+    </div>
+
     <div class="row">
       <span class="label">Seats</span>
       <span class="stepper">
@@ -58,11 +84,32 @@
 
 <script>
 import { mapMutations, mapState } from "vuex";
+import { listTowns, editKeyFor, updateTown } from "../golem/towns";
 
 export default {
+  data() {
+    return {
+      // FT-847: owned-town rename state.
+      renaming: false,
+      renameDraft: "",
+      townName: "",
+      renameNote: ""
+    };
+  },
+  created() {
+    this.loadTownName();
+  },
   computed: {
     ...mapState(["edition", "session"]),
     ...mapState("players", ["players"]),
+    /** FT-847: the edit key when this hosted town is OURS (else falsy). */
+    ownedKey() {
+      return (
+        !this.session.isSpectator &&
+        this.session.sessionId &&
+        editKeyFor(this.session.sessionId)
+      );
+    },
     claimedCount() {
       return this.players.filter(p => p.id).length;
     },
@@ -99,6 +146,36 @@ export default {
   },
   methods: {
     ...mapMutations(["toggleModal"]),
+    // ── FT-847: owned-town rename ────────────────────────────────────────
+    loadTownName() {
+      const id = this.session.sessionId;
+      const entry = id && listTowns().find(t => t.id === id);
+      this.townName = (entry && entry.name) || id || "";
+    },
+    startRename() {
+      this.renameDraft = this.townName;
+      this.renaming = true;
+      this.renameNote = "";
+      this.$nextTick(() => {
+        if (this.$refs.rename) this.$refs.rename.focus();
+      });
+    },
+    async commitRename() {
+      if (!this.renaming) return; // esc already cancelled; blur follows
+      this.renaming = false;
+      const name = this.renameDraft.trim();
+      if (!name || name === this.townName) return;
+      try {
+        const town = await updateTown(this.session.sessionId, { name });
+        this.townName = town.name;
+        this.renameNote = "renamed";
+      } catch (e) {
+        this.renameNote = "rename failed — server unreachable?";
+      }
+      setTimeout(() => {
+        this.renameNote = "";
+      }, 3000);
+    },
     addSeat() {
       if (this.players.length >= 20) return;
       this.$store.commit("players/add", `Seat ${this.players.length + 1}`);
@@ -182,6 +259,23 @@ export default {
     }
     small {
       opacity: 0.6;
+    }
+
+    // FT-847: the owned-town rename field.
+    input {
+      flex-grow: 1;
+      min-width: 0;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: 2px solid black;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 90%;
+      outline: none;
+
+      &:focus {
+        border-color: #400;
+      }
     }
   }
 
