@@ -372,6 +372,49 @@ export default {
   font-display: swap;
 }
 
+// Golem fork: BLOOD SCROLLBARS — a thin black strip, the indicator a run of
+// blood that beads at its lower end. The thumb clips its own paint, so the
+// "drip" is a bead inside the pill: a long dark-to-bright run, a bright
+// gathering at the bottom, and a drop-shaped tail via asymmetric radii.
+// Firefox only — in Chromium the standard property WINS over the webkit
+// pseudo-elements and would flatten the blood paint to a plain thin bar.
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #8a1010 #000;
+  }
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #000;
+}
+::-webkit-scrollbar-thumb {
+  background:
+    radial-gradient(
+      ellipse 70% 14px at 50% calc(100% - 4px),
+      rgba(255, 70, 70, 0.6),
+      transparent 70%
+    ),
+    linear-gradient(to bottom, #3d0404, #7c0d0d 30%, #a01414 75%, #5c0707);
+  border-radius: 4px 4px 8px 8px / 4px 4px 16px 16px;
+  min-height: 36px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background:
+    radial-gradient(
+      ellipse 70% 14px at 50% calc(100% - 4px),
+      rgba(255, 90, 90, 0.75),
+      transparent 70%
+    ),
+    linear-gradient(to bottom, #4d0505, #9c1111 30%, #c41919 75%, #740909);
+}
+::-webkit-scrollbar-corner {
+  background: #000;
+}
+
 html,
 body {
   font-size: 1.2em;
