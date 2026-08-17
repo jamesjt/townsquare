@@ -214,6 +214,14 @@ export default {
       ) {
         this.$store.commit("session/setSpectator", false);
         this.$store.commit("session/setSessionId", "");
+        // Golem fork: leaving a town takes the town off the screen — clear
+        // the local mirror (seats, bluffs, fabled, any live nomination) so
+        // the intro returns instead of the sessionless in-person square.
+        // An owned town re-loads its saved script when re-hosted.
+        this.$store.commit("session/nomination");
+        this.$store.commit("players/setBluff");
+        this.$store.commit("players/setFabled", { fabled: [] });
+        this.$store.commit("players/clear");
       }
     },
     addPlayer() {
