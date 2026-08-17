@@ -921,7 +921,9 @@ export default {
     // clears the fixed top-right toolbar band (~44px) at short heights
     top: max(48px, 5vh);
     left: 50%;
-    transform: translateX(-50%);
+    // user-calibrated 2026-08-17: the tower's face sits right of true
+    // center; the title follows it (same 10px step as the doors, +15 more).
+    transform: translateX(calc(-50% + 25px));
     text-align: center;
     pointer-events: none;
     z-index: 3;
