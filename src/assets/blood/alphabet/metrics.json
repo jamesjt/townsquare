@@ -1,0 +1,170 @@
+{
+  "A": {
+    "w": 188,
+    "h": 216,
+    "baseline": 187,
+    "source": "generated"
+  },
+  "B": {
+    "w": 331,
+    "h": 442,
+    "baseline": 377,
+    "source": "original-artwork"
+  },
+  "C": {
+    "w": 162,
+    "h": 222,
+    "baseline": 189,
+    "source": "generated"
+  },
+  "D": {
+    "w": 348,
+    "h": 412,
+    "baseline": 362,
+    "source": "original-artwork"
+  },
+  "E": {
+    "w": 295,
+    "h": 447,
+    "baseline": 365,
+    "source": "original-artwork"
+  },
+  "F": {
+    "w": 148,
+    "h": 221,
+    "baseline": 183,
+    "source": "generated"
+  },
+  "G": {
+    "w": 170,
+    "h": 223,
+    "baseline": 193,
+    "source": "generated"
+  },
+  "H": {
+    "w": 170,
+    "h": 221,
+    "baseline": 191,
+    "source": "generated"
+  },
+  "I": {
+    "w": 83,
+    "h": 217,
+    "baseline": 189,
+    "source": "generated"
+  },
+  "J": {
+    "w": 161,
+    "h": 221,
+    "baseline": 189,
+    "source": "generated"
+  },
+  "K": {
+    "w": 172,
+    "h": 216,
+    "baseline": 189,
+    "source": "generated"
+  },
+  "L": {
+    "w": 286,
+    "h": 430,
+    "baseline": 363,
+    "source": "original-artwork"
+  },
+  "M": {
+    "w": 204,
+    "h": 219,
+    "baseline": 187,
+    "source": "generated"
+  },
+  "N": {
+    "w": 173,
+    "h": 218,
+    "baseline": 189,
+    "source": "generated"
+  },
+  "O": {
+    "w": 341,
+    "h": 410,
+    "baseline": 352,
+    "source": "original-artwork"
+  },
+  "P": {
+    "w": 164,
+    "h": 223,
+    "baseline": 178,
+    "source": "generated"
+  },
+  "Q": {
+    "w": 188,
+    "h": 235,
+    "baseline": 198,
+    "source": "generated"
+  },
+  "R": {
+    "w": 326,
+    "h": 387,
+    "baseline": 351,
+    "source": "original-artwork"
+  },
+  "S": {
+    "w": 161,
+    "h": 222,
+    "baseline": 195,
+    "source": "generated"
+  },
+  "T": {
+    "w": 172,
+    "h": 220,
+    "baseline": 178,
+    "source": "generated"
+  },
+  "U": {
+    "w": 173,
+    "h": 220,
+    "baseline": 192,
+    "source": "generated"
+  },
+  "V": {
+    "w": 184,
+    "h": 213,
+    "baseline": 183,
+    "source": "generated"
+  },
+  "W": {
+    "w": 238,
+    "h": 219,
+    "baseline": 188,
+    "source": "generated"
+  },
+  "X": {
+    "w": 184,
+    "h": 219,
+    "baseline": 187,
+    "source": "generated"
+  },
+  "Y": {
+    "w": 185,
+    "h": 219,
+    "baseline": 179,
+    "source": "generated"
+  },
+  "Z": {
+    "w": 169,
+    "h": 219,
+    "baseline": 190,
+    "source": "generated"
+  },
+  "O2": {
+    "w": 341,
+    "h": 442,
+    "baseline": 383,
+    "source": "original-artwork-variant"
+  },
+  "D2": {
+    "w": 347,
+    "h": 449,
+    "baseline": 384,
+    "source": "original-artwork-variant"
+  }
+}
