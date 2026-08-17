@@ -1018,7 +1018,9 @@ export default {
     position: absolute;
     pointer-events: auto;
     left: calc(50% + 15 * var(--fpx));
-    top: calc(50% + (-20.5 + var(--stack-trim)) * var(--fpx));
+    // -36.5 = the face's VISUAL center (the hands' boss, image y=434) —
+    // measured against the art and confirmed by eye, not by formula alone.
+    top: calc(50% + (-36.5 + var(--stack-trim)) * var(--fpx));
     transform: translate(-50%, -50%);
     margin: 0;
     gap: calc(5.5 * var(--dfpx));
@@ -1092,7 +1094,7 @@ export default {
     position: absolute;
     pointer-events: auto;
     left: calc(50% + 15 * var(--fpx));
-    top: calc(50% + -20.5 * var(--fpx));
+    top: calc(50% + -36.5 * var(--fpx));
     transform: translate(-50%, -50%);
     width: min(92vw, 420px);
     margin: 0;
