@@ -1011,10 +1011,11 @@ export default {
     margin: 0 auto;
     width: calc(164 * var(--dfpx));
     font-size: calc(53 * var(--dfpx));
-    // the -33px is the user's optical trim above the geometric hub anchor
+    // the -3px is the user's optical trim above the geometric hub anchor
+    // (was -33, brought back down 30 on their call)
     transform: translate(
       calc(15 * var(--fpx)),
-      calc(-20.5 * var(--fpx) - 33px)
+      calc(-20.5 * var(--fpx) - 3px)
     );
 
     li {
