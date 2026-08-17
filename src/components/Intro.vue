@@ -913,7 +913,12 @@ export default {
   }
 
   > div {
+    // full-size passthrough: absolute children (doors/panel/title) resolve
+    // their percentages against THIS box when a transform/filter (the blur
+    // transition) makes it their containing block — so it must span the
+    // layer, not collapse to content height (the off-screen-doors bug).
     width: 100%;
+    height: 100%;
   }
 
   // Golem fork: the page title — BLOOD (blood alphabet) / "on the" — pinned
