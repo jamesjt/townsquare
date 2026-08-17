@@ -57,10 +57,16 @@ export default {
 </script>
 
 <style scoped lang="scss">
-// Nosifer (OFL) — the dripping-blood display face for the hotkey initials.
+// Bloody (J. Fordyce, 1994, freeware) — the user's pick for the initials;
+// Rubik Wet Paint (OFL) stays as the licensed fallback.
 @font-face {
-  font-family: Nosifer;
-  src: url("../assets/fonts/nosifer.ttf");
+  font-family: Bloody;
+  src: url("../assets/fonts/bloody.ttf");
+  font-display: swap;
+}
+@font-face {
+  font-family: WetPaint;
+  src: url("../assets/fonts/rubikwetpaint.ttf");
   font-display: swap;
 }
 
@@ -114,48 +120,13 @@ export default {
       }
 
       .key {
-        font-family: Nosifer, sans-serif;
-        font-size: 82%;
+        font-family: Bloody, WetPaint, sans-serif;
+        font-size: 105%;
         margin-right: 2px;
         color: #c00;
         text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
           1px 1px 0 #000;
         display: inline-block;
-
-        // A bead of blood swells at the letter's foot...
-        &::before {
-          content: "";
-          position: absolute;
-          left: 40%;
-          bottom: -2px;
-          width: 5px;
-          height: 5px;
-          background: #a00;
-          border-radius: 40% 40% 60% 60%;
-          animation: bead 3.2s ease-in infinite;
-        }
-        // ...and a droplet breaks off and falls.
-        &::after {
-          content: "";
-          position: absolute;
-          left: 40%;
-          bottom: -2px;
-          width: 4px;
-          height: 7px;
-          background: #c00;
-          border-radius: 50% 50% 60% 60% / 30% 30% 70% 70%;
-          opacity: 0;
-          animation: drip 3.2s ease-in infinite;
-        }
-      }
-      // stagger the three doors so they do not bleed in unison
-      li:nth-child(2) .key::before,
-      li:nth-child(2) .key::after {
-        animation-delay: 1.1s;
-      }
-      li:nth-child(3) .key::before,
-      li:nth-child(3) .key::after {
-        animation-delay: 2.2s;
       }
     }
   }
@@ -198,32 +169,4 @@ export default {
   }
 }
 
-@keyframes bead {
-  0%, 55% {
-    transform: scaleY(0.6);
-    opacity: 1;
-  }
-  70% {
-    transform: scaleY(1.15) translateY(1px);
-    opacity: 1;
-  }
-  78%, 100% {
-    transform: scaleY(0.6);
-    opacity: 1;
-  }
-}
-@keyframes drip {
-  0%, 70% {
-    transform: translateY(0) scaleY(0.6);
-    opacity: 0;
-  }
-  74% {
-    opacity: 1;
-    transform: translateY(2px) scaleY(1);
-  }
-  100% {
-    transform: translateY(26px) scaleY(1.3);
-    opacity: 0;
-  }
-}
 </style>
