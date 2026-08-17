@@ -176,7 +176,12 @@ module.exports = store => {
             "session",
             JSON.stringify([state.session.isSpectator, payload])
           );
-          rememberTown(payload, state.session.isSpectator ? "player" : "host");
+          // Remember the SANITIZED id (state, not payload) — the shelf must
+          // name the town the socket actually joins.
+          rememberTown(
+            state.session.sessionId,
+            state.session.isSpectator ? "player" : "host"
+          );
         } else {
           localStorage.removeItem("session");
         }

@@ -53,10 +53,13 @@ const mutations = {
   claimSeat: set("claimedSeat"),
   distributeRoles: set("isRolesDistributed"),
   setSessionId(state, sessionId) {
+    // Golem fork: dashes and underscores are legal town-name characters (our
+    // relay lowercases but never strips), and readable minted names like
+    // "ravenswood-757" need more room than upstream's 10.
     state.sessionId = sessionId
       .toLocaleLowerCase()
-      .replace(/[^0-9a-z]/g, "")
-      .substr(0, 10);
+      .replace(/[^0-9a-z_-]/g, "")
+      .substr(0, 24);
   },
   nomination(
     state,
