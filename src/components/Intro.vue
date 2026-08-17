@@ -57,6 +57,13 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// Nosifer (OFL) — the dripping-blood display face for the hotkey initials.
+@font-face {
+  font-family: Nosifer;
+  src: url("../assets/fonts/nosifer.ttf");
+  font-display: swap;
+}
+
 // Intro
 .intro {
   text-align: center;
@@ -107,6 +114,9 @@ export default {
       }
 
       .key {
+        font-family: Nosifer, sans-serif;
+        font-size: 82%;
+        margin-right: 2px;
         color: #c00;
         text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
           1px 1px 0 #000;
