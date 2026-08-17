@@ -5,7 +5,8 @@
     tabindex="-1"
     :class="{
       night: grimoire.isNight,
-      static: grimoire.isStatic
+      static: grimoire.isStatic,
+      booting: !booted
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -102,8 +103,31 @@ export default {
     ...mapState(["grimoire", "session"]),
     ...mapState("players", ["players"])
   },
+  // Golem fork: THE BOOT GATE — the ordering the user asked for, literally:
+  // background first, fonts second, content third. The UI stays hidden (dark
+  // ground only) until the background art AND the display fonts are ready,
+  // then fades in whole. A 4s cap means a slow network degrades to the old
+  // progressive load rather than an indefinite blank.
+  mounted() {
+    const bg = new Promise(resolve => {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = resolve;
+      img.src = require("./assets/background-clocktower.png");
+    });
+    const fonts = Promise.all([
+      document.fonts.load("1em PiratesBay"),
+      document.fonts.load("1em Bloody"),
+      document.fonts.ready
+    ]).catch(() => {});
+    const cap = new Promise(resolve => setTimeout(resolve, 4000));
+    Promise.race([Promise.all([bg, fonts]), cap]).then(() => {
+      this.booted = true;
+    });
+  },
   data() {
     return {
+      booted: false,
       version
     };
   },
@@ -228,6 +252,17 @@ ul {
 
 #app {
   height: 100%;
+
+  // Golem fork: the boot gate — children stay invisible until the background
+  // art and display fonts are ready, then fade in together. Until then the
+  // dark body ground is all that shows.
+  > * {
+    transition: opacity 400ms ease-in;
+  }
+  &.booting > * {
+    opacity: 0 !important;
+  }
+
   background-position: center center;
   background-size: cover;
   display: flex;
