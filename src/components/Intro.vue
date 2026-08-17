@@ -898,13 +898,16 @@ export default {
 // and the stack centers over the clock face (the dial sits at the cover-fit
 // background's center, which is the viewport center #app already flexes to).
 .intro {
+  // FT-852: the intro is a full-screen COORDINATE LAYER now — same box the
+  // background paints in — so everything inside anchors to the art, not to
+  // a floating 460px overlay (the old drift) nor the browser viewport
+  // (which mobile URL bars shrink — the fixed-position drift).
   text-align: center;
-  width: min(92vw, 460px);
-  font-size: 120%;
   position: absolute;
+  inset: 0;
+  font-size: 120%;
   z-index: 3;
-  display: flex;
-  justify-content: center;
+  pointer-events: none;
   a {
     color: white;
   }
@@ -917,7 +920,7 @@ export default {
   // to the sky band above the face; the dial's letters finish the name.
   // Fixed, so it holds the top-center regardless of the stack's height.
   .title {
-    position: fixed;
+    position: absolute;
     // clears the fixed top-right toolbar band (~44px) at short heights
     top: max(48px, 5vh);
     left: 50%;
@@ -1007,7 +1010,8 @@ export default {
     // viewport (the drift that kept eating the calibration). Nudge with
     // --stack-trim, in image pixels, positive = down.
     --stack-trim: 0;
-    position: fixed;
+    position: absolute;
+    pointer-events: auto;
     left: calc(50% + 15 * var(--fpx));
     top: calc(50% + (-20.5 + var(--stack-trim)) * var(--fpx));
     transform: translate(-50%, -50%);
@@ -1080,7 +1084,8 @@ export default {
   .panel {
     // FT-852: hub-anchored exactly like the doors and the dial letters —
     // one coordinate system for everything sitting on the clock face.
-    position: fixed;
+    position: absolute;
+    pointer-events: auto;
     left: calc(50% + 15 * var(--fpx));
     top: calc(50% + -20.5 * var(--fpx));
     transform: translate(-50%, -50%);

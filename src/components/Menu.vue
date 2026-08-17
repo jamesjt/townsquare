@@ -10,7 +10,6 @@
       <ul>
         <li class="tabs" :class="tab">
           <font-awesome-icon icon="book-open" @click="setTab('grimoire')" />
-          <font-awesome-icon icon="theater-masks" @click="setTab('characters')" />
           <font-awesome-icon icon="question" @click="setTab('help')" />
         </li>
 
@@ -26,6 +25,14 @@
             <template v-if="!grimoire.isNight">Switch to Night</template>
             <template v-if="grimoire.isNight">Switch to Day</template>
             <em>[S]</em>
+          </li>
+          <li v-if="!session.isSpectator" @click="toggleModal('edition')">
+            Select Edition
+            <em>[E]</em>
+          </li>
+          <li v-if="!session.isSpectator" @click="toggleModal('fabled')">
+            Add Fabled
+            <em><font-awesome-icon icon="dragon"/></em>
           </li>
           <li @click="toggleNightOrder" v-if="players.length">
             Night order
@@ -78,29 +85,10 @@
           </li>
         </template>
 
-        <template v-if="tab === 'characters'">
-          <!-- Characters -->
-          <li class="headline">Characters</li>
-          <li v-if="!session.isSpectator" @click="toggleModal('edition')">
-            Select Edition
-            <em>[E]</em>
-          </li>
-          <li
-            @click="toggleModal('roles')"
-            v-if="!session.isSpectator && players.length > 4"
-          >
-            Choose & Assign
-            <em>[C]</em>
-          </li>
-          <li v-if="!session.isSpectator" @click="toggleModal('fabled')">
-            Add Fabled
-            <em><font-awesome-icon icon="dragon"/></em>
-          </li>
-          <li @click="clearRoles" v-if="players.length">
-            Remove all
-            <em><font-awesome-icon icon="trash-alt"/></em>
-          </li>
-        </template>
+        <!-- Golem fork (FT-852): the Characters tab retired — Choose & Assign
+             and Remove all live in the host tools; Select Edition and Add
+             Fabled relocated into the Grimoire section below so no host
+             capability is lost. Methods untouched. -->
 
         <template v-if="tab === 'help'">
           <!-- Help -->
