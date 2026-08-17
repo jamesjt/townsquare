@@ -13,7 +13,7 @@
         <ul class="doors">
           <li @click="press('a')">
             <span class="key"
-              ><img :src="blood.A.src" :style="bloodStyle('A')" alt="A"
+              ><img :src="blood.A.src" class="blood-cap-a" alt="A"
             /></span>dd Players
           </li>
         </ul>
@@ -55,17 +55,17 @@
         <ul class="doors" v-if="!mode">
           <li @click="openHost">
             <span class="key"
-              ><img :src="blood.H.src" :style="bloodStyle('H')" alt="H"
+              ><img :src="blood.H.src" class="blood-cap-h" alt="H"
             /></span>ost
           </li>
           <li @click="openJoin">
             <span class="key"
-              ><img :src="blood.J.src" :style="bloodStyle('J')" alt="J"
+              ><img :src="blood.J.src" class="blood-cap-j" alt="J"
             /></span>oin
           </li>
           <li @click="press('c')">
             <span class="key"
-              ><img :src="blood.C.src" :style="bloodStyle('C')" alt="C"
+              ><img :src="blood.C.src" class="blood-cap-c" alt="C"
             /></span>reate
           </li>
         </ul>
@@ -324,8 +324,8 @@ import { getRecents, peekScript } from "../golem/scripts";
 // Metrics are image px against a 180px reference font with the glyph baseline
 // at image y=400; the drop-cap displays at 1.09x the key font (the 1.45x
 // original, sized down ~25% for the vertical door stack), so ems convert as
-// 1.09 / (180 * 2x).
-const BLOOD_EM_PER_PX = 1.09 / 360;
+// 1.09 / (180 * 2x) = 1.09/360 em per trimmed pixel — the static
+// .blood-cap-* sizes in the style block below are that conversion, baked.
 const BLOOD = {
   H: { src: bloodH, ...bloodMetrics.H },
   J: { src: bloodJ, ...bloodMetrics.J },
@@ -850,16 +850,6 @@ export default {
       this.titleStyle = (this.titleStyle + 1) % 3;
       localStorage.setItem("golem.titleStyle", String(this.titleStyle));
     },
-    bloodStyle(ch) {
-      const m = BLOOD[ch];
-      const em = (px) => (px * BLOOD_EM_PER_PX).toFixed(3) + "em";
-      return {
-        width: em(m.w),
-        height: em(m.h),
-        // sink the drip overhang below the text baseline
-        verticalAlign: "-" + em(m.below)
-      };
-    },
     press(key) {
       // The hotkey listener lives on the App root element (@keyup), so a
       // document-dispatched synthetic event never reaches it. Intro is App's
@@ -922,8 +912,8 @@ export default {
     top: max(48px, 5vh);
     left: 50%;
     // user-calibrated 2026-08-17: the tower's face sits right of true
-    // center; the title follows it (same 10px step as the doors, +15 more).
-    transform: translateX(calc(-50% + 25px));
+    // center; the title follows it.
+    transform: translateX(calc(-50% + 20px));
     text-align: center;
     pointer-events: none;
     z-index: 3;
@@ -1013,22 +1003,23 @@ export default {
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
-    gap: 4px;
-    padding: 10px 0;
+    // FT-852: everything in face pixels (--fpx, see App.vue) so the stack
+    // scales with the clock face; the translate is the dial-center offset
+    // (+15,-20.5 image px), which puts Join's center on the hub exactly.
+    gap: calc(5.5 * var(--fpx));
+    padding: calc(14 * var(--fpx)) 0;
     margin: 0 auto;
-    // narrow enough to sit INSIDE the dial's letter ring, never over it —
-    // user-calibrated 2026-08-17: 120px wide, 10px right of true center,
-    // whole stack raised 35px beyond the hub nudge so Join sits on the hub.
-    width: min(120px, 50vw);
-    transform: translate(10px, calc(-2vh - 35px));
+    width: calc(164 * var(--fpx));
+    font-size: calc(53 * var(--fpx));
+    transform: translate(calc(15 * var(--fpx)), calc(-20.5 * var(--fpx)));
 
     li {
       font-family: PiratesBay, sans-serif;
       letter-spacing: 1px;
-      font-size: 140%;
+      font-size: 100%;
       cursor: pointer;
       text-align: center;
-      padding: 10px 7px;
+      padding: 0.26em 0.18em;
       background: rgba(0, 0, 0, 0.9);
       border: 3px solid black;
       border-radius: 10px;
@@ -1045,7 +1036,7 @@ export default {
       // Host and Create sit 25% smaller.
       &:nth-child(1),
       &:nth-child(3) {
-        font-size: 105%;
+        font-size: 75%;
       }
 
       .key {
@@ -1058,11 +1049,16 @@ export default {
         display: inline-block;
 
         // Golem fork (FT-846): the baked blood drop-cap; drips hang over the
-        // door edge, above its border.
+        // door edge, above its border. Static per-letter sizing (from the
+        // alphabet's trimmed metrics, baked here as plain CSS — FT-852).
         img {
           position: relative;
           z-index: 2;
         }
+        .blood-cap-a { width: 0.805em; height: 0.927em; vertical-align: -0.124em; }
+        .blood-cap-h { width: 0.712em; height: 0.927em; vertical-align: -0.127em; }
+        .blood-cap-j { width: 0.681em; height: 0.936em; vertical-align: -0.136em; }
+        .blood-cap-c { width: 0.687em; height: 0.942em; vertical-align: -0.139em; }
       }
     }
   }

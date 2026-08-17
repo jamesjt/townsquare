@@ -22,6 +22,22 @@
       loop
     ></video>
     <div class="backdrop"></div>
+    <!-- Golem fork (FT-852): the dial's CLOCKTOWER letters are static DOM
+         now, not baked into the art — positions are plain numbers in
+         image-pixels (see --fpx below), adjustable in devtools and scaling
+         with the clock face at every viewport. -->
+    <div class="dial-letters" aria-hidden="true">
+      <span class="dl dl-c1">C</span>
+      <span class="dl dl-l">L</span>
+      <span class="dl dl-o1">O</span>
+      <span class="dl dl-c2">C</span>
+      <span class="dl dl-k">K</span>
+      <span class="dl dl-t">T</span>
+      <span class="dl dl-o2">O</span>
+      <span class="dl dl-w">W</span>
+      <span class="dl dl-e">E</span>
+      <span class="dl dl-r">R</span>
+    </div>
     <transition name="blur">
       <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
            town centre is the tools panel — from zero seats up. TownInfo
@@ -559,6 +575,43 @@ video#background {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Golem fork (FT-852): one face-pixel — the unit the background's cover fit
+   actually draws at. The art is 1672×941 with the dial centered at
+   image (851,450); every dial-anchored element positions in these units so
+   it rides the face at any viewport. Adjust letters by editing the plain
+   numbers below (they are image pixels). */
+#app {
+  --fpx: max(0.05981vw, 0.10627vh);
+}
+#app > .dial-letters {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: calc(82 * var(--fpx));
+  color: #180d05;
+  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
+  .dl {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    line-height: 1;
+  }
+  /* hour positions on the measured tick rays (image px from viewport
+     center, dial center offset +15,-20.5 already folded in) */
+  .dl-c1 { left: calc(50% + 91.9 * var(--fpx)); top: calc(50% + -167.6 * var(--fpx)); }
+  .dl-l  { left: calc(50% + 153.3 * var(--fpx)); top: calc(50% + -112.4 * var(--fpx)); }
+  .dl-o1 { left: calc(50% + 180.5 * var(--fpx)); top: calc(50% + -34.0 * var(--fpx)); }
+  .dl-c2 { left: calc(50% + 164.1 * var(--fpx)); top: calc(50% + 52.5 * var(--fpx)); }
+  .dl-k  { left: calc(50% + 105.0 * var(--fpx)); top: calc(50% + 119.0 * var(--fpx)); }
+  .dl-t  { left: calc(50% + -85.4 * var(--fpx)); top: calc(50% + 111.7 * var(--fpx)); }
+  .dl-o2 { left: calc(50% + -136.5 * var(--fpx)); top: calc(50% + 47.4 * var(--fpx)); }
+  .dl-w  { left: calc(50% + -150.5 * var(--fpx)); top: calc(50% + -33.5 * var(--fpx)); }
+  .dl-e  { left: calc(50% + -126.5 * var(--fpx)); top: calc(50% + -107.2 * var(--fpx)); }
+  .dl-r  { left: calc(50% + -72.5 * var(--fpx)); top: calc(50% + -161.6 * var(--fpx)); }
 }
 
 /* Night phase backdrop */
