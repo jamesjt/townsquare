@@ -518,6 +518,33 @@ class LiveSession {
    * @param value
    * @param isFromSockets
    */
+  /**
+   * Golem fork: publish a player NAME update — the same spectator guard as
+   * pronouns (only your own seat), so a player names their seat on claim and
+   * the storyteller can still rename anyone.
+   */
+  sendPlayerName({ player, value, isFromSockets }) {
+    if (
+      isFromSockets ||
+      (this._isSpectator && this._store.state.session.playerId !== player.id)
+    )
+      return;
+    const index = this._store.state.players.players.indexOf(player);
+    this._send("playername", [index, value]);
+  }
+
+  /** Golem fork: apply an incoming player-name update. */
+  _updatePlayerName([index, value]) {
+    const player = this._store.state.players.players[index];
+    if (!player) return;
+    this._store.commit("players/update", {
+      player,
+      property: "name",
+      value,
+      isFromSockets: true
+    });
+  }
+
   sendPlayerPronouns({ player, value, isFromSockets }) {
     //send pronoun only for the seated player or storyteller
     //Do not re-send pronoun data for an update that was recieved from the sockets layer
@@ -918,6 +945,10 @@ export default store => {
       case "players/update":
         if (payload.property === "pronouns") {
           session.sendPlayerPronouns(payload);
+        } else if (payload.property === "name") {
+          // Golem fork: names travel their own channel so a SPECTATOR can
+          // name their claimed seat (sendPlayer is host-only and drops it).
+          session.sendPlayerName(payload);
         } else {
           session.sendPlayer(payload);
         }
