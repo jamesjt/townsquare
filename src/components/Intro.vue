@@ -25,14 +25,30 @@
              background), pinned to the sky band above the clock face. Static
              PNGs — nothing animates, so the kill-switch has nothing to kill. -->
         <div class="title" aria-label="Blood on the Clocktower">
-          <div class="blood-word">
-            <img
-              v-for="(g, i) in titleGlyphs"
-              :key="i"
-              :src="g.src"
-              :style="g.style"
-              :alt="g.alt"
-            />
+          <!-- Golem fork: clicking the word cycles its lettering — 0 the
+               blood-alphabet PNGs, 1 gold official-style (Pirata One, OFL),
+               2 the same lettering in blood red. Persisted so the choice
+               survives reloads; fixed row height so nothing below shifts. -->
+          <div
+            class="blood-word"
+            title="Click to change the lettering"
+            @click="cycleTitleStyle"
+          >
+            <template v-if="titleStyle === 0">
+              <img
+                v-for="(g, i) in titleGlyphs"
+                :key="i"
+                :src="g.src"
+                :style="g.style"
+                :alt="g.alt"
+              />
+            </template>
+            <span
+              v-else
+              class="lettered"
+              :class="titleStyle === 1 ? 'gold' : 'red'"
+              >Blood</span
+            >
           </div>
           <div class="on-the">On the</div>
         </div>
@@ -470,9 +486,17 @@ export default {
     }
   },
   data() {
+    // Golem fork: the title lettering choice (0 blood PNGs | 1 gold | 2 red),
+    // remembered across reloads. Anything unparseable falls back to 0.
+    const savedTitleStyle = parseInt(
+      localStorage.getItem("golem.titleStyle"),
+      10
+    );
     return {
       language: window.navigator.userLanguage || window.navigator.language,
       blood: BLOOD,
+      titleStyle:
+        savedTitleStyle >= 0 && savedTitleStyle <= 2 ? savedTitleStyle : 0,
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
       townId: "",
@@ -821,6 +845,11 @@ export default {
       this.$store.commit("toggleGrimoire", false);
       this.$store.commit("session/setSessionId", id);
     },
+    /** Golem fork: click the title word → next lettering (0 → 1 → 2 → 0). */
+    cycleTitleStyle() {
+      this.titleStyle = (this.titleStyle + 1) % 3;
+      localStorage.setItem("golem.titleStyle", String(this.titleStyle));
+    },
     bloodStyle(ch) {
       const m = BLOOD[ch];
       const em = (px) => (px * BLOOD_EM_PER_PX).toFixed(3) + "em";
@@ -853,6 +882,14 @@ export default {
 @font-face {
   font-family: WetPaint;
   src: url("../assets/fonts/rubikwetpaint.ttf");
+  font-display: swap;
+}
+// Pirata One (SIL OFL 1.1 — see pirataone-OFL.txt beside it) — the closest
+// freely-bundlable letterform to the official wordmark's blackletter; used by
+// the title's gold/red lettering states.
+@font-face {
+  font-family: PirataOne;
+  src: url("../assets/fonts/pirataone.ttf");
   font-display: swap;
 }
 
@@ -893,11 +930,56 @@ export default {
       font-size: min(10vh, 9vw, 76px);
       line-height: 1;
       white-space: nowrap;
+      // Golem fork: the lettering cycles on click (PNGs / gold / red) —
+      // fixed row height so "On the" never shifts between states, and the
+      // word alone takes the pointer (the .title wrapper stays inert).
+      position: relative;
+      height: 1.3em;
+      pointer-events: auto;
+      cursor: pointer;
 
       img {
         display: inline-block;
         margin: 0 0.025em;
         filter: drop-shadow(0 0.05em 0.08em rgba(0, 0, 0, 0.65));
+      }
+
+      // The gold/red official-style lettering (Pirata One). Gradient fill
+      // via background-clip; the dark edge + drop are filter shadows so the
+      // gradient stays clean. Pinned to the PNG row's baseline band.
+      .lettered {
+        position: absolute;
+        left: 50%;
+        bottom: 0.08em;
+        transform: translateX(-50%);
+        font-family: PirataOne, serif;
+        font-size: 1.55em;
+        line-height: 1;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(1px 1px 0 #1a1208) drop-shadow(-1px -1px 0 #1a1208)
+          drop-shadow(0 0.04em 0.07em rgba(0, 0, 0, 0.7));
+
+        &.gold {
+          background-image: linear-gradient(
+            180deg,
+            #f3dfa0 0%,
+            #e8c56a 22%,
+            #c99b3f 55%,
+            #8a6420 85%,
+            #6f4e18 100%
+          );
+        }
+        &.red {
+          background-image: linear-gradient(
+            180deg,
+            #e0555e 0%,
+            #c0121c 38%,
+            #8d0d14 75%,
+            #6d0a10 100%
+          );
+        }
       }
     }
     .on-the {
