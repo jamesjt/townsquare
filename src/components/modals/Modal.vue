@@ -127,6 +127,21 @@ export default {
   }
 }
 
+// Golem fork (FT-854): the Almanac workbench claims the room it needs — the
+// class rides the backdrop (component class passthrough) while it is open.
+.modal-backdrop.editions.workbench .modal {
+  width: 94vw;
+  height: 92vh;
+  max-width: 94vw;
+  max-height: 92vh;
+  > .slot {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .modal-fade-enter,
 .modal-fade-leave-active {
   opacity: 0;

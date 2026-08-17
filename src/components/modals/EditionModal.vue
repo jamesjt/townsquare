@@ -1,5 +1,10 @@
 <template>
-  <Modal class="editions" v-if="modals.edition" @close="toggleModal('edition')">
+  <Modal
+    class="editions"
+    :class="{ workbench: isCustom }"
+    v-if="modals.edition"
+    @close="toggleModal('edition')"
+  >
     <div v-if="!isCustom">
       <h3>Select an edition:</h3>
       <ul class="editions">
@@ -28,39 +33,221 @@
         </li>
       </ul>
     </div>
-    <div class="custom" v-else>
-      <!-- Golem fork: the title wears the blood A, like its door. -->
-      <h3 class="almanac-title">
-        <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
-      </h3>
+    <!-- Golem fork (FT-854): the Almanac WORKBENCH — the full script-editing
+         surface. Top: script selector + actions + the composition meter.
+         Left: every role (officials + your library) with search and team
+         filters. Main: the current script in three views. The meter INFORMS,
+         never blocks — non-conforming scripts save, share and play. -->
+    <div class="custom workbench" v-else>
+      <div class="wb-top">
+        <h3 class="almanac-title">
+          <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
+        </h3>
+        <select class="wb-script-select" :value="selectValue" @change="onScriptSelect">
+          <option value="" disabled>Choose a script…</option>
+          <optgroup label="Officials">
+            <option
+              v-for="edition in editions"
+              :key="'off-' + edition.id"
+              :value="'official:' + edition.id"
+            >{{ edition.name }}</option>
+          </optgroup>
+          <optgroup label="My scripts" v-if="myScripts.length">
+            <option
+              v-for="entry in myScripts"
+              :key="'mine-' + entry.id"
+              :value="'vault:' + entry.id"
+            >{{ ncMap[entry.id] ? "⚠ " : "" }}{{ entry.name }}</option>
+          </optgroup>
+          <optgroup label="Viewed" v-if="viewedScripts.length">
+            <option
+              v-for="entry in viewedScripts"
+              :key="'seen-' + entry.id"
+              :value="'vault:' + entry.id"
+            >{{ ncMap[entry.id] ? "⚠ " : "" }}{{ entry.name }}</option>
+          </optgroup>
+        </select>
+        <div class="wb-actions">
+          <div class="button" @click="newScript">
+            <font-awesome-icon icon="scroll" /> New script
+          </div>
+          <div class="button" @click="openRoleForm()">
+            <font-awesome-icon icon="plus-circle" /> New role
+          </div>
+          <div class="button" @click="importRoleOpen = !importRoleOpen">
+            <font-awesome-icon icon="file-code" /> Import role
+          </div>
+          <div class="button" @click="saveToVault">
+            <font-awesome-icon icon="file-upload" /> Save script
+          </div>
+          <div class="button" @click="promptVaultLoad">
+            <font-awesome-icon icon="link" /> Load by link
+          </div>
+          <div class="button" @click="openUpload">
+            <font-awesome-icon icon="file-upload" /> Upload JSON
+          </div>
+          <div class="button" @click="promptURL">
+            <font-awesome-icon icon="link" /> Enter URL
+          </div>
+          <div class="button" v-if="recents.length" @click="copyLinks">
+            <font-awesome-icon icon="clipboard" /> Export my links
+          </div>
+          <div class="button" @click="isCustom = false">
+            <font-awesome-icon icon="undo" /> Back
+          </div>
+        </div>
+        <div class="wb-import-role" v-if="importRoleOpen">
+          <textarea
+            v-model="importRoleText"
+            rows="3"
+            placeholder='Paste one role as JSON — an official id ("chef") or a role object {"name": …, "ability": …, "team": …}'
+          ></textarea>
+          <div class="button" @click="importRole">
+            <font-awesome-icon icon="plus-circle" /> Add to script
+          </div>
+        </div>
+        <!-- The composition meter: counts vs the official setup table. A script
+             that fits no standard player count is MARKED, never blocked. -->
+        <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
+          <span class="chip team-townsfolk">{{ teamCounts.townsfolk }} townsfolk</span>
+          <span class="chip team-outsider">
+            {{ teamCounts.outsider }} outsider{{ teamCounts.outsider === 1 ? "" : "s" }}
+          </span>
+          <span class="chip team-minion">
+            {{ teamCounts.minion }} minion{{ teamCounts.minion === 1 ? "" : "s" }}
+          </span>
+          <span class="chip team-demon">
+            {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
+          </span>
+          <span class="chip team-traveler" v-if="teamCounts.traveler">
+            {{ teamCounts.traveler }} traveller{{ teamCounts.traveler === 1 ? "" : "s" }}
+          </span>
+          <span class="verdict" v-if="servableCounts.length">
+            plays {{ servableText }} players
+          </span>
+          <span class="verdict" v-else>
+            <font-awesome-icon icon="exclamation-triangle" />
+            outside the rules — still playable
+          </span>
+        </div>
+      </div>
 
-      <!-- Golem fork: the script VAULT — save/share/fork by link. The three
-           official scripts are UNOWNABLE bases (no edit key exists), so every
-           save of one forks into the saver's own copy. -->
-      <h3>Saved scripts</h3>
-      <ul class="scripts" v-if="recents.length">
-        <li v-for="entry in recents" :key="entry.id" @click="loadFromVault(entry.id)">
-          {{ entry.name }}
-          <small>({{ entry.editKey ? "yours" : entry.role }})</small>
-        </li>
-      </ul>
-      <div class="button-group">
-        <div class="button" @click="promptVaultLoad">
-          <font-awesome-icon icon="link" /> Load by link
-        </div>
-        <div class="button" @click="saveToVault">
-          <font-awesome-icon icon="file-upload" /> Save current script
-        </div>
-        <div class="button" v-if="recents.length" @click="copyLinks">
-          <font-awesome-icon icon="clipboard" /> Export my links
-        </div>
+      <div class="wb-body">
+        <aside class="wb-sidebar">
+          <input
+            v-model="roleQuery"
+            class="wb-search"
+            placeholder="Search every role…"
+            @keyup.enter="searchRoles"
+          />
+          <div class="wb-chips">
+            <span
+              v-for="chip in teamChips"
+              :key="chip.value"
+              class="wb-chip"
+              :class="{ active: wbTeam === chip.value }"
+              @click="wbTeam = wbTeam === chip.value ? '' : chip.value"
+            >{{ chip.label }}</span>
+          </div>
+          <ul class="wb-all-roles">
+            <li
+              v-for="entry in sidebarRoles"
+              :key="entry.key"
+              :class="['team-' + entry.team, { inscript: entry.inScript }]"
+              @click="toggleRole(entry)"
+              :title="entry.ability || entry.name"
+            >
+              <span
+                class="icon"
+                v-if="entry.iconUrl"
+                :style="{ backgroundImage: `url(${entry.iconUrl})` }"
+              ></span>
+              <span class="wb-role-name">{{ entry.name }}</span>
+              <small v-if="entry.isLib">{{ entry.mine ? "yours" : "library" }}</small>
+              <span class="wb-in" v-if="entry.inScript">✓</span>
+            </li>
+          </ul>
+          <div class="button-group">
+            <div class="button" @click="searchRoles">
+              <font-awesome-icon icon="search-plus" /> Browse library
+            </div>
+          </div>
+        </aside>
+
+        <main class="wb-main">
+          <div class="wb-views">
+            <span
+              class="wb-tab"
+              :class="{ active: wbView === 'team' }"
+              @click="wbView = 'team'"
+            >By team</span>
+            <span
+              class="wb-tab"
+              :class="{ active: wbView === 'first' }"
+              @click="wbView = 'first'"
+            >First night</span>
+            <span
+              class="wb-tab"
+              :class="{ active: wbView === 'other' }"
+              @click="wbView = 'other'"
+            >Other nights</span>
+          </div>
+          <div class="wb-empty" v-if="!scriptRoles.length">
+            An empty page. Add roles from the shelf on the left, or pick a
+            script above.
+          </div>
+          <div class="wb-groups" v-else>
+            <section
+              v-for="group in viewGroups"
+              :key="group.label"
+              :class="{ dim: group.dim }"
+            >
+              <h4>
+                {{ group.label }} <small>({{ group.roles.length }})</small>
+              </h4>
+              <ul class="wb-cards">
+                <li
+                  v-for="role in group.roles"
+                  :key="role.id"
+                  class="wb-card"
+                  :class="'team-' + role.team"
+                >
+                  <span
+                    class="icon"
+                    :style="{ backgroundImage: `url(${roleIconUrl(role)})` }"
+                  ></span>
+                  <span class="wb-card-head">
+                    <span class="wb-card-name">{{ role.name }}</span>
+                    <span class="night-num" v-if="wbView !== 'team'">
+                      {{ wbView === "first" ? role.firstNight : role.otherNight }}
+                    </span>
+                  </span>
+                  <span class="wb-card-ability">{{ role.ability }}</span>
+                  <span class="wb-card-actions">
+                    <font-awesome-icon
+                      v-if="role.isCustom"
+                      icon="pen"
+                      title="Edit this role"
+                      @click.stop="openRoleForm(role)"
+                    />
+                    <font-awesome-icon
+                      icon="times"
+                      title="Remove from script"
+                      @click.stop="removeRole(role.id)"
+                    />
+                  </span>
+                </li>
+              </ul>
+            </section>
+          </div>
+        </main>
       </div>
 
       <!-- Golem fork (FT-851): the custom-role library — author a role once,
            save it to the library, and drop it into the current script as a
            full snapshot (the script carries the whole role). Fork-on-edit
-           like scripts: saving someone else's role forks your own copy. -->
-      <h3>Custom roles</h3>
+           like scripts: saving someone else's role forks your own copy.
+           FT-854: the forge floats over the workbench as an overlay. -->
       <div class="role-form" v-if="roleForm">
         <div class="row">
           <input
@@ -155,63 +342,7 @@
           </div>
         </div>
       </div>
-      <div class="role-library" v-else>
-        <ul class="scripts" v-if="editionCustomRoles.length">
-          <li
-            v-for="role in editionCustomRoles"
-            :key="role.id"
-            @click="openRoleForm(role)"
-          >
-            {{ role.name }}
-            <small>(in this script — edit)</small>
-          </li>
-        </ul>
-        <div class="row role-search">
-          <input
-            v-model="roleQuery"
-            placeholder="Search the role library…"
-            @keyup.enter="searchRoles"
-          />
-          <select v-model="roleTypeFilter" @change="searchRoles">
-            <option value="">any type</option>
-            <option value="townsfolk">Townsfolk</option>
-            <option value="outsider">Outsider</option>
-            <option value="minion">Minion</option>
-            <option value="demon">Demon</option>
-            <option value="traveller">Traveller</option>
-          </select>
-        </div>
-        <ul class="scripts" v-if="roleShelfFiltered.length || roleResults.length">
-          <li
-            v-for="entry in roleShelfFiltered"
-            :key="'shelf-' + entry.id"
-            @click="addLibraryRole(entry.id)"
-          >
-            {{ entry.name }}
-            <small>({{ entry.editKey ? "yours" : entry.role }})</small>
-          </li>
-          <li
-            v-for="row in roleResults"
-            :key="'browse-' + row.id"
-            @click="addLibraryRole(row.id)"
-          >
-            {{ row.name }}
-            <small
-              >({{ row.roleType
-              }}{{ row.authorName ? " by " + row.authorName : "" }})</small
-            >
-          </li>
-        </ul>
-        <div class="role-error" v-if="roleError">{{ roleError }}</div>
-        <div class="button-group">
-          <div class="button" @click="openRoleForm()">
-            <font-awesome-icon icon="plus-circle" /> New role
-          </div>
-          <div class="button" @click="searchRoles">
-            <font-awesome-icon icon="search-plus" /> Browse library
-          </div>
-        </div>
-      </div>
+      <div class="role-error wb-error" v-if="roleError">{{ roleError }}</div>
 
       <input
         type="file"
@@ -219,17 +350,6 @@
         accept="application/json"
         @change="handleUpload"
       />
-      <div class="button-group">
-        <div class="button" @click="openUpload">
-          <font-awesome-icon icon="file-upload" /> Upload JSON
-        </div>
-        <div class="button" @click="promptURL">
-          <font-awesome-icon icon="link" /> Enter URL
-        </div>
-        <div class="button" @click="isCustom = false">
-          <font-awesome-icon icon="undo" /> Back
-        </div>
-      </div>
     </div>
   </Modal>
 </template>
@@ -244,6 +364,34 @@ import * as roleLib from "../../golem/roles";
 import * as towns from "../../golem/towns";
 import { flashHint } from "../../golem/hint";
 import bloodA from "../../assets/blood/blood-A.png";
+
+// Golem fork (FT-854): the official setup table — players: [townsfolk,
+// outsiders, minions, demons]. The meter measures a script's POOL against it:
+// a count is servable when the pool covers each column. Purely informational.
+const SETUP_TABLE = {
+  5: [3, 0, 1, 1],
+  6: [3, 1, 1, 1],
+  7: [5, 0, 1, 1],
+  8: [5, 1, 1, 1],
+  9: [5, 2, 1, 1],
+  10: [7, 0, 2, 1],
+  11: [7, 1, 2, 1],
+  12: [7, 2, 2, 1],
+  13: [9, 0, 3, 1],
+  14: [9, 1, 3, 1],
+  15: [9, 2, 3, 1]
+};
+const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon", "traveler"];
+const TEAM_LABELS = {
+  townsfolk: "Townsfolk",
+  outsider: "Outsiders",
+  minion: "Minions",
+  demon: "Demons",
+  traveler: "Travellers"
+};
+// roles.json spells it "traveler"; the server's roleType vocabulary spells it
+// "traveller". Normalize to the app side everywhere the two meet.
+const normTeam = t => (t || "").replace("traveller", "traveler");
 
 export default {
   components: {
@@ -268,6 +416,14 @@ export default {
       roleResults: [],
       roleShelf: roleLib.getRecents(),
       roleError: "",
+      // Golem fork (FT-854): the workbench — active view, sidebar team filter,
+      // the import-role paste row, and the non-conforming marks by script id
+      // (derived from the setup table; informational only, never a gate).
+      wbView: "team",
+      wbTeam: "",
+      importRoleOpen: false,
+      importRoleText: "",
+      ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
         ["bad-moon-rising", "Bad Moon Rising"],
@@ -327,6 +483,148 @@ export default {
       return this.roleShelf.filter(entry =>
         (entry.name || "").toLowerCase().includes(q)
       );
+    },
+    // ── Golem fork (FT-854): the workbench ───────────────────────────────
+    myScripts() {
+      return this.recents.filter(e => e.editKey);
+    },
+    viewedScripts() {
+      return this.recents.filter(e => !e.editKey);
+    },
+    /** What the top selector should show as current. */
+    selectValue() {
+      const edition = this.$store.state.edition;
+      if (edition && edition.id !== "custom") return "official:" + edition.id;
+      if (this.vaultSourceId) return "vault:" + this.vaultSourceId;
+      return "";
+    },
+    /** The current script as a list (state.roles is replaced wholesale). */
+    scriptRoles() {
+      const list = [];
+      this.$store.state.roles.forEach(role => list.push(role));
+      return list;
+    },
+    teamCounts() {
+      const counts = { townsfolk: 0, outsider: 0, minion: 0, demon: 0, traveler: 0 };
+      this.scriptRoles.forEach(role => {
+        const team = normTeam(role.team);
+        if (counts[team] !== undefined) counts[team] += 1;
+      });
+      return counts;
+    },
+    /** Player counts the pool can serve under the official table. */
+    servableCounts() {
+      const c = this.teamCounts;
+      return Object.keys(SETUP_TABLE)
+        .map(Number)
+        .filter(n => {
+          const [t, o, m, d] = SETUP_TABLE[n];
+          return (
+            c.townsfolk >= t && c.outsider >= o && c.minion >= m && c.demon >= d
+          );
+        });
+    },
+    /** "5–15" / "5, 7, 10–13" — collapse runs for the meter. */
+    servableText() {
+      const runs = [];
+      this.servableCounts.forEach(n => {
+        const last = runs[runs.length - 1];
+        if (last && n === last[1] + 1) last[1] = n;
+        else runs.push([n, n]);
+      });
+      return runs
+        .map(([a, b]) => (a === b ? String(a) : a + "–" + b))
+        .join(", ");
+    },
+    teamChips() {
+      return [
+        { value: "townsfolk", label: "Townsfolk" },
+        { value: "outsider", label: "Outsiders" },
+        { value: "minion", label: "Minions" },
+        { value: "demon", label: "Demons" },
+        { value: "traveler", label: "Travellers" },
+        { value: "mine", label: "Yours" }
+      ];
+    },
+    /** The sidebar: every official + your library + browse results, filtered. */
+    sidebarRoles() {
+      const q = this.roleQuery.trim().toLowerCase();
+      const inScriptIds = new Set(this.scriptRoles.map(r => r.id));
+      const inScriptLibIds = new Set(
+        this.scriptRoles.map(r => r.golemRoleId).filter(Boolean)
+      );
+      const entries = [];
+      rolesJSON.forEach(role => {
+        entries.push({
+          key: "off-" + role.id,
+          id: role.id,
+          name: role.name,
+          team: normTeam(role.team),
+          ability: role.ability,
+          iconUrl: this.iconUrl(role.id),
+          official: true,
+          inScript: inScriptIds.has(role.id)
+        });
+      });
+      const seen = new Set();
+      this.roleShelf.forEach(entry => {
+        seen.add(entry.id);
+        entries.push({
+          key: "lib-" + entry.id,
+          libId: entry.id,
+          name: entry.name,
+          team: normTeam(entry.role),
+          isLib: true,
+          mine: !!entry.editKey,
+          inScript: inScriptLibIds.has(entry.id)
+        });
+      });
+      this.roleResults.forEach(row => {
+        if (seen.has(row.id)) return;
+        entries.push({
+          key: "browse-" + row.id,
+          libId: row.id,
+          name: row.name,
+          team: normTeam(row.roleType),
+          isLib: true,
+          mine: false,
+          inScript: inScriptLibIds.has(row.id)
+        });
+      });
+      return entries.filter(entry => {
+        if (q && !(entry.name || "").toLowerCase().includes(q)) return false;
+        if (this.wbTeam === "mine") return entry.isLib && entry.mine;
+        if (this.wbTeam) return entry.team === this.wbTeam;
+        return true;
+      });
+    },
+    /** The main area's groups, per view. Night views sink non-wakers, dim. */
+    viewGroups() {
+      const roles = this.scriptRoles;
+      if (this.wbView === "team") {
+        return TEAM_ORDER.map(team => ({
+          label: TEAM_LABELS[team],
+          roles: roles
+            .filter(r => normTeam(r.team) === team)
+            .sort((a, b) => a.name.localeCompare(b.name))
+        })).filter(g => g.roles.length);
+      }
+      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
+      const wakers = roles
+        .filter(r => (r[prop] || 0) > 0)
+        .sort((a, b) => a[prop] - b[prop] || a.name.localeCompare(b.name));
+      const sleepers = roles
+        .filter(r => !(r[prop] || 0))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const groups = [
+        {
+          label: this.wbView === "first" ? "Wake the first night" : "Wake on other nights",
+          roles: wakers
+        }
+      ];
+      if (sleepers.length)
+        groups.push({ label: "Don't wake", roles: sleepers, dim: true });
+      return groups;
     }
   },
   // Golem fork: a ?script=<id> share link auto-loads its script on arrival.
@@ -350,6 +648,7 @@ export default {
         this.parseRoles(roles);
         this.vaultSourceId = script.id;
         this.recents = vault.getRecents();
+        this.markNC(script.id);
         // FT-847: the host of an OWNED town picked a vault script → save it
         // to the town (skipped when the town itself supplied the script).
         if (attach) this.maybeAttachToTown(script.id);
@@ -411,6 +710,9 @@ export default {
         });
         this.vaultSourceId = script.id;
         this.recents = vault.getRecents();
+        // FT-854: stamp (or clear) the non-conforming mark — a marker, not a
+        // gate; the save above already succeeded whatever the composition.
+        this.markNC(script.id);
         // FT-847: a save/fork lands a (possibly new) script id — keep the
         // owned town pointing at what its host actually plays.
         this.maybeAttachToTown(script.id);
@@ -564,9 +866,18 @@ export default {
     async searchRoles() {
       this.roleError = "";
       try {
+        // FT-854: the sidebar's team chip doubles as the browse type filter
+        // (the server vocabulary spells "traveller" with two l's).
+        const type = ["townsfolk", "outsider", "minion", "demon"].includes(
+          this.wbTeam
+        )
+          ? this.wbTeam
+          : this.wbTeam === "traveler"
+            ? "traveller"
+            : "";
         const rows = await roleLib.browseRoles({
           q: this.roleQuery.trim(),
-          type: this.roleTypeFilter,
+          type,
           limit: 20
         });
         const shelfIds = new Set(this.roleShelf.map(e => e.id));
@@ -609,6 +920,158 @@ export default {
           name: meta.name || "Custom script"
         });
       }
+    },
+    // ── Golem fork (FT-854): the workbench ───────────────────────────────
+    /**
+     * setEdition (and friends) close the modal as a side effect — upstream's
+     * flow ended there. The workbench keeps working, so re-open in place.
+     */
+    ensureOpen() {
+      if (!this.$store.state.modals.edition)
+        this.$store.commit("toggleModal", "edition");
+      this.isCustom = true;
+    },
+    onScriptSelect(event) {
+      const value = event.target.value;
+      if (value.startsWith("official:")) {
+        const id = value.slice("official:".length);
+        const edition = editionJSON.find(e => e.id === id);
+        if (edition) {
+          this.$store.commit("setEdition", edition);
+          this.vaultSourceId = null;
+          this.ensureOpen();
+        }
+      } else if (value.startsWith("vault:")) {
+        this.loadFromVault(value.slice("vault:".length)).then(() =>
+          this.ensureOpen()
+        );
+      }
+    },
+    /** A blank page: empty custom script, no vault lineage. */
+    newScript() {
+      this.$store.commit("setCustomRoles", []);
+      this.$store.commit("setEdition", { id: "custom", name: "Untitled script" });
+      this.vaultSourceId = null;
+      this.ensureOpen();
+      flashHint("A blank script — add roles from the shelf");
+    },
+    /** Sidebar click: in the script → out; not in it → in. */
+    async toggleRole(entry) {
+      this.roleError = "";
+      if (entry.official) {
+        if (entry.inScript) this.removeRole(entry.id);
+        else {
+          this.insertRoleIntoEdition({ id: entry.id }, null);
+          this.ensureOpen();
+        }
+        return;
+      }
+      // library entries: the script carries snapshots keyed by golemRoleId
+      if (entry.inScript) {
+        const role = this.scriptRoles.find(r => r.golemRoleId === entry.libId);
+        if (role) this.removeRole(role.id);
+      } else {
+        await this.addLibraryRole(entry.libId);
+        this.ensureOpen();
+      }
+    },
+    /** Remove one role from the current script (never blocks on composition). */
+    removeRole(appId) {
+      const base = this.$store.getters.rolesJSONbyId;
+      const list = [];
+      this.$store.state.roles.forEach(role => {
+        if (role.id === appId) return;
+        if (base.has(role.id)) list.push({ id: role.id });
+        else {
+          const rest = { ...role };
+          delete rest.imageAlt;
+          list.push(rest);
+        }
+      });
+      this.$store.commit("setCustomRoles", list);
+      if (this.$store.state.edition.id !== "custom") {
+        const meta = this.$store.state.edition;
+        this.$store.commit("setEdition", {
+          id: "custom",
+          name: meta.name || "Custom script"
+        });
+      }
+      this.ensureOpen();
+    },
+    /** Paste one role — an official id, or a Script-Tool-shaped object. */
+    importRole() {
+      this.roleError = "";
+      let parsed;
+      try {
+        parsed = JSON.parse(this.importRoleText);
+      } catch (e) {
+        // a bare official id without quotes is a kindness worth extending
+        parsed = this.importRoleText.trim();
+      }
+      if (Array.isArray(parsed)) parsed = parsed[0];
+      const base = this.$store.getters.rolesJSONbyId;
+      if (typeof parsed === "string") {
+        const id = parsed.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!base.has(id)) {
+          this.roleError = `No official role called ${JSON.stringify(parsed)} — paste a role object for customs.`;
+          return;
+        }
+        this.insertRoleIntoEdition({ id }, null);
+      } else if (parsed && typeof parsed === "object") {
+        if (parsed.id && base.has(parsed.id)) {
+          this.insertRoleIntoEdition({ id: parsed.id }, null);
+        } else {
+          const team = normTeam(parsed.team || parsed.roleType);
+          if (!parsed.name || !parsed.ability || !TEAM_ORDER.includes(team)) {
+            this.roleError =
+              "A role needs at least a name, an ability, and a team (townsfolk / outsider / minion / demon / traveler).";
+            return;
+          }
+          const id =
+            (parsed.id && String(parsed.id)) ||
+            "imported_" + parsed.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+          this.insertRoleIntoEdition(
+            {
+              ...parsed,
+              id,
+              team,
+              firstNight: Math.abs(parsed.firstNight || 0),
+              otherNight: Math.abs(parsed.otherNight || 0),
+              reminders: parsed.reminders || [],
+              setup: !!parsed.setup,
+              isCustom: true
+            },
+            null
+          );
+        }
+      } else {
+        this.roleError = "Paste one role as JSON.";
+        return;
+      }
+      this.importRoleText = "";
+      this.importRoleOpen = false;
+      this.ensureOpen();
+      flashHint("Role added to this script");
+    },
+    /** The icon for any script role — official art, borrowed art, or generic. */
+    roleIconUrl(role) {
+      const base = this.$store.getters.rolesJSONbyId;
+      if (base.has(role.id)) return this.iconUrl(role.id);
+      return this.iconUrl(role.imageAlt || "custom");
+    },
+    /**
+     * Mark (or clear) a vault script's non-conforming flag — DERIVED from the
+     * meter at load/save time, stored so the selector can badge without
+     * fetching. Marking is the whole enforcement: play proceeds regardless.
+     */
+    markNC(scriptId) {
+      if (!scriptId) return;
+      const nc = !this.servableCounts.length;
+      const map = { ...this.ncMap };
+      if (nc) map[scriptId] = true;
+      else delete map[scriptId];
+      this.ncMap = map;
+      localStorage.setItem("golem.scriptNC", JSON.stringify(map));
     },
     // ── upstream methods ─────────────────────────────────────────────────
     openUpload() {
@@ -679,7 +1142,11 @@ export default {
         });
         this.$store.commit("players/setFabled", { fabled });
       }
-      this.isCustom = false;
+      // Golem fork (FT-854): loading a script LANDS IN the workbench (the
+      // setEdition side effect above closed the modal; upstream also bounced
+      // back to the tiles). A silent ?script= auto-load — modal never open —
+      // stays silent.
+      if (this.isCustom) this.ensureOpen();
     },
     ...mapMutations(["toggleModal", "setEdition"])
   }
@@ -816,5 +1283,328 @@ ul.editions .edition {
   color: #ff6b6b;
   margin: 5px;
   font-weight: bold;
+}
+
+// ── Golem fork (FT-854): the workbench ─────────────────────────────────
+$team-colors: (
+  "townsfolk": #1f65ff,
+  "outsider": #46d5ff,
+  "minion": #ff6900,
+  "demon": #ce0100,
+  "traveler": #cc04ff
+);
+
+.custom.workbench {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  text-align: left;
+
+  .wb-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    .almanac-title {
+      margin: 0;
+    }
+    .wb-script-select {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 105%;
+      max-width: 300px;
+    }
+    .wb-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-left: auto;
+      .button {
+        margin: 0;
+      }
+    }
+  }
+
+  .wb-import-role {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    textarea {
+      flex-grow: 1;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid #666;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-family: inherit;
+    }
+    .button {
+      margin: 0;
+      flex-shrink: 0;
+    }
+  }
+
+  .wb-meter {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 90%;
+    .chip {
+      padding: 1px 9px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-left: 3px solid transparent;
+      @each $team, $color in $team-colors {
+        &.team-#{$team} {
+          border-left-color: $color;
+        }
+      }
+    }
+    .verdict {
+      margin-left: 8px;
+      color: #7ed67e;
+    }
+    &.nonconforming .verdict {
+      color: #ff8a8a;
+    }
+  }
+
+  .wb-body {
+    display: flex;
+    flex-grow: 1;
+    min-height: 0;
+    gap: 14px;
+    padding-top: 8px;
+  }
+
+  .wb-sidebar {
+    width: 270px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    .wb-search {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid #666;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-family: inherit;
+    }
+    .wb-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 6px 0;
+    }
+    .wb-chip {
+      cursor: pointer;
+      padding: 1px 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 85%;
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      &.active {
+        background: rgba(255, 255, 255, 0.35);
+        color: black;
+        font-weight: bold;
+      }
+    }
+    .wb-all-roles {
+      flex-grow: 1;
+      overflow-y: auto;
+      display: block;
+      min-height: 0;
+      li {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 6px;
+        cursor: pointer;
+        border-radius: 4px;
+        border-left: 3px solid transparent;
+        @each $team, $color in $team-colors {
+          &.team-#{$team} {
+            border-left-color: rgba($color, 0.65);
+          }
+        }
+        &:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+        .icon {
+          width: 26px;
+          height: 26px;
+          background-size: cover;
+          background-position: center;
+          flex-shrink: 0;
+        }
+        .wb-role-name {
+          flex-grow: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        small {
+          color: rgba(255, 255, 255, 0.45);
+        }
+        .wb-in {
+          color: #7ed67e;
+          font-weight: bold;
+        }
+      }
+    }
+    .button-group {
+      margin-top: 6px;
+    }
+  }
+
+  .wb-main {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    .wb-views {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 6px;
+      .wb-tab {
+        cursor: pointer;
+        padding: 3px 16px;
+        border-radius: 4px 4px 0 0;
+        background: rgba(255, 255, 255, 0.08);
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+        &.active {
+          background: rgba(255, 255, 255, 0.3);
+          font-weight: bold;
+        }
+      }
+    }
+    .wb-empty {
+      color: rgba(255, 255, 255, 0.6);
+      padding: 40px;
+      text-align: center;
+      font-size: 110%;
+    }
+    .wb-groups {
+      overflow-y: auto;
+      flex-grow: 1;
+      min-height: 0;
+      section {
+        margin-bottom: 12px;
+        &.dim {
+          opacity: 0.55;
+        }
+        h4 {
+          margin: 4px 0 6px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+          small {
+            font-weight: normal;
+            opacity: 0.6;
+          }
+        }
+      }
+    }
+    .wb-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 6px;
+      align-items: stretch;
+    }
+    .wb-card {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      column-gap: 8px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border-left: 3px solid transparent;
+      @each $team, $color in $team-colors {
+        &.team-#{$team} {
+          border-left-color: $color;
+        }
+      }
+      .icon {
+        grid-row: 1 / span 2;
+        width: 40px;
+        height: 40px;
+        background-size: cover;
+        background-position: center;
+      }
+      .wb-card-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-weight: bold;
+        .night-num {
+          font-weight: normal;
+          opacity: 0.7;
+          font-size: 85%;
+        }
+      }
+      .wb-card-ability {
+        grid-column: 2 / span 2;
+        font-size: 82%;
+        opacity: 0.8;
+        line-height: 1.25;
+      }
+      .wb-card-actions {
+        display: flex;
+        gap: 8px;
+        svg {
+          cursor: pointer;
+          width: 14px;
+          &:hover {
+            color: red;
+          }
+        }
+      }
+    }
+  }
+
+  // The forge floats over the workbench instead of replacing it.
+  .role-form {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(12, 12, 16, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    padding: 18px;
+    z-index: 30;
+    width: min(680px, 92%);
+    max-height: 88%;
+    overflow-y: auto;
+    text-align: center;
+    box-shadow: 0 6px 40px #000;
+  }
+
+  .wb-error {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    padding: 4px 14px;
+    border-radius: 6px;
+    z-index: 40;
+  }
 }
 </style>
