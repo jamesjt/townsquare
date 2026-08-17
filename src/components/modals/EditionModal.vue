@@ -40,42 +40,41 @@
          never blocks — non-conforming scripts save, share and play. -->
     <div class="custom workbench" v-else>
       <div class="wb-top">
-        <h3 class="almanac-title">
-          <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
-        </h3>
-        <!-- keyed by the shelf size: when a fresh script mints its option in
-             the same patch as the value change, Vue 2 sets the value before
-             the option exists — re-creating the select re-applies it -->
-        <select
-          class="wb-script-select"
-          :key="'sel-' + recents.length"
-          :value="selectValue"
-          @change="onScriptSelect"
-        >
-          <option value="" disabled>Choose a script…</option>
-          <optgroup label="Officials">
-            <option
-              v-for="edition in editions"
-              :key="'off-' + edition.id"
-              :value="'official:' + edition.id"
-            >{{ edition.name }}</option>
-          </optgroup>
-          <optgroup label="My scripts" v-if="myScripts.length">
-            <option
-              v-for="entry in myScripts"
-              :key="'mine-' + entry.id"
-              :value="'vault:' + entry.id"
-            >{{ ncMap[entry.id] ? "⚠ " : "" }}{{ entry.name }}</option>
-          </optgroup>
-          <optgroup label="Viewed" v-if="viewedScripts.length">
-            <option
-              v-for="entry in viewedScripts"
-              :key="'seen-' + entry.id"
-              :value="'vault:' + entry.id"
-            >{{ ncMap[entry.id] ? "⚠ " : "" }}{{ entry.name }}</option>
-          </optgroup>
-        </select>
-        <div class="wb-actions">
+        <!-- Row 1: the title, the composition meter at its right.
+             Row 2: THE shared ScriptPicker (identical component to the host
+             panel's — change one, change both) + the action buttons. -->
+        <div class="wb-row1">
+          <h3 class="almanac-title">
+            <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
+          </h3>
+          <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
+            <span class="chip team-townsfolk">{{ teamCounts.townsfolk }} townsfolk</span>
+            <span class="chip team-outsider">
+              {{ teamCounts.outsider }} outsider{{ teamCounts.outsider === 1 ? "" : "s" }}
+            </span>
+            <span class="chip team-minion">
+              {{ teamCounts.minion }} minion{{ teamCounts.minion === 1 ? "" : "s" }}
+            </span>
+            <span class="chip team-demon">
+              {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
+            </span>
+            <span class="verdict" v-if="servableCounts.length">
+              plays {{ servableText }} players
+            </span>
+            <span class="verdict" v-else>
+              <font-awesome-icon icon="exclamation-triangle" />
+              outside the rules — still playable
+            </span>
+          </div>
+        </div>
+        <div class="wb-row2">
+          <ScriptPicker
+            class="wb-script-picker"
+            :cards="wbScriptCards"
+            :picked-id="wbPickedId"
+            @pick="onScriptPick"
+          />
+          <div class="wb-actions">
           <div class="button" @click="newScript">
             <font-awesome-icon icon="scroll" /> New script
           </div>
@@ -103,6 +102,7 @@
           <div class="button" @click="isCustom = false">
             <font-awesome-icon icon="undo" /> Back
           </div>
+          </div>
         </div>
         <div class="wb-import-role" v-if="importRoleOpen">
           <textarea
@@ -113,27 +113,6 @@
           <div class="button" @click="importRole">
             <font-awesome-icon icon="plus-circle" /> Add to script
           </div>
-        </div>
-        <!-- The composition meter: counts vs the official setup table. A script
-             that fits no standard player count is MARKED, never blocked. -->
-        <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
-          <span class="chip team-townsfolk">{{ teamCounts.townsfolk }} townsfolk</span>
-          <span class="chip team-outsider">
-            {{ teamCounts.outsider }} outsider{{ teamCounts.outsider === 1 ? "" : "s" }}
-          </span>
-          <span class="chip team-minion">
-            {{ teamCounts.minion }} minion{{ teamCounts.minion === 1 ? "" : "s" }}
-          </span>
-          <span class="chip team-demon">
-            {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
-          </span>
-          <span class="verdict" v-if="servableCounts.length">
-            plays {{ servableText }} players
-          </span>
-          <span class="verdict" v-else>
-            <font-awesome-icon icon="exclamation-triangle" />
-            outside the rules — still playable
-          </span>
         </div>
       </div>
 
@@ -369,6 +348,14 @@ import * as roleLib from "../../golem/roles";
 import * as towns from "../../golem/towns";
 import { flashHint } from "../../golem/hint";
 import bloodA from "../../assets/blood/blood-A.png";
+// FT-854: THE shared script picker + its art — the same component the host
+// panel renders (user-directed: one component, both surfaces).
+import ScriptPicker from "../ScriptPicker";
+import {
+  EDITION_ICONS,
+  edCustom,
+  OFFICIAL_BLURBS
+} from "../../golem/editionArt";
 
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
 // outsiders, minions, demons]. The meter measures a script's POOL against it:
@@ -400,7 +387,8 @@ const normTeam = t => (t || "").replace("traveller", "traveler");
 
 export default {
   components: {
-    Modal
+    Modal,
+    ScriptPicker
   },
   data: function() {
     return {
@@ -496,12 +484,37 @@ export default {
     viewedScripts() {
       return this.recents.filter(e => !e.editKey);
     },
-    /** What the top selector should show as current. */
-    selectValue() {
+    /** What the picker should show as current. */
+    wbPickedId() {
       const edition = this.$store.state.edition;
-      if (edition && edition.id !== "custom") return "official:" + edition.id;
-      if (this.vaultSourceId) return "vault:" + this.vaultSourceId;
-      return "";
+      if (edition && edition.id !== "custom") return edition.id;
+      return this.vaultSourceId || "";
+    },
+    /** The picker's cards: officials, then your scripts, then viewed ones.
+     *  Non-conforming scripts wear the warning right in their name. */
+    wbScriptCards() {
+      const cards = [];
+      this.editions.forEach(e => {
+        cards.push({
+          id: e.id,
+          name: e.name,
+          icon: EDITION_ICONS[e.id] || edCustom,
+          blurb: OFFICIAL_BLURBS[e.id] || "",
+          source: "OFFICIAL"
+        });
+      });
+      const vaultCard = (entry, source) => ({
+        id: entry.id,
+        name: (this.ncMap[entry.id] ? "⚠ " : "") + (entry.name || entry.id),
+        icon: edCustom,
+        blurb: this.ncMap[entry.id]
+          ? "Outside the rules — still playable."
+          : "",
+        source
+      });
+      this.myScripts.forEach(e => cards.push(vaultCard(e, "yours")));
+      this.viewedScripts.forEach(e => cards.push(vaultCard(e, "viewed")));
+      return cards;
     },
     /** The current script as a list (state.roles is replaced wholesale). */
     scriptRoles() {
@@ -942,20 +955,14 @@ export default {
         this.$store.commit("toggleModal", "edition");
       this.isCustom = true;
     },
-    onScriptSelect(event) {
-      const value = event.target.value;
-      if (value.startsWith("official:")) {
-        const id = value.slice("official:".length);
-        const edition = editionJSON.find(e => e.id === id);
-        if (edition) {
-          this.$store.commit("setEdition", edition);
-          this.vaultSourceId = null;
-          this.ensureOpen();
-        }
-      } else if (value.startsWith("vault:")) {
-        this.loadFromVault(value.slice("vault:".length)).then(() =>
-          this.ensureOpen()
-        );
+    onScriptPick(card) {
+      const edition = editionJSON.find(e => e.id === card.id);
+      if (edition) {
+        this.$store.commit("setEdition", edition);
+        this.vaultSourceId = null;
+        this.ensureOpen();
+      } else {
+        this.loadFromVault(card.id).then(() => this.ensureOpen());
       }
     },
     /** A blank page: empty custom script, no vault lineage. */
@@ -1313,32 +1320,57 @@ $team-colors: (
   min-height: 0;
   text-align: left;
 
+  // Our buttons, not upstream's shiny pills: small, flat, dark, hairline.
+  // Pixel-sized — the app's base font is viewport-huge, so percentages lie.
+  .button {
+    margin: 0;
+    padding: 2px 9px;
+    border: 1px solid #3d3d3d;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.65);
+    box-shadow: none;
+    font-weight: normal;
+    font-size: 13px;
+    line-height: 1.6;
+    &:before,
+    &:after {
+      content: none;
+    }
+    &:hover {
+      border-color: #a01414;
+      color: #ff7070;
+    }
+  }
+
   .wb-top {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 14px;
-    padding-bottom: 6px;
+    flex-direction: column;
+    gap: 7px;
+    padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-    .almanac-title {
-      margin: 0;
-    }
-    .wb-script-select {
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 105%;
-      max-width: 300px;
-    }
-    .wb-actions {
+    .wb-row1 {
       display: flex;
+      align-items: center;
       flex-wrap: wrap;
-      gap: 3px;
-      margin-left: auto;
-      .button {
+      gap: 8px 18px;
+      .almanac-title {
         margin: 0;
+      }
+    }
+    .wb-row2 {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      .wb-script-picker {
+        flex-grow: 0;
+        width: 290px;
+      }
+      .wb-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-left: auto;
       }
     }
   }
@@ -1364,12 +1396,11 @@ $team-colors: (
   }
 
   .wb-meter {
-    width: 100%;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    font-size: 90%;
+    font-size: 13px;
     .chip {
       padding: 1px 9px;
       border-radius: 10px;

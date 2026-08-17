@@ -138,54 +138,17 @@
               <font-awesome-icon icon="random" />
             </span>
           </div>
-          <!-- Golem fork: the script picker is a card GRID, not a <select> —
-               official editions wear their artwork, vault scripts the custom
-               mark; the closed trigger wears the picked card's icon + name.
-               Escape / click-out close it (document listeners, removed on
-               close and on destroy). Cards are icon-forward (icon + name only
-               on the face); the blurb + source ride a hover/focus tooltip
-               (skipped on touch — tap still selects). -->
+          <!-- Golem fork (FT-854): THE shared ScriptPicker — the identical
+               component the Almanac workbench renders. Change it there,
+               change it here. -->
           <div class="field">
             <label title="Script"><font-awesome-icon icon="scroll" /></label>
-            <div class="script-pick" ref="scriptPick">
-              <div
-                class="trigger"
-                :class="{ open: scriptGridOpen }"
-                @click="toggleScriptGrid"
-              >
-                <img class="icon" :src="pickedCard.icon" alt="" />
-                <span class="name">{{ pickedCard.name }}</span>
-                <font-awesome-icon icon="chevron-down" class="caret" />
-              </div>
-              <div class="grid" v-if="scriptGridOpen" @scroll="hideTip">
-                <div
-                  class="card"
-                  v-for="c in scriptCards"
-                  :key="c.id"
-                  :class="{ picked: scriptId === c.id }"
-                  tabindex="0"
-                  @click="pickScript(c)"
-                  @keydown.enter="pickScript(c)"
-                  @keydown.space.prevent="pickScript(c)"
-                  @mouseenter="showTip($event, c)"
-                  @mouseleave="hideTip"
-                  @focus="showTip($event, c)"
-                  @blur="hideTip"
-                >
-                  <img class="icon" :src="c.icon" alt="" />
-                  <span class="cname">{{ c.name }}</span>
-                </div>
-              </div>
-              <div
-                class="card-tip"
-                ref="cardTip"
-                v-if="tipCard"
-                :style="tipStyle"
-              >
-                <p class="tip-blurb" v-if="tipCard.blurb">{{ tipCard.blurb }}</p>
-                <p class="tip-source" v-if="tipCard.source">{{ tipCard.source }}</p>
-              </div>
-            </div>
+            <ScriptPicker
+              :cards="scriptCards"
+              :picked-id="scriptId"
+              @pick="pickScript"
+              @open="peekVaultMeta"
+            />
           </div>
           <!-- FT-847: owned towns. Hosting claims the town by default (the
                name + later its script save to the server, keyed to THIS
@@ -318,13 +281,10 @@ import alphabetMetrics from "../assets/blood/alphabet/metrics.json";
 // script), keyed to transparent PNGs.
 import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
-// Golem fork: the script grid's card art — official editions wear their own
-// logos; vault/custom cards wear the custom-script mark.
-import edTb from "../assets/editions/tb.png";
-import edBmr from "../assets/editions/bmr.png";
-import edSnv from "../assets/editions/snv.png";
-import edLuf from "../assets/editions/luf.png";
-import edCustom from "../assets/editions/custom.png";
+// Golem fork (FT-854): the picker + its art moved to shared homes — the host
+// panel and the Almanac workbench render the SAME component and imagery.
+import ScriptPicker from "./ScriptPicker";
+import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents, peekScript } from "../golem/scripts";
 
 // Golem fork (FT-846): the door initials are pre-rendered blood letters
@@ -356,17 +316,8 @@ const TITLE_GLYPHS = [
   ["D", titleD]
 ];
 
-// One-line flavor per official edition (level-appropriate, ours to write —
-// editions.json carries only the long prose descriptions).
-const OFFICIAL_BLURBS = {
-  tb: "Deception and deduction in a sleepy town — the first-timers' script.",
-  bmr: "Death comes in the night; keep the town alive long enough to win.",
-  snv: "Madness and altered minds — nobody is sure of anything.",
-  luf: "A freewheeling veteran brew of the strangest minds."
-};
-const EDITION_ICONS = { tb: edTb, bmr: edBmr, snv: edSnv, luf: edLuf };
-
 export default {
+  components: { ScriptPicker },
   computed: {
     ...mapState(["session", "edition"]),
     editionList() {
@@ -431,20 +382,6 @@ export default {
         source: "Almanac"
       });
       return cards;
-    },
-    // What the CLOSED trigger wears: the picked card's icon + name.
-    pickedCard() {
-      return (
-        this.scriptCards.find(c => c.id === this.scriptId) || {
-          id: this.scriptId,
-          name: this.scriptId,
-          icon: edCustom
-        }
-      );
-    },
-    // The card currently under the hover/focus tooltip, if any.
-    tipCard() {
-      return this.scriptCards.find(c => c.id === this.tipCardId) || null;
     },
     townIdClean() {
       return normalizeTownId(this.townId);
@@ -525,16 +462,10 @@ export default {
       // FT-847: owned towns.
       meta: {}, // id → server public meta {name, scriptId, ...}
       scriptTouched: false, // the user chose a script by hand this visit
-      // Golem fork: the script grid.
-      scriptGridOpen: false,
+      // Golem fork: the script grid (the widget itself is the shared
+      // ScriptPicker component; only the card DATA lives here).
       vaultShelf: [], // recents-shelf entries snapshotted on openHost
-      scriptMeta: {}, // script id → {count, author} (lazy, best-effort)
-      // Icon-forward cards: blurb + source moved off the face into a hover/
-      // keyboard-focus tooltip. tipCardId is null when nothing is showing;
-      // tipStyle is computed against the hovered/focused card's rect so the
-      // tooltip never clips the grid's edges.
-      tipCardId: null,
-      tipStyle: { top: "-9999px", left: "-9999px" }
+      scriptMeta: {} // script id → {count, author} (lazy, best-effort)
     };
   },
   watch: {
@@ -551,15 +482,11 @@ export default {
     townIdClean() {
       this.syncAttached();
     },
-    // Leaving the panel (Back, or a join) drops the grid AND its document
-    // listeners — the v-else-if unmounts the DOM but not the listeners.
-    mode() {
-      this.closeScriptGrid();
-    }
+    // (The picker cleans up its own document listeners on unmount now —
+    // it is the shared ScriptPicker component.)
   },
   beforeDestroy() {
     clearInterval(this.statusTimer);
-    this.closeScriptGrid();
   },
   methods: {
     async mintChecked() {
@@ -675,16 +602,14 @@ export default {
           : "__custom";
       }
     },
-    // ── Golem fork: the script grid ──────────────────────────────────────
-    toggleScriptGrid() {
-      this.scriptGridOpen ? this.closeScriptGrid() : this.openScriptGrid();
+    // ── Golem fork: the script grid (widget = the shared ScriptPicker) ───
+    pickScript(card) {
+      this.scriptId = card.id;
+      this.scriptTouched = true;
     },
-    openScriptGrid() {
-      this.scriptGridOpen = true;
-      document.addEventListener("mousedown", this.onScriptDocDown);
-      document.addEventListener("keydown", this.onScriptDocKey);
-      // Best-effort vault metadata (role count + author) — blank until known.
-      // peekScript never touches the recents shelf.
+    /** On picker open: best-effort vault metadata (role count + author) —
+     *  blank until known. peekScript never touches the recents shelf. */
+    peekVaultMeta() {
       const wanted = [
         ...this.vaultShelf.map(s => s.id),
         this.attachedScriptId
@@ -701,52 +626,6 @@ export default {
           })
           .catch(() => {});
       });
-    },
-    closeScriptGrid() {
-      this.scriptGridOpen = false;
-      this.hideTip();
-      document.removeEventListener("mousedown", this.onScriptDocDown);
-      document.removeEventListener("keydown", this.onScriptDocKey);
-    },
-    onScriptDocDown(e) {
-      const pick = this.$refs.scriptPick;
-      if (pick && !pick.contains(e.target)) this.closeScriptGrid();
-    },
-    onScriptDocKey(e) {
-      if (e.key === "Escape") this.closeScriptGrid();
-    },
-    pickScript(card) {
-      this.scriptId = card.id;
-      this.scriptTouched = true;
-      this.closeScriptGrid();
-    },
-    /** Card face is icon-forward; blurb + source ride this tooltip instead.
-     *  Skips hover on touch (no fine pointer) — tap still selects via click.
-     *  Keyboard focus always shows it, touch or not. */
-    showTip(e, card) {
-      const viaHover = e.type === "mouseenter";
-      if (viaHover && !window.matchMedia("(hover: hover)").matches) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      this.tipCardId = card.id;
-      this.$nextTick(() => this.positionTip(rect));
-    },
-    hideTip() {
-      this.tipCardId = null;
-    },
-    /** Centers the tooltip over the card, then clamps it inside the
-     *  viewport so it never clips at the grid's edges — flips below the
-     *  card when there isn't room above. */
-    positionTip(rect) {
-      const tip = this.$refs.cardTip;
-      if (!tip) return;
-      const margin = 8;
-      const tw = tip.offsetWidth;
-      const th = tip.offsetHeight;
-      let left = rect.left + rect.width / 2 - tw / 2;
-      left = Math.min(Math.max(left, margin), window.innerWidth - tw - margin);
-      let top = rect.top - th - margin;
-      if (top < margin) top = rect.bottom + margin;
-      this.tipStyle = { top: `${top}px`, left: `${left}px` };
     },
     /** "N roles · by <author>" once the lazy peek lands; blank until then. */
     vaultBlurb(id) {
@@ -1218,140 +1097,7 @@ export default {
         background: black;
       }
 
-      // Golem fork: the script grid picker (the <select>'s replacement).
-      .script-pick {
-        position: relative;
-        flex-grow: 1;
-        min-width: 0;
-
-        .trigger {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(0, 0, 0, 0.7);
-          border: 2px solid black;
-          border-radius: 6px;
-          padding: 4px 10px;
-          font-size: 90%;
-          cursor: pointer;
-
-          .icon {
-            width: 30px;
-            height: 30px;
-            object-fit: contain;
-            flex-shrink: 0;
-          }
-          .name {
-            flex-grow: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            text-align: left;
-          }
-          .caret {
-            opacity: 0.7;
-            font-size: 75%;
-            transition: transform 150ms;
-          }
-          &:hover,
-          &.open {
-            border-color: #400;
-          }
-          &.open .caret {
-            transform: rotate(180deg);
-          }
-        }
-
-        // Icon-forward grid: the icon dominates, the name sits under it,
-        // nothing else on the card face — the blurb + source ride the
-        // separate .card-tip tooltip below. 3 columns reads better than 2
-        // once the card is just an icon + a name (checked at the 420px
-        // panel width the .grid overflows from).
-        .grid {
-          position: absolute;
-          top: calc(100% + 4px);
-          left: 50%;
-          transform: translateX(-50%);
-          width: min(560px, 94vw);
-          max-height: 48vh;
-          overflow-y: auto;
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 6px;
-          padding: 8px;
-          background: rgba(10, 4, 4, 0.95);
-          border: 2px solid #400;
-          border-radius: 8px;
-          box-shadow: 0 0 12px black;
-          z-index: 20;
-
-          .card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 6px;
-            padding: 10px 6px;
-            border: 1px solid transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            text-align: center;
-            outline: none;
-
-            .icon {
-              width: 56px;
-              height: 56px;
-              object-fit: contain;
-            }
-            .cname {
-              font-size: 80%;
-              font-weight: bold;
-              line-height: 1.25;
-            }
-
-            &:hover,
-            &:focus {
-              border-color: #630;
-              background: rgba(255, 0, 0, 0.08);
-            }
-            &.picked {
-              border-color: #400;
-              background: rgba(0, 0, 0, 0.6);
-            }
-          }
-        }
-
-        // The dark-idiom hover/focus tooltip that carries the blurb + source
-        // off the card face. Fixed-positioned and sized/placed in JS
-        // (positionTip) so it's never clipped by the grid's own scroll
-        // container, and flips above/below the card to stay on-screen.
-        .card-tip {
-          position: fixed;
-          max-width: 220px;
-          padding: 8px 10px;
-          background: rgba(10, 4, 4, 0.97);
-          border: 2px solid #400;
-          border-radius: 8px;
-          box-shadow: 0 0 12px black;
-          text-align: left;
-          z-index: 30;
-          pointer-events: none;
-
-          .tip-blurb {
-            margin: 0;
-            font-size: 80%;
-            line-height: 1.35;
-            opacity: 0.9;
-          }
-          .tip-source {
-            margin: 4px 0 0;
-            font-size: 65%;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.6;
-          }
-        }
-      }
+      // (script-pick styles live in the shared ScriptPicker component)
       .tool {
         cursor: pointer;
         &:hover {
