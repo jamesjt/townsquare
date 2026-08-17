@@ -1011,7 +1011,11 @@ export default {
     margin: 0 auto;
     width: calc(164 * var(--dfpx));
     font-size: calc(53 * var(--dfpx));
-    transform: translate(calc(15 * var(--fpx)), calc(-20.5 * var(--fpx)));
+    // the -33px is the user's optical trim above the geometric hub anchor
+    transform: translate(
+      calc(15 * var(--fpx)),
+      calc(-20.5 * var(--fpx) - 33px)
+    );
 
     li {
       font-family: PiratesBay, sans-serif;
@@ -1019,7 +1023,6 @@ export default {
       font-size: 100%;
       cursor: pointer;
       text-align: center;
-      padding: 0.26em 0.18em;
       background: rgba(0, 0, 0, 0.9);
       border: 3px solid black;
       border-radius: 10px;
@@ -1033,17 +1036,18 @@ export default {
       }
 
       // user-calibrated 2026-08-17: Join (the middle door) reads largest;
-      // Host and Create sit 25% smaller. Hard height ceilings (user spec):
-      // Join 70px, the others 50px — flex keeps the words centered when a
-      // ceiling binds, and the stack stays symmetric so Join keeps the hub.
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      max-height: 70px;
+      // Host and Create sit 25% smaller. Fixed heights (user spec: 70/50)
+      // with line-height centering — the words center in their boxes while
+      // the blood caps keep their baseline hang over the border.
+      box-sizing: border-box;
+      height: 70px;
+      line-height: 64px;
+      padding: 0 0.18em;
       &:nth-child(1),
       &:nth-child(3) {
         font-size: 75%;
-        max-height: 50px;
+        height: 50px;
+        line-height: 44px;
       }
 
       .key {
