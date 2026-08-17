@@ -15,6 +15,14 @@
         player.role.team
       ]"
     >
+      <!-- Golem fork (FT-848): a death leaves blood on the tower behind the
+           seat. Deterministic per seat+name, so every client shows the same
+           splatter without any extra sync. -->
+      <div
+        class="blood-splat"
+        v-if="player.isDead"
+        :style="splatStyle"
+      ></div>
       <div class="shroud" @click="toggleStatus()"></div>
       <div class="life" @click="toggleStatus()"></div>
 
@@ -237,6 +245,13 @@
 import Token from "./Token";
 import { mapGetters, mapState } from "vuex";
 
+// Golem fork (FT-848): the cut blood decals, bundled once for all seats.
+const splatCtx = require.context("../assets/blood/splats", false, /\.png$/);
+const SPLATS = splatCtx
+  .keys()
+  .sort()
+  .map(splatCtx);
+
 export default {
   components: {
     Token
@@ -253,6 +268,29 @@ export default {
     ...mapGetters({ nightOrder: "players/nightOrder" }),
     index: function() {
       return this.players.indexOf(this.player);
+    },
+    /**
+     * Golem fork (FT-848): which splatter a death leaves, and how it lies.
+     * Hashed from seat + name so every client derives the SAME splatter from
+     * the already-synced death state — no extra messages.
+     */
+    splatStyle: function() {
+      if (!this.player.isDead) return null;
+      const key = this.index + "·" + this.player.name;
+      let h = 2166136261;
+      for (let i = 0; i < key.length; i++) {
+        h ^= key.charCodeAt(i);
+        h = (h * 16777619) >>> 0;
+      }
+      const pick = h % SPLATS.length;
+      const rot = ((h >> 4) % 61) - 30;
+      const scale = 1.15 + ((h >> 10) % 30) / 100;
+      const dx = ((h >> 15) % 21) - 10;
+      const dy = ((h >> 20) % 21) - 10;
+      return {
+        backgroundImage: `url(${SPLATS[pick]})`,
+        transform: `translate(${dx}%, ${dy}%) rotate(${rot}deg) scale(${scale})`
+      };
     },
     // Golem fork: a seatless spectator looking at an unclaimed seat.
     canOneTapClaim: function() {
@@ -443,6 +481,35 @@ export default {
 </script>
 
 <style lang="scss">
+/* Golem fork (FT-848): the blood a death leaves on the tower behind the seat.
+   First child of .player so it paints under the shroud, life token and role
+   token; never intercepts clicks. */
+.player .blood-splat {
+  position: absolute;
+  top: -18%;
+  left: -18%;
+  width: 136%;
+  height: 136%;
+  background: center / contain no-repeat;
+  pointer-events: none;
+  opacity: 0.85;
+  animation: splat-in 300ms ease-out;
+}
+@keyframes splat-in {
+  from {
+    opacity: 0;
+    filter: brightness(1.6) saturate(1.4);
+  }
+  to {
+    opacity: 0.85;
+    filter: none;
+  }
+}
+/* the app's animation kill-switch */
+#app.static .player .blood-splat {
+  animation: none;
+}
+
 /* Golem fork: the one-tap claim overlay on an empty seat. */
 .player .claim-overlay {
   position: absolute;
