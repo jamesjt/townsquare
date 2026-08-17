@@ -127,9 +127,6 @@
           <span class="chip team-demon">
             {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
           </span>
-          <span class="chip team-traveler" v-if="teamCounts.traveler">
-            {{ teamCounts.traveler }} traveller{{ teamCounts.traveler === 1 ? "" : "s" }}
-          </span>
           <span class="verdict" v-if="servableCounts.length">
             plays {{ servableText }} players
           </span>
@@ -208,7 +205,7 @@
             <section
               v-for="group in viewGroups"
               :key="group.label"
-              :class="{ dim: group.dim }"
+              :class="[group.team ? 'team-' + group.team : '', { dim: group.dim }]"
             >
               <h4>
                 {{ group.label }} <small>({{ group.roles.length }})</small>
@@ -544,13 +541,15 @@ export default {
         .map(([a, b]) => (a === b ? String(a) : a + "–" + b))
         .join(", ");
     },
+    // Travellers left the script surface (user call 2026-08-17): a script is
+    // the town's regular menu; travellers join IN the town — the seat's role
+    // picker already lists every traveller, in-script or not (otherTravelers).
     teamChips() {
       return [
         { value: "townsfolk", label: "Townsfolk" },
         { value: "outsider", label: "Outsiders" },
         { value: "minion", label: "Minions" },
         { value: "demon", label: "Demons" },
-        { value: "traveler", label: "Travellers" },
         { value: "mine", label: "Yours" }
       ];
     },
@@ -563,6 +562,7 @@ export default {
       );
       const entries = [];
       rolesJSON.forEach(role => {
+        if (normTeam(role.team) === "traveler") return; // town-side, not script
         entries.push({
           key: "off-" + role.id,
           id: role.id,
@@ -577,6 +577,7 @@ export default {
       const seen = new Set();
       this.roleShelf.forEach(entry => {
         seen.add(entry.id);
+        if (normTeam(entry.role) === "traveler") return;
         entries.push({
           key: "lib-" + entry.id,
           libId: entry.id,
@@ -589,6 +590,7 @@ export default {
       });
       this.roleResults.forEach(row => {
         if (seen.has(row.id)) return;
+        if (normTeam(row.roleType) === "traveler") return;
         entries.push({
           key: "browse-" + row.id,
           libId: row.id,
@@ -606,12 +608,16 @@ export default {
         return true;
       });
     },
-    /** The main area's groups, per view. Night views sink non-wakers, dim. */
+    /** The main area's groups, per view. Night views sink non-wakers, dim.
+     *  Travellers never render here — they are town-side content. */
     viewGroups() {
-      const roles = this.scriptRoles;
+      const roles = this.scriptRoles.filter(
+        r => normTeam(r.team) !== "traveler"
+      );
       if (this.wbView === "team") {
-        return TEAM_ORDER.map(team => ({
+        return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
           label: TEAM_LABELS[team],
+          team,
           roles: roles
             .filter(r => normTeam(r.team) === team)
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -874,15 +880,12 @@ export default {
     async searchRoles() {
       this.roleError = "";
       try {
-        // FT-854: the sidebar's team chip doubles as the browse type filter
-        // (the server vocabulary spells "traveller" with two l's).
+        // FT-854: the sidebar's team chip doubles as the browse type filter.
         const type = ["townsfolk", "outsider", "minion", "demon"].includes(
           this.wbTeam
         )
           ? this.wbTeam
-          : this.wbTeam === "traveler"
-            ? "traveller"
-            : "";
+          : "";
         const rows = await roleLib.browseRoles({
           q: this.roleQuery.trim(),
           type,
@@ -1513,14 +1516,23 @@ $team-colors: (
       overflow-y: auto;
       flex-grow: 1;
       min-height: 0;
+      // Each group is a BOX in its team's color (user-directed, from the
+      // official almanac reference) — night-view groups keep a neutral frame.
       section {
         margin-bottom: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 4px;
+        padding: 8px 12px 10px;
+        @each $team, $color in $team-colors {
+          &.team-#{$team} {
+            border-color: $color;
+          }
+        }
         &.dim {
           opacity: 0.55;
         }
         h4 {
-          margin: 4px 0 6px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+          margin: 0 0 8px;
           small {
             font-weight: normal;
             opacity: 0.6;
@@ -1530,28 +1542,23 @@ $team-colors: (
     }
     .wb-cards {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-      gap: 6px;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 8px 14px;
       align-items: stretch;
     }
+    // The reference layout: a LARGE icon on the left, a small bold name, the
+    // ability as the body. No team accent on the card — the group box says it.
     .wb-card {
+      position: relative;
       display: grid;
-      grid-template-columns: 40px minmax(0, 1fr) auto;
-      grid-template-rows: auto auto;
-      column-gap: 8px;
-      padding: 5px 8px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.06);
-      border-left: 3px solid transparent;
-      @each $team, $color in $team-colors {
-        &.team-#{$team} {
-          border-left-color: $color;
-        }
-      }
+      grid-template-columns: 64px minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
+      column-gap: 10px;
+      padding: 4px 26px 4px 6px;
       .icon {
         grid-row: 1 / span 2;
-        width: 40px;
-        height: 40px;
+        width: 64px;
+        height: 64px;
         background-size: cover;
         background-position: center;
       }
@@ -1560,6 +1567,7 @@ $team-colors: (
         align-items: baseline;
         gap: 8px;
         font-weight: bold;
+        font-size: 92%;
         .night-num {
           font-weight: normal;
           opacity: 0.7;
@@ -1567,21 +1575,31 @@ $team-colors: (
         }
       }
       .wb-card-ability {
-        grid-column: 2 / span 2;
+        grid-column: 2;
         font-size: 82%;
-        opacity: 0.8;
-        line-height: 1.25;
+        opacity: 0.85;
+        line-height: 1.3;
       }
+      // pinned to the card's TOP RIGHT (user call); resting state stays
+      // visible (hover-only affordances are unreachable on touch)
       .wb-card-actions {
+        position: absolute;
+        top: 4px;
+        right: 6px;
         display: flex;
         gap: 8px;
+        opacity: 0.45;
+        transition: opacity 0.15s;
         svg {
           cursor: pointer;
-          width: 14px;
+          width: 12px;
           &:hover {
             color: red;
           }
         }
+      }
+      &:hover .wb-card-actions {
+        opacity: 1;
       }
     }
   }
