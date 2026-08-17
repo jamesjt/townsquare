@@ -5,7 +5,19 @@
       <!-- Golem fork: the walkthrough paragraph is three themed doors. Each
            button drives the SAME path as its hotkey (a synthetic keyup), so
            there is exactly one host/join/create flow to maintain. -->
-      <ul class="doors">
+      <!-- In a session with no seats yet, the next step is SEATS, not doors:
+           the host adds them; a player waits for the storyteller. -->
+      <template v-if="session.sessionId && !session.isSpectator">
+        <p class="hint">Hosting <b>{{ session.sessionId }}</b> — add seats to build the town.</p>
+        <ul class="doors">
+          <li @click="press('a')">Add Players<em>[A]</em></li>
+        </ul>
+      </template>
+      <p class="hint" v-else-if="session.sessionId && session.isSpectator">
+        Joined <b>{{ session.sessionId }}</b> — waiting for the storyteller to
+        add seats…
+      </p>
+      <ul class="doors" v-else>
         <li @click="press('h')">Host<em>[H]</em></li>
         <li @click="press('j')">Join<em>[J]</em></li>
         <li @click="press('c')">Create<em>[C]</em></li>
@@ -23,7 +35,10 @@
 </template>
 
 <script>
+import { mapState } from "vuex";
+
 export default {
+  computed: mapState(["session"]),
   data() {
     return {
       language: window.navigator.userLanguage || window.navigator.language
@@ -60,6 +75,11 @@ export default {
   }
 
   // Golem fork: the three doors, in the editions' display face.
+  .hint {
+    margin: 6px 0 0;
+    b { color: #c00; text-shadow: 0 0 4px black; }
+  }
+
   ul.doors {
     list-style-type: none;
     display: flex;
