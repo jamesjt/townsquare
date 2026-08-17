@@ -1051,6 +1051,7 @@ export default {
       // with line-height centering — the words center in their boxes while
       // the blood caps keep their baseline hang over the border.
       box-sizing: border-box;
+      white-space: nowrap;
       height: 70px;
       line-height: 64px;
       padding: 0 0.18em;
@@ -1059,6 +1060,11 @@ export default {
         font-size: 75%;
         height: 50px;
         line-height: 44px;
+      }
+      // "Almanac" runs longer than the old "Create" — its own step down so
+      // the word fits the same door on one line.
+      &:nth-child(3) {
+        font-size: 60%;
       }
 
       .key {
