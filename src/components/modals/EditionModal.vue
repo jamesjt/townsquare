@@ -29,7 +29,10 @@
       </ul>
     </div>
     <div class="custom" v-else>
-      <h3>The Almanac</h3>
+      <!-- Golem fork: the title wears the blood A, like its door. -->
+      <h3 class="almanac-title">
+        <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
+      </h3>
 
       <!-- Golem fork: the script VAULT — save/share/fork by link. The three
            official scripts are UNOWNABLE bases (no edit key exists), so every
@@ -240,6 +243,7 @@ import * as vault from "../../golem/scripts";
 import * as roleLib from "../../golem/roles";
 import * as towns from "../../golem/towns";
 import { flashHint } from "../../golem/hint";
+import bloodA from "../../assets/blood/blood-A.png";
 
 export default {
   components: {
@@ -249,6 +253,7 @@ export default {
     return {
       editions: editionJSON,
       isCustom: false,
+      bloodA,
       // Golem fork: the vault shelf + which vault script is currently loaded
       // (the fork/update decision key on save).
       recents: vault.getRecents(),
@@ -682,6 +687,17 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// Golem fork: the title's blood drop-cap — em sizes baked from the asset
+// metrics, same conversion as the Intro doors.
+.almanac-title {
+  font-size: 140%;
+  .blood-cap-a {
+    width: 0.805em;
+    height: 0.927em;
+    vertical-align: -0.124em;
+  }
+}
+
 ul.editions .edition {
   font-family: PiratesBay, sans-serif;
   letter-spacing: 1px;

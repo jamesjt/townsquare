@@ -9,12 +9,9 @@
         aria-describedby="modalDescription"
         @click.stop=""
       >
+        <!-- Golem fork: the maximize toggle is gone (user call 2026-08-17) —
+             modals that need room size themselves by design. -->
         <div class="top-right-buttons">
-          <font-awesome-icon
-            @click="isMaximized = !isMaximized"
-            class="top-right-button"
-            :icon="['fas', isMaximized ? 'window-minimize' : 'window-maximize']"
-          />
           <font-awesome-icon
             @click="close"
             class="top-right-button"
