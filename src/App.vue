@@ -23,13 +23,14 @@
     ></video>
     <div class="backdrop"></div>
     <transition name="blur">
-      <Intro v-if="!players.length"></Intro>
       <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
-           town centre is the tools panel; TownInfo returns once the game
-           starts, and for players / local play. -->
+           town centre is the tools panel — from zero seats up. TownInfo
+           returns once the game starts; Intro only when nothing is happening
+           at all. -->
       <HostTools
-        v-else-if="!session.nomination && showHostTools"
+        v-if="showHostTools && !session.nomination"
       ></HostTools>
+      <Intro v-else-if="!players.length"></Intro>
       <TownInfo
         v-else-if="!session.nomination"
       ></TownInfo>
