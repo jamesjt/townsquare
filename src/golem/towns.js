@@ -179,10 +179,112 @@ const PLACES = [
   "mothhaven",
   "ironvale",
   "nightbell",
-  "wolfsden"
+  "wolfsden",
+  "graymoor",
+  "duskwood",
+  "cinderfall",
+  "wraithmoor",
+  "hollowmere",
+  "blackfen",
+  "ashgrove",
+  "crowsfoot",
+  "ebonvale",
+  "foxglove",
+  "greymarsh",
+  "hangmoor",
+  "ironthorn",
+  "mourncreek",
+  "nettlewick",
+  "oldgrave",
+  "pinehollow",
+  "quietfen",
+  "rookwood",
+  "shadowmere",
+  "stonecairn",
+  "thistlewood",
+  "tombury",
+  "vulturewatch",
+  "westfen",
+  "witchmoor",
+  "yewbrook",
+  "bramblegate",
+  "coldharbor",
+  "deadfall",
+  "elmshadow",
+  "foggate"
 ];
 
+// Mood/adjective words for the fallback `adjective-place` compound, used only
+// when bare place names keep colliding (see mintAvailableTownId below).
+const MOODS = [
+  "silent",
+  "hollow",
+  "ashen",
+  "veiled",
+  "gloomy",
+  "withered",
+  "forsaken",
+  "moonlit",
+  "ghostly",
+  "crimson",
+  "weeping",
+  "restless",
+  "forgotten",
+  "brittle",
+  "shadowed",
+  "drowned"
+];
+
+function pickPlace() {
+  return PLACES[Math.floor(Math.random() * PLACES.length)];
+}
+
+function pickMood() {
+  return MOODS[Math.floor(Math.random() * MOODS.length)];
+}
+
+/** A readable default town id — a bare place name, no digits, unchecked. */
 export function mintTownId() {
-  const place = PLACES[Math.floor(Math.random() * PLACES.length)];
-  return place + "-" + (100 + Math.floor(Math.random() * 900));
+  return pickPlace();
+}
+
+/**
+ * Best-effort availability check for a candidate id: unclaimed (404 from the
+ * towns API) AND not currently awake (0 players via townStatuses). Any
+ * network failure resolves true — an unreachable API never blocks minting,
+ * it just skips the check and hands back the candidate unverified.
+ */
+async function isAvailable(id) {
+  let res;
+  try {
+    res = await fetch(`${API}/${id}`);
+  } catch (e) {
+    return true; // API unreachable — best effort, proceed unchecked
+  }
+  if (res.status !== 404) return false; // claimed
+  const statuses = await townStatuses([id]).catch(() => ({}));
+  const s = statuses[id];
+  return !s || !s.players;
+}
+
+const MINT_ATTEMPTS = 5;
+
+/**
+ * Mint a town id, availability-checked best-effort: bare place names first
+ * (a few attempts), falling back to `adjective-place` compounds if the plain
+ * names keep colliding. Never blocks — an unreachable API returns the first
+ * candidate unchecked (isAvailable resolves true immediately).
+ */
+export async function mintAvailableTownId() {
+  let candidate = pickPlace();
+  for (let i = 0; i < MINT_ATTEMPTS; i++) {
+    if (await isAvailable(candidate)) return candidate;
+    candidate = pickPlace();
+  }
+  for (let i = 0; i < MINT_ATTEMPTS; i++) {
+    const compound = pickMood() + "-" + pickPlace();
+    if (await isAvailable(compound)) return compound;
+    candidate = compound;
+  }
+  return candidate; // exhausted attempts — hand back the last try
 }

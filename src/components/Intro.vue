@@ -43,7 +43,6 @@
         <!-- Golem fork: Host and Join swap the doors for in-app panels —
              no browser dialogs anywhere in the entry flow. -->
         <div class="panel" v-else-if="mode === 'host'">
-          <p class="hint">Open a town — players join by the link.</p>
           <ul class="towns" v-if="hostTowns.length">
             <li
               v-for="t in hostTowns"
@@ -190,6 +189,7 @@ import {
   listTowns,
   townStatuses,
   mintTownId,
+  mintAvailableTownId,
   normalizeTownId,
   editKeyFor,
   claimTown,
@@ -287,10 +287,21 @@ export default {
       this.syncAttached();
     }
   },
+  created() {
+    // Upgrade the synchronous placeholder townId to an availability-checked
+    // one, but only if the user hasn't already typed over it during the
+    // round trip.
+    this.mintChecked();
+  },
   beforeDestroy() {
     clearInterval(this.statusTimer);
   },
   methods: {
+    async mintChecked() {
+      const placeholder = this.townId;
+      const checked = await mintAvailableTownId();
+      if (this.townId === placeholder) this.townId = checked;
+    },
     openHost() {
       this.mode = "host";
       this.hostTowns = this.sortOwnedFirst(listTowns("host"));
@@ -372,8 +383,8 @@ export default {
         return `awake · ${s.players} in town`;
       return s.players ? `${s.players} waiting` : "quiet";
     },
-    reroll() {
-      this.townId = mintTownId();
+    async reroll() {
+      this.townId = await mintAvailableTownId();
     },
     copyShare() {
       try {
