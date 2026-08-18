@@ -264,8 +264,9 @@ export default {
       return this.players.indexOf(this.player);
     },
     seatNumeral() {
+      // IIII, not IV — the clockmaker's convention (user-confirmed)
       const romans = [
-        "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+        "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "IX", "X",
         "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"
       ];
       return romans[this.index] || String(this.index + 1);
@@ -680,8 +681,8 @@ export default {
       justify-content: center;
       font-family: "PiratesBay", Georgia, serif;
       font-size: 2.2em;
-      color: rgba(74, 50, 22, 0.75);
-      text-shadow: 0 1px 1px rgba(255, 250, 235, 0.5);
+      color: #14100a;
+      text-shadow: 0 1px 1px rgba(255, 250, 235, 0.45);
       pointer-events: none;
       user-select: none;
     }
