@@ -37,6 +37,7 @@ const faIcons = [
   "Home",
   "Image",
   "Link",
+  "Mask",
   "MinusCircle",
   "Pen",
   "PeopleArrows",
@@ -65,6 +66,7 @@ const faIcons = [
   "VolumeUp",
   "VolumeMute",
   "VoteYea",
+  "Walking",
   "WindowMaximize",
   "WindowMinimize"
 ];

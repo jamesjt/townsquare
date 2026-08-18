@@ -39,9 +39,6 @@
           <div class="button" @click="importRoleOpen = !importRoleOpen">
             <font-awesome-icon icon="file-code" /> Import role
           </div>
-          <div class="button" @click="saveToVault">
-            <font-awesome-icon icon="file-upload" /> Save script
-          </div>
           <div class="button" @click="promptVaultLoad">
             <font-awesome-icon icon="link" /> Load by link
           </div>
@@ -98,7 +95,10 @@
               :title="t.label"
               @click="toggleTeam(t.team)"
             >
-              <font-awesome-icon :icon="t.icon" />
+              <svg v-if="t.team === 'demon'" class="demon-glyph" viewBox="0 0 512 512">
+                <path fill="currentColor" fill-rule="evenodd" :d="DEMON_PATH" />
+              </svg>
+              <font-awesome-icon v-else :icon="t.icon" />
               <span class="cnt">{{ t.count }}</span>
             </button>
           </div>
@@ -231,13 +231,32 @@
                 <font-awesome-icon icon="users" />{{ teamCounts.townsfolk }}
               </span>
               <span class="chip team-outsider" title="Outsiders">
-                <font-awesome-icon icon="user-slash" />{{ teamCounts.outsider }}
+                <font-awesome-icon icon="walking" />{{ teamCounts.outsider }}
               </span>
               <span class="chip team-minion" title="Minions">
-                <font-awesome-icon icon="user-secret" />{{ teamCounts.minion }}
+                <font-awesome-icon icon="mask" />{{ teamCounts.minion }}
               </span>
               <span class="chip team-demon" title="Demons">
-                <font-awesome-icon icon="fire" />{{ teamCounts.demon }}
+                <svg class="demon-glyph" viewBox="0 0 512 512">
+                  <path fill="currentColor" fill-rule="evenodd" :d="DEMON_PATH" />
+                </svg>
+                {{ teamCounts.demon }}
+              </span>
+              <!-- unsaved edits: Save / Discard appear ONLY when dirty
+                   (user call — the actions row lost its Save button) -->
+              <span class="wb-dirty" v-if="scriptDirty">
+                <font-awesome-icon
+                  icon="check"
+                  class="save"
+                  title="Save this script to the vault"
+                  @click="saveToVault"
+                />
+                <font-awesome-icon
+                  icon="undo"
+                  class="discard"
+                  title="Discard the edits — back to the last saved state"
+                  @click="discardEdits"
+                />
               </span>
               <!-- the servable range rides the tooltip now (user call:
                    the green sentence was noise); only the WARNING renders -->
@@ -754,6 +773,16 @@ export default {
       dragId: null,
       dragOverId: null,
       dragAfter: false,
+      // FT-855 polish: the bespoke demon glyph — horns, head, hollow eyes
+      // (no FA solid reads "demon"; drawn to match the solid-icon weight).
+      DEMON_PATH:
+        "M256 118 C168 118 104 188 104 278 C104 370 170 432 256 432 C342 432 408 370 408 278 C408 188 344 118 256 118 Z " +
+        "M182 268 L250 292 L192 326 C172 314 168 284 182 268 Z " +
+        "M330 268 C344 284 340 314 320 326 L262 292 Z " +
+        "M150 196 C100 178 66 132 60 62 C96 94 140 110 186 132 C171 151 159 173 150 196 Z " +
+        "M362 196 C412 178 446 132 452 62 C416 94 372 110 326 132 C341 151 353 173 362 196 Z",
+      // dirty tracking: the last loaded/saved state, serialized
+      scriptBaseline: null,
       // the New-script overlay
       newScriptForm: null,
       nsIconSearch: "",
@@ -765,7 +794,7 @@ export default {
       pills: [],
       filterOpen: false,
       // which facet groups are unfolded in the menu (Source starts open)
-      facetOpen: { source: true },
+      facetOpen: {},
       ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
@@ -918,9 +947,9 @@ export default {
     teamRow() {
       const icons = {
         townsfolk: "users",
-        outsider: "user-slash",
-        minion: "user-secret",
-        demon: "fire"
+        outsider: "walking",
+        minion: "mask",
+        demon: "" // bespoke horned-head SVG (DEMON_PATH)
       };
       return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
         team,
@@ -1020,6 +1049,23 @@ export default {
     roleTemplateJson() {
       return JSON.stringify(ROLE_TEMPLATE);
     },
+    /** The script's editable surface, serialized — dirty = differs from the
+     *  baseline taken at load/save/new. */
+    currentScriptSnapshot() {
+      const e = this.$store.state.edition;
+      return JSON.stringify({
+        e: e.id,
+        n: e.name || "",
+        l: e.logo || "",
+        r: this.collapseScript()
+      });
+    },
+    scriptDirty() {
+      return (
+        this.scriptBaseline !== null &&
+        this.scriptBaseline !== this.currentScriptSnapshot
+      );
+    },
     nsIconMatches() {
       const q = this.nsIconSearch.trim().toLowerCase();
       if (!q) return rolesJSON;
@@ -1079,6 +1125,7 @@ export default {
   created() {
     const id = new URLSearchParams(window.location.search).get("script");
     if (id) this.loadFromVault(id);
+    this.setBaseline();
   },
   methods: {
     // ── Golem fork: the script vault ─────────────────────────────────────
@@ -1095,6 +1142,7 @@ export default {
         this.vaultSourceId = script.id;
         this.recents = vault.getRecents();
         this.markNC(script.id);
+        this.setBaseline();
         // FT-847: the host of an OWNED town picked a vault script → save it
         // to the town (skipped when the town itself supplied the script).
         if (attach) this.maybeAttachToTown(script.id);
@@ -1164,6 +1212,7 @@ export default {
         // FT-854: stamp (or clear) the non-conforming mark — a marker, not a
         // gate; the save above already succeeded whatever the composition.
         this.markNC(script.id);
+        this.setBaseline();
         // FT-847: a save/fork lands a (possibly new) script id — keep the
         // owned town pointing at what its host actually plays.
         this.maybeAttachToTown(script.id);
@@ -1396,6 +1445,7 @@ export default {
         this.$store.commit("setEdition", edition);
         this.vaultSourceId = null;
         this.ensureOpen();
+        this.setBaseline();
       } else {
         this.loadFromVault(card.id).then(() => this.ensureOpen());
       }
@@ -1424,7 +1474,30 @@ export default {
       this.vaultSourceId = null;
       this.newScriptForm = null;
       this.ensureOpen();
+      this.setBaseline();
       flashHint(`${f.name.trim()} — a blank page. Add roles from the shelf`);
+    },
+    // ── dirty tracking (Save/Discard live in the meter, only when dirty) ─
+    setBaseline() {
+      this.scriptBaseline = this.currentScriptSnapshot;
+    },
+    /** Back to the last loaded/saved state. */
+    discardEdits() {
+      if (!this.scriptBaseline) return;
+      const b = JSON.parse(this.scriptBaseline);
+      if (b.e !== "custom") {
+        const edition = editionJSON.find(x => x.id === b.e);
+        if (edition) this.$store.commit("setEdition", edition);
+      } else {
+        this.$store.commit("setCustomRoles", b.r);
+        this.$store.commit("setEdition", {
+          id: "custom",
+          name: b.n,
+          logo: b.l || undefined
+        });
+      }
+      this.ensureOpen();
+      flashHint("Edits discarded");
     },
     /** Sidebar click: in the script → out; not in it → in. */
     async toggleRole(entry) {
@@ -1641,8 +1714,9 @@ export default {
     removePill(pill) {
       this.pills = this.pills.filter(p => p !== pill);
     },
+    /** Accordion: opening a facet group folds the others (user call). */
     toggleFacetOpen(key) {
-      this.$set(this.facetOpen, key, !this.facetOpen[key]);
+      this.facetOpen = this.facetOpen[key] ? {} : { [key]: true };
     },
     pillCountIn(key) {
       return this.pills.filter(p => p.facet === key).length;
@@ -1834,8 +1908,9 @@ export default {
       // Golem fork (FT-854): loading a script LANDS IN the workbench (the
       // setEdition side effect above closed the modal; upstream also bounced
       // back to the tiles). A silent ?script= auto-load — modal never open —
-      // stays silent.
+      // stays silent. A parsed load is pristine until edited.
       if (wasOpen) this.ensureOpen();
+      this.setBaseline();
     },
     ...mapMutations(["toggleModal", "setEdition"])
   }
@@ -2092,6 +2167,10 @@ $team-colors: (
         width: 15px;
         height: 15px;
       }
+      .demon-glyph {
+        width: 16px;
+        height: 16px;
+      }
       // the PROPER team colors (user call on the blue); demon's dark red
       // alone gets a small lift for dark-ground legibility
       &.team-townsfolk {
@@ -2113,6 +2192,33 @@ $team-colors: (
     }
     &.nonconforming .verdict {
       color: #ff8a8a;
+    }
+    // unsaved-edit controls: visible only while dirty
+    .wb-dirty {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 10px;
+      padding: 2px 10px;
+      border: 1px solid #7d0e0e;
+      border-radius: 10px;
+      svg {
+        cursor: pointer;
+        width: 14px;
+        height: 14px;
+      }
+      .save {
+        color: #7ed67e;
+        &:hover {
+          filter: brightness(1.4);
+        }
+      }
+      .discard {
+        color: #ff8a8a;
+        &:hover {
+          color: red;
+        }
+      }
     }
   }
 
@@ -2160,6 +2266,10 @@ $team-colors: (
         svg {
           width: 16px;
           height: 16px;
+        }
+        .demon-glyph {
+          width: 17px;
+          height: 17px;
         }
         .cnt {
           font-size: 12px;
@@ -2414,17 +2524,22 @@ $team-colors: (
         margin-left: auto;
         padding-right: 4px;
       }
+      // in the app's idiom (user call): dark plates, blood on the active
       .wb-tab {
         cursor: pointer;
         padding: 3px 16px;
-        border-radius: 4px 4px 0 0;
-        background: rgba(255, 255, 255, 0.08);
+        border-radius: 5px;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid #3d3d3d;
         &:hover {
-          background: rgba(255, 255, 255, 0.2);
+          border-color: #7d0e0e;
+          color: #ff8a8a;
         }
         &.active {
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(160, 20, 20, 0.28);
+          border-color: #a01414;
           font-weight: bold;
+          text-shadow: 0 0 6px rgba(255, 60, 60, 0.5);
         }
       }
     }

@@ -219,6 +219,26 @@ export default {
     }
   },
   mounted() {
+    // Golem fork: the scrollbar's dried-blood TRAIL — every scroll container
+    // remembers the furthest its thumb has traveled via --sb-trail, which
+    // its ::-webkit-scrollbar-track gradient reads. Capture phase catches
+    // scrolls on ANY element; static paint, so the kill-switch is moot.
+    document.addEventListener(
+      "scroll",
+      e => {
+        const el = e.target;
+        if (!(el instanceof Element)) return;
+        const max = el.scrollHeight - el.clientHeight;
+        if (max <= 0) return;
+        const reached = Math.min(
+          100,
+          Math.round(((el.scrollTop + el.clientHeight * 0.6) / el.scrollHeight) * 100)
+        );
+        const prev = parseFloat(el.style.getPropertyValue("--sb-trail")) || 0;
+        if (reached > prev) el.style.setProperty("--sb-trail", reached + "%");
+      },
+      true
+    );
     // FT-850: the DEAL MOMENT — the host committing session/distributeRoles
     // with a truthy payload is the instant the characters go out. Stash it
     // (the recorded game's startedAt) and mirror it reactively so the pill
@@ -389,28 +409,50 @@ export default {
   width: 8px;
   height: 8px;
 }
+// The track remembers where the drop has been: a dried-blood TRAIL from the
+// top down to the furthest point scrolled (--sb-trail, written by the
+// capture-phase scroll listener in mounted()).
 ::-webkit-scrollbar-track {
-  background: #000;
+  background: linear-gradient(
+    to bottom,
+    #2c0707 0,
+    #1c0404 var(--sb-trail, 0%),
+    #000 var(--sb-trail, 0%)
+  );
 }
+// Glassier crimson: a specular sheen down the left edge over a brighter
+// crimson run; the bead stays quiet.
 ::-webkit-scrollbar-thumb {
   background:
+    linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.28),
+      rgba(255, 255, 255, 0.05) 40%,
+      rgba(0, 0, 0, 0.15) 90%
+    ),
     radial-gradient(
       ellipse 55% 8px at 50% calc(100% - 3px),
-      rgba(255, 70, 70, 0.35),
+      rgba(255, 80, 80, 0.4),
       transparent 70%
     ),
-    linear-gradient(to bottom, #3d0404, #7c0d0d 30%, #a01414 78%, #6b0808);
+    linear-gradient(to bottom, #4a0606, #9c1010 30%, #c41a1a 78%, #7a0909);
   border-radius: 4px 4px 6px 6px / 4px 4px 9px 9px;
   min-height: 36px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background:
+    linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.35),
+      rgba(255, 255, 255, 0.08) 40%,
+      rgba(0, 0, 0, 0.12) 90%
+    ),
     radial-gradient(
       ellipse 55% 8px at 50% calc(100% - 3px),
-      rgba(255, 90, 90, 0.45),
+      rgba(255, 100, 100, 0.5),
       transparent 70%
     ),
-    linear-gradient(to bottom, #4d0505, #9c1111 30%, #c41919 78%, #7f0a0a);
+    linear-gradient(to bottom, #5a0707, #b41414 30%, #dc2222 78%, #8c0b0b);
 }
 ::-webkit-scrollbar-corner {
   background: #000;
