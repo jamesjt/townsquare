@@ -47,13 +47,39 @@
 
       <div class="wb-body">
         <aside class="wb-sidebar">
+          <!-- team toggles are TRI-STATE on click (show only → hide → off);
+               the + at the end forges a new role -->
+          <div class="wb-team-row">
+            <button
+              v-for="t in teamRow"
+              :key="t.team"
+              class="wb-team-toggle"
+              :class="[
+                'team-' + t.team,
+                { on: teamState[t.team] === 1, exc: teamState[t.team] === -1 }
+              ]"
+              :title="teamTitle(t)"
+              @click="toggleTeam(t.team)"
+            >
+              <img
+                v-if="t.team === 'demon'"
+                class="demon-glyph"
+                :src="demonGlyph"
+                alt=""
+              />
+              <font-awesome-icon v-else :icon="t.icon" />
+              <span class="cnt">{{ t.count }}</span>
+            </button>
+            <div class="button wb-plus" title="New role" @click="openRoleForm()">
+              <font-awesome-icon icon="plus-circle" />
+            </div>
+          </div>
           <!-- FT-855 r2: the FILTER BOX — its header row is the collapsible's
                header (Filter · search · chevron far right). Typing opens the
                box and narrows the facet values; groups open independently,
                chevrons on their right. -->
           <div class="wb-filterbox" :class="{ open: filterOpen }">
             <div class="fb-head" @click="filterOpen = !filterOpen">
-              <span class="fb-title">Filter</span>
               <input
                 v-model="roleQuery"
                 class="wb-search"
@@ -62,6 +88,7 @@
                 @input="onSearchInput"
                 @keyup.enter="searchRoles"
               />
+              <span class="fb-title">Filter</span>
               <font-awesome-icon
                 icon="chevron-down"
                 class="caret"
@@ -104,33 +131,6 @@
                   </div>
                 </template>
               </div>
-            </div>
-          </div>
-          <!-- team toggles are TRI-STATE on click (show only → hide → off);
-               the + at the end forges a new role -->
-          <div class="wb-team-row">
-            <button
-              v-for="t in teamRow"
-              :key="t.team"
-              class="wb-team-toggle"
-              :class="[
-                'team-' + t.team,
-                { on: teamState[t.team] === 1, exc: teamState[t.team] === -1 }
-              ]"
-              :title="teamTitle(t)"
-              @click="toggleTeam(t.team)"
-            >
-              <img
-                v-if="t.team === 'demon'"
-                class="demon-glyph"
-                :src="demonGlyph"
-                alt=""
-              />
-              <font-awesome-icon v-else :icon="t.icon" />
-              <span class="cnt">{{ t.count }}</span>
-            </button>
-            <div class="button wb-plus" title="New role" @click="openRoleForm()">
-              <font-awesome-icon icon="plus-circle" />
             </div>
           </div>
           <div class="wb-pill-row">
@@ -181,11 +181,6 @@
               </li>
             </template>
           </ul>
-          <div class="button-group">
-            <div class="button" @click="searchRoles">
-              <font-awesome-icon icon="search-plus" /> Browse library
-            </div>
-          </div>
         </aside>
 
         <main class="wb-main">
@@ -642,7 +637,12 @@
 
       <!-- the shelf's hover card: icon + bold name + ability (the almanac
            read), replacing the native title tooltip -->
-      <div class="wb-role-tip" v-if="roleTip" :style="roleTipStyle">
+      <div
+        class="wb-role-tip"
+        v-if="roleTip"
+        :class="'team-' + roleTip.team"
+        :style="roleTipStyle"
+      >
         <span
           class="icon"
           :style="{ backgroundImage: `url(${roleTip.iconUrl || iconUrl('custom')})` }"
@@ -1843,13 +1843,17 @@ export default {
       );
     },
     // ── FT-855: controls ─────────────────────────────────────────────────
-    /** show only → hide → off, on the button itself (user call). */
+    /** show only → hide → off, on the button itself (user call). Hiding
+     *  ALL four teams is a dead end that reads as "no filter, no roles" —
+     *  it auto-resets to neutral (everything shows). */
     toggleTeam(team) {
       const next = { ...this.teamState };
       if (next[team] === 1) next[team] = -1;
       else if (next[team] === -1) delete next[team];
       else next[team] = 1;
-      this.teamState = next;
+      const teams = ["townsfolk", "outsider", "minion", "demon"];
+      if (teams.every(t => next[t] === -1)) this.teamState = {};
+      else this.teamState = next;
     },
     teamTitle(t) {
       const s = this.teamState[t.team];
@@ -1862,9 +1866,15 @@ export default {
             : " — click to show only")
       );
     },
-    /** Typing opens the filter box and narrows its facet values too. */
+    /** Typing opens the filter box, narrows its facet values, and (debounced)
+     *  asks the community library too — the Browse button retired. */
     onSearchInput() {
       if (this.roleQuery.trim()) this.filterOpen = true;
+      clearTimeout(this.__searchDebounce);
+      this.__searchDebounce = setTimeout(() => {
+        if (this.roleQuery.trim()) this.searchRoles();
+        else this.roleResults = [];
+      }, 400);
     },
     facetTagsFiltered(facet) {
       const q = this.roleQuery.trim().toLowerCase();
@@ -3194,7 +3204,8 @@ $team-colors: (
     }
   }
 
-  // the shelf's hover card — icon left, bold name, ability body
+  // the shelf's hover card — icon left, bold name, ability body; the
+  // border wears the role's team color (user call)
   // 1.5x (user call): bigger art, bigger type, wider card
   .wb-role-tip {
     position: fixed;
@@ -3203,6 +3214,11 @@ $team-colors: (
     gap: 16px;
     max-width: 460px;
     padding: 14px 20px;
+    @each $team, $color in $team-colors {
+      &.team-#{$team} {
+        border-color: rgba($color, 0.75);
+      }
+    }
     background: rgba(10, 4, 4, 0.97);
     border: 2px solid #400;
     border-radius: 10px;
