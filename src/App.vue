@@ -247,50 +247,9 @@ export default {
     }
   },
   mounted() {
-    // Golem fork: the scrollbar's dried-blood TRAIL — every scroll container
-    // remembers the furthest its thumb has traveled via --sb-trail, which
-    // its ::-webkit-scrollbar-track gradient reads. Capture phase catches
-    // scrolls on ANY element; static paint, so the kill-switch is moot.
-    document.addEventListener(
-      "scroll",
-      e => {
-        const el = e.target;
-        if (!(el instanceof Element)) return;
-        const max = el.scrollHeight - el.clientHeight;
-        if (max <= 0) return;
-        const reached = Math.min(
-          100,
-          Math.round(((el.scrollTop + el.clientHeight * 0.6) / el.scrollHeight) * 100)
-        );
-        const prev = parseFloat(el.style.getPropertyValue("--sb-trail")) || 0;
-        if (reached > prev) el.style.setProperty("--sb-trail", reached + "%");
-        // a droplet breaks off the thumb while scrolling (throttled per
-        // element; skipped under the animation kill-switch)
-        if (!this.grimoire.isStatic && max > 40) {
-          const now = performance.now();
-          if (!el.__lastDrip || now - el.__lastDrip > 600) {
-            el.__lastDrip = now;
-            const rect = el.getBoundingClientRect();
-            const ratio = (el.scrollTop + el.clientHeight) / el.scrollHeight;
-            const drop = document.createElement("div");
-            drop.className = "blood-droplet";
-            drop.style.left = rect.right - 7 + "px";
-            drop.style.top = rect.top + ratio * rect.height - 12 + "px";
-            document.body.appendChild(drop);
-            const anim = drop.animate(
-              [
-                { transform: "translateY(0) scale(1)", opacity: 0.9 },
-                { transform: "translateY(64px) scale(0.85)", opacity: 0 }
-              ],
-              { duration: 650, easing: "cubic-bezier(0.5, 0, 0.9, 0.6)" }
-            );
-            anim.onfinish = () => drop.remove();
-            setTimeout(() => drop.remove(), 900); // belt for a frozen pane
-          }
-        }
-      },
-      true
-    );
+    // (The legacy webkit blood scrollbar — the --sb-trail writer and its
+    // droplet spawner — was KILLED 2026-08-17 by user order. The only blood
+    // scrollbar is the v-blood-scroll overlay directive.)
     // FT-850: the DEAL MOMENT — the host committing session/distributeRoles
     // with a truthy payload is the instant the characters go out. Stash it
     // (the recorded game's startedAt) and mirror it reactively so the pill
@@ -483,63 +442,26 @@ export default {
   font-display: swap;
 }
 
-// Golem fork: BLOOD SCROLLBARS — a thin black strip, the indicator a run of
-// blood that beads at its lower end. The thumb clips its own paint, so the
-// "drip" is a bead inside the pill: a long dark-to-bright run, a bright
-// gathering at the bottom, and a drop-shaped tail via asymmetric radii.
-// Firefox only — in Chromium the standard property WINS over the webkit
-// pseudo-elements and would flatten the blood paint to a plain thin bar.
-@supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #8a1010 #000;
-  }
+// The legacy webkit BLOOD scrollbar was killed 2026-08-17 (user order:
+// never use it again) — the v-blood-scroll overlay directive is the only
+// blood bar. Native bars everywhere else stay quiet, thin, and dark.
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a #000;
 }
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-// The track remembers where the drop has been: a dried-blood TRAIL from the
-// top down to the furthest point scrolled (--sb-trail, written by the
-// capture-phase scroll listener in mounted()).
 ::-webkit-scrollbar-track {
-  background: linear-gradient(
-    to bottom,
-    #2c0707 0,
-    #1c0404 var(--sb-trail, 0%),
-    #000 var(--sb-trail, 0%)
-  );
+  background: #000;
 }
-// The thumb IS the drop now: a glassy crimson column ending in a real
-// baked teardrop tip (the image's transparent corners let the track show,
-// so the point reads as a hanging drop, not a squared bar).
 ::-webkit-scrollbar-thumb {
-  background:
-    url("assets/blood/scroll-tip.png") no-repeat bottom center / 100% auto,
-    linear-gradient(
-        to right,
-        rgba(255, 255, 255, 0.28),
-        rgba(255, 255, 255, 0.05) 40%,
-        rgba(0, 0, 0, 0.15) 90%
-      )
-      no-repeat top center / 100% calc(100% - 16px),
-    linear-gradient(to bottom, #4a0606, #9c1010 40%, #b01616)
-      no-repeat top center / 100% calc(100% - 16px);
-  border-radius: 4px 4px 0 0;
-  min-height: 44px;
+  background: #2a2a2a;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background:
-    url("assets/blood/scroll-tip.png") no-repeat bottom center / 100% auto,
-    linear-gradient(
-        to right,
-        rgba(255, 255, 255, 0.35),
-        rgba(255, 255, 255, 0.08) 40%,
-        rgba(0, 0, 0, 0.12) 90%
-      )
-      no-repeat top center / 100% calc(100% - 16px),
-    linear-gradient(to bottom, #5a0707, #b41414 40%, #c92020)
-      no-repeat top center / 100% calc(100% - 16px);
+  background: #3a3a3a;
 }
 
 // The blood-drip OVERLAY scrollbar (v-blood-scroll): the native bar hides,
@@ -590,17 +512,6 @@ export default {
   }
 }
 
-// A droplet breaks off and falls as you scroll (spawned by the listener in
-// mounted(); respects the animation kill-switch).
-.blood-droplet {
-  position: fixed;
-  width: 5px;
-  height: 9px;
-  background: radial-gradient(ellipse at 50% 35%, #d42020, #7a0909);
-  border-radius: 50% 50% 60% 60% / 40% 40% 70% 70%;
-  z-index: 90;
-  pointer-events: none;
-}
 ::-webkit-scrollbar-corner {
   background: #000;
 }

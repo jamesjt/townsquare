@@ -57,6 +57,11 @@ const CDFS = {
   neutral: [0.039, 0.327, 0.541, 0.692, 0.772, 0.828, 0.869, 1]
 };
 
+// Mean |high-pass residual| of the official art per tone band (measured,
+// claude_temp_test/2026-08-17-grain-assess.mjs) — the grain is quiet inside
+// the deep color pools and ROARS in the highlights.
+const GRAIN_AMP = [16.5, 7.2, 8.3, 9.9, 14.6, 16.1, 20.5, 33.2];
+
 /** percentile (0..1) -> tone (0..1) through an alignment's inverse CDF. */
 function invCdf(cdf, p) {
   let prev = 0;
@@ -296,11 +301,11 @@ export function stylizeIcon(
               if (s > 0.25) v *= 0.72;
             }
 
-            // TEXTURE, three fabrics: broad paint mottle, a brush pull
-            // stretched along the vertical, and fine paper tooth
+            // low-frequency TEXTURE: broad paint mottle + a brush pull
+            // stretched along the vertical (fine grain joins in pass 2,
+            // AFTER the histogram match — matching would flatten it here)
             v *= 0.78 + 0.42 * fbm(x, y, 34, seed + 71);
             v *= 0.86 + 0.24 * fbm(x * 0.35, y, 13, seed + 83);
-            v *= 0.93 + 0.14 * vnoise(x, y, 3, seed + 97);
 
             vmap[i] = v;
             vhist[Math.max(0, Math.min(255, (v * 128) | 0))]++;
@@ -335,9 +340,24 @@ export function stylizeIcon(
             f = band - b0;
           const c0 = ramp[b0],
             c1 = ramp[Math.min(7, b0 + 1)];
-          od[i * 4] = c0[0] + (c1[0] - c0[0]) * f;
-          od[i * 4 + 1] = c0[1] + (c1[1] - c0[1]) * f;
-          od[i * 4 + 2] = c0[2] + (c1[2] - c0[2]) * f;
+          // MEASURED film grain (the official residual: std ~19/255,
+          // near-per-pixel with light clumping, largely per-channel,
+          // strongest in the highlights) — injected at the color stage so
+          // the histogram match cannot iron it out. The 1.8x compensates
+          // the final downscale's averaging.
+          const amp = GRAIN_AMP[b0] * 1.8;
+          const clump = (vnoise(x, y, 2, seed + 149) - 0.5) * 0.5;
+          for (let c = 0; c < 3; c++) {
+            const gN =
+              hash2(x, y, seed + 131 + c * 17) +
+              hash2(x + 911, y, seed + 173 + c * 17) -
+              1; // triangular in [-1, 1]
+            const base = c0[c] + (c1[c] - c0[c]) * f;
+            od[i * 4 + c] = Math.max(
+              0,
+              Math.min(255, base + (0.8 * gN + clump) * amp)
+            );
+          }
           od[i * 4 + 3] = alpha[i];
         }
         g.putImageData(out, 0, 0);

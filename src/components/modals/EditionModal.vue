@@ -416,7 +416,7 @@
            full snapshot (the script carries the whole role). Fork-on-edit
            like scripts: saving someone else's role forks your own copy.
            FT-854: the forge floats over the workbench as an overlay. -->
-      <div class="role-form" v-if="roleForm">
+      <div class="role-form" v-if="roleForm" v-blood-scroll>
         <!-- paste a role JSON (or an official id) to fill the form; the
              ghost text IS the accepted syntax, Template copies it -->
         <div class="row">
@@ -608,7 +608,7 @@
            icon WELL takes an upload or a dropped image (downscaled to 128px,
            stored as a data URL in _meta.logo), or a pick from the official
            art below — which got a real browser instead of a letterbox. -->
-      <div class="role-form ns-form" v-if="newScriptForm">
+      <div class="role-form ns-form" v-if="newScriptForm" v-blood-scroll>
         <h3>New script</h3>
         <div class="ns-head">
           <div
