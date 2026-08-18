@@ -23,8 +23,8 @@ import bulbSprite from "../assets/blood/drip-bulb.png";
 
 const LANE = 26; // reserved gutter
 const W = 18; // svg lane width
-const DROP_W = 14;
-const DROP_H = 52; // the drips.webp bulb (23x86)
+const DROP_W = 17;
+const DROP_H = 64; // the drips.webp bulb (23x86), sized up
 
 // the teardrop path in a 15x24 box: crown point -> symmetric cubics into
 // the bulb -> back up (drawn fallback — the drips.webp art rides now)
@@ -116,7 +116,7 @@ function update(el) {
     `translate(${W / 2 - (DROP_W * sx) / 2} ${y}) scale(${sx} ${sy})`
   );
   // the VIDEO drip is the trail — stretched from the top to the drop's crown
-  s.trail.setAttribute("height", Math.max(0, y + 14));
+  s.trail.setAttribute("height", Math.max(0, y + 18));
 
   // dried beads appear where the drop has passed (seeded, stable spots)
   let beads = "";
