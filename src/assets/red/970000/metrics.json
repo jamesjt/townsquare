@@ -102,10 +102,10 @@
     "source": "botc-font-970000.png"
   },
   "S": {
-    "w": 109,
-    "h": 172,
-    "baseline": 159,
-    "source": "botc-font-970000.png"
+    "w": 108,
+    "h": 180,
+    "baseline": 167,
+    "source": "970000-2.png"
   },
   "T": {
     "w": 136,
@@ -306,9 +306,9 @@
     "source": "botc-font-970000.png"
   },
   "J": {
-    "w": 72,
-    "h": 121,
-    "baseline": 81,
-    "source": "botc-font-970000.png"
+    "w": 112,
+    "h": 210,
+    "baseline": 182,
+    "source": "970000-2.png"
   }
 }

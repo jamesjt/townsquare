@@ -18,6 +18,8 @@
 //     back round at rest
 //   - the trail is a tapered run (thin at its top, swelling to meet the
 //     drop) plus seeded dried beads left where the drop has passed
+import dropSprite from "../assets/blood/drip-drop2.png";
+
 const LANE = 26; // reserved gutter
 const W = 18; // svg lane width
 const DROP_W = 15;
@@ -25,6 +27,8 @@ const DROP_H = 24;
 
 // the teardrop path in a 15x24 box: crown point -> symmetric cubics into
 // the bulb -> back up
+// (kept for the vector fallback — eslint pardon)
+// eslint-disable-next-line no-unused-vars
 const DROP_PATH =
   "M7.5 0 C8.1 4.2 10.2 7.3 12.1 10.2 C13.8 12.8 15 15 15 17.2 " +
   "C15 21.1 11.6 24 7.5 24 C3.4 24 0 21.1 0 17.2 " +
@@ -53,13 +57,9 @@ function makeSvg(id) {
     </defs>
     <path class="bd-trail" fill="url(#bdt-${id})"/>
     <g class="bd-beads" fill="#6d0d0d"></g>
-    <g class="bd-drop" shape-rendering="geometricPrecision">
-      <path d="${DROP_PATH}" fill="url(#bdg-${id})" stroke="rgba(36,3,3,0.85)" stroke-width="0.6"/>
-      <path d="M2.2 18.6 C3.4 21.6 6 23.2 8.6 23.1 C5.2 24.6 1.6 22.4 1.1 19.2 Z"
-        fill="rgba(46,4,4,0.5)"/>
-      <ellipse cx="4.9" cy="13.6" rx="1.7" ry="2.6" fill="rgba(255,238,230,0.5)"
-        transform="rotate(-14 4.9 13.6)"/>
-      <circle cx="6.1" cy="9.4" r="0.7" fill="rgba(255,238,230,0.35)"/>
+    <g class="bd-drop">
+      <image href="${dropSprite}" width="${DROP_W}" height="${DROP_H}"
+        preserveAspectRatio="xMidYMid meet"/>
     </g>`;
   return svg;
 }

@@ -34,17 +34,10 @@
                (extracted from the source header, FT-853). Persisted so the
                choice survives reloads; fixed row height so nothing below
                shifts. -->
+          <!-- the DESIGNED Blood lockup, lifted whole from the user's
+               blood-on-the.png (2026-08-18) — flourishes and all -->
           <div class="blood-word">
-            <template v-if="fontState.key !== 'logo'">
-              <img
-                v-for="(g, i) in titleGlyphs"
-                :key="fontState.key + i"
-                :src="g.src"
-                :style="g.style"
-                :alt="g.alt"
-              />
-            </template>
-            <img v-else class="blood-logo" :src="bloodLogo" alt="Blood" />
+            <img class="blood-lockup" :src="bloodLockup" alt="Blood" />
           </div>
           <!-- "on the": the gold script art, or any family's lowercase
                (the font lab picks) -->
@@ -287,6 +280,7 @@ import bloodMetrics from "../assets/blood/metrics.json";
 import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
 import ontheLockup from "../assets/title/onthe-lockup.png";
+import bloodLockup from "../assets/title/blood-lockup.png";
 // FT-854: the Open-the-town button's blood O (alphabet archive; ems baked
 // from its metrics at the title conversion — 341x410, baseline 352, /370).
 import bloodO from "../assets/blood/alphabet/O.png";
@@ -341,7 +335,9 @@ export default {
       const { x, y, s } = this.bgA;
       return {
         left: x + 837 * s + "px",
-        top: y + 86 * s + "px",
+        top: y + 56 * s + "px",
+        // the lockup draws at 360 image-px wide (1657x651 native)
+        width: 360 * s + "px",
         fontSize: 88 * s + "px"
       };
     },
@@ -486,6 +482,7 @@ export default {
       bloodLogo,
       ontheLogo,
       ontheLockup,
+      bloodLockup,
       bloodO,
       // Golem fork (2026-08-18, user diagnosis): the background renders
       // center/cover, so anything positioned in VIEWPORT pixels drifts
@@ -920,6 +917,12 @@ export default {
       font-size: 1em;
       line-height: 1;
       white-space: nowrap;
+      img.blood-lockup {
+        width: 100%;
+        height: auto;
+        display: block;
+        filter: drop-shadow(0 0.05em 0.08em rgba(0, 0, 0, 0.65));
+      }
       // Golem fork: the lettering cycles on click (PNGs / gold / red) —
       // fixed row height so "On the" never shifts between states, and the
       // word alone takes the pointer (the .title wrapper stays inert).
