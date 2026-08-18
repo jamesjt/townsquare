@@ -1039,9 +1039,15 @@ export default {
         &:hover {
           color: red;
         }
+        // LOUD, like the picker's picked card (user call 2026-08-17)
         &.picked {
-          border-color: #400;
-          background: rgba(0, 0, 0, 0.5);
+          border-color: #a01414;
+          background: rgba(160, 20, 20, 0.18);
+          box-shadow: 0 0 10px rgba(210, 40, 40, 0.55),
+            inset 0 0 16px rgba(160, 20, 20, 0.3);
+          .name {
+            text-shadow: 0 0 6px rgba(255, 60, 60, 0.7);
+          }
         }
         .name {
           flex-grow: 1;

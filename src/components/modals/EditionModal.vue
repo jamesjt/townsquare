@@ -1,44 +1,17 @@
 <template>
   <Modal
-    class="editions"
-    :class="{ workbench: isCustom }"
+    class="editions workbench"
     v-if="modals.edition"
     @close="toggleModal('edition')"
   >
-    <div v-if="!isCustom">
-      <h3>Select an edition:</h3>
-      <ul class="editions">
-        <li
-          v-for="edition in editions"
-          class="edition"
-          :class="['edition-' + edition.id]"
-          :style="{
-            backgroundImage: `url(${require('../../assets/editions/' +
-              edition.id +
-              '.png')})`
-          }"
-          :key="edition.id"
-          @click="setEdition(edition)"
-        >
-          {{ edition.name }}
-        </li>
-        <li
-          class="edition edition-custom"
-          @click="isCustom = true"
-          :style="{
-            backgroundImage: `url(${require('../../assets/editions/custom.png')})`
-          }"
-        >
-          Custom Script / Characters
-        </li>
-      </ul>
-    </div>
     <!-- Golem fork (FT-854): the Almanac WORKBENCH — the full script-editing
-         surface. Top: script selector + actions + the composition meter.
-         Left: every role (officials + your library) with search and team
-         filters. Main: the current script in three views. The meter INFORMS,
-         never blocks — non-conforming scripts save, share and play. -->
-    <div class="custom workbench" v-else>
+         surface, and the modal's ONLY page (upstream's edition-tile screen
+         retired 2026-08-17, user call: the picker carries the same art).
+         Top: script selector + actions + the composition meter. Left: every
+         role (officials + your library) with search and tag filters. Main:
+         the current script in three views. The meter INFORMS, never blocks —
+         non-conforming scripts save, share and play. -->
+    <div class="custom workbench">
       <div class="wb-top">
         <!-- Row 1: the title, CENTERED on its own line (only the shell's
              close × shares it). Row 2: THE shared ScriptPicker (identical
@@ -81,9 +54,6 @@
           <div class="button" v-if="recents.length" @click="copyLinks">
             <font-awesome-icon icon="clipboard" /> Export my links
           </div>
-          <div class="button" @click="isCustom = false">
-            <font-awesome-icon icon="undo" /> Back
-          </div>
           </div>
         </div>
         <!-- the ghost text IS the exact syntax (user call), and the copy
@@ -113,24 +83,30 @@
             placeholder="Search every role…"
             @keyup.enter="searchRoles"
           />
-          <!-- tri-state chips: neutral → show only → hide. The Filters panel
-               below carries the deeper tags on the same state. -->
-          <div class="wb-chips">
+          <!-- The filter bar: Filters LEADS and encapsulates the chip strip
+               (user call). The strip shows the ACTIVE tags when any exist —
+               whatever group they came from — and offers the quick team
+               chips only while nothing is filtered. Same tri-state cycle
+               everywhere: show only → hide → off. -->
+          <div class="wb-filter-bar" :class="{ engaged: activeTagCount > 0 }">
             <span
-              v-for="chip in quickChips"
-              :key="chip.id"
-              class="wb-chip"
-              :class="chipClass(chip.id)"
-              :title="tagTitle(chip.id)"
-              @click="cycleTag(chip.id)"
-            >{{ chipPrefix(chip.id) }}{{ chip.label }}</span>
-            <span
-              class="wb-chip wb-filter-toggle"
-              :class="{ inc: filterOpen || activeTagCount > 0 }"
+              class="wb-filter-toggle"
+              :class="{ open: filterOpen }"
               @click="filterOpen = !filterOpen"
             >
+              <font-awesome-icon icon="chevron-down" class="caret" />
               Filters{{ activeTagCount ? " (" + activeTagCount + ")" : "" }}
             </span>
+            <div class="wb-chip-strip">
+              <span
+                v-for="chip in stripChips"
+                :key="chip.id"
+                class="wb-chip"
+                :class="chipClass(chip.id)"
+                :title="tagTitle(chip.id)"
+                @click="cycleTag(chip.id)"
+              >{{ chipPrefix(chip.id) }}{{ chip.label }}</span>
+            </div>
           </div>
           <div class="wb-filter-panel" v-if="filterOpen">
             <div class="wb-filter-group" v-for="g in tagGroups" :key="g.key">
@@ -201,17 +177,37 @@
               :class="{ active: wbView === 'other' }"
               @click="wbView = 'other'"
             >Other nights</span>
-            <!-- the composition meter rides the tab line (user call) -->
+            <!-- the composition meter rides the tab line; icon + count per
+                 team, tinted in the team's color (icon REPLACES text —
+                 the word lives on the tooltip) -->
             <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
-              <span class="chip team-townsfolk">{{ teamCounts.townsfolk }} townsfolk</span>
-              <span class="chip team-outsider">
-                {{ teamCounts.outsider }} outsider{{ teamCounts.outsider === 1 ? "" : "s" }}
+              <span class="chip team-townsfolk" title="Townsfolk">
+                <span
+                  class="ticon"
+                  :style="{ backgroundImage: `url(${iconUrl('good')})` }"
+                ></span
+                >{{ teamCounts.townsfolk }}
               </span>
-              <span class="chip team-minion">
-                {{ teamCounts.minion }} minion{{ teamCounts.minion === 1 ? "" : "s" }}
+              <span class="chip team-outsider" title="Outsiders">
+                <span
+                  class="ticon"
+                  :style="{ backgroundImage: `url(${iconUrl('outsider')})` }"
+                ></span
+                >{{ teamCounts.outsider }}
               </span>
-              <span class="chip team-demon">
-                {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
+              <span class="chip team-minion" title="Minions">
+                <span
+                  class="ticon"
+                  :style="{ backgroundImage: `url(${iconUrl('minion')})` }"
+                ></span
+                >{{ teamCounts.minion }}
+              </span>
+              <span class="chip team-demon" title="Demons">
+                <span
+                  class="ticon"
+                  :style="{ backgroundImage: `url(${iconUrl('evil')})` }"
+                ></span
+                >{{ teamCounts.demon }}
               </span>
               <span class="verdict" v-if="servableCounts.length">
                 plays {{ servableText }} players
@@ -472,25 +468,61 @@
           </div>
         </div>
       </div>
-      <!-- FT-854: the New-script overlay — name required, icon optional
-           (an official role's art marks the script; none = the custom mark). -->
+      <!-- FT-854 r9: the New-script overlay, rebuilt. Name required. The
+           icon WELL takes an upload or a dropped image (downscaled to 128px,
+           stored as a data URL in _meta.logo), or a pick from the official
+           art below — which got a real browser instead of a letterbox. -->
       <div class="role-form ns-form" v-if="newScriptForm">
         <h3>New script</h3>
-        <div class="row">
-          <input
-            ref="nsName"
-            v-model="newScriptForm.name"
-            placeholder="Script name"
-            maxlength="60"
-            @keyup.enter="createNewScript"
-          />
+        <div class="ns-head">
+          <div
+            class="ns-drop"
+            :class="{ has: !!newScriptForm.icon, dragover: nsDragOver }"
+            :style="nsIconStyle"
+            title="Script icon — drop an image, click to upload, or pick from the art below"
+            @click="$refs.nsUpload.click()"
+            @dragover.prevent="nsDragOver = true"
+            @dragleave="nsDragOver = false"
+            @drop.prevent="onNsDrop"
+          >
+            <span class="hint" v-if="!newScriptForm.icon"
+              >drop an image<br />or click to upload</span
+            >
+            <span
+              class="ns-clear"
+              v-if="newScriptForm.icon"
+              title="Remove the icon"
+              @click.stop="newScriptForm.icon = ''"
+              >×</span
+            >
+          </div>
+          <div class="ns-fields">
+            <label>Name</label>
+            <input
+              ref="nsName"
+              class="ns-name"
+              v-model="newScriptForm.name"
+              placeholder=""
+              maxlength="60"
+              @keyup.enter="createNewScript"
+            />
+            <small class="ns-note">The icon is optional — it marks the script wherever scripts are picked.</small>
+          </div>
         </div>
-        <div class="icon-picker">
+        <input
+          type="file"
+          ref="nsUpload"
+          accept="image/*"
+          class="ns-upload"
+          @change="onNsUpload"
+        />
+        <div class="ns-browse">
           <input
             v-model="nsIconSearch"
-            placeholder="Icon: search official roles (optional)…"
+            class="ns-search"
+            placeholder="…or search the official art"
           />
-          <div class="icon-grid">
+          <div class="icon-grid ns-grid">
             <div
               class="icon-cell"
               v-for="official in nsIconMatches"
@@ -510,12 +542,12 @@
           </div>
         </div>
         <div class="role-error" v-if="nsError">{{ nsError }}</div>
-        <div class="button-group">
-          <div class="button" @click="createNewScript">
-            <font-awesome-icon icon="plus-circle" /> Create
-          </div>
+        <div class="ns-acts">
           <div class="button" @click="newScriptForm = null">
             <font-awesome-icon icon="times" /> Cancel
+          </div>
+          <div class="button ns-create" @click="createNewScript">
+            <font-awesome-icon icon="plus-circle" /> Create
           </div>
         </div>
       </div>
@@ -648,7 +680,9 @@ export default {
   data: function() {
     return {
       editions: editionJSON,
-      isCustom: false,
+      // the workbench is the modal's only page now; the flag stays because
+      // ensureOpen (and old muscle memory in methods) still sets it
+      isCustom: true,
       bloodA,
       // Golem fork: the vault shelf + which vault script is currently loaded
       // (the fork/update decision key on save).
@@ -679,6 +713,7 @@ export default {
       newScriptForm: null,
       nsIconSearch: "",
       nsError: "",
+      nsDragOver: false,
       // the tri-state tag filter: tag id → 1 (include) | -1 (exclude)
       tagState: {},
       filterOpen: false,
@@ -773,10 +808,10 @@ export default {
         id: entry.id,
         name: (this.ncMap[entry.id] ? "⚠ " : "") + (entry.name || entry.id),
         // the loaded script's own icon shows once known (edition.logo —
-        // saved scripts carry it in _meta)
+        // saved scripts carry it in _meta; role id or uploaded data URL)
         icon:
           entry.id === this.vaultSourceId && this.$store.state.edition.logo
-            ? this.iconUrl(this.$store.state.edition.logo)
+            ? this.scriptLogoSrc(this.$store.state.edition.logo)
             : edCustom,
         blurb: this.ncMap[entry.id]
           ? "Outside the rules — still playable."
@@ -843,6 +878,12 @@ export default {
     },
     activeTagCount() {
       return Object.keys(this.tagState).length;
+    },
+    /** The bar's strip: the ACTIVE tags when any — else the quick chips. */
+    stripChips() {
+      if (!this.activeTagCount) return this.quickChips;
+      const all = TAG_GROUPS.flatMap(g => g.tags);
+      return all.filter(t => this.tagState[t.id] !== undefined);
     },
     /** The sidebar: every official + your library + browse results, filtered. */
     sidebarRoles() {
@@ -929,6 +970,11 @@ export default {
       const q = this.nsIconSearch.trim().toLowerCase();
       if (!q) return rolesJSON;
       return rolesJSON.filter(role => role.name.toLowerCase().includes(q));
+    },
+    nsIconStyle() {
+      const f = this.newScriptForm;
+      if (!f || !f.icon) return {};
+      return { backgroundImage: `url(${this.scriptLogoSrc(f.icon)})` };
     },
     /** The shelf grouped by team, headers included (user call). */
     sidebarGroups() {
@@ -1524,6 +1570,50 @@ export default {
           ? "Hiding these — click to reset"
           : "Click to show only these";
     },
+    /** A script logo is an official role id OR an uploaded data URL. */
+    scriptLogoSrc(logo) {
+      return logo && logo.startsWith("data:") ? logo : this.iconUrl(logo);
+    },
+    onNsUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (file) this.nsIntakeFile(file);
+      e.target.value = "";
+    },
+    onNsDrop(e) {
+      this.nsDragOver = false;
+      const file =
+        e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) this.nsIntakeFile(file);
+    },
+    /** Downscale any dropped/uploaded image into a 128px data URL — small
+     *  enough to travel inside the script's _meta. */
+    nsIntakeFile(file) {
+      if (!/^image\//.test(file.type)) {
+        this.nsError = "That file isn't an image.";
+        return;
+      }
+      this.nsError = "";
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const SIZE = 128;
+          const canvas = document.createElement("canvas");
+          canvas.width = SIZE;
+          canvas.height = SIZE;
+          const g = canvas.getContext("2d");
+          const scale = Math.min(SIZE / img.width, SIZE / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          g.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+          if (this.newScriptForm)
+            this.$set(this.newScriptForm, "icon", canvas.toDataURL("image/png"));
+        };
+        img.onerror = () => (this.nsError = "Could not read that image.");
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    },
     /** Put the fillable role template on the clipboard. */
     async copyRoleTemplate() {
       const text = JSON.stringify(ROLE_TEMPLATE, null, 2);
@@ -1603,6 +1693,9 @@ export default {
     },
     parseRoles(roles) {
       if (!roles || !roles.length) return;
+      // captured BEFORE the commits below auto-close the modal — a silent
+      // ?script= arrival (modal never open) must stay silent
+      const wasOpen = this.$store.state.modals.edition;
       roles = roles.map(role => typeof role === "string" ? { id: role } : role);
       const metaIndex = roles.findIndex(({ id }) => id === "_meta");
       let meta = {};
@@ -1628,7 +1721,7 @@ export default {
       // setEdition side effect above closed the modal; upstream also bounced
       // back to the tiles). A silent ?script= auto-load — modal never open —
       // stays silent.
-      if (this.isCustom) this.ensureOpen();
+      if (wasOpen) this.ensureOpen();
     },
     ...mapMutations(["toggleModal", "setEdition"])
   }
@@ -1871,15 +1964,25 @@ $team-colors: (
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    font-size: 13px;
+    font-size: 14px;
+    // icon + count, tinted per team; the word rides the tooltip
     .chip {
-      padding: 1px 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 8px 1px 4px;
       border-radius: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      border-left: 3px solid transparent;
+      background: rgba(255, 255, 255, 0.08);
+      font-weight: bold;
+      .ticon {
+        width: 22px;
+        height: 22px;
+        background-size: cover;
+        background-position: center;
+      }
       @each $team, $color in $team-colors {
         &.team-#{$team} {
-          border-left-color: $color;
+          color: lighten($color, 18%);
         }
       }
     }
@@ -1915,19 +2018,51 @@ $team-colors: (
       padding: 4px 8px;
       font-family: inherit;
     }
-    .wb-chips {
+    // Filters leads; the hairline box encapsulates its chips (user call).
+    .wb-filter-bar {
       display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
+      align-items: flex-start;
+      gap: 8px;
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      padding: 4px 7px;
       margin: 6px 0;
+      &.engaged {
+        border-color: #7d0e0e;
+      }
+      .wb-filter-toggle {
+        cursor: pointer;
+        white-space: nowrap;
+        font-size: 14px;
+        padding: 1px 2px;
+        opacity: 0.9;
+        flex-shrink: 0;
+        .caret {
+          font-size: 10px;
+          opacity: 0.7;
+          transition: transform 150ms;
+        }
+        &.open .caret {
+          transform: rotate(180deg);
+        }
+        &:hover {
+          color: #ff7070;
+        }
+      }
+      .wb-chip-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        min-width: 0;
+      }
     }
     .wb-chip {
       cursor: pointer;
-      padding: 1px 8px;
+      padding: 1px 9px;
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid transparent;
-      font-size: 13px;
+      font-size: 14px;
       &:hover {
         background: rgba(255, 255, 255, 0.2);
       }
@@ -1942,10 +2077,6 @@ $team-colors: (
         text-decoration: line-through;
         opacity: 0.8;
       }
-    }
-    .wb-filter-toggle {
-      margin-left: auto;
-      border: 1px solid #3d3d3d;
     }
     .wb-filter-panel {
       background: rgba(8, 8, 12, 0.97);
@@ -2156,15 +2287,15 @@ $team-colors: (
         opacity: 0.85;
         line-height: 1.3;
       }
-      // pinned to the card's TOP RIGHT (user call); resting state stays
-      // visible (hover-only affordances are unreachable on touch)
+      // pinned to the card's TOP RIGHT; shows only while hovering the ROLE,
+      // and the × itself reddens on its own hover (user call 2026-08-17)
       .wb-card-actions {
         position: absolute;
         top: 4px;
         right: 6px;
         display: flex;
         gap: 8px;
-        opacity: 0.45;
+        opacity: 0;
         transition: opacity 0.15s;
         svg {
           cursor: pointer;
@@ -2245,7 +2376,7 @@ $team-colors: (
         .wb-card-actions {
           display: flex;
           gap: 8px;
-          opacity: 0.45;
+          opacity: 0;
           svg {
             cursor: pointer;
             width: 12px;
@@ -2290,6 +2421,135 @@ $team-colors: (
     overflow-y: auto;
     text-align: center;
     box-shadow: 0 6px 40px #000;
+  }
+
+  // FT-854 r9: the New-script overlay, rebuilt around the icon WELL.
+  .ns-form {
+    width: min(760px, 94%);
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    h3 {
+      text-align: center;
+      margin: 0 0 12px;
+    }
+    .ns-head {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .ns-drop {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      flex-shrink: 0;
+      border: 2px dashed #555;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-origin: content-box;
+      padding: 6px;
+      transition: border-color 150ms, background-color 150ms;
+      .hint {
+        font-size: 12px;
+        opacity: 0.55;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .ns-clear {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 20px;
+        height: 20px;
+        line-height: 18px;
+        text-align: center;
+        border-radius: 50%;
+        background: #000;
+        border: 1px solid #7d0e0e;
+        color: #d42020;
+        font-weight: bold;
+        &:hover {
+          color: red;
+          border-color: red;
+        }
+      }
+      &.has {
+        border-style: solid;
+        border-color: #7d0e0e;
+      }
+      &.dragover,
+      &:hover {
+        border-color: #d42020;
+        background-color: rgba(160, 20, 20, 0.12);
+      }
+    }
+    .ns-fields {
+      flex-grow: 1;
+      label {
+        display: block;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        opacity: 0.6;
+        margin-bottom: 4px;
+      }
+      .ns-name {
+        width: 100%;
+        font-size: 17px;
+        padding: 7px 12px;
+        margin: 0;
+      }
+      .ns-note {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        opacity: 0.55;
+      }
+    }
+    .ns-upload {
+      display: none;
+    }
+    .ns-browse {
+      .ns-search {
+        width: 100%;
+        margin: 0 0 6px;
+      }
+      .ns-grid {
+        max-height: 300px;
+        width: 100%;
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+        .icon-cell {
+          width: auto;
+          .icon {
+            width: 48px;
+            height: 48px;
+          }
+        }
+      }
+    }
+    .ns-acts {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+      .ns-create {
+        border-color: #a01414;
+        background: rgba(160, 20, 20, 0.35);
+        &:hover {
+          background: rgba(160, 20, 20, 0.55);
+          color: white;
+        }
+      }
+    }
   }
 
   .wb-error {
