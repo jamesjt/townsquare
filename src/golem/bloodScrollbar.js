@@ -26,7 +26,8 @@ const LANE = 26; // reserved gutter
 const W = 18; // svg lane width
 
 // USER-adjustable drip dials (the Dr panel) — persisted per browser
-const DRIP_DEFAULTS = { w: 17, h: 64, trailW: 8, overlap: 18, dx: 0, dy: 0, bx: 0 };
+// the USER-calibrated drip (dialed in the Dr lab, 2026-08-18)
+const DRIP_DEFAULTS = { w: 22, h: 102, trailW: 6, overlap: 26, dx: 20, dy: -15, bx: -1 };
 let dripStored = {};
 try {
   dripStored = JSON.parse(localStorage.getItem("golem.drip") || "{}");
