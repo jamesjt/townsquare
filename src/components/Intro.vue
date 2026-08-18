@@ -364,8 +364,8 @@ export default {
     ontheStyle() {
       const { x, y, s } = this.bgA;
       return {
-        left: x + 822 * s + "px",
-        top: y + 215 * s + "px",
+        left: x + 830 * s + "px",
+        top: y + 205 * s + "px",
         fontSize: 26.4 * s + "px"
       };
     },
