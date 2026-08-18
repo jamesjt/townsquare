@@ -13,7 +13,7 @@
         <ul class="doors">
           <li @click="press('a')">
             <span class="key"
-              ><img :src="blood.A.src" class="blood-cap-a" alt="A"
+              ><img :src="capSrc('A')" :class="capClass('a')" :style="capStyle('A')" alt="A"
             /></span>dd Players
           </li>
         </ul>
@@ -35,10 +35,10 @@
             title="Click to change the lettering"
             @click="cycleTitleStyle"
           >
-            <template v-if="titleStyle === 0">
+            <template v-if="fontState.key !== 'logo'">
               <img
                 v-for="(g, i) in titleGlyphs"
-                :key="i"
+                :key="fontState.key + i"
                 :src="g.src"
                 :style="g.style"
                 :alt="g.alt"
@@ -47,24 +47,24 @@
             <img v-else class="blood-logo" :src="bloodLogo" alt="Blood" />
           </div>
           <div class="on-the">
-            <template v-if="titleStyle === 0">On the</template>
+            <template v-if="fontState.key !== 'logo'">On the</template>
             <img v-else class="onthe-logo" :src="ontheLogo" alt="on the" />
           </div>
         </div>
         <ul class="doors" v-if="!mode">
           <li @click="openHost">
             <span class="key"
-              ><img :src="blood.H.src" class="blood-cap-h" alt="H"
+              ><img :src="capSrc('H')" :class="capClass('h')" :style="capStyle('H')" alt="H"
             /></span>ost
           </li>
           <li @click="openJoin">
             <span class="key"
-              ><img :src="blood.J.src" class="blood-cap-j" alt="J"
+              ><img :src="capSrc('J')" :class="capClass('j')" :style="capStyle('J')" alt="J"
             /></span>oin
           </li>
           <li @click="openCreate">
             <span class="key"
-              ><img :src="blood.A.src" class="blood-cap-a" alt="A"
+              ><img :src="capSrc('A')" :class="capClass('a')" :style="capStyle('A')" alt="A"
             /></span>lmanac
           </li>
         </ul>
@@ -186,7 +186,7 @@
               @click="confirmHost"
             >
               <span class="key"
-                ><img :src="bloodO" class="blood-cap-o" alt="O"
+                ><img :src="capSrc('O')" :class="capClass('o')" :style="capStyle('O', 1)" alt="O"
               /></span>pen the town
             </button>
           </div>
@@ -275,12 +275,7 @@ import bloodA from "../assets/blood/blood-A.png";
 import bloodMetrics from "../assets/blood/metrics.json";
 // Golem fork: the page title's "BLOOD" — the FT-846 blood alphabet archive
 // (O2 is the variant, so the double O never repeats a letterform).
-import titleB from "../assets/blood/alphabet/B.png";
-import titleL from "../assets/blood/alphabet/L.png";
-import titleO from "../assets/blood/alphabet/O.png";
-import titleO2 from "../assets/blood/alphabet/O2.png";
-import titleD from "../assets/blood/alphabet/D.png";
-import alphabetMetrics from "../assets/blood/alphabet/metrics.json";
+// (title letters now come from titleFonts.js — the font-set registry)
 // Golem fork (FT-853): the title's alternate lettering — official-style gold
 // logo art extracted from the source header (Blood + the small "on the"
 // script), keyed to transparent PNGs.
@@ -294,6 +289,14 @@ import bloodO from "../assets/blood/alphabet/O.png";
 import ScriptPicker from "./ScriptPicker";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents, peekScript } from "../golem/scripts";
+import { flashHint } from "../golem/hint";
+// the app-wide PNG-font choice (dev control lives on the title)
+import {
+  fontState,
+  glyph,
+  glyphStyle,
+  cycleFontSet
+} from "../golem/titleFonts";
 
 // Golem fork (FT-846): the door initials are pre-rendered blood letters
 // (Creepster + an SVG goo/drip/crust treatment, baked at 2x). Baked PNGs, not
@@ -312,17 +315,8 @@ const BLOOD = {
 };
 
 // The title's blood glyphs. The alphabet archive is original-artwork scans on
-// its own scale ({w, h, baseline} image px), so ems normalize by the letters'
-// above-baseline height (~370px ≈ 1em): the title font-size IS the letter
-// height, and each drip sinks below the shared baseline by its own overhang.
-const TITLE_EM_PER_PX = 1 / 370;
-const TITLE_GLYPHS = [
-  ["B", titleB],
-  ["L", titleL],
-  ["O", titleO],
-  ["O2", titleO2],
-  ["D", titleD]
-];
+// its own scale ({w, h, baseline} image px); titleFonts.js now owns the
+// registry and normalizes every family by its B's cap height.
 
 export default {
   components: { ScriptPicker },
@@ -331,19 +325,16 @@ export default {
     editionList() {
       return editionJSON;
     },
-    // Golem fork: the title's BLOOD letter row (see TITLE_EM_PER_PX above).
+    // Golem fork: the title's BLOOD letter row, from the ACTIVE font set
+    // (titleFonts.js normalizes sizes across families by the B's cap height).
     titleGlyphs() {
-      const em = px => (px * TITLE_EM_PER_PX).toFixed(3) + "em";
-      return TITLE_GLYPHS.map(([key, src]) => {
-        const m = alphabetMetrics[key];
+      if (this.fontState.key === "logo") return [];
+      return ["B", "L", "O", "O2", "D"].map(letter => {
+        const g = glyph(letter) || {};
         return {
-          src,
-          alt: key[0],
-          style: {
-            width: em(m.w),
-            height: em(m.h),
-            verticalAlign: "-" + em(m.h - m.baseline)
-          }
+          src: g.src,
+          alt: letter[0],
+          style: glyphStyle(letter, 1)
         };
       });
     },
@@ -441,18 +432,15 @@ export default {
     }
   },
   data() {
-    // Golem fork: the title lettering choice (0 blood PNGs | 1 gold logo
-    // art), remembered across reloads. Any old/unparseable value (including
-    // the retired red state, 2) clamps to 1; anything else falls back to 0.
-    const savedTitleStyle =
-      parseInt(localStorage.getItem("golem.titleStyle"), 10) >= 1 ? 1 : 0;
     return {
       language: window.navigator.userLanguage || window.navigator.language,
       blood: BLOOD,
       bloodLogo,
       ontheLogo,
       bloodO,
-      titleStyle: savedTitleStyle,
+      // Golem fork: the app-wide PNG-font choice (titleFonts.js) — reactive,
+      // persisted; the title click is the dev control.
+      fontState,
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
       townId: "",
@@ -759,10 +747,32 @@ export default {
       this.$store.commit("toggleGrimoire", false);
       this.$store.commit("session/setSessionId", id);
     },
-    /** Golem fork: click the title word → next lettering (0 → 1 → 0). */
+    /** Golem fork: click the title word → the next font family (the dev
+     *  font control — title, doors and the Almanac's A all follow). */
     cycleTitleStyle() {
-      this.titleStyle = (this.titleStyle + 1) % 2;
-      localStorage.setItem("golem.titleStyle", String(this.titleStyle));
+      const next = cycleFontSet();
+      flashHint("Lettering: " + next.label);
+    },
+    /** Door/button drop-caps follow the font choice; blood (and logo mode)
+     *  keep the door-baked art + its pixel-tuned classes. */
+    capIsBaked() {
+      return this.fontState.key === "blood" || this.fontState.key === "logo";
+    },
+    capSrc(letter) {
+      if (!this.capIsBaked()) {
+        const g = glyph(letter);
+        if (g) return g.src;
+      }
+      return letter === "O" ? this.bloodO : this.blood[letter].src;
+    },
+    capClass(letter) {
+      return this.capIsBaked()
+        ? "blood-cap-" + letter.toLowerCase()
+        : "font-cap";
+    },
+    capStyle(letter, scale = 1.09) {
+      if (this.capIsBaked()) return null;
+      return glyphStyle(letter, scale);
     },
     /** Golem fork: the Create door opens the script editor straight to its
      *  Custom Script surface — same access pattern as the "Custom / vault…"

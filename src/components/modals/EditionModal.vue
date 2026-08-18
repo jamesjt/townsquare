@@ -19,7 +19,12 @@
              composition meter lives down beside the view tabs. -->
         <div class="wb-row1">
           <h3 class="almanac-title">
-            <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
+            <img
+              :src="almanacCap.src"
+              :class="almanacCap.cls"
+              :style="almanacCap.style"
+              alt="A"
+            />lmanac
           </h3>
         </div>
         <div class="wb-row2">
@@ -95,9 +100,12 @@
               :title="t.label"
               @click="toggleTeam(t.team)"
             >
-              <svg v-if="t.team === 'demon'" class="demon-glyph" viewBox="0 0 512 512">
-                <path fill="currentColor" fill-rule="evenodd" :d="DEMON_PATH" />
-              </svg>
+              <img
+                v-if="t.team === 'demon'"
+                class="demon-glyph"
+                :src="demonGlyph"
+                alt=""
+              />
               <font-awesome-icon v-else :icon="t.icon" />
               <span class="cnt">{{ t.count }}</span>
             </button>
@@ -238,9 +246,7 @@
                 <font-awesome-icon icon="mask" />{{ teamCounts.minion }}
               </span>
               <span class="chip team-demon" title="Demons">
-                <svg class="demon-glyph" viewBox="0 0 512 512">
-                  <path fill="currentColor" fill-rule="evenodd" :d="DEMON_PATH" />
-                </svg>
+                <img class="demon-glyph" :src="demonGlyph" alt="" />
                 {{ teamCounts.demon }}
               </span>
               <!-- unsaved edits: Save / Discard appear ONLY when dirty
@@ -664,6 +670,10 @@ import {
 import { stylizeIcon } from "../../golem/iconStyle";
 // The all-of-BOTC card wears the creative director's gold logo.
 import goldLogo from "../../assets/gold/botc-logo-icon.png";
+// The user's demon mask (design/red/demon_icon.png, cut + baked).
+import demonGlyph from "../../assets/blood/demon-glyph.png";
+// The app-wide PNG-font choice — the Almanac's A follows it.
+import { fontState, glyph as fontGlyph, glyphStyle } from "../../golem/titleFonts";
 
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
 // outsiders, minions, demons]. The meter measures a script's POOL against it:
@@ -766,6 +776,8 @@ export default {
       // ensureOpen (and old muscle memory in methods) still sets it
       isCustom: true,
       bloodA,
+      demonGlyph,
+      fontStateRef: fontState,
       // Golem fork: the vault shelf + which vault script is currently loaded
       // (the fork/update decision key on save).
       recents: vault.getRecents(),
@@ -1080,6 +1092,15 @@ export default {
     },
     roleTemplateJson() {
       return JSON.stringify(ROLE_TEMPLATE);
+    },
+    /** The Almanac's drop-cap follows the app-wide font choice; blood (and
+     *  logo mode) keep the pixel-tuned baked class. */
+    almanacCap() {
+      if (this.fontStateRef.key !== "blood" && this.fontStateRef.key !== "logo") {
+        const g = fontGlyph("A");
+        if (g) return { src: g.src, cls: "font-cap", style: glyphStyle("A", 1) };
+      }
+      return { src: this.bloodA, cls: "blood-cap-a", style: null };
     },
     /** The script's editable surface, serialized — dirty = differs from the
      *  baseline taken at load/save/new. */
@@ -2243,8 +2264,9 @@ $team-colors: (
         height: 15px;
       }
       .demon-glyph {
-        width: 16px;
-        height: 16px;
+        width: 17px;
+        height: 17px;
+        object-fit: contain;
       }
       // the PROPER team colors (user call on the blue); demon's dark red
       // alone gets a small lift for dark-ground legibility
