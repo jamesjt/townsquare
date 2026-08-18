@@ -46,6 +46,30 @@ const RAMPS = {
   ]
 };
 
+// The official icons' measured tonal DISTRIBUTION (fraction of opaque pixels
+// at or below each band — claude_temp_test/2026-08-17-tone-assess.mjs).
+// Evil art is 56% deep red; good is mid-blue-heavy; highlights are sparse.
+// Every bake is histogram-MATCHED to this, so the output is exactly as dark
+// as the source material.
+const CDFS = {
+  good: [0.0047, 0.0892, 0.3198, 0.5915, 0.7287, 0.8155, 0.8627, 1],
+  evil: [0.074, 0.5654, 0.7627, 0.7919, 0.8158, 0.8401, 0.8746, 1],
+  neutral: [0.039, 0.327, 0.541, 0.692, 0.772, 0.828, 0.869, 1]
+};
+
+/** percentile (0..1) -> tone (0..1) through an alignment's inverse CDF. */
+function invCdf(cdf, p) {
+  let prev = 0;
+  for (let b = 0; b < cdf.length; b++) {
+    if (p <= cdf[b] || b === cdf.length - 1) {
+      const span = cdf[b] - prev || 1e-6;
+      return (b + (p - prev) / span) / cdf.length;
+    }
+    prev = cdf[b];
+  }
+  return 1;
+}
+
 /** Deterministic hash noise in [0, 1). */
 function hash2(x, y, seed) {
   let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (seed | 0) * 2654435761;
@@ -236,8 +260,12 @@ export function stylizeIcon(
         const HSCALE = 7.5;
 
         const ramp = RAMPS[tint] || RAMPS.neutral;
-        const out = g.createImageData(W, W);
-        const od = out.data;
+        const cdfT = CDFS[tint] || CDFS.neutral;
+
+        // ---- pass 1: raw value per pixel (light + detail + ink + texture) ----
+        const vmap = new Float32Array(W * W);
+        const vhist = new Float32Array(256);
+        let vcount = 0;
         for (let y = 0; y < W; y++)
           for (let x = 0; x < W; x++) {
             const i = y * W + x;
@@ -251,13 +279,11 @@ export function stylizeIcon(
             const gy = (hgt[iD] - hgt[iU]) * HSCALE;
             const inv = 1 / Math.sqrt(gx * gx + gy * gy + 1);
             const ndl = (-gx * LX - gy * LY + LZ) * inv;
-            let v = 0.44 + 0.72 * Math.max(0, ndl);
-            // the officials run BRIGHT — push the lit tops toward white
-            if (ndl > 0.9) v += (ndl - 0.9) * 2.4;
+            let v = 0.3 + 0.7 * Math.max(0, ndl);
 
             // the source's own tones carry interior features (uploads);
             // flat fills leave this neutral
-            v *= 0.72 + 0.42 * detail[i];
+            v *= 0.6 + 0.55 * detail[i];
 
             // wobbled ink contour
             const cw = 1.6 + 2.2 * fbm(x, y, 17, seed + 43);
@@ -267,23 +293,53 @@ export function stylizeIcon(
             if (v < 0.46 && dist[i] > 1.5) {
               const ph = fbm(x, y, 31, seed + 57) * 6;
               const s = Math.sin((x + y) * 0.82 + ph);
-              if (s > 0.25) v *= 0.78;
+              if (s > 0.25) v *= 0.72;
             }
 
-            // paper mottle — structure, not static
-            v *= 0.9 + 0.2 * fbm(x, y, 9, seed + 71);
+            // TEXTURE, three fabrics: broad paint mottle, a brush pull
+            // stretched along the vertical, and fine paper tooth
+            v *= 0.78 + 0.42 * fbm(x, y, 34, seed + 71);
+            v *= 0.86 + 0.24 * fbm(x * 0.35, y, 13, seed + 83);
+            v *= 0.93 + 0.14 * vnoise(x, y, 3, seed + 97);
 
-            // ramp lookup with linear blend between stops
-            const t = Math.max(0, Math.min(0.999, v)) * (ramp.length - 1);
-            const b0 = Math.floor(t),
-              f = t - b0;
-            const c0 = ramp[b0],
-              c1 = ramp[Math.min(ramp.length - 1, b0 + 1)];
-            od[i * 4] = c0[0] + (c1[0] - c0[0]) * f;
-            od[i * 4 + 1] = c0[1] + (c1[1] - c0[1]) * f;
-            od[i * 4 + 2] = c0[2] + (c1[2] - c0[2]) * f;
-            od[i * 4 + 3] = alpha[i];
+            vmap[i] = v;
+            vhist[Math.max(0, Math.min(255, (v * 128) | 0))]++;
+            vcount++;
           }
+
+        // per-icon CDF of the raw values -> percentile per pixel
+        const vcdf = new Float32Array(256);
+        let runsum = 0;
+        for (let b = 0; b < 256; b++) {
+          runsum += vhist[b];
+          vcdf[b] = vcount ? runsum / vcount : 0;
+        }
+
+        // ---- pass 2: histogram-match to the official distribution ----
+        const out = g.createImageData(W, W);
+        const od = out.data;
+        for (let i = 0; i < W * W; i++) {
+          if (!alpha[i]) continue;
+          const x = i % W,
+            y = (i / W) | 0;
+          const p = vcdf[Math.max(0, Math.min(255, (vmap[i] * 128) | 0))];
+          let tone = invCdf(cdfT, p);
+          // noise-dithered posterize: paint POOLS in its band, the band
+          // borders wobble instead of tracing the geometry
+          const dith = (fbm(x, y, 11, seed + 113) - 0.5) * 0.85;
+          const band = Math.max(
+            0,
+            Math.min(7.999, tone * 8 + dith)
+          );
+          const b0 = band | 0,
+            f = band - b0;
+          const c0 = ramp[b0],
+            c1 = ramp[Math.min(7, b0 + 1)];
+          od[i * 4] = c0[0] + (c1[0] - c0[0]) * f;
+          od[i * 4 + 1] = c0[1] + (c1[1] - c0[1]) * f;
+          od[i * 4 + 2] = c0[2] + (c1[2] - c0[2]) * f;
+          od[i * 4 + 3] = alpha[i];
+        }
         g.putImageData(out, 0, 0);
 
         // ---- bake the cast shadow into the final size ----
