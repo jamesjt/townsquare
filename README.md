@@ -114,6 +114,7 @@ For base game characters, it is sufficient to only provide the ID, similar to wh
 * Iconography by [Font Awesome](https://fontawesome.com/)
 * Background image copyright and permission granted by [Ryan Maloney](https://www.artstation.com/maloney94)
 * Webfonts by [Google Fonts](https://fonts.google.com/) and [Online Web Fonts](https://www.onlinewebfonts.com/)
+* Role-forge icon library from [game-icons.net](https://game-icons.net/) ([CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)) — icons by Lorc, Delapouite, and contributors: aussiesim, badges, carl-olsen, caro-asercion, cathelineau, DarkZaitzev, Faithtoken, GeneralAce135, Heavenly Dog, Kier Heyl, Lord Berandas, Lucas, Pepijn Poolman, Pierre Leducq, Quoting, sbed, Sergey Cthtuf, Skoll, Sparker, Starseeker, Willdabeast, Zajkonur
 * All other images and icons are copyright to their respective owners
 
 This project and its website are provided free of charge and not affiliated with The Pandemonium Institute in any way.
