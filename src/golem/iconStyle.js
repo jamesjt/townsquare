@@ -258,11 +258,12 @@ export function stylizeIcon(
           hgt[i] = t * t * (3 - 2 * t);
         }
 
-        // light from the upper-left, classic token lighting
+        // light from the upper-left — a WHISPER: the official art is flat
+        // paint with texture, not an embossed relief (user call 2026-08-17)
         const LX = -0.55,
           LY = -0.7,
           LZ = 0.62;
-        const HSCALE = 7.5;
+        const HSCALE = 2.0;
 
         const ramp = RAMPS[tint] || RAMPS.neutral;
         const cdfT = CDFS[tint] || CDFS.neutral;
@@ -284,7 +285,10 @@ export function stylizeIcon(
             const gy = (hgt[iD] - hgt[iU]) * HSCALE;
             const inv = 1 / Math.sqrt(gx * gx + gy * gy + 1);
             const ndl = (-gx * LX - gy * LY + LZ) * inv;
-            let v = 0.3 + 0.7 * Math.max(0, ndl);
+            // near-flat base; tone comes from PAINT, not elevation —
+            // broad soft patches like brushwork over the whole shape
+            let v = 0.48 + 0.2 * Math.max(0, ndl);
+            v *= 0.7 + 0.6 * fbm(x, y, 78, seed + 7);
 
             // the source's own tones carry interior features (uploads);
             // flat fills leave this neutral
