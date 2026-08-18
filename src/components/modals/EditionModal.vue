@@ -2103,27 +2103,24 @@ $team-colors: (
         margin: 0;
       }
     }
+    // the picker sits CENTERED under the title (user call); the actions
+    // keep the right flank — a 1fr/auto/1fr grid holds the center true
     .wb-row2 {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      flex-wrap: wrap;
       gap: 6px 10px;
       .wb-script-picker {
-        flex-grow: 0;
-        width: 290px;
-        // the shared picker centers its grid on the trigger — here the
-        // trigger hugs the modal's left edge, so anchor the grid left
-        // instead of letting it run off screen
-        ::v-deep .grid {
-          left: 0;
-          transform: none;
-        }
+        grid-column: 2;
+        width: 300px;
       }
       .wb-actions {
+        grid-column: 3;
+        justify-self: end;
         display: flex;
         flex-wrap: wrap;
+        justify-content: flex-end;
         gap: 4px;
-        margin-left: auto;
       }
     }
   }
@@ -2524,13 +2521,16 @@ $team-colors: (
         margin-left: auto;
         padding-right: 4px;
       }
-      // in the app's idiom (user call): dark plates, blood on the active
+      // in the app's idiom (user call): dark plates, blood on the active,
+      // and the TITLE's lettering (PiratesBay — what "Almanac" wears)
       .wb-tab {
         cursor: pointer;
         padding: 3px 16px;
         border-radius: 5px;
         background: rgba(0, 0, 0, 0.55);
         border: 1px solid #3d3d3d;
+        font-family: PiratesBay, sans-serif;
+        letter-spacing: 1px;
         &:hover {
           border-color: #7d0e0e;
           color: #ff8a8a;
