@@ -355,16 +355,17 @@ export default {
       const { x, y, s } = this.bgA;
       return {
         left: x + 837 * s + "px",
-        top: y + 80 * s + "px",
+        top: y + 86 * s + "px",
         fontSize: 88 * s + "px"
       };
     },
-    /** "on the" centres on the rosette ring at image (822, 147). */
+    /** "on the" — user-calibrated 2026-08-18: two text-heights below the
+     *  ring centre (the ring seat hid it behind BLOOD's descenders). */
     ontheStyle() {
       const { x, y, s } = this.bgA;
       return {
         left: x + 822 * s + "px",
-        top: y + 147 * s + "px",
+        top: y + 215 * s + "px",
         fontSize: 26.4 * s + "px"
       };
     },
