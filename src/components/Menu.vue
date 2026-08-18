@@ -11,11 +11,13 @@
         <!-- Golem fork (2026-08-18, user call): the grimoire/help tabs left;
              the strip is the PLAYER surface now — script, vote history,
              night order — in our engraved art. Menu sections stay in-tree. -->
-        <li class="tabs player-strip" :class="tab">
+        <li class="tabs player-strip" :class="tab" v-if="inGame">
+          <!-- FT-857: script + night open the SAME drawer, on their own tab.
+               (The old reference / night-order overlays stay in-tree.) -->
           <img
             :src="uiScript"
             title="The script (reference sheet)"
-            @click="toggleModal('reference')"
+            @click="openScriptDrawer('team')"
           />
           <img
             :src="uiVotes"
@@ -25,7 +27,7 @@
           <img
             :src="uiNight"
             title="Night order"
-            @click="toggleModal('nightOrder')"
+            @click="openScriptDrawer('first')"
           />
         </li>
 
@@ -87,11 +89,12 @@
         <template v-if="tab === 'help'">
           <!-- Help -->
           <li class="headline">Help</li>
-          <li @click="toggleModal('reference')">
+          <!-- FT-857: both entries open the one script drawer, on their tab -->
+          <li @click="openScriptDrawer('team')">
             Reference Sheet
             <em>[R]</em>
           </li>
-          <li @click="toggleModal('nightOrder')">
+          <li @click="openScriptDrawer('first')">
             Night Order Sheet
             <em>[N]</em>
           </li>
@@ -116,8 +119,13 @@ import uiNight from "../assets/ui-night.png";
 
 export default {
   computed: {
-    ...mapState(["grimoire", "session", "edition"]),
-    ...mapState("players", ["players"])
+    ...mapState(["grimoire", "session", "edition", "modals", "scriptDrawerView"]),
+    ...mapState("players", ["players"]),
+    // the player strip is IN-GAME chrome — on the intro there is no script,
+    // no votes and no night to look at (user call, 2026-08-18)
+    inGame() {
+      return !!this.session.sessionId || this.players.length > 0;
+    }
   },
   data() {
     return {
@@ -139,6 +147,19 @@ export default {
     // Click the open tab → collapse to the toolbar; click another → switch.
     setTab(name) {
       this.tab = this.tab === name ? null : name;
+    },
+    /**
+     * FT-857: the strip's script + night icons open ONE drawer on their own
+     * tab. Clicking the icon whose tab is already showing closes it, so each
+     * icon still feels like a toggle.
+     */
+    openScriptDrawer(view) {
+      if (this.modals.scriptDrawer && this.scriptDrawerView === view) {
+        this.toggleModal("scriptDrawer");
+        return;
+      }
+      this.$store.commit("setScriptDrawerView", view);
+      if (!this.modals.scriptDrawer) this.toggleModal("scriptDrawer");
     },
     setBackground() {
       const background = prompt("Enter custom background URL");
@@ -341,6 +362,12 @@ export default {
   right: 0;
   top: 0;
 
+  // collapsed = the strip alone: hug the icons instead of stretching them
+  // across a 220px section width (user call — the gaps read as dead space)
+  &.collapsed {
+    width: auto;
+  }
+
   a {
     color: white;
     text-decoration: none;
@@ -430,6 +457,12 @@ export default {
       );
     }
   }
+}
+.menu ul li.player-strip {
+  justify-content: center;
+  gap: 10px;
+  padding: 3px 10px;
+  min-height: 0;
 }
 .player-strip img {
   width: 26px;

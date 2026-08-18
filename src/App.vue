@@ -46,7 +46,7 @@
     </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
     <!-- the DRIP LAB (Dr): the user's own dials for the blood scrollbar -->
-    <div id="drip-lab" :class="{ open: drOpen }">
+    <div id="drip-lab" :class="{ open: drOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Drip lab" @click="drOpen = !drOpen">Dr</div>
       <div class="dr-rows" v-if="drOpen">
         <div class="dr-row" v-for="d in drDials" :key="d.key">
@@ -145,6 +145,11 @@
         alt="Grimoire"
       />
     </div>
+    <!-- FT-857: the PLAYER's script drawer (right side) — the reference sheet
+         and the night order in one, sharing the workbench's ScriptView. It is
+         what the strip's script/night icons open now; the two overlays below
+         stay mounted but nothing routes to them. -->
+    <ScriptDrawer />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -244,6 +249,9 @@ import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
 import RoleDrawer from "./components/RoleDrawer";
+// FT-857: the player-facing script drawer (reference sheet + night order in
+// one), sharing the workbench's ScriptView.
+import ScriptDrawer from "./components/ScriptDrawer";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -296,10 +304,11 @@ export default {
     EditionModal,
     RolesModal,
     RoleDrawer,
+    ScriptDrawer,
     Gradients
   },
   computed: {
-    ...mapState(["grimoire", "session", "modals"]),
+    ...mapState(["grimoire", "session", "modals", "scriptDrawerView"]),
     ...mapState("players", ["players"]),
     // in a session (or with a town on the table): the dial letters leave
     // and the handless clock art takes the wall (user call 2026-08-18)
@@ -510,6 +519,20 @@ export default {
         this.pillCopied = false;
       }, 1500);
     },
+    /**
+     * FT-857: open the one script drawer on a named tab (the same behaviour
+     * the player strip's icons use — the tab already showing closes it).
+     */
+    openScriptDrawer(view) {
+      if (this.modals.scriptDrawer && this.scriptDrawerView === view) {
+        this.$store.commit("toggleModal", "scriptDrawer");
+        return;
+      }
+      this.$store.commit("setScriptDrawerView", view);
+      if (!this.modals.scriptDrawer) {
+        this.$store.commit("toggleModal", "scriptDrawer");
+      }
+    },
     keyup({ key, ctrlKey, metaKey, target }) {
       if (ctrlKey || metaKey) return;
       // Golem fork: keys typed into a field are typing, not hotkeys.
@@ -536,11 +559,13 @@ export default {
           if (this.session.sessionId) this.$refs.menu.joinSession();
           else if (this.$refs.intro) this.$refs.intro.openJoin();
           break;
+        // FT-857: R and N open the ONE script drawer, on their own tab. The
+        // reference / night-order overlays stay mounted; nothing routes there.
         case "r":
-          this.$store.commit("toggleModal", "reference");
+          this.openScriptDrawer("team");
           break;
         case "n":
-          this.$store.commit("toggleModal", "nightOrder");
+          this.openScriptDrawer("first");
           break;
         case "e":
           if (this.session.isSpectator) return;
@@ -1012,7 +1037,9 @@ video#background {
   z-index: 21;
   padding: 3px;
   background: rgba(8, 8, 10, 0.92);
-  border: 1px solid #4a0d0d;
+  // the tab frames the grimoire cover — it takes the BOOK's plum, not the
+  // blood red the rest of the chrome uses (user call 2026-08-18)
+  border: 1px solid #4b3565;
   border-left: none;
   border-radius: 0 8px 8px 0;
   cursor: pointer;

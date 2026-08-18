@@ -22,21 +22,32 @@ import Vue from "vue";
 import trailSprite from "../assets/blood/drip-shaft.png";
 import bulbSprite from "../assets/blood/drip-bulb.png";
 
-const LANE = 26; // reserved gutter
-const W = 18; // svg lane width
+// The gutter the host reserves, and the svg that fills it. The lane is wide
+// enough for the WHOLE bulb (22px) plus a margin, so the drip always draws
+// INSIDE its scroll region — it used to hang ~20px past the host's right
+// edge, which nobody saw on the open page but crossed the role drawer's
+// border (user call 2026-08-18).
+const LANE = 30;
+const W = LANE;
 
 // USER-adjustable drip dials (the Dr panel) — persisted per browser
 // the USER-calibrated drip (dialed in the Dr lab, 2026-08-18)
-const DRIP_DEFAULTS = { w: 22, h: 102, trailW: 6, overlap: 26, dx: 20, dy: -15, bx: -1 };
+// dx was +20 while the lane was drawn at the host's edge — the drip's own
+// lane now carries that offset, so the nudge starts at zero again.
+const DRIP_DEFAULTS = { w: 22, h: 102, trailW: 6, overlap: 26, dx: 0, dy: -15, bx: -1 };
+// bumped whenever the lane geometry changes — stored dials calibrated against
+// the OLD lane would push the drip back outside its host
+const DRIP_V = 2;
 let dripStored = {};
 try {
-  dripStored = JSON.parse(localStorage.getItem("golem.drip") || "{}");
+  const raw = JSON.parse(localStorage.getItem("golem.drip") || "{}");
+  if (raw && raw.v === DRIP_V) dripStored = raw;
 } catch (e) {
   dripStored = {};
 }
-export const dripKnobs = Vue.observable({ ...DRIP_DEFAULTS, ...dripStored });
+export const dripKnobs = Vue.observable({ ...DRIP_DEFAULTS, ...dripStored, v: DRIP_V });
 export function saveDripKnobs() {
-  localStorage.setItem("golem.drip", JSON.stringify({ ...dripKnobs }));
+  localStorage.setItem("golem.drip", JSON.stringify({ ...dripKnobs, v: DRIP_V }));
   window.dispatchEvent(new Event("golem-drip-update"));
 }
 export function resetDripKnobs() {
@@ -111,12 +122,15 @@ function update(el) {
   }
   s.track.style.display = "";
   s.track.style.top = el.offsetTop + "px";
-  s.track.style.left = el.offsetLeft + el.clientWidth - W - 2 + "px";
+  // the lane sits just inside the host's right edge; the drip centres in it
+  s.track.style.left = el.offsetLeft + el.clientWidth - LANE - 2 + "px";
   s.track.style.height = el.clientHeight + "px";
   s.svg.setAttribute("height", el.clientHeight);
 
   const K = dripKnobs;
-  const travel = el.clientHeight - K.h;
+  // dy lifts the bulb (trail alignment) — the travel compensates so the
+  // bulb's tip still reaches the track bottom at full scroll
+  const travel = el.clientHeight - K.h - K.dy;
   const y = (el.scrollTop / maxScroll) * travel;
 
   // liquid: velocity stretches the drop; it relaxes back round
@@ -132,9 +146,12 @@ function update(el) {
 
   s.bulb.setAttribute("width", K.w);
   s.bulb.setAttribute("height", K.h);
+  // the image centres on the group origin, so the velocity scale is
+  // symmetric — the bulb never drifts sideways while scrolling
+  s.bulb.setAttribute("x", -K.w / 2);
   s.drop.setAttribute(
     "transform",
-    `translate(${W / 2 - (K.w * sx) / 2 + K.dx + K.bx} ${y + K.dy}) scale(${sx} ${sy})`
+    `translate(${W / 2 + K.dx + K.bx} ${y + K.dy}) scale(${sx} ${sy})`
   );
   // the VIDEO drip is the trail — stretched from the top to the drop's crown
   s.trail.setAttribute("x", W / 2 - K.trailW / 2 + K.dx);
@@ -212,7 +229,7 @@ export default {
       hit.style.cursor = "grabbing";
       const rect = track.getBoundingClientRect();
       const maxScroll = el.scrollHeight - el.clientHeight;
-      const travel = el.clientHeight - dripKnobs.h;
+      const travel = el.clientHeight - dripKnobs.h - dripKnobs.dy;
       const seek = ev => {
         const y = ev.clientY - rect.top - dripKnobs.h / 2;
         el.scrollTop = Math.max(0, Math.min(1, y / travel)) * maxScroll;

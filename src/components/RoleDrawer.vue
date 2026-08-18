@@ -237,7 +237,8 @@ $team-colors: (
   display: flex;
   flex-direction: column;
   background: rgba(8, 8, 10, 0.96);
-  border-right: 1px solid #4a0d0d;
+  // the drawer IS the grimoire — plum, matching its cover (user call)
+  border-right: 1px solid #4b3565;
   box-shadow: 6px 0 30px rgba(0, 0, 0, 0.6);
   padding: 10px 0 8px;
 

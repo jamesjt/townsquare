@@ -123,11 +123,18 @@ export default new Vuex.Store({
       role: false,
       roles: false,
       roleDrawer: false,
+      // FT-857: the PLAYER's script drawer (right side) — the one surface for
+      // the reference sheet and the night order. The old `reference` and
+      // `nightOrder` overlay flags stay in place; nothing routes to them.
+      scriptDrawer: false,
       voteHistory: false
     },
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it
     drawerPick: null,
+    // FT-857: which tab the script drawer opens on — "team" | "first" |
+    // "other". The strip's night icon lands on "first".
+    scriptDrawerView: "team",
     edition: editionJSONbyId.get("tb"),
     roles: getRolesByEdition(),
     otherTravelers: getTravelersNotInEdition(),
@@ -182,6 +189,10 @@ export default new Vuex.Store({
     toggleImageOptIn: toggle("isImageOptIn"),
     setDrawerPick(state, role) {
       state.drawerPick = role || null;
+    },
+    /** FT-857: point the script drawer at one of its three tabs. */
+    setScriptDrawerView(state, view) {
+      state.scriptDrawerView = view || "team";
     },
     toggleModal({ modals }, name) {
       if (name) {

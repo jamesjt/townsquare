@@ -189,232 +189,21 @@
           </ul>
         </aside>
 
-        <main class="wb-main">
-          <div class="wb-views">
-            <span
-              class="wb-tab"
-              :class="{ active: wbView === 'team' }"
-              @click="wbView = 'team'"
-            >By type</span>
-            <span
-              class="wb-tab"
-              :class="{ active: wbView === 'first' }"
-              @click="wbView = 'first'"
-            >First night</span>
-            <span
-              class="wb-tab"
-              :class="{ active: wbView === 'other' }"
-              @click="wbView = 'other'"
-            >Other nights</span>
-            <!-- the composition meter rides the tab line; icon + count per
-                 team, tinted in the team's color (icon REPLACES text —
-                 the word lives on the tooltip) -->
-            <div
-              class="wb-meter"
-              :class="{ nonconforming: !servableCounts.length }"
-              :title="
-                servableCounts.length
-                  ? 'Plays ' + servableText + ' players'
-                  : 'No standard player count fits this composition'
-              "
-            >
-              <!-- clear team glyphs (the good/evil token art read as
-                   thumbs up/down at this size — user call): the town, the
-                   loner, the masks, the skull -->
-              <span class="chip team-townsfolk" title="Townsfolk">
-                <font-awesome-icon icon="users" />{{ teamCounts.townsfolk }}
-              </span>
-              <span class="chip team-outsider" title="Outsiders">
-                <img class="demon-glyph" :src="outsiderGlyph" alt="" />{{
-                  teamCounts.outsider
-                }}
-              </span>
-              <span class="chip team-minion" title="Minions">
-                <font-awesome-icon icon="mask" />{{ teamCounts.minion }}
-              </span>
-              <span class="chip team-demon" title="Demons">
-                <img class="demon-glyph" :src="demonGlyph" alt="" />
-                {{ teamCounts.demon }}
-              </span>
-              <!-- unsaved edits: Save / Discard appear ONLY when dirty
-                   (user call — the actions row lost its Save button) -->
-              <span class="wb-dirty" v-if="scriptDirty">
-                <font-awesome-icon
-                  icon="check"
-                  class="save"
-                  title="Save this script to the vault"
-                  @click="saveToVault"
-                />
-                <font-awesome-icon
-                  icon="undo"
-                  class="discard"
-                  title="Discard the edits — back to the last saved state"
-                  @click="discardEdits"
-                />
-              </span>
-              <!-- the servable range rides the tooltip now (user call:
-                   the green sentence was noise); only the WARNING renders -->
-              <span class="verdict" v-if="!servableCounts.length">
-                <font-awesome-icon icon="exclamation-triangle" />
-                outside the rules — still playable
-              </span>
-            </div>
-          </div>
-          <div class="wb-empty" v-if="!scriptRoles.length">
-            An empty page. Add roles from the shelf on the left, or pick a
-            script above.
-          </div>
-          <!-- Night views: ONE ordered list, drag to reorder (user call).
-               A drop writes real night numbers (midpoint between the new
-               neighbors), so the storyteller's night sheet follows. Dragging
-               a sleeper into the list starts it waking; dropping a waker on
-               the Don't-wake box stops it. -->
-          <div class="wb-groups wb-night" v-blood-scroll v-else-if="wbView !== 'team'">
-            <section>
-              <h4>
-                {{ wbView === "first" ? "Wake the first night" : "Wake on other nights" }}
-                <small>({{ nightWakers.length }})</small>
-              </h4>
-              <ul class="wb-order">
-                <li
-                  v-for="(role, i) in nightWakers"
-                  :key="role.id"
-                  draggable="true"
-                  :class="[
-                    'team-' + role.team,
-                    {
-                      dragging: dragId === role.id,
-                      'over-before': dragOverId === role.id && !dragAfter,
-                      'over-after': dragOverId === role.id && dragAfter
-                    }
-                  ]"
-                  @dragstart="onDragStart(role)"
-                  @dragover.prevent="onRowDragOver($event, role)"
-                  @drop.prevent="onRowDrop(role)"
-                  @dragend="resetDrag"
-                >
-                  <span class="grip" title="Drag to reorder">⠿</span>
-                  <span class="ord">{{ i + 1 }}</span>
-                  <span
-                    class="icon"
-                    :style="{ backgroundImage: `url(${roleIconUrl(role)})` }"
-                  ></span>
-                  <span class="wb-row-name">{{ role.name }}</span>
-                  <span class="wb-row-ability">{{ role.ability }}</span>
-                  <span class="wb-card-actions">
-                    <font-awesome-icon
-                      v-if="role.isCustom"
-                      icon="pen"
-                      title="Edit this role"
-                      @click.stop="openRoleForm(role)"
-                    />
-                    <font-awesome-icon
-                      icon="times"
-                      title="Remove from script"
-                      @click.stop="removeRole(role.id)"
-                    />
-                  </span>
-                </li>
-              </ul>
-            </section>
-            <section
-              class="dim wb-sleepers"
-              :class="{ 'drop-target': dragId && draggedWakes }"
-              @dragover.prevent
-              @drop.prevent="onSleeperDrop"
-              v-if="nightSleepers.length || dragId"
-            >
-              <h4>
-                Don't wake <small>({{ nightSleepers.length }})</small>
-                <small class="hint-drop" v-if="dragId && draggedWakes">
-                  — drop here to stop waking
-                </small>
-              </h4>
-              <ul class="wb-order">
-                <li
-                  v-for="role in nightSleepers"
-                  :key="role.id"
-                  draggable="true"
-                  :class="['team-' + role.team, { dragging: dragId === role.id }]"
-                  @dragstart="onDragStart(role)"
-                  @dragend="resetDrag"
-                >
-                  <span class="grip" title="Drag into the list above to wake">⠿</span>
-                  <span class="ord">—</span>
-                  <span
-                    class="icon"
-                    :style="{ backgroundImage: `url(${roleIconUrl(role)})` }"
-                  ></span>
-                  <span class="wb-row-name">{{ role.name }}</span>
-                  <span class="wb-row-ability">{{ role.ability }}</span>
-                  <span class="wb-card-actions">
-                    <font-awesome-icon
-                      v-if="role.isCustom"
-                      icon="pen"
-                      title="Edit this role"
-                      @click.stop="openRoleForm(role)"
-                    />
-                    <font-awesome-icon
-                      icon="times"
-                      title="Remove from script"
-                      @click.stop="removeRole(role.id)"
-                    />
-                  </span>
-                </li>
-              </ul>
-            </section>
-          </div>
-          <div class="wb-groups" v-blood-scroll v-else>
-            <section
-              v-for="group in viewGroups"
-              :key="group.label"
-              :class="[group.team ? 'team-' + group.team : '', { dim: group.dim }]"
-            >
-              <!-- click a type header to fold its box (user call) -->
-              <h4 class="wb-fold" @click="toggleGroupFold(group.label)">
-                {{ group.label }} <small>({{ group.roles.length }})</small>
-                <font-awesome-icon
-                  class="caret"
-                  :icon="foldedGroups[group.label] ? 'chevron-down' : 'chevron-down'"
-                  :class="{ open: !foldedGroups[group.label] }"
-                />
-              </h4>
-              <ul class="wb-cards" v-show="!foldedGroups[group.label]">
-                <li
-                  v-for="role in group.roles"
-                  :key="role.id"
-                  class="wb-card"
-                  :class="'team-' + role.team"
-                >
-                  <span
-                    class="icon"
-                    :style="{ backgroundImage: `url(${roleIconUrl(role)})` }"
-                  ></span>
-                  <span class="wb-card-head">
-                    <span class="wb-card-name">{{ role.name }}</span>
-                    <span class="night-num" v-if="wbView !== 'team'">
-                      {{ wbView === "first" ? role.firstNight : role.otherNight }}
-                    </span>
-                  </span>
-                  <span class="wb-card-ability">{{ role.ability }}</span>
-                  <span class="wb-card-actions">
-                    <font-awesome-icon
-                      v-if="role.isCustom"
-                      icon="pen"
-                      title="Edit this role"
-                      @click.stop="openRoleForm(role)"
-                    />
-                    <font-awesome-icon
-                      icon="times"
-                      title="Remove from script"
-                      @click.stop="removeRole(role.id)"
-                    />
-                  </span>
-                </li>
-              </ul>
-            </section>
-          </div>
-        </main>
+        <!-- FT-857: THE script view — the same component the player-facing
+             ScriptDrawer renders. Editable here (drag the night order, remove
+             / edit a role, the dirty Save-Discard chips); read-only there. -->
+        <ScriptView
+          :roles="scriptRoles"
+          :editable="true"
+          :dirty="scriptDirty"
+          :initial-view="wbView"
+          @view="wbView = $event"
+          @set-night="onSetNight"
+          @remove="removeRole"
+          @edit="openRoleForm"
+          @save="saveToVault"
+          @discard="discardEdits"
+        />
       </div>
 
       <!-- Golem fork (FT-851): the custom-role library — author a role once,
@@ -786,6 +575,12 @@ import bloodA from "../../assets/blood/blood-A.png";
 // FT-854: THE shared script picker + its art — the same component the host
 // panel renders (user-directed: one component, both surfaces).
 import ScriptPicker from "../ScriptPicker";
+// FT-857: THE shared script view — the workbench's main pane IS the player
+// drawer's body (user-directed: one component, both surfaces).
+import ScriptView from "../ScriptView";
+// FT-857: the composition maths moved beside it, so the meter counts the same
+// way wherever it renders.
+import { countTeams, servableFor, servableText } from "../../golem/composition";
 import {
   EDITION_ICONS,
   edCustom,
@@ -811,19 +606,8 @@ import {
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
 // outsiders, minions, demons]. The meter measures a script's POOL against it:
 // a count is servable when the pool covers each column. Purely informational.
-const SETUP_TABLE = {
-  5: [3, 0, 1, 1],
-  6: [3, 1, 1, 1],
-  7: [5, 0, 1, 1],
-  8: [5, 1, 1, 1],
-  9: [5, 2, 1, 1],
-  10: [7, 0, 2, 1],
-  11: [7, 1, 2, 1],
-  12: [7, 2, 2, 1],
-  13: [9, 0, 3, 1],
-  14: [9, 1, 3, 1],
-  15: [9, 2, 3, 1]
-};
+// FT-857: the table + its maths live in golem/composition.js now, shared with
+// the player-facing drawer's copy of the same meter.
 const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon", "traveler"];
 // FT-854: the shelf's tri-state tag filter. Every tag cycles
 // neutral → include → exclude. Includes OR within a group and AND across
@@ -900,7 +684,8 @@ const normTeam = t => (t || "").replace("traveller", "traveler");
 export default {
   components: {
     Modal,
-    ScriptPicker
+    ScriptPicker,
+    ScriptView
   },
   data: function() {
     return {
@@ -934,10 +719,8 @@ export default {
       // the shelf's hover card
       roleTip: null,
       roleTipStyle: { top: "-9999px", left: "-9999px" },
-      // night-order drag state
-      dragId: null,
-      dragOverId: null,
-      dragAfter: false,
+      // FT-857: the night-order drag state + the by-type fold state moved
+      // into ScriptView with the markup they drive.
       // FT-855 polish: the bespoke demon glyph — horns, head, hollow eyes
       // (no FA solid reads "demon"; drawn to match the solid-icon weight).
       DEMON_PATH:
@@ -961,8 +744,6 @@ export default {
       // FT-856 slice B: the icon tabs — official borrow vs the new-icon
       // library (game-icons.net curation, lazy chunk).
       iconTab: "library",
-      // By-type group folding (click the header)
-      foldedGroups: {},
       ilSearch: "",
       ilTheme: "",
       ilLoaded: false,
@@ -1141,37 +922,19 @@ export default {
       this.$store.state.roles.forEach(role => list.push(role));
       return list;
     },
+    // FT-857: the meter itself renders inside ScriptView; what stays here is
+    // the same maths, from the same module, for the non-conforming MARK the
+    // vault selector badges with.
     teamCounts() {
-      const counts = { townsfolk: 0, outsider: 0, minion: 0, demon: 0, traveler: 0 };
-      this.scriptRoles.forEach(role => {
-        const team = normTeam(role.team);
-        if (counts[team] !== undefined) counts[team] += 1;
-      });
-      return counts;
+      return countTeams(this.scriptRoles);
     },
     /** Player counts the pool can serve under the official table. */
     servableCounts() {
-      const c = this.teamCounts;
-      return Object.keys(SETUP_TABLE)
-        .map(Number)
-        .filter(n => {
-          const [t, o, m, d] = SETUP_TABLE[n];
-          return (
-            c.townsfolk >= t && c.outsider >= o && c.minion >= m && c.demon >= d
-          );
-        });
+      return servableFor(this.teamCounts);
     },
     /** "5–15" / "5, 7, 10–13" — collapse runs for the meter. */
     servableText() {
-      const runs = [];
-      this.servableCounts.forEach(n => {
-        const last = runs[runs.length - 1];
-        if (last && n === last[1] + 1) last[1] = n;
-        else runs.push([n, n]);
-      });
-      return runs
-        .map(([a, b]) => (a === b ? String(a) : a + "–" + b))
-        .join(", ");
+      return servableText(this.servableCounts);
     },
     // Travellers left the script surface (user call 2026-08-17): a script is
     // the town's regular menu; travellers join IN the town — the seat's role
@@ -1361,38 +1124,8 @@ export default {
         }))
         .filter(g => g.roles.length);
     },
-    /** The by-team groups. Travellers never render here — town-side content. */
-    viewGroups() {
-      const roles = this.scriptRoles.filter(
-        r => normTeam(r.team) !== "traveler"
-      );
-      return ["townsfolk", "outsider", "minion", "demon"]
-        .map(team => ({
-          label: TEAM_LABELS[team],
-          team,
-          roles: roles
-            .filter(r => normTeam(r.team) === team)
-            .sort((a, b) => a.name.localeCompare(b.name))
-        }))
-        .filter(g => g.roles.length);
-    },
-    /** The active night view's ordered wakers (drag-reorderable). */
-    nightWakers() {
-      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
-      return this.scriptRoles
-        .filter(r => normTeam(r.team) !== "traveler" && (r[prop] || 0) > 0)
-        .sort((a, b) => a[prop] - b[prop] || a.name.localeCompare(b.name));
-    },
-    nightSleepers() {
-      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
-      return this.scriptRoles
-        .filter(r => normTeam(r.team) !== "traveler" && !(r[prop] || 0))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    },
-    /** Is the role being dragged currently a waker (in this view)? */
-    draggedWakes() {
-      return this.nightWakers.some(r => r.id === this.dragId);
-    }
+    // FT-857: the by-team groups, the night wakers/sleepers and the drag
+    // bookkeeping moved into ScriptView — the component that renders them.
   },
   // Golem fork: a ?script=<id> share link auto-loads its script on arrival.
   // The QUERY string is used (not the hash) because the hash is the live
@@ -1571,9 +1304,6 @@ export default {
       this.roleError = "";
     },
     /** Click an icon to select it; click again to clear (icon is optional). */
-    toggleGroupFold(label) {
-      this.$set(this.foldedGroups, label, !this.foldedGroups[label]);
-    },
     pickIcon(id) {
       this.roleForm.icon = this.roleForm.icon === id ? "" : id;
       // an official borrow replaces any baked library pick
@@ -2031,50 +1761,11 @@ export default {
       f.setup = !!parsed.setup;
       this.roleJsonText = "";
     },
-    // ── FT-854: night-order drag-reorder ─────────────────────────────────
-    onDragStart(role) {
-      this.dragId = role.id;
-    },
-    onRowDragOver(e, role) {
-      if (!this.dragId || role.id === this.dragId) return;
-      this.dragOverId = role.id;
-      this.dragAfter = e.offsetY > e.currentTarget.offsetHeight / 2;
-    },
-    resetDrag() {
-      this.dragId = null;
-      this.dragOverId = null;
-      this.dragAfter = false;
-    },
-    /**
-     * Drop on a waker row: the dragged role takes the midpoint of its new
-     * neighbors' night numbers — everything else (including the night
-     * sheet's fixed minion/demon-info anchors) keeps its place. Ties fall
-     * back to a small offset.
-     */
-    onRowDrop(target) {
-      const dragged = this.scriptRoles.find(r => r.id === this.dragId);
-      const after = this.dragAfter;
-      this.resetDrag();
-      if (!dragged || dragged.id === target.id) return;
-      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
-      const list = this.nightWakers.filter(r => r.id !== dragged.id);
-      let at = list.findIndex(r => r.id === target.id);
-      if (at < 0) return;
-      if (after) at += 1;
-      const prev = at > 0 ? list[at - 1][prop] : 0;
-      const next = at < list.length ? list[at][prop] : prev + 2;
-      let value = (prev + next) / 2;
-      if (!(value > prev && value < next)) value = prev + 0.5;
-      this.setNight(dragged.id, prop, value);
-    },
-    /** Drop a waker onto the Don't-wake box: it stops waking (0). */
-    onSleeperDrop() {
-      const dragged = this.scriptRoles.find(r => r.id === this.dragId);
-      const wasWaking = this.draggedWakes;
-      this.resetDrag();
-      if (!dragged || !wasWaking) return;
-      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
-      this.setNight(dragged.id, prop, 0);
+    // ── FT-857: the night-order drag lives in ScriptView; the WRITE stays
+    //    here, where the store is owned. The view emits set-night with the
+    //    already-computed midpoint (or 0 for "stops waking").
+    onSetNight({ id, prop, value }) {
+      this.setNight(id, prop, value);
     },
     /** Write one role's night number through the collapse (persists on the
      *  script entry — official refs carry it as an override). */
@@ -2302,13 +1993,7 @@ export default {
         flashHint("Clipboard blocked — template dropped into the box instead");
       }
     },
-    /** The icon for any script role — official art, borrowed art, or generic. */
-    roleIconUrl(role) {
-      if (role.golemIconData) return role.golemIconData;
-      const base = this.$store.getters.rolesJSONbyId;
-      if (base.has(role.id)) return this.iconUrl(role.id);
-      return this.iconUrl(role.imageAlt || "custom");
-    },
+    // FT-857: roleIconUrl moved into ScriptView with the cards it paints.
     /**
      * Mark (or clear) a vault script's non-conforming flag — DERIVED from the
      * meter at load/save time, stored so the selector can badge without
@@ -2661,24 +2346,6 @@ $team-colors: (
     opacity: 0.7;
   }
 }
-// By-type group folding: the header is the control
-.wb-groups h4.wb-fold {
-  cursor: pointer;
-  user-select: none;
-  .caret {
-    margin-left: 8px;
-    font-size: 0.7em;
-    opacity: 0.6;
-    transition: transform 160ms ease;
-    transform: rotate(-90deg);
-    &.open {
-      transform: rotate(0);
-    }
-  }
-  &:hover .caret {
-    opacity: 1;
-  }
-}
 
 // Wakes: its own block — title line, one themed checkbox row per night
 .role-form .wakes-block {
@@ -2935,80 +2602,6 @@ $team-colors: (
     }
   }
 
-  .wb-meter {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-    // icon + count, tinted per team; the word rides the tooltip
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 1px 8px 1px 4px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.08);
-      font-weight: bold;
-      svg {
-        width: 15px;
-        height: 15px;
-      }
-      .demon-glyph {
-        width: 17px;
-        height: 17px;
-        object-fit: contain;
-      }
-      // the PROPER team colors (user call on the blue); demon's dark red
-      // alone gets a small lift for dark-ground legibility
-      &.team-townsfolk {
-        color: #1f65ff;
-      }
-      &.team-outsider {
-        color: #46d5ff;
-      }
-      &.team-minion {
-        color: #ff6900;
-      }
-      &.team-demon {
-        color: lighten(#ce0100, 14%);
-      }
-    }
-    .verdict {
-      margin-left: 8px;
-      color: #7ed67e;
-    }
-    &.nonconforming .verdict {
-      color: #ff8a8a;
-    }
-    // unsaved-edit controls: visible only while dirty
-    .wb-dirty {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      margin-left: 10px;
-      padding: 2px 10px;
-      border: 1px solid #7d0e0e;
-      border-radius: 10px;
-      svg {
-        cursor: pointer;
-        width: 14px;
-        height: 14px;
-      }
-      .save {
-        color: #7ed67e;
-        &:hover {
-          filter: brightness(1.4);
-        }
-      }
-      .discard {
-        color: #ff8a8a;
-        &:hover {
-          color: red;
-        }
-      }
-    }
-  }
 
   .wb-body {
     display: flex;
@@ -3347,236 +2940,7 @@ $team-colors: (
     }
   }
 
-  .wb-main {
-    flex-grow: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    .wb-views {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 3px;
-      margin-bottom: 6px;
-      // the meter rides the tab line, right-aligned
-      .wb-meter {
-        margin-left: auto;
-        padding-right: 4px;
-      }
-      // in the app's idiom (user call): dark plates, blood on the active,
-      // and the TITLE's lettering (PiratesBay — what "Almanac" wears)
-      .wb-tab {
-        cursor: pointer;
-        padding: 3px 16px;
-        border-radius: 5px;
-        background: rgba(0, 0, 0, 0.55);
-        border: 1px solid #3d3d3d;
-        font-family: PiratesBay, sans-serif;
-        letter-spacing: 1px;
-        &:hover {
-          border-color: #7d0e0e;
-          color: #ff8a8a;
-        }
-        &.active {
-          background: rgba(160, 20, 20, 0.28);
-          border-color: #a01414;
-          font-weight: bold;
-          text-shadow: 0 0 6px rgba(255, 60, 60, 0.5);
-        }
-      }
-    }
-    .wb-empty {
-      color: rgba(255, 255, 255, 0.6);
-      padding: 40px;
-      text-align: center;
-      font-size: 110%;
-    }
-    .wb-groups {
-      overflow-y: auto;
-      flex-grow: 1;
-      min-height: 0;
-      // Each group is a BOX in its team's color (user-directed, from the
-      // official almanac reference) — night-view groups keep a neutral frame.
-      section {
-        margin-bottom: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        border-radius: 4px;
-        padding: 8px 12px 10px;
-        @each $team, $color in $team-colors {
-          &.team-#{$team} {
-            border-color: $color;
-          }
-        }
-        &.dim {
-          opacity: 0.55;
-        }
-        h4 {
-          margin: 0 0 8px;
-          small {
-            font-weight: normal;
-            opacity: 0.6;
-          }
-        }
-      }
-    }
-    .wb-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 8px 14px;
-      align-items: stretch;
-    }
-    // The reference layout: a LARGE icon on the left, a small bold name, the
-    // ability as the body. No team accent on the card — the group box says it.
-    .wb-card {
-      position: relative;
-      display: grid;
-      grid-template-columns: 64px minmax(0, 1fr);
-      grid-template-rows: auto 1fr;
-      column-gap: 10px;
-      padding: 4px 26px 4px 6px;
-      .icon {
-        grid-row: 1 / span 2;
-        width: 64px;
-        height: 64px;
-        background-size: cover;
-        background-position: center;
-      }
-      .wb-card-head {
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        font-weight: bold;
-        font-size: 92%;
-        .night-num {
-          font-weight: normal;
-          opacity: 0.7;
-          font-size: 85%;
-        }
-      }
-      .wb-card-ability {
-        grid-column: 2;
-        font-size: 82%;
-        opacity: 0.85;
-        line-height: 1.3;
-      }
-      // pinned to the card's TOP RIGHT; shows only while hovering the ROLE,
-      // and the × itself reddens on its own hover (user call 2026-08-17)
-      .wb-card-actions {
-        position: absolute;
-        top: 4px;
-        right: 6px;
-        display: flex;
-        gap: 8px;
-        opacity: 0;
-        transition: opacity 0.15s;
-        svg {
-          cursor: pointer;
-          width: 12px;
-          &:hover {
-            color: red;
-          }
-        }
-      }
-      &:hover .wb-card-actions {
-        opacity: 1;
-      }
-    }
-  }
 
-  // FT-854: the night views — one ordered list, drag to reorder.
-  .wb-night {
-    .wb-order {
-      display: block;
-      li {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 3px 8px;
-        border-radius: 4px;
-        border-top: 2px solid transparent;
-        border-bottom: 2px solid transparent;
-        cursor: grab;
-        &:hover {
-          background: rgba(255, 255, 255, 0.06);
-        }
-        &.dragging {
-          opacity: 0.35;
-        }
-        &.over-before {
-          border-top-color: #a01414;
-        }
-        &.over-after {
-          border-bottom-color: #a01414;
-        }
-        .grip {
-          opacity: 0.4;
-          font-size: 14px;
-          cursor: grab;
-        }
-        .ord {
-          width: 26px;
-          text-align: right;
-          font-size: 13px;
-          opacity: 0.6;
-          flex-shrink: 0;
-        }
-        .icon {
-          width: 34px;
-          height: 34px;
-          background-size: cover;
-          background-position: center;
-          flex-shrink: 0;
-        }
-        .wb-row-name {
-          font-weight: bold;
-          font-size: 14px;
-          width: 170px;
-          flex-shrink: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .wb-row-ability {
-          flex-grow: 1;
-          min-width: 0;
-          font-size: 13px;
-          opacity: 0.8;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .wb-card-actions {
-          display: flex;
-          gap: 8px;
-          opacity: 0;
-          svg {
-            cursor: pointer;
-            width: 12px;
-            &:hover {
-              color: red;
-            }
-          }
-        }
-        &:hover .wb-card-actions {
-          opacity: 1;
-        }
-      }
-    }
-    .wb-sleepers {
-      &.drop-target {
-        border-color: #a01414;
-        border-style: dashed;
-      }
-      .hint-drop {
-        color: #ff8a8a;
-        font-weight: normal;
-      }
-      .wb-order li {
-        cursor: grab;
-      }
-    }
-  }
 
   // The forge floats over the workbench instead of replacing it — wearing
   // the WORKBENCH's chrome (dark, blood hairline), not upstream's white box.
