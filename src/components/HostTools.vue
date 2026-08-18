@@ -118,7 +118,7 @@ import ScriptPicker from "./ScriptPicker";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
-import grimoireClosed from "../assets/grimoire-closed.png";
+import grimoireClosed from "../assets/grimoire-cover.png";
 
 export default {
   components: { ScriptPicker },

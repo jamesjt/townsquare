@@ -225,7 +225,7 @@ import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
 import RoleDrawer from "./components/RoleDrawer";
-import grimoireClosed from "./assets/grimoire-closed.png";
+import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
