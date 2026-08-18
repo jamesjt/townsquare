@@ -154,19 +154,10 @@
 
       <transition name="fold">
         <ul class="menu" v-if="isMenuOpen">
-          <li
-            @click="changePronouns"
-            v-if="
-              !session.isSpectator ||
-                (session.isSpectator && player.id === session.playerId)
-            "
-          >
-            <font-awesome-icon icon="venus-mars" />Change Pronouns
-          </li>
+          <!-- Golem fork (2026-08-18, user call): Pronouns, Rename and
+               Remove left the menu — players name themselves on claiming,
+               the seat scrub removes chairs. Methods kept. -->
           <template v-if="!session.isSpectator">
-            <li @click="changeName">
-              <font-awesome-icon icon="user-edit" />Rename
-            </li>
             <li @click="movePlayer()" :class="{ disabled: session.lockedVote }">
               <font-awesome-icon icon="redo-alt" />
               Move player
@@ -174,10 +165,6 @@
             <li @click="swapPlayer()" :class="{ disabled: session.lockedVote }">
               <font-awesome-icon icon="exchange-alt" />
               Swap seats
-            </li>
-            <li @click="removePlayer" :class="{ disabled: session.lockedVote }">
-              <font-awesome-icon icon="times-circle" />
-              Remove
             </li>
             <li
               @click="updatePlayer('id', '', true)"
@@ -678,7 +665,8 @@ export default {
     }
 
     .life {
-      background-image: url("../assets/death.png");
+      // Golem fork: our shroud disc (upstream death.png stays untouched)
+      background-image: url("../assets/death-golem.png");
 
       &:after {
         content: " ";
@@ -686,7 +674,7 @@ export default {
         left: 0;
         top: 0;
         width: 100%;
-        background: url("../assets/vote.png") center center no-repeat;
+        background: url("../assets/vote-golem.png") center center no-repeat;
         background-size: 50%;
         height: 100%;
         pointer-events: none;
