@@ -101,7 +101,7 @@
                 :class="{ open: filterOpen }"
               />
             </div>
-            <div class="fb-body" v-if="filterOpen">
+            <div class="fb-body" v-if="filterOpen" v-blood-scroll>
               <div
                 class="facet-group"
                 v-for="facet in facetList"
@@ -195,7 +195,7 @@
               class="wb-tab"
               :class="{ active: wbView === 'team' }"
               @click="wbView = 'team'"
-            >By team</span>
+            >By type</span>
             <span
               class="wb-tab"
               :class="{ active: wbView === 'first' }"
@@ -2575,6 +2575,12 @@ $team-colors: (
         .demon-glyph {
           width: 17px;
           height: 17px;
+        }
+        // img glyphs can't inherit the grey text color — grey them by hand
+        // whenever the team isn't the active "show only" pick
+        &:not(.on) .demon-glyph {
+          filter: grayscale(1) brightness(1.35);
+          opacity: 0.75;
         }
         .cnt {
           font-size: 12px;

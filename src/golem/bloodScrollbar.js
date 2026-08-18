@@ -13,6 +13,10 @@ const DROP_H = Math.round((81 / 64) * DROP_W); // sprite ratio (bulb-focused cro
 function update(el) {
   const s = el.__bloodScroll;
   if (!s) return;
+  // Vue patches sibling views onto the SAME element and rewrites its class
+  // attribute, wiping this runtime class — the native bar came back beside
+  // the overlay (the "two scrollbars"). Re-assert it on every update.
+  el.classList.add("blooddrip-host");
   const maxScroll = el.scrollHeight - el.clientHeight;
   if (maxScroll <= 4) {
     s.track.style.display = "none";

@@ -1,0 +1,158 @@
+{
+  "A": {
+    "w": 144,
+    "h": 171,
+    "baseline": 168,
+    "source": "clocktower-font.png"
+  },
+  "B": {
+    "w": 113,
+    "h": 170,
+    "baseline": 168,
+    "source": "clocktower-font.png"
+  },
+  "C": {
+    "w": 117,
+    "h": 175,
+    "baseline": 170,
+    "source": "clocktower-font.png"
+  },
+  "D": {
+    "w": 122,
+    "h": 171,
+    "baseline": 168,
+    "source": "clocktower-font.png"
+  },
+  "E": {
+    "w": 98,
+    "h": 171,
+    "baseline": 168,
+    "source": "clocktower-font.png"
+  },
+  "F": {
+    "w": 98,
+    "h": 171,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "G": {
+    "w": 123,
+    "h": 175,
+    "baseline": 170,
+    "source": "clocktower-font.png"
+  },
+  "H": {
+    "w": 126,
+    "h": 172,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "I": {
+    "w": 57,
+    "h": 172,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "J": {
+    "w": 78,
+    "h": 208,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "K": {
+    "w": 128,
+    "h": 171,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "L": {
+    "w": 92,
+    "h": 172,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "M": {
+    "w": 153,
+    "h": 172,
+    "baseline": 169,
+    "source": "clocktower-font.png"
+  },
+  "N": {
+    "w": 129,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "O": {
+    "w": 126,
+    "h": 172,
+    "baseline": 167,
+    "source": "clocktower-font.png"
+  },
+  "P": {
+    "w": 104,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "Q": {
+    "w": 133,
+    "h": 195,
+    "baseline": 167,
+    "source": "clocktower-font.png"
+  },
+  "R": {
+    "w": 119,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "S": {
+    "w": 96,
+    "h": 171,
+    "baseline": 167,
+    "source": "clocktower-font.png"
+  },
+  "T": {
+    "w": 107,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "U": {
+    "w": 119,
+    "h": 171,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "V": {
+    "w": 126,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "W": {
+    "w": 158,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "X": {
+    "w": 126,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "Y": {
+    "w": 121,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  },
+  "Z": {
+    "w": 112,
+    "h": 169,
+    "baseline": 166,
+    "source": "clocktower-font.png"
+  }
+}
