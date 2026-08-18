@@ -752,6 +752,12 @@
           <span class="ability">{{
             roleTip.ability || "A library role — its ability arrives when added."
           }}</span>
+          <!-- the role's tags as chips (user call) -->
+          <span class="tip-chips" v-if="roleTipChips.length">
+            <span class="tip-chip" v-for="c in roleTipChips" :key="c">{{
+              c
+            }}</span>
+          </span>
         </span>
       </div>
 
@@ -1043,6 +1049,14 @@ export default {
     },
     ilOverflow() {
       return Math.max(0, this.ilFiltered.length - 160);
+    },
+    /** The hovered role's tags, as readable chip labels (team rides the
+     *  card border already, so it stays off the chips). */
+    roleTipChips() {
+      if (!this.roleTip) return [];
+      return [...this.entryTags(this.roleTip)]
+        .filter(id => !id.startsWith("team:"))
+        .map(id => this.pillValueLabel({ id }));
     },
     ilPreviewSrc() {
       return (
@@ -3753,6 +3767,20 @@ $team-colors: (
   // the shelf's hover card — icon left, bold name, ability body; the
   // border wears the role's team color (user call)
   // 1.5x (user call): bigger art, bigger type, wider card
+  .wb-role-tip .tip-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .wb-role-tip .tip-chip {
+    font-size: 10px;
+    padding: 1px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
   .wb-role-tip {
     position: fixed;
     display: flex;
