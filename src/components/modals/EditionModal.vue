@@ -525,30 +525,19 @@
       </div>
 
       <!-- the shelf's hover card: icon + bold name + ability (the almanac
-           read), replacing the native title tooltip -->
-      <div
-        class="wb-role-tip"
+           read), replacing the native title tooltip. FT-858: it IS
+           RoleHoverCard now — the same component the seats and the grimoire
+           drawer hover (user-directed: one component, every surface). The
+           shelf hands it the tag-filter chips, since library entries carry
+           facts the role object alone cannot prove. -->
+      <RoleHoverCard
         v-if="roleTip"
-        :class="'team-' + roleTip.team"
-        :style="roleTipStyle"
-      >
-        <span
-          class="icon"
-          :style="{ backgroundImage: `url(${roleTip.iconUrl || iconUrl('custom')})` }"
-        ></span>
-        <span class="txt">
-          <b>{{ roleTip.name }}</b>
-          <span class="ability">{{
-            roleTip.ability || "A library role — its ability arrives when added."
-          }}</span>
-          <!-- the role's tags as chips (user call) -->
-          <span class="tip-chips" v-if="roleTipChips.length">
-            <span class="tip-chip" v-for="c in roleTipChips" :key="c">{{
-              c
-            }}</span>
-          </span>
-        </span>
-      </div>
+        :role="roleTip"
+        :chips="roleTipChips"
+        :anchor="roleTipAnchor"
+        fallback-ability="A library role — its ability arrives when added."
+        @dismiss="hideRoleTip"
+      />
 
       <div class="role-error wb-error" v-if="roleError">{{ roleError }}</div>
 
@@ -575,6 +564,9 @@ import bloodA from "../../assets/blood/blood-A.png";
 // FT-854: THE shared script picker + its art — the same component the host
 // panel renders (user-directed: one component, both surfaces).
 import ScriptPicker from "../ScriptPicker";
+// FT-858: THE role hover card — the shelf's card, now shared with the seats
+// and the grimoire drawer (user-directed: one component, every surface).
+import RoleHoverCard from "../RoleHoverCard";
 // FT-857: THE shared script view — the workbench's main pane IS the player
 // drawer's body (user-directed: one component, both surfaces).
 import ScriptView from "../ScriptView";
@@ -684,6 +676,7 @@ const normTeam = t => (t || "").replace("traveller", "traveler");
 export default {
   components: {
     Modal,
+    RoleHoverCard,
     ScriptPicker,
     ScriptView
   },
@@ -716,9 +709,10 @@ export default {
       // (derived from the setup table; informational only, never a gate).
       wbView: "team",
       wbTeam: "",
-      // the shelf's hover card
+      // the shelf's hover card — the entry it describes, and the row it is
+      // pinned to (RoleHoverCard measures and places itself)
       roleTip: null,
-      roleTipStyle: { top: "-9999px", left: "-9999px" },
+      roleTipAnchor: null,
       // FT-857: the night-order drag state + the by-type fold state moved
       // into ScriptView with the markup they drive.
       // FT-855 polish: the bespoke demon glyph — horns, head, hollow eyes
@@ -1662,30 +1656,16 @@ export default {
       this.ensureOpen();
       flashHint("Edits discarded");
     },
-    /** The shelf hover card — fixed-positioned to the row's right, clamped
-     *  to the viewport (the ScriptPicker tip idiom). Hover only. */
+    /** The shelf hover card — RoleHoverCard pins itself beside the row and
+     *  clamps to the viewport; all the shelf owns is which row. Hover only. */
     showRoleTip(e, entry) {
       if (!window.matchMedia("(hover: hover)").matches) return;
-      const rect = e.currentTarget.getBoundingClientRect();
+      this.roleTipAnchor = e.currentTarget;
       this.roleTip = entry;
-      this.$nextTick(() => {
-        const tip = this.$el.querySelector(".wb-role-tip");
-        if (!tip) return;
-        const margin = 8;
-        let left = rect.right + 10;
-        let top = rect.top + rect.height / 2 - tip.offsetHeight / 2;
-        top = Math.min(
-          Math.max(top, margin),
-          window.innerHeight - tip.offsetHeight - margin
-        );
-        if (left + tip.offsetWidth > window.innerWidth - margin)
-          left = rect.left - tip.offsetWidth - 10;
-        this.roleTipStyle = { top: `${top}px`, left: `${left}px` };
-      });
     },
     hideRoleTip() {
       this.roleTip = null;
-      this.roleTipStyle = { top: "-9999px", left: "-9999px" };
+      this.roleTipAnchor = null;
     },
     /** Sidebar click: in the script → out; not in it → in. */
     async toggleRole(entry) {
@@ -3128,63 +3108,12 @@ $team-colors: (
     }
   }
 
-  // the shelf's hover card — icon left, bold name, ability body; the
-  // border wears the role's team color (user call)
-  // 1.5x (user call): bigger art, bigger type, wider card
-  .wb-role-tip .tip-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 5px;
-  }
-  .wb-role-tip .tip-chip {
-    font-size: 10px;
-    padding: 1px 7px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
-    opacity: 0.8;
-    white-space: nowrap;
-  }
-  .wb-role-tip {
-    position: fixed;
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    max-width: 460px;
-    padding: 14px 20px;
-    @each $team, $color in $team-colors {
-      &.team-#{$team} {
-        border-color: rgba($color, 0.75);
-      }
-    }
-    background: rgba(10, 4, 4, 0.97);
-    border: 2px solid #400;
-    border-radius: 10px;
-    box-shadow: 0 0 14px black;
-    z-index: 60;
-    pointer-events: none;
-    text-align: left;
-    .icon {
-      width: 78px;
-      height: 78px;
-      flex-shrink: 0;
-      background-size: cover;
-      background-position: center;
-    }
-    .txt {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      b {
-        font-size: 22px;
-      }
-      .ability {
-        font-size: 19px;
-        line-height: 1.35;
-        opacity: 0.9;
-      }
-    }
-  }
+  // FT-858: the shelf's hover card — icon left, bold name, ability body,
+  // team-coloured border — moved WHOLESALE into RoleHoverCard.vue, which the
+  // seats and the grimoire drawer now render too. Its rule had to leave this
+  // block as well as this file: the card parks itself on document.body, and a
+  // rule nested under a consumer's root selector stops matching the moment it
+  // does (the ScriptPicker tooltip's bug, verbatim).
 
   .wb-error {
     position: absolute;

@@ -19,10 +19,12 @@
             title="The script (reference sheet)"
             @click="openScriptDrawer('team')"
           />
+          <!-- FT-858: the gallows opens the vote-history DRAWER, on the same
+               right-hand rail as the script (the old overlay stays in-tree). -->
           <img
             :src="uiVotes"
             title="Vote history"
-            @click="toggleModal('voteHistory')"
+            @click="toggleModal('voteDrawer')"
           />
           <!-- (the moon retired 2026-08-18 — night order is a TAB inside the
                script drawer the scroll opens, so a second door was redundant.

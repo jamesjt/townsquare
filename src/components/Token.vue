@@ -26,7 +26,13 @@
   Upstream's `token.png` and `leaf-*.png` stay in the tree, unreferenced.
 -->
 <template>
-  <div class="token" @click="setRole" :class="[role.id]">
+  <div
+    class="token"
+    @click="setRole"
+    :class="[role.id]"
+    @mouseenter="showCard"
+    @mouseleave="hideCard"
+  >
     <span class="rim" :class="role.team"></span>
     <span
       class="icon"
@@ -83,14 +89,30 @@
         >{{ role.name }}</textPath></text>
     </svg>
     <div class="edition" :class="[`edition-${role.edition}`, role.team]"></div>
-    <div class="ability" v-if="role.ability">
-      {{ role.ability }}
-    </div>
+
+    <!-- FT-858: the coin's read is THE role hover card — the same component
+         the Almanac workbench's shelf hovers (user-directed: one component,
+         both surfaces). It supersedes the flat `.ability` box that used to
+         hang off the coin at `left: 120%`, which the square's rotated seats
+         clipped and the picker grids overlapped. -->
+    <RoleHoverCard
+      v-if="cardAnchor"
+      :role="role"
+      :anchor="cardAnchor"
+      @dismiss="hideCard"
+    />
   </div>
 </template>
 
 <script>
 import { mapState } from "vuex";
+// FT-858: THE role hover card, shared with the Almanac workbench's shelf and
+// the grimoire drawer.
+import RoleHoverCard from "./RoleHoverCard";
+
+// how long the cursor has to rest on a coin before its card appears —
+// enough that sweeping across the square does not strobe cards
+const HOVER_DELAY = 170;
 
 // the 150-unit space every overlay on the coin is drawn in
 const CX = 75;
@@ -142,6 +164,7 @@ function lozenge(x, y, s) {
 
 export default {
   name: "Token",
+  components: { RoleHoverCard },
   props: {
     role: {
       type: Object,
@@ -216,7 +239,14 @@ export default {
     ...mapState(["grimoire"])
   },
   data() {
-    return {};
+    return {
+      // the coin element the hover card is pinned to, once the cursor has
+      // rested on it; null while nothing is showing
+      cardAnchor: null
+    };
+  },
+  beforeDestroy() {
+    clearTimeout(this.$options.cardTimer);
   },
   filters: {
     /**
@@ -239,6 +269,24 @@ export default {
   methods: {
     setRole() {
       this.$emit("set-role");
+    },
+    /**
+     * Rest the cursor on a coin and it tells you what the character does.
+     * An empty chair has nothing to say, and a touch screen has no hover to
+     * rest — a tap there still opens the role picker, as it always did.
+     */
+    showCard(e) {
+      if (!this.role || !this.role.id) return;
+      if (!window.matchMedia("(hover: hover)").matches) return;
+      const el = e.currentTarget;
+      clearTimeout(this.$options.cardTimer);
+      this.$options.cardTimer = setTimeout(() => {
+        this.cardAnchor = el;
+      }, HOVER_DELAY);
+    },
+    hideCard() {
+      clearTimeout(this.$options.cardTimer);
+      this.cardAnchor = null;
     }
   }
 };
@@ -396,6 +444,10 @@ $blood: #970000; // our red, for the one mark that must not be missed
     display: none;
   }
 
+  // FT-858: superseded by RoleHoverCard, which the coin now renders instead.
+  // The rule stays in the tree unreferenced, the way upstream's token.png and
+  // leaf art do — nothing here was worth throwing away, it just could not
+  // survive being pinned inside a rotated, clipped seat.
   .ability {
     display: flex;
     position: absolute;

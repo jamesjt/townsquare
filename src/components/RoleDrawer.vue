@@ -42,7 +42,18 @@
           Dupes
         </label>
       </div>
-      <div class="rd-groups" v-blood-scroll>
+      <!-- FT-858: the drawer's rows read through THE role hover card — the
+           same component the Almanac workbench's shelf and the seats use
+           (user-directed: one component, every surface). It replaces the
+           browser's own `title` box, which arrived late, wrapped badly and
+           carried the ability alone. -->
+      <RoleHoverCard
+        v-if="cardRole"
+        :role="cardRole"
+        :anchor="cardAnchor"
+        @dismiss="hideCard"
+      />
+      <div class="rd-groups" v-blood-scroll @scroll.passive="hideCard">
         <section
           v-for="team in teams"
           :key="team"
@@ -81,7 +92,8 @@
               :draggable="String(allowDup || !placedCount(role))"
               @dragstart="dragRole(role, $event)"
               @click="clickRole(role)"
-              :title="role.ability"
+              @mouseenter="showCard(role, $event)"
+              @mouseleave="hideCard"
             >
               <span
                 class="icon"
@@ -106,13 +118,23 @@ import demonGlyph from "../assets/blood/demon-glyph.png";
 import dealGlyph from "../assets/ui-deal.png";
 import outsiderGlyph from "../assets/blood/outsider-glyph.png";
 import { mapMutations, mapState } from "vuex";
+// FT-858: THE role hover card, shared with the Almanac workbench's shelf and
+// the seats in the square.
+import RoleHoverCard from "./RoleHoverCard";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
+// the cursor has to rest on a row before its card appears — running the list
+// should not strobe cards
+const HOVER_DELAY = 170;
 
 export default {
   name: "RoleDrawer",
+  components: { RoleHoverCard },
   data() {
     return {
+      // which role the hover card is describing, and the row it is pinned to
+      cardRole: null,
+      cardAnchor: null,
       teams: ["townsfolk", "outsider", "minion", "demon", "traveler"],
       labels: {
         townsfolk: "Townsfolk",
@@ -161,8 +183,26 @@ export default {
       return this.players.filter(p => p.role.id).length;
     }
   },
+  beforeDestroy() {
+    clearTimeout(this.$options.cardTimer);
+  },
   methods: {
     ...mapMutations(["toggleModal", "setDrawerPick"]),
+    /** Rest on a row and the card tells you what the character does. */
+    showCard(role, e) {
+      if (!window.matchMedia("(hover: hover)").matches) return;
+      const el = e.currentTarget;
+      clearTimeout(this.$options.cardTimer);
+      this.$options.cardTimer = setTimeout(() => {
+        this.cardAnchor = el;
+        this.cardRole = role;
+      }, HOVER_DELAY);
+    },
+    hideCard() {
+      clearTimeout(this.$options.cardTimer);
+      this.cardRole = null;
+      this.cardAnchor = null;
+    },
     fold(team) {
       this.$set(this.folded, team, !this.folded[team]);
     },

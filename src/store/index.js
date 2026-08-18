@@ -127,6 +127,10 @@ export default new Vuex.Store({
       // the reference sheet and the night order. The old `reference` and
       // `nightOrder` overlay flags stay in place; nothing routes to them.
       scriptDrawer: false,
+      // FT-858: the VOTE HISTORY drawer (right side, beside the script) — the
+      // nomination log's surface now. `voteHistory` below is the old overlay:
+      // it stays in place and still renders the same body, unrouted.
+      voteDrawer: false,
       voteHistory: false
     },
     // FT-854: the role drawer's click-to-place selection (a role object,

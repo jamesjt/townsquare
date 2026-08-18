@@ -150,6 +150,10 @@
          what the strip's script/night icons open now; the two overlays below
          stay mounted but nothing routes to them. -->
     <ScriptDrawer />
+    <!-- FT-858: the vote-history drawer, the script drawer's twin on the same
+         right-hand rail. Opening either closes the other (the store's
+         toggleModal closes every other modal), so they never overlap. -->
+    <VoteDrawer />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -176,7 +180,7 @@
     <div
       id="session-pill"
       v-if="session.sessionId"
-      :class="{ 'drawer-open': modals.scriptDrawer }"
+      :class="{ 'drawer-open': rightDrawerOpen }"
     >
       <!-- (broadcast icon retired — user call 2026-08-17) -->
       <span
@@ -191,7 +195,7 @@
       <span
         class="nomlog"
         v-if="session.voteHistory.length"
-        @click="$store.commit('toggleModal', 'voteHistory')"
+        @click="$store.commit('toggleModal', 'voteDrawer')"
         :title="session.voteHistory.length + ' recent nominations'"
       >
         <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
@@ -269,6 +273,8 @@ import RoleDrawer from "./components/RoleDrawer";
 // FT-857: the player-facing script drawer (reference sheet + night order in
 // one), sharing the workbench's ScriptView.
 import ScriptDrawer from "./components/ScriptDrawer";
+// FT-858: the vote-history drawer — the nomination log on the same rail.
+import VoteDrawer from "./components/VoteDrawer";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -325,6 +331,7 @@ export default {
     RolesModal,
     RoleDrawer,
     ScriptDrawer,
+    VoteDrawer,
     Gradients
   },
   computed: {
@@ -334,6 +341,12 @@ export default {
     // and the handless clock art takes the wall (user call 2026-08-18)
     inGame() {
       return !!this.session.sessionId || this.players.length > 0;
+    },
+    // FT-858: ANY right-hand drawer being open is what the session pill
+    // dodges — it follows `--sd-width`, which whichever drawer is showing
+    // publishes. Adding a third drawer means adding it here, nowhere else.
+    rightDrawerOpen() {
+      return this.modals.scriptDrawer || this.modals.voteDrawer;
     },
     // Golem fork: the building phase = hosting live, roles not yet dealt.
     showHostTools() {
@@ -600,8 +613,10 @@ export default {
           this.$store.commit("toggleModal", "roles");
           break;
         case "v":
+          // FT-858: V opens the vote-history DRAWER (the overlay stays
+          // mounted; nothing routes to it).
           if (this.session.voteHistory.length || !this.session.isSpectator) {
-            this.$store.commit("toggleModal", "voteHistory");
+            this.$store.commit("toggleModal", "voteDrawer");
           }
           break;
         case "s":
