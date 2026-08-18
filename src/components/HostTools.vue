@@ -423,22 +423,32 @@ export default {
       display: flex;
       align-items: center;
       gap: 10px;
-      // scrub and input share ONE footprint so the swap never shifts the row
+      // Scrub and input share ONE footprint — same box, same padding, same
+      // border width — so clicking in only makes the field VISIBLE; nothing
+      // moves. (The earlier attempt fused this selector with .row-book and
+      // nested the input inside it, so the rule never reached the input.)
       .seat-scrub,
-      .row-book {
-      width: 20px;
-      height: 20px;
-      vertical-align: middle;
-    }
-    .seat-input {
+      .seat-input {
         box-sizing: border-box;
         display: inline-block;
         width: 2.8em;
         height: 1.5em;
         line-height: 1.5em;
+        padding: 0 2px;
+        margin: 0;
         text-align: center;
+        vertical-align: middle;
         font-weight: bold;
         font-size: inherit;
+        font-family: inherit;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background: transparent;
+      }
+      .row-book {
+        width: 20px;
+        height: 20px;
+        vertical-align: middle;
       }
       .seat-scrub {
         cursor: ew-resize;
@@ -446,9 +456,9 @@ export default {
         touch-action: none;
       }
       .seat-input {
-        padding: 0 2px;
-        margin: 0;
-        border-width: 1px;
+        border-color: #400;
+        background: rgba(0, 0, 0, 0.6);
+        outline: none;
       }
       svg {
         cursor: pointer;
@@ -459,9 +469,6 @@ export default {
           opacity: 0.3;
           pointer-events: none;
         }
-      }
-      b {
-        min-width: 26px;
       }
     }
     .tools {

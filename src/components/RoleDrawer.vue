@@ -6,11 +6,33 @@
       @dragover.prevent
       @drop="onDrawerDrop"
     >
-      <h3 class="rd-title">Grimoire</h3>
-      <p class="rd-hint">
-        Drag a role onto a seat — or click one, then click a seat. Drag a
-        seated role here to unassign it.
-      </p>
+      <!-- the how-to rides the title as a tooltip; the actions sit at the top
+           where they are reachable without scrolling (user call 2026-08-18) -->
+      <h3
+        class="rd-title"
+        title="Drag a role onto a seat — or click one, then click a seat. Drag a seated role back here to unassign it."
+      >
+        Grimoire
+      </h3>
+      <div class="rd-acts">
+        <button
+          class="rd-act"
+          @click="assignRandomly"
+          title="Fill every roleless seat by the script's composition"
+        >
+          <font-awesome-icon icon="people-arrows" />
+          Assign {{ openSeats }}
+        </button>
+        <button
+          class="rd-act"
+          :disabled="seatedCount < 2"
+          @click="shuffleSeated"
+          title="Reshuffle the seated roles among their chairs"
+        >
+          <font-awesome-icon icon="random" />
+          Shuffle
+        </button>
+      </div>
       <div class="rd-groups" v-blood-scroll>
         <section
           v-for="team in teams"
@@ -58,19 +80,6 @@
           <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
           Allow duplicates
         </label>
-        <div class="button" @click="assignRandomly" title="Fill every roleless seat by the script's composition">
-          <font-awesome-icon icon="people-arrows" />
-          Assign {{ openSeats }} randomly
-        </div>
-        <div
-          class="button"
-          :class="{ disabled: seatedCount < 2 }"
-          @click="shuffleSeated"
-          title="Reshuffle the seated roles among their chairs"
-        >
-          <font-awesome-icon icon="random" />
-          Shuffle seated
-        </div>
       </div>
     </div>
   </transition>
@@ -248,11 +257,39 @@ $team-colors: (
     font-weight: normal;
     text-align: center;
   }
-  .rd-hint {
-    margin: 0 12px 8px;
-    font-size: 11px;
-    opacity: 0.55;
-    text-align: center;
+  // the two build actions, in OUR flat idiom — dark plate, hairline, no
+  // upstream gradient pill (user call 2026-08-18)
+  .rd-acts {
+    display: flex;
+    gap: 6px;
+    margin: 4px 10px 8px;
+
+    .rd-act {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px 8px;
+      font-family: inherit;
+      font-size: 12px;
+      color: #d8cdb4;
+      background: rgba(20, 16, 22, 0.9);
+      border: 1px solid rgba(120, 105, 135, 0.4);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: color 150ms, border-color 150ms, background 150ms;
+
+      &:hover:not(:disabled) {
+        color: #fff;
+        background: rgba(32, 24, 38, 0.95);
+        border-color: rgba(150, 130, 175, 0.75);
+      }
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
   }
   .rd-groups {
     flex: 1;
