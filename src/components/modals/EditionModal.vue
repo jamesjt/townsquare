@@ -556,9 +556,10 @@
                 >{{ t }}</span
               >
             </div>
-            <div class="il-preview" v-if="ilHoverBaked">
-              <img :src="ilHoverBaked" alt="" />
-              <span class="label">{{ ilHoverName }}</span>
+            <div class="il-preview">
+              <img v-if="ilPreviewSrc" :src="ilPreviewSrc" alt="" />
+              <span v-else class="il-empty">hover an icon to preview it</span>
+              <span class="label">{{ ilPreviewLabel }}</span>
             </div>
             <div class="icon-grid il-grid" v-if="ilLoaded">
               <div
@@ -1025,6 +1026,16 @@ export default {
     },
     ilOverflow() {
       return Math.max(0, this.ilFiltered.length - 160);
+    },
+    ilPreviewSrc() {
+      return (
+        this.ilHoverBaked || (this.roleForm && this.roleForm.iconData) || ""
+      );
+    },
+    ilPreviewLabel() {
+      if (this.ilHoverName) return this.ilHoverName;
+      const f = this.roleForm;
+      return f && f.iconRef ? f.iconRef.replace(/-/g, " ") : "";
     },
     roleShelfFiltered() {
       const q = this.roleQuery.trim().toLowerCase();
@@ -1562,10 +1573,11 @@ export default {
         this.ilHoverName = entry.n.replace(/-/g, " ");
       }, 120);
     },
+    /** Leaving a cell only cancels a PENDING bake — the shown preview is
+     *  sticky (last hover, else the current pick) so the slot never
+     *  collapses and the layout never jumps. */
     ilHoverClear() {
       clearTimeout(this.$options.ilHoverTimer);
-      this.ilHoverBaked = "";
-      this.ilHoverName = "";
     },
     /** A pick bakes in the CURRENT team's tint; the ref rides the role so a
      *  later team switch re-bakes (rule: one stored bake, source kept). */
@@ -2569,6 +2581,8 @@ $team-colors: (
     justify-content: center;
     gap: 8px;
     margin: 4px 0;
+    // the slot NEVER collapses — a hover swap repaints in place
+    height: 68px;
     img {
       width: 64px;
       height: 64px;
@@ -2577,6 +2591,11 @@ $team-colors: (
       font-size: 13px;
       text-transform: capitalize;
       opacity: 0.85;
+    }
+    .il-empty {
+      font-size: 12px;
+      opacity: 0.45;
+      font-style: italic;
     }
   }
   .il-grid {
