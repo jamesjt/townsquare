@@ -62,12 +62,15 @@
       <path :d="nameCurve" :id="curveId" fill="transparent" />
       <text
         width="150"
-        x="66.6%"
         text-anchor="middle"
         class="label mozilla"
         :font-size="role.name | nameToFontSize"
       >
-        <textPath :xlink:href="'#' + curveId">
+        <!-- startOffset centres on the ARC. Upstream anchored with x="66.6%",
+             which is 100 user units — half of their much deeper curve, but
+             two thirds of the way along ours, so every long name ran off the
+             end and was clipped ("Washerwoma", "Investigato"). -->
+        <textPath :xlink:href="'#' + curveId" startOffset="50%">
           {{ role.name }}
         </textPath>
       </text>
@@ -201,17 +204,19 @@ export default {
   filters: {
     /**
      * The wheel's face is smaller than upstream's full-bleed disc, so its
-     * name arc is about a quarter shorter — one long/short pair of sizes
-     * ran "Fortune Teller" and "Investigator" straight off the end of the
-     * path, where they were simply clipped. Step it down by length instead.
+     * name arc is about a fifth shorter and one long/short pair of sizes no
+     * longer covers the range. Calibrated against measured glyph widths at
+     * 152 units of arc: the longest name in any script ("Devil's Advocate")
+     * still lands inside it.
      */
     nameToFontSize: name => {
       const n = (name || "").length;
       if (n <= 5) return "104%";
-      if (n <= 8) return "94%";
-      if (n <= 11) return "82%";
-      if (n <= 14) return "72%";
-      return "63%";
+      if (n <= 8) return "96%";
+      if (n <= 11) return "86%";
+      if (n <= 14) return "74%";
+      if (n <= 17) return "64%";
+      return "56%";
     }
   },
   methods: {
