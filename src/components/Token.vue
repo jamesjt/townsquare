@@ -119,11 +119,12 @@ const HOVER_DELAY = 170;
 const CX = 75;
 const CY = 75;
 // Where the wheel's decorations sit, measured from the middle of the coin.
-// The bake puts the parchment face out to 0.9215 of the radius and the tooth
-// roots at 0.9855 (the whole border band halved, user call), so 71.5 straddles
-// the collar — dark ground the bone marks read against, and clear of the role
-// art on the face.
-const MARK_R = 71.5;
+// The coin is the USER'S OWN art (design drop, keyed + measured by
+// claude_temp_test/2026-08-18-player-coin.mjs). Its metal ring is thin — the
+// parchment runs out to 0.955 of the radius and the teeth take the rest — so
+// the marks sit just INSIDE the gold hairline rather than in the ring, which
+// is where they fit and where upstream's leaves read from.
+const MARK_R = 67.5;
 const RAD = Math.PI / 180;
 
 /**
@@ -385,10 +386,10 @@ $blood: #970000; // our red, for the one mark that must not be missed
   @mixin team-ring($color) {
     background: radial-gradient(
       circle closest-side,
-      transparent 0 91%,
-      rgba($color, 0.55) 92.5%,
-      rgba($color, 0.55) 95.5%,
-      transparent 97%
+      transparent 0 87.5%,
+      rgba($color, 0.55) 89%,
+      rgba($color, 0.55) 92%,
+      transparent 93.5%
     );
   }
 
