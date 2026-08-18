@@ -34,44 +34,12 @@
             :picked-id="wbPickedId"
             @pick="onScriptPick"
           />
+          <!-- ONE plus (user call): everything script-creation lives in the
+               New-script overlay it opens — name, icon, and a paste/upload
+               seed. -->
           <div class="wb-actions">
-          <div class="button" @click="newScript">
-            <font-awesome-icon icon="scroll" /> New script
-          </div>
-          <div class="button" @click="openRoleForm()">
-            <font-awesome-icon icon="plus-circle" /> New role
-          </div>
-          <div class="button" @click="importRoleOpen = !importRoleOpen">
-            <font-awesome-icon icon="file-code" /> Import role
-          </div>
-          <div class="button" @click="promptVaultLoad">
-            <font-awesome-icon icon="link" /> Load by link
-          </div>
-          <div class="button" @click="openUpload">
-            <font-awesome-icon icon="file-upload" /> Upload JSON
-          </div>
-          <div class="button" @click="promptURL">
-            <font-awesome-icon icon="link" /> Enter URL
-          </div>
-          <div class="button" v-if="recents.length" @click="copyLinks">
-            <font-awesome-icon icon="clipboard" /> Export my links
-          </div>
-          </div>
-        </div>
-        <!-- the ghost text IS the exact syntax (user call), and the copy
-             button hands over a fillable template -->
-        <div class="wb-import-role" v-if="importRoleOpen">
-          <textarea
-            v-model="importRoleText"
-            rows="3"
-            :placeholder="roleTemplateJson"
-          ></textarea>
-          <div class="wb-import-acts">
-            <div class="button" @click="importRole">
-              <font-awesome-icon icon="plus-circle" /> Add to script
-            </div>
-            <div class="button" @click="copyRoleTemplate">
-              <font-awesome-icon icon="clipboard" /> Copy template
+            <div class="button wb-plus" title="New script" @click="newScript">
+              <font-awesome-icon icon="plus-circle" />
             </div>
           </div>
         </div>
@@ -79,12 +47,17 @@
 
       <div class="wb-body">
         <aside class="wb-sidebar">
-          <input
-            v-model="roleQuery"
-            class="wb-search"
-            placeholder="Search every role…"
-            @keyup.enter="searchRoles"
-          />
+          <div class="wb-shelf-top">
+            <input
+              v-model="roleQuery"
+              class="wb-search"
+              placeholder="Search every role…"
+              @keyup.enter="searchRoles"
+            />
+            <div class="button wb-plus" title="New role" @click="openRoleForm()">
+              <font-awesome-icon icon="plus-circle" />
+            </div>
+          </div>
           <!-- FT-855: the researched filter. (1) TEAM ICON ROW — plain on/off
                toggles, live counts, multi-select ORs. (2) Structured PILLS —
                "Source is not TB ×": the verb flips is/is-not on click, the ×
@@ -430,6 +403,23 @@
            like scripts: saving someone else's role forks your own copy.
            FT-854: the forge floats over the workbench as an overlay. -->
       <div class="role-form" v-if="roleForm">
+        <!-- paste a role JSON (or an official id) to fill the form; the
+             ghost text IS the accepted syntax, Template copies it -->
+        <div class="row wb-forge-paste">
+          <textarea
+            v-model="roleJsonText"
+            rows="2"
+            :placeholder="roleTemplateJson"
+          ></textarea>
+          <div class="paste-acts">
+            <div class="button" @click="fillForgeFromJson">
+              <font-awesome-icon icon="file-code" /> Fill from JSON
+            </div>
+            <div class="button" @click="copyRoleTemplate">
+              <font-awesome-icon icon="clipboard" /> Template
+            </div>
+          </div>
+        </div>
         <div class="row">
           <input
             v-model="roleForm.name"
@@ -585,6 +575,21 @@
           class="ns-upload"
           @change="onNsUpload"
         />
+        <!-- the seed: paste a script JSON, a share link, or a URL — or
+             upload a file. Empty = a blank page. -->
+        <div class="ns-start">
+          <label>Begin with <small>(optional)</small></label>
+          <div class="ns-start-row">
+            <textarea
+              v-model="nsJsonText"
+              rows="2"
+              placeholder='Paste a script JSON, a share link, or a URL — or leave empty for a blank page'
+            ></textarea>
+            <div class="button" @click="openUpload">
+              <font-awesome-icon icon="file-upload" /> Upload
+            </div>
+          </div>
+        </div>
         <div class="ns-browse">
           <input
             v-model="nsIconSearch"
@@ -612,6 +617,9 @@
         </div>
         <div class="role-error" v-if="nsError">{{ nsError }}</div>
         <div class="ns-acts">
+          <small class="ns-export" v-if="recents.length" @click="copyLinks">
+            Export my script links
+          </small>
           <div class="button" @click="newScriptForm = null">
             <font-awesome-icon icon="times" /> Cancel
           </div>
@@ -803,8 +811,6 @@ export default {
       // (derived from the setup table; informational only, never a gate).
       wbView: "team",
       wbTeam: "",
-      importRoleOpen: false,
-      importRoleText: "",
       // the shelf's hover card
       roleTip: null,
       roleTipStyle: { top: "-9999px", left: "-9999px" },
@@ -829,6 +835,9 @@ export default {
       nsIconSearch: "",
       nsError: "",
       nsDragOver: false,
+      nsJsonText: "",
+      // the forge's paste-to-fill box
+      roleJsonText: "",
       // FT-855: team toggles (empty = all) + structured filter pills
       // [{ id: 'src:tb', not: false }] — the pill row is the single truth.
       teamsOn: [],
@@ -1542,25 +1551,52 @@ export default {
       this.newScriptForm = { name: "", icon: "" };
       this.$nextTick(() => this.$refs.nsName && this.$refs.nsName.focus());
     },
-    createNewScript() {
+    async createNewScript() {
       const f = this.newScriptForm;
       if (!f) return;
       if (!f.name.trim()) {
         this.nsError = "A script needs a name.";
         return;
       }
-      this.$store.commit("setCustomRoles", []);
+      this.nsError = "";
+      // the seed: script JSON, a share link, or a URL — empty = blank page
+      const seed = (this.nsJsonText || "").trim();
+      try {
+        if (seed) {
+          const linkId = vault.parseScriptRef(seed);
+          if (linkId) {
+            await this.loadFromVault(linkId); // keeps lineage: saving forks
+          } else if (/^https?:\/\//i.test(seed)) {
+            const res = await fetch(seed);
+            this.parseRoles(await res.json());
+            this.vaultSourceId = null;
+          } else {
+            this.parseRoles(JSON.parse(seed));
+            this.vaultSourceId = null;
+          }
+        } else {
+          this.$store.commit("setCustomRoles", []);
+          this.vaultSourceId = null;
+        }
+      } catch (e) {
+        this.nsError = "Couldn't read that seed: " + e.message;
+        return;
+      }
       this.$store.commit("setEdition", {
         id: "custom",
         name: f.name.trim(),
         // the icon rides the edition and persists through _meta on save
         logo: f.icon || undefined
       });
-      this.vaultSourceId = null;
       this.newScriptForm = null;
+      this.nsJsonText = "";
       this.ensureOpen();
       this.setBaseline();
-      flashHint(`${f.name.trim()} — a blank page. Add roles from the shelf`);
+      flashHint(
+        seed
+          ? `${f.name.trim()} — seeded and ready`
+          : `${f.name.trim()} — a blank page. Add roles from the shelf`
+      );
     },
     // ── dirty tracking (Save/Discard live in the meter, only when dirty) ─
     setBaseline() {
@@ -1642,60 +1678,46 @@ export default {
       }
       this.ensureOpen();
     },
-    /** Paste one role — an official id, or a Script-Tool-shaped object. */
-    importRole() {
+    /** Paste an official id or a Script-Tool role object → the forge fills
+     *  itself; the user reviews, then saves as usual. */
+    fillForgeFromJson() {
       this.roleError = "";
+      const txt = (this.roleJsonText || "").trim();
+      if (!txt) return;
       let parsed;
       try {
-        parsed = JSON.parse(this.importRoleText);
+        parsed = JSON.parse(txt);
       } catch (e) {
         // a bare official id without quotes is a kindness worth extending
-        parsed = this.importRoleText.trim();
+        parsed = txt;
       }
       if (Array.isArray(parsed)) parsed = parsed[0];
       const base = this.$store.getters.rolesJSONbyId;
       if (typeof parsed === "string") {
         const id = parsed.toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (!base.has(id)) {
+        const official = base.get(id);
+        if (!official) {
           this.roleError = `No official role called ${JSON.stringify(parsed)} — paste a role object for customs.`;
           return;
         }
-        this.insertRoleIntoEdition({ id }, null);
-      } else if (parsed && typeof parsed === "object") {
-        if (parsed.id && base.has(parsed.id)) {
-          this.insertRoleIntoEdition({ id: parsed.id }, null);
-        } else {
-          const team = normTeam(parsed.team || parsed.roleType);
-          if (!parsed.name || !parsed.ability || !TEAM_ORDER.includes(team)) {
-            this.roleError =
-              "A role needs at least a name, an ability, and a team (townsfolk / outsider / minion / demon / traveler).";
-            return;
-          }
-          const id =
-            (parsed.id && String(parsed.id)) ||
-            "imported_" + parsed.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-          this.insertRoleIntoEdition(
-            {
-              ...parsed,
-              id,
-              team,
-              firstNight: Math.abs(parsed.firstNight || 0),
-              otherNight: Math.abs(parsed.otherNight || 0),
-              reminders: parsed.reminders || [],
-              setup: !!parsed.setup,
-              isCustom: true
-            },
-            null
-          );
-        }
-      } else {
+        this.openRoleForm(official);
+        return;
+      }
+      if (!parsed || typeof parsed !== "object") {
         this.roleError = "Paste one role as JSON.";
         return;
       }
-      this.importRoleText = "";
-      this.importRoleOpen = false;
-      this.ensureOpen();
-      flashHint("Role added to this script");
+      const f = this.roleForm;
+      if (parsed.name) f.name = String(parsed.name).slice(0, 40);
+      f.roleType = roleLib.roleTypeFromTeam(
+        normTeam(parsed.team || parsed.roleType || "townsfolk")
+      );
+      if (parsed.ability) f.ability = String(parsed.ability).slice(0, 600);
+      f.firstNight = Math.abs(parsed.firstNight || 0);
+      f.otherNight = Math.abs(parsed.otherNight || 0);
+      f.reminders = (parsed.reminders || []).join(", ");
+      f.setup = !!parsed.setup;
+      this.roleJsonText = "";
     },
     // ── FT-854: night-order drag-reorder ─────────────────────────────────
     onDragStart(role) {
@@ -1920,7 +1942,7 @@ export default {
         await navigator.clipboard.writeText(text);
         flashHint("Role template copied — fill it in and paste it back");
       } catch (e) {
-        this.importRoleText = text;
+        this.roleJsonText = text;
         flashHint("Clipboard blocked — template dropped into the box instead");
       }
     },
@@ -1953,11 +1975,16 @@ export default {
       if (file && file.size) {
         const reader = new FileReader();
         reader.addEventListener("load", () => {
-          try {
-            const roles = JSON.parse(reader.result);
-            this.parseRoles(roles);
-          } catch (e) {
-            alert("Error reading custom script: " + e.message);
+          // inside the New-script overlay the upload SEEDS the paste box
+          // (Create applies it); elsewhere it loads directly, as ever
+          if (this.newScriptForm) {
+            this.nsJsonText = String(reader.result);
+          } else {
+            try {
+              this.parseRoles(JSON.parse(reader.result));
+            } catch (e) {
+              alert("Error reading custom script: " + e.message);
+            }
           }
           this.$refs.upload.value = "";
         });
@@ -2177,6 +2204,63 @@ $team-colors: (
   min-height: 0;
   text-align: left;
 
+  // The + buttons: square, icon-only, blood on hover.
+  .wb-plus {
+    padding: 3px 9px !important;
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+  .ns-start {
+    margin-bottom: 10px;
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: 0.6;
+      margin-bottom: 4px;
+    }
+    .ns-start-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      textarea {
+        flex-grow: 1;
+        margin: 0;
+        width: auto;
+      }
+      .button {
+        flex-shrink: 0;
+      }
+    }
+  }
+  .ns-export {
+    margin-right: auto;
+    align-self: center;
+    font-size: 12px;
+    opacity: 0.7;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    &:hover {
+      color: #ff8a8a;
+      opacity: 1;
+    }
+  }
+  .wb-forge-paste {
+    flex-direction: column;
+    gap: 4px;
+    textarea {
+      width: 90% !important;
+    }
+    .paste-acts {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+  }
+
   // Our buttons, not upstream's shiny pills: small, flat, dark, hairline.
   // Pixel-sized — the app's base font is viewport-huge, so percentages lie.
   .button {
@@ -2345,6 +2429,15 @@ $team-colors: (
     display: flex;
     flex-direction: column;
     min-height: 0;
+    .wb-shelf-top {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      .wb-search {
+        flex-grow: 1;
+        width: auto;
+      }
+    }
     .wb-search {
       width: 100%;
       background: rgba(0, 0, 0, 0.5);
