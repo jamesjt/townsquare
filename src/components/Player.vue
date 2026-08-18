@@ -650,7 +650,10 @@ export default {
   .life {
     border-radius: 50%;
     width: 100%;
-    background: url("../assets/life.png") center center;
+    // Golem fork (2026-08-18): our OWN seat token — a disc of the
+    // clocktower's gold filigree (life-golem.png; upstream's life.png
+    // stays in the tree untouched)
+    background: url("../assets/life-golem.png") center center;
     background-size: 100%;
     border: 3px solid black;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);

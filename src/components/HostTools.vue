@@ -35,46 +35,46 @@
 
     <div class="row">
       <span class="label">Seats</span>
+      <!-- the number is a SCRUBBER: drag it sideways to set the count
+           (user call — the +/- pair retired) -->
       <span class="stepper">
-        <font-awesome-icon
-          icon="minus-circle"
-          :class="{ disabled: !canRemoveSeat }"
-          @click="removeSeat"
-          title="Remove an empty seat (claimed seats are never removed)"
-        />
-        <b>{{ players.length }}</b>
-        <font-awesome-icon
-          icon="plus-circle"
-          :class="{ disabled: players.length >= 20 }"
-          @click="addSeat"
-          title="Add a seat"
-        />
+        <b
+          class="seat-scrub"
+          title="Drag sideways to set seats (0–20)"
+          @pointerdown="scrubSeats"
+          >{{ players.length }}</b
+        >
       </span>
       <small>{{ claimedCount }} claimed</small>
-      <!-- FT-847 follow-up: the toolbar's Players tab retired — Randomize
-           and Remove all weren't covered by the stepper (single-seat, empty
-           only), so they relocate here rather than dropping. -->
-      <span class="tools" v-if="players.length">
+      <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
+           ALWAYS rendered — appearing icons shove the row (user call);
+           unusable states grey out instead. -->
+      <span class="tools">
         <font-awesome-icon
-          icon="dice"
+          icon="random"
           :class="{ disabled: players.length <= 2 }"
           @click="randomizeSeatings"
-          title="Randomize seat order"
+          title="Shuffle seat order"
         />
         <font-awesome-icon
           icon="trash-alt"
+          :class="{ disabled: !players.length }"
           @click="clearAllPlayers"
           title="Remove all seats"
         />
       </span>
     </div>
 
+    <!-- the SHARED script picker (user call): pick right here, with the
+         script's OWN art on the trigger; the Almanac card opens the forge -->
     <div class="row">
       <span class="label">Script</span>
-      <span class="value" @click="toggleModal('edition')">
-        {{ edition.name || "Pick a script…" }}
-        <font-awesome-icon icon="theater-masks" />
-      </span>
+      <ScriptPicker
+        class="ht-script-picker"
+        :cards="scriptCards"
+        :picked-id="pickedScriptId"
+        @pick="pickScript"
+      />
     </div>
 
     <div class="row">
@@ -91,7 +91,6 @@
       @click="start"
       :title="startHint"
     >
-      <font-awesome-icon icon="broadcast-tower" />
       Start game
     </div>
     <small class="hint">{{ startHint }}</small>
@@ -101,10 +100,17 @@
 <script>
 import { mapMutations, mapState } from "vuex";
 import { listTowns, editKeyFor, updateTown } from "../golem/towns";
+import ScriptPicker from "./ScriptPicker";
+import editionJSON from "../editions";
+import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
+import { getRecents } from "../golem/scripts";
 
 export default {
+  components: { ScriptPicker },
   data() {
     return {
+      // the picker's vault selection (officials read from the store)
+      vaultPickedId: null,
       // FT-847: owned-town rename state.
       renaming: false,
       renameDraft: "",
@@ -141,6 +147,39 @@ export default {
     canRemoveSeat() {
       // The spinner never evicts: only an EMPTY seat can go.
       return this.players.some(p => !p.id);
+    },
+    /** The shared picker's cards: officials, the vault shelf, the Almanac. */
+    scriptCards() {
+      const cards = editionJSON
+        .filter(e => e.isOfficial)
+        .map(e => ({
+          id: e.id,
+          name: e.name,
+          icon: EDITION_ICONS[e.id] || edCustom,
+          blurb: OFFICIAL_BLURBS[e.id] || "",
+          source: "OFFICIAL"
+        }));
+      getRecents().forEach(s => {
+        cards.push({
+          id: s.id,
+          name: s.name || s.id,
+          icon: edCustom,
+          blurb: "",
+          source: "Almanac"
+        });
+      });
+      cards.push({
+        id: "__almanac",
+        name: "Almanac…",
+        icon: edCustom,
+        blurb: "Open the workbench — edit or forge a script",
+        source: ""
+      });
+      return cards;
+    },
+    pickedScriptId() {
+      if (this.vaultPickedId) return this.vaultPickedId;
+      return this.edition.isOfficial ? this.edition.id : null;
     },
     canStart() {
       return (
@@ -196,6 +235,35 @@ export default {
       if (this.players.length >= 20) return;
       this.$store.commit("players/add", `Seat ${this.players.length + 1}`);
     },
+    /** Drag the number sideways — one seat per 9px. Shrinking only takes
+     *  EMPTY chairs (claimed seats never leave via the scrub). */
+    scrubSeats(e) {
+      e.preventDefault();
+      const el = e.currentTarget;
+      el.setPointerCapture(e.pointerId);
+      const startX = e.clientX;
+      const startN = this.players.length;
+      const onMove = ev => {
+        const want = Math.max(
+          0,
+          Math.min(20, startN + Math.round((ev.clientX - startX) / 9))
+        );
+        let guard = 25;
+        while (this.players.length < want && guard--) this.addSeat();
+        while (
+          this.players.length > want &&
+          this.canRemoveSeat &&
+          guard--
+        )
+          this.removeSeat();
+      };
+      const onUp = () => {
+        el.removeEventListener("pointermove", onMove);
+        el.removeEventListener("pointerup", onUp);
+      };
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+    },
     removeSeat() {
       // remove the LAST empty seat; claimed chairs are a targeted act only
       for (let i = this.players.length - 1; i >= 0; i--) {
@@ -204,6 +272,22 @@ export default {
           return;
         }
       }
+    },
+    /** Apply a pick in place — no modal unless the Almanac card is chosen. */
+    pickScript(card) {
+      if (card.id === "__almanac") {
+        this.toggleModal("edition");
+        return;
+      }
+      const ed = editionJSON.find(e => e.id === card.id);
+      if (ed) {
+        this.$store.commit("setEdition", ed);
+        this.vaultPickedId = null;
+        return;
+      }
+      this.vaultPickedId = card.id;
+      const modal = this.$parent.$refs.edition;
+      if (modal) modal.loadFromVault(card.id);
     },
     // FT-847 follow-up: relocated from the retired Players toolbar tab.
     randomizeSeatings() {

@@ -38,10 +38,10 @@ export const FONT_SETS = [
 ];
 
 export const fontState = Vue.observable({
-  // the 970000 red leads the trimmed trio (user call 2026-08-17)
-  key: localStorage.getItem("golem.fontSet") || "red-97",
-  // "on the": a family's lowercase letters (gold, matching the old script art)
-  ontheKey: localStorage.getItem("golem.ontheFont") || "tan",
+  // SETTLED (user call 2026-08-18): the title and "on the" both wear Red
+  // 970000 — fixed, no dial, storage ignored (their lab rows are hidden).
+  key: "red-97",
+  ontheKey: "red-97",
   // the dial's two words, each their own choice ("text" = painted spans;
   // the retired single dialKey seeds both)
   clockKey:

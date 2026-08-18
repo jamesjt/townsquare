@@ -6,7 +6,8 @@
     :class="{
       night: grimoire.isNight,
       static: grimoire.isStatic,
-      booting: !booted
+      booting: !booted,
+      'in-game': inGame
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -28,7 +29,7 @@
          with the clock face at every viewport. -->
     <!-- the dial's two words each wear their own font (the Aa panel,
          top-left, is the control) -->
-    <div class="dial-letters" aria-hidden="true">
+    <div class="dial-letters" aria-hidden="true" v-if="!inGame">
       <span
         v-for="d in dialLetters"
         :key="d.cls + wordKey(d)"
@@ -259,6 +260,11 @@ export default {
   computed: {
     ...mapState(["grimoire", "session"]),
     ...mapState("players", ["players"]),
+    // in a session (or with a town on the table): the dial letters leave
+    // and the handless clock art takes the wall (user call 2026-08-18)
+    inGame() {
+      return !!this.session.sessionId || this.players.length > 0;
+    },
     // Golem fork: the building phase = hosting live, roles not yet dealt.
     showHostTools() {
       return (
@@ -342,9 +348,8 @@ export default {
       ikOpen: false,
       ikSeed: 0,
       ikPreviews: [],
+      // Blood + On-the rows retired 2026-08-18 (settled on Red 970000)
       fdRows: [
-        { field: "key", label: "Blood" },
-        { field: "ontheKey", label: "On the" },
         { field: "clockKey", label: "Clock" },
         { field: "towerKey", label: "Tower" },
         { field: "capKey", label: "Hotkey letters" }
@@ -863,6 +868,14 @@ video#background {
      zoom on portrait phones can't balloon the buttons. */
   --dfpx: min(var(--fpx), 0.145vmin);
 }
+// in a game the hands leave the face — #app paints the handless art over
+// the body's default (the class rides #app, not body)
+#app.in-game {
+  background: #0b0d12 url("assets/background-clocktower-blank.png") center
+    center;
+  background-size: cover;
+}
+
 #app > .dial-letters {
   position: absolute;
   inset: 0;

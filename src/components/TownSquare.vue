@@ -303,15 +303,18 @@ export default {
 
 @mixin on-circle($item-count) {
   $angle: math.div(360, $item-count);
-  $rot: 0;
+  // Golem fork (2026-08-18, user call): seat 1 sits just RIGHT of 12
+  // o'clock and the HIGHEST seat takes 12 — the whole ring shifts one slot.
+  $rot: $angle;
 
   // rotation and tooltip placement
   @for $i from 1 through $item-count {
+    $pos: $i % $item-count; // physical slot: 0 = the 12 o'clock chair
     &:nth-child(#{$i}) {
       transform: rotate($rot * 1deg);
-      @if $i - 1 <= math.div($item-count, 2) {
+      @if $pos <= math.div($item-count, 2) {
         // first half of players
-        z-index: $item-count - $i + 1;
+        z-index: $item-count - $pos;
         // open menu on the left
         .player > .menu {
           left: auto;
@@ -355,7 +358,7 @@ export default {
         }
       } @else {
         // second half of players
-        z-index: $i - 1;
+        z-index: $pos;
       }
 
       > * {
@@ -374,7 +377,7 @@ export default {
 
       // move reminders closer to the sides of the circle
       $q: math.div($item-count, 4);
-      $x: $i - 1;
+      $x: $pos;
       @if $x < $q or ($x >= math.div($item-count, 2) and $x < $q * 3) {
         .player {
           margin-bottom: -10% + 20% * (1 - math.div($x % $q, $q));
