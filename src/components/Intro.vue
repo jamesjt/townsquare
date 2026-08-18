@@ -52,24 +52,9 @@
         <!-- "on the" anchors on its OWN image point — the rosette ring's
              centre (822, 147), which sits left of the title axis -->
         <div class="on-the" :style="ontheStyle">
-          <img
-            v-if="fontState.ontheKey === 'goldart'"
-            class="onthe-logo"
-            :src="ontheLogo"
-            alt="on the"
-          />
-          <span v-else class="onthe-glyphs" aria-label="on the">
-            <template v-for="(g, i) in ontheGlyphs">
-              <span v-if="g.space" :key="'sp' + i" class="sp"></span>
-              <img
-                v-else
-                :key="fontState.ontheKey + i"
-                :src="g.src"
-                :style="g.style"
-                :alt="g.alt"
-              />
-            </template>
-          </span>
+          <!-- the DESIGNED script lifted whole from the 800000 logo lockup
+               (user call 2026-08-18) — swash rule + "on the" as one piece -->
+          <img class="onthe-lockup" :src="ontheLockup" alt="on the" />
         </div>
         <ul class="doors" v-if="!mode">
           <li @click="openHost">
@@ -301,6 +286,7 @@ import bloodMetrics from "../assets/blood/metrics.json";
 // script), keyed to transparent PNGs.
 import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
+import ontheLockup from "../assets/title/onthe-lockup.png";
 // FT-854: the Open-the-town button's blood O (alphabet archive; ems baked
 // from its metrics at the title conversion — 341x410, baseline 352, /370).
 import bloodO from "../assets/blood/alphabet/O.png";
@@ -359,14 +345,14 @@ export default {
         fontSize: 88 * s + "px"
       };
     },
-    /** "on the" — user-calibrated 2026-08-18: two text-heights below the
-     *  ring centre (the ring seat hid it behind BLOOD's descenders). */
+    /** "on the" — the lockup script, image-anchored (user-calibrated). */
     ontheStyle() {
       const { x, y, s } = this.bgA;
       return {
         left: x + 845 * s + "px",
         top: y + 198 * s + "px",
-        fontSize: 26.4 * s + "px"
+        // the lockup renders at 42 image-px tall (431x98 native)
+        height: 42 * s + "px"
       };
     },
     ontheGlyphs() {
@@ -499,6 +485,7 @@ export default {
       blood: BLOOD,
       bloodLogo,
       ontheLogo,
+      ontheLockup,
       bloodO,
       // Golem fork (2026-08-18, user diagnosis): the background renders
       // center/cover, so anything positioned in VIEWPORT pixels drifts
@@ -971,32 +958,10 @@ export default {
     z-index: 3;
     pointer-events: none;
     white-space: nowrap;
-    font-family: "Roboto Condensed", sans-serif;
-    letter-spacing: 0.5em;
-    text-indent: 0.5em; // recenter the letter-spaced run
-    text-transform: uppercase;
-    // glyph mode: the family's lowercase letters at this row's size
-    .onthe-glyphs {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.14em;
-      text-indent: 0;
-      font-size: 1.4em;
-      .sp {
-        width: 0.5em;
-      }
-    }
-    color: #e8e2d8;
-    opacity: 0.9;
-    text-shadow: 0 1px 3px black, 0 0 10px rgba(0, 0, 0, 0.9);
-
-    // Golem fork (FT-853): state 1's onthe-logo image — matched to the
-    // text row's own height so the title block doesn't shift.
-    img.onthe-logo {
-      display: inline-block;
-      height: 0.9em;
+    img.onthe-lockup {
+      height: 100%;
       width: auto;
-      vertical-align: middle;
+      display: block;
       filter: drop-shadow(0 1px 3px black)
         drop-shadow(0 0 6px rgba(0, 0, 0, 0.6));
     }

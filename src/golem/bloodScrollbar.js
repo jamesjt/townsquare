@@ -26,7 +26,9 @@ const DROP_H = 24;
 // the teardrop path in a 15x24 box: crown point -> symmetric cubics into
 // the bulb -> back up
 const DROP_PATH =
-  "M7.5 0 C8.6 5.4 15 10.2 15 16.1 A7.5 7.9 0 0 1 0 16.1 C0 10.2 6.4 5.4 7.5 0 Z";
+  "M7.5 0 C8.1 4.2 10.2 7.3 12.1 10.2 C13.8 12.8 15 15 15 17.2 " +
+  "C15 21.1 11.6 24 7.5 24 C3.4 24 0 21.1 0 17.2 " +
+  "C0 15 1.2 12.8 2.9 10.2 C4.8 7.3 6.9 4.2 7.5 0 Z";
 
 let uid = 0;
 
@@ -51,9 +53,13 @@ function makeSvg(id) {
     </defs>
     <path class="bd-trail" fill="url(#bdt-${id})"/>
     <g class="bd-beads" fill="#6d0d0d"></g>
-    <g class="bd-drop">
-      <path d="${DROP_PATH}" fill="url(#bdg-${id})" stroke="rgba(40,4,4,0.8)" stroke-width="0.8"/>
-      <ellipse cx="5.1" cy="14.2" rx="2" ry="2.8" fill="rgba(255,235,228,0.4)"/>
+    <g class="bd-drop" shape-rendering="geometricPrecision">
+      <path d="${DROP_PATH}" fill="url(#bdg-${id})" stroke="rgba(36,3,3,0.85)" stroke-width="0.6"/>
+      <path d="M2.2 18.6 C3.4 21.6 6 23.2 8.6 23.1 C5.2 24.6 1.6 22.4 1.1 19.2 Z"
+        fill="rgba(46,4,4,0.5)"/>
+      <ellipse cx="4.9" cy="13.6" rx="1.7" ry="2.6" fill="rgba(255,238,230,0.5)"
+        transform="rotate(-14 4.9 13.6)"/>
+      <circle cx="6.1" cy="9.4" r="0.7" fill="rgba(255,238,230,0.35)"/>
     </g>`;
   return svg;
 }
