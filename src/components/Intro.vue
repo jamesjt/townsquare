@@ -365,7 +365,7 @@ export default {
       const { x, y, s } = this.bgA;
       return {
         left: x + 845 * s + "px",
-        top: y + 193 * s + "px",
+        top: y + 198 * s + "px",
         fontSize: 26.4 * s + "px"
       };
     },
