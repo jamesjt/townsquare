@@ -878,9 +878,9 @@ export default {
     // clears the fixed top-right toolbar band (~44px) at short heights
     top: max(48px, 5vh);
     left: 50%;
-    // user-calibrated 2026-08-17: the tower's face sits right of true
-    // center; the title follows it.
-    transform: translateX(calc(-50% + 20px));
+    // true center (user re-call 2026-08-17 — the earlier +20px tower-face
+    // nudge is retired)
+    transform: translateX(-50%);
     text-align: center;
     pointer-events: none;
     z-index: 3;
@@ -920,7 +920,7 @@ export default {
     .on-the {
       margin-top: 1vh;
       font-family: "Roboto Condensed", sans-serif;
-      font-size: min(3vh, 21px);
+      font-size: min(3.5vh, 25px);
       letter-spacing: 0.5em;
       text-indent: 0.5em; // recenter the letter-spaced run
       text-transform: uppercase;

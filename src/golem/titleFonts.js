@@ -121,9 +121,9 @@ export function labelFor(key) {
   return s ? s.label : key;
 }
 
-/** Sheet-family drop-caps render smaller than the chunky blood art — the
- *  ornate letters overpower the door labels at full size (user call). */
-export const CAP_SHRINK = 0.8;
+/** Drop-caps match the label letters' size (user re-call 2026-08-17 —
+ *  the earlier 0.8 shrink read as a mismatched small cap). */
+export const CAP_SHRINK = 1;
 
 /** What the caps actually wear right now ("follow" resolves to the title). */
 export function resolvedCapKey() {

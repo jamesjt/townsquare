@@ -76,6 +76,7 @@ const DEFAULTS = {
   pool: 0.85, // band-pooling dither width
   rim: 0.35, // light-side pale rim strength
   top: 6.6, // tone ceiling in bands for AREA pixels (rim may exceed it)
+  outline: 0.7, // the officials' hairline WHITE edge, in px (0 = none)
   shadow: 0 // cast shadow opacity (officials have NONE)
 };
 let stored = {};
@@ -97,6 +98,7 @@ export const ENGRAVER_DIALS = [
   { key: "pool", label: "Pooling", min: 0, max: 2, step: 0.05 },
   { key: "rim", label: "Rim light", min: 0, max: 1, step: 0.05 },
   { key: "top", label: "Tone ceiling", min: 4, max: 8, step: 0.1 },
+  { key: "outline", label: "White edge", min: 0, max: 3, step: 0.1 },
   { key: "shadow", label: "Shadow", min: 0, max: 1, step: 0.05 }
 ];
 export function saveEngraver() {
@@ -394,15 +396,38 @@ export function stylizeIcon(
               hash2(x, y, seed + 131 + c * 17) +
               hash2(x + 911, y, seed + 173 + c * 17) -
               1;
-            const base = c0[c] + (c1[c] - c0[c]) * f;
-            od[i * 4 + c] = Math.max(
-              0,
-              Math.min(255, base + (0.8 * gN + clump) * amp)
-            );
+            const val = c0[c] + (c1[c] - c0[c]) * f + (0.8 * gN + clump) * amp;
+            od[i * 4 + c] = Math.max(0, Math.min(255, val));
           }
           od[i * 4 + 3] = alpha[i];
         }
         g.putImageData(out, 0, 0);
+
+        // ---- the officials' hairline: the art's own antialiased
+        // silhouette tinted paper-white, stamped in a circle UNDER the
+        // art — a smooth outward stroke, never pixel fringe ----
+        let sheet = work;
+        if (K.outline > 0.05) {
+          const sil = document.createElement("canvas");
+          sil.width = W;
+          sil.height = W;
+          const sg = sil.getContext("2d");
+          sg.drawImage(work, 0, 0);
+          sg.globalCompositeOperation = "source-in";
+          sg.fillStyle = "rgb(248, 246, 240)";
+          sg.fillRect(0, 0, W, W);
+          const comp = document.createElement("canvas");
+          comp.width = W;
+          comp.height = W;
+          const cg = comp.getContext("2d");
+          const r = K.outline * 2; // work res is 2x the classic 128 bake
+          for (let a = 0; a < 12; a++) {
+            const th = (a / 12) * Math.PI * 2;
+            cg.drawImage(sil, Math.cos(th) * r, Math.sin(th) * r);
+          }
+          cg.drawImage(work, 0, 0);
+          sheet = comp;
+        }
 
         // ---- final size; shadow only if the dial asks (officials: none) ----
         const fin = document.createElement("canvas");
@@ -414,7 +439,7 @@ export function stylizeIcon(
           og.shadowBlur = (size / 16) * K.shadow;
           og.shadowOffsetY = (size / 36) * K.shadow;
         }
-        og.drawImage(work, size * 0.03, size * 0.015, size * 0.94, size * 0.94);
+        og.drawImage(sheet, size * 0.03, size * 0.015, size * 0.94, size * 0.94);
         resolve(fin.toDataURL("image/png"));
       } catch (e) {
         reject(e);
