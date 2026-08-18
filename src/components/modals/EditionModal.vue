@@ -417,6 +417,15 @@
            like scripts: saving someone else's role forks your own copy.
            FT-854: the forge floats over the workbench as an overlay. -->
       <div class="role-form" v-if="roleForm" v-blood-scroll>
+        <h3 class="almanac-title forge-title">
+          <img
+            v-if="forgeCap"
+            :src="forgeCap.src"
+            class="font-cap"
+            :style="forgeCap.style"
+            alt="N"
+          />{{ forgeCap ? "ew Role" : "New Role" }}
+        </h3>
         <!-- paste a role JSON (or an official id) to fill the form; the
              ghost text IS the accepted syntax, Template copies it -->
         <div class="row">
@@ -1036,6 +1045,13 @@ export default {
       if (this.ilHoverName) return this.ilHoverName;
       const f = this.roleForm;
       return f && f.iconRef ? f.iconRef.replace(/-/g, " ") : "";
+    },
+    /** The forge header's drop-cap N, in the caps' font (Almanac-style). */
+    forgeCap() {
+      const key = resolvedCapKey();
+      const g = glyphFrom(key, "N");
+      if (!g) return null;
+      return { src: g.src, style: glyphStyleFrom(key, "N", CAP_SHRINK) };
     },
     roleShelfFiltered() {
       const q = this.roleQuery.trim().toLowerCase();
@@ -3505,22 +3521,27 @@ $team-colors: (
     }
   }
 
-  // The forge floats over the workbench instead of replacing it.
+  // The forge floats over the workbench instead of replacing it — wearing
+  // the WORKBENCH's chrome (dark, blood hairline), not upstream's white box.
   .role-form {
     position: absolute;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(12, 12, 16, 0.97);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
-    padding: 18px;
+    background: rgba(8, 8, 10, 0.97);
+    border: 1px solid #4a0d0d;
+    border-radius: 10px;
+    padding: 14px 18px 18px;
     z-index: 30;
     width: min(680px, 92%);
     max-height: 88%;
     overflow-y: auto;
     text-align: center;
-    box-shadow: 0 6px 40px #000;
+    box-shadow: 0 10px 50px #000;
+    .forge-title {
+      margin: 0 0 8px;
+      font-size: 26px;
+    }
   }
 
   // FT-854 r9: the New-script overlay, rebuilt around the icon WELL.

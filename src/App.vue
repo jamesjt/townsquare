@@ -56,6 +56,34 @@
           </button>
         </div>
       </div>
+      <div class="fd-toggle ik-toggle" title="Engraver lab" @click="toggleIkLab">
+        Ik
+      </div>
+      <div class="ik-panel" v-if="ikOpen">
+        <div class="ik-previews">
+          <div class="ik-pair" v-for="p in ikPreviews" :key="p.key">
+            <img :src="p.ours" alt="" />
+            <img :src="p.official" alt="" />
+            <span>{{ p.key }}</span>
+          </div>
+        </div>
+        <div class="ik-row" v-for="d in ikDials" :key="d.key">
+          <span class="ik-label">{{ d.label }}</span>
+          <input
+            type="range"
+            :min="d.min"
+            :max="d.max"
+            :step="d.step"
+            v-model.number="engraverRef[d.key]"
+            @change="onIkDial"
+          />
+          <span class="ik-val">{{ engraverRef[d.key] }}</span>
+        </div>
+        <div class="ik-acts">
+          <button @click="ikReroll">Re-roll</button>
+          <button @click="ikReset">Reset</button>
+        </div>
+      </div>
     </div>
     <transition name="blur">
       <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
@@ -198,6 +226,16 @@ import {
   cycleField,
   labelFor
 } from "./golem/titleFonts";
+// the ENGRAVER LAB (Ik): the icon stylizer's dials, dragged live against
+// official reference icons (the library chunk loads on first open)
+import {
+  engraver,
+  ENGRAVER_DIALS,
+  saveEngraver,
+  resetEngraver
+} from "./golem/iconStyle";
+import ikRefGood from "./assets/icons/ravenkeeper.png";
+import ikRefEvil from "./assets/icons/imp.png";
 
 export default {
   components: {
@@ -298,6 +336,12 @@ export default {
       // the app-wide PNG-font state + the font lab panel
       fontState,
       fontDebugOpen: false,
+      // the engraver lab
+      engraverRef: engraver,
+      ikDials: ENGRAVER_DIALS,
+      ikOpen: false,
+      ikSeed: 0,
+      ikPreviews: [],
       fdRows: [
         { field: "key", label: "Blood" },
         { field: "ontheKey", label: "On the" },
@@ -322,6 +366,46 @@ export default {
   methods: {
     // FT-852: arm on the first click, leave on the second — no native
     // confirm() anywhere in the pill (see the template note).
+    // ── the engraver lab ────────────────────────────────────────────────
+    async toggleIkLab() {
+      this.ikOpen = !this.ikOpen;
+      if (this.ikOpen) this.ikBake();
+    },
+    async ikBake() {
+      const lib = await import("./golem/iconLibrary");
+      const list = await lib.loadIcons();
+      const pairs = [
+        { key: "raven / good", n: "raven", team: "townsfolk", ref: ikRefGood },
+        { key: "imp / evil", n: "imp-laugh", team: "demon", ref: ikRefEvil }
+      ];
+      const done = [];
+      for (const p of pairs) {
+        const entry = lib.findIcon(list, p.n);
+        if (!entry) continue;
+        done.push({
+          key: p.key,
+          official: p.ref,
+          ours: await lib.bakeIcon(entry, p.team, {
+            seed: this.ikSeed,
+            size: 128
+          })
+        });
+      }
+      this.ikPreviews = done;
+    },
+    onIkDial() {
+      saveEngraver();
+      clearTimeout(this.__ikTimer);
+      this.__ikTimer = setTimeout(() => this.ikBake(), 250);
+    },
+    ikReroll() {
+      this.ikSeed = 1 + Math.floor(Math.random() * 1e6);
+      this.ikBake();
+    },
+    ikReset() {
+      resetEngraver();
+      this.ikBake();
+    },
     // ── the font lab ─────────────────────────────────────────────────────
     fdCycle(field) {
       cycleField(field);
@@ -440,6 +524,30 @@ export default {
   font-family: PiratesBay;
   src: url("assets/fonts/piratesbay.ttf");
   font-display: swap;
+}
+
+// Golem fork: input fields APP-WIDE wear the game's chrome — dark plate,
+// hairline border, blood-red focus glow, parchment-italic ghost text
+// (user call 2026-08-17: the default fields didn't match the game).
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  background: rgba(0, 0, 0, 0.55);
+  color: #eee;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: inherit;
+  &:focus {
+    outline: none;
+    border-color: #a01414;
+    box-shadow: 0 0 7px rgba(160, 20, 20, 0.4);
+  }
+  &::placeholder {
+    color: rgba(232, 220, 194, 0.4);
+    font-style: italic;
+  }
 }
 
 // The legacy webkit BLOOD scrollbar was killed 2026-08-17 (user order:
@@ -799,6 +907,75 @@ video#background {
   left: 8px;
   z-index: 96;
   font-size: 13px;
+  .ik-toggle {
+    margin-top: 4px;
+  }
+  .ik-panel {
+    margin-top: 4px;
+    background: rgba(8, 8, 12, 0.96);
+    border: 1px solid #400;
+    border-radius: 6px;
+    padding: 8px;
+    width: 300px;
+    .ik-previews {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 6px;
+      .ik-pair {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        img {
+          width: 96px;
+          height: 96px;
+        }
+        span {
+          font-size: 11px;
+          opacity: 0.6;
+        }
+      }
+    }
+    .ik-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      .ik-label {
+        width: 74px;
+        opacity: 0.75;
+        font-size: 12px;
+      }
+      input[type="range"] {
+        flex: 1;
+        accent-color: #a01414;
+      }
+      .ik-val {
+        width: 34px;
+        text-align: right;
+        font-size: 11px;
+        opacity: 0.7;
+      }
+    }
+    .ik-acts {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-top: 6px;
+      button {
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: 1px solid #3d3d3d;
+        border-radius: 6px;
+        padding: 2px 12px;
+        cursor: pointer;
+        font-family: inherit;
+        &:hover {
+          border-color: #a01414;
+        }
+      }
+    }
+  }
   .fd-toggle {
     width: 30px;
     height: 26px;
