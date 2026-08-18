@@ -21,15 +21,10 @@
             <template v-if="grimoire.isPublic">Show</template>
             <em>[G]</em>
           </li>
-          <li @click="toggleNight" v-if="!session.isSpectator">
-            <template v-if="!grimoire.isNight">Switch to Night</template>
-            <template v-if="grimoire.isNight">Switch to Day</template>
-            <em>[S]</em>
-          </li>
-          <li v-if="!session.isSpectator" @click="toggleModal('edition')">
-            Select Edition
-            <em>[E]</em>
-          </li>
+          <!-- Golem fork (2026-08-18, user call): Switch to Night, Select
+               Edition, Show Custom Images and Disable Animations left the
+               menu — redundant beside the workbench/host tools (the S and E
+               hotkeys still answer). Methods untouched. -->
           <li v-if="!session.isSpectator" @click="toggleModal('fabled')">
             Add Fabled
             <em><font-awesome-icon icon="dragon"/></em>
@@ -58,23 +53,6 @@
                 icon="search-plus"
               />
             </em>
-          </li>
-          <li v-if="!edition.isOfficial" @click="imageOptIn">
-            <small>Show Custom Images</small>
-            <em
-              ><font-awesome-icon
-                :icon="[
-                  'fas',
-                  grimoire.isImageOptIn ? 'check-square' : 'square'
-                ]"
-            /></em>
-          </li>
-          <li @click="toggleStatic">
-            Disable Animations
-            <em
-              ><font-awesome-icon
-                :icon="['fas', grimoire.isStatic ? 'check-square' : 'square']"
-            /></em>
           </li>
           <li @click="toggleMuted">
             Mute Sounds
