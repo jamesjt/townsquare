@@ -123,14 +123,25 @@ export default {
     positionTip(rect) {
       const tip = this.$refs.cardTip;
       if (!tip) return;
-      const margin = 8;
-      const tw = tip.offsetWidth;
-      const th = tip.offsetHeight;
-      let left = rect.left + rect.width / 2 - tw / 2;
-      left = Math.min(Math.max(left, margin), window.innerWidth - tw - margin);
-      let top = rect.top - th - margin;
-      if (top < margin) top = rect.bottom + margin;
-      this.tipStyle = { top: `${top}px`, left: `${left}px` };
+      // The tip is fixed, so a transformed ancestor would re-root its
+      // coordinates — hoist it to the body and it always speaks viewport.
+      if (tip.parentElement !== document.body) document.body.appendChild(tip);
+      const place = () => {
+        const margin = 8;
+        // measure the LAID-OUT box: offsetWidth read at the off-screen park
+        // position gave a stale width, which the right-edge clamp then turned
+        // into a squeezed box pinned to the wrong side of the screen
+        const box = tip.getBoundingClientRect();
+        const tw = box.width;
+        const th = box.height;
+        let left = rect.left + rect.width / 2 - tw / 2;
+        left = Math.min(Math.max(left, margin), window.innerWidth - tw - margin);
+        let top = rect.top - th - margin;
+        if (top < margin) top = rect.bottom + margin;
+        this.tipStyle = { top: `${top}px`, left: `${left}px` };
+      };
+      place();
+      requestAnimationFrame(place);
     }
   }
 };
@@ -243,34 +254,39 @@ export default {
     }
   }
 
-  // The dark-idiom hover/focus tooltip carrying the blurb + source. Fixed
-  // and placed in JS (positionTip) so it's never clipped by the grid's own
-  // scroll container; flips above/below the card to stay on-screen.
-  .card-tip {
-    position: fixed;
-    max-width: 220px;
-    padding: 8px 10px;
-    background: rgba(10, 4, 4, 0.97);
-    border: 2px solid #400;
-    border-radius: 8px;
-    box-shadow: 0 0 12px black;
-    text-align: left;
-    z-index: 30;
-    pointer-events: none;
 
-    .tip-blurb {
-      margin: 0;
-      font-size: 80%;
-      line-height: 1.35;
-      opacity: 0.9;
-    }
-    .tip-source {
-      margin: 4px 0 0;
-      font-size: 65%;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      opacity: 0.6;
-    }
+}
+// The dark-idiom hover/focus tooltip carrying the blurb + source. Fixed
+// and placed in JS (positionTip) so it's never clipped by the grid's own
+// scroll container; flips above/below the card to stay on-screen.
+.card-tip {
+  position: fixed;
+  // sized by its own text, never by whatever space is left where it parks —
+  // a shrink-to-fit box measured at the wrong moment is what pinned it to the
+  // right edge in a squeezed column
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 10px;
+  background: rgba(10, 4, 4, 0.97);
+  border: 2px solid #400;
+  border-radius: 8px;
+  box-shadow: 0 0 12px black;
+  text-align: left;
+  z-index: 30;
+  pointer-events: none;
+
+  .tip-blurb {
+    margin: 0;
+    font-size: 80%;
+    line-height: 1.35;
+    opacity: 0.9;
+  }
+  .tip-source {
+    margin: 4px 0 0;
+    font-size: 65%;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.6;
   }
 }
 </style>

@@ -241,18 +241,8 @@
         </div>
       </template>
     </div>
-    <!-- support the creators — this is their game (user call 2026-08-18) -->
-    <a
-      class="support-creators"
-      v-if="!session.sessionId"
-      href="https://bloodontheclocktower.com/pages/our-store"
-      target="_blank"
-      rel="noopener noreferrer"
-      title="Blood on the Clocktower is by The Pandemonium Institute — buy the game and support the creators"
-    >
-      <img class="sc-book" :src="grimoireCover" alt="" />
-      <span>Support the creators — get the real game</span>
-    </a>
+    <!-- the Pandemonium Institute footer credit lives in App.vue — inside the
+         intro it was trapped under the town square's layer and took no click -->
     <a
       class="redirect"
       v-if="language === 'zh-CN'"
@@ -293,7 +283,6 @@ import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
 import ontheLockup from "../assets/title/onthe-lockup.png";
 import bloodLockup from "../assets/title/blood-lockup.png";
-import grimoireCover from "../assets/grimoire-cover.png";
 // FT-854: the Open-the-town button's blood O (alphabet archive; ems baked
 // from its metrics at the title conversion — 341x410, baseline 352, /370).
 import bloodO from "../assets/blood/alphabet/O.png";
@@ -496,7 +485,6 @@ export default {
       ontheLogo,
       ontheLockup,
       bloodLockup,
-      grimoireCover,
       bloodO,
       // Golem fork (2026-08-18, user diagnosis): the background renders
       // center/cover, so anything positioned in VIEWPORT pixels drifts
@@ -1417,39 +1405,6 @@ export default {
           border-color: black;
         }
       }
-    }
-  }
-
-  // support the creators — pinned to the bottom of the WINDOW, not to the
-  // intro's own box (the intro is absolutely placed and its box runs past
-  // the fold)
-  a.support-creators {
-    position: fixed;
-    left: 50%;
-    bottom: 12px;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 14px;
-    text-decoration: none;
-    color: #d8cdb4;
-    font-size: 90%;
-    background: rgba(8, 6, 6, 0.82);
-    border: 1px solid rgba(150, 20, 20, 0.55);
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-    z-index: 60;
-    transition: color 200ms, border-color 200ms;
-
-    img.sc-book {
-      width: 20px;
-      height: 24px;
-      display: block;
-    }
-    &:hover {
-      color: #fff;
-      border-color: rgba(200, 30, 30, 0.9);
     }
   }
 

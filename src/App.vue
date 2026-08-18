@@ -157,6 +157,18 @@
     <VoteHistoryModal />
     <GameStateModal />
     <Gradients />
+    <!-- The game is The Pandemonium Institute's; their store is one click from
+         our front door. It lives HERE, not in Intro — inside the intro's own
+         layer the town square painted over it and it took no click. -->
+    <a
+      class="support-creators"
+      v-if="!session.sessionId && !players.length"
+      href="https://bloodontheclocktower.com/pages/our-store"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Blood on the Clocktower is by The Pandemonium Institute — visit their store"
+      >Support The Pandemonium Institute</a
+    >
     <!-- Golem fork: the version corner is the SESSION PILL — which room you
          are in, who is with you, the vote-history count, and the door out.
          Nothing renders when there is no session. -->
@@ -1029,6 +1041,31 @@ video#background {
 }
 
 // the grimoire drawer's tab — rides the left edge, above the drawer
+// the Pandemonium Institute credit — a quiet footer button, muted until hovered
+.support-creators {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  text-decoration: none;
+  white-space: nowrap;
+  color: rgba(210, 198, 174, 0.62);
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  background: rgba(6, 5, 6, 0.6);
+  border: 1px solid rgba(120, 105, 135, 0.35);
+  border-radius: 6px;
+  z-index: 80;
+  transition: color 200ms, border-color 200ms, background 200ms;
+
+  &:hover {
+    color: #efe6d2;
+    background: rgba(10, 8, 12, 0.9);
+    border-color: rgba(150, 130, 175, 0.7);
+  }
+}
+
 .drawer-tab {
   position: fixed;
   left: 0;
