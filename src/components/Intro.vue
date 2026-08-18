@@ -10,7 +10,7 @@
            always sees the live town square.) -->
       <template v-if="session.sessionId && !session.isSpectator">
         <p class="hint">Hosting <b>{{ session.sessionId }}</b> — add seats to build the town.</p>
-        <ul class="doors">
+        <ul class="doors" @contextmenu.prevent="cycleCaps">
           <li @click="press('a')">
             <span class="key"
               ><img :src="capSrc('A')" :class="capClass('a')" :style="capStyle('A')" alt="A"
@@ -51,7 +51,7 @@
             <img class="onthe-logo" :src="ontheLogo" alt="on the" />
           </div>
         </div>
-        <ul class="doors" v-if="!mode">
+        <ul class="doors" v-if="!mode" @contextmenu.prevent="cycleCaps">
           <li @click="openHost">
             <span class="key"
               ><img :src="capSrc('H')" :class="capClass('h')" :style="capStyle('H')" alt="H"
@@ -180,7 +180,7 @@
                  door idiom — blood-O drop cap + label. The blood letter is
                  the hotkey promise: O opens the town while this panel is up. -->
             <button
-              class="confirm open-town"
+              class="confirm open-town" @contextmenu.prevent="cycleCaps"
               :class="{ disabled: !townIdClean }"
               title="Open the town (O)"
               @click="confirmHost"
@@ -295,7 +295,12 @@ import {
   fontState,
   glyph,
   glyphStyle,
-  cycleFontSet
+  glyphFrom,
+  glyphStyleFrom,
+  cycleFontSet,
+  cycleCapFont,
+  resolvedCapKey,
+  CAP_SHRINK
 } from "../golem/titleFonts";
 
 // Golem fork (FT-846): the door initials are pre-rendered blood letters
@@ -753,14 +758,20 @@ export default {
       const next = cycleFontSet();
       flashHint("Lettering: " + next.label);
     },
-    /** Door/button drop-caps follow the font choice; blood (and logo mode)
-     *  keep the door-baked art + its pixel-tuned classes. */
+    /** Door/button drop-caps wear their OWN font (right-click a door to
+     *  cycle; "follow" mirrors the title). Blood keeps the door-baked art
+     *  + its pixel-tuned classes; sheet families render CAP_SHRINK smaller
+     *  (the ornate letters overpower the labels at full size). */
+    capKeyNow() {
+      const k = resolvedCapKey();
+      return k === "logo" ? "blood" : k;
+    },
     capIsBaked() {
-      return this.fontState.key === "blood" || this.fontState.key === "logo";
+      return this.capKeyNow() === "blood";
     },
     capSrc(letter) {
       if (!this.capIsBaked()) {
-        const g = glyph(letter);
+        const g = glyphFrom(this.capKeyNow(), letter);
         if (g) return g.src;
       }
       return letter === "O" ? this.bloodO : this.blood[letter].src;
@@ -772,7 +783,12 @@ export default {
     },
     capStyle(letter, scale = 1.09) {
       if (this.capIsBaked()) return null;
-      return glyphStyle(letter, scale);
+      return glyphStyleFrom(this.capKeyNow(), letter, scale * CAP_SHRINK);
+    },
+    /** Right-click a door: the caps' own font control. */
+    cycleCaps() {
+      const next = cycleCapFont();
+      flashHint("Drop-caps: " + next.label);
     },
     /** Golem fork: the Create door opens the script editor straight to its
      *  Custom Script surface — same access pattern as the "Custom / vault…"

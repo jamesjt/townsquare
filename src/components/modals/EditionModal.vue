@@ -672,8 +672,14 @@ import { stylizeIcon } from "../../golem/iconStyle";
 import goldLogo from "../../assets/gold/botc-logo-icon.png";
 // The user's demon mask (design/red/demon_icon.png, cut + baked).
 import demonGlyph from "../../assets/blood/demon-glyph.png";
-// The app-wide PNG-font choice — the Almanac's A follows it.
-import { fontState, glyph as fontGlyph, glyphStyle } from "../../golem/titleFonts";
+// The app-wide PNG-font choice — the Almanac's A wears the caps' font.
+import {
+  fontState,
+  glyphFrom,
+  glyphStyleFrom,
+  resolvedCapKey,
+  CAP_SHRINK
+} from "../../golem/titleFonts";
 
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
 // outsiders, minions, demons]. The meter measures a script's POOL against it:
@@ -1093,12 +1099,18 @@ export default {
     roleTemplateJson() {
       return JSON.stringify(ROLE_TEMPLATE);
     },
-    /** The Almanac's drop-cap follows the app-wide font choice; blood (and
-     *  logo mode) keep the pixel-tuned baked class. */
+    /** The Almanac's drop-cap wears the caps' font (right-click a door to
+     *  cycle); blood keeps the pixel-tuned baked class. */
     almanacCap() {
-      if (this.fontStateRef.key !== "blood" && this.fontStateRef.key !== "logo") {
-        const g = fontGlyph("A");
-        if (g) return { src: g.src, cls: "font-cap", style: glyphStyle("A", 1) };
+      const key = resolvedCapKey();
+      if (key !== "blood" && key !== "logo") {
+        const g = glyphFrom(key, "A");
+        if (g)
+          return {
+            src: g.src,
+            cls: "font-cap",
+            style: glyphStyleFrom(key, "A", CAP_SHRINK)
+          };
       }
       return { src: this.bloodA, cls: "blood-cap-a", style: null };
     },

@@ -16,6 +16,7 @@ const red66Ctx = require.context("../assets/red/660000-noise50", false, /^\.\/(B
 const red77Ctx = require.context("../assets/red/770001-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
 const red80Ctx = require.context("../assets/red/800000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
 const red80cCtx = require.context("../assets/red/800000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const clockCtx = require.context("../assets/gold/clockface", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
 
 import bloodMetrics from "../assets/blood/alphabet/metrics.json";
 import goldMetrics from "../assets/gold/alphabet/metrics.json";
@@ -23,6 +24,7 @@ import red66Metrics from "../assets/red/660000-noise50/metrics.json";
 import red77Metrics from "../assets/red/770001-noise50/metrics.json";
 import red80Metrics from "../assets/red/800000-noise50/metrics.json";
 import red80cMetrics from "../assets/red/800000/metrics.json";
+import clockMetrics from "../assets/gold/clockface/metrics.json";
 
 function buildSet(ctx, metrics) {
   const letters = {};
@@ -38,6 +40,7 @@ export const FONT_SETS = [
   { key: "blood", label: "Blood alphabet", letters: buildSet(bloodCtx, bloodMetrics) },
   { key: "logo", label: "Gold logo art", letters: null },
   { key: "gold", label: "Gold letters", letters: buildSet(goldCtx, goldMetrics) },
+  { key: "gold-clock", label: "Clockface gold", letters: buildSet(clockCtx, clockMetrics) },
   { key: "red-66", label: "Red 660000", letters: buildSet(red66Ctx, red66Metrics) },
   { key: "red-77", label: "Red 770001", letters: buildSet(red77Ctx, red77Metrics) },
   { key: "red-80", label: "Red 800000", letters: buildSet(red80Ctx, red80Metrics) },
@@ -48,8 +51,35 @@ export const fontState = Vue.observable({
   // the 800000 red is the default lettering (user call 2026-08-17)
   key: localStorage.getItem("golem.fontSet") || "red-80",
   // the dial's CLOCKTOWER has its own choice; "text" = the painted spans
-  dialKey: localStorage.getItem("golem.dialFont") || "text"
+  dialKey: localStorage.getItem("golem.dialFont") || "text",
+  // the door/button drop-caps: "follow" mirrors the title's choice
+  capKey: localStorage.getItem("golem.capFont") || "follow"
 });
+
+/** Sheet-family drop-caps render smaller than the chunky blood art — the
+ *  ornate letters overpower the door labels at full size (user call). */
+export const CAP_SHRINK = 0.8;
+
+/** What the caps actually wear right now ("follow" resolves to the title). */
+export function resolvedCapKey() {
+  return fontState.capKey === "follow" ? fontState.key : fontState.capKey;
+}
+
+const CAP_KEYS = ["follow"].concat(
+  FONT_SETS_KEYS_WITH_LETTERS()
+);
+function FONT_SETS_KEYS_WITH_LETTERS() {
+  return FONT_SETS.filter(s => s.letters).map(s => s.key);
+}
+export function cycleCapFont() {
+  const i = CAP_KEYS.indexOf(fontState.capKey);
+  const next = CAP_KEYS[(i + 1) % CAP_KEYS.length];
+  fontState.capKey = next;
+  localStorage.setItem("golem.capFont", next);
+  return next === "follow"
+    ? { key: "follow", label: "Follow the title" }
+    : FONT_SETS.find(s => s.key === next);
+}
 
 export function setFontSet(key) {
   fontState.key = key;
