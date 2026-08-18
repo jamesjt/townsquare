@@ -26,7 +26,7 @@ const LANE = 26; // reserved gutter
 const W = 18; // svg lane width
 
 // USER-adjustable drip dials (the Dr panel) — persisted per browser
-const DRIP_DEFAULTS = { w: 17, h: 64, trailW: 8, overlap: 18, dx: 0, dy: 0 };
+const DRIP_DEFAULTS = { w: 17, h: 64, trailW: 8, overlap: 18, dx: 0, dy: 0, bx: 0 };
 let dripStored = {};
 try {
   dripStored = JSON.parse(localStorage.getItem("golem.drip") || "{}");
@@ -133,7 +133,7 @@ function update(el) {
   s.bulb.setAttribute("height", K.h);
   s.drop.setAttribute(
     "transform",
-    `translate(${W / 2 - (K.w * sx) / 2 + K.dx} ${y + K.dy}) scale(${sx} ${sy})`
+    `translate(${W / 2 - (K.w * sx) / 2 + K.dx + K.bx} ${y + K.dy}) scale(${sx} ${sy})`
   );
   // the VIDEO drip is the trail — stretched from the top to the drop's crown
   s.trail.setAttribute("x", W / 2 - K.trailW / 2 + K.dx);
