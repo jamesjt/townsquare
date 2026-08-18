@@ -79,12 +79,17 @@ const DEFAULTS = {
   outline: 0.2, // the officials' hairline WHITE edge, in px (0 = none)
   shadow: 0 // cast shadow opacity (officials have NONE)
 };
+// the pipeline VERSION — when a rework changes what the dials mean (v12:
+// wash became the directional gradient), stale saved settings would
+// silently disable the new look; a mismatch drops them
+const ENGRAVER_V = 12;
 let stored = {};
 try {
   stored = JSON.parse(localStorage.getItem("golem.engraver") || "{}");
 } catch (e) {
   stored = {};
 }
+if (stored._v !== ENGRAVER_V) stored = {};
 export const engraver = Vue.observable({ ...DEFAULTS, ...stored });
 export const ENGRAVER_DIALS = [
   { key: "relief", label: "Relief", min: 0, max: 8, step: 0.25 },
@@ -102,7 +107,10 @@ export const ENGRAVER_DIALS = [
   { key: "shadow", label: "Shadow", min: 0, max: 1, step: 0.05 }
 ];
 export function saveEngraver() {
-  localStorage.setItem("golem.engraver", JSON.stringify({ ...engraver }));
+  localStorage.setItem(
+    "golem.engraver",
+    JSON.stringify({ ...engraver, _v: ENGRAVER_V })
+  );
 }
 export function resetEngraver() {
   Object.assign(engraver, DEFAULTS);
