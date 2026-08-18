@@ -132,24 +132,36 @@
             >
             <span class="wb-results">{{ filteredCount }} of {{ totalCount }}</span>
           </div>
+          <!-- facet groups COLLAPSE instead of the menu scrolling (user
+               call); a collapsed header still counts its active pills -->
           <div class="wb-facet-menu" v-if="filterOpen">
             <div class="facet-group" v-for="facet in facetList" :key="facet.key">
-              <h5>{{ facet.label }}</h5>
-              <div
-                class="facet-val"
-                v-for="tag in facet.tags"
-                :key="tag.id"
-                :class="{ zero: countFor(tag) === 0, active: !!pillFor(tag.id) }"
-                @click="togglePillValue(tag)"
+              <h5
+                class="facet-head"
+                :class="{ open: facetOpen[facet.key] }"
+                @click="toggleFacetOpen(facet.key)"
               >
-                <span class="vlabel">
-                  {{ tag.label }}
-                  <em v-if="pillFor(tag.id)">{{
-                    pillFor(tag.id).not ? "hidden" : "shown"
-                  }}</em>
-                </span>
-                <span class="vcount">{{ countFor(tag) }}</span>
-              </div>
+                <font-awesome-icon icon="chevron-down" class="caret" />
+                {{ facet.label }}
+                <em v-if="pillCountIn(facet.key)">{{ pillCountIn(facet.key) }}</em>
+              </h5>
+              <template v-if="facetOpen[facet.key]">
+                <div
+                  class="facet-val"
+                  v-for="tag in facet.tags"
+                  :key="tag.id"
+                  :class="{ zero: countFor(tag) === 0, active: !!pillFor(tag.id) }"
+                  @click="togglePillValue(tag)"
+                >
+                  <span class="vlabel">
+                    {{ tag.label }}
+                    <em v-if="pillFor(tag.id)">{{
+                      pillFor(tag.id).not ? "hidden" : "shown"
+                    }}</em>
+                  </span>
+                  <span class="vcount">{{ countFor(tag) }}</span>
+                </div>
+              </template>
             </div>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
@@ -203,7 +215,15 @@
             <!-- the composition meter rides the tab line; icon + count per
                  team, tinted in the team's color (icon REPLACES text —
                  the word lives on the tooltip) -->
-            <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
+            <div
+              class="wb-meter"
+              :class="{ nonconforming: !servableCounts.length }"
+              :title="
+                servableCounts.length
+                  ? 'Plays ' + servableText + ' players'
+                  : 'No standard player count fits this composition'
+              "
+            >
               <!-- clear team glyphs (the good/evil token art read as
                    thumbs up/down at this size — user call): the town, the
                    loner, the masks, the skull -->
@@ -211,18 +231,17 @@
                 <font-awesome-icon icon="users" />{{ teamCounts.townsfolk }}
               </span>
               <span class="chip team-outsider" title="Outsiders">
-                <font-awesome-icon icon="user" />{{ teamCounts.outsider }}
+                <font-awesome-icon icon="user-slash" />{{ teamCounts.outsider }}
               </span>
               <span class="chip team-minion" title="Minions">
-                <font-awesome-icon icon="theater-masks" />{{ teamCounts.minion }}
+                <font-awesome-icon icon="user-secret" />{{ teamCounts.minion }}
               </span>
               <span class="chip team-demon" title="Demons">
-                <font-awesome-icon icon="skull" />{{ teamCounts.demon }}
+                <font-awesome-icon icon="fire" />{{ teamCounts.demon }}
               </span>
-              <span class="verdict" v-if="servableCounts.length">
-                plays {{ servableText }} players
-              </span>
-              <span class="verdict" v-else>
+              <!-- the servable range rides the tooltip now (user call:
+                   the green sentence was noise); only the WARNING renders -->
+              <span class="verdict" v-if="!servableCounts.length">
                 <font-awesome-icon icon="exclamation-triangle" />
                 outside the rules — still playable
               </span>
@@ -517,6 +536,20 @@
               @keyup.enter="createNewScript"
             />
             <small class="ns-note">The icon is optional — it marks the script wherever scripts are picked.</small>
+            <!-- FT-856: an upload arrives twice — inked to the official
+                 look, and untouched. The pick is one click. -->
+            <div class="ns-style-toggle" v-if="newScriptForm.iconStyled">
+              <span
+                :class="{ on: newScriptForm.icon === newScriptForm.iconStyled }"
+                @click="newScriptForm.icon = newScriptForm.iconStyled"
+                >Inked</span
+              >
+              <span
+                :class="{ on: newScriptForm.icon === newScriptForm.iconOriginal }"
+                @click="newScriptForm.icon = newScriptForm.iconOriginal"
+                >Original</span
+              >
+            </div>
           </div>
         </div>
         <input
@@ -592,6 +625,8 @@ import {
   edCustom,
   OFFICIAL_BLURBS
 } from "../../golem/editionArt";
+// FT-856: uploads take the official engraving look (ink/tint/parchment).
+import { stylizeIcon } from "../../golem/iconStyle";
 
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
 // outsiders, minions, demons]. The meter measures a script's POOL against it:
@@ -729,6 +764,8 @@ export default {
       teamsOn: [],
       pills: [],
       filterOpen: false,
+      // which facet groups are unfolded in the menu (Source starts open)
+      facetOpen: { source: true },
       ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
@@ -881,9 +918,9 @@ export default {
     teamRow() {
       const icons = {
         townsfolk: "users",
-        outsider: "user",
-        minion: "theater-masks",
-        demon: "skull"
+        outsider: "user-slash",
+        minion: "user-secret",
+        demon: "fire"
       };
       return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
         team,
@@ -1604,6 +1641,12 @@ export default {
     removePill(pill) {
       this.pills = this.pills.filter(p => p !== pill);
     },
+    toggleFacetOpen(key) {
+      this.$set(this.facetOpen, key, !this.facetOpen[key]);
+    },
+    pillCountIn(key) {
+      return this.pills.filter(p => p.facet === key).length;
+    },
     facetKeyOf(id) {
       const g = TAG_GROUPS.find(g => g.tags.some(t => t.id === id));
       return g ? g.key : "";
@@ -1646,7 +1689,8 @@ export default {
       if (file) this.nsIntakeFile(file);
     },
     /** Downscale any dropped/uploaded image into a 128px data URL — small
-     *  enough to travel inside the script's _meta. */
+     *  enough to travel inside the script's _meta — and run the FT-856
+     *  stylizer over it. Inked is the default; Original stays a click away. */
     nsIntakeFile(file) {
       if (!/^image\//.test(file.type)) {
         this.nsError = "That file isn't an image.";
@@ -1656,7 +1700,7 @@ export default {
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
           const SIZE = 128;
           const canvas = document.createElement("canvas");
           canvas.width = SIZE;
@@ -1666,8 +1710,18 @@ export default {
           const w = img.width * scale;
           const h = img.height * scale;
           g.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
-          if (this.newScriptForm)
-            this.$set(this.newScriptForm, "icon", canvas.toDataURL("image/png"));
+          if (!this.newScriptForm) return;
+          const original = canvas.toDataURL("image/png");
+          this.$set(this.newScriptForm, "iconOriginal", original);
+          let styled = "";
+          try {
+            // stylize from the FULL-RES source, not the 128 downscale
+            styled = await stylizeIcon(reader.result, { tint: "neutral" });
+          } catch (e) {
+            styled = "";
+          }
+          this.$set(this.newScriptForm, "iconStyled", styled);
+          this.$set(this.newScriptForm, "icon", styled || original);
         };
         img.onerror = () => (this.nsError = "Could not read that image.");
         img.src = reader.result;
@@ -2038,10 +2092,19 @@ $team-colors: (
         width: 15px;
         height: 15px;
       }
-      @each $team, $color in $team-colors {
-        &.team-#{$team} {
-          color: lighten($color, 18%);
-        }
+      // the PROPER team colors (user call on the blue); demon's dark red
+      // alone gets a small lift for dark-ground legibility
+      &.team-townsfolk {
+        color: #1f65ff;
+      }
+      &.team-outsider {
+        color: #46d5ff;
+      }
+      &.team-minion {
+        color: #ff6900;
+      }
+      &.team-demon {
+        color: lighten(#ce0100, 14%);
       }
     }
     .verdict {
@@ -2200,21 +2263,39 @@ $team-colors: (
         opacity: 0.6;
       }
     }
-    // FT-855: the facet menu — values with live counts; zero dims.
+    // FT-855: the facet menu — collapsible groups, values with live counts.
     .wb-facet-menu {
       background: rgba(8, 8, 12, 0.97);
       border: 1px solid #400;
       border-radius: 6px;
       padding: 4px 8px 8px;
       margin-bottom: 6px;
-      max-height: 300px;
-      overflow-y: auto;
-      .facet-group h5 {
-        margin: 7px 0 2px;
+      .facet-group h5.facet-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 5px 0 2px;
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1.5px;
-        opacity: 0.55;
+        opacity: 0.65;
+        cursor: pointer;
+        .caret {
+          font-size: 9px;
+          transform: rotate(-90deg);
+          transition: transform 150ms;
+        }
+        &.open .caret {
+          transform: rotate(0deg);
+        }
+        em {
+          font-style: normal;
+          color: #ff8a8a;
+          letter-spacing: 0;
+        }
+        &:hover {
+          opacity: 1;
+        }
       }
       .facet-val {
         display: flex;
@@ -2645,6 +2726,25 @@ $team-colors: (
         margin-top: 6px;
         font-size: 12px;
         opacity: 0.55;
+      }
+      .ns-style-toggle {
+        display: inline-flex;
+        margin-top: 8px;
+        border: 1px solid #3d3d3d;
+        border-radius: 6px;
+        overflow: hidden;
+        font-size: 13px;
+        span {
+          padding: 2px 12px;
+          cursor: pointer;
+          &.on {
+            background: rgba(160, 20, 20, 0.45);
+            font-weight: bold;
+          }
+          &:not(.on):hover {
+            background: rgba(255, 255, 255, 0.08);
+          }
+        }
       }
     }
     .ns-upload {
