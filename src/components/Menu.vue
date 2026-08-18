@@ -8,9 +8,25 @@
          collapses back to the bare toolbar. -->
     <div class="menu open" :class="{ collapsed: tab === null }">
       <ul>
-        <li class="tabs" :class="tab">
-          <font-awesome-icon icon="book-open" @click="setTab('grimoire')" />
-          <font-awesome-icon icon="question" @click="setTab('help')" />
+        <!-- Golem fork (2026-08-18, user call): the grimoire/help tabs left;
+             the strip is the PLAYER surface now — script, vote history,
+             night order — in our engraved art. Menu sections stay in-tree. -->
+        <li class="tabs player-strip" :class="tab">
+          <img
+            :src="uiScript"
+            title="The script (reference sheet)"
+            @click="toggleModal('reference')"
+          />
+          <img
+            :src="uiVotes"
+            title="Vote history"
+            @click="toggleModal('voteHistory')"
+          />
+          <img
+            :src="uiNight"
+            title="Night order"
+            @click="toggleModal('nightOrder')"
+          />
         </li>
 
         <template v-if="tab === 'grimoire'">
@@ -94,6 +110,9 @@
 
 <script>
 import { mapMutations, mapState } from "vuex";
+import uiScript from "../assets/ui-script.png";
+import uiVotes from "../assets/ui-votes.png";
+import uiNight from "../assets/ui-night.png";
 
 export default {
   computed: {
@@ -102,6 +121,9 @@ export default {
   },
   data() {
     return {
+      uiScript,
+      uiVotes,
+      uiNight,
       // Golem fork: null = collapsed to the bare toolbar (the default).
       tab: null
     };
@@ -408,5 +430,14 @@ export default {
       );
     }
   }
+}
+.player-strip img {
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px black);
+}
+.player-strip img:hover {
+  filter: drop-shadow(0 1px 2px black) brightness(1.3);
 }
 </style>

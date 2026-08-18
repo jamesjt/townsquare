@@ -119,7 +119,12 @@
       :title="modals.roleDrawer ? 'Close the grimoire' : 'Open the grimoire'"
       @click="$store.commit('toggleModal', 'roleDrawer')"
     >
-      <font-awesome-icon :icon="modals.roleDrawer ? 'book-open' : 'book-dead'" />
+      <!-- OUR grimoire art (engraver-baked library books), not FA -->
+      <img
+        class="tab-book"
+        :src="modals.roleDrawer ? grimoireOpen : grimoireClosed"
+        alt="Grimoire"
+      />
     </div>
     <FabledModal />
     <RolesModal />
@@ -220,6 +225,8 @@ import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
 import RoleDrawer from "./components/RoleDrawer";
+import grimoireClosed from "./assets/grimoire-closed.png";
+import grimoireOpen from "./assets/grimoire-open.png";
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
 import Vote from "./components/Vote";
@@ -358,6 +365,8 @@ export default {
       fontDebugOpen: false,
       // dev labs visibility (Aa + Ik) — hidden for now
       devLabs: false,
+      grimoireClosed,
+      grimoireOpen,
       // the engraver lab
       engraverRef: engraver,
       ikDials: ENGRAVER_DIALS,
@@ -898,14 +907,17 @@ video#background {
   border-left: none;
   border-radius: 0 8px 8px 0;
   cursor: pointer;
-  color: #c41818;
-  font-size: 18px;
-  &:hover {
-    color: #ff3b3b;
+  .tab-book {
+    width: 30px;
+    height: 30px;
+    display: block;
+    filter: drop-shadow(0 1px 3px black);
+  }
+  &:hover .tab-book {
+    filter: drop-shadow(0 1px 3px black) brightness(1.25);
   }
   &.open {
     left: 250px;
-    color: #ffb6b6;
   }
   transition: left 220ms ease;
 }

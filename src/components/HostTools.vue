@@ -95,7 +95,7 @@
       <span class="label">Roles</span>
       <span class="value" @click="toggleModal('roleDrawer')">
         {{ rolesAssigned }} / {{ players.length }} assigned
-        <font-awesome-icon icon="book-dead" />
+        <img class="row-book" :src="grimoireClosed" alt="" />
       </span>
     </div>
 
@@ -118,6 +118,7 @@ import ScriptPicker from "./ScriptPicker";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
+import grimoireClosed from "../assets/grimoire-closed.png";
 
 export default {
   components: { ScriptPicker },
@@ -138,6 +139,7 @@ export default {
     return {
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
+      grimoireClosed,
       // seat-count type-in editing (click the scrub number)
       seatEditing: false,
       seatEditVal: 0,
@@ -423,7 +425,12 @@ export default {
       gap: 10px;
       // scrub and input share ONE footprint so the swap never shifts the row
       .seat-scrub,
-      .seat-input {
+      .row-book {
+      width: 20px;
+      height: 20px;
+      vertical-align: middle;
+    }
+    .seat-input {
         box-sizing: border-box;
         display: inline-block;
         width: 2.8em;
