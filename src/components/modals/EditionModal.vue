@@ -165,7 +165,7 @@
             </div>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
-          <ul class="wb-all-roles">
+          <ul class="wb-all-roles" @scroll.passive="hideRoleTip">
             <template v-for="group in sidebarGroups">
               <li class="wb-shelf-head" :key="'head-' + group.team">
                 {{ group.label }} <small>({{ group.roles.length }})</small>
@@ -175,7 +175,8 @@
                 :key="entry.key"
                 :class="['team-' + entry.team, { inscript: entry.inScript }]"
                 @click="toggleRole(entry)"
-                :title="entry.ability || entry.name"
+                @mouseenter="showRoleTip($event, entry)"
+                @mouseleave="hideRoleTip"
               >
                 <span
                   class="icon"
@@ -614,6 +615,21 @@
         </div>
       </div>
 
+      <!-- the shelf's hover card: icon + bold name + ability (the almanac
+           read), replacing the native title tooltip -->
+      <div class="wb-role-tip" v-if="roleTip" :style="roleTipStyle">
+        <span
+          class="icon"
+          :style="{ backgroundImage: `url(${roleTip.iconUrl || iconUrl('custom')})` }"
+        ></span>
+        <span class="txt">
+          <b>{{ roleTip.name }}</b>
+          <span class="ability">{{
+            roleTip.ability || "A library role — its ability arrives when added."
+          }}</span>
+        </span>
+      </div>
+
       <div class="role-error wb-error" v-if="roleError">{{ roleError }}</div>
 
       <input
@@ -771,6 +787,9 @@ export default {
       wbTeam: "",
       importRoleOpen: false,
       importRoleText: "",
+      // the shelf's hover card
+      roleTip: null,
+      roleTipStyle: { top: "-9999px", left: "-9999px" },
       // night-order drag state
       dragId: null,
       dragOverId: null,
@@ -1531,6 +1550,31 @@ export default {
       }
       this.ensureOpen();
       flashHint("Edits discarded");
+    },
+    /** The shelf hover card — fixed-positioned to the row's right, clamped
+     *  to the viewport (the ScriptPicker tip idiom). Hover only. */
+    showRoleTip(e, entry) {
+      if (!window.matchMedia("(hover: hover)").matches) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      this.roleTip = entry;
+      this.$nextTick(() => {
+        const tip = this.$el.querySelector(".wb-role-tip");
+        if (!tip) return;
+        const margin = 8;
+        let left = rect.right + 10;
+        let top = rect.top + rect.height / 2 - tip.offsetHeight / 2;
+        top = Math.min(
+          Math.max(top, margin),
+          window.innerHeight - tip.offsetHeight - margin
+        );
+        if (left + tip.offsetWidth > window.innerWidth - margin)
+          left = rect.left - tip.offsetWidth - 10;
+        this.roleTipStyle = { top: `${top}px`, left: `${left}px` };
+      });
+    },
+    hideRoleTip() {
+      this.roleTip = null;
+      this.roleTipStyle = { top: "-9999px", left: "-9999px" };
     },
     /** Sidebar click: in the script → out; not in it → in. */
     async toggleRole(entry) {
@@ -2931,6 +2975,43 @@ $team-colors: (
           background: rgba(160, 20, 20, 0.55);
           color: white;
         }
+      }
+    }
+  }
+
+  // the shelf's hover card — icon left, bold name, ability body
+  .wb-role-tip {
+    position: fixed;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 320px;
+    padding: 10px 14px;
+    background: rgba(10, 4, 4, 0.97);
+    border: 2px solid #400;
+    border-radius: 8px;
+    box-shadow: 0 0 12px black;
+    z-index: 60;
+    pointer-events: none;
+    text-align: left;
+    .icon {
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+      background-size: cover;
+      background-position: center;
+    }
+    .txt {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      b {
+        font-size: 15px;
+      }
+      .ability {
+        font-size: 13px;
+        line-height: 1.35;
+        opacity: 0.9;
       }
     }
   }
