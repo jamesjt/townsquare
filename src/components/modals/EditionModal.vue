@@ -440,13 +440,39 @@
             placeholder="Role name"
             maxlength="40"
           />
-          <select v-model="roleForm.roleType">
-            <option value="townsfolk">Townsfolk</option>
-            <option value="outsider">Outsider</option>
-            <option value="minion">Minion</option>
-            <option value="demon">Demon</option>
-            <option value="traveller">Traveller</option>
-          </select>
+        </div>
+        <div class="row team-pick">
+          <button
+            v-for="t in ['townsfolk', 'outsider', 'minion', 'demon', 'traveller']"
+            :key="t"
+            type="button"
+            class="team-btn"
+            :class="[
+              'team-' + (t === 'traveller' ? 'traveler' : t),
+              { on: roleForm.roleType === t }
+            ]"
+            @click="roleForm.roleType = t"
+          >
+            <img
+              v-if="t === 'demon'"
+              class="demon-glyph"
+              :src="demonGlyph"
+              alt=""
+            />
+            <img
+              v-else-if="t === 'outsider'"
+              class="demon-glyph"
+              :src="outsiderGlyph"
+              alt=""
+            />
+            <font-awesome-icon
+              v-else
+              :icon="
+                t === 'townsfolk' ? 'users' : t === 'minion' ? 'mask' : 'walking'
+              "
+            />
+            {{ t }}
+          </button>
         </div>
         <div class="row">
           <textarea
@@ -459,24 +485,12 @@
         <div class="row nights">
           <span>Wakes:</span>
           <label>
-            first night
-            <input
-              type="number"
-              min="0"
-              max="200"
-              v-model.number="roleForm.firstNight"
-            />
+            <input type="checkbox" v-model="wakesFirstNight" /> first night
           </label>
           <label>
-            other nights
-            <input
-              type="number"
-              min="0"
-              max="200"
-              v-model.number="roleForm.otherNight"
-            />
+            <input type="checkbox" v-model="wakesOtherNights" /> other nights
           </label>
-          <small>(night-order position; 0 = doesn't wake)</small>
+          <small>(place it by dragging in the night views)</small>
         </div>
         <div class="row">
           <input
@@ -1131,6 +1145,28 @@ export default {
     },
     roleTemplateJson() {
       return JSON.stringify(ROLE_TEMPLATE);
+    },
+    /** The forge asks WHETHER a role wakes; WHERE it wakes is the script's
+     *  night order (drag in the night views — the official model too:
+     *  _meta.firstNight/otherNight arrays). A fresh wake lands at the end
+     *  (100); pasted official numbers pass through untouched. */
+    wakesFirstNight: {
+      get() {
+        return !!this.roleForm && this.roleForm.firstNight > 0;
+      },
+      set(v) {
+        if (!this.roleForm) return;
+        this.roleForm.firstNight = v ? this.roleForm.firstNight || 100 : 0;
+      }
+    },
+    wakesOtherNights: {
+      get() {
+        return !!this.roleForm && this.roleForm.otherNight > 0;
+      },
+      set(v) {
+        if (!this.roleForm) return;
+        this.roleForm.otherNight = v ? this.roleForm.otherNight || 100 : 0;
+      }
     },
     /** The Almanac's drop-cap wears the caps' font (right-click a door to
      *  cycle); blood keeps the pixel-tuned baked class. */
@@ -2266,6 +2302,47 @@ $team-colors: (
   "demon": #ce0100,
   "traveler": #cc04ff
 );
+
+// the forge's team choice wears the workbench toggle look, not a native select
+.role-form .team-pick {
+  gap: 6px;
+  .team-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    text-transform: capitalize;
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+    .demon-glyph {
+      width: 15px;
+      height: 15px;
+    }
+    &:not(.on) .demon-glyph {
+      filter: grayscale(1) brightness(1.35);
+      opacity: 0.75;
+    }
+    &:hover {
+      border-color: #666;
+    }
+    @each $team, $color in $team-colors {
+      &.team-#{$team}.on {
+        border-color: $color;
+        background: rgba($color, 0.16);
+        color: lighten($color, 22%);
+      }
+    }
+  }
+}
 
 .custom.workbench {
   position: relative;
