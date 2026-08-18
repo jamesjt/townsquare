@@ -10,13 +10,10 @@
         @click.stop=""
       >
         <!-- Golem fork: the maximize toggle is gone (user call 2026-08-17) —
-             modals that need room size themselves by design. -->
+             modals that need room size themselves by design. The close is
+             OURS (user call): a blood ×, not upstream's icon button. -->
         <div class="top-right-buttons">
-          <font-awesome-icon
-            @click="close"
-            class="top-right-button"
-            icon="times-circle"
-          />
+          <span class="close-x" title="Close" @click="close">×</span>
         </div>
         <div class="slot">
           <slot></slot>
@@ -92,13 +89,21 @@ export default {
   > .top-right-buttons {
     position: absolute;
     z-index: 100;
-    top: 15px;
-    right: 20px;
-    > .top-right-button {
+    top: 10px;
+    right: 16px;
+    // Golem fork: OUR close — a blood ×. Line-drawn, no button chrome;
+    // brightens and bleeds a soft glow on hover.
+    > .close-x {
       cursor: pointer;
-      width: 28px;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: bold;
+      color: #8a1010;
+      text-shadow: 0 0 1px #000;
+      transition: color 150ms, text-shadow 150ms;
       &:hover {
-        color: red;
+        color: #d42020;
+        text-shadow: 0 0 8px rgba(210, 40, 40, 0.7);
       }
     }
   }

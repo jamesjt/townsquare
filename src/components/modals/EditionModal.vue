@@ -40,32 +40,14 @@
          never blocks — non-conforming scripts save, share and play. -->
     <div class="custom workbench" v-else>
       <div class="wb-top">
-        <!-- Row 1: the title, the composition meter at its right.
-             Row 2: THE shared ScriptPicker (identical component to the host
-             panel's — change one, change both) + the action buttons. -->
+        <!-- Row 1: the title, CENTERED on its own line (only the shell's
+             close × shares it). Row 2: THE shared ScriptPicker (identical
+             component to the host panel's) + the action buttons. The
+             composition meter lives down beside the view tabs. -->
         <div class="wb-row1">
           <h3 class="almanac-title">
             <img :src="bloodA" class="blood-cap-a" alt="A" />lmanac
           </h3>
-          <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
-            <span class="chip team-townsfolk">{{ teamCounts.townsfolk }} townsfolk</span>
-            <span class="chip team-outsider">
-              {{ teamCounts.outsider }} outsider{{ teamCounts.outsider === 1 ? "" : "s" }}
-            </span>
-            <span class="chip team-minion">
-              {{ teamCounts.minion }} minion{{ teamCounts.minion === 1 ? "" : "s" }}
-            </span>
-            <span class="chip team-demon">
-              {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
-            </span>
-            <span class="verdict" v-if="servableCounts.length">
-              plays {{ servableText }} players
-            </span>
-            <span class="verdict" v-else>
-              <font-awesome-icon icon="exclamation-triangle" />
-              outside the rules — still playable
-            </span>
-          </div>
         </div>
         <div class="wb-row2">
           <ScriptPicker
@@ -175,6 +157,26 @@
               :class="{ active: wbView === 'other' }"
               @click="wbView = 'other'"
             >Other nights</span>
+            <!-- the composition meter rides the tab line (user call) -->
+            <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
+              <span class="chip team-townsfolk">{{ teamCounts.townsfolk }} townsfolk</span>
+              <span class="chip team-outsider">
+                {{ teamCounts.outsider }} outsider{{ teamCounts.outsider === 1 ? "" : "s" }}
+              </span>
+              <span class="chip team-minion">
+                {{ teamCounts.minion }} minion{{ teamCounts.minion === 1 ? "" : "s" }}
+              </span>
+              <span class="chip team-demon">
+                {{ teamCounts.demon }} demon{{ teamCounts.demon === 1 ? "" : "s" }}
+              </span>
+              <span class="verdict" v-if="servableCounts.length">
+                plays {{ servableText }} players
+              </span>
+              <span class="verdict" v-else>
+                <font-awesome-icon icon="exclamation-triangle" />
+                outside the rules — still playable
+              </span>
+            </div>
           </div>
           <div class="wb-empty" v-if="!scriptRoles.length">
             An empty page. Add roles from the shelf on the left, or pick a
@@ -1514,11 +1516,11 @@ $team-colors: (
     gap: 7px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    // The title, centered, alone on its line (the shell's close × is the
+    // only other thing at this height).
     .wb-row1 {
       display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px 18px;
+      justify-content: center;
       .almanac-title {
         margin: 0;
       }
@@ -1642,8 +1644,9 @@ $team-colors: (
         gap: 6px;
         padding: 2px 6px;
         cursor: pointer;
-        border-radius: 4px;
-        border-left: 3px solid transparent;
+        // square left corner, thin team stripe (user call)
+        border-radius: 0 4px 4px 0;
+        border-left: 2px solid transparent;
         @each $team, $color in $team-colors {
           &.team-#{$team} {
             border-left-color: rgba($color, 0.65);
@@ -1687,8 +1690,15 @@ $team-colors: (
     min-height: 0;
     .wb-views {
       display: flex;
+      align-items: center;
+      flex-wrap: wrap;
       gap: 3px;
       margin-bottom: 6px;
+      // the meter rides the tab line, right-aligned
+      .wb-meter {
+        margin-left: auto;
+        padding-right: 4px;
+      }
       .wb-tab {
         cursor: pointer;
         padding: 3px 16px;
