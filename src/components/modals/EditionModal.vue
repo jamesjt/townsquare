@@ -778,11 +778,11 @@ export default {
       // FT-855 polish: the bespoke demon glyph — horns, head, hollow eyes
       // (no FA solid reads "demon"; drawn to match the solid-icon weight).
       DEMON_PATH:
-        "M256 118 C168 118 104 188 104 278 C104 370 170 432 256 432 C342 432 408 370 408 278 C408 188 344 118 256 118 Z " +
-        "M182 268 L250 292 L192 326 C172 314 168 284 182 268 Z " +
-        "M330 268 C344 284 340 314 320 326 L262 292 Z " +
-        "M150 196 C100 178 66 132 60 62 C96 94 140 110 186 132 C171 151 159 173 150 196 Z " +
-        "M362 196 C412 178 446 132 452 62 C416 94 372 110 326 132 C341 151 353 173 362 196 Z",
+        "M256 120 C 196 120 150 166 146 232 C 142 306 192 402 256 442 C 320 402 370 306 366 232 C 362 166 316 120 256 120 Z " +
+        "M182 160 C 120 128 84 66 88 4 C 136 54 196 86 238 106 C 212 120 194 138 182 160 Z " +
+        "M330 160 C 392 128 428 66 424 4 C 376 54 316 86 274 106 C 300 120 318 138 330 160 Z " +
+        "M182 244 L252 264 L242 292 L190 270 Z " +
+        "M330 244 L260 264 L270 292 L322 270 Z",
       // dirty tracking: the last loaded/saved state, serialized
       scriptBaseline: null,
       // the New-script overlay
