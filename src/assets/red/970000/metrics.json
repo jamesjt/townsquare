@@ -53,22 +53,16 @@
     "baseline": 174,
     "source": "botc-font-970000.png"
   },
-  "J": {
+  "K": {
     "w": 159,
     "h": 186,
     "baseline": 174,
     "source": "botc-font-970000.png"
   },
-  "K": {
+  "L": {
     "w": 104,
     "h": 165,
     "baseline": 173,
-    "source": "botc-font-970000.png"
-  },
-  "L": {
-    "w": 6,
-    "h": 71,
-    "baseline": 134,
     "source": "botc-font-970000.png"
   },
   "M": {
@@ -309,6 +303,12 @@
     "w": 84,
     "h": 96,
     "baseline": 89,
+    "source": "botc-font-970000.png"
+  },
+  "J": {
+    "w": 86,
+    "h": 179,
+    "baseline": 174,
     "source": "botc-font-970000.png"
   }
 }
