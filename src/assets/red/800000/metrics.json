@@ -1,0 +1,314 @@
+{
+  "A": {
+    "w": 145,
+    "h": 190,
+    "baseline": 174,
+    "source": "botc-font-800000.png"
+  },
+  "B": {
+    "w": 145,
+    "h": 178,
+    "baseline": 169,
+    "source": "botc-font-800000.png"
+  },
+  "C": {
+    "w": 122,
+    "h": 176,
+    "baseline": 178,
+    "source": "botc-font-800000.png"
+  },
+  "D": {
+    "w": 127,
+    "h": 176,
+    "baseline": 173,
+    "source": "botc-font-800000.png"
+  },
+  "E": {
+    "w": 113,
+    "h": 169,
+    "baseline": 171,
+    "source": "botc-font-800000.png"
+  },
+  "F": {
+    "w": 132,
+    "h": 184,
+    "baseline": 180,
+    "source": "botc-font-800000.png"
+  },
+  "G": {
+    "w": 99,
+    "h": 180,
+    "baseline": 165,
+    "source": "botc-font-800000.png"
+  },
+  "H": {
+    "w": 141,
+    "h": 191,
+    "baseline": 167,
+    "source": "botc-font-800000.png"
+  },
+  "I": {
+    "w": 72,
+    "h": 156,
+    "baseline": 166,
+    "source": "botc-font-800000.png"
+  },
+  "J": {
+    "w": 109,
+    "h": 188,
+    "baseline": 164,
+    "source": "botc-font-800000.png"
+  },
+  "K": {
+    "w": 114,
+    "h": 162,
+    "baseline": 169,
+    "source": "botc-font-800000.png"
+  },
+  "L": {
+    "w": 103,
+    "h": 162,
+    "baseline": 169,
+    "source": "botc-font-800000.png"
+  },
+  "M": {
+    "w": 152,
+    "h": 164,
+    "baseline": 161,
+    "source": "botc-font-800000.png"
+  },
+  "N": {
+    "w": 129,
+    "h": 162,
+    "baseline": 156,
+    "source": "botc-font-800000.png"
+  },
+  "O": {
+    "w": 123,
+    "h": 160,
+    "baseline": 157,
+    "source": "botc-font-800000.png"
+  },
+  "P": {
+    "w": 109,
+    "h": 168,
+    "baseline": 154,
+    "source": "botc-font-800000.png"
+  },
+  "Q": {
+    "w": 129,
+    "h": 172,
+    "baseline": 158,
+    "source": "botc-font-800000.png"
+  },
+  "R": {
+    "w": 117,
+    "h": 152,
+    "baseline": 156,
+    "source": "botc-font-800000.png"
+  },
+  "S": {
+    "w": 111,
+    "h": 172,
+    "baseline": 158,
+    "source": "botc-font-800000.png"
+  },
+  "T": {
+    "w": 140,
+    "h": 164,
+    "baseline": 159,
+    "source": "botc-font-800000.png"
+  },
+  "U": {
+    "w": 105,
+    "h": 153,
+    "baseline": 154,
+    "source": "botc-font-800000.png"
+  },
+  "V": {
+    "w": 104,
+    "h": 154,
+    "baseline": 155,
+    "source": "botc-font-800000.png"
+  },
+  "W": {
+    "w": 129,
+    "h": 158,
+    "baseline": 159,
+    "source": "botc-font-800000.png"
+  },
+  "X": {
+    "w": 131,
+    "h": 156,
+    "baseline": 156,
+    "source": "botc-font-800000.png"
+  },
+  "Y": {
+    "w": 95,
+    "h": 185,
+    "baseline": 157,
+    "source": "botc-font-800000.png"
+  },
+  "Z": {
+    "w": 120,
+    "h": 161,
+    "baseline": 158,
+    "source": "botc-font-800000.png"
+  },
+  "a_lc": {
+    "w": 72,
+    "h": 96,
+    "baseline": 94,
+    "source": "botc-font-800000.png"
+  },
+  "b_lc": {
+    "w": 68,
+    "h": 145,
+    "baseline": 141,
+    "source": "botc-font-800000.png"
+  },
+  "c_lc": {
+    "w": 64,
+    "h": 96,
+    "baseline": 93,
+    "source": "botc-font-800000.png"
+  },
+  "d_lc": {
+    "w": 76,
+    "h": 141,
+    "baseline": 139,
+    "source": "botc-font-800000.png"
+  },
+  "e_lc": {
+    "w": 61,
+    "h": 97,
+    "baseline": 94,
+    "source": "botc-font-800000.png"
+  },
+  "f_lc": {
+    "w": 95,
+    "h": 179,
+    "baseline": 144,
+    "source": "botc-font-800000.png"
+  },
+  "g_lc": {
+    "w": 78,
+    "h": 136,
+    "baseline": 94,
+    "source": "botc-font-800000.png"
+  },
+  "h_lc": {
+    "w": 83,
+    "h": 162,
+    "baseline": 142,
+    "source": "botc-font-800000.png"
+  },
+  "i_lc": {
+    "w": 45,
+    "h": 117,
+    "baseline": 115,
+    "source": "botc-font-800000.png"
+  },
+  "j_lc": {
+    "w": 74,
+    "h": 156,
+    "baseline": 115,
+    "source": "botc-font-800000.png"
+  },
+  "k_lc": {
+    "w": 81,
+    "h": 145,
+    "baseline": 142,
+    "source": "botc-font-800000.png"
+  },
+  "l_lc": {
+    "w": 62,
+    "h": 145,
+    "baseline": 142,
+    "source": "botc-font-800000.png"
+  },
+  "m_lc": {
+    "w": 102,
+    "h": 92,
+    "baseline": 90,
+    "source": "botc-font-800000.png"
+  },
+  "n_lc": {
+    "w": 78,
+    "h": 93,
+    "baseline": 91,
+    "source": "botc-font-800000.png"
+  },
+  "o_lc": {
+    "w": 65,
+    "h": 96,
+    "baseline": 92,
+    "source": "botc-font-800000.png"
+  },
+  "p_lc": {
+    "w": 71,
+    "h": 138,
+    "baseline": 91,
+    "source": "botc-font-800000.png"
+  },
+  "q_lc": {
+    "w": 74,
+    "h": 127,
+    "baseline": 92,
+    "source": "botc-font-800000.png"
+  },
+  "r_lc": {
+    "w": 66,
+    "h": 92,
+    "baseline": 90,
+    "source": "botc-font-800000.png"
+  },
+  "s_lc": {
+    "w": 67,
+    "h": 100,
+    "baseline": 91,
+    "source": "botc-font-800000.png"
+  },
+  "t_lc": {
+    "w": 62,
+    "h": 121,
+    "baseline": 119,
+    "source": "botc-font-800000.png"
+  },
+  "u_lc": {
+    "w": 79,
+    "h": 91,
+    "baseline": 89,
+    "source": "botc-font-800000.png"
+  },
+  "v_lc": {
+    "w": 71,
+    "h": 94,
+    "baseline": 91,
+    "source": "botc-font-800000.png"
+  },
+  "w_lc": {
+    "w": 101,
+    "h": 94,
+    "baseline": 91,
+    "source": "botc-font-800000.png"
+  },
+  "x_lc": {
+    "w": 79,
+    "h": 93,
+    "baseline": 90,
+    "source": "botc-font-800000.png"
+  },
+  "y_lc": {
+    "w": 86,
+    "h": 137,
+    "baseline": 90,
+    "source": "botc-font-800000.png"
+  },
+  "z_lc": {
+    "w": 86,
+    "h": 95,
+    "baseline": 87,
+    "source": "botc-font-800000.png"
+  }
+}

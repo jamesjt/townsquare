@@ -2980,23 +2980,24 @@ $team-colors: (
   }
 
   // the shelf's hover card — icon left, bold name, ability body
+  // 1.5x (user call): bigger art, bigger type, wider card
   .wb-role-tip {
     position: fixed;
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    max-width: 320px;
-    padding: 10px 14px;
+    gap: 16px;
+    max-width: 460px;
+    padding: 14px 20px;
     background: rgba(10, 4, 4, 0.97);
     border: 2px solid #400;
-    border-radius: 8px;
-    box-shadow: 0 0 12px black;
+    border-radius: 10px;
+    box-shadow: 0 0 14px black;
     z-index: 60;
     pointer-events: none;
     text-align: left;
     .icon {
-      width: 52px;
-      height: 52px;
+      width: 78px;
+      height: 78px;
       flex-shrink: 0;
       background-size: cover;
       background-position: center;
@@ -3004,12 +3005,12 @@ $team-colors: (
     .txt {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 5px;
       b {
-        font-size: 15px;
+        font-size: 22px;
       }
       .ability {
-        font-size: 13px;
+        font-size: 19px;
         line-height: 1.35;
         opacity: 0.9;
       }
