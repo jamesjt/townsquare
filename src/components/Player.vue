@@ -24,7 +24,13 @@
         :style="splatStyle"
       ></div>
       <div class="shroud" @click="toggleStatus()"></div>
-      <div class="life" @click="toggleStatus()"></div>
+      <div class="life" @click="toggleStatus()">
+        <!-- the seat's Roman numeral rides the parchment until a role
+             lands on the chair (user call) -->
+        <span class="seat-numeral" v-if="!player.role || !player.role.id">{{
+          seatNumeral
+        }}</span>
+      </div>
 
       <div
         class="night-order first"
@@ -145,7 +151,8 @@
         @click="isMenuOpen = !isMenuOpen"
         :class="{ active: isMenuOpen }"
       >
-        <span>{{ player.name }}</span>
+        <!-- an unclaimed chair says so instead of a fake name (user call) -->
+        <span>{{ player.id ? player.name : "Unclaimed" }}</span>
         <font-awesome-icon icon="venus-mars" v-if="player.pronouns" />
         <div class="pronouns" v-if="player.pronouns">
           <span>{{ player.pronouns }}</span>
@@ -255,6 +262,13 @@ export default {
     ...mapGetters({ nightOrder: "players/nightOrder" }),
     index: function() {
       return this.players.indexOf(this.player);
+    },
+    seatNumeral() {
+      const romans = [
+        "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+        "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"
+      ];
+      return romans[this.index] || String(this.index + 1);
     },
     /**
      * Golem fork (FT-848): which splatter a death leaves, and how it lies.
@@ -656,6 +670,20 @@ export default {
       content: " ";
       display: block;
       padding-top: 100%;
+    }
+
+    .seat-numeral {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "PiratesBay", Georgia, serif;
+      font-size: 2.2em;
+      color: rgba(74, 50, 22, 0.75);
+      text-shadow: 0 1px 1px rgba(255, 250, 235, 0.5);
+      pointer-events: none;
+      user-select: none;
     }
   }
 
