@@ -1,0 +1,314 @@
+{
+  "A": {
+    "w": 143,
+    "h": 188,
+    "baseline": 172,
+    "source": "font gold.png (botc folder)"
+  },
+  "B": {
+    "w": 140,
+    "h": 180,
+    "baseline": 172,
+    "source": "font gold.png (botc folder)"
+  },
+  "C": {
+    "w": 119,
+    "h": 171,
+    "baseline": 174,
+    "source": "font gold.png (botc folder)"
+  },
+  "D": {
+    "w": 123,
+    "h": 175,
+    "baseline": 172,
+    "source": "font gold.png (botc folder)"
+  },
+  "E": {
+    "w": 110,
+    "h": 171,
+    "baseline": 174,
+    "source": "font gold.png (botc folder)"
+  },
+  "F": {
+    "w": 129,
+    "h": 186,
+    "baseline": 183,
+    "source": "font gold.png (botc folder)"
+  },
+  "G": {
+    "w": 98,
+    "h": 180,
+    "baseline": 167,
+    "source": "font gold.png (botc folder)"
+  },
+  "H": {
+    "w": 144,
+    "h": 187,
+    "baseline": 173,
+    "source": "font gold.png (botc folder)"
+  },
+  "I": {
+    "w": 85,
+    "h": 179,
+    "baseline": 173,
+    "source": "font gold.png (botc folder)"
+  },
+  "J": {
+    "w": 92,
+    "h": 183,
+    "baseline": 170,
+    "source": "font gold.png (botc folder)"
+  },
+  "K": {
+    "w": 77,
+    "h": 160,
+    "baseline": 173,
+    "source": "font gold.png (botc folder)"
+  },
+  "L": {
+    "w": 104,
+    "h": 165,
+    "baseline": 172,
+    "source": "font gold.png (botc folder)"
+  },
+  "M": {
+    "w": 153,
+    "h": 172,
+    "baseline": 167,
+    "source": "font gold.png (botc folder)"
+  },
+  "N": {
+    "w": 130,
+    "h": 163,
+    "baseline": 156,
+    "source": "font gold.png (botc folder)"
+  },
+  "O": {
+    "w": 120,
+    "h": 160,
+    "baseline": 157,
+    "source": "font gold.png (botc folder)"
+  },
+  "P": {
+    "w": 105,
+    "h": 167,
+    "baseline": 154,
+    "source": "font gold.png (botc folder)"
+  },
+  "Q": {
+    "w": 125,
+    "h": 170,
+    "baseline": 157,
+    "source": "font gold.png (botc folder)"
+  },
+  "R": {
+    "w": 113,
+    "h": 152,
+    "baseline": 156,
+    "source": "font gold.png (botc folder)"
+  },
+  "S": {
+    "w": 108,
+    "h": 171,
+    "baseline": 158,
+    "source": "font gold.png (botc folder)"
+  },
+  "T": {
+    "w": 135,
+    "h": 164,
+    "baseline": 158,
+    "source": "font gold.png (botc folder)"
+  },
+  "U": {
+    "w": 103,
+    "h": 153,
+    "baseline": 154,
+    "source": "font gold.png (botc folder)"
+  },
+  "V": {
+    "w": 101,
+    "h": 153,
+    "baseline": 154,
+    "source": "font gold.png (botc folder)"
+  },
+  "W": {
+    "w": 125,
+    "h": 155,
+    "baseline": 156,
+    "source": "font gold.png (botc folder)"
+  },
+  "X": {
+    "w": 129,
+    "h": 156,
+    "baseline": 156,
+    "source": "font gold.png (botc folder)"
+  },
+  "Y": {
+    "w": 94,
+    "h": 183,
+    "baseline": 157,
+    "source": "font gold.png (botc folder)"
+  },
+  "Z": {
+    "w": 114,
+    "h": 161,
+    "baseline": 157,
+    "source": "font gold.png (botc folder)"
+  },
+  "a_lc": {
+    "w": 71,
+    "h": 96,
+    "baseline": 95,
+    "source": "font gold.png (botc folder)"
+  },
+  "b_lc": {
+    "w": 68,
+    "h": 145,
+    "baseline": 142,
+    "source": "font gold.png (botc folder)"
+  },
+  "c_lc": {
+    "w": 60,
+    "h": 98,
+    "baseline": 95,
+    "source": "font gold.png (botc folder)"
+  },
+  "d_lc": {
+    "w": 74,
+    "h": 142,
+    "baseline": 140,
+    "source": "font gold.png (botc folder)"
+  },
+  "e_lc": {
+    "w": 59,
+    "h": 98,
+    "baseline": 95,
+    "source": "font gold.png (botc folder)"
+  },
+  "f_lc": {
+    "w": 92,
+    "h": 177,
+    "baseline": 143,
+    "source": "font gold.png (botc folder)"
+  },
+  "g_lc": {
+    "w": 74,
+    "h": 134,
+    "baseline": 95,
+    "source": "font gold.png (botc folder)"
+  },
+  "h_lc": {
+    "w": 83,
+    "h": 161,
+    "baseline": 143,
+    "source": "font gold.png (botc folder)"
+  },
+  "i_lc": {
+    "w": 43,
+    "h": 117,
+    "baseline": 116,
+    "source": "font gold.png (botc folder)"
+  },
+  "j_lc": {
+    "w": 71,
+    "h": 156,
+    "baseline": 116,
+    "source": "font gold.png (botc folder)"
+  },
+  "k_lc": {
+    "w": 78,
+    "h": 144,
+    "baseline": 142,
+    "source": "font gold.png (botc folder)"
+  },
+  "l_lc": {
+    "w": 60,
+    "h": 143,
+    "baseline": 141,
+    "source": "font gold.png (botc folder)"
+  },
+  "m_lc": {
+    "w": 99,
+    "h": 95,
+    "baseline": 93,
+    "source": "font gold.png (botc folder)"
+  },
+  "n_lc": {
+    "w": 75,
+    "h": 94,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "o_lc": {
+    "w": 63,
+    "h": 96,
+    "baseline": 93,
+    "source": "font gold.png (botc folder)"
+  },
+  "p_lc": {
+    "w": 69,
+    "h": 136,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "q_lc": {
+    "w": 72,
+    "h": 127,
+    "baseline": 93,
+    "source": "font gold.png (botc folder)"
+  },
+  "r_lc": {
+    "w": 64,
+    "h": 94,
+    "baseline": 91,
+    "source": "font gold.png (botc folder)"
+  },
+  "s_lc": {
+    "w": 64,
+    "h": 99,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "t_lc": {
+    "w": 61,
+    "h": 121,
+    "baseline": 120,
+    "source": "font gold.png (botc folder)"
+  },
+  "u_lc": {
+    "w": 78,
+    "h": 93,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "v_lc": {
+    "w": 69,
+    "h": 95,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "w_lc": {
+    "w": 99,
+    "h": 95,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "x_lc": {
+    "w": 77,
+    "h": 94,
+    "baseline": 91,
+    "source": "font gold.png (botc folder)"
+  },
+  "y_lc": {
+    "w": 83,
+    "h": 137,
+    "baseline": 92,
+    "source": "font gold.png (botc folder)"
+  },
+  "z_lc": {
+    "w": 84,
+    "h": 96,
+    "baseline": 89,
+    "source": "font gold.png (botc folder)"
+  }
+}

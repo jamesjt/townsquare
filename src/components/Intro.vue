@@ -10,7 +10,7 @@
            always sees the live town square.) -->
       <template v-if="session.sessionId && !session.isSpectator">
         <p class="hint">Hosting <b>{{ session.sessionId }}</b> — add seats to build the town.</p>
-        <ul class="doors" @contextmenu.prevent="cycleCaps">
+        <ul class="doors">
           <li @click="press('a')">
             <span class="key"
               ><img :src="capSrc('A')" :class="capClass('a')" :style="capStyle('A')" alt="A"
@@ -30,11 +30,7 @@
                (extracted from the source header, FT-853). Persisted so the
                choice survives reloads; fixed row height so nothing below
                shifts. -->
-          <div
-            class="blood-word"
-            title="Click to change the lettering"
-            @click="cycleTitleStyle"
-          >
+          <div class="blood-word">
             <template v-if="fontState.key !== 'logo'">
               <img
                 v-for="(g, i) in titleGlyphs"
@@ -46,12 +42,30 @@
             </template>
             <img v-else class="blood-logo" :src="bloodLogo" alt="Blood" />
           </div>
-          <!-- the gold script "on the" art, every lettering (user call) -->
+          <!-- "on the": the gold script art, or any family's lowercase
+               (the font lab picks) -->
           <div class="on-the">
-            <img class="onthe-logo" :src="ontheLogo" alt="on the" />
+            <img
+              v-if="fontState.ontheKey === 'goldart'"
+              class="onthe-logo"
+              :src="ontheLogo"
+              alt="on the"
+            />
+            <span v-else class="onthe-glyphs" aria-label="on the">
+              <template v-for="(g, i) in ontheGlyphs">
+                <span v-if="g.space" :key="'sp' + i" class="sp"></span>
+                <img
+                  v-else
+                  :key="fontState.ontheKey + i"
+                  :src="g.src"
+                  :style="g.style"
+                  :alt="g.alt"
+                />
+              </template>
+            </span>
           </div>
         </div>
-        <ul class="doors" v-if="!mode" @contextmenu.prevent="cycleCaps">
+        <ul class="doors" v-if="!mode">
           <li @click="openHost">
             <span class="key"
               ><img :src="capSrc('H')" :class="capClass('h')" :style="capStyle('H')" alt="H"
@@ -180,7 +194,7 @@
                  door idiom — blood-O drop cap + label. The blood letter is
                  the hotkey promise: O opens the town while this panel is up. -->
             <button
-              class="confirm open-town" @contextmenu.prevent="cycleCaps"
+              class="confirm open-town"
               :class="{ disabled: !townIdClean }"
               title="Open the town (O)"
               @click="confirmHost"
@@ -289,16 +303,13 @@ import bloodO from "../assets/blood/alphabet/O.png";
 import ScriptPicker from "./ScriptPicker";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents, peekScript } from "../golem/scripts";
-import { flashHint } from "../golem/hint";
-// the app-wide PNG-font choice (dev control lives on the title)
+// the app-wide PNG-font choices (the Aa font lab in App is the control)
 import {
   fontState,
   glyph,
   glyphStyle,
   glyphFrom,
   glyphStyleFrom,
-  cycleFontSet,
-  cycleCapFont,
   resolvedCapKey,
   CAP_SHRINK
 } from "../golem/titleFonts";
@@ -329,6 +340,25 @@ export default {
     ...mapState(["session", "edition"]),
     editionList() {
       return editionJSON;
+    },
+    /** "on the" in the chosen family's lowercase (goldart mode bypasses). */
+    ontheGlyphs() {
+      const key = this.fontState.ontheKey;
+      const out = [];
+      ["o_lc", "n_lc", null, "t_lc", "h_lc", "e_lc"].forEach(letter => {
+        if (!letter) {
+          out.push({ space: true });
+          return;
+        }
+        const g = glyphFrom(key, letter);
+        if (g)
+          out.push({
+            src: g.src,
+            alt: letter[0],
+            style: glyphStyleFrom(key, letter, 1)
+          });
+      });
+      return out;
     },
     // Golem fork: the title's BLOOD letter row, from the ACTIVE font set
     // (titleFonts.js normalizes sizes across families by the B's cap height).
@@ -752,14 +782,8 @@ export default {
       this.$store.commit("toggleGrimoire", false);
       this.$store.commit("session/setSessionId", id);
     },
-    /** Golem fork: click the title word → the next font family (the dev
-     *  font control — title, doors and the Almanac's A all follow). */
-    cycleTitleStyle() {
-      const next = cycleFontSet();
-      flashHint("Lettering: " + next.label);
-    },
-    /** Door/button drop-caps wear their OWN font (right-click a door to
-     *  cycle; "follow" mirrors the title). Blood keeps the door-baked art
+    /** Door/button drop-caps wear their OWN font (the Aa panel is the
+     *  control; "follow" mirrors the title). Blood keeps the door-baked art
      *  + its pixel-tuned classes; sheet families render CAP_SHRINK smaller
      *  (the ornate letters overpower the labels at full size). */
     capKeyNow() {
@@ -784,11 +808,6 @@ export default {
     capStyle(letter, scale = 1.09) {
       if (this.capIsBaked()) return null;
       return glyphStyleFrom(this.capKeyNow(), letter, scale * CAP_SHRINK);
-    },
-    /** Right-click a door: the caps' own font control. */
-    cycleCaps() {
-      const next = cycleCapFont();
-      flashHint("Drop-caps: " + next.label);
     },
     /** Golem fork: the Create door opens the script editor straight to its
      *  Custom Script surface — same access pattern as the "Custom / vault…"
@@ -905,6 +924,17 @@ export default {
       letter-spacing: 0.5em;
       text-indent: 0.5em; // recenter the letter-spaced run
       text-transform: uppercase;
+      // glyph mode: the family's lowercase letters at this row's size
+      .onthe-glyphs {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.14em;
+        text-indent: 0;
+        font-size: 1.4em;
+        .sp {
+          width: 0.5em;
+        }
+      }
       color: #e8e2d8;
       opacity: 0.9;
       text-shadow: 0 1px 3px black, 0 0 10px rgba(0, 0, 0, 0.9);

@@ -26,26 +26,36 @@
          now, not baked into the art — positions are plain numbers in
          image-pixels (see --fpx below), adjustable in devtools and scaling
          with the clock face at every viewport. -->
-    <!-- click any dial letter to cycle ITS font (independent of the title's;
-         "text" = the painted spans) -->
-    <div
-      class="dial-letters"
-      title="Click to change the dial's lettering"
-      @click="cycleDial"
-    >
+    <!-- the dial's two words each wear their own font (the Aa panel,
+         top-left, is the control) -->
+    <div class="dial-letters" aria-hidden="true">
       <span
         v-for="d in dialLetters"
-        :key="d.cls + fontState.dialKey"
+        :key="d.cls + wordKey(d)"
         :class="['dl', d.cls]"
       >
         <img
-          v-if="fontState.dialKey !== 'text' && dialGlyph(d.letter)"
-          :src="dialGlyph(d.letter).src"
-          :style="dialStyle(d.letter)"
+          v-if="wordKey(d) !== 'text' && dialGlyph(d)"
+          :src="dialGlyph(d).src"
+          :style="dialStyle(d)"
           :alt="d.letter"
         />
         <template v-else>{{ d.letter }}</template>
       </span>
+    </div>
+    <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
+    <div id="font-debug" :class="{ open: fontDebugOpen }">
+      <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
+        Aa
+      </div>
+      <div class="fd-rows" v-if="fontDebugOpen">
+        <div class="fd-row" v-for="row in fdRows" :key="row.field">
+          <span class="fd-label">{{ row.label }}</span>
+          <button class="fd-cycle" @click="fdCycle(row.field)">
+            {{ fdLabel(row.field) }}
+          </button>
+        </div>
+      </div>
     </div>
     <transition name="blur">
       <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
@@ -179,13 +189,14 @@ import GameStateModal from "@/components/modals/GameStateModal";
 import EndGameOverlay from "./components/EndGameOverlay";
 import StatsOverlay from "./components/StatsOverlay";
 import { markDealt, dealTimeFor } from "./golem/stats";
-import { flashHint } from "./golem/hint";
-// the dial's CLOCKTOWER can wear any glyph family (its own choice)
+// the FONT LAB: per-element lettering choices (title, on-the, the dial's
+// two words, the drop-caps)
 import {
   fontState,
   glyphFrom,
   glyphStyleFrom,
-  cycleDialFont
+  cycleField,
+  labelFor
 } from "./golem/titleFonts";
 
 export default {
@@ -325,35 +336,48 @@ export default {
       // FT-852: the pill Leave's two-click arm.
       leaveArmed: false,
       leaveTimer: null,
-      // the app-wide PNG-font state (dial lettering lives on dialKey)
+      // the app-wide PNG-font state + the font lab panel
       fontState,
+      fontDebugOpen: false,
+      fdRows: [
+        { field: "key", label: "Blood" },
+        { field: "ontheKey", label: "On the" },
+        { field: "clockKey", label: "Clock" },
+        { field: "towerKey", label: "Tower" },
+        { field: "capKey", label: "Hotkey letters" }
+      ],
       dialLetters: [
-        { cls: "dl-c1", letter: "C" },
-        { cls: "dl-l", letter: "L" },
-        { cls: "dl-o1", letter: "O" },
-        { cls: "dl-c2", letter: "C" },
-        { cls: "dl-k", letter: "K" },
-        { cls: "dl-t", letter: "T" },
-        { cls: "dl-o2", letter: "O" },
-        { cls: "dl-w", letter: "W" },
-        { cls: "dl-e", letter: "E" },
-        { cls: "dl-r", letter: "R" }
+        { cls: "dl-c1", letter: "C", word: "clock" },
+        { cls: "dl-l", letter: "L", word: "clock" },
+        { cls: "dl-o1", letter: "O", word: "clock" },
+        { cls: "dl-c2", letter: "C", word: "clock" },
+        { cls: "dl-k", letter: "K", word: "clock" },
+        { cls: "dl-t", letter: "T", word: "tower" },
+        { cls: "dl-o2", letter: "O", word: "tower" },
+        { cls: "dl-w", letter: "W", word: "tower" },
+        { cls: "dl-e", letter: "E", word: "tower" },
+        { cls: "dl-r", letter: "R", word: "tower" }
       ]
     };
   },
   methods: {
     // FT-852: arm on the first click, leave on the second — no native
     // confirm() anywhere in the pill (see the template note).
-    // ── the dial's font control ──────────────────────────────────────────
-    cycleDial() {
-      const next = cycleDialFont();
-      flashHint("Dial lettering: " + next.label);
+    // ── the font lab ─────────────────────────────────────────────────────
+    fdCycle(field) {
+      cycleField(field);
     },
-    dialGlyph(letter) {
-      return glyphFrom(this.fontState.dialKey, letter);
+    fdLabel(field) {
+      return labelFor(this.fontState[field]);
     },
-    dialStyle(letter) {
-      return glyphStyleFrom(this.fontState.dialKey, letter, 1);
+    wordKey(d) {
+      return d.word === "clock" ? this.fontState.clockKey : this.fontState.towerKey;
+    },
+    dialGlyph(d) {
+      return glyphFrom(this.wordKey(d), d.letter);
+    },
+    dialStyle(d) {
+      return glyphStyleFrom(this.wordKey(d), d.letter, 1);
     },
     pillLeave() {
       if (!this.leaveArmed) {
@@ -540,9 +564,11 @@ export default {
     width: 7px;
     height: 0;
     overflow: hidden;
-    background-repeat: repeat-y;
+    // ONE run, stretched to the trail's length — repetition is impossible;
+    // a long scroll just thins the streak like a real run would
+    background-repeat: no-repeat;
     background-position: center top;
-    background-size: 100% auto;
+    background-size: 100% 100%;
     opacity: 0.9;
   }
   .blooddrip-drop {
@@ -846,6 +872,70 @@ video#background {
   .dl-w  { left: calc(50% + -162.5 * var(--fpx)); top: calc(50% + -33.5 * var(--fpx)); }
   .dl-e  { left: calc(50% + -141.5 * var(--fpx)); top: calc(50% + -117.2 * var(--fpx)); }
   .dl-r  { left: calc(50% + -82.5 * var(--fpx)); top: calc(50% + -176.6 * var(--fpx)); }
+}
+
+/* Golem fork: the FONT LAB — the top-left dev dropdown owning every
+   lettering choice. Deliberately plain: it is a debug tool. */
+#font-debug {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 96;
+  font-size: 13px;
+  .fd-toggle {
+    width: 30px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
+    cursor: pointer;
+    opacity: 0.45;
+    &:hover {
+      opacity: 1;
+      border-color: #a01414;
+    }
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: #a01414;
+  }
+  .fd-rows {
+    margin-top: 4px;
+    background: rgba(8, 8, 12, 0.96);
+    border: 1px solid #400;
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    .fd-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      .fd-label {
+        opacity: 0.75;
+      }
+      .fd-cycle {
+        font-family: inherit;
+        font-size: 12px;
+        color: white;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid #3d3d3d;
+        border-radius: 5px;
+        padding: 1px 8px;
+        cursor: pointer;
+        min-width: 130px;
+        text-align: center;
+        &:hover {
+          border-color: #a01414;
+          color: #ff8a8a;
+        }
+      }
+    }
+  }
 }
 
 /* Night phase backdrop */

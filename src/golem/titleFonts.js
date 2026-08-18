@@ -10,13 +10,14 @@ import Vue from "vue";
 
 // require.context with a tight regex bundles ONLY the matched files —
 // the display letters (title, doors, Almanac A, the dial's CLOCKTOWER)
-const bloodCtx = require.context("../assets/blood/alphabet", false, /^\.\/(B|L|O|O2|D|H|J|A|C|K|T|W|E|R)\.png$/);
-const goldCtx = require.context("../assets/gold/alphabet", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
-const red66Ctx = require.context("../assets/red/660000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
-const red77Ctx = require.context("../assets/red/770001-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
-const red80Ctx = require.context("../assets/red/800000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
-const red80cCtx = require.context("../assets/red/800000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
-const clockCtx = require.context("../assets/gold/clockface", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const bloodCtx = require.context("../assets/blood/alphabet", false, /^\.\/(B|L|O|O2|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const goldCtx = require.context("../assets/gold/alphabet", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const red66Ctx = require.context("../assets/red/660000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const red77Ctx = require.context("../assets/red/770001-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const red80Ctx = require.context("../assets/red/800000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const red80cCtx = require.context("../assets/red/800000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const clockCtx = require.context("../assets/gold/clockface", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const gold2Ctx = require.context("../assets/gold/v2", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
 
 import bloodMetrics from "../assets/blood/alphabet/metrics.json";
 import goldMetrics from "../assets/gold/alphabet/metrics.json";
@@ -25,6 +26,7 @@ import red77Metrics from "../assets/red/770001-noise50/metrics.json";
 import red80Metrics from "../assets/red/800000-noise50/metrics.json";
 import red80cMetrics from "../assets/red/800000/metrics.json";
 import clockMetrics from "../assets/gold/clockface/metrics.json";
+import gold2Metrics from "../assets/gold/v2/metrics.json";
 
 function buildSet(ctx, metrics) {
   const letters = {};
@@ -41,6 +43,7 @@ export const FONT_SETS = [
   { key: "logo", label: "Gold logo art", letters: null },
   { key: "gold", label: "Gold letters", letters: buildSet(goldCtx, goldMetrics) },
   { key: "gold-clock", label: "Clockface gold", letters: buildSet(clockCtx, clockMetrics) },
+  { key: "gold2", label: "Gold v2", letters: buildSet(gold2Ctx, gold2Metrics) },
   { key: "red-66", label: "Red 660000", letters: buildSet(red66Ctx, red66Metrics) },
   { key: "red-77", label: "Red 770001", letters: buildSet(red77Ctx, red77Metrics) },
   { key: "red-80", label: "Red 800000", letters: buildSet(red80Ctx, red80Metrics) },
@@ -50,11 +53,63 @@ export const FONT_SETS = [
 export const fontState = Vue.observable({
   // the 800000 red is the default lettering (user call 2026-08-17)
   key: localStorage.getItem("golem.fontSet") || "red-80",
-  // the dial's CLOCKTOWER has its own choice; "text" = the painted spans
-  dialKey: localStorage.getItem("golem.dialFont") || "text",
+  // "on the": the gold script art, or any family's lowercase letters
+  ontheKey: localStorage.getItem("golem.ontheFont") || "goldart",
+  // the dial's two words, each their own choice ("text" = painted spans;
+  // the retired single dialKey seeds both)
+  clockKey:
+    localStorage.getItem("golem.clockFont") ||
+    localStorage.getItem("golem.dialFont") ||
+    "text",
+  towerKey:
+    localStorage.getItem("golem.towerFont") ||
+    localStorage.getItem("golem.dialFont") ||
+    "text",
   // the door/button drop-caps: "follow" mirrors the title's choice
   capKey: localStorage.getItem("golem.capFont") || "follow"
 });
+
+/** Generic cycler for the debug panel: field → its option list + storage. */
+const FIELD_DEFS = {
+  key: { storage: "golem.fontSet", options: () => FONT_SETS.map(s => s.key) },
+  ontheKey: {
+    storage: "golem.ontheFont",
+    options: () =>
+      ["goldart"].concat(
+        FONT_SETS.filter(s => s.letters && s.letters.o_lc).map(s => s.key)
+      )
+  },
+  clockKey: {
+    storage: "golem.clockFont",
+    options: () => ["text"].concat(FONT_SETS.filter(s => s.letters).map(s => s.key))
+  },
+  towerKey: {
+    storage: "golem.towerFont",
+    options: () => ["text"].concat(FONT_SETS.filter(s => s.letters).map(s => s.key))
+  },
+  capKey: {
+    storage: "golem.capFont",
+    options: () => ["follow"].concat(FONT_SETS.filter(s => s.letters).map(s => s.key))
+  }
+};
+
+export function cycleField(field) {
+  const def = FIELD_DEFS[field];
+  const options = def.options();
+  const i = options.indexOf(fontState[field]);
+  const next = options[(i + 1) % options.length];
+  fontState[field] = next;
+  localStorage.setItem(def.storage, next);
+  return labelFor(next);
+}
+
+export function labelFor(key) {
+  if (key === "text") return "Painted text";
+  if (key === "follow") return "Follow the title";
+  if (key === "goldart") return "Gold script art";
+  const s = FONT_SETS.find(x => x.key === key);
+  return s ? s.label : key;
+}
 
 /** Sheet-family drop-caps render smaller than the chunky blood art — the
  *  ornate letters overpower the door labels at full size (user call). */
