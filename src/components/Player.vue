@@ -158,7 +158,7 @@
         :class="{ active: isMenuOpen }"
       >
         <!-- an unclaimed chair says so instead of a fake name (user call) -->
-        <span>{{ player.id ? player.name : "Unclaimed" }}</span>
+        <span>{{ player.id ? player.name : "Open" }}</span>
         <font-awesome-icon icon="venus-mars" v-if="player.pronouns" />
         <div class="pronouns" v-if="player.pronouns">
           <span>{{ player.pronouns }}</span>

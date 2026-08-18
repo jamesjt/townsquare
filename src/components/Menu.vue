@@ -24,11 +24,9 @@
             title="Vote history"
             @click="toggleModal('voteHistory')"
           />
-          <img
-            :src="uiNight"
-            title="Night order"
-            @click="openScriptDrawer('first')"
-          />
+          <!-- (the moon retired 2026-08-18 — night order is a TAB inside the
+               script drawer the scroll opens, so a second door was redundant.
+               uiNight import kept for the tabbed view's own use.) -->
         </li>
 
         <template v-if="tab === 'grimoire'">

@@ -172,7 +172,11 @@
     <!-- Golem fork: the version corner is the SESSION PILL — which room you
          are in, who is with you, the vote-history count, and the door out.
          Nothing renders when there is no session. -->
-    <div id="session-pill" v-if="session.sessionId">
+    <div
+      id="session-pill"
+      v-if="session.sessionId"
+      :class="{ 'drawer-open': modals.scriptDrawer }"
+    >
       <!-- (broadcast icon retired — user call 2026-08-17) -->
       <span
         class="who"
@@ -817,6 +821,12 @@ ul {
   right: 10px;
   bottom: 10px;
   z-index: 80;
+  // the right drawer would bury the Leave door — the pill steps aside for it
+  // instead of hiding under it (user call 2026-08-18)
+  transition: right 220ms ease;
+  &.drawer-open {
+    right: 570px;
+  }
   display: flex;
   align-items: center;
   gap: 12px;
