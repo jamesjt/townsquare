@@ -646,6 +646,8 @@ import {
 } from "../../golem/editionArt";
 // FT-856: uploads take the official engraving look (ink/tint/parchment).
 import { stylizeIcon } from "../../golem/iconStyle";
+// The all-of-BOTC card wears the creative director's gold logo.
+import goldLogo from "../../assets/gold/botc-logo-icon.png";
 
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
 // outsiders, minions, demons]. The meter measures a script's POOL against it:
@@ -867,6 +869,7 @@ export default {
     wbPickedId() {
       const edition = this.$store.state.edition;
       if (edition && edition.id !== "custom") return edition.id;
+      if (edition && edition.logo === "__gold") return "__all";
       return this.vaultSourceId || "";
     },
     /** The picker's cards: officials, then your scripts, then viewed ones.
@@ -881,6 +884,14 @@ export default {
           blurb: OFFICIAL_BLURBS[e.id] || "",
           source: "OFFICIAL"
         });
+      });
+      // every official character on one script, behind the gold logo
+      cards.push({
+        id: "__all",
+        name: "All of Blood on the Clocktower",
+        icon: goldLogo,
+        blurb: "Every official character — the whole book on one script.",
+        source: "OFFICIAL"
       });
       const vaultCard = (entry, source) => ({
         id: entry.id,
@@ -1440,6 +1451,26 @@ export default {
       this.isCustom = true;
     },
     onScriptPick(card) {
+      if (card.id === "__all") {
+        // the whole book: every playable official (travellers stay town-side)
+        const all = rolesJSON
+          .filter(r =>
+            ["townsfolk", "outsider", "minion", "demon"].includes(
+              normTeam(r.team)
+            )
+          )
+          .map(r => ({ id: r.id }));
+        this.$store.commit("setCustomRoles", all);
+        this.$store.commit("setEdition", {
+          id: "custom",
+          name: "All of Blood on the Clocktower",
+          logo: "__gold"
+        });
+        this.vaultSourceId = null;
+        this.ensureOpen();
+        this.setBaseline();
+        return;
+      }
       const edition = editionJSON.find(e => e.id === card.id);
       if (edition) {
         this.$store.commit("setEdition", edition);
@@ -1747,8 +1778,9 @@ export default {
           this.entryTags(e).has(tag.id)
       ).length;
     },
-    /** A script logo is an official role id OR an uploaded data URL. */
+    /** A script logo: official role id, uploaded data URL, or the gold mark. */
     scriptLogoSrc(logo) {
+      if (logo === "__gold") return goldLogo;
       return logo && logo.startsWith("data:") ? logo : this.iconUrl(logo);
     },
     onNsUpload(e) {
