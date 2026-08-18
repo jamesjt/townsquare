@@ -345,8 +345,8 @@ export default {
     ontheStyle() {
       const { x, y, s } = this.bgA;
       return {
-        left: x + 845 * s + "px",
-        top: y + 198 * s + "px",
+        left: x + 850 * s + "px",
+        top: y + 193 * s + "px",
         // the lockup renders at 42 image-px tall (431x98 native)
         height: 36 * s + "px"
       };
