@@ -181,33 +181,20 @@
                  team, tinted in the team's color (icon REPLACES text —
                  the word lives on the tooltip) -->
             <div class="wb-meter" :class="{ nonconforming: !servableCounts.length }">
+              <!-- clear team glyphs (the good/evil token art read as
+                   thumbs up/down at this size — user call): the town, the
+                   loner, the masks, the skull -->
               <span class="chip team-townsfolk" title="Townsfolk">
-                <span
-                  class="ticon"
-                  :style="{ backgroundImage: `url(${iconUrl('good')})` }"
-                ></span
-                >{{ teamCounts.townsfolk }}
+                <font-awesome-icon icon="users" />{{ teamCounts.townsfolk }}
               </span>
               <span class="chip team-outsider" title="Outsiders">
-                <span
-                  class="ticon"
-                  :style="{ backgroundImage: `url(${iconUrl('outsider')})` }"
-                ></span
-                >{{ teamCounts.outsider }}
+                <font-awesome-icon icon="user" />{{ teamCounts.outsider }}
               </span>
               <span class="chip team-minion" title="Minions">
-                <span
-                  class="ticon"
-                  :style="{ backgroundImage: `url(${iconUrl('minion')})` }"
-                ></span
-                >{{ teamCounts.minion }}
+                <font-awesome-icon icon="theater-masks" />{{ teamCounts.minion }}
               </span>
               <span class="chip team-demon" title="Demons">
-                <span
-                  class="ticon"
-                  :style="{ backgroundImage: `url(${iconUrl('evil')})` }"
-                ></span
-                >{{ teamCounts.demon }}
+                <font-awesome-icon icon="skull" />{{ teamCounts.demon }}
               </span>
               <span class="verdict" v-if="servableCounts.length">
                 plays {{ servableText }} players
@@ -1974,11 +1961,9 @@ $team-colors: (
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.08);
       font-weight: bold;
-      .ticon {
-        width: 22px;
-        height: 22px;
-        background-size: cover;
-        background-position: center;
+      svg {
+        width: 15px;
+        height: 15px;
       }
       @each $team, $color in $team-colors {
         &.team-#{$team} {
