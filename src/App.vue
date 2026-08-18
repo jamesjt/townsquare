@@ -167,7 +167,7 @@
         @click="copyPillLink"
         :title="pillCopied ? 'Copied!' : 'Copy the player link'"
       >
-        <font-awesome-icon :icon="pillCopied ? 'check' : 'copy'" />
+        <font-awesome-icon :icon="pillCopied ? 'check' : 'link'" />
       </span>
       <!-- FT-852: two-click arm instead of a native confirm() — browser
            dialogs are silently auto-dismissed in dialog-less contexts
