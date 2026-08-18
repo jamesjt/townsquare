@@ -8,7 +8,7 @@ import dropSprite from "../assets/blood/drip-drop.png";
 import trailTexture from "../assets/blood/drip-trail.png";
 
 const DROP_W = 15; // slimmer — 20px bulged over content (user feedback)
-const DROP_H = Math.round((104 / 72) * DROP_W); // sprite ratio
+const DROP_H = Math.round((81 / 64) * DROP_W); // sprite ratio (bulb-focused crop)
 
 function update(el) {
   const s = el.__bloodScroll;
