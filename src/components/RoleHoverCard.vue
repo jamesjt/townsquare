@@ -162,6 +162,15 @@ export default {
   beforeDestroy() {
     window.removeEventListener("scroll", this.onDismiss, true);
     window.removeEventListener("resize", this.onDismiss);
+    // We took the element out of our own subtree, so we have to put it away
+    // ourselves: when a CONSUMER is torn down whole — a seat removed from the
+    // square while its card is up — the framework removes the seat's node and
+    // never touches the card, which would sit on the body for the rest of the
+    // session. (Vue guards its own later removal on the node still having a
+    // parent, so doing it here is safe.)
+    const el = this.$el;
+    if (el && el.parentElement === document.body)
+      document.body.removeChild(el);
   },
   watch: {
     anchor() {

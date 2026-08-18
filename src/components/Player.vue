@@ -5,6 +5,8 @@
       class="player"
       @dragover.prevent
       @drop="onRoleDrop"
+      @mouseenter="showCard"
+      @mouseleave="hideCard"
       :class="[
         {
           dead: player.isDead,
@@ -57,9 +59,22 @@
            the drawer (unassign) -->
       <Token
         :role="player.role"
+        :hover-card="false"
         :draggable="String(!!player.role.id && !session.isSpectator)"
         @dragstart.native="onRoleDragStart"
         @set-role="$emit('trigger', ['openRoleModal'])"
+      />
+
+      <!-- FT-858: the seat's read is THE role hover card — the same component
+           the Almanac workbench's shelf and the grimoire drawer use
+           (user-directed: one component, every surface). The seat owns the
+           hover rather than the coin, because the shroud and the life token
+           sit over the coin's top half and would swallow it there. -->
+      <RoleHoverCard
+        v-if="cardAnchor"
+        :role="player.role"
+        :anchor="cardAnchor"
+        @dismiss="hideCard"
       />
 
       <!-- Overlay icons -->
@@ -243,7 +258,14 @@
 
 <script>
 import Token from "./Token";
+// FT-858: THE role hover card, shared with the Almanac workbench's shelf, the
+// grimoire drawer and every other coin.
+import RoleHoverCard from "./RoleHoverCard";
 import { mapGetters, mapState } from "vuex";
+
+// how long the cursor has to rest on a seat before its card appears — enough
+// that sweeping across the square does not strobe cards
+const HOVER_DELAY = 170;
 
 // Golem fork (FT-848): the cut blood decals, bundled once for all seats.
 const splatCtx = require.context("../assets/blood/splats", false, /\.png$/);
@@ -254,6 +276,7 @@ const SPLATS = splatCtx
 
 export default {
   components: {
+    RoleHoverCard,
     Token
   },
   props: {
@@ -338,8 +361,14 @@ export default {
       // Golem fork: first claim on this browser asks the name in place.
       askName: false,
       claimName: "",
-      isSwap: false
+      isSwap: false,
+      // FT-858: the coin the seat's hover card is pinned to; null when
+      // nothing is showing
+      cardAnchor: null
     };
+  },
+  beforeDestroy() {
+    clearTimeout(this.$options.cardTimer);
   },
   watch: {
     // Golem fork: the host confirming our claim sets player.id to our own id —
@@ -356,6 +385,34 @@ export default {
     }
   },
   methods: {
+    /**
+     * FT-858: rest on a seat and it tells you what its character does.
+     *
+     * The whole seat is the target, not just the coin — the shroud covers the
+     * coin's top half and the life token covers all of it, and a card you can
+     * only raise from the lower half of a chair is worse than none.
+     *
+     * It reads what the SQUARE already shows: in the player-facing view the
+     * coins are turned away, so nothing but a traveler (whose character is
+     * public knowledge) has a card to raise.
+     */
+    showCard(e) {
+      const role = this.player.role;
+      if (!role || !role.id) return;
+      if (this.grimoire.isPublic && role.team !== "traveler") return;
+      if (!window.matchMedia("(hover: hover)").matches) return;
+      const seat = e.currentTarget;
+      clearTimeout(this.$options.cardTimer);
+      this.$options.cardTimer = setTimeout(() => {
+        // pinned to the COIN, so the card sits level with the character it
+        // describes rather than with the name plate under it
+        this.cardAnchor = seat.querySelector(".token") || seat;
+      }, HOVER_DELAY);
+    },
+    hideCard() {
+      clearTimeout(this.$options.cardTimer);
+      this.cardAnchor = null;
+    },
     changePronouns() {
       if (this.session.isSpectator && this.player.id !== this.session.playerId)
         return;

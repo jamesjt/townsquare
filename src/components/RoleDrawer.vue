@@ -94,6 +94,7 @@
               @click="clickRole(role)"
               @mouseenter="showCard(role, $event)"
               @mouseleave="hideCard"
+              :aria-label="spokenRole(role)"
             >
               <span
                 class="icon"
@@ -188,6 +189,11 @@ export default {
   },
   methods: {
     ...mapMutations(["toggleModal", "setDrawerPick"]),
+    /** What a screen reader hears — the reading the row's `title` used to
+     *  carry, now that the hover card has taken over the pointer path. */
+    spokenRole(role) {
+      return role.ability ? `${role.name}. ${role.ability}` : role.name;
+    },
     /** Rest on a row and the card tells you what the character does. */
     showCard(role, e) {
       if (!window.matchMedia("(hover: hover)").matches) return;

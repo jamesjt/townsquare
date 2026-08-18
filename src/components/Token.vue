@@ -30,6 +30,7 @@
     class="token"
     @click="setRole"
     :class="[role.id]"
+    :aria-label="spokenRole"
     @mouseenter="showCard"
     @mouseleave="hideCard"
   >
@@ -169,6 +170,16 @@ export default {
     role: {
       type: Object,
       default: () => ({})
+    },
+    /**
+     * Whether the coin raises its own hover card. True everywhere the coin is
+     * the whole target — the bluffs, the fabled, both role pickers. A SEAT
+     * turns it off: the shroud and the life token cover the coin's top half,
+     * so the seat owns the hover for its whole box instead (Player.vue).
+     */
+    hoverCard: {
+      type: Boolean,
+      default: true
     }
   },
   computed: {
@@ -181,6 +192,17 @@ export default {
         (this.role.reminders || []).length +
         (this.role.remindersGlobal || []).length
       );
+    },
+    /**
+     * What a screen reader hears. The hover card is a pointer affordance, and
+     * the ability text it carries used to be real text on the coin — this is
+     * where that reading goes instead, so nothing is lost off the mouse path.
+     */
+    spokenRole: function() {
+      if (!this.role || !this.role.name) return null;
+      return this.role.ability
+        ? `${this.role.name}. ${this.role.ability}`
+        : this.role.name;
     },
     /** Every instance needs its own curve id, or they all share the first. */
     curveId: function() {
@@ -276,6 +298,7 @@ export default {
      * rest — a tap there still opens the role picker, as it always did.
      */
     showCard(e) {
+      if (!this.hoverCard) return;
       if (!this.role || !this.role.id) return;
       if (!window.matchMedia("(hover: hover)").matches) return;
       const el = e.currentTarget;
