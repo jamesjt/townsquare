@@ -38,9 +38,22 @@
       <!-- the number is a SCRUBBER: drag it sideways to set the count
            (user call — the +/- pair retired) -->
       <span class="stepper">
+        <input
+          v-if="seatEditing"
+          ref="seatInput"
+          class="seat-input"
+          type="number"
+          min="0"
+          max="20"
+          v-model.number="seatEditVal"
+          @keyup.enter="commitSeatEdit"
+          @keyup.esc="seatEditing = false"
+          @blur="commitSeatEdit"
+        />
         <b
+          v-else
           class="seat-scrub"
-          title="Drag sideways to set seats (0–20)"
+          title="Drag sideways to scrub — click to type"
           @pointerdown="scrubSeats"
           >{{ players.length }}</b
         >
@@ -111,6 +124,9 @@ export default {
     return {
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
+      // seat-count type-in editing (click the scrub number)
+      seatEditing: false,
+      seatEditVal: 0,
       // FT-847: owned-town rename state.
       renaming: false,
       renameDraft: "",
@@ -235,34 +251,50 @@ export default {
       if (this.players.length >= 20) return;
       this.$store.commit("players/add", `Seat ${this.players.length + 1}`);
     },
-    /** Drag the number sideways — one seat per 9px. Shrinking only takes
-     *  EMPTY chairs (claimed seats never leave via the scrub). */
+    /** Walk the roster to a target count. Shrinking only takes EMPTY
+     *  chairs (claimed seats never leave this way). */
+    setSeatCount(n) {
+      const want = Math.max(0, Math.min(20, Math.round(n) || 0));
+      let guard = 25;
+      while (this.players.length < want && guard--) this.addSeat();
+      while (this.players.length > want && this.canRemoveSeat && guard--)
+        this.removeSeat();
+    },
+    /** Drag the number sideways — one seat per 9px. A plain CLICK (no
+     *  drag) opens type-in editing instead (user call). */
     scrubSeats(e) {
       e.preventDefault();
       const el = e.currentTarget;
       el.setPointerCapture(e.pointerId);
       const startX = e.clientX;
       const startN = this.players.length;
+      let moved = 0;
       const onMove = ev => {
-        const want = Math.max(
-          0,
-          Math.min(20, startN + Math.round((ev.clientX - startX) / 9))
-        );
-        let guard = 25;
-        while (this.players.length < want && guard--) this.addSeat();
-        while (
-          this.players.length > want &&
-          this.canRemoveSeat &&
-          guard--
-        )
-          this.removeSeat();
+        moved = Math.max(moved, Math.abs(ev.clientX - startX));
+        this.setSeatCount(startN + Math.round((ev.clientX - startX) / 9));
       };
       const onUp = () => {
         el.removeEventListener("pointermove", onMove);
         el.removeEventListener("pointerup", onUp);
+        if (moved < 3) {
+          this.seatEditVal = this.players.length;
+          this.seatEditing = true;
+          this.$nextTick(() => {
+            const inp = this.$refs.seatInput;
+            if (inp) {
+              inp.focus();
+              inp.select();
+            }
+          });
+        }
       };
       el.addEventListener("pointermove", onMove);
       el.addEventListener("pointerup", onUp);
+    },
+    commitSeatEdit() {
+      if (!this.seatEditing) return;
+      this.seatEditing = false;
+      this.setSeatCount(this.seatEditVal);
     },
     removeSeat() {
       // remove the LAST empty seat; claimed chairs are a targeted act only
@@ -350,6 +382,18 @@ export default {
       display: flex;
       align-items: center;
       gap: 10px;
+      .seat-scrub {
+        cursor: ew-resize;
+        min-width: 1.6em;
+        text-align: center;
+        user-select: none;
+        touch-action: none;
+      }
+      .seat-input {
+        width: 3.2em;
+        text-align: center;
+        font-weight: bold;
+      }
       svg {
         cursor: pointer;
         &:hover {
