@@ -24,7 +24,11 @@
              art complete the name. DOM overlay (not baked into the
              background), pinned to the sky band above the clock face. Static
              PNGs — nothing animates, so the kill-switch has nothing to kill. -->
-        <div class="title" aria-label="Blood on the Clocktower">
+        <div
+          class="title"
+          aria-label="Blood on the Clocktower"
+          :style="titleStyle"
+        >
           <!-- Golem fork: clicking the word cycles its lettering — 0 the
                blood-alphabet PNGs, 1 the official-style gold logo art
                (extracted from the source header, FT-853). Persisted so the
@@ -342,6 +346,17 @@ export default {
       return editionJSON;
     },
     /** "on the" in the chosen family's lowercase (goldart mode bypasses). */
+    /** Title GLUED to the art: positioned + sized in image coordinates
+     *  (tower axis x 837; the dark band above the arch tops at y 60; the
+     *  lettering is 88 image-px tall), so no window size moves it. */
+    titleStyle() {
+      const { x, y, s } = this.bgA;
+      return {
+        left: x + 837 * s + "px",
+        top: y + 60 * s + "px",
+        fontSize: 88 * s + "px"
+      };
+    },
     ontheGlyphs() {
       const key = this.fontState.ontheKey;
       const out = [];
@@ -473,6 +488,12 @@ export default {
       bloodLogo,
       ontheLogo,
       bloodO,
+      // Golem fork (2026-08-18, user diagnosis): the background renders
+      // center/cover, so anything positioned in VIEWPORT pixels drifts
+      // against the art as the window changes — the title was a moving
+      // target. It now anchors in IMAGE coordinates (the art is 1672x941;
+      // the tower band's centre sits at x 837): this holds the cover math.
+      bgA: { x: 0, y: 0, s: 1 },
       // Golem fork: the app-wide PNG-font choice (titleFonts.js) — reactive,
       // persisted; the title click is the dev control.
       fontState,
@@ -523,11 +544,25 @@ export default {
       else document.removeEventListener("keyup", this.onHostPanelKey);
     }
   },
+  mounted() {
+    this.computeBgAnchor();
+    window.addEventListener("resize", this.computeBgAnchor);
+  },
   beforeDestroy() {
     clearInterval(this.statusTimer);
     document.removeEventListener("keyup", this.onHostPanelKey);
+    window.removeEventListener("resize", this.computeBgAnchor);
   },
   methods: {
+    /** The background's cover transform: scale + top-left offset. */
+    computeBgAnchor() {
+      const W = 1672,
+        H = 941;
+      const vw = window.innerWidth,
+        vh = window.innerHeight;
+      const s = Math.max(vw / W, vh / H);
+      this.bgA = { x: (vw - W * s) / 2, y: (vh - H * s) / 2, s };
+    },
     async mintChecked() {
       const placeholder = this.townId;
       const checked = await mintAvailableTownId();
@@ -875,21 +910,17 @@ export default {
   // Fixed, so it holds the top-center regardless of the stack's height.
   .title {
     position: absolute;
-    // clears the fixed top-right toolbar band (~44px) at short heights
-    top: max(48px, 5vh);
-    left: 50%;
-    // user-calibrated 2026-08-18: +10px right of true center
-    transform: translateX(calc(-50% + 10px));
+    // left/top/font-size come from titleStyle — IMAGE-space anchoring
+    // (the art is center/cover; viewport pixels drift against it)
+    transform: translateX(-50%);
     text-align: center;
     pointer-events: none;
     z-index: 3;
 
     .blood-word {
-      font-size: min(10vh, 9vw, 76px);
+      font-size: 1em;
       line-height: 1;
       white-space: nowrap;
-      // user-calibrated 2026-08-18: BLOOD rides 30px lower (50 down, 20 up)
-      margin-top: 30px;
       // Golem fork: the lettering cycles on click (PNGs / gold / red) —
       // fixed row height so "On the" never shifts between states, and the
       // word alone takes the pointer (the .title wrapper stays inert).
@@ -919,11 +950,11 @@ export default {
       }
     }
     .on-the {
-      // user-calibrated 2026-08-18: 10px above its old seat (40 up against
-      // the word's 30 down)
-      margin-top: calc(1vh - 40px);
+      // image-space: tucked right under the word (em units ride the
+      // anchored font-size)
+      margin-top: -0.28em;
       font-family: "Roboto Condensed", sans-serif;
-      font-size: min(3.5vh, 25px);
+      font-size: 0.3em;
       letter-spacing: 0.5em;
       text-indent: 0.5em; // recenter the letter-spaced run
       text-transform: uppercase;
