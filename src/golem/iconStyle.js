@@ -17,25 +17,28 @@ import Vue from "vue";
 // colors muddied toward pink/grey at the top because averaging mixed
 // linework with washes; the real art keeps its color. Dark -> light.
 const RAMPS = {
+  // the top stops stay CLEARLY colored — the officials' white lives in thin
+  // linework, not area, so an area-wash pipeline must never hand out
+  // near-white in bulk (user call: far too much white)
   good: [
     [2, 18, 110],
     [3, 42, 185],
     [8, 78, 232],
-    [28, 118, 252],
-    [66, 158, 255],
-    [116, 194, 255],
-    [172, 222, 255],
-    [226, 243, 255]
+    [24, 110, 250],
+    [48, 138, 255],
+    [82, 168, 255],
+    [122, 196, 255],
+    [178, 224, 255]
   ],
   evil: [
     [58, 2, 2],
     [108, 3, 3],
     [162, 8, 8],
-    [208, 20, 18],
-    [228, 58, 52],
-    [240, 108, 100],
-    [248, 166, 158],
-    [255, 222, 214]
+    [204, 18, 16],
+    [222, 44, 38],
+    [234, 82, 74],
+    [244, 126, 116],
+    [252, 176, 166]
   ],
   neutral: [
     [40, 24, 52],
@@ -71,7 +74,8 @@ const DEFAULTS = {
   contour: 1, // ink contour width multiplier (0 = no outline)
   hatch: 0.6, // shadow-band hatching strength
   pool: 0.85, // band-pooling dither width
-  rim: 0.55, // light-side pale rim strength
+  rim: 0.35, // light-side pale rim strength
+  top: 6.6, // tone ceiling in bands for AREA pixels (rim may exceed it)
   shadow: 0 // cast shadow opacity (officials have NONE)
 };
 let stored = {};
@@ -92,6 +96,7 @@ export const ENGRAVER_DIALS = [
   { key: "hatch", label: "Hatch", min: 0, max: 1, step: 0.05 },
   { key: "pool", label: "Pooling", min: 0, max: 2, step: 0.05 },
   { key: "rim", label: "Rim light", min: 0, max: 1, step: 0.05 },
+  { key: "top", label: "Tone ceiling", min: 4, max: 8, step: 0.1 },
   { key: "shadow", label: "Shadow", min: 0, max: 1, step: 0.05 }
 ];
 export function saveEngraver() {
@@ -372,6 +377,9 @@ export function stylizeIcon(
             y = (i / W) | 0;
           const p = vcdf[Math.max(0, Math.min(255, (vmap[i] * 128) | 0))];
           let tone = invCdf(cdfT, p);
+          // AREA pixels stop short of white — only the rim may pass the
+          // ceiling (their white is linework, never a wash)
+          tone = Math.min(tone, K.top / 8);
           if (rim[i]) tone = Math.min(1, tone + K.rim * 0.55);
           const dith = (fbm(x, y, 11, seed + 113) - 0.5) * K.pool;
           const band = Math.max(0, Math.min(7.999, tone * 8 + dith));
