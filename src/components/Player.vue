@@ -392,7 +392,9 @@ export default {
       const roleId = e.dataTransfer.getData("golem/role");
       const from = e.dataTransfer.getData("golem/from");
       if (roleId) {
-        const role = this.$store.state.roles.find(r => r.id === roleId);
+        // state.roles is a Map keyed by role id — .find() is an array method
+        // and threw here, so every drawer drop silently did nothing
+        const role = this.$store.state.roles.get(roleId);
         if (role) {
           this.$store.commit("players/update", {
             player: this.player,
