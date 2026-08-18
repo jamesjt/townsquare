@@ -83,50 +83,73 @@
             placeholder="Search every role…"
             @keyup.enter="searchRoles"
           />
-          <!-- The filter bar: Filters LEADS and encapsulates the chip strip
-               (user call). The strip shows the ACTIVE tags when any exist —
-               whatever group they came from — and offers the quick team
-               chips only while nothing is filtered. Same tri-state cycle
-               everywhere: show only → hide → off. -->
-          <div class="wb-filter-bar" :class="{ engaged: activeTagCount > 0 }">
+          <!-- FT-855: the researched filter. (1) TEAM ICON ROW — plain on/off
+               toggles, live counts, multi-select ORs. (2) Structured PILLS —
+               "Source is not TB ×": the verb flips is/is-not on click, the ×
+               removes; pills are the single truth of what's active. (3) The
+               +Filter menu lists facet values with LIVE match counts; zero
+               matches render dimmed, never a surprise empty shelf. -->
+          <div class="wb-team-row">
+            <button
+              v-for="t in teamRow"
+              :key="t.team"
+              class="wb-team-toggle"
+              :class="['team-' + t.team, { on: teamsOn.includes(t.team) }]"
+              :title="t.label"
+              @click="toggleTeam(t.team)"
+            >
+              <font-awesome-icon :icon="t.icon" />
+              <span class="cnt">{{ t.count }}</span>
+            </button>
+          </div>
+          <div class="wb-pill-row">
             <span
-              class="wb-filter-toggle"
+              class="wb-pill"
+              v-for="pill in pills"
+              :key="pill.id"
+              :class="{ negative: pill.not }"
+            >
+              <span class="facet">{{ pillFacetLabel(pill) }}</span>
+              <span
+                class="verb"
+                title="Click to flip between is / is not"
+                @click="flipPill(pill)"
+              >{{ pill.not ? "is not" : "is" }}</span>
+              <span class="val">{{ pillValueLabel(pill) }}</span>
+              <span class="x" title="Remove this filter" @click="removePill(pill)"
+                >×</span
+              >
+            </span>
+            <span
+              class="wb-addfilter"
               :class="{ open: filterOpen }"
               @click="filterOpen = !filterOpen"
             >
-              <font-awesome-icon icon="chevron-down" class="caret" />
-              Filters{{ activeTagCount ? " (" + activeTagCount + ")" : "" }}
+              <font-awesome-icon icon="plus-circle" /> Filter
             </span>
-            <div class="wb-chip-strip">
-              <span
-                v-for="chip in stripChips"
-                :key="chip.id"
-                class="wb-chip"
-                :class="chipClass(chip.id)"
-                :title="tagTitle(chip.id)"
-                @click="cycleTag(chip.id)"
-              >{{ chipPrefix(chip.id) }}{{ chip.label }}</span>
-            </div>
+            <span class="wb-clearall" v-if="pills.length" @click="pills = []"
+              >Clear</span
+            >
+            <span class="wb-results">{{ filteredCount }} of {{ totalCount }}</span>
           </div>
-          <div class="wb-filter-panel" v-if="filterOpen">
-            <div class="wb-filter-group" v-for="g in tagGroups" :key="g.key">
-              <h5>{{ g.label }}</h5>
-              <div class="wb-filter-tags">
-                <span
-                  v-for="tag in g.tags"
-                  :key="tag.id"
-                  class="wb-chip"
-                  :class="chipClass(tag.id)"
-                  :title="tagTitle(tag.id)"
-                  @click="cycleTag(tag.id)"
-                >{{ chipPrefix(tag.id) }}{{ tag.label }}</span>
-              </div>
-            </div>
-            <div class="wb-filter-foot">
-              <span class="wb-clear" v-if="activeTagCount" @click="clearTags"
-                >Clear all</span
+          <div class="wb-facet-menu" v-if="filterOpen">
+            <div class="facet-group" v-for="facet in facetList" :key="facet.key">
+              <h5>{{ facet.label }}</h5>
+              <div
+                class="facet-val"
+                v-for="tag in facet.tags"
+                :key="tag.id"
+                :class="{ zero: countFor(tag) === 0, active: !!pillFor(tag.id) }"
+                @click="togglePillValue(tag)"
               >
-              <small>a tag cycles: show only → hide → off</small>
+                <span class="vlabel">
+                  {{ tag.label }}
+                  <em v-if="pillFor(tag.id)">{{
+                    pillFor(tag.id).not ? "hidden" : "shown"
+                  }}</em>
+                </span>
+                <span class="vcount">{{ countFor(tag) }}</span>
+              </div>
             </div>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
@@ -701,8 +724,10 @@ export default {
       nsIconSearch: "",
       nsError: "",
       nsDragOver: false,
-      // the tri-state tag filter: tag id → 1 (include) | -1 (exclude)
-      tagState: {},
+      // FT-855: team toggles (empty = all) + structured filter pills
+      // [{ id: 'src:tb', not: false }] — the pill row is the single truth.
+      teamsOn: [],
+      pills: [],
       filterOpen: false,
       ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
@@ -850,31 +875,39 @@ export default {
     // Travellers left the script surface (user call 2026-08-17): a script is
     // the town's regular menu; travellers join IN the town — the seat's role
     // picker already lists every traveller, in-script or not (otherTravelers).
-    // The quick chips are tri-state tags too — same state as the panel.
-    quickChips() {
-      return [
-        { id: "team:townsfolk", label: "Townsfolk" },
-        { id: "team:outsider", label: "Outsiders" },
-        { id: "team:minion", label: "Minions" },
-        { id: "team:demon", label: "Demons" },
-        { id: "src:mine", label: "Yours" }
-      ];
+    /** FT-855: the team toggle row — icon, live count (self-excluded, the
+     *  faceted-search convention: a facet's own selection never zeroes its
+     *  siblings). */
+    teamRow() {
+      const icons = {
+        townsfolk: "users",
+        outsider: "user",
+        minion: "theater-masks",
+        demon: "skull"
+      };
+      return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
+        team,
+        label: TEAM_LABELS[team],
+        icon: icons[team],
+        count: this.allShelfEntries.filter(
+          e =>
+            e.team === team &&
+            this.matchesSearch(e) &&
+            this.matchesPills(e, null)
+        ).length
+      }));
     },
-    tagGroups() {
-      return TAG_GROUPS;
+    facetList() {
+      return TAG_GROUPS.filter(g => g.key !== "team");
     },
-    activeTagCount() {
-      return Object.keys(this.tagState).length;
+    filteredCount() {
+      return this.sidebarRoles.length;
     },
-    /** The bar's strip: the ACTIVE tags when any — else the quick chips. */
-    stripChips() {
-      if (!this.activeTagCount) return this.quickChips;
-      const all = TAG_GROUPS.flatMap(g => g.tags);
-      return all.filter(t => this.tagState[t.id] !== undefined);
+    totalCount() {
+      return this.allShelfEntries.length;
     },
-    /** The sidebar: every official + your library + browse results, filtered. */
-    sidebarRoles() {
-      const q = this.roleQuery.trim().toLowerCase();
+    /** Every shelf entry, UNFILTERED — the base set filters and counts read. */
+    allShelfEntries() {
       const inScriptIds = new Set(this.scriptRoles.map(r => r.id));
       const inScriptLibIds = new Set(
         this.scriptRoles.map(r => r.golemRoleId).filter(Boolean)
@@ -925,25 +958,22 @@ export default {
           inScript: inScriptLibIds.has(row.id)
         });
       });
-      // roles.json arrives grouped by EDITION (the user read it as "weirdly
-      // sorted") — the shelf sorts by team, then name, one order throughout.
+      return entries;
+    },
+    /** The shelf, filtered by search + team row + pills, sorted team/name.
+     *  (roles.json arrives grouped by edition — "weirdly sorted".) */
+    sidebarRoles() {
       const teamRank = t => {
         const i = TEAM_ORDER.indexOf(t);
         return i < 0 ? TEAM_ORDER.length : i;
       };
-      const st = this.tagState;
-      const excluded = Object.keys(st).filter(id => st[id] === -1);
-      const includesByGroup = TAG_GROUPS.map(g =>
-        g.tags.map(t => t.id).filter(id => st[id] === 1)
-      ).filter(list => list.length);
-      return entries
-        .filter(entry => {
-          if (q && !(entry.name || "").toLowerCase().includes(q)) return false;
-          if (!excluded.length && !includesByGroup.length) return true;
-          const tags = this.entryTags(entry);
-          if (excluded.some(id => tags.has(id))) return false;
-          return includesByGroup.every(list => list.some(id => tags.has(id)));
-        })
+      return this.allShelfEntries
+        .filter(
+          e =>
+            this.matchesSearch(e) &&
+            this.matchesTeams(e) &&
+            this.matchesPills(e, null)
+        )
         .sort(
           (a, b) =>
             teamRank(a.team) - teamRank(b.team) ||
@@ -1250,11 +1280,8 @@ export default {
     async searchRoles() {
       this.roleError = "";
       try {
-        // FT-854: a single INCLUDED team narrows the library browse too.
-        const incTeams = ["townsfolk", "outsider", "minion", "demon"].filter(
-          t => this.tagState["team:" + t] === 1
-        );
-        const type = incTeams.length === 1 ? incTeams[0] : "";
+        // FT-855: a single toggled team narrows the library browse too.
+        const type = this.teamsOn.length === 1 ? this.teamsOn[0] : "";
         const rows = await roleLib.browseRoles({
           q: this.roleQuery.trim(),
           type,
@@ -1532,30 +1559,76 @@ export default {
       if (entry.inScript) tags.add("flag:inscript");
       return tags;
     },
-    /** neutral → include → exclude → neutral */
-    cycleTag(id) {
-      const next = { ...this.tagState };
-      if (next[id] === 1) next[id] = -1;
-      else if (next[id] === -1) delete next[id];
-      else next[id] = 1;
-      this.tagState = next;
+    // ── FT-855: matchers ─────────────────────────────────────────────────
+    matchesSearch(entry) {
+      const q = this.roleQuery.trim().toLowerCase();
+      return !q || (entry.name || "").toLowerCase().includes(q);
     },
-    clearTags() {
-      this.tagState = {};
+    matchesTeams(entry) {
+      return !this.teamsOn.length || this.teamsOn.includes(entry.team);
     },
-    chipClass(id) {
-      return { inc: this.tagState[id] === 1, exc: this.tagState[id] === -1 };
+    /** Pills: includes OR within a facet, AND across facets; every is-not
+     *  pill excludes. excludeFacet skips one facet's pills (its own counts). */
+    matchesPills(entry, excludeFacet) {
+      const active = this.pills.filter(p => p.facet !== excludeFacet);
+      if (!active.length) return true;
+      const tags = this.entryTags(entry);
+      if (active.some(p => p.not && tags.has(p.id))) return false;
+      const facets = [...new Set(active.filter(p => !p.not).map(p => p.facet))];
+      return facets.every(f =>
+        active.some(p => !p.not && p.facet === f && tags.has(p.id))
+      );
     },
-    chipPrefix(id) {
-      return this.tagState[id] === -1 ? "− " : "";
+    // ── FT-855: controls ─────────────────────────────────────────────────
+    toggleTeam(team) {
+      this.teamsOn = this.teamsOn.includes(team)
+        ? this.teamsOn.filter(t => t !== team)
+        : [...this.teamsOn, team];
     },
-    tagTitle(id) {
-      const s = this.tagState[id];
-      return s === 1
-        ? "Showing only these — click to hide them instead"
-        : s === -1
-          ? "Hiding these — click to reset"
-          : "Click to show only these";
+    pillFor(id) {
+      return this.pills.find(p => p.id === id) || null;
+    },
+    /** Menu click: no pill → add (shown); pill exists → remove (a toggle). */
+    togglePillValue(tag) {
+      const existing = this.pillFor(tag.id);
+      if (existing) this.pills = this.pills.filter(p => p !== existing);
+      else
+        this.pills = [
+          ...this.pills,
+          { id: tag.id, facet: this.facetKeyOf(tag.id), not: false }
+        ];
+    },
+    flipPill(pill) {
+      pill.not = !pill.not;
+    },
+    removePill(pill) {
+      this.pills = this.pills.filter(p => p !== pill);
+    },
+    facetKeyOf(id) {
+      const g = TAG_GROUPS.find(g => g.tags.some(t => t.id === id));
+      return g ? g.key : "";
+    },
+    pillFacetLabel(pill) {
+      const g = TAG_GROUPS.find(g => g.key === pill.facet);
+      return g ? g.label : "";
+    },
+    pillValueLabel(pill) {
+      for (const g of TAG_GROUPS)
+        for (const t of g.tags) if (t.id === pill.id) return t.label;
+      return pill.id;
+    },
+    /** Live count for a facet value: everything EXCEPT its own facet's pills
+     *  applies (standard faceted counting — your own picks never zero your
+     *  siblings). */
+    countFor(tag) {
+      const facet = this.facetKeyOf(tag.id);
+      return this.allShelfEntries.filter(
+        e =>
+          this.matchesSearch(e) &&
+          this.matchesTeams(e) &&
+          this.matchesPills(e, facet) &&
+          this.entryTags(e).has(tag.id)
+      ).length;
     },
     /** A script logo is an official role id OR an uploaded data URL. */
     scriptLogoSrc(logo) {
@@ -2003,97 +2076,173 @@ $team-colors: (
       padding: 4px 8px;
       font-family: inherit;
     }
-    // Filters leads; the hairline box encapsulates its chips (user call).
-    .wb-filter-bar {
+    // FT-855: the team icon row — on/off toggles with live counts.
+    .wb-team-row {
       display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      border: 1px solid #3d3d3d;
-      border-radius: 6px;
-      padding: 4px 7px;
-      margin: 6px 0;
-      &.engaged {
-        border-color: #7d0e0e;
-      }
-      .wb-filter-toggle {
+      gap: 5px;
+      margin: 7px 0 5px;
+      .wb-team-toggle {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        padding: 5px 0 3px;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid #3d3d3d;
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.75);
         cursor: pointer;
-        white-space: nowrap;
-        font-size: 14px;
-        padding: 1px 2px;
-        opacity: 0.9;
-        flex-shrink: 0;
-        .caret {
-          font-size: 10px;
-          opacity: 0.7;
-          transition: transform 150ms;
+        font-family: inherit;
+        svg {
+          width: 16px;
+          height: 16px;
         }
-        &.open .caret {
-          transform: rotate(180deg);
+        .cnt {
+          font-size: 12px;
+          opacity: 0.7;
         }
         &:hover {
-          color: #ff7070;
+          border-color: #666;
+        }
+        @each $team, $color in $team-colors {
+          &.team-#{$team}.on {
+            border-color: $color;
+            background: rgba($color, 0.16);
+            color: lighten($color, 22%);
+            .cnt {
+              opacity: 1;
+              font-weight: bold;
+            }
+          }
         }
       }
-      .wb-chip-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        min-width: 0;
+    }
+    // FT-855: structured pills — the single truth of active filters.
+    .wb-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      .wb-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: rgba(160, 20, 20, 0.22);
+        border: 1px solid #7d0e0e;
+        .facet {
+          opacity: 0.65;
+        }
+        .verb {
+          cursor: pointer;
+          font-weight: bold;
+          text-decoration: underline dotted;
+          &:hover {
+            color: #ff8a8a;
+          }
+        }
+        .val {
+          font-weight: bold;
+        }
+        .x {
+          cursor: pointer;
+          margin-left: 2px;
+          opacity: 0.7;
+          &:hover {
+            color: red;
+            opacity: 1;
+          }
+        }
+        &.negative {
+          background: rgba(0, 0, 0, 0.55);
+          .verb {
+            color: #ff8a8a;
+          }
+          .val {
+            text-decoration: line-through;
+            opacity: 0.85;
+          }
+        }
+      }
+      .wb-addfilter {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 1px 10px;
+        border-radius: 999px;
+        border: 1px dashed #555;
+        cursor: pointer;
+        opacity: 0.85;
+        svg {
+          width: 11px;
+        }
+        &:hover,
+        &.open {
+          border-color: #a01414;
+          color: #ff8a8a;
+        }
+      }
+      .wb-clearall {
+        cursor: pointer;
+        color: #ff8a8a;
+        font-size: 12px;
+        &:hover {
+          color: red;
+        }
+      }
+      .wb-results {
+        margin-left: auto;
+        font-size: 12px;
+        opacity: 0.6;
       }
     }
-    .wb-chip {
-      cursor: pointer;
-      padding: 1px 9px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid transparent;
-      font-size: 14px;
-      &:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
-      // include: blood fill. exclude: struck through, blood hairline.
-      &.inc {
-        background: rgba(160, 20, 20, 0.6);
-        font-weight: bold;
-      }
-      &.exc {
-        background: rgba(0, 0, 0, 0.5);
-        border-color: #7d0e0e;
-        text-decoration: line-through;
-        opacity: 0.8;
-      }
-    }
-    .wb-filter-panel {
+    // FT-855: the facet menu — values with live counts; zero dims.
+    .wb-facet-menu {
       background: rgba(8, 8, 12, 0.97);
       border: 1px solid #400;
       border-radius: 6px;
-      padding: 6px 8px 8px;
+      padding: 4px 8px 8px;
       margin-bottom: 6px;
-      h5 {
-        margin: 5px 0 3px;
+      max-height: 300px;
+      overflow-y: auto;
+      .facet-group h5 {
+        margin: 7px 0 2px;
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1.5px;
         opacity: 0.55;
       }
-      .wb-filter-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-      }
-      .wb-filter-foot {
+      .facet-val {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
-        margin-top: 8px;
-        font-size: 11px;
-        opacity: 0.75;
-        .wb-clear {
-          cursor: pointer;
+        gap: 8px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        &:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+        &.zero {
+          opacity: 0.35;
+        }
+        &.active {
+          background: rgba(160, 20, 20, 0.2);
+        }
+        .vlabel em {
+          font-style: normal;
+          font-size: 11px;
           color: #ff8a8a;
-          &:hover {
-            color: red;
-          }
+          margin-left: 4px;
+        }
+        .vcount {
+          opacity: 0.55;
+          font-size: 12px;
         }
       }
     }
