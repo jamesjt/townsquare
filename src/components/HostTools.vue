@@ -58,7 +58,12 @@
           >{{ players.length }}</b
         >
       </span>
-      <small>{{ claimedCount }} claimed</small>
+      <small
+        title="Shift-click: fill the empty chairs with fake players (dev)"
+        @click.exact="() => {}"
+        @click.shift="devFillSeats"
+        >{{ claimedCount }} claimed</small
+      >
       <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
            ALWAYS rendered — appearing icons shove the row (user call);
            unusable states grey out instead. -->
@@ -85,11 +90,12 @@
       />
     </div>
 
+    <!-- FT-854: the role DRAWER replaced the overlay -->
     <div class="row">
       <span class="label">Roles</span>
-      <span class="value" @click="toggleModal('roles')">
+      <span class="value" @click="toggleModal('roleDrawer')">
         {{ rolesAssigned }} / {{ players.length }} assigned
-        <font-awesome-icon icon="random" />
+        <font-awesome-icon icon="book-dead" />
       </span>
     </div>
 
@@ -312,6 +318,24 @@ export default {
           return;
         }
       }
+    },
+    /** DEV: shift-click the claimed count — every empty chair gets a fake
+     *  player, so a full game can start solo (pair with shift-Start). */
+    devFillSeats() {
+      this.players.forEach((p, i) => {
+        if (!p.id) {
+          this.$store.commit("players/update", {
+            player: p,
+            property: "id",
+            value: "dev-" + (i + 1)
+          });
+          this.$store.commit("players/update", {
+            player: p,
+            property: "name",
+            value: "Fake " + (i + 1)
+          });
+        }
+      });
     },
     /** Apply a pick in place — no modal unless the Almanac card is chosen. */
     pickScript(card) {

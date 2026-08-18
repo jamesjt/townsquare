@@ -45,7 +45,8 @@
       </span>
     </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
-    <div id="font-debug" :class="{ open: fontDebugOpen }">
+    <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
+    <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
         Aa
       </div>
@@ -109,6 +110,17 @@
     <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
          through the same vault path as a ?script= link. -->
     <EditionModal ref="edition" />
+    <!-- FT-854: the role DRAWER + its grimoire tab (host, town on table) -->
+    <RoleDrawer />
+    <div
+      class="drawer-tab"
+      v-if="!session.isSpectator && players.length"
+      :class="{ open: modals.roleDrawer }"
+      :title="modals.roleDrawer ? 'Close the grimoire' : 'Open the grimoire'"
+      @click="$store.commit('toggleModal', 'roleDrawer')"
+    >
+      <font-awesome-icon :icon="modals.roleDrawer ? 'book-open' : 'book-dead'" />
+    </div>
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -207,6 +219,7 @@ import HostTools from "./components/HostTools";
 import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
+import RoleDrawer from "./components/RoleDrawer";
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
 import Vote from "./components/Vote";
@@ -255,10 +268,11 @@ export default {
     Menu,
     EditionModal,
     RolesModal,
+    RoleDrawer,
     Gradients
   },
   computed: {
-    ...mapState(["grimoire", "session"]),
+    ...mapState(["grimoire", "session", "modals"]),
     ...mapState("players", ["players"]),
     // in a session (or with a town on the table): the dial letters leave
     // and the handless clock art takes the wall (user call 2026-08-18)
@@ -342,6 +356,8 @@ export default {
       // the app-wide PNG-font state + the font lab panel
       fontState,
       fontDebugOpen: false,
+      // dev labs visibility (Aa + Ik) — hidden for now
+      devLabs: false,
       // the engraver lab
       engraverRef: engraver,
       ikDials: ENGRAVER_DIALS,
@@ -869,6 +885,31 @@ video#background {
      zoom on portrait phones can't balloon the buttons. */
   --dfpx: min(var(--fpx), 0.145vmin);
 }
+// the grimoire drawer's tab — rides the left edge, above the drawer
+.drawer-tab {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 21;
+  padding: 12px 10px 12px 8px;
+  background: rgba(8, 8, 10, 0.92);
+  border: 1px solid #4a0d0d;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  color: #c41818;
+  font-size: 18px;
+  &:hover {
+    color: #ff3b3b;
+  }
+  &.open {
+    left: 250px;
+    color: #ffb6b6;
+  }
+  transition: left 220ms ease;
+}
+
 // in a game the hands leave the face — #app paints the handless art over
 // the body's default (the class rides #app, not body)
 #app.in-game {

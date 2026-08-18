@@ -3,6 +3,8 @@
     <div
       ref="player"
       class="player"
+      @dragover.prevent
+      @drop="onRoleDrop"
       :class="[
         {
           dead: player.isDead,
@@ -24,7 +26,7 @@
         :style="splatStyle"
       ></div>
       <div class="shroud" @click="toggleStatus()"></div>
-      <div class="life" @click="toggleStatus()">
+      <div class="life" @click="onLifeClick">
         <!-- the seat's Roman numeral rides the parchment until a role
              lands on the chair (user call) -->
         <span class="seat-numeral" v-if="!player.role || !player.role.id">{{
@@ -51,8 +53,12 @@
         }}</span>
       </div>
 
+      <!-- FT-854: a seated role DRAGS — to another chair (swap) or into
+           the drawer (unassign) -->
       <Token
         :role="player.role"
+        :draggable="String(!!player.role.id && !session.isSpectator)"
+        @dragstart.native="onRoleDragStart"
         @set-role="$emit('trigger', ['openRoleModal'])"
       />
 
@@ -357,6 +363,59 @@ export default {
       //Only update pronouns if not null (prompt was not cancelled)
       if (pronouns !== null) {
         this.updatePlayer("pronouns", pronouns, true);
+      }
+    },
+    // ── FT-854: the role drawer's seat-side wiring ───────────────────────
+    /** Clicking the parchment PLACES the drawer's picked role (else the
+     *  usual alive/dead toggle). */
+    onLifeClick() {
+      const pick = this.$store.state.drawerPick;
+      if (pick && !this.session.isSpectator) {
+        this.$store.commit("players/update", {
+          player: this.player,
+          property: "role",
+          value: pick
+        });
+        this.$store.commit("setDrawerPick", null);
+        return;
+      }
+      this.toggleStatus();
+    },
+    onRoleDragStart(e) {
+      e.dataTransfer.setData("golem/from", String(this.index));
+      e.dataTransfer.effectAllowed = "move";
+    },
+    /** A drop on this seat: a drawer role assigns; another seat's role
+     *  SWAPS chairs with ours. */
+    onRoleDrop(e) {
+      if (this.session.isSpectator) return;
+      const roleId = e.dataTransfer.getData("golem/role");
+      const from = e.dataTransfer.getData("golem/from");
+      if (roleId) {
+        const role = this.$store.state.roles.find(r => r.id === roleId);
+        if (role) {
+          this.$store.commit("players/update", {
+            player: this.player,
+            property: "role",
+            value: role
+          });
+        }
+        return;
+      }
+      if (from !== "" && Number(from) !== this.index) {
+        const other = this.players[Number(from)];
+        if (!other) return;
+        const mine = this.player.role;
+        this.$store.commit("players/update", {
+          player: this.player,
+          property: "role",
+          value: other.role
+        });
+        this.$store.commit("players/update", {
+          player: other,
+          property: "role",
+          value: mine && mine.id ? mine : {}
+        });
       }
     },
     toggleStatus() {

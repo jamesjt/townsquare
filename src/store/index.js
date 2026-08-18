@@ -122,8 +122,12 @@ export default new Vuex.Store({
       reminder: false,
       role: false,
       roles: false,
+      roleDrawer: false,
       voteHistory: false
     },
+    // FT-854: the role drawer's click-to-place selection (a role object,
+    // or null) — clicking a seat's token places it
+    drawerPick: null,
     edition: editionJSONbyId.get("tb"),
     roles: getRolesByEdition(),
     otherTravelers: getTravelersNotInEdition(),
@@ -176,6 +180,9 @@ export default new Vuex.Store({
     toggleNight: toggle("isNight"),
     toggleGrimoire: toggle("isPublic"),
     toggleImageOptIn: toggle("isImageOptIn"),
+    setDrawerPick(state, role) {
+      state.drawerPick = role || null;
+    },
     toggleModal({ modals }, name) {
       if (name) {
         modals[name] = !modals[name];
