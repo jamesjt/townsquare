@@ -23,8 +23,8 @@
               :src="almanacCap.src"
               :class="almanacCap.cls"
               :style="almanacCap.style"
-              alt="A"
-            />lmanac
+              alt="S"
+            />cripts
           </h3>
         </div>
         <div class="wb-row2">
@@ -1292,12 +1292,12 @@ export default {
     almanacCap() {
       const key = resolvedCapKey();
       if (key !== "blood" && key !== "logo") {
-        const g = glyphFrom(key, "A");
+        const g = glyphFrom(key, "S");
         if (g)
           return {
             src: g.src,
             cls: "font-cap",
-            style: glyphStyleFrom(key, "A", CAP_SHRINK)
+            style: glyphStyleFrom(key, "S", CAP_SHRINK)
           };
       }
       return { src: this.bloodA, cls: "blood-cap-a", style: null };

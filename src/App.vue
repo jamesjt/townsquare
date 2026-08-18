@@ -455,13 +455,8 @@ export default {
           this.$store.commit("toggleGrimoire");
           break;
         case "a":
-          // Golem fork: sessionless, A opens the Almanac (the third door);
-          // in-session it keeps upstream's meaning — add player.
-          if (!this.session.sessionId && this.$refs.intro) {
-            this.$refs.intro.openCreate();
-          } else {
-            this.$refs.menu.addPlayer();
-          }
+          // in-session: upstream's add player (the Scripts door moved to S)
+          if (this.session.sessionId) this.$refs.menu.addPlayer();
           break;
         case "h":
           // Golem fork: sessionless routes to the SAME panel the Host door
@@ -500,6 +495,12 @@ export default {
           }
           break;
         case "s":
+          // Golem fork: sessionless, S opens the SCRIPTS door (renamed from
+          // Almanac 2026-08-18); in-session it keeps the night toggle.
+          if (!this.session.sessionId && this.$refs.intro) {
+            this.$refs.intro.openCreate();
+            break;
+          }
           if (this.session.isSpectator) return;
           this.$refs.menu.toggleNight();
           break;

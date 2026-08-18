@@ -84,8 +84,8 @@
           </li>
           <li @click="openCreate">
             <span class="key"
-              ><img :src="capSrc('A')" :class="capClass('a')" :style="capStyle('A')" alt="A"
-            /></span>lmanac
+              ><img :src="capSrc('S')" :class="capClass('s')" :style="capStyle('S')" alt="S"
+            /></span>cripts
           </li>
         </ul>
 
@@ -432,15 +432,15 @@ export default {
             name: s.name || s.id,
             icon: edCustom,
             blurb: this.vaultBlurb(s.id),
-            source: meta && meta.author ? `by ${meta.author}` : "Almanac"
+            source: meta && meta.author ? `by ${meta.author}` : "Scripts"
           });
         });
       cards.push({
         id: "__custom",
-        name: "Almanac…",
+        name: "Scripts…",
         icon: edCustom,
         blurb: "Build your own script, or load any script by link.",
-        source: "Almanac"
+        source: "Scripts"
       });
       return cards;
     },

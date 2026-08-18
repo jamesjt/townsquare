@@ -13,9 +13,9 @@ import Vue from "vue";
 // Trimmed 2026-08-17 (user call): the option list is Red 970000,
 // Gold D7A25F and the carved Clocktower caps — the earlier families stay
 // on disk (assets + design sources) but are no longer bundled or cycled.
-const red97Ctx = require.context("../assets/red/970000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
-const tanCtx = require.context("../assets/gold/d7a25f", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
-const ctCtx = require.context("../assets/gold/clocktower", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N)\.png$/);
+const red97Ctx = require.context("../assets/red/970000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const tanCtx = require.context("../assets/gold/d7a25f", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const ctCtx = require.context("../assets/gold/clocktower", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S)\.png$/);
 
 import red97Metrics from "../assets/red/970000/metrics.json";
 import tanMetrics from "../assets/gold/d7a25f/metrics.json";

@@ -115,6 +115,19 @@ import { getRecents } from "../golem/scripts";
 
 export default {
   components: { ScriptPicker },
+  mounted() {
+    // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
+    // game (5-6 is Teensyville; user call 2026-08-18)
+    if (this.players.length === 0) this.setSeatCount(7);
+  },
+  watch: {
+    // the HOST sees assignments as they land — while building, the first
+    // assigned role flips the grimoire face-up (G still toggles freely)
+    rolesAssigned(n) {
+      if (n > 0 && this.grimoire.isPublic)
+        this.$store.commit("toggleGrimoire");
+    }
+  },
   data() {
     return {
       // the picker's vault selection (officials read from the store)
@@ -133,7 +146,7 @@ export default {
     this.loadTownName();
   },
   computed: {
-    ...mapState(["edition", "session"]),
+    ...mapState(["edition", "session", "grimoire"]),
     ...mapState("players", ["players"]),
     /** FT-847: the edit key when this hosted town is OURS (else falsy). */
     ownedKey() {
@@ -176,12 +189,12 @@ export default {
           name: s.name || s.id,
           icon: edCustom,
           blurb: "",
-          source: "Almanac"
+          source: "Scripts"
         });
       });
       cards.push({
         id: "__almanac",
-        name: "Almanac…",
+        name: "Scripts…",
         icon: edCustom,
         blurb: "Open the workbench — edit or forge a script",
         source: ""
@@ -384,17 +397,27 @@ export default {
       display: flex;
       align-items: center;
       gap: 10px;
+      // scrub and input share ONE footprint so the swap never shifts the row
+      .seat-scrub,
+      .seat-input {
+        box-sizing: border-box;
+        display: inline-block;
+        width: 2.8em;
+        height: 1.5em;
+        line-height: 1.5em;
+        text-align: center;
+        font-weight: bold;
+        font-size: inherit;
+      }
       .seat-scrub {
         cursor: ew-resize;
-        min-width: 1.6em;
-        text-align: center;
         user-select: none;
         touch-action: none;
       }
       .seat-input {
-        width: 3.2em;
-        text-align: center;
-        font-weight: bold;
+        padding: 0 2px;
+        margin: 0;
+        border-width: 1px;
       }
       svg {
         cursor: pointer;

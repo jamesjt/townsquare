@@ -675,10 +675,14 @@ export default {
 
     .seat-numeral {
       position: absolute;
-      inset: 0;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
+      line-height: 1;
       font-family: "PiratesBay", Georgia, serif;
       font-size: 2.2em;
       color: #14100a;
