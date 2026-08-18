@@ -1009,15 +1009,16 @@ video#background {
   top: 50%;
   transform: translateY(-50%);
   z-index: 21;
-  padding: 12px 10px 12px 8px;
+  padding: 3px;
   background: rgba(8, 8, 10, 0.92);
   border: 1px solid #4a0d0d;
   border-left: none;
   border-radius: 0 8px 8px 0;
   cursor: pointer;
   .tab-book {
-    width: 30px;
-    height: 30px;
+    // the cover at its own proportions (80x96 asset), barely framed
+    width: 40px;
+    height: 48px;
     display: block;
     filter: drop-shadow(0 1px 3px black);
   }
