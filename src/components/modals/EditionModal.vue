@@ -113,14 +113,45 @@
             placeholder="Search every role…"
             @keyup.enter="searchRoles"
           />
+          <!-- tri-state chips: neutral → show only → hide. The Filters panel
+               below carries the deeper tags on the same state. -->
           <div class="wb-chips">
             <span
-              v-for="chip in teamChips"
-              :key="chip.value"
+              v-for="chip in quickChips"
+              :key="chip.id"
               class="wb-chip"
-              :class="{ active: wbTeam === chip.value }"
-              @click="wbTeam = wbTeam === chip.value ? '' : chip.value"
-            >{{ chip.label }}</span>
+              :class="chipClass(chip.id)"
+              :title="tagTitle(chip.id)"
+              @click="cycleTag(chip.id)"
+            >{{ chipPrefix(chip.id) }}{{ chip.label }}</span>
+            <span
+              class="wb-chip wb-filter-toggle"
+              :class="{ inc: filterOpen || activeTagCount > 0 }"
+              @click="filterOpen = !filterOpen"
+            >
+              Filters{{ activeTagCount ? " (" + activeTagCount + ")" : "" }}
+            </span>
+          </div>
+          <div class="wb-filter-panel" v-if="filterOpen">
+            <div class="wb-filter-group" v-for="g in tagGroups" :key="g.key">
+              <h5>{{ g.label }}</h5>
+              <div class="wb-filter-tags">
+                <span
+                  v-for="tag in g.tags"
+                  :key="tag.id"
+                  class="wb-chip"
+                  :class="chipClass(tag.id)"
+                  :title="tagTitle(tag.id)"
+                  @click="cycleTag(tag.id)"
+                >{{ chipPrefix(tag.id) }}{{ tag.label }}</span>
+              </div>
+            </div>
+            <div class="wb-filter-foot">
+              <span class="wb-clear" v-if="activeTagCount" @click="clearTags"
+                >Clear all</span
+              >
+              <small>a tag cycles: show only → hide → off</small>
+            </div>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
           <ul class="wb-all-roles">
@@ -441,6 +472,54 @@
           </div>
         </div>
       </div>
+      <!-- FT-854: the New-script overlay — name required, icon optional
+           (an official role's art marks the script; none = the custom mark). -->
+      <div class="role-form ns-form" v-if="newScriptForm">
+        <h3>New script</h3>
+        <div class="row">
+          <input
+            ref="nsName"
+            v-model="newScriptForm.name"
+            placeholder="Script name"
+            maxlength="60"
+            @keyup.enter="createNewScript"
+          />
+        </div>
+        <div class="icon-picker">
+          <input
+            v-model="nsIconSearch"
+            placeholder="Icon: search official roles (optional)…"
+          />
+          <div class="icon-grid">
+            <div
+              class="icon-cell"
+              v-for="official in nsIconMatches"
+              :key="'ns-' + official.id"
+              :class="{ selected: newScriptForm.icon === official.id }"
+              @click="
+                newScriptForm.icon =
+                  newScriptForm.icon === official.id ? '' : official.id
+              "
+            >
+              <span
+                class="icon"
+                :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
+              ></span>
+              <span class="label">{{ official.name }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="role-error" v-if="nsError">{{ nsError }}</div>
+        <div class="button-group">
+          <div class="button" @click="createNewScript">
+            <font-awesome-icon icon="plus-circle" /> Create
+          </div>
+          <div class="button" @click="newScriptForm = null">
+            <font-awesome-icon icon="times" /> Cancel
+          </div>
+        </div>
+      </div>
+
       <div class="role-error wb-error" v-if="roleError">{{ roleError }}</div>
 
       <input
@@ -489,6 +568,56 @@ const SETUP_TABLE = {
   15: [9, 2, 3, 1]
 };
 const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon", "traveler"];
+// FT-854: the shelf's tri-state tag filter. Every tag cycles
+// neutral → include → exclude. Includes OR within a group and AND across
+// groups; an exclude always wins. Library roles carry no night/setup data,
+// so they only match tags we can actually prove.
+const LUF_ROLES = new Set(
+  (editionJSON.find(e => e.id === "luf") || { roles: [] }).roles
+);
+const TAG_GROUPS = [
+  {
+    key: "team",
+    label: "Team",
+    tags: [
+      { id: "team:townsfolk", label: "Townsfolk" },
+      { id: "team:outsider", label: "Outsiders" },
+      { id: "team:minion", label: "Minions" },
+      { id: "team:demon", label: "Demons" }
+    ]
+  },
+  {
+    key: "source",
+    label: "Source",
+    tags: [
+      { id: "src:tb", label: "Trouble Brewing" },
+      { id: "src:bmr", label: "Bad Moon Rising" },
+      { id: "src:snv", label: "Sects & Violets" },
+      { id: "src:luf", label: "Laissez un Faire" },
+      { id: "src:exp", label: "Experimental" },
+      { id: "src:mine", label: "Your library" },
+      { id: "src:lib", label: "Community" }
+    ]
+  },
+  {
+    key: "night",
+    label: "Night",
+    tags: [
+      { id: "night:first", label: "Wakes first night" },
+      { id: "night:other", label: "Wakes other nights" },
+      { id: "night:never", label: "Never wakes" }
+    ]
+  },
+  {
+    key: "flags",
+    label: "Special",
+    tags: [
+      { id: "flag:setup", label: "Affects setup" },
+      { id: "flag:inscript", label: "In this script" }
+    ]
+  }
+];
+
 // The import box's ghost text and its copyable template — the same object,
 // so the syntax the ghost shows is exactly the syntax the parser accepts.
 const ROLE_TEMPLATE = {
@@ -546,6 +675,13 @@ export default {
       dragId: null,
       dragOverId: null,
       dragAfter: false,
+      // the New-script overlay
+      newScriptForm: null,
+      nsIconSearch: "",
+      nsError: "",
+      // the tri-state tag filter: tag id → 1 (include) | -1 (exclude)
+      tagState: {},
+      filterOpen: false,
       ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
@@ -636,7 +772,12 @@ export default {
       const vaultCard = (entry, source) => ({
         id: entry.id,
         name: (this.ncMap[entry.id] ? "⚠ " : "") + (entry.name || entry.id),
-        icon: edCustom,
+        // the loaded script's own icon shows once known (edition.logo —
+        // saved scripts carry it in _meta)
+        icon:
+          entry.id === this.vaultSourceId && this.$store.state.edition.logo
+            ? this.iconUrl(this.$store.state.edition.logo)
+            : edCustom,
         blurb: this.ncMap[entry.id]
           ? "Outside the rules — still playable."
           : "",
@@ -687,14 +828,21 @@ export default {
     // Travellers left the script surface (user call 2026-08-17): a script is
     // the town's regular menu; travellers join IN the town — the seat's role
     // picker already lists every traveller, in-script or not (otherTravelers).
-    teamChips() {
+    // The quick chips are tri-state tags too — same state as the panel.
+    quickChips() {
       return [
-        { value: "townsfolk", label: "Townsfolk" },
-        { value: "outsider", label: "Outsiders" },
-        { value: "minion", label: "Minions" },
-        { value: "demon", label: "Demons" },
-        { value: "mine", label: "Yours" }
+        { id: "team:townsfolk", label: "Townsfolk" },
+        { id: "team:outsider", label: "Outsiders" },
+        { id: "team:minion", label: "Minions" },
+        { id: "team:demon", label: "Demons" },
+        { id: "src:mine", label: "Yours" }
       ];
+    },
+    tagGroups() {
+      return TAG_GROUPS;
+    },
+    activeTagCount() {
+      return Object.keys(this.tagState).length;
     },
     /** The sidebar: every official + your library + browse results, filtered. */
     sidebarRoles() {
@@ -714,7 +862,12 @@ export default {
           ability: role.ability,
           iconUrl: this.iconUrl(role.id),
           official: true,
-          inScript: inScriptIds.has(role.id)
+          inScript: inScriptIds.has(role.id),
+          // the tag filter's raw material
+          edition: role.edition,
+          firstNight: role.firstNight,
+          otherNight: role.otherNight,
+          setup: !!role.setup
         });
       });
       const seen = new Set();
@@ -750,12 +903,18 @@ export default {
         const i = TEAM_ORDER.indexOf(t);
         return i < 0 ? TEAM_ORDER.length : i;
       };
+      const st = this.tagState;
+      const excluded = Object.keys(st).filter(id => st[id] === -1);
+      const includesByGroup = TAG_GROUPS.map(g =>
+        g.tags.map(t => t.id).filter(id => st[id] === 1)
+      ).filter(list => list.length);
       return entries
         .filter(entry => {
           if (q && !(entry.name || "").toLowerCase().includes(q)) return false;
-          if (this.wbTeam === "mine") return entry.isLib && entry.mine;
-          if (this.wbTeam) return entry.team === this.wbTeam;
-          return true;
+          if (!excluded.length && !includesByGroup.length) return true;
+          const tags = this.entryTags(entry);
+          if (excluded.some(id => tags.has(id))) return false;
+          return includesByGroup.every(list => list.some(id => tags.has(id)));
         })
         .sort(
           (a, b) =>
@@ -765,6 +924,11 @@ export default {
     },
     roleTemplateJson() {
       return JSON.stringify(ROLE_TEMPLATE);
+    },
+    nsIconMatches() {
+      const q = this.nsIconSearch.trim().toLowerCase();
+      if (!q) return rolesJSON;
+      return rolesJSON.filter(role => role.name.toLowerCase().includes(q));
     },
     /** The shelf grouped by team, headers included (user call). */
     sidebarGroups() {
@@ -878,6 +1042,16 @@ export default {
           ? entry.id
           : entry
       );
+      // FT-854: the script's icon travels in _meta (script-tool convention),
+      // so it survives the save/load round trip.
+      if (this.$store.state.edition.logo) {
+        roles.unshift({
+          id: "_meta",
+          name,
+          author: meta.author,
+          logo: this.$store.state.edition.logo
+        });
+      }
       try {
         const { script, created, forked } = await vault.saveScript({
           name,
@@ -1043,12 +1217,11 @@ export default {
     async searchRoles() {
       this.roleError = "";
       try {
-        // FT-854: the sidebar's team chip doubles as the browse type filter.
-        const type = ["townsfolk", "outsider", "minion", "demon"].includes(
-          this.wbTeam
-        )
-          ? this.wbTeam
-          : "";
+        // FT-854: a single INCLUDED team narrows the library browse too.
+        const incTeams = ["townsfolk", "outsider", "minion", "demon"].filter(
+          t => this.tagState["team:" + t] === 1
+        );
+        const type = incTeams.length === 1 ? incTeams[0] : "";
         const rows = await roleLib.browseRoles({
           q: this.roleQuery.trim(),
           type,
@@ -1130,13 +1303,31 @@ export default {
         this.loadFromVault(card.id).then(() => this.ensureOpen());
       }
     },
-    /** A blank page: empty custom script, no vault lineage. */
+    /** New script: the overlay asks for a name (required) + icon (optional). */
     newScript() {
+      this.nsError = "";
+      this.nsIconSearch = "";
+      this.newScriptForm = { name: "", icon: "" };
+      this.$nextTick(() => this.$refs.nsName && this.$refs.nsName.focus());
+    },
+    createNewScript() {
+      const f = this.newScriptForm;
+      if (!f) return;
+      if (!f.name.trim()) {
+        this.nsError = "A script needs a name.";
+        return;
+      }
       this.$store.commit("setCustomRoles", []);
-      this.$store.commit("setEdition", { id: "custom", name: "Untitled script" });
+      this.$store.commit("setEdition", {
+        id: "custom",
+        name: f.name.trim(),
+        // the icon rides the edition and persists through _meta on save
+        logo: f.icon || undefined
+      });
       this.vaultSourceId = null;
+      this.newScriptForm = null;
       this.ensureOpen();
-      flashHint("A blank script — add roles from the shelf");
+      flashHint(`${f.name.trim()} — a blank page. Add roles from the shelf`);
     },
     /** Sidebar click: in the script → out; not in it → in. */
     async toggleRole(entry) {
@@ -1287,6 +1478,51 @@ export default {
         });
       }
       this.ensureOpen();
+    },
+    // ── FT-854: the tri-state tag filter ─────────────────────────────────
+    /** Everything provable about a shelf entry, as tag ids. */
+    entryTags(entry) {
+      const tags = new Set(["team:" + entry.team]);
+      if (entry.isLib) {
+        tags.add(entry.mine ? "src:mine" : "src:lib");
+      } else {
+        if (["tb", "bmr", "snv"].includes(entry.edition))
+          tags.add("src:" + entry.edition);
+        else if (LUF_ROLES.has(entry.id)) tags.add("src:luf");
+        else tags.add("src:exp");
+        if (entry.firstNight > 0) tags.add("night:first");
+        if (entry.otherNight > 0) tags.add("night:other");
+        if (!(entry.firstNight > 0) && !(entry.otherNight > 0))
+          tags.add("night:never");
+        if (entry.setup) tags.add("flag:setup");
+      }
+      if (entry.inScript) tags.add("flag:inscript");
+      return tags;
+    },
+    /** neutral → include → exclude → neutral */
+    cycleTag(id) {
+      const next = { ...this.tagState };
+      if (next[id] === 1) next[id] = -1;
+      else if (next[id] === -1) delete next[id];
+      else next[id] = 1;
+      this.tagState = next;
+    },
+    clearTags() {
+      this.tagState = {};
+    },
+    chipClass(id) {
+      return { inc: this.tagState[id] === 1, exc: this.tagState[id] === -1 };
+    },
+    chipPrefix(id) {
+      return this.tagState[id] === -1 ? "− " : "";
+    },
+    tagTitle(id) {
+      const s = this.tagState[id];
+      return s === 1
+        ? "Showing only these — click to hide them instead"
+        : s === -1
+          ? "Hiding these — click to reset"
+          : "Click to show only these";
     },
     /** Put the fillable role template on the clipboard. */
     async copyRoleTemplate() {
@@ -1690,14 +1926,59 @@ $team-colors: (
       padding: 1px 8px;
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.08);
-      font-size: 85%;
+      border: 1px solid transparent;
+      font-size: 13px;
       &:hover {
         background: rgba(255, 255, 255, 0.2);
       }
-      &.active {
-        background: rgba(255, 255, 255, 0.35);
-        color: black;
+      // include: blood fill. exclude: struck through, blood hairline.
+      &.inc {
+        background: rgba(160, 20, 20, 0.6);
         font-weight: bold;
+      }
+      &.exc {
+        background: rgba(0, 0, 0, 0.5);
+        border-color: #7d0e0e;
+        text-decoration: line-through;
+        opacity: 0.8;
+      }
+    }
+    .wb-filter-toggle {
+      margin-left: auto;
+      border: 1px solid #3d3d3d;
+    }
+    .wb-filter-panel {
+      background: rgba(8, 8, 12, 0.97);
+      border: 1px solid #400;
+      border-radius: 6px;
+      padding: 6px 8px 8px;
+      margin-bottom: 6px;
+      h5 {
+        margin: 5px 0 3px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        opacity: 0.55;
+      }
+      .wb-filter-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .wb-filter-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-top: 8px;
+        font-size: 11px;
+        opacity: 0.75;
+        .wb-clear {
+          cursor: pointer;
+          color: #ff8a8a;
+          &:hover {
+            color: red;
+          }
+        }
       }
     }
     .wb-all-roles {
