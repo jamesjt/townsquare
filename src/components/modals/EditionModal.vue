@@ -370,10 +370,16 @@
               :key="group.label"
               :class="[group.team ? 'team-' + group.team : '', { dim: group.dim }]"
             >
-              <h4>
+              <!-- click a type header to fold its box (user call) -->
+              <h4 class="wb-fold" @click="toggleGroupFold(group.label)">
                 {{ group.label }} <small>({{ group.roles.length }})</small>
+                <font-awesome-icon
+                  class="caret"
+                  :icon="foldedGroups[group.label] ? 'chevron-down' : 'chevron-down'"
+                  :class="{ open: !foldedGroups[group.label] }"
+                />
               </h4>
-              <ul class="wb-cards">
+              <ul class="wb-cards" v-show="!foldedGroups[group.label]">
                 <li
                   v-for="role in group.roles"
                   :key="role.id"
@@ -949,6 +955,8 @@ export default {
       // FT-856 slice B: the icon tabs — official borrow vs the new-icon
       // library (game-icons.net curation, lazy chunk).
       iconTab: "library",
+      // By-type group folding (click the header)
+      foldedGroups: {},
       ilSearch: "",
       ilTheme: "",
       ilLoaded: false,
@@ -1549,6 +1557,9 @@ export default {
       this.roleError = "";
     },
     /** Click an icon to select it; click again to clear (icon is optional). */
+    toggleGroupFold(label) {
+      this.$set(this.foldedGroups, label, !this.foldedGroups[label]);
+    },
     pickIcon(id) {
       this.roleForm.icon = this.roleForm.icon === id ? "" : id;
       // an official borrow replaces any baked library pick
@@ -2636,6 +2647,25 @@ $team-colors: (
     opacity: 0.7;
   }
 }
+// By-type group folding: the header is the control
+.wb-groups h4.wb-fold {
+  cursor: pointer;
+  user-select: none;
+  .caret {
+    margin-left: 8px;
+    font-size: 0.7em;
+    opacity: 0.6;
+    transition: transform 160ms ease;
+    transform: rotate(-90deg);
+    &.open {
+      transform: rotate(0);
+    }
+  }
+  &:hover .caret {
+    opacity: 1;
+  }
+}
+
 // Wakes: its own block — title line, one themed checkbox row per night
 .role-form .wakes-block {
   display: flex;

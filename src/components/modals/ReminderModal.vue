@@ -115,7 +115,7 @@ export default {
 
 <style scoped lang="scss">
 ul.reminders .reminder {
-  background: url("../../assets/reminder.png") center center;
+  background: url("../../assets/reminder-golem.png") center center;
   background-size: 100%;
   width: 14vh;
   height: 14vh;

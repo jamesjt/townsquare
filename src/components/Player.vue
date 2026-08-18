@@ -1085,7 +1085,8 @@ li.move:not(.from) .player .overlay svg.move {
 
 /***** Reminder token *****/
 .circle .reminder {
-  background: url("../assets/reminder.png") center center;
+  // Golem fork: our parchment reminder disc (upstream reminder.png untouched)
+  background: url("../assets/reminder-golem.png") center center;
   background-size: 100%;
   width: 50%;
   height: 0;
