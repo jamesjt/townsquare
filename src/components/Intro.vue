@@ -176,13 +176,18 @@
             <span class="back" title="Back" @click="mode = null"
               ><font-awesome-icon icon="arrow-left"
             /></span>
+            <!-- Golem fork (FT-854): the primary action wears WORDS in the
+                 door idiom — blood-O drop cap + label. The blood letter is
+                 the hotkey promise: O opens the town while this panel is up. -->
             <button
-              class="confirm"
+              class="confirm open-town"
               :class="{ disabled: !townIdClean }"
-              title="Open the town"
+              title="Open the town (O)"
               @click="confirmHost"
             >
-              <font-awesome-icon icon="bell" />
+              <span class="key"
+                ><img :src="bloodO" class="blood-cap-o" alt="O"
+              /></span>pen the town
             </button>
           </div>
         </div>
@@ -281,6 +286,9 @@ import alphabetMetrics from "../assets/blood/alphabet/metrics.json";
 // script), keyed to transparent PNGs.
 import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
+// FT-854: the Open-the-town button's blood O (alphabet archive; ems baked
+// from its metrics at the title conversion — 341x410, baseline 352, /370).
+import bloodO from "../assets/blood/alphabet/O.png";
 // Golem fork (FT-854): the picker + its art moved to shared homes — the host
 // panel and the Almanac workbench render the SAME component and imagery.
 import ScriptPicker from "./ScriptPicker";
@@ -443,6 +451,7 @@ export default {
       blood: BLOOD,
       bloodLogo,
       ontheLogo,
+      bloodO,
       titleStyle: savedTitleStyle,
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
@@ -484,9 +493,16 @@ export default {
     },
     // (The picker cleans up its own document listeners on unmount now —
     // it is the shared ScriptPicker component.)
+    // FT-854: the blood-O on "Open the town" promises a hotkey — live only
+    // while the host panel is up, deaf while typing in a field.
+    mode(v) {
+      if (v === "host") document.addEventListener("keyup", this.onHostPanelKey);
+      else document.removeEventListener("keyup", this.onHostPanelKey);
+    }
   },
   beforeDestroy() {
     clearInterval(this.statusTimer);
+    document.removeEventListener("keyup", this.onHostPanelKey);
   },
   methods: {
     async mintChecked() {
@@ -600,6 +616,15 @@ export default {
         this.scriptId = editionJSON.some(e => e.id === this.edition.id)
           ? this.edition.id
           : "__custom";
+      }
+    },
+    /** FT-854: O = Open the town, while the host panel is up. */
+    onHostPanelKey(e) {
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.target && e.target.isContentEditable) return;
+      if ((e.key === "o" || e.key === "O") && this.townIdClean) {
+        this.confirmHost();
       }
     },
     // ── Golem fork: the script grid (widget = the shared ScriptPicker) ───
@@ -1268,18 +1293,26 @@ export default {
           opacity: 1;
         }
       }
-      // Golem fork: the confirm button is icon-only (door-open) — it's the
-      // primary action, so the icon reads LARGE at a glance.
+      // Golem fork (FT-854): the primary action wears WORDS in the door
+      // idiom — a blood drop-cap + the label, like the intro doors.
       button.confirm {
-        font-size: 170%;
-        line-height: 1;
+        font-size: 120%;
+        font-family: inherit;
+        line-height: 1.1;
         color: white;
         cursor: pointer;
-        padding: 8px 24px;
+        padding: 8px 22px;
         background: rgba(0, 0, 0, 0.7);
         border: 3px solid #400;
         border-radius: 10px;
         box-shadow: 0 0 10px black;
+
+        .blood-cap-o {
+          // 341x410, baseline 352, at the title's /370 conversion
+          width: 0.922em;
+          height: 1.108em;
+          vertical-align: -0.157em;
+        }
 
         &:hover {
           color: red;

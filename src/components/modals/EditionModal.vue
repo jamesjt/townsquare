@@ -86,14 +86,21 @@
           </div>
           </div>
         </div>
+        <!-- the ghost text IS the exact syntax (user call), and the copy
+             button hands over a fillable template -->
         <div class="wb-import-role" v-if="importRoleOpen">
           <textarea
             v-model="importRoleText"
             rows="3"
-            placeholder='Paste one role as JSON — an official id ("chef") or a role object {"name": …, "ability": …, "team": …}'
+            :placeholder="roleTemplateJson"
           ></textarea>
-          <div class="button" @click="importRole">
-            <font-awesome-icon icon="plus-circle" /> Add to script
+          <div class="wb-import-acts">
+            <div class="button" @click="importRole">
+              <font-awesome-icon icon="plus-circle" /> Add to script
+            </div>
+            <div class="button" @click="copyRoleTemplate">
+              <font-awesome-icon icon="clipboard" /> Copy template
+            </div>
           </div>
         </div>
       </div>
@@ -115,23 +122,29 @@
               @click="wbTeam = wbTeam === chip.value ? '' : chip.value"
             >{{ chip.label }}</span>
           </div>
+          <!-- grouped by team (user call), sticky group headers -->
           <ul class="wb-all-roles">
-            <li
-              v-for="entry in sidebarRoles"
-              :key="entry.key"
-              :class="['team-' + entry.team, { inscript: entry.inScript }]"
-              @click="toggleRole(entry)"
-              :title="entry.ability || entry.name"
-            >
-              <span
-                class="icon"
-                v-if="entry.iconUrl"
-                :style="{ backgroundImage: `url(${entry.iconUrl})` }"
-              ></span>
-              <span class="wb-role-name">{{ entry.name }}</span>
-              <small v-if="entry.isLib">{{ entry.mine ? "yours" : "library" }}</small>
-              <span class="wb-in" v-if="entry.inScript">✓</span>
-            </li>
+            <template v-for="group in sidebarGroups">
+              <li class="wb-shelf-head" :key="'head-' + group.team">
+                {{ group.label }} <small>({{ group.roles.length }})</small>
+              </li>
+              <li
+                v-for="entry in group.roles"
+                :key="entry.key"
+                :class="['team-' + entry.team, { inscript: entry.inScript }]"
+                @click="toggleRole(entry)"
+                :title="entry.ability || entry.name"
+              >
+                <span
+                  class="icon"
+                  v-if="entry.iconUrl"
+                  :style="{ backgroundImage: `url(${entry.iconUrl})` }"
+                ></span>
+                <span class="wb-role-name">{{ entry.name }}</span>
+                <small v-if="entry.isLib">{{ entry.mine ? "yours" : "library" }}</small>
+                <span class="wb-in" v-if="entry.inScript">✓</span>
+              </li>
+            </template>
           </ul>
           <div class="button-group">
             <div class="button" @click="searchRoles">
@@ -476,6 +489,17 @@ const SETUP_TABLE = {
   15: [9, 2, 3, 1]
 };
 const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon", "traveler"];
+// The import box's ghost text and its copyable template — the same object,
+// so the syntax the ghost shows is exactly the syntax the parser accepts.
+const ROLE_TEMPLATE = {
+  name: "Role Name",
+  team: "townsfolk | outsider | minion | demon",
+  ability: "What the role does.",
+  firstNight: 0,
+  otherNight: 0,
+  reminders: [],
+  setup: false
+};
 const TEAM_LABELS = {
   townsfolk: "Townsfolk",
   outsider: "Outsiders",
@@ -720,12 +744,37 @@ export default {
           inScript: inScriptLibIds.has(row.id)
         });
       });
-      return entries.filter(entry => {
-        if (q && !(entry.name || "").toLowerCase().includes(q)) return false;
-        if (this.wbTeam === "mine") return entry.isLib && entry.mine;
-        if (this.wbTeam) return entry.team === this.wbTeam;
-        return true;
-      });
+      // roles.json arrives grouped by EDITION (the user read it as "weirdly
+      // sorted") — the shelf sorts by team, then name, one order throughout.
+      const teamRank = t => {
+        const i = TEAM_ORDER.indexOf(t);
+        return i < 0 ? TEAM_ORDER.length : i;
+      };
+      return entries
+        .filter(entry => {
+          if (q && !(entry.name || "").toLowerCase().includes(q)) return false;
+          if (this.wbTeam === "mine") return entry.isLib && entry.mine;
+          if (this.wbTeam) return entry.team === this.wbTeam;
+          return true;
+        })
+        .sort(
+          (a, b) =>
+            teamRank(a.team) - teamRank(b.team) ||
+            (a.name || "").localeCompare(b.name || "")
+        );
+    },
+    roleTemplateJson() {
+      return JSON.stringify(ROLE_TEMPLATE);
+    },
+    /** The shelf grouped by team, headers included (user call). */
+    sidebarGroups() {
+      return ["townsfolk", "outsider", "minion", "demon"]
+        .map(team => ({
+          team,
+          label: TEAM_LABELS[team],
+          roles: this.sidebarRoles.filter(r => r.team === team)
+        }))
+        .filter(g => g.roles.length);
     },
     /** The by-team groups. Travellers never render here — town-side content. */
     viewGroups() {
@@ -1239,6 +1288,17 @@ export default {
       }
       this.ensureOpen();
     },
+    /** Put the fillable role template on the clipboard. */
+    async copyRoleTemplate() {
+      const text = JSON.stringify(ROLE_TEMPLATE, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        flashHint("Role template copied — fill it in and paste it back");
+      } catch (e) {
+        this.importRoleText = text;
+        flashHint("Clipboard blocked — template dropped into the box instead");
+      }
+    },
     /** The icon for any script role — official art, borrowed art, or generic. */
     roleIconUrl(role) {
       const base = this.$store.getters.rolesJSONbyId;
@@ -1533,6 +1593,13 @@ $team-colors: (
       .wb-script-picker {
         flex-grow: 0;
         width: 290px;
+        // the shared picker centers its grid on the trigger — here the
+        // trigger hugs the modal's left edge, so anchor the grid left
+        // instead of letting it run off screen
+        ::v-deep .grid {
+          left: 0;
+          transform: none;
+        }
       }
       .wb-actions {
         display: flex;
@@ -1638,6 +1705,27 @@ $team-colors: (
       overflow-y: auto;
       display: block;
       min-height: 0;
+      li.wb-shelf-head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: rgba(8, 8, 12, 0.95);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        opacity: 0.75;
+        padding: 4px 6px 2px;
+        cursor: default;
+        border-left: none;
+        border-radius: 0;
+        &:hover {
+          background: rgba(8, 8, 12, 0.95);
+        }
+        small {
+          opacity: 0.6;
+          letter-spacing: 0;
+        }
+      }
       li {
         display: flex;
         align-items: center;

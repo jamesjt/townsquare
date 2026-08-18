@@ -72,12 +72,12 @@
          are in, who is with you, the vote-history count, and the door out.
          Nothing renders when there is no session. -->
     <div id="session-pill" v-if="session.sessionId">
+      <!-- (broadcast icon retired — user call 2026-08-17) -->
       <span
         class="who"
         :class="{ reconnecting: session.isReconnecting }"
         :title="session.ping ? session.ping + 'ms latency' : ''"
       >
-        <font-awesome-icon icon="broadcast-tower" />
         {{ session.isSpectator ? "Playing in" : "Hosting" }}
         <b>{{ session.sessionId }}</b>
         · {{ session.playerCount }} {{ session.playerCount === 1 ? "player" : "players" }}
@@ -125,13 +125,14 @@
            dialogs are silently auto-dismissed in dialog-less contexts
            (driven browser panes, embeds), which made this control read as
            dead. First click arms for 3s, second click leaves. -->
+      <!-- the door out wears a DOOR, not an X (user call 2026-08-17) -->
       <span
         class="leave"
         :class="{ armed: leaveArmed }"
         @click="pillLeave"
-        :title="leaveArmed ? 'Click again to confirm' : 'Leave this session'"
+        :title="leaveArmed ? 'Click again to confirm' : 'Leave this town'"
       >
-        <font-awesome-icon icon="times-circle" />
+        <font-awesome-icon icon="door-open" />
         {{ leaveArmed ? "Sure?" : "Leave" }}
       </span>
     </div>
