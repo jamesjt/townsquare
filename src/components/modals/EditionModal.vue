@@ -419,21 +419,6 @@
       <div class="role-form" v-if="roleForm">
         <!-- paste a role JSON (or an official id) to fill the form; the
              ghost text IS the accepted syntax, Template copies it -->
-        <div class="row wb-forge-paste">
-          <textarea
-            v-model="roleJsonText"
-            rows="2"
-            :placeholder="roleTemplateJson"
-          ></textarea>
-          <div class="paste-acts">
-            <div class="button" @click="fillForgeFromJson">
-              <font-awesome-icon icon="file-code" /> Fill from JSON
-            </div>
-            <div class="button" @click="copyRoleTemplate">
-              <font-awesome-icon icon="clipboard" /> Template
-            </div>
-          </div>
-        </div>
         <div class="row">
           <input
             v-model="roleForm.name"
@@ -482,15 +467,16 @@
             rows="3"
           ></textarea>
         </div>
-        <div class="row nights">
-          <span>Wakes:</span>
-          <label>
-            <input type="checkbox" v-model="wakesFirstNight" /> first night
+        <div class="wakes-block">
+          <span class="wakes-title">Wakes:</span>
+          <label class="wake-opt" :class="{ on: wakesFirstNight }">
+            <input type="checkbox" v-model="wakesFirstNight" />
+            <span class="wake-box"></span> First Night
           </label>
-          <label>
-            <input type="checkbox" v-model="wakesOtherNights" /> other nights
+          <label class="wake-opt" :class="{ on: wakesOtherNights }">
+            <input type="checkbox" v-model="wakesOtherNights" />
+            <span class="wake-box"></span> Other Nights
           </label>
-          <small>(place it by dragging in the night views)</small>
         </div>
         <div class="row">
           <input
@@ -538,6 +524,18 @@
           </div>
           <div class="button" @click="closeRoleForm">
             <font-awesome-icon icon="times" /> Cancel
+          </div>
+        </div>
+        <div class="row wb-forge-paste">
+          <textarea
+            v-model="roleJsonText"
+            rows="2"
+            :placeholder="roleTemplateJson"
+          ></textarea>
+          <div class="paste-acts">
+            <div class="button" @click="fillForgeFromJson">
+              <font-awesome-icon icon="file-code" /> Fill from JSON
+            </div>
           </div>
         </div>
       </div>
@@ -2303,6 +2301,63 @@ $team-colors: (
   "traveler": #cc04ff
 );
 
+// Wakes: its own block — title line, one themed checkbox row per night
+.role-form .wakes-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0;
+  .wakes-title {
+    font-weight: bold;
+  }
+  .wake-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 12px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    font-size: 13px;
+    input {
+      display: none;
+    }
+    .wake-box {
+      width: 14px;
+      height: 14px;
+      border: 1px solid #666;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+    &:hover {
+      border-color: #666;
+    }
+    &.on {
+      border-color: #a01414;
+      background: rgba(160, 20, 20, 0.14);
+      color: white;
+      .wake-box {
+        border-color: #a01414;
+        background: #7d0e0e;
+      }
+      .wake-box::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 1px;
+        width: 4px;
+        height: 8px;
+        border: solid #ffd9d9;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+    }
+  }
+}
 // the forge's team choice wears the workbench toggle look, not a native select
 .role-form .team-pick {
   gap: 6px;
