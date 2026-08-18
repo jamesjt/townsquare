@@ -878,9 +878,8 @@ export default {
     // clears the fixed top-right toolbar band (~44px) at short heights
     top: max(48px, 5vh);
     left: 50%;
-    // true center (user re-call 2026-08-17 — the earlier +20px tower-face
-    // nudge is retired)
-    transform: translateX(-50%);
+    // user-calibrated 2026-08-18: +10px right of true center
+    transform: translateX(calc(-50% + 10px));
     text-align: center;
     pointer-events: none;
     z-index: 3;
@@ -889,6 +888,8 @@ export default {
       font-size: min(10vh, 9vw, 76px);
       line-height: 1;
       white-space: nowrap;
+      // user-calibrated 2026-08-18: BLOOD rides 30px lower (50 down, 20 up)
+      margin-top: 30px;
       // Golem fork: the lettering cycles on click (PNGs / gold / red) —
       // fixed row height so "On the" never shifts between states, and the
       // word alone takes the pointer (the .title wrapper stays inert).
@@ -918,7 +919,9 @@ export default {
       }
     }
     .on-the {
-      margin-top: 1vh;
+      // user-calibrated 2026-08-18: 10px above its old seat (40 up against
+      // the word's 30 down)
+      margin-top: calc(1vh - 40px);
       font-family: "Roboto Condensed", sans-serif;
       font-size: min(3.5vh, 25px);
       letter-spacing: 0.5em;

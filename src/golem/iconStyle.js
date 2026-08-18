@@ -72,7 +72,9 @@ const DEFAULTS = {
   mottle: 0.16, // residual paint blotch (kept quiet — the wash leads)
   grain: 0.45, // multiplier on the measured film grain
   contour: 1, // ink contour width multiplier (0 = no outline)
-  hatch: 0.6, // shadow-band hatching strength
+  hatch: 0, // shadow-band hatching (OFF — the officials carry none)
+  match: 0.35, // histogram-match weight (1 = full official distribution —
+  // which CRUSHES the gradient into the big dark bands; low keeps the flow)
   pool: 0.85, // band-pooling dither width
   rim: 0.35, // light-side pale rim strength
   top: 6.6, // tone ceiling in bands for AREA pixels (rim may exceed it)
@@ -82,7 +84,7 @@ const DEFAULTS = {
 // the pipeline VERSION — when a rework changes what the dials mean (v12:
 // wash became the directional gradient), stale saved settings would
 // silently disable the new look; a mismatch drops them
-const ENGRAVER_V = 12;
+const ENGRAVER_V = 14;
 let stored = {};
 try {
   stored = JSON.parse(localStorage.getItem("golem.engraver") || "{}");
@@ -100,6 +102,7 @@ export const ENGRAVER_DIALS = [
   { key: "grain", label: "Grain", min: 0, max: 2, step: 0.05 },
   { key: "contour", label: "Contour", min: 0, max: 2.5, step: 0.1 },
   { key: "hatch", label: "Hatch", min: 0, max: 1, step: 0.05 },
+  { key: "match", label: "Match", min: 0, max: 1, step: 0.05 },
   { key: "pool", label: "Pooling", min: 0, max: 2, step: 0.05 },
   { key: "rim", label: "Rim light", min: 0, max: 1, step: 0.05 },
   { key: "top", label: "Tone ceiling", min: 4, max: 8, step: 0.1 },
@@ -393,6 +396,26 @@ export function stylizeIcon(
           runsum += vhist[b];
           vcdf[b] = vcount ? runsum / vcount : 0;
         }
+        // the icon's own value range (1st..99th percentile) — the DIRECT
+        // tone path stretches the flow across the tint's tonal span instead
+        // of letting the matcher pool it into the dominant dark bands
+        let vLo = 0,
+          vHi = 255;
+        for (let b = 0; b < 256; b++)
+          if (vcdf[b] >= 0.01) {
+            vLo = b;
+            break;
+          }
+        for (let b = 255; b >= 0; b--)
+          if (vcdf[b] <= 0.99) {
+            vHi = b;
+            break;
+          }
+        const SPAN = {
+          good: [0.18, 0.85],
+          evil: [0.05, 0.72],
+          neutral: [0.12, 0.8]
+        }[tint] || [0.12, 0.8];
 
         // ---- pass 2: histogram match -> pooled bands -> color + grain ----
         const out = g.createImageData(W, W);
@@ -401,8 +424,15 @@ export function stylizeIcon(
           if (!alpha[i]) continue;
           const x = i % W,
             y = (i / W) | 0;
-          const p = vcdf[Math.max(0, Math.min(255, (vmap[i] * 128) | 0))];
-          let tone = invCdf(cdfT, p);
+          const vbin = Math.max(0, Math.min(255, (vmap[i] * 128) | 0));
+          const p = vcdf[vbin];
+          // direct path: the flow stretched across the tint's span;
+          // matched path: the official distribution. K.match blends.
+          const tdir =
+            SPAN[0] +
+            (SPAN[1] - SPAN[0]) *
+              Math.max(0, Math.min(1, (vbin - vLo) / Math.max(1, vHi - vLo)));
+          let tone = tdir * (1 - K.match) + invCdf(cdfT, p) * K.match;
           // AREA pixels stop short of white — only the rim may pass the
           // ceiling (their white is linework, never a wash)
           tone = Math.min(tone, K.top / 8);
