@@ -62,18 +62,13 @@
       <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
            ALWAYS rendered — appearing icons shove the row (user call);
            unusable states grey out instead. -->
+      <!-- (trash retired — scrub the count to 0 instead; user call) -->
       <span class="tools">
         <font-awesome-icon
           icon="random"
           :class="{ disabled: players.length <= 2 }"
           @click="randomizeSeatings"
           title="Shuffle seat order"
-        />
-        <font-awesome-icon
-          icon="trash-alt"
-          :class="{ disabled: !players.length }"
-          @click="clearAllPlayers"
-          title="Remove all seats"
         />
       </span>
     </div>
