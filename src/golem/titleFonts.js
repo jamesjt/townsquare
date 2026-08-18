@@ -121,9 +121,10 @@ export function labelFor(key) {
   return s ? s.label : key;
 }
 
-/** Drop-caps match the label letters' size (user re-call 2026-08-17 —
- *  the earlier 0.8 shrink read as a mismatched small cap). */
-export const CAP_SHRINK = 1;
+/** Drop-caps sit AT the label letters' cap height (user calls 2026-08-17/18:
+ *  0.8 still towered over the text — the ornate flourishes read bigger than
+ *  the box — and 1.0 went the wrong way entirely). */
+export const CAP_SHRINK = 0.62;
 
 /** What the caps actually wear right now ("follow" resolves to the title). */
 export function resolvedCapKey() {
