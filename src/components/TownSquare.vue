@@ -5,7 +5,12 @@
     :class="{
       public: grimoire.isPublic,
       spectator: session.isSpectator,
-      vote: session.nomination
+      vote: session.nomination,
+      // the host is still building the town — no death affordances yet
+      building:
+        !!session.sessionId &&
+        !session.isSpectator &&
+        !session.isRolesDistributed
     }"
   >
     <ul class="circle" :class="['size-' + players.length]">

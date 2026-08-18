@@ -446,10 +446,11 @@ $blood: #970000; // our red, for the one mark that must not be missed
       // paint-order outline the earlier passes wore, which was a traced ring
       // of constant width and the loudest "vector" tell on the coin. The
       // last shadow is the lit lower lip of the cut.
-      filter: drop-shadow(0 0 1.6px rgba(250, 240, 214, 0.95))
-        drop-shadow(0 0 0.9px rgba(250, 240, 214, 0.95))
-        drop-shadow(0 0 0.6px rgba(250, 240, 214, 0.8))
-        drop-shadow(0 0.9px 0 #{$lip});
+      // The user's own coin is bright enough that dark letters need no halo
+      // to be legible (user call 2026-08-18) — the pale blooms read as a
+      // sticker at size. What is left is the CUT: a lit lower lip and the
+      // faint shadow it casts.
+      filter: drop-shadow(0 0.7px 0 #{$lip}) drop-shadow(0 -0.5px 0.5px rgba(40, 28, 14, 0.45));
       // PiratesBay is what the rest of our chrome is lettered in; upstream's
       // Papyrus stays in assets/fonts, unreferenced
       font-family: "PiratesBay", Georgia, serif;

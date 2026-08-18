@@ -95,7 +95,6 @@
       <span class="label">Roles</span>
       <span class="value" @click="toggleModal('roleDrawer')">
         {{ rolesAssigned }} / {{ players.length }} assigned
-        <img class="row-book" :src="grimoireClosed" alt="" />
       </span>
     </div>
 

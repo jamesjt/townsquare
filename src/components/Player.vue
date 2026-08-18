@@ -14,7 +14,11 @@
           'no-vote': player.isVoteless,
           you: session.sessionId && player.id && player.id === session.playerId,
           'vote-yes': session.votes[index],
-          'vote-lock': voteLocked
+          'vote-lock': voteLocked,
+          // the coin's toothed edge does not fill its circle, so whatever
+          // sits under it shows through the gaps — the seat tells its own
+          // CSS when a coin is covering the life disc
+          'has-role': !!player.role.id
         },
         player.role.team
       ]"
@@ -759,7 +763,10 @@ export default {
       pointer-events: none;
     }
 
-    #townsquare:not(.spectator) &:hover:before {
+    // the shroud previews on hover — but NOT while the town is still being
+    // built (user call 2026-08-18): nothing can die yet, and the banner
+    // flashing over every seat while assigning roles reads as an error
+    #townsquare:not(.spectator):not(.building) &:hover:before {
       opacity: 0.5;
       top: -10px;
       transform: scale(1);
@@ -797,6 +804,18 @@ export default {
     position: absolute;
     left: 0;
     top: 0;
+    // Tucked behind the coin's parchment once a role is on the seat: the
+    // coin's teeth leave gaps at the rim, and at full size this disc's own
+    // black ring showed through them (user call 2026-08-18). An empty chair
+    // still shows it at full size — there is no coin over it then.
+    .player.has-role & {
+      width: 92%;
+      height: 92%;
+      left: 4%;
+      top: 4%;
+      border-color: transparent;
+      box-shadow: none;
+    }
 
     &:before {
       content: " ";
