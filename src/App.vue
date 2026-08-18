@@ -236,6 +236,30 @@ export default {
         );
         const prev = parseFloat(el.style.getPropertyValue("--sb-trail")) || 0;
         if (reached > prev) el.style.setProperty("--sb-trail", reached + "%");
+        // a droplet breaks off the thumb while scrolling (throttled per
+        // element; skipped under the animation kill-switch)
+        if (!this.grimoire.isStatic && max > 40) {
+          const now = performance.now();
+          if (!el.__lastDrip || now - el.__lastDrip > 600) {
+            el.__lastDrip = now;
+            const rect = el.getBoundingClientRect();
+            const ratio = (el.scrollTop + el.clientHeight) / el.scrollHeight;
+            const drop = document.createElement("div");
+            drop.className = "blood-droplet";
+            drop.style.left = rect.right - 7 + "px";
+            drop.style.top = rect.top + ratio * rect.height - 12 + "px";
+            document.body.appendChild(drop);
+            const anim = drop.animate(
+              [
+                { transform: "translateY(0) scale(1)", opacity: 0.9 },
+                { transform: "translateY(64px) scale(0.85)", opacity: 0 }
+              ],
+              { duration: 650, easing: "cubic-bezier(0.5, 0, 0.9, 0.6)" }
+            );
+            anim.onfinish = () => drop.remove();
+            setTimeout(() => drop.remove(), 900); // belt for a frozen pane
+          }
+        }
       },
       true
     );
@@ -420,39 +444,48 @@ export default {
     #000 var(--sb-trail, 0%)
   );
 }
-// Glassier crimson: a specular sheen down the left edge over a brighter
-// crimson run; the bead stays quiet.
+// The thumb IS the drop now: a glassy crimson column ending in a real
+// baked teardrop tip (the image's transparent corners let the track show,
+// so the point reads as a hanging drop, not a squared bar).
 ::-webkit-scrollbar-thumb {
   background:
+    url("assets/blood/scroll-tip.png") no-repeat bottom center / 100% auto,
     linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0.28),
-      rgba(255, 255, 255, 0.05) 40%,
-      rgba(0, 0, 0, 0.15) 90%
-    ),
-    radial-gradient(
-      ellipse 55% 8px at 50% calc(100% - 3px),
-      rgba(255, 80, 80, 0.4),
-      transparent 70%
-    ),
-    linear-gradient(to bottom, #4a0606, #9c1010 30%, #c41a1a 78%, #7a0909);
-  border-radius: 4px 4px 6px 6px / 4px 4px 9px 9px;
-  min-height: 36px;
+        to right,
+        rgba(255, 255, 255, 0.28),
+        rgba(255, 255, 255, 0.05) 40%,
+        rgba(0, 0, 0, 0.15) 90%
+      )
+      no-repeat top center / 100% calc(100% - 16px),
+    linear-gradient(to bottom, #4a0606, #9c1010 40%, #b01616)
+      no-repeat top center / 100% calc(100% - 16px);
+  border-radius: 4px 4px 0 0;
+  min-height: 44px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background:
+    url("assets/blood/scroll-tip.png") no-repeat bottom center / 100% auto,
     linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0.35),
-      rgba(255, 255, 255, 0.08) 40%,
-      rgba(0, 0, 0, 0.12) 90%
-    ),
-    radial-gradient(
-      ellipse 55% 8px at 50% calc(100% - 3px),
-      rgba(255, 100, 100, 0.5),
-      transparent 70%
-    ),
-    linear-gradient(to bottom, #5a0707, #b41414 30%, #dc2222 78%, #8c0b0b);
+        to right,
+        rgba(255, 255, 255, 0.35),
+        rgba(255, 255, 255, 0.08) 40%,
+        rgba(0, 0, 0, 0.12) 90%
+      )
+      no-repeat top center / 100% calc(100% - 16px),
+    linear-gradient(to bottom, #5a0707, #b41414 40%, #c92020)
+      no-repeat top center / 100% calc(100% - 16px);
+}
+
+// A droplet breaks off and falls as you scroll (spawned by the listener in
+// mounted(); respects the animation kill-switch).
+.blood-droplet {
+  position: fixed;
+  width: 5px;
+  height: 9px;
+  background: radial-gradient(ellipse at 50% 35%, #d42020, #7a0909);
+  border-radius: 50% 50% 60% 60% / 40% 40% 70% 70%;
+  z-index: 90;
+  pointer-events: none;
 }
 ::-webkit-scrollbar-corner {
   background: #000;
