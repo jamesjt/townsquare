@@ -395,7 +395,8 @@ export default {
         { key: "h", label: "Bulb height", min: 20, max: 130, step: 2 },
         { key: "trailW", label: "Trail width", min: 2, max: 16, step: 1 },
         { key: "overlap", label: "Overlap", min: 0, max: 48, step: 2 },
-        { key: "dx", label: "X offset", min: -8, max: 8, step: 1 }
+        { key: "dx", label: "X offset", min: -8, max: 8, step: 1 },
+        { key: "dy", label: "Y offset", min: -30, max: 30, step: 1 }
       ],
       // the engraver lab
       engraverRef: engraver,
