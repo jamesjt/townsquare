@@ -26,7 +26,10 @@
           title="Close the script"
           @click="toggleModal('scriptDrawer')"
         />
-        <h3 class="sd-title">{{ edition.name || "Custom Script" }}</h3>
+        <h3 class="sd-title">
+          <img class="sd-mark" :src="editionIcon" alt="" />
+          <span>{{ edition.name || "Custom Script" }}</span>
+        </h3>
       </div>
       <ScriptView
         class="sd-view"
@@ -41,6 +44,7 @@
 <script>
 import { mapMutations, mapState } from "vuex";
 import ScriptView from "./ScriptView";
+import { EDITION_ICONS, edCustom } from "../golem/editionArt";
 
 // A narrower default than the first cut (user call) — the reference reads
 // fine at this width now that the view reflows, and it leaves the town
@@ -68,6 +72,10 @@ export default {
   },
   computed: {
     ...mapState(["roles", "modals", "edition", "scriptDrawerView"]),
+    /** The script's own art, the same map the pickers use. */
+    editionIcon() {
+      return EDITION_ICONS[this.edition.id] || this.edition.logo || edCustom;
+    },
     /** The current script as a list (state.roles is replaced wholesale). */
     scriptRoles() {
       const list = [];
@@ -135,29 +143,45 @@ export default {
   background: rgba(8, 8, 10, 0.96);
   border-left: 1px solid #4a0d0d;
   box-shadow: -6px 0 30px rgba(0, 0, 0, 0.6);
-  // the player strip floats top-right at z-index 75 — the drawer's chrome
-  // starts BELOW it so the title and the × are never under its icons (and
-  // the script icon keeps working as the toggle that closes this)
-  padding: 46px 12px 12px;
+  // the head sits ON the player strip's line (user call) — the strip floats
+  // top-right at z-index 75, but the centred title clears it horizontally, so
+  // only the drawer's own top padding had to come back up
+  padding: 8px 12px 12px;
   text-align: left;
 
   .sd-head {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    min-height: 32px;
     margin-bottom: 6px;
     .sd-title {
       margin: 0;
-      flex-grow: 1;
-      min-width: 0;
+      // the player strip floats over the drawer's top-right corner; the title
+      // stays centred but is capped so it can never reach it
+      max-width: calc(100% - 176px);
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-family: PiratesBay, sans-serif;
       font-weight: normal;
-      text-align: left;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      .sd-mark {
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+        flex-shrink: 0;
+      }
     }
     .sd-close {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
       flex-shrink: 0;
       width: 16px;
       height: 16px;

@@ -96,10 +96,11 @@ import { mapState } from "vuex";
 const CX = 75;
 const CY = 75;
 // Where the wheel's decorations sit, measured from the middle of the coin.
-// The bake puts the parchment face out to 0.848 of the radius and the tooth
-// roots at 0.938, so 66.5 straddles the collar — dark ground the bone marks
-// read against, and clear of the role art on the face.
-const MARK_R = 66.5;
+// The bake puts the parchment face out to 0.9215 of the radius and the tooth
+// roots at 0.9855 (the whole border band halved, user call), so 71.5 straddles
+// the collar — dark ground the bone marks read against, and clear of the role
+// art on the face.
+const MARK_R = 71.5;
 const RAD = Math.PI / 180;
 
 /**
@@ -313,10 +314,10 @@ $blood: #970000; // our red, for the one mark that must not be missed
   @mixin team-ring($color) {
     background: radial-gradient(
       circle closest-side,
-      transparent 0 83.5%,
-      rgba($color, 0.55) 85%,
-      rgba($color, 0.55) 87.5%,
-      transparent 89%
+      transparent 0 91%,
+      rgba($color, 0.55) 92.5%,
+      rgba($color, 0.55) 95.5%,
+      transparent 97%
     );
   }
 
