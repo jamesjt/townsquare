@@ -26,17 +26,26 @@
          now, not baked into the art — positions are plain numbers in
          image-pixels (see --fpx below), adjustable in devtools and scaling
          with the clock face at every viewport. -->
-    <div class="dial-letters" aria-hidden="true">
-      <span class="dl dl-c1">C</span>
-      <span class="dl dl-l">L</span>
-      <span class="dl dl-o1">O</span>
-      <span class="dl dl-c2">C</span>
-      <span class="dl dl-k">K</span>
-      <span class="dl dl-t">T</span>
-      <span class="dl dl-o2">O</span>
-      <span class="dl dl-w">W</span>
-      <span class="dl dl-e">E</span>
-      <span class="dl dl-r">R</span>
+    <!-- click any dial letter to cycle ITS font (independent of the title's;
+         "text" = the painted spans) -->
+    <div
+      class="dial-letters"
+      title="Click to change the dial's lettering"
+      @click="cycleDial"
+    >
+      <span
+        v-for="d in dialLetters"
+        :key="d.cls + fontState.dialKey"
+        :class="['dl', d.cls]"
+      >
+        <img
+          v-if="fontState.dialKey !== 'text' && dialGlyph(d.letter)"
+          :src="dialGlyph(d.letter).src"
+          :style="dialStyle(d.letter)"
+          :alt="d.letter"
+        />
+        <template v-else>{{ d.letter }}</template>
+      </span>
     </div>
     <transition name="blur">
       <!-- Golem fork: while the host is BUILDING (hosting, roles undealt) the
@@ -170,6 +179,14 @@ import GameStateModal from "@/components/modals/GameStateModal";
 import EndGameOverlay from "./components/EndGameOverlay";
 import StatsOverlay from "./components/StatsOverlay";
 import { markDealt, dealTimeFor } from "./golem/stats";
+import { flashHint } from "./golem/hint";
+// the dial's CLOCKTOWER can wear any glyph family (its own choice)
+import {
+  fontState,
+  glyphFrom,
+  glyphStyleFrom,
+  cycleDialFont
+} from "./golem/titleFonts";
 
 export default {
   components: {
@@ -307,12 +324,37 @@ export default {
       dealAt: dealTimeFor(this.$store.state.session.sessionId),
       // FT-852: the pill Leave's two-click arm.
       leaveArmed: false,
-      leaveTimer: null
+      leaveTimer: null,
+      // the app-wide PNG-font state (dial lettering lives on dialKey)
+      fontState,
+      dialLetters: [
+        { cls: "dl-c1", letter: "C" },
+        { cls: "dl-l", letter: "L" },
+        { cls: "dl-o1", letter: "O" },
+        { cls: "dl-c2", letter: "C" },
+        { cls: "dl-k", letter: "K" },
+        { cls: "dl-t", letter: "T" },
+        { cls: "dl-o2", letter: "O" },
+        { cls: "dl-w", letter: "W" },
+        { cls: "dl-e", letter: "E" },
+        { cls: "dl-r", letter: "R" }
+      ]
     };
   },
   methods: {
     // FT-852: arm on the first click, leave on the second — no native
     // confirm() anywhere in the pill (see the template note).
+    // ── the dial's font control ──────────────────────────────────────────
+    cycleDial() {
+      const next = cycleDialFont();
+      flashHint("Dial lettering: " + next.label);
+    },
+    dialGlyph(letter) {
+      return glyphFrom(this.fontState.dialKey, letter);
+    },
+    dialStyle(letter) {
+      return glyphStyleFrom(this.fontState.dialKey, letter, 1);
+    },
     pillLeave() {
       if (!this.leaveArmed) {
         this.leaveArmed = true;
@@ -744,6 +786,13 @@ video#background {
     position: absolute;
     transform: translate(-50%, -50%);
     line-height: 1;
+    /* only the letters themselves take the font-cycling click */
+    pointer-events: auto;
+    cursor: pointer;
+    img {
+      /* glyph mode: no painted-text shadow double-up */
+      filter: drop-shadow(0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.45));
+    }
   }
   /* hour positions on the measured tick rays (image px from viewport
      center, dial center offset +15,-20.5 already folded in) */

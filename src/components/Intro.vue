@@ -46,9 +46,9 @@
             </template>
             <img v-else class="blood-logo" :src="bloodLogo" alt="Blood" />
           </div>
+          <!-- the gold script "on the" art, every lettering (user call) -->
           <div class="on-the">
-            <template v-if="fontState.key !== 'logo'">On the</template>
-            <img v-else class="onthe-logo" :src="ontheLogo" alt="on the" />
+            <img class="onthe-logo" :src="ontheLogo" alt="on the" />
           </div>
         </div>
         <ul class="doors" v-if="!mode">

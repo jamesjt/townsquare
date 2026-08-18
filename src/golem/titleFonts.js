@@ -8,13 +8,14 @@
 // alphabets stay non-bundled archives.
 import Vue from "vue";
 
-// require.context with a tight regex bundles ONLY the matched files
-const bloodCtx = require.context("../assets/blood/alphabet", false, /^\.\/(B|L|O|O2|D|H|J|A)\.png$/);
-const goldCtx = require.context("../assets/gold/alphabet", false, /^\.\/(B|L|O|D|H|J|A)\.png$/);
-const red66Ctx = require.context("../assets/red/660000-noise50", false, /^\.\/(B|L|O|D|H|J|A)\.png$/);
-const red77Ctx = require.context("../assets/red/770001-noise50", false, /^\.\/(B|L|O|D|H|J|A)\.png$/);
-const red80Ctx = require.context("../assets/red/800000-noise50", false, /^\.\/(B|L|O|D|H|J|A)\.png$/);
-const red80cCtx = require.context("../assets/red/800000", false, /^\.\/(B|L|O|D|H|J|A)\.png$/);
+// require.context with a tight regex bundles ONLY the matched files —
+// the display letters (title, doors, Almanac A, the dial's CLOCKTOWER)
+const bloodCtx = require.context("../assets/blood/alphabet", false, /^\.\/(B|L|O|O2|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const goldCtx = require.context("../assets/gold/alphabet", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const red66Ctx = require.context("../assets/red/660000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const red77Ctx = require.context("../assets/red/770001-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const red80Ctx = require.context("../assets/red/800000-noise50", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
+const red80cCtx = require.context("../assets/red/800000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R)\.png$/);
 
 import bloodMetrics from "../assets/blood/alphabet/metrics.json";
 import goldMetrics from "../assets/gold/alphabet/metrics.json";
@@ -44,7 +45,10 @@ export const FONT_SETS = [
 ];
 
 export const fontState = Vue.observable({
-  key: localStorage.getItem("golem.fontSet") || "blood"
+  // the 800000 red is the default lettering (user call 2026-08-17)
+  key: localStorage.getItem("golem.fontSet") || "red-80",
+  // the dial's CLOCKTOWER has its own choice; "text" = the painted spans
+  dialKey: localStorage.getItem("golem.dialFont") || "text"
 });
 
 export function setFontSet(key) {
@@ -59,22 +63,44 @@ export function cycleFontSet() {
   return next;
 }
 
-export function activeSet() {
-  return FONT_SETS.find(s => s.key === fontState.key) || FONT_SETS[0];
+/** The dial cycles text + every glyph family (logo has no letters). */
+const DIAL_KEYS = ["text"].concat(
+  FONT_SETS.filter(s => s.letters).map(s => s.key)
+);
+export function cycleDialFont() {
+  const i = DIAL_KEYS.indexOf(fontState.dialKey);
+  const next = DIAL_KEYS[(i + 1) % DIAL_KEYS.length];
+  fontState.dialKey = next;
+  localStorage.setItem("golem.dialFont", next);
+  return next === "text"
+    ? { key: "text", label: "Painted text" }
+    : FONT_SETS.find(s => s.key === next);
 }
 
-/** A letter from the active set (O2 falls back to O; null in logo mode). */
-export function glyph(letter) {
-  const set = activeSet();
+function setByKey(key) {
+  return FONT_SETS.find(s => s.key === key) || FONT_SETS[0];
+}
+
+export function activeSet() {
+  return setByKey(fontState.key);
+}
+
+/** A letter from a set (O2 falls back to O; null in logo mode). */
+export function glyphFrom(key, letter) {
+  const set = setByKey(key);
   if (!set.letters) return null;
   return set.letters[letter] || (letter === "O2" ? set.letters.O : null) || null;
 }
 
+export function glyph(letter) {
+  return glyphFrom(fontState.key, letter);
+}
+
 /** em-sizing for a glyph at `scale` em cap height — normalized per set by
  *  the B's above-baseline height so every family renders the same size. */
-export function glyphStyle(letter, scale = 1) {
-  const g = glyph(letter);
-  const set = activeSet();
+export function glyphStyleFrom(key, letter, scale = 1) {
+  const g = glyphFrom(key, letter);
+  const set = setByKey(key);
   if (!g || !set.letters || !set.letters.B) return null;
   const ref = set.letters.B.baseline || set.letters.B.h;
   const em = px => ((px / ref) * scale).toFixed(3) + "em";
@@ -83,4 +109,8 @@ export function glyphStyle(letter, scale = 1) {
     height: em(g.h),
     verticalAlign: "-" + em(Math.max(0, g.h - g.baseline))
   };
+}
+
+export function glyphStyle(letter, scale = 1) {
+  return glyphStyleFrom(fontState.key, letter, scale);
 }
