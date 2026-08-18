@@ -4,18 +4,24 @@
   The square is a clock, so the seat is a WHEEL. The role token is drawn on
   our own cut gear (`token-golem.png`, baked by
   claude_temp_test/2026-08-18-token-coin.mjs) instead of upstream's marbled
-  `token.png` — twenty-two tapered iron teeth, a gold collar, and a recessed
-  parchment face — and every decoration on it is drawn by this component
-  rather than pulled from upstream's leaf art.
+  `token.png` — a finely milled iron rim, a tarnished collar, and a recessed
+  parchment face, all of it worn and lit from one origin — and every
+  decoration on it is drawn by this component rather than pulled from
+  upstream's leaf art.
 
   What the coin has to say, and how it says it:
-    · the role            — the engraved icon on the parchment face
-    · the role's name     — cut into the lower face on a curve
+    · the role            — the engraved icon, centred on the face
+    · the role's name     — cut along the bottom arc, centred on it
     · acts on night one   — a waxing crescent at 9 o'clock
     · acts on later nights— a waning crescent at 3 o'clock
     · how many reminders  — that many bone studs across the top of the wheel
-    · changes setup       — a blood-red lozenge on the upper-right
+    · changes setup       — a red stone set in bone, upper right
     · which team          — a whisper of team colour in the collar
+
+  Nothing on the coin wears a traced outline of constant width: the marks are
+  seated with shadow and the name is cut into the parchment with a lit lower
+  lip, because a uniform stroke is what made the first passes read as vector
+  art next to the painted role icons.
 
   Upstream's `token.png` and `leaf-*.png` stay in the tree, unreferenced.
 -->
@@ -35,7 +41,7 @@
       }"
     ></span>
 
-    <!-- night order, reminder count and setup, struck into the rim -->
+    <!-- night order, reminder count and setup, set into the wheel -->
     <svg viewBox="0 0 150 150" class="marks" v-if="hasMarks">
       <path
         v-if="role.firstNight || role.firstNightReminder"
@@ -53,9 +59,12 @@
         class="mark stud"
         :cx="stud.x"
         :cy="stud.y"
-        r="3.2"
+        r="2.9"
       />
-      <path v-if="role.setup" class="mark setup" :d="setupLozenge" />
+      <template v-if="role.setup">
+        <path class="mark setting" :d="setupLozenge.bezel" />
+        <path class="mark stone" :d="setupLozenge.stone" />
+      </template>
     </svg>
 
     <svg viewBox="0 0 150 150" class="name">
@@ -65,15 +74,13 @@
         text-anchor="middle"
         class="label mozilla"
         :font-size="role.name | nameToFontSize"
-      >
-        <!-- startOffset centres on the ARC. Upstream anchored with x="66.6%",
-             which is 100 user units — half of their much deeper curve, but
-             two thirds of the way along ours, so every long name ran off the
-             end and was clipped ("Washerwoma", "Investigato"). -->
-        <textPath :xlink:href="'#' + curveId" startOffset="50%">
-          {{ role.name }}
-        </textPath>
-      </text>
+      ><!-- startOffset centres the name on the ARC. Upstream anchored with
+             x="66.6%" — 100 user units, half of their much deeper curve but
+             two thirds along ours, so short names sat off to one side and
+             long ones ran off the end and were clipped. --><textPath
+          :xlink:href="'#' + curveId"
+          startOffset="50%"
+        >{{ role.name }}</textPath></text>
     </svg>
     <div class="edition" :class="[`edition-${role.edition}`, role.team]"></div>
     <div class="ability" v-if="role.ability">
@@ -88,10 +95,11 @@ import { mapState } from "vuex";
 // the 150-unit space every overlay on the coin is drawn in
 const CX = 75;
 const CY = 75;
-// where the wheel's decorations sit, measured from the middle of the coin:
-// out on the collar and the tooth roots, where they read against dark iron
-// and stay clear of the role art on the face
-const MARK_R = 64.5;
+// Where the wheel's decorations sit, measured from the middle of the coin.
+// The bake puts the parchment face out to 0.848 of the radius and the tooth
+// roots at 0.938, so 66.5 straddles the collar — dark ground the bone marks
+// read against, and clear of the role art on the face.
+const MARK_R = 66.5;
 const RAD = Math.PI / 180;
 
 /**
@@ -99,13 +107,13 @@ const RAD = Math.PI / 180;
  * two arcs meet at the circles' real intersection points, so the horns come
  * to a proper point instead of the blunt stubs a hand-guessed path gives.
  *
- * @param {number} deg  where on the rim the mark sits (0 = 3 o'clock)
+ * @param {number} deg  where on the wheel the mark sits (0 = 3 o'clock)
  * @param {number} turn rotation of the mark itself — which way the horns face
  */
 function crescent(deg, turn) {
-  const R = 5.4; // the disc
-  const r = 4.8; // the bite
-  const o = 2.6; // how deep the bite goes
+  const R = 5; // the disc
+  const r = 4.5; // the bite
+  const o = 2.4; // how deep the bite goes
   const ix = (o * o + R * R - r * r) / (2 * o);
   const iy = Math.sqrt(Math.max(0, R * R - ix * ix));
   const cx = CX + MARK_R * Math.cos(deg * RAD);
@@ -121,6 +129,16 @@ function crescent(deg, turn) {
   );
 }
 
+/** a diamond of half-height `s` about (x, y) */
+function lozenge(x, y, s) {
+  return (
+    `M ${x.toFixed(2)} ${(y - s).toFixed(2)}` +
+    ` L ${(x + s * 0.78).toFixed(2)} ${y.toFixed(2)}` +
+    ` L ${x.toFixed(2)} ${(y + s).toFixed(2)}` +
+    ` L ${(x - s * 0.78).toFixed(2)} ${y.toFixed(2)} Z`
+  );
+}
+
 export default {
   name: "Token",
   props: {
@@ -132,7 +150,7 @@ export default {
   computed: {
     /**
      * How many reminder tokens this role puts on the board — the count the
-     * studs across the top of the rim report.
+     * studs across the top of the wheel report.
      */
     reminderLeaves: function() {
       return (
@@ -162,7 +180,7 @@ export default {
     otherNightMoon: function() {
       return crescent(0, 180);
     },
-    /** One stud per reminder token, centred on the top of the rim. */
+    /** One stud per reminder token, centred on the top of the wheel. */
     reminderStuds: function() {
       const n = Math.min(5, this.reminderLeaves);
       const studs = [];
@@ -175,26 +193,24 @@ export default {
       }
       return studs;
     },
-    /** Changes the setup — a red lozenge on the upper-right rim. */
+    /**
+     * Changes the setup — a red stone set in a bone bezel, upper right. Two
+     * shapes rather than a stroked one: the bezel IS the outline, and it
+     * varies the way a setting does instead of tracing at a fixed width.
+     */
     setupLozenge: function() {
       const deg = -46;
       const x = CX + MARK_R * Math.cos(deg * RAD);
       const y = CY + MARK_R * Math.sin(deg * RAD);
-      const s = 4.2;
-      return (
-        `M ${x.toFixed(2)} ${(y - s).toFixed(2)}` +
-        ` L ${(x + s * 0.78).toFixed(2)} ${y.toFixed(2)}` +
-        ` L ${x.toFixed(2)} ${(y + s).toFixed(2)}` +
-        ` L ${(x - s * 0.78).toFixed(2)} ${y.toFixed(2)} Z`
-      );
+      return { bezel: lozenge(x, y, 4.6), stone: lozenge(x, y + 0.2, 2.7) };
     },
     /**
-     * The arc the name is cut along. Pulled well in from upstream's curve,
-     * which assumed the art ran to the coin's edge — ours stops where the
-     * gold collar starts, and descenders have to stay off it.
+     * The arc the name is cut along, symmetric about the coin's vertical
+     * axis so a 50% startOffset lands exactly on bottom-centre. Descenders
+     * reach about 60 units from the middle; the parchment ends at 63.6.
      */
     nameCurve: function() {
-      return "M 26 81 C 26 144, 124 144, 124 81";
+      return "M 25 81 C 25 147, 125 147, 125 81";
     },
     ...mapState(["grimoire"])
   },
@@ -204,10 +220,10 @@ export default {
   filters: {
     /**
      * The wheel's face is smaller than upstream's full-bleed disc, so its
-     * name arc is about a fifth shorter and one long/short pair of sizes no
-     * longer covers the range. Calibrated against measured glyph widths at
-     * 152 units of arc: the longest name in any script ("Devil's Advocate")
-     * still lands inside it.
+     * name arc is shorter and one long/short pair of sizes no longer covers
+     * the range. Calibrated against measured glyph widths on 154 units of
+     * arc: the longest name in any script ("Devil's Advocate") still lands
+     * inside it.
      */
     nameToFontSize: name => {
       const n = (name || "").length;
@@ -230,9 +246,9 @@ export default {
 <style scoped lang="scss">
 @import "../vars.scss";
 
-$ink: #231a10; // the name, cut into the parchment
-$paper: #f3e8ce; // the halo that lifts it off the face
-$bone: #efe2c0; // rim marks: bone inlaid into the brass
+$ink: #241a10; // the name, cut into the parchment
+$lip: rgba(246, 232, 200, 0.72); // the lit lower edge of that cut
+$bone: #ded0ac; // rim marks: bone set into the iron
 $blood: #970000; // our red, for the one mark that must not be missed
 
 .token {
@@ -256,15 +272,6 @@ $blood: #970000; // our red, for the one mark that must not be missed
 
   &:hover .name .label {
     fill: $blood;
-    @-moz-document url-prefix() {
-      &.mozilla {
-        stroke: none;
-        filter: drop-shadow(0 1.5px 0 #{$paper})
-          drop-shadow(0 -1.5px 0 #{$paper}) drop-shadow(1.5px 0 0 #{$paper})
-          drop-shadow(-1.5px 0 0 #{$paper})
-          drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-      }
-    }
   }
 
   // the fabled remove-X rides `:before` from TownSquare.vue, so its box has
@@ -287,26 +294,29 @@ $blood: #970000; // our red, for the one mark that must not be missed
     pointer-events: none;
   }
 
-  // the engraved role art, sized to the parchment rather than the whole
-  // coin — the wheel's teeth and collar are not somewhere art may climb
+  // The engraved role art. The box is the whole coin, so `center` is the
+  // coin's true centre on both axes — the art is placed purely by
+  // background-size/position and carries no margin to drift on.
+  //   width  = 76% of the coin, so it is centred exactly, with the same
+  //            12% of coin either side before the parchment ends at 15.2%
+  //   height = the same 76%, dropped 40% of the way through the 24% of
+  //            slack, which lands its centre at 47.6% — a deliberate 2.4%
+  //            lift to make room for the name on the bottom arc
   .icon {
-    background-size: 79%;
+    background-size: 76%;
     background-repeat: no-repeat;
-    background-position: center 20%;
-    margin-top: 2%;
+    background-position: center 40%;
   }
 
-  // A whisper of the role's team, laid into the coin's inner ring. The icon
-  // and the name already say which team this is; this only tints the metal.
   // `closest-side` makes the stops read as a fraction of the coin's radius,
-  // so the band lands on the gold collar at every zoom
+  // so the band lands on the collar at every zoom
   @mixin team-ring($color) {
     background: radial-gradient(
       circle closest-side,
-      transparent 0 79.5%,
-      rgba($color, 0.9) 81%,
-      rgba($color, 0.9) 83.5%,
-      transparent 85%
+      transparent 0 83.5%,
+      rgba($color, 0.55) 85%,
+      rgba($color, 0.55) 87.5%,
+      transparent 89%
     );
   }
 
@@ -332,27 +342,23 @@ $blood: #970000; // our red, for the one mark that must not be missed
     }
   }
 
-  // night order / reminder count / setup: bone inlaid into the dark iron,
-  // which is the one treatment that reads on both the collar and the teeth
+  // night order / reminder count / setup. No stroke: on dark iron the bone
+  // has all the contrast it needs, and a shadow seats it the way a real
+  // inlay sits in its recess.
   .marks {
     position: absolute;
     width: 100%;
     height: 100%;
     pointer-events: none;
+    filter: drop-shadow(0.4px 0.9px 0.7px rgba(0, 0, 0, 0.85));
 
-    .mark {
-      stroke: rgba(14, 10, 4, 0.9);
-      stroke-width: 1.3;
-      paint-order: stroke;
-    }
     .moon,
-    .stud {
+    .stud,
+    .setting {
       fill: $bone;
     }
-    .setup {
+    .stone {
       fill: $blood;
-      stroke: rgba(242, 224, 178, 0.9);
-      stroke-width: 1.3;
     }
   }
 
@@ -362,26 +368,20 @@ $blood: #970000; // our red, for the one mark that must not be missed
     font-size: 24px; // svg fonts are relative to document font size
     .label {
       fill: $ink;
-      stroke: $paper;
-      stroke-width: 2.5px;
-      paint-order: stroke;
+      // Cut, not stickered. Stacked blurred blooms give a halo that follows
+      // the glyph and fades — legible on the aged face without the 2.5px
+      // paint-order outline the earlier passes wore, which was a traced ring
+      // of constant width and the loudest "vector" tell on the coin. The
+      // last shadow is the lit lower lip of the cut.
+      filter: drop-shadow(0 0 1.6px rgba(250, 240, 214, 0.95))
+        drop-shadow(0 0 0.9px rgba(250, 240, 214, 0.95))
+        drop-shadow(0 0 0.6px rgba(250, 240, 214, 0.8))
+        drop-shadow(0 0.9px 0 #{$lip});
       // PiratesBay is what the rest of our chrome is lettered in; upstream's
       // Papyrus stays in assets/fonts, unreferenced
       font-family: "PiratesBay", Georgia, serif;
       letter-spacing: 0.5px;
       transition: fill 200ms;
-
-      @-moz-document url-prefix() {
-        &.mozilla {
-          // Vue doesn't support scoped media queries, so we have to use a second css class
-          stroke: none;
-          text-shadow: none;
-          filter: drop-shadow(0 1.5px 0 #{$paper})
-            drop-shadow(0 -1.5px 0 #{$paper}) drop-shadow(1.5px 0 0 #{$paper})
-            drop-shadow(-1.5px 0 0 #{$paper})
-            drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
-        }
-      }
     }
   }
 
@@ -432,7 +432,7 @@ $blood: #970000; // our red, for the one mark that must not be missed
   }
 }
 
-// A shrouded seat's coin goes cold: the same plate struck in dead metal, so
+// A shrouded seat's coin goes cold: the same wheel struck in dead metal, so
 // a full grimoire reads alive-vs-dead at a glance without hunting for
 // shrouds. `.player` lives in Player.vue; the coin is this component's root,
 // which is what scoping keys off.
