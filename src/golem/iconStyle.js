@@ -67,16 +67,16 @@ const GRAIN_AMP = [16.5, 7.2, 8.3, 9.9, 14.6, 16.1, 20.5, 33.2];
 const DEFAULTS = {
   relief: 2, // 0 flat .. 8 embossed
   base: 0.5, // ambient tone floor
-  wash: 0.6, // broad watercolor patch amplitude
-  brush: 0.24, // vertical brush-pull amplitude
-  mottle: 0.42, // mid-scale paint mottle amplitude
+  wash: 0.7, // the DIRECTIONAL gradient's amplitude (origin -> away)
+  brush: 0.2, // vertical brush-pull amplitude
+  mottle: 0.16, // residual paint blotch (kept quiet — the wash leads)
   grain: 0.45, // multiplier on the measured film grain
   contour: 1, // ink contour width multiplier (0 = no outline)
   hatch: 0.6, // shadow-band hatching strength
   pool: 0.85, // band-pooling dither width
   rim: 0.35, // light-side pale rim strength
   top: 6.6, // tone ceiling in bands for AREA pixels (rim may exceed it)
-  outline: 0.35, // the officials' hairline WHITE edge, in px (0 = none)
+  outline: 0.2, // the officials' hairline WHITE edge, in px (0 = none)
   shadow: 0 // cast shadow opacity (officials have NONE)
 };
 let stored = {};
@@ -306,6 +306,15 @@ export function stylizeIcon(
           LY = -0.7,
           LZ = 0.62;
 
+        // The officials' wash is DIRECTIONAL (user read): one origin point
+        // — lightest or darkest — with tone flowing smoothly away from it.
+        // Seeded angle picks the origin on the shape's rim; usually light.
+        const gAng = hash2(7, 3, seed) * Math.PI * 2;
+        const gOx = W / 2 + Math.cos(gAng) * W * 0.34;
+        const gOy = W / 2 + Math.sin(gAng) * W * 0.34;
+        const gMax = W * 0.78;
+        const gLightOrigin = hash2(11, 5, seed) > 0.3;
+
         const ramp = RAMPS[tint] || RAMPS.neutral;
         const cdfT = CDFS[tint] || CDFS.neutral;
 
@@ -328,8 +337,15 @@ export function stylizeIcon(
             const ndl = (-gx * LX - gy * LY + LZ) * inv;
             let v = K.base + 0.2 * Math.max(0, ndl);
 
-            // broad watercolor washes carry the tone, like wet ink
-            v *= 1 - K.wash / 2 + K.wash * fbm(x, y, 78, seed + 7);
+            // the directional wash: smooth falloff from the origin, with a
+            // whisper of watercolor ripple so it breathes
+            const gd = Math.min(
+              1,
+              Math.hypot(x - gOx, y - gOy) / gMax
+            );
+            let flow = gLightOrigin ? 1 - gd : gd;
+            flow += (fbm(x, y, 90, seed + 7) - 0.5) * 0.22;
+            v *= 1 - K.wash / 2 + K.wash * Math.max(0, Math.min(1, flow));
             v *= 0.6 + 0.55 * detail[i];
 
             // wobbled ink contour

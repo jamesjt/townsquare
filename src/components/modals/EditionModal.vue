@@ -417,6 +417,14 @@
            like scripts: saving someone else's role forks your own copy.
            FT-854: the forge floats over the workbench as an overlay. -->
       <div class="role-form" v-if="roleForm" v-blood-scroll>
+        <div class="button-group forge-acts">
+          <div class="button" title="Save role" @click="saveRoleForm">
+            <font-awesome-icon icon="feather-alt" /> Save
+          </div>
+          <div class="button" title="Discard" @click="closeRoleForm">
+            <font-awesome-icon icon="times" /> Discard
+          </div>
+        </div>
         <h3 class="almanac-title forge-title">
           <img
             v-if="forgeCap"
@@ -525,7 +533,7 @@
                 class="ip-reroll"
                 title="Re-roll the texture — same art, fresh grain"
                 @click="rerollIcon"
-                ><font-awesome-icon icon="redo"
+                ><font-awesome-icon icon="redo-alt"
               /></span>
             </span>
           </div>
@@ -592,14 +600,6 @@
           </div>
         </div>
         <div class="role-error" v-if="roleError">{{ roleError }}</div>
-        <div class="button-group">
-          <div class="button" @click="saveRoleForm">
-            <font-awesome-icon icon="file-upload" /> Save role
-          </div>
-          <div class="button" @click="closeRoleForm">
-            <font-awesome-icon icon="times" /> Cancel
-          </div>
-        </div>
         <div class="row wb-forge-paste">
           <textarea
             v-model="roleJsonText"
@@ -3541,6 +3541,21 @@ $team-colors: (
     .forge-title {
       margin: 0 0 8px;
       font-size: 26px;
+    }
+    // Save/Discard ride the top right, staying put while the form scrolls
+    .forge-acts {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      height: 0;
+      margin: 0;
+      overflow: visible;
+      .button {
+        margin: 0;
+      }
     }
   }
 
