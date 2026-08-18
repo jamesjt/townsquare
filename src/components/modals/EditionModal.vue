@@ -39,7 +39,7 @@
                seed. -->
           <div class="wb-actions">
             <div class="button wb-plus" title="New script" @click="newScript">
-              <font-awesome-icon icon="plus-circle" />
+              <font-awesome-icon icon="plus" />
             </div>
           </div>
         </div>
@@ -77,7 +77,7 @@
               <span class="cnt">{{ t.count }}</span>
             </button>
             <div class="button wb-plus" title="New role" @click="openRoleForm()">
-              <font-awesome-icon icon="plus-circle" />
+              <font-awesome-icon icon="plus" />
             </div>
           </div>
           <!-- FT-855 r2: the FILTER BOX — its header row is the collapsible's
@@ -2774,10 +2774,22 @@ $team-colors: (
 
   // The + buttons: square, icon-only, blood on hover.
   .wb-plus {
-    padding: 3px 9px !important;
+    // a clear RED plus, centred in its plate (user call)
+    padding: 0 !important;
+    width: 26px;
+    height: 26px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    color: #c41818;
     svg {
       width: 15px;
       height: 15px;
+      display: block;
+      margin: 0;
+    }
+    &:hover {
+      color: #ff3b3b;
     }
   }
   .ns-start {
@@ -2878,11 +2890,12 @@ $team-colors: (
         width: 300px;
       }
       .wb-actions {
+        // hug the selector, not the far edge (user call)
         grid-column: 3;
-        justify-self: end;
+        justify-self: start;
         display: flex;
         flex-wrap: wrap;
-        justify-content: flex-end;
+        justify-content: flex-start;
         gap: 4px;
       }
     }
