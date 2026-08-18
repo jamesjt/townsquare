@@ -213,12 +213,28 @@ export default new Vuex.Store({
           return role;
         })
         // map existing roles to base definition or pre-populate custom roles to ensure all properties
-        .map(
-          role =>
+        .map(role => {
+          const out =
             rolesJSONbyId.get(role.id) ||
             state.roles.get(role.id) ||
-            Object.assign({}, customRole, role)
-        )
+            Object.assign({}, customRole, role);
+          // Golem fork (FT-854): per-script NIGHT-ORDER overrides — the
+          // Almanac's drag-reorder writes firstNight/otherNight onto the
+          // script entry; overlay them on a CLONE (bases are shared objects).
+          if (
+            out !== role &&
+            (role.firstNight !== undefined || role.otherNight !== undefined)
+          ) {
+            const f =
+              role.firstNight !== undefined ? role.firstNight : out.firstNight;
+            const o =
+              role.otherNight !== undefined ? role.otherNight : out.otherNight;
+            if (f !== out.firstNight || o !== out.otherNight) {
+              return Object.assign({}, out, { firstNight: f, otherNight: o });
+            }
+          }
+          return out;
+        })
         // default empty icons and placeholders, clean up firstNight / otherNight
         .map(role => {
           if (rolesJSONbyId.get(role.id)) return role;

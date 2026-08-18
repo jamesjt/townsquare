@@ -180,6 +180,106 @@
             An empty page. Add roles from the shelf on the left, or pick a
             script above.
           </div>
+          <!-- Night views: ONE ordered list, drag to reorder (user call).
+               A drop writes real night numbers (midpoint between the new
+               neighbors), so the storyteller's night sheet follows. Dragging
+               a sleeper into the list starts it waking; dropping a waker on
+               the Don't-wake box stops it. -->
+          <div class="wb-groups wb-night" v-else-if="wbView !== 'team'">
+            <section>
+              <h4>
+                {{ wbView === "first" ? "Wake the first night" : "Wake on other nights" }}
+                <small>({{ nightWakers.length }})</small>
+              </h4>
+              <ul class="wb-order">
+                <li
+                  v-for="(role, i) in nightWakers"
+                  :key="role.id"
+                  draggable="true"
+                  :class="[
+                    'team-' + role.team,
+                    {
+                      dragging: dragId === role.id,
+                      'over-before': dragOverId === role.id && !dragAfter,
+                      'over-after': dragOverId === role.id && dragAfter
+                    }
+                  ]"
+                  @dragstart="onDragStart(role)"
+                  @dragover.prevent="onRowDragOver($event, role)"
+                  @drop.prevent="onRowDrop(role)"
+                  @dragend="resetDrag"
+                >
+                  <span class="grip" title="Drag to reorder">⠿</span>
+                  <span class="ord">{{ i + 1 }}</span>
+                  <span
+                    class="icon"
+                    :style="{ backgroundImage: `url(${roleIconUrl(role)})` }"
+                  ></span>
+                  <span class="wb-row-name">{{ role.name }}</span>
+                  <span class="wb-row-ability">{{ role.ability }}</span>
+                  <span class="wb-card-actions">
+                    <font-awesome-icon
+                      v-if="role.isCustom"
+                      icon="pen"
+                      title="Edit this role"
+                      @click.stop="openRoleForm(role)"
+                    />
+                    <font-awesome-icon
+                      icon="times"
+                      title="Remove from script"
+                      @click.stop="removeRole(role.id)"
+                    />
+                  </span>
+                </li>
+              </ul>
+            </section>
+            <section
+              class="dim wb-sleepers"
+              :class="{ 'drop-target': dragId && draggedWakes }"
+              @dragover.prevent
+              @drop.prevent="onSleeperDrop"
+              v-if="nightSleepers.length || dragId"
+            >
+              <h4>
+                Don't wake <small>({{ nightSleepers.length }})</small>
+                <small class="hint-drop" v-if="dragId && draggedWakes">
+                  — drop here to stop waking
+                </small>
+              </h4>
+              <ul class="wb-order">
+                <li
+                  v-for="role in nightSleepers"
+                  :key="role.id"
+                  draggable="true"
+                  :class="['team-' + role.team, { dragging: dragId === role.id }]"
+                  @dragstart="onDragStart(role)"
+                  @dragend="resetDrag"
+                >
+                  <span class="grip" title="Drag into the list above to wake">⠿</span>
+                  <span class="ord">—</span>
+                  <span
+                    class="icon"
+                    :style="{ backgroundImage: `url(${roleIconUrl(role)})` }"
+                  ></span>
+                  <span class="wb-row-name">{{ role.name }}</span>
+                  <span class="wb-row-ability">{{ role.ability }}</span>
+                  <span class="wb-card-actions">
+                    <font-awesome-icon
+                      v-if="role.isCustom"
+                      icon="pen"
+                      title="Edit this role"
+                      @click.stop="openRoleForm(role)"
+                    />
+                    <font-awesome-icon
+                      icon="times"
+                      title="Remove from script"
+                      @click.stop="removeRole(role.id)"
+                    />
+                  </span>
+                </li>
+              </ul>
+            </section>
+          </div>
           <div class="wb-groups" v-else>
             <section
               v-for="group in viewGroups"
@@ -416,6 +516,10 @@ export default {
       wbTeam: "",
       importRoleOpen: false,
       importRoleText: "",
+      // night-order drag state
+      dragId: null,
+      dragOverId: null,
+      dragAfter: false,
       ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
@@ -621,37 +725,37 @@ export default {
         return true;
       });
     },
-    /** The main area's groups, per view. Night views sink non-wakers, dim.
-     *  Travellers never render here — they are town-side content. */
+    /** The by-team groups. Travellers never render here — town-side content. */
     viewGroups() {
       const roles = this.scriptRoles.filter(
         r => normTeam(r.team) !== "traveler"
       );
-      if (this.wbView === "team") {
-        return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
+      return ["townsfolk", "outsider", "minion", "demon"]
+        .map(team => ({
           label: TEAM_LABELS[team],
           team,
           roles: roles
             .filter(r => normTeam(r.team) === team)
             .sort((a, b) => a.name.localeCompare(b.name))
-        })).filter(g => g.roles.length);
-      }
+        }))
+        .filter(g => g.roles.length);
+    },
+    /** The active night view's ordered wakers (drag-reorderable). */
+    nightWakers() {
       const prop = this.wbView === "first" ? "firstNight" : "otherNight";
-      const wakers = roles
-        .filter(r => (r[prop] || 0) > 0)
+      return this.scriptRoles
+        .filter(r => normTeam(r.team) !== "traveler" && (r[prop] || 0) > 0)
         .sort((a, b) => a[prop] - b[prop] || a.name.localeCompare(b.name));
-      const sleepers = roles
-        .filter(r => !(r[prop] || 0))
+    },
+    nightSleepers() {
+      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
+      return this.scriptRoles
+        .filter(r => normTeam(r.team) !== "traveler" && !(r[prop] || 0))
         .sort((a, b) => a.name.localeCompare(b.name));
-      const groups = [
-        {
-          label: this.wbView === "first" ? "Wake the first night" : "Wake on other nights",
-          roles: wakers
-        }
-      ];
-      if (sleepers.length)
-        groups.push({ label: "Don't wake", roles: sleepers, dim: true });
-      return groups;
+    },
+    /** Is the role being dragged currently a waker (in this view)? */
+    draggedWakes() {
+      return this.nightWakers.some(r => r.id === this.dragId);
     }
   },
   // Golem fork: a ?script=<id> share link auto-loads its script on arrival.
@@ -714,20 +818,15 @@ export default {
       const meta = this.$store.state.edition;
       const name = prompt("Script name", meta.name || "My script");
       if (!name) return;
-      // A role whose id exists upstream collapses back to a bare id reference
-      // (the Script Tool convention); a custom role ships whole, minus the
+      // A role whose id exists upstream collapses back to an id reference
+      // (the Script Tool convention) — kept as a bare string when it carries
+      // no night-order override; a custom role ships whole, minus the
       // store's derived display fields.
-      const base = this.$store.getters.rolesJSONbyId;
-      const roles = [];
-      custom.forEach(role => {
-        if (base.has(role.id)) {
-          roles.push(role.id);
-        } else {
-          const rest = { ...role };
-          delete rest.imageAlt; // the store's derived display field
-          roles.push(rest);
-        }
-      });
+      const roles = this.collapseScript().map(entry =>
+        Object.keys(entry).length === 1 && entry.id !== undefined
+          ? entry.id
+          : entry
+      );
       try {
         const { script, created, forked } = await vault.saveScript({
           name,
@@ -917,17 +1016,7 @@ export default {
      * a custom role becomes a custom script.
      */
     insertRoleIntoEdition(appRole, replaceAppId) {
-      const base = this.$store.getters.rolesJSONbyId;
-      const list = [];
-      this.$store.state.roles.forEach(role => {
-        if (base.has(role.id)) {
-          list.push({ id: role.id });
-        } else {
-          const rest = { ...role };
-          delete rest.imageAlt;
-          list.push(rest);
-        }
-      });
+      const list = this.collapseScript();
       const at = list.findIndex(
         r =>
           (replaceAppId && r.id === replaceAppId) ||
@@ -946,6 +1035,31 @@ export default {
       }
     },
     // ── Golem fork (FT-854): the workbench ───────────────────────────────
+    /**
+     * The current script, collapsed to its storable form: official roles as
+     * {id} refs — CARRYING night-order overrides when they differ from the
+     * base — custom roles whole minus the derived display field. One helper,
+     * used by every mutation and by the vault save.
+     */
+    collapseScript(excludeAppId) {
+      const base = this.$store.getters.rolesJSONbyId;
+      const list = [];
+      this.$store.state.roles.forEach(role => {
+        if (excludeAppId && role.id === excludeAppId) return;
+        const b = base.get(role.id);
+        if (b) {
+          const ref = { id: role.id };
+          if (role.firstNight !== b.firstNight) ref.firstNight = role.firstNight;
+          if (role.otherNight !== b.otherNight) ref.otherNight = role.otherNight;
+          list.push(ref);
+        } else {
+          const rest = { ...role };
+          delete rest.imageAlt;
+          list.push(rest);
+        }
+      });
+      return list;
+    },
     /**
      * setEdition (and friends) close the modal as a side effect — upstream's
      * flow ended there. The workbench keeps working, so re-open in place.
@@ -995,17 +1109,7 @@ export default {
     },
     /** Remove one role from the current script (never blocks on composition). */
     removeRole(appId) {
-      const base = this.$store.getters.rolesJSONbyId;
-      const list = [];
-      this.$store.state.roles.forEach(role => {
-        if (role.id === appId) return;
-        if (base.has(role.id)) list.push({ id: role.id });
-        else {
-          const rest = { ...role };
-          delete rest.imageAlt;
-          list.push(rest);
-        }
-      });
+      const list = this.collapseScript(appId);
       this.$store.commit("setCustomRoles", list);
       if (this.$store.state.edition.id !== "custom") {
         const meta = this.$store.state.edition;
@@ -1070,6 +1174,68 @@ export default {
       this.importRoleOpen = false;
       this.ensureOpen();
       flashHint("Role added to this script");
+    },
+    // ── FT-854: night-order drag-reorder ─────────────────────────────────
+    onDragStart(role) {
+      this.dragId = role.id;
+    },
+    onRowDragOver(e, role) {
+      if (!this.dragId || role.id === this.dragId) return;
+      this.dragOverId = role.id;
+      this.dragAfter = e.offsetY > e.currentTarget.offsetHeight / 2;
+    },
+    resetDrag() {
+      this.dragId = null;
+      this.dragOverId = null;
+      this.dragAfter = false;
+    },
+    /**
+     * Drop on a waker row: the dragged role takes the midpoint of its new
+     * neighbors' night numbers — everything else (including the night
+     * sheet's fixed minion/demon-info anchors) keeps its place. Ties fall
+     * back to a small offset.
+     */
+    onRowDrop(target) {
+      const dragged = this.scriptRoles.find(r => r.id === this.dragId);
+      const after = this.dragAfter;
+      this.resetDrag();
+      if (!dragged || dragged.id === target.id) return;
+      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
+      const list = this.nightWakers.filter(r => r.id !== dragged.id);
+      let at = list.findIndex(r => r.id === target.id);
+      if (at < 0) return;
+      if (after) at += 1;
+      const prev = at > 0 ? list[at - 1][prop] : 0;
+      const next = at < list.length ? list[at][prop] : prev + 2;
+      let value = (prev + next) / 2;
+      if (!(value > prev && value < next)) value = prev + 0.5;
+      this.setNight(dragged.id, prop, value);
+    },
+    /** Drop a waker onto the Don't-wake box: it stops waking (0). */
+    onSleeperDrop() {
+      const dragged = this.scriptRoles.find(r => r.id === this.dragId);
+      const wasWaking = this.draggedWakes;
+      this.resetDrag();
+      if (!dragged || !wasWaking) return;
+      const prop = this.wbView === "first" ? "firstNight" : "otherNight";
+      this.setNight(dragged.id, prop, 0);
+    },
+    /** Write one role's night number through the collapse (persists on the
+     *  script entry — official refs carry it as an override). */
+    setNight(appId, prop, value) {
+      const list = this.collapseScript();
+      const entry = list.find(r => r.id === appId);
+      if (!entry) return;
+      entry[prop] = value;
+      this.$store.commit("setCustomRoles", list);
+      if (this.$store.state.edition.id !== "custom") {
+        const meta = this.$store.state.edition;
+        this.$store.commit("setEdition", {
+          id: "custom",
+          name: meta.name || "Custom script"
+        });
+      }
+      this.ensureOpen();
     },
     /** The icon for any script role — official art, borrowed art, or generic. */
     roleIconUrl(role) {
@@ -1631,6 +1797,100 @@ $team-colors: (
       }
       &:hover .wb-card-actions {
         opacity: 1;
+      }
+    }
+  }
+
+  // FT-854: the night views — one ordered list, drag to reorder.
+  .wb-night {
+    .wb-order {
+      display: block;
+      li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border-top: 2px solid transparent;
+        border-bottom: 2px solid transparent;
+        cursor: grab;
+        &:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
+        &.dragging {
+          opacity: 0.35;
+        }
+        &.over-before {
+          border-top-color: #a01414;
+        }
+        &.over-after {
+          border-bottom-color: #a01414;
+        }
+        .grip {
+          opacity: 0.4;
+          font-size: 14px;
+          cursor: grab;
+        }
+        .ord {
+          width: 26px;
+          text-align: right;
+          font-size: 13px;
+          opacity: 0.6;
+          flex-shrink: 0;
+        }
+        .icon {
+          width: 34px;
+          height: 34px;
+          background-size: cover;
+          background-position: center;
+          flex-shrink: 0;
+        }
+        .wb-row-name {
+          font-weight: bold;
+          font-size: 14px;
+          width: 170px;
+          flex-shrink: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .wb-row-ability {
+          flex-grow: 1;
+          min-width: 0;
+          font-size: 13px;
+          opacity: 0.8;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .wb-card-actions {
+          display: flex;
+          gap: 8px;
+          opacity: 0.45;
+          svg {
+            cursor: pointer;
+            width: 12px;
+            &:hover {
+              color: red;
+            }
+          }
+        }
+        &:hover .wb-card-actions {
+          opacity: 1;
+        }
+      }
+    }
+    .wb-sleepers {
+      &.drop-target {
+        border-color: #a01414;
+        border-style: dashed;
+      }
+      .hint-drop {
+        color: #ff8a8a;
+        font-weight: normal;
+      }
+      .wb-order li {
+        cursor: grab;
       }
     }
   }
