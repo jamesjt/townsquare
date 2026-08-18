@@ -808,7 +808,10 @@ export default {
     // coin's teeth leave gaps at the rim, and at full size this disc's own
     // black ring showed through them (user call 2026-08-18). An empty chair
     // still shows it at full size — there is no coin over it then.
-    .player.has-role & {
+    // ONLY in the storyteller's view: this disc is the token's PUBLIC face
+    // (the coin flips away and this flips in), so in the players' view it is
+    // the token itself and must keep its own size and ring.
+    #townsquare:not(.public) .player.has-role & {
       width: 92%;
       height: 92%;
       left: 4%;

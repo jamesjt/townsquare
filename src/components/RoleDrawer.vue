@@ -122,6 +122,9 @@ import { mapMutations, mapState } from "vuex";
 // FT-858: THE role hover card, shared with the Almanac workbench's shelf and
 // the seats in the square.
 import RoleHoverCard from "./RoleHoverCard";
+// FT-859: the drag itself is shared with the build panel's unseated tray —
+// one gesture, one definition (see golem/roleDrag).
+import { roleIcon as roleIconSrc, startRoleDrag } from "../golem/roleDrag";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 // the cursor has to rest on a row before its card appears — running the list
@@ -213,12 +216,7 @@ export default {
       this.$set(this.folded, team, !this.folded[team]);
     },
     roleIcon(role) {
-      if (role.golemIconData) return role.golemIconData;
-      try {
-        return require("../assets/icons/" + role.id + ".png");
-      } catch (e) {
-        return require("../assets/icons/" + (role.imageAlt || "custom") + ".png");
-      }
+      return roleIconSrc(role);
     },
     teamGlyph(team) {
       if (team === "outsider") return outsiderGlyph;
@@ -246,27 +244,11 @@ export default {
       return this.players.filter(p => p.role.team === team).length;
     },
     dragRole(role, e) {
-      e.dataTransfer.setData("golem/role", role.id);
-      e.dataTransfer.effectAllowed = "copy";
       // drag the ROLE, not the row: the ghost is the icon alone, at the size
-      // it lands on the seat (user call 2026-08-18)
-      const ghost = new Image();
-      ghost.src = this.roleIcon(role);
-      ghost.style.cssText =
-        "position:fixed;top:-1000px;left:-1000px;width:84px;height:84px;";
-      document.body.appendChild(ghost);
-      this._ghost = ghost;
-      try {
-        e.dataTransfer.setDragImage(ghost, 42, 42);
-      } catch (err) {
-        // older engines keep the default row ghost — harmless
-      }
-      setTimeout(() => {
-        if (this._ghost) {
-          this._ghost.remove();
-          this._ghost = null;
-        }
-      }, 0);
+      // it lands on the seat (user call 2026-08-18). FT-859 moved the gesture
+      // into golem/roleDrag so the build panel's tray drags identically.
+      this.hideCard();
+      startRoleDrag(role, e);
     },
     clickRole(role) {
       if (!this.allowDup && this.placedCount(role)) return;

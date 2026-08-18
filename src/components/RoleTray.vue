@@ -1,0 +1,299 @@
+<template>
+  <!-- Golem fork (FT-859): the UNSEATED TRAY — every character the script
+       carries that has no chair yet, as rows of small icons under the build
+       panel's "Roles x / y assigned" line. Drag one onto a seat to cast it;
+       drag a seated one anywhere that is NOT a seat and it comes back here.
+
+       The tray never assigns anything itself: a drag hands the seat the same
+       `golem/role` payload the grimoire drawer sends, so Player.placeRole
+       stays the single owner of the one-chair-per-role rule. -->
+  <div class="role-tray" :class="{ armed: dropArmed }" v-if="roles.size">
+    <RoleHoverCard
+      v-if="cardRole"
+      :role="cardRole"
+      :anchor="cardAnchor"
+      @dismiss="hideCard"
+    />
+    <div class="rt-icons" v-if="unseated.length" @scroll.passive="hideCard">
+      <span
+        v-for="role in unseated"
+        :key="role.id"
+        class="rt-icon"
+        :class="['team-' + role.team, { picked: isPicked(role) }]"
+        :style="{ backgroundImage: `url(${icon(role)})` }"
+        draggable="true"
+        role="button"
+        tabindex="0"
+        :aria-label="spokenRole(role)"
+        @dragstart="onDragStart(role, $event)"
+        @click="pick(role)"
+        @keydown.enter.prevent="pick(role)"
+        @keydown.space.prevent="pick(role)"
+        @focus="showCard(role, $event, true)"
+        @blur="hideCard"
+        @mouseenter="showCard(role, $event)"
+        @mouseleave="hideCard"
+      ></span>
+    </div>
+    <div class="rt-done" v-else-if="dropArmed">
+      <font-awesome-icon icon="undo" />
+      release to unseat
+    </div>
+    <div class="rt-done" v-else>
+      <font-awesome-icon icon="check" />
+      every character seated
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapMutations, mapState } from "vuex";
+import RoleHoverCard from "./RoleHoverCard";
+import { roleIcon, startRoleDrag } from "../golem/roleDrag";
+
+// the reading order of the tray: the composition top to bottom, so the rows
+// group themselves without any headings eating the panel's height
+const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon"];
+// the cursor has to rest on an icon before its card appears — running the
+// tray should not strobe cards (the drawer's own delay)
+const HOVER_DELAY = 170;
+
+export default {
+  name: "RoleTray",
+  components: { RoleHoverCard },
+  data() {
+    return {
+      // which role the hover card is describing, and the tile it is pinned to
+      cardRole: null,
+      cardAnchor: null,
+      // a role is being dragged OFF a seat right now — the tray says so
+      dropArmed: false
+    };
+  },
+  computed: {
+    ...mapState(["roles", "session"]),
+    ...mapState("players", ["players"]),
+    drawerPick() {
+      return this.$store.state.drawerPick;
+    },
+    /**
+     * The script's characters with no chair.
+     *
+     * TRAVELLERS ARE NOT HERE. They sit outside the composition everywhere
+     * else in this codebase (gameJSON counts only the four core teams;
+     * coreSeats and nonTravelerSeats both filter them out) and they join a
+     * town mid-game by the storyteller's fiat, not while it is being built.
+     * A tray that listed them could never empty, which would make "what is
+     * left to cast" a lie.
+     */
+    unseated() {
+      const seated = new Set(
+        this.players.map(p => p.role && p.role.id).filter(Boolean)
+      );
+      return [...this.roles.values()]
+        .filter(r => TEAM_ORDER.includes(r.team) && !seated.has(r.id))
+        .sort((a, b) => TEAM_ORDER.indexOf(a.team) - TEAM_ORDER.indexOf(b.team));
+    }
+  },
+  mounted() {
+    // The unassign target is the WHOLE PAGE minus the surfaces that own a drop
+    // of their own — and it exists only while this tray does, i.e. only while
+    // the host is building the town.
+    document.addEventListener("dragover", this.onDocDragOver);
+    document.addEventListener("drop", this.onDocDrop);
+    document.addEventListener("dragend", this.onDocDragEnd);
+  },
+  beforeDestroy() {
+    document.removeEventListener("dragover", this.onDocDragOver);
+    document.removeEventListener("drop", this.onDocDrop);
+    document.removeEventListener("dragend", this.onDocDragEnd);
+    clearTimeout(this.$options.cardTimer);
+  },
+  methods: {
+    ...mapMutations(["setDrawerPick"]),
+    icon(role) {
+      return roleIcon(role);
+    },
+    /** What a screen reader hears from a tile that carries no text. */
+    spokenRole(role) {
+      return role.ability ? `${role.name}. ${role.ability}` : role.name;
+    },
+    isPicked(role) {
+      return !!this.drawerPick && this.drawerPick.id === role.id;
+    },
+    /** Click (or Enter/Space) arms the role for the seat you click next —
+     *  the drawer's own pick channel, so the keyboard reaches the tray too. */
+    pick(role) {
+      this.setDrawerPick(this.isPicked(role) ? null : role);
+    },
+    showCard(role, e, immediate) {
+      if (!immediate && !window.matchMedia("(hover: hover)").matches) return;
+      const el = e.currentTarget;
+      clearTimeout(this.$options.cardTimer);
+      this.$options.cardTimer = setTimeout(
+        () => {
+          this.cardAnchor = el;
+          this.cardRole = role;
+        },
+        immediate ? 0 : HOVER_DELAY
+      );
+    },
+    hideCard() {
+      clearTimeout(this.$options.cardTimer);
+      this.cardRole = null;
+      this.cardAnchor = null;
+    },
+    onDragStart(role, e) {
+      this.hideCard();
+      startRoleDrag(role, e);
+    },
+    // ── the drop-outside-to-unseat target ────────────────────────────────
+    /**
+     * Is this OUR drag — a role leaving a seat? `types` is the only part of
+     * the payload a drag is allowed to read before the drop, which is exactly
+     * what we need: a file drag, a text selection, the Almanac's row reorder
+     * (which sets nothing at all) and the tray's own `golem/role` drag all
+     * fail this test, so none of them can ever clear a chair.
+     */
+    isSeatDrag(e) {
+      const types = e.dataTransfer && e.dataTransfer.types;
+      if (!types) return false;
+      return Array.prototype.indexOf.call(types, "golem/from") >= 0;
+    },
+    /**
+     * A surface that already owns this drop: a seat (assign / swap) or the
+     * grimoire drawer (its own unassign). DOM ancestry, not coordinates — the
+     * seats sit inside rotated, clipped boxes where a rect test would lie.
+     */
+    ownsDrop(e) {
+      const el = e.target;
+      return !!(el && el.closest && el.closest(".player, .role-drawer"));
+    },
+    onDocDragOver(e) {
+      if (!this.isSeatDrag(e)) return;
+      // the tray lights up for the whole gesture, including over a seat —
+      // it is telling you where the role goes if you let go out here
+      this.dropArmed = true;
+      if (this.session.isSpectator || this.ownsDrop(e)) return;
+      // ONLY a drag we would actually accept makes the page a drop target
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    },
+    /**
+     * The drop landed outside every seat: the chair gives its character back.
+     *
+     * A drag that never drops — Escape, or a release over browser chrome —
+     * fires `dragend` and no `drop` at all, so it changes nothing. That is
+     * why the unassign lives here and not in onDocDragEnd.
+     */
+    onDocDrop(e) {
+      this.dropArmed = false;
+      if (this.session.isSpectator) return;
+      if (!this.isSeatDrag(e) || this.ownsDrop(e)) return;
+      const from = e.dataTransfer.getData("golem/from");
+      if (from === "") return;
+      const player = this.players[Number(from)];
+      if (!player || !player.role || !player.role.id) return;
+      e.preventDefault();
+      this.$store.commit("players/update", {
+        player,
+        property: "role",
+        value: {}
+      });
+    },
+    /** Every drag ends here, dropped or cancelled — the highlight goes out
+     *  and nothing else happens. */
+    onDocDragEnd() {
+      this.dropArmed = false;
+    }
+  }
+};
+</script>
+
+<style scoped lang="scss">
+// the workbench's team palette (each surface holds its own copy)
+$team-colors: (
+  "townsfolk": #1f65ff,
+  "outsider": #46d5ff,
+  "minion": #ff6900,
+  "demon": #ce0100
+);
+
+.role-tray {
+  margin: 2px 0 4px;
+  padding: 5px 4px;
+  // the border is always there so arming only repaints it — nothing moves
+  border: 1px dashed transparent;
+  border-radius: 7px;
+  transition: border-color 160ms, background 160ms;
+
+  &.armed {
+    border-color: rgba(190, 90, 90, 0.75);
+    background: rgba(160, 20, 20, 0.12);
+  }
+
+  .rt-icons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    // a 25-role custom script wraps into rows and then scrolls, rather than
+    // growing the panel into a wall (three rows showing, the fourth peeking)
+    max-height: 132px;
+    overflow-y: auto;
+    // the tray sets the panel's width instead of inheriting whatever the
+    // longest row happens to be — 8 tiles to a row
+    width: 336px;
+    max-width: 100%;
+  }
+
+  .rt-icon {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    cursor: grab;
+    transition: transform 120ms, filter 120ms;
+
+    @each $team, $color in $team-colors {
+      &.team-#{$team} {
+        // the team reads off the ring, so the tray shows at a glance what is
+        // still owed to each part of the composition
+        border-color: rgba($color, 0.55);
+      }
+    }
+
+    &:hover,
+    &:focus {
+      outline: none;
+      transform: scale(1.12);
+      filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+    }
+    &:focus {
+      border-color: #d8cdb4;
+    }
+    &.picked {
+      border-color: #ff5a5a;
+      background-color: rgba(160, 20, 20, 0.25);
+      transform: scale(1.12);
+    }
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .rt-done {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 70%;
+    opacity: 0.55;
+  }
+}
+</style>

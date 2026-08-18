@@ -755,8 +755,11 @@ $team-colors: (
       }
       .wb-row-name {
         font-weight: bold;
-        font-size: 14px;
-        width: 170px;
+        // bigger type, and the name column only as wide as the longest name
+        // actually needs — 170px left a corridor of dead space before the
+        // ability (user call 2026-08-18)
+        font-size: 16px;
+        width: 124px;
         flex-shrink: 0;
         white-space: nowrap;
         overflow: hidden;
@@ -765,8 +768,8 @@ $team-colors: (
       .wb-row-ability {
         flex-grow: 1;
         min-width: 0;
-        font-size: 13px;
-        opacity: 0.8;
+        font-size: 15px;
+        opacity: 0.85;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

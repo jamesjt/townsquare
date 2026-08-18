@@ -98,6 +98,11 @@
       </span>
     </div>
 
+    <!-- FT-859: the UNSEATED TRAY — the script's characters that have no
+         chair yet, dragged straight onto a seat from here. Dropping a seated
+         role anywhere that is not a seat sends it back to this tray. -->
+    <RoleTray />
+
     <div
       class="start"
       :class="{ ready: canStart }"
@@ -114,13 +119,15 @@
 import { mapMutations, mapState } from "vuex";
 import { listTowns, editKeyFor, updateTown } from "../golem/towns";
 import ScriptPicker from "./ScriptPicker";
+// FT-859: the unseated-role tray that lives under the Roles row.
+import RoleTray from "./RoleTray";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
 
 export default {
-  components: { ScriptPicker },
+  components: { ScriptPicker, RoleTray },
   mounted() {
     // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
     // game (5-6 is Teensyville; user call 2026-08-18)
