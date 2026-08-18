@@ -42,10 +42,10 @@
           v-if="seatEditing"
           ref="seatInput"
           class="seat-input"
-          type="number"
-          min="0"
-          max="20"
-          v-model.number="seatEditVal"
+          type="text"
+          inputmode="numeric"
+          v-model="seatEditVal"
+          @input="seatEditVal = seatEditVal.replace(/\D/g, '')"
           @keyup.enter="commitSeatEdit"
           @keyup.esc="seatEditing = false"
           @blur="commitSeatEdit"
@@ -272,7 +272,7 @@ export default {
         el.removeEventListener("pointermove", onMove);
         el.removeEventListener("pointerup", onUp);
         if (moved < 3) {
-          this.seatEditVal = this.players.length;
+          this.seatEditVal = String(this.players.length);
           this.seatEditing = true;
           this.$nextTick(() => {
             const inp = this.$refs.seatInput;
@@ -289,7 +289,7 @@ export default {
     commitSeatEdit() {
       if (!this.seatEditing) return;
       this.seatEditing = false;
-      this.setSeatCount(this.seatEditVal);
+      this.setSeatCount(parseInt(this.seatEditVal, 10) || 0);
     },
     removeSeat() {
       // remove the LAST empty seat; claimed chairs are a targeted act only
@@ -332,8 +332,15 @@ export default {
         this.$store.commit("players/clear");
       }
     },
-    start() {
-      if (!this.canStart) {
+    start(e) {
+      // DEV bypass (user call): shift-click starts with unclaimed seats —
+      // roles must still be assigned; only the claim gate is waived.
+      const devForce =
+        e &&
+        e.shiftKey &&
+        this.players.length > 0 &&
+        this.rolesAssigned >= this.players.length;
+      if (!this.canStart && !devForce) {
         // The button explains itself instead of doing nothing.
         if (this.rolesAssigned < this.players.length && this.coreSeats.every(p => p.id)) {
           this.toggleModal("roles");
