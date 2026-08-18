@@ -32,6 +32,15 @@
           <font-awesome-icon icon="random" />
           Shuffle
         </button>
+        <label
+          class="rd-dup"
+          :class="{ on: allowDup }"
+          title="Let one role sit in more than one chair"
+          @click="allowDup = !allowDup"
+        >
+          <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
+          Dupes
+        </label>
       </div>
       <div class="rd-groups" v-blood-scroll>
         <section
@@ -41,6 +50,17 @@
           v-show="grouped[team] && grouped[team].length"
         >
           <h4 @click="fold(team)">
+            <img
+              v-if="teamGlyph(team)"
+              class="team-glyph"
+              :src="teamGlyph(team)"
+              alt=""
+            />
+            <font-awesome-icon
+              v-else-if="teamIcon(team)"
+              class="team-glyph-fa"
+              :icon="teamIcon(team)"
+            />
             {{ labels[team] }}
             <small>{{ placedInTeam(team) }} / {{ comp[team] || "–" }}</small>
             <font-awesome-icon
@@ -68,6 +88,7 @@
                 :style="{ backgroundImage: `url(${roleIcon(role)})` }"
               ></span>
               <span class="nm">{{ role.name }}</span>
+              <span class="who" v-if="seatedNames(role)">· {{ seatedNames(role) }}</span>
               <span class="cnt" v-if="placedCount(role) > 1"
                 >x{{ placedCount(role) }}</span
               >
@@ -75,18 +96,14 @@
           </ul>
         </section>
       </div>
-      <div class="rd-foot">
-        <label class="rd-dup" :class="{ on: allowDup }" @click="allowDup = !allowDup">
-          <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
-          Allow duplicates
-        </label>
-      </div>
     </div>
   </transition>
 </template>
 
 <script>
 import gameJSON from "../game";
+import demonGlyph from "../assets/blood/demon-glyph.png";
+import outsiderGlyph from "../assets/blood/outsider-glyph.png";
 import { mapMutations, mapState } from "vuex";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -148,6 +165,25 @@ export default {
         return require("../assets/icons/" + (role.imageAlt || "custom") + ".png");
       }
     },
+    teamGlyph(team) {
+      if (team === "outsider") return outsiderGlyph;
+      if (team === "demon") return demonGlyph;
+      return null;
+    },
+    teamIcon(team) {
+      if (team === "townsfolk") return "users";
+      if (team === "minion") return "mask";
+      if (team === "traveler") return "suitcase";
+      return null;
+    },
+    /** Who is playing this role right now — the drawer reads as a seating
+     *  chart once the town is built. */
+    seatedNames(role) {
+      return this.players
+        .filter(p => p.role.id === role.id)
+        .map(p => p.name || "Open")
+        .join(", ");
+    },
     placedCount(role) {
       return this.players.filter(p => p.role.id === role.id).length;
     },
@@ -157,6 +193,25 @@ export default {
     dragRole(role, e) {
       e.dataTransfer.setData("golem/role", role.id);
       e.dataTransfer.effectAllowed = "copy";
+      // drag the ROLE, not the row: the ghost is the icon alone, at the size
+      // it lands on the seat (user call 2026-08-18)
+      const ghost = new Image();
+      ghost.src = this.roleIcon(role);
+      ghost.style.cssText =
+        "position:fixed;top:-1000px;left:-1000px;width:84px;height:84px;";
+      document.body.appendChild(ghost);
+      this._ghost = ghost;
+      try {
+        e.dataTransfer.setDragImage(ghost, 42, 42);
+      } catch (err) {
+        // older engines keep the default row ghost — harmless
+      }
+      setTimeout(() => {
+        if (this._ghost) {
+          this._ghost.remove();
+          this._ghost = null;
+        }
+      }, 0);
     },
     clickRole(role) {
       if (!this.allowDup && this.placedCount(role)) return;
@@ -264,6 +319,23 @@ $team-colors: (
     gap: 6px;
     margin: 4px 10px 8px;
 
+    .rd-dup {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      font-size: 12px;
+      color: rgba(216, 205, 180, 0.75);
+      background: rgba(20, 16, 22, 0.9);
+      border: 1px solid rgba(120, 105, 135, 0.4);
+      border-radius: 5px;
+      cursor: pointer;
+      user-select: none;
+      &.on {
+        color: #ffd9d9;
+        border-color: rgba(190, 90, 90, 0.8);
+      }
+    }
     .rd-act {
       flex: 1;
       display: flex;
@@ -290,6 +362,15 @@ $team-colors: (
         cursor: not-allowed;
       }
     }
+  }
+  .team-glyph {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+  }
+  .team-glyph-fa {
+    width: 14px;
+    opacity: 0.9;
   }
   .rd-groups {
     flex: 1;
@@ -357,6 +438,16 @@ $team-colors: (
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        flex-shrink: 0;
+      }
+      // who is sitting in it — the drawer doubles as a seating chart
+      .who {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        opacity: 0.72;
       }
       .cnt {
         margin-left: auto;
@@ -374,29 +465,6 @@ $team-colors: (
         outline: 1px solid #a01414;
         background: rgba(160, 20, 20, 0.16);
       }
-    }
-  }
-  .rd-foot {
-    padding: 8px 10px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    border-top: 1px solid #2a2a2a;
-    .rd-dup {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 13px;
-      cursor: pointer;
-      opacity: 0.8;
-      &.on {
-        opacity: 1;
-        color: #ffb6b6;
-      }
-    }
-    .button {
-      margin: 0;
-      justify-content: center;
     }
   }
 }

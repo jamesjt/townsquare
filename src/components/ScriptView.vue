@@ -4,7 +4,7 @@
        every mutation; the player-facing drawer renders the same markup with
        :editable="false". A change here shows up in both places, which is the
        whole point of the extraction. -->
-  <main class="wb-main script-view">
+  <main class="wb-main script-view" :class="{ narrow }">
     <div class="wb-views">
       <span
         class="wb-tab"
@@ -194,6 +194,18 @@
       >
         <!-- click a type header to fold its box (user call) -->
         <h4 class="wb-fold" @click="toggleGroupFold(group.label)">
+          <!-- the type's own glyph, the same one the meter wears -->
+          <img
+            v-if="teamGlyph(group.team)"
+            class="team-glyph"
+            :src="teamGlyph(group.team)"
+            alt=""
+          />
+          <font-awesome-icon
+            v-else-if="teamIcon(group.team)"
+            class="team-glyph-fa"
+            :icon="teamIcon(group.team)"
+          />
           {{ group.label }} <small>({{ group.roles.length }})</small>
           <font-awesome-icon
             class="caret"
@@ -291,7 +303,9 @@ export default {
       // night-order drag state
       dragId: null,
       dragOverId: null,
-      dragAfter: false
+      dragAfter: false,
+      // set by measure() — the view reflows for a narrow drawer
+      narrow: false
     };
   },
   computed: {
@@ -337,6 +351,16 @@ export default {
       return this.nightWakers.some(r => r.id === this.dragId);
     }
   },
+  mounted() {
+    this.measure();
+    if (window.ResizeObserver) {
+      this.ro = new ResizeObserver(() => this.measure());
+      this.ro.observe(this.$el);
+    }
+  },
+  beforeDestroy() {
+    if (this.ro) this.ro.disconnect();
+  },
   watch: {
     // the drawer re-points the tab while it is already open (the night icon
     // lands on First night)
@@ -345,6 +369,26 @@ export default {
     }
   },
   methods: {
+    /** The type's own art, where we have it (outsider + demon are baked
+     *  glyphs; townsfolk + minion ride Font Awesome). */
+    teamGlyph(team) {
+      if (team === "outsider") return this.outsiderGlyph;
+      if (team === "demon") return this.demonGlyph;
+      return null;
+    },
+    teamIcon(team) {
+      if (team === "townsfolk") return "users";
+      if (team === "minion") return "mask";
+      return null;
+    },
+    /** The view reflows below ~460px so it stays readable in a narrow drawer:
+     *  one card per row, and night rows drop their ability under the name
+     *  instead of clipping it. The workbench never gets that narrow, so its
+     *  layout is untouched. */
+    measure() {
+      const w = this.$el && this.$el.clientWidth;
+      if (w) this.narrow = w < 460;
+    },
     setView(view) {
       this.view = view;
       this.$emit("view", view);
@@ -445,10 +489,13 @@ $team-colors: (
     flex-wrap: wrap;
     gap: 3px;
     margin-bottom: 6px;
-    // the meter rides the tab line, right-aligned
+    // the composition meter gets its OWN row, centred above the list
+    // (user call 2026-08-18 — right-aligned on the tab line it read as a
+    // stray cluster in the corner)
     .wb-meter {
-      margin-left: auto;
-      padding-right: 4px;
+      flex: 1 1 100%;
+      justify-content: center;
+      padding: 2px 0 0;
     }
     // in the app's idiom (user call): dark plates, blood on the active,
     // and the TITLE's lettering (PiratesBay — what "Almanac" wears)
@@ -756,6 +803,53 @@ $team-colors: (
     }
     .wb-order li {
       cursor: grab;
+    }
+  }
+}
+
+// the type's glyph, leading its group header
+.wb-fold {
+  .team-glyph {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    vertical-align: -2px;
+  }
+  .team-glyph-fa {
+    width: 15px;
+    opacity: 0.9;
+  }
+}
+
+// NARROW (a drawer dragged in): one card per row, and the night list stacks
+// its ability under the name instead of clipping it to an ellipsis. The
+// workbench never reaches this width, so its layout is unchanged.
+.wb-main.narrow {
+  .wb-views {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .wb-cards {
+    grid-template-columns: 1fr;
+  }
+  .wb-card {
+    grid-template-columns: 44px minmax(0, 1fr);
+    .icon {
+      width: 44px;
+      height: 44px;
+    }
+  }
+  .wb-night .wb-order li {
+    flex-wrap: wrap;
+    .wb-row-name {
+      width: auto;
+      flex: 1 1 auto;
+    }
+    .wb-row-ability {
+      flex: 1 1 100%;
+      white-space: normal;
+      overflow: visible;
+      padding-left: 46px;
     }
   }
 }

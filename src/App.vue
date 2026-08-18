@@ -825,7 +825,8 @@ ul {
   // instead of hiding under it (user call 2026-08-18)
   transition: right 220ms ease;
   &.drawer-open {
-    right: 570px;
+    // follows the drawer's own (resizable) width
+    right: calc(var(--sd-width, 400px) + 10px);
   }
   display: flex;
   align-items: center;

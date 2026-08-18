@@ -5,15 +5,28 @@
        and its body is THE workbench view (ScriptView), read-only. Change the
        workbench and this changes with it. -->
   <transition name="sd-slide">
-    <div class="script-drawer" v-if="modals.scriptDrawer">
+    <div
+      class="script-drawer"
+      v-if="modals.scriptDrawer"
+      :style="{ width: width + 'px' }"
+    >
+      <!-- drag the left edge to resize; the width persists per browser and
+           the view inside reflows once it gets narrow (user call) -->
+      <div
+        class="sd-grip"
+        title="Drag to resize — double-click to reset"
+        @pointerdown="startResize"
+        @dblclick="resetWidth"
+      ></div>
+      <!-- close first, then the name — both top-LEFT (user call) -->
       <div class="sd-head">
-        <h3 class="sd-title">{{ edition.name || "Custom Script" }}</h3>
         <font-awesome-icon
           icon="times"
           class="sd-close"
           title="Close the script"
           @click="toggleModal('scriptDrawer')"
         />
+        <h3 class="sd-title">{{ edition.name || "Custom Script" }}</h3>
       </div>
       <ScriptView
         class="sd-view"
@@ -29,9 +42,30 @@
 import { mapMutations, mapState } from "vuex";
 import ScriptView from "./ScriptView";
 
+// A narrower default than the first cut (user call) — the reference reads
+// fine at this width now that the view reflows, and it leaves the town
+// square visible beside it.
+const DEFAULT_W = 400;
+const MIN_W = 300;
+const MAX_W = 900;
+
 export default {
   name: "ScriptDrawer",
   components: { ScriptView },
+  data() {
+    let stored = parseInt(localStorage.getItem("golem.scriptDrawerW"), 10);
+    if (!stored || stored < MIN_W || stored > MAX_W) stored = DEFAULT_W;
+    return { width: stored };
+  },
+  watch: {
+    // the session pill steps aside by exactly this much
+    width: {
+      immediate: true,
+      handler(w) {
+        document.documentElement.style.setProperty("--sd-width", w + "px");
+      }
+    }
+  },
   computed: {
     ...mapState(["roles", "modals", "edition", "scriptDrawerView"]),
     /** The current script as a list (state.roles is replaced wholesale). */
@@ -42,7 +76,30 @@ export default {
     }
   },
   methods: {
-    ...mapMutations(["toggleModal"])
+    ...mapMutations(["toggleModal"]),
+    startResize(e) {
+      e.preventDefault();
+      const grip = e.currentTarget;
+      grip.setPointerCapture(e.pointerId);
+      const startX = e.clientX;
+      const startW = this.width;
+      const onMove = ev => {
+        // dragging LEFT widens — the drawer is pinned to the right edge
+        const next = startW + (startX - ev.clientX);
+        this.width = Math.max(MIN_W, Math.min(MAX_W, next));
+      };
+      const onUp = () => {
+        grip.removeEventListener("pointermove", onMove);
+        grip.removeEventListener("pointerup", onUp);
+        localStorage.setItem("golem.scriptDrawerW", String(this.width));
+      };
+      grip.addEventListener("pointermove", onMove);
+      grip.addEventListener("pointerup", onUp);
+    },
+    resetWidth() {
+      this.width = DEFAULT_W;
+      localStorage.setItem("golem.scriptDrawerW", String(DEFAULT_W));
+    }
   }
 };
 </script>
@@ -55,8 +112,24 @@ export default {
   right: 0;
   top: 0;
   bottom: 0;
-  width: min(560px, 94vw);
+  max-width: 94vw;
   z-index: 20;
+
+  // the resize grip: a thin strip on the drawer's own left edge
+  .sd-grip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: ew-resize;
+    background: transparent;
+    transition: background 150ms;
+    &:hover,
+    &:active {
+      background: rgba(150, 130, 175, 0.45);
+    }
+  }
   display: flex;
   flex-direction: column;
   background: rgba(8, 8, 10, 0.96);
@@ -79,7 +152,7 @@ export default {
       min-width: 0;
       font-family: PiratesBay, sans-serif;
       font-weight: normal;
-      text-align: center;
+      text-align: left;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
