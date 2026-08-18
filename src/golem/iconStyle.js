@@ -76,7 +76,7 @@ const DEFAULTS = {
   pool: 0.85, // band-pooling dither width
   rim: 0.35, // light-side pale rim strength
   top: 6.6, // tone ceiling in bands for AREA pixels (rim may exceed it)
-  outline: 0.7, // the officials' hairline WHITE edge, in px (0 = none)
+  outline: 0.35, // the officials' hairline WHITE edge, in px (0 = none)
   shadow: 0 // cast shadow opacity (officials have NONE)
 };
 let stored = {};
