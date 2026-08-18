@@ -18,13 +18,30 @@
 //     back round at rest
 //   - the trail is a tapered run (thin at its top, swelling to meet the
 //     drop) plus seeded dried beads left where the drop has passed
+import Vue from "vue";
 import trailSprite from "../assets/blood/drip-shaft.png";
 import bulbSprite from "../assets/blood/drip-bulb.png";
 
 const LANE = 26; // reserved gutter
 const W = 18; // svg lane width
-const DROP_W = 17;
-const DROP_H = 64; // the drips.webp bulb (23x86), sized up
+
+// USER-adjustable drip dials (the Dr panel) — persisted per browser
+const DRIP_DEFAULTS = { w: 17, h: 64, trailW: 8, overlap: 18, dx: 0 };
+let dripStored = {};
+try {
+  dripStored = JSON.parse(localStorage.getItem("golem.drip") || "{}");
+} catch (e) {
+  dripStored = {};
+}
+export const dripKnobs = Vue.observable({ ...DRIP_DEFAULTS, ...dripStored });
+export function saveDripKnobs() {
+  localStorage.setItem("golem.drip", JSON.stringify({ ...dripKnobs }));
+  window.dispatchEvent(new Event("golem-drip-update"));
+}
+export function resetDripKnobs() {
+  Object.assign(dripKnobs, DRIP_DEFAULTS);
+  saveDripKnobs();
+}
 
 // the teardrop path in a 15x24 box: crown point -> symmetric cubics into
 // the bulb -> back up (drawn fallback — the drips.webp art rides now)
@@ -59,7 +76,7 @@ function makeSvg(id) {
       width="8" height="0" preserveAspectRatio="none"/>
     <g class="bd-beads" fill="#6d0d0d"></g>
     <g class="bd-drop">
-      <image href="${bulbSprite}" width="${DROP_W}" height="${DROP_H}" preserveAspectRatio="xMidYMid meet"/>
+      <image class="bd-bulb" href="${bulbSprite}" width="17" height="64" preserveAspectRatio="xMidYMid meet"/>
     </g>`;
   return svg;
 }
@@ -97,7 +114,8 @@ function update(el) {
   s.track.style.height = el.clientHeight + "px";
   s.svg.setAttribute("height", el.clientHeight);
 
-  const travel = el.clientHeight - DROP_H;
+  const K = dripKnobs;
+  const travel = el.clientHeight - K.h;
   const y = (el.scrollTop / maxScroll) * travel;
 
   // liquid: velocity stretches the drop; it relaxes back round
@@ -111,19 +129,23 @@ function update(el) {
   const sy = s.stretch;
   const sx = 1 / Math.sqrt(sy);
 
+  s.bulb.setAttribute("width", K.w);
+  s.bulb.setAttribute("height", K.h);
   s.drop.setAttribute(
     "transform",
-    `translate(${W / 2 - (DROP_W * sx) / 2} ${y}) scale(${sx} ${sy})`
+    `translate(${W / 2 - (K.w * sx) / 2 + K.dx} ${y}) scale(${sx} ${sy})`
   );
   // the VIDEO drip is the trail — stretched from the top to the drop's crown
-  s.trail.setAttribute("height", Math.max(0, y + 18));
+  s.trail.setAttribute("x", W / 2 - K.trailW / 2 + K.dx);
+  s.trail.setAttribute("width", K.trailW);
+  s.trail.setAttribute("height", Math.max(0, y + K.overlap));
 
   // dried beads appear where the drop has passed (seeded, stable spots)
   let beads = "";
   for (let i = 0; i < s.beadSeeds.length; i++) {
     const b = s.beadSeeds[i];
     const by = b.f * travel;
-    if (by < y - DROP_H * 0.4) {
+    if (by < y - K.h * 0.4) {
       beads += `<circle cx="${W / 2 + b.dx}" cy="${by}" r="${b.r}" opacity="0.55"/>`;
     }
   }
@@ -162,6 +184,7 @@ export default {
       track,
       svg,
       drop: svg.querySelector(".bd-drop"),
+      bulb: svg.querySelector(".bd-bulb"),
       trail: svg.querySelector(".bd-trail"),
       beads: svg.querySelector(".bd-beads"),
       stretch: 1,
@@ -172,6 +195,7 @@ export default {
 
     const onScroll = () => update(el);
     el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("golem-drip-update", onScroll);
     const ro = new ResizeObserver(() => update(el));
     ro.observe(el);
 
@@ -187,9 +211,9 @@ export default {
       hit.style.cursor = "grabbing";
       const rect = track.getBoundingClientRect();
       const maxScroll = el.scrollHeight - el.clientHeight;
-      const travel = el.clientHeight - DROP_H;
+      const travel = el.clientHeight - dripKnobs.h;
       const seek = ev => {
-        const y = ev.clientY - rect.top - DROP_H / 2;
+        const y = ev.clientY - rect.top - dripKnobs.h / 2;
         el.scrollTop = Math.max(0, Math.min(1, y / travel)) * maxScroll;
       };
       seek(e);
@@ -205,6 +229,7 @@ export default {
 
     el.__bloodScroll.cleanup = () => {
       el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("golem-drip-update", onScroll);
       ro.disconnect();
       track.remove();
     };

@@ -45,6 +45,25 @@
       </span>
     </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
+    <!-- the DRIP LAB (Dr): the user's own dials for the blood scrollbar -->
+    <div id="drip-lab" :class="{ open: drOpen }">
+      <div class="fd-toggle" title="Drip lab" @click="drOpen = !drOpen">Dr</div>
+      <div class="dr-rows" v-if="drOpen">
+        <div class="dr-row" v-for="d in drDials" :key="d.key">
+          <span class="dr-label">{{ d.label }}</span>
+          <input
+            type="range"
+            :min="d.min"
+            :max="d.max"
+            :step="d.step"
+            v-model.number="dripRef[d.key]"
+            @input="saveDrip"
+          />
+          <span class="dr-val">{{ dripRef[d.key] }}</span>
+        </div>
+        <button class="dr-reset" @click="resetDrip">Reset</button>
+      </div>
+    </div>
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
@@ -225,6 +244,7 @@ import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
 import RoleDrawer from "./components/RoleDrawer";
+import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
 import Intro from "./components/Intro";
@@ -367,6 +387,16 @@ export default {
       devLabs: false,
       grimoireClosed,
       grimoireOpen,
+      // the drip lab
+      drOpen: false,
+      dripRef: dripKnobs,
+      drDials: [
+        { key: "w", label: "Bulb width", min: 8, max: 34, step: 1 },
+        { key: "h", label: "Bulb height", min: 20, max: 130, step: 2 },
+        { key: "trailW", label: "Trail width", min: 2, max: 16, step: 1 },
+        { key: "overlap", label: "Overlap", min: 0, max: 48, step: 2 },
+        { key: "dx", label: "X offset", min: -8, max: 8, step: 1 }
+      ],
       // the engraver lab
       engraverRef: engraver,
       ikDials: ENGRAVER_DIALS,
@@ -396,6 +426,13 @@ export default {
   methods: {
     // FT-852: arm on the first click, leave on the second — no native
     // confirm() anywhere in the pill (see the template note).
+    // ── the drip lab ────────────────────────────────────────────────────
+    saveDrip() {
+      saveDripKnobs();
+    },
+    resetDrip() {
+      resetDripKnobs();
+    },
     // ── the engraver lab ────────────────────────────────────────────────
     async toggleIkLab() {
       this.ikOpen = !this.ikOpen;
@@ -894,6 +931,76 @@ video#background {
      zoom on portrait phones can't balloon the buttons. */
   --dfpx: min(var(--fpx), 0.145vmin);
 }
+// the DRIP LAB — top-left, the user's own scrollbar dials
+#drip-lab {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 96;
+  font-size: 13px;
+  .fd-toggle {
+    width: 30px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
+    cursor: pointer;
+    opacity: 0.45;
+    &:hover {
+      opacity: 1;
+      border-color: #a01414;
+    }
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: #a01414;
+  }
+  .dr-rows {
+    margin-top: 4px;
+    background: rgba(8, 8, 12, 0.96);
+    border: 1px solid #400;
+    border-radius: 6px;
+    padding: 8px;
+    width: 240px;
+    .dr-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      .dr-label {
+        width: 78px;
+        opacity: 0.75;
+        font-size: 12px;
+      }
+      input[type="range"] {
+        flex: 1;
+        accent-color: #a01414;
+      }
+      .dr-val {
+        width: 28px;
+        text-align: right;
+        font-size: 11px;
+        opacity: 0.7;
+      }
+    }
+    .dr-reset {
+      margin-top: 6px;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      padding: 2px 0;
+      cursor: pointer;
+      font-family: inherit;
+      &:hover {
+        border-color: #a01414;
+      }
+    }
+  }
+}
+
 // the grimoire drawer's tab — rides the left edge, above the drawer
 .drawer-tab {
   position: fixed;
