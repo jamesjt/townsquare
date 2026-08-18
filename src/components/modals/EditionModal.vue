@@ -67,6 +67,12 @@
                 :src="demonGlyph"
                 alt=""
               />
+              <img
+                v-else-if="t.team === 'outsider'"
+                class="demon-glyph"
+                :src="outsiderGlyph"
+                alt=""
+              />
               <font-awesome-icon v-else :icon="t.icon" />
               <span class="cnt">{{ t.count }}</span>
             </button>
@@ -219,7 +225,9 @@
                 <font-awesome-icon icon="users" />{{ teamCounts.townsfolk }}
               </span>
               <span class="chip team-outsider" title="Outsiders">
-                <font-awesome-icon icon="walking" />{{ teamCounts.outsider }}
+                <img class="demon-glyph" :src="outsiderGlyph" alt="" />{{
+                  teamCounts.outsider
+                }}
               </span>
               <span class="chip team-minion" title="Minions">
                 <font-awesome-icon icon="mask" />{{ teamCounts.minion }}
@@ -689,8 +697,9 @@ import {
 import { stylizeIcon } from "../../golem/iconStyle";
 // The all-of-BOTC card wears the creative director's gold logo.
 import goldLogo from "../../assets/gold/botc-logo-icon.png";
-// The user's demon mask (design/red/demon_icon.png, cut + baked).
+// The user's demon mask + outsider face (design/red/*, cut + baked).
 import demonGlyph from "../../assets/blood/demon-glyph.png";
+import outsiderGlyph from "../../assets/blood/outsider-glyph.png";
 // The app-wide PNG-font choice — the Almanac's A wears the caps' font.
 import {
   fontState,
@@ -802,6 +811,7 @@ export default {
       isCustom: true,
       bloodA,
       demonGlyph,
+      outsiderGlyph,
       fontStateRef: fontState,
       // Golem fork: the vault shelf + which vault script is currently loaded
       // (the fork/update decision key on save).

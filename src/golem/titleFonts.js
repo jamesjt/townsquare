@@ -18,6 +18,8 @@ const red80Ctx = require.context("../assets/red/800000-noise50", false, /^\.\/(B
 const red80cCtx = require.context("../assets/red/800000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
 const clockCtx = require.context("../assets/gold/clockface", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
 const gold2Ctx = require.context("../assets/gold/v2", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const red97Ctx = require.context("../assets/red/970000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const tanCtx = require.context("../assets/gold/d7a25f", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
 
 import bloodMetrics from "../assets/blood/alphabet/metrics.json";
 import goldMetrics from "../assets/gold/alphabet/metrics.json";
@@ -27,6 +29,8 @@ import red80Metrics from "../assets/red/800000-noise50/metrics.json";
 import red80cMetrics from "../assets/red/800000/metrics.json";
 import clockMetrics from "../assets/gold/clockface/metrics.json";
 import gold2Metrics from "../assets/gold/v2/metrics.json";
+import red97Metrics from "../assets/red/970000/metrics.json";
+import tanMetrics from "../assets/gold/d7a25f/metrics.json";
 
 function buildSet(ctx, metrics) {
   const letters = {};
@@ -44,6 +48,8 @@ export const FONT_SETS = [
   { key: "gold", label: "Gold letters", letters: buildSet(goldCtx, goldMetrics) },
   { key: "gold-clock", label: "Clockface gold", letters: buildSet(clockCtx, clockMetrics) },
   { key: "gold2", label: "Gold v2", letters: buildSet(gold2Ctx, gold2Metrics) },
+  { key: "red-97", label: "Red 970000", letters: buildSet(red97Ctx, red97Metrics) },
+  { key: "tan", label: "Gold D7A25F", letters: buildSet(tanCtx, tanMetrics) },
   { key: "red-66", label: "Red 660000", letters: buildSet(red66Ctx, red66Metrics) },
   { key: "red-77", label: "Red 770001", letters: buildSet(red77Ctx, red77Metrics) },
   { key: "red-80", label: "Red 800000", letters: buildSet(red80Ctx, red80Metrics) },

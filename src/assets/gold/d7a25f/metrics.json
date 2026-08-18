@@ -1,0 +1,314 @@
+{
+  "A": {
+    "w": 145,
+    "h": 188,
+    "baseline": 173,
+    "source": "font-D7A25F.png"
+  },
+  "B": {
+    "w": 141,
+    "h": 180,
+    "baseline": 173,
+    "source": "font-D7A25F.png"
+  },
+  "C": {
+    "w": 120,
+    "h": 172,
+    "baseline": 175,
+    "source": "font-D7A25F.png"
+  },
+  "D": {
+    "w": 124,
+    "h": 176,
+    "baseline": 173,
+    "source": "font-D7A25F.png"
+  },
+  "E": {
+    "w": 110,
+    "h": 172,
+    "baseline": 175,
+    "source": "font-D7A25F.png"
+  },
+  "F": {
+    "w": 131,
+    "h": 187,
+    "baseline": 184,
+    "source": "font-D7A25F.png"
+  },
+  "G": {
+    "w": 101,
+    "h": 182,
+    "baseline": 168,
+    "source": "font-D7A25F.png"
+  },
+  "H": {
+    "w": 149,
+    "h": 187,
+    "baseline": 174,
+    "source": "font-D7A25F.png"
+  },
+  "I": {
+    "w": 86,
+    "h": 179,
+    "baseline": 174,
+    "source": "font-D7A25F.png"
+  },
+  "J": {
+    "w": 159,
+    "h": 186,
+    "baseline": 174,
+    "source": "font-D7A25F.png"
+  },
+  "K": {
+    "w": 104,
+    "h": 165,
+    "baseline": 173,
+    "source": "font-D7A25F.png"
+  },
+  "L": {
+    "w": 6,
+    "h": 71,
+    "baseline": 134,
+    "source": "font-D7A25F.png"
+  },
+  "M": {
+    "w": 154,
+    "h": 173,
+    "baseline": 169,
+    "source": "font-D7A25F.png"
+  },
+  "N": {
+    "w": 133,
+    "h": 164,
+    "baseline": 158,
+    "source": "font-D7A25F.png"
+  },
+  "O": {
+    "w": 122,
+    "h": 161,
+    "baseline": 158,
+    "source": "font-D7A25F.png"
+  },
+  "P": {
+    "w": 107,
+    "h": 168,
+    "baseline": 155,
+    "source": "font-D7A25F.png"
+  },
+  "Q": {
+    "w": 126,
+    "h": 170,
+    "baseline": 158,
+    "source": "font-D7A25F.png"
+  },
+  "R": {
+    "w": 113,
+    "h": 154,
+    "baseline": 158,
+    "source": "font-D7A25F.png"
+  },
+  "S": {
+    "w": 109,
+    "h": 172,
+    "baseline": 159,
+    "source": "font-D7A25F.png"
+  },
+  "T": {
+    "w": 136,
+    "h": 166,
+    "baseline": 161,
+    "source": "font-D7A25F.png"
+  },
+  "U": {
+    "w": 103,
+    "h": 155,
+    "baseline": 156,
+    "source": "font-D7A25F.png"
+  },
+  "V": {
+    "w": 101,
+    "h": 153,
+    "baseline": 155,
+    "source": "font-D7A25F.png"
+  },
+  "W": {
+    "w": 126,
+    "h": 155,
+    "baseline": 157,
+    "source": "font-D7A25F.png"
+  },
+  "X": {
+    "w": 132,
+    "h": 156,
+    "baseline": 157,
+    "source": "font-D7A25F.png"
+  },
+  "Y": {
+    "w": 95,
+    "h": 184,
+    "baseline": 158,
+    "source": "font-D7A25F.png"
+  },
+  "Z": {
+    "w": 116,
+    "h": 161,
+    "baseline": 158,
+    "source": "font-D7A25F.png"
+  },
+  "a_lc": {
+    "w": 74,
+    "h": 97,
+    "baseline": 95,
+    "source": "font-D7A25F.png"
+  },
+  "b_lc": {
+    "w": 69,
+    "h": 146,
+    "baseline": 142,
+    "source": "font-D7A25F.png"
+  },
+  "c_lc": {
+    "w": 61,
+    "h": 98,
+    "baseline": 95,
+    "source": "font-D7A25F.png"
+  },
+  "d_lc": {
+    "w": 77,
+    "h": 143,
+    "baseline": 140,
+    "source": "font-D7A25F.png"
+  },
+  "e_lc": {
+    "w": 60,
+    "h": 98,
+    "baseline": 95,
+    "source": "font-D7A25F.png"
+  },
+  "f_lc": {
+    "w": 94,
+    "h": 179,
+    "baseline": 144,
+    "source": "font-D7A25F.png"
+  },
+  "g_lc": {
+    "w": 75,
+    "h": 135,
+    "baseline": 95,
+    "source": "font-D7A25F.png"
+  },
+  "h_lc": {
+    "w": 83,
+    "h": 163,
+    "baseline": 144,
+    "source": "font-D7A25F.png"
+  },
+  "i_lc": {
+    "w": 43,
+    "h": 119,
+    "baseline": 117,
+    "source": "font-D7A25F.png"
+  },
+  "j_lc": {
+    "w": 72,
+    "h": 157,
+    "baseline": 117,
+    "source": "font-D7A25F.png"
+  },
+  "k_lc": {
+    "w": 80,
+    "h": 146,
+    "baseline": 143,
+    "source": "font-D7A25F.png"
+  },
+  "l_lc": {
+    "w": 60,
+    "h": 144,
+    "baseline": 142,
+    "source": "font-D7A25F.png"
+  },
+  "m_lc": {
+    "w": 99,
+    "h": 95,
+    "baseline": 93,
+    "source": "font-D7A25F.png"
+  },
+  "n_lc": {
+    "w": 77,
+    "h": 95,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "o_lc": {
+    "w": 63,
+    "h": 98,
+    "baseline": 94,
+    "source": "font-D7A25F.png"
+  },
+  "p_lc": {
+    "w": 71,
+    "h": 137,
+    "baseline": 93,
+    "source": "font-D7A25F.png"
+  },
+  "q_lc": {
+    "w": 72,
+    "h": 127,
+    "baseline": 93,
+    "source": "font-D7A25F.png"
+  },
+  "r_lc": {
+    "w": 64,
+    "h": 95,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "s_lc": {
+    "w": 66,
+    "h": 99,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "t_lc": {
+    "w": 61,
+    "h": 121,
+    "baseline": 120,
+    "source": "font-D7A25F.png"
+  },
+  "u_lc": {
+    "w": 80,
+    "h": 94,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "v_lc": {
+    "w": 69,
+    "h": 95,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "w_lc": {
+    "w": 100,
+    "h": 95,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "x_lc": {
+    "w": 78,
+    "h": 94,
+    "baseline": 91,
+    "source": "font-D7A25F.png"
+  },
+  "y_lc": {
+    "w": 84,
+    "h": 137,
+    "baseline": 92,
+    "source": "font-D7A25F.png"
+  },
+  "z_lc": {
+    "w": 84,
+    "h": 96,
+    "baseline": 89,
+    "source": "font-D7A25F.png"
+  }
+}
