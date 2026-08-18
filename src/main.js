@@ -78,6 +78,11 @@ library.add(
 Vue.component("font-awesome-icon", FontAwesomeIcon);
 Vue.config.productionTip = false;
 
+// Golem fork: the blood-drip overlay scrollbar (v-blood-scroll on any
+// scroll container replaces its native bar with the drop art).
+import BloodScroll from "./golem/bloodScrollbar";
+Vue.directive("blood-scroll", BloodScroll);
+
 new Vue({
   render: h => h(App),
   store

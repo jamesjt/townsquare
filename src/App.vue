@@ -518,6 +518,45 @@ export default {
       no-repeat top center / 100% calc(100% - 16px);
 }
 
+// The blood-drip OVERLAY scrollbar (v-blood-scroll): the native bar hides,
+// the drop art takes over. The track is click-transparent; only the drop
+// itself drags.
+.blooddrip-host {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+.blooddrip-track {
+  position: absolute;
+  width: 20px;
+  pointer-events: none;
+  z-index: 6;
+  .blooddrip-trail {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 9px;
+    height: 0;
+    background-repeat: repeat-y;
+    background-position: center top;
+    background-size: 100% auto;
+    opacity: 0.85;
+  }
+  .blooddrip-drop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: auto;
+    cursor: grab;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+    &:active {
+      cursor: grabbing;
+    }
+  }
+}
+
 // A droplet breaks off and falls as you scroll (spawned by the listener in
 // mounted(); respects the animation kill-switch).
 .blood-droplet {

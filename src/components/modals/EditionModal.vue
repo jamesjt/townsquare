@@ -173,7 +173,7 @@
             </div>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
-          <ul class="wb-all-roles" @scroll.passive="hideRoleTip">
+          <ul class="wb-all-roles" v-blood-scroll @scroll.passive="hideRoleTip">
             <template v-for="group in sidebarGroups">
               <li class="wb-shelf-head" :key="'head-' + group.team">
                 {{ group.label }} <small>({{ group.roles.length }})</small>
@@ -282,7 +282,7 @@
                neighbors), so the storyteller's night sheet follows. Dragging
                a sleeper into the list starts it waking; dropping a waker on
                the Don't-wake box stops it. -->
-          <div class="wb-groups wb-night" v-else-if="wbView !== 'team'">
+          <div class="wb-groups wb-night" v-blood-scroll v-else-if="wbView !== 'team'">
             <section>
               <h4>
                 {{ wbView === "first" ? "Wake the first night" : "Wake on other nights" }}
@@ -377,7 +377,7 @@
               </ul>
             </section>
           </div>
-          <div class="wb-groups" v-else>
+          <div class="wb-groups" v-blood-scroll v-else>
             <section
               v-for="group in viewGroups"
               :key="group.label"
