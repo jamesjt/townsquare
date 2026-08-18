@@ -62,7 +62,10 @@ export default {
   background: rgba(8, 8, 10, 0.96);
   border-left: 1px solid #4a0d0d;
   box-shadow: -6px 0 30px rgba(0, 0, 0, 0.6);
-  padding: 10px 12px 12px;
+  // the player strip floats top-right at z-index 75 — the drawer's chrome
+  // starts BELOW it so the title and the × are never under its icons (and
+  // the script icon keeps working as the toggle that closes this)
+  padding: 46px 12px 12px;
   text-align: left;
 
   .sd-head {

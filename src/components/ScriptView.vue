@@ -472,6 +472,80 @@ $team-colors: (
       }
     }
   }
+  .wb-meter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    // icon + count, tinted per team; the word rides the tooltip
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 8px 1px 4px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      font-weight: bold;
+      svg {
+        width: 15px;
+        height: 15px;
+      }
+      .demon-glyph {
+        width: 17px;
+        height: 17px;
+        object-fit: contain;
+      }
+      // the PROPER team colors (user call on the blue); demon's dark red
+      // alone gets a small lift for dark-ground legibility
+      &.team-townsfolk {
+        color: #1f65ff;
+      }
+      &.team-outsider {
+        color: #46d5ff;
+      }
+      &.team-minion {
+        color: #ff6900;
+      }
+      &.team-demon {
+        color: lighten(#ce0100, 14%);
+      }
+    }
+    .verdict {
+      margin-left: 8px;
+      color: #7ed67e;
+    }
+    &.nonconforming .verdict {
+      color: #ff8a8a;
+    }
+    // unsaved-edit controls: visible only while dirty
+    .wb-dirty {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 10px;
+      padding: 2px 10px;
+      border: 1px solid #7d0e0e;
+      border-radius: 10px;
+      svg {
+        cursor: pointer;
+        width: 14px;
+        height: 14px;
+      }
+      .save {
+        color: #7ed67e;
+        &:hover {
+          filter: brightness(1.4);
+        }
+      }
+      .discard {
+        color: #ff8a8a;
+        &:hover {
+          color: red;
+        }
+      }
+    }
+  }
   .wb-empty {
     color: rgba(255, 255, 255, 0.6);
     padding: 40px;
