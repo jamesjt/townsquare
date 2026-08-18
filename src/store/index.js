@@ -238,6 +238,10 @@ export default new Vuex.Store({
         // default empty icons and placeholders, clean up firstNight / otherNight
         .map(role => {
           if (rolesJSONbyId.get(role.id)) return role;
+          // Golem fork (FT-856): a locally BAKED icon (library pick or
+          // upload run through the engraver) rides the role as a data URL —
+          // no network, so it renders without the remote-image opt-in.
+          if (role.golemIconData) role.image = role.golemIconData;
           // Golem fork (FT-851): a custom role that borrows an OFFICIAL
           // role's icon names it in golemIcon — the bundled asset renders
           // without the remote-image opt-in. Unknown ids fall back to the

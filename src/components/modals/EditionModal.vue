@@ -497,24 +497,88 @@
           />
         </div>
         <div class="icon-picker">
-          <input
-            v-model="iconSearch"
-            placeholder="Icon: search official roles (optional)…"
-          />
-          <div class="icon-grid">
-            <div
-              class="icon-cell"
-              v-for="official in iconMatches"
-              :key="official.id"
-              :class="{ selected: roleForm.icon === official.id }"
-              @click="pickIcon(official.id)"
+          <div class="ip-tabs">
+            <span
+              class="wb-tab"
+              :class="{ active: iconTab === 'library' }"
+              @click="openIconLibrary"
+              >Icon library</span
             >
+            <span
+              class="wb-tab"
+              :class="{ active: iconTab === 'official' }"
+              @click="iconTab = 'official'"
+              >Official art</span
+            >
+            <span class="ip-current" v-if="roleForm.iconData">
+              <img :src="roleForm.iconData" alt="" />
               <span
-                class="icon"
-                :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
-              ></span>
-              <span class="label">{{ official.name }}</span>
+                class="ip-reroll"
+                title="Re-roll the texture — same art, fresh grain"
+                @click="rerollIcon"
+                ><font-awesome-icon icon="redo"
+              /></span>
+            </span>
+          </div>
+          <template v-if="iconTab === 'official'">
+            <input
+              v-model="iconSearch"
+              placeholder="Icon: search official roles (optional)…"
+            />
+            <div class="icon-grid">
+              <div
+                class="icon-cell"
+                v-for="official in iconMatches"
+                :key="official.id"
+                :class="{ selected: roleForm.icon === official.id }"
+                @click="pickIcon(official.id)"
+              >
+                <span
+                  class="icon"
+                  :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
+                ></span>
+                <span class="label">{{ official.name }}</span>
+              </div>
             </div>
+          </template>
+          <div v-else class="icon-lib">
+            <div class="il-head">
+              <input
+                v-model="ilSearch"
+                placeholder="Search the icon library…"
+              />
+              <span
+                v-for="t in ilThemes"
+                :key="t"
+                class="il-chip"
+                :class="{ on: ilTheme === t }"
+                @click="ilTheme = ilTheme === t ? '' : t"
+                >{{ t }}</span
+              >
+            </div>
+            <div class="il-preview" v-if="ilHoverBaked">
+              <img :src="ilHoverBaked" alt="" />
+              <span class="label">{{ ilHoverName }}</span>
+            </div>
+            <div class="icon-grid il-grid" v-if="ilLoaded">
+              <div
+                class="icon-cell"
+                v-for="e in ilShown"
+                :key="e.n"
+                :class="{ selected: roleForm.iconRef === e.n }"
+                :title="e.n.replace(/-/g, ' ')"
+                @mouseenter="ilHover(e)"
+                @mouseleave="ilHoverClear"
+                @click="pickLibraryIcon(e)"
+              >
+                <img class="il-thumb" :src="ilThumb(e)" alt="" />
+                <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
+              </div>
+              <div class="il-more" v-if="ilOverflow > 0">
+                +{{ ilOverflow }} more — refine the search
+              </div>
+            </div>
+            <div class="il-loading" v-else>Loading the library…</div>
           </div>
         </div>
         <div class="role-error" v-if="roleError">{{ roleError }}</div>
@@ -707,6 +771,7 @@ import {
 } from "../../golem/editionArt";
 // FT-856: uploads take the official engraving look (ink/tint/parchment).
 import { stylizeIcon } from "../../golem/iconStyle";
+import * as iconLib from "../../golem/iconLibrary";
 // The all-of-BOTC card wears the creative director's gold logo.
 import goldLogo from "../../assets/gold/botc-logo-icon.png";
 // The user's demon mask + outsider face (design/red/*, cut + baked).
@@ -871,6 +936,15 @@ export default {
       nsJsonText: "",
       // the forge's paste-to-fill box
       roleJsonText: "",
+      // FT-856 slice B: the icon tabs — official borrow vs the new-icon
+      // library (game-icons.net curation, lazy chunk).
+      iconTab: "library",
+      ilSearch: "",
+      ilTheme: "",
+      ilLoaded: false,
+      ilTick: 0,
+      ilHoverBaked: "",
+      ilHoverName: "",
       // FT-855: tri-state team toggles (1 show-only, -1 hide, absent off)
       // + structured filter pills [{ id: 'src:tb', not: false }].
       teamState: {},
@@ -932,6 +1006,26 @@ export default {
       return rolesJSON.filter(role => role.name.toLowerCase().includes(q));
     },
     // The shelf, narrowed by the browse query so search reads as one list.
+    ilThemes() {
+      return iconLib.THEMES;
+    },
+    ilFiltered() {
+      if (!this.ilLoaded) return [];
+      const list = this.$options.ilList || [];
+      const q = this.ilSearch.trim().toLowerCase();
+      return list.filter(
+        e =>
+          (!this.ilTheme || e.t === this.ilTheme) &&
+          (!q || e.n.includes(q))
+      );
+    },
+    /** Cap the rendered grid — 1.3k canvases in one paint is a hitch. */
+    ilShown() {
+      return this.ilFiltered.slice(0, 160);
+    },
+    ilOverflow() {
+      return Math.max(0, this.ilFiltered.length - 160);
+    },
     roleShelfFiltered() {
       const q = this.roleQuery.trim().toLowerCase();
       if (!q) return this.roleShelf;
@@ -1259,6 +1353,12 @@ export default {
     if (id) this.loadFromVault(id);
     this.setBaseline();
   },
+  watch: {
+    // FT-856: a team switch re-prints the baked library icon in the new tint
+    "roleForm.roleType"() {
+      this.rebakeForTeam();
+    }
+  },
   methods: {
     // ── Golem fork: the script vault ─────────────────────────────────────
     async loadFromVault(id, attach = true) {
@@ -1377,6 +1477,8 @@ export default {
     openRoleForm(role) {
       this.roleError = "";
       this.iconSearch = "";
+      // the library tab is the default view — have its chunk ready
+      this.openIconLibrary();
       if (role) {
         this.editingLibId = role.golemRoleId || null;
         this.roleForm = {
@@ -1389,6 +1491,9 @@ export default {
           setup: !!role.setup,
           authorName: localStorage.getItem("golem.playerName") || "",
           icon: role.golemIcon || "",
+          iconData: role.golemIconData || "",
+          iconRef: role.golemIconRef || "",
+          iconSeed: role.golemIconSeed || 0,
           // the app-side id to replace in the script (a fork mints a new
           // library id, so the library id alone can't find the old row)
           appId: role.id
@@ -1405,6 +1510,9 @@ export default {
           setup: false,
           authorName: localStorage.getItem("golem.playerName") || "",
           icon: "",
+          iconData: "",
+          iconRef: "",
+          iconSeed: 0,
           appId: null
         };
       }
@@ -1416,6 +1524,85 @@ export default {
     /** Click an icon to select it; click again to clear (icon is optional). */
     pickIcon(id) {
       this.roleForm.icon = this.roleForm.icon === id ? "" : id;
+      // an official borrow replaces any baked library pick
+      if (this.roleForm.icon) {
+        this.roleForm.iconData = "";
+        this.roleForm.iconRef = "";
+      }
+    },
+    // ── FT-856 slice B: the new-icon library ─────────────────────────────
+    async openIconLibrary() {
+      this.iconTab = "library";
+      if (this.ilLoaded) return;
+      this.$options.ilList = await iconLib.loadIcons();
+      this.$options.ilThumbs = new Map();
+      this.$options.ilBakes = new Map();
+      this.ilLoaded = true;
+    },
+    /** Thumbnails render once each into a non-reactive cache. */
+    ilThumb(entry) {
+      const cache = this.$options.ilThumbs;
+      if (!cache.has(entry.n)) cache.set(entry.n, iconLib.silhouette(entry));
+      return cache.get(entry.n);
+    },
+    ilHover(entry) {
+      clearTimeout(this.$options.ilHoverTimer);
+      this.$options.ilHoverTimer = setTimeout(async () => {
+        const tintKey = entry.n + "|" + this.roleForm.roleType;
+        const cache = this.$options.ilBakes;
+        if (!cache.has(tintKey)) {
+          cache.set(
+            tintKey,
+            await iconLib.bakeIcon(entry, this.roleForm.roleType, {
+              size: 96
+            })
+          );
+        }
+        this.ilHoverBaked = cache.get(tintKey);
+        this.ilHoverName = entry.n.replace(/-/g, " ");
+      }, 120);
+    },
+    ilHoverClear() {
+      clearTimeout(this.$options.ilHoverTimer);
+      this.ilHoverBaked = "";
+      this.ilHoverName = "";
+    },
+    /** A pick bakes in the CURRENT team's tint; the ref rides the role so a
+     *  later team switch re-bakes (rule: one stored bake, source kept). */
+    async pickLibraryIcon(entry) {
+      const f = this.roleForm;
+      if (f.iconRef === entry.n) {
+        f.iconRef = "";
+        f.iconData = "";
+        return;
+      }
+      f.iconRef = entry.n;
+      f.icon = "";
+      f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
+        seed: f.iconSeed || 0
+      });
+    },
+    async rerollIcon() {
+      const f = this.roleForm;
+      if (!f || !f.iconRef || !this.$options.ilList) return;
+      const entry = iconLib.findIcon(this.$options.ilList, f.iconRef);
+      if (!entry) return;
+      f.iconSeed = 1 + Math.floor(Math.random() * 1e6);
+      f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
+        seed: f.iconSeed
+      });
+    },
+    /** Team changed — re-print the bake in the new tint. */
+    async rebakeForTeam() {
+      const f = this.roleForm;
+      if (!f || !f.iconRef) return;
+      if (!this.$options.ilList)
+        this.$options.ilList = await iconLib.loadIcons();
+      const entry = iconLib.findIcon(this.$options.ilList, f.iconRef);
+      if (!entry) return;
+      f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
+        seed: f.iconSeed || 0
+      });
     },
     /** The bundled icon URL for an official role id. */
     iconUrl(id) {
@@ -1469,7 +1656,16 @@ export default {
           authorName: f.authorName.trim() || undefined
         });
         this.roleShelf = roleLib.getRecents();
-        this.insertRoleIntoEdition(roleLib.toAppRole(role), f.appId);
+        const appRole = roleLib.toAppRole(role);
+        // FT-856: a baked icon rides the APP role (script snapshots carry
+        // it); the server library keeps only official borrow ids.
+        if (f.iconData) {
+          appRole.golemIconData = f.iconData;
+          appRole.golemIconRef = f.iconRef || "";
+          appRole.golemIconSeed = f.iconSeed || 0;
+          appRole.image = f.iconData;
+        }
+        this.insertRoleIntoEdition(appRole, f.appId);
         flashHint(
           forked
             ? "Forked into your own copy — script updated"
@@ -1560,6 +1756,8 @@ export default {
         } else {
           const rest = { ...role };
           delete rest.imageAlt;
+          // image is re-derived from golemIconData on load — one copy only
+          if (rest.golemIconData) delete rest.image;
           list.push(rest);
         }
       });
@@ -2053,6 +2251,7 @@ export default {
     },
     /** The icon for any script role — official art, borrowed art, or generic. */
     roleIconUrl(role) {
+      if (role.golemIconData) return role.golemIconData;
       const base = this.$store.getters.rolesJSONbyId;
       if (base.has(role.id)) return this.iconUrl(role.id);
       return this.iconUrl(role.imageAlt || "custom");
@@ -2301,6 +2500,107 @@ $team-colors: (
   "traveler": #cc04ff
 );
 
+// FT-856 slice B: the icon tabs + library browser
+.role-form .icon-picker {
+  .ip-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    .wb-tab {
+      padding: 3px 12px;
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 13px;
+      &.active {
+        border-color: #a01414;
+        background: rgba(160, 20, 20, 0.14);
+        color: white;
+      }
+    }
+    .ip-current {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      img {
+        width: 34px;
+        height: 34px;
+      }
+      .ip-reroll {
+        cursor: pointer;
+        opacity: 0.7;
+        font-size: 12px;
+        &:hover {
+          opacity: 1;
+          color: #ff6b6b;
+        }
+      }
+    }
+  }
+  .il-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    input {
+      width: 180px;
+    }
+  }
+  .il-chip {
+    padding: 2px 9px;
+    border: 1px solid #3d3d3d;
+    border-radius: 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.7);
+    &.on {
+      border-color: #a01414;
+      background: rgba(160, 20, 20, 0.14);
+      color: white;
+    }
+  }
+  .il-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0;
+    img {
+      width: 64px;
+      height: 64px;
+    }
+    .label {
+      font-size: 13px;
+      text-transform: capitalize;
+      opacity: 0.85;
+    }
+  }
+  .il-grid {
+    .il-thumb {
+      width: 40px;
+      height: 40px;
+      opacity: 0.9;
+    }
+    .icon-cell.selected {
+      outline: 1px solid #a01414;
+      background: rgba(160, 20, 20, 0.14);
+    }
+    .il-more {
+      width: 100%;
+      padding: 6px;
+      font-size: 12px;
+      opacity: 0.6;
+    }
+  }
+  .il-loading {
+    padding: 12px;
+    opacity: 0.7;
+  }
+}
 // Wakes: its own block — title line, one themed checkbox row per night
 .role-form .wakes-block {
   display: flex;

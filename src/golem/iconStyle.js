@@ -97,9 +97,13 @@ function knockoutBackground(data, w, h) {
 
 /**
  * srcDataUrl -> Promise<dataUrl of the stylized icon> (PNG, `size` px).
- * tint: "neutral" | "good" | "evil".
+ * tint: "neutral" | "good" | "evil". seed shifts the grain field — a
+ * re-roll keeps the art and re-prints the texture (0 = the classic bake).
  */
-export function stylizeIcon(srcDataUrl, { tint = "neutral", size = 128 } = {}) {
+export function stylizeIcon(
+  srcDataUrl,
+  { tint = "neutral", size = 128, seed = 0 } = {}
+) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -131,7 +135,7 @@ export function stylizeIcon(srcDataUrl, { tint = "neutral", size = 128 } = {}) {
           // grain BEFORE the duotone so it prints as tone, not confetti
           lum = Math.min(
             1,
-            Math.max(0, lum + noiseAt(i / 4) * 0.06)
+            Math.max(0, lum + noiseAt(i / 4 + seed * 7919) * 0.06)
           );
           // duotone: ink -> tint -> parchment
           const c =
