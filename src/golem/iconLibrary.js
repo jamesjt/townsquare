@@ -45,27 +45,17 @@ export function silhouette(entry, size = 56) {
   return c.toDataURL("image/png");
 }
 
-/** Shaded render for the stylizer — a flat silhouette has no tones for the
- *  engraving bands, so the glyph gets a vertical light-to-dark gradient and
- *  an ink edge before the pass. */
-export function shadedRender(entry, size = 192) {
+/** Render for the stylizer — a flat mid-tone fill; the SDF engraver owns
+ *  ALL form now (relief light, contour, hatching), so the glyph goes in
+ *  clean and the pipeline does the painting. */
+export function shadedRender(entry, size = 256) {
   const c = document.createElement("canvas");
   c.width = size;
   c.height = size;
   const g = c.getContext("2d");
   g.scale(size / 512, size / 512);
-  const grad = g.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, "rgb(228, 224, 214)");
-  grad.addColorStop(1, "rgb(84, 74, 66)");
-  g.lineJoin = "round";
-  for (const d of entry.d) {
-    const p = new Path2D(d);
-    g.fillStyle = grad;
-    g.fill(p);
-    g.lineWidth = 10;
-    g.strokeStyle = "rgba(18, 10, 10, 0.9)";
-    g.stroke(p);
-  }
+  g.fillStyle = "rgb(178, 178, 178)";
+  for (const d of entry.d) g.fill(new Path2D(d));
   return c.toDataURL("image/png");
 }
 

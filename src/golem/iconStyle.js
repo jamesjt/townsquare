@@ -1,51 +1,88 @@
-// Golem fork (FT-856 slice A): restyle ANY uploaded image toward the official
-// BOTC icon look — ink engraving over parchment with a soft baked shadow.
-// The pipeline is the community's recipe made deterministic (Tre West's
-// icon-generation notes: noise fill + tone mapping over flat art):
-//   background knockout -> grayscale + contrast curve -> posterize ->
-//   duotone (ink shadows / tint mids / parchment highlights) -> grain ->
-//   baked soft drop shadow.
-// Pure canvas, no dependencies; deterministic (seeded noise) so the same
-// upload always yields the same icon.
+// Golem fork (FT-856 slice C): restyle ANY image toward the official BOTC
+// icon look — rebuilt from the ground up as an ENGRAVER, not a color filter.
+//
+// The silhouette is treated as geometry:
+//   knockout -> edge roughening (warp field) -> signed distance transform ->
+//   relief lighting (the SDF as a height field, lit upper-left) ->
+//   noise-wobbled ink contour -> hatching in the shadow bands ->
+//   data-driven color ramp (sampled from the 139 official icons: good is
+//   blue-monochrome, evil oxblood, highlights near-white) ->
+//   two-octave paper mottle -> cast shadow.
+//
+// Pure canvas, no dependencies; deterministic per seed (the re-roll contract).
 
-const TINTS = {
-  // mid-tone hue between the ink and the parchment
-  neutral: [122, 106, 79], // sepia — scripts, unaligned art
-  good: [74, 109, 156], // the steel blue of good role art
-  evil: [138, 32, 32] // the dried red of evil role art
+// Luminance-banded palettes EXTRACTED from the bundled official art
+// (claude_temp_test/2026-08-17-ramp-extract.mjs) — 8 stops, dark -> light.
+const RAMPS = {
+  good: [
+    [2, 11, 186],
+    [2, 45, 220],
+    [4, 89, 243],
+    [16, 131, 252],
+    [59, 162, 253],
+    [114, 189, 252],
+    [178, 213, 248],
+    [244, 248, 252]
+  ],
+  evil: [
+    [80, 2, 2],
+    [158, 3, 4],
+    [215, 11, 11],
+    [189, 78, 78],
+    [201, 119, 118],
+    [214, 160, 159],
+    [229, 200, 198],
+    [250, 246, 245]
+  ],
+  neutral: [
+    [34, 19, 51],
+    [65, 40, 71],
+    [93, 66, 90],
+    [113, 108, 123],
+    [144, 142, 147],
+    [179, 175, 171],
+    [216, 207, 195],
+    [255, 247, 225]
+  ]
 };
 
-const INK = [24, 8, 8];
-const PARCHMENT = [232, 220, 194];
-
-function lerp3(a, b, t) {
-  return [
-    a[0] + (b[0] - a[0]) * t,
-    a[1] + (b[1] - a[1]) * t,
-    a[2] + (b[2] - a[2]) * t
-  ];
+/** Deterministic hash noise in [0, 1). */
+function hash2(x, y, seed) {
+  let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (seed | 0) * 2654435761;
+  h = (h ^ (h >> 13)) * 1274126177;
+  h ^= h >> 16;
+  return (h >>> 0) / 4294967296;
 }
 
-/** Deterministic per-pixel noise in [-1, 1] (xorshift on the index). */
-function noiseAt(i) {
-  let x = (i + 1) * 2654435761;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  return ((x >>> 0) % 2000) / 1000 - 1;
+/** Gridded value noise, bilinear, cell size `sc` px. */
+function vnoise(x, y, sc, seed) {
+  const gx = Math.floor(x / sc),
+    gy = Math.floor(y / sc);
+  const fx = x / sc - gx,
+    fy = y / sc - gy;
+  const sx = fx * fx * (3 - 2 * fx),
+    sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(gx, gy, seed),
+    b = hash2(gx + 1, gy, seed),
+    c = hash2(gx, gy + 1, seed),
+    d = hash2(gx + 1, gy + 1, seed);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
+/** Two octaves — enough structure for paper and warp fields. */
+function fbm(x, y, sc, seed) {
+  return 0.65 * vnoise(x, y, sc, seed) + 0.35 * vnoise(x, y, sc / 2, seed + 7);
 }
 
 /**
  * If the image has no alpha and a near-uniform border color, flood it away
- * from the edges (tolerance in RGB distance). Photos with busy edges are
- * left alone — posterize still carries them.
+ * from the edges. Photos with busy edges are left alone.
  */
 function knockoutBackground(data, w, h) {
   let transparent = 0;
   for (let i = 3; i < data.length; i += 4) if (data[i] < 250) transparent++;
   if (transparent > data.length / 400) return; // already has real alpha
 
-  // median-ish border color
   const border = [];
   for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
   for (let y = 0; y < h; y++) border.push(y * w, y * w + w - 1);
@@ -66,9 +103,8 @@ function knockoutBackground(data, w, h) {
       db = data[p * 4 + 2] - b;
     return Math.sqrt(dr * dr + dg * dg + db * db);
   };
-  const uniform =
-    border.filter(p => dist(p) < 40).length / border.length;
-  if (uniform < 0.7) return; // busy edges — not a flat background
+  const uniform = border.filter(p => dist(p) < 40).length / border.length;
+  if (uniform < 0.7) return;
 
   const seen = new Uint8Array(w * h);
   const stack = border.filter(p => dist(p) < 48);
@@ -95,10 +131,46 @@ function knockoutBackground(data, w, h) {
   }
 }
 
+/** Chamfer 3-4 distance to the nearest outside pixel, in px. */
+function distanceField(mask, w, h) {
+  const INF = 1e7;
+  const d = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) d[i] = mask[i] ? INF : 0;
+  // forward
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!d[i]) continue;
+      let m = d[i];
+      if (x > 0) m = Math.min(m, d[i - 1] + 3);
+      if (y > 0) {
+        m = Math.min(m, d[i - w] + 3);
+        if (x > 0) m = Math.min(m, d[i - w - 1] + 4);
+        if (x < w - 1) m = Math.min(m, d[i - w + 1] + 4);
+      }
+      d[i] = m;
+    }
+  // backward
+  for (let y = h - 1; y >= 0; y--)
+    for (let x = w - 1; x >= 0; x--) {
+      const i = y * w + x;
+      if (!d[i]) continue;
+      let m = d[i];
+      if (x < w - 1) m = Math.min(m, d[i + 1] + 3);
+      if (y < h - 1) {
+        m = Math.min(m, d[i + w] + 3);
+        if (x < w - 1) m = Math.min(m, d[i + w + 1] + 4);
+        if (x > 0) m = Math.min(m, d[i + w - 1] + 4);
+      }
+      d[i] = m;
+    }
+  for (let i = 0; i < w * h; i++) d[i] /= 3;
+  return d;
+}
+
 /**
  * srcDataUrl -> Promise<dataUrl of the stylized icon> (PNG, `size` px).
- * tint: "neutral" | "good" | "evil". seed shifts the grain field — a
- * re-roll keeps the art and re-prints the texture (0 = the classic bake).
+ * tint: "neutral" | "good" | "evil". seed re-rolls every noise field.
  */
 export function stylizeIcon(
   srcDataUrl,
@@ -108,56 +180,122 @@ export function stylizeIcon(
     const img = new Image();
     img.onload = () => {
       try {
-        const WORK = 192; // process resolution; filters fall apart tiny
+        const W = 256; // working resolution
         const work = document.createElement("canvas");
-        work.width = WORK;
-        work.height = WORK;
+        work.width = W;
+        work.height = W;
         const g = work.getContext("2d");
-        const scale = Math.min(WORK / img.width, WORK / img.height);
-        const w = img.width * scale,
-          h = img.height * scale;
-        g.drawImage(img, (WORK - w) / 2, (WORK - h) / 2, w, h);
+        const scale = Math.min((W * 0.86) / img.width, (W * 0.86) / img.height);
+        const dw = img.width * scale,
+          dh = img.height * scale;
+        g.drawImage(img, (W - dw) / 2, (W - dh) / 2, dw, dh);
 
-        const id = g.getImageData(0, 0, WORK, WORK);
-        const d = id.data;
-        knockoutBackground(d, WORK, WORK);
+        const id = g.getImageData(0, 0, W, W);
+        const src = id.data;
+        knockoutBackground(src, W, W);
 
-        const mid = TINTS[tint] || TINTS.neutral;
-        const BANDS = 5;
-        for (let i = 0; i < d.length; i += 4) {
-          if (d[i + 3] === 0) continue;
-          // grayscale + a gentle S-curve for contrast
-          let lum =
-            (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
-          lum = lum * lum * (3 - 2 * lum);
-          // posterize into ink bands
-          lum = Math.round(lum * (BANDS - 1)) / (BANDS - 1);
-          // grain BEFORE the duotone so it prints as tone, not confetti
-          lum = Math.min(
-            1,
-            Math.max(0, lum + noiseAt(i / 4 + seed * 7919) * 0.06)
-          );
-          // duotone: ink -> tint -> parchment
-          const c =
-            lum < 0.5
-              ? lerp3(INK, mid, lum * 2)
-              : lerp3(mid, PARCHMENT, (lum - 0.5) * 2);
-          d[i] = c[0];
-          d[i + 1] = c[1];
-          d[i + 2] = c[2];
+        // ---- edge roughening: one warp field displaces every sample ----
+        const AMP = 2.6;
+        const warp = (x, y) => {
+          const nx = fbm(x, y, 23, seed + 11) - 0.5;
+          const ny = fbm(x, y, 23, seed + 29) - 0.5;
+          return [
+            Math.max(0, Math.min(W - 1, Math.round(x + nx * 2 * AMP))),
+            Math.max(0, Math.min(W - 1, Math.round(y + ny * 2 * AMP)))
+          ];
+        };
+        const mask = new Uint8Array(W * W);
+        const alpha = new Uint8ClampedArray(W * W);
+        const detail = new Float32Array(W * W);
+        for (let y = 0; y < W; y++)
+          for (let x = 0; x < W; x++) {
+            const [wx, wy] = warp(x, y);
+            const sp = (wy * W + wx) * 4;
+            const i = y * W + x;
+            alpha[i] = src[sp + 3];
+            mask[i] = src[sp + 3] > 100 ? 1 : 0;
+            detail[i] =
+              (0.299 * src[sp] + 0.587 * src[sp + 1] + 0.114 * src[sp + 2]) /
+              255;
+          }
+
+        const dist = distanceField(mask, W, W);
+
+        // ---- relief height from the SDF ----
+        const CAP = 15;
+        const hgt = new Float32Array(W * W);
+        for (let i = 0; i < W * W; i++) {
+          const t = Math.min(dist[i], CAP) / CAP;
+          hgt[i] = t * t * (3 - 2 * t);
         }
-        g.putImageData(id, 0, 0);
 
-        // bake the soft shadow into the final size
-        const out = document.createElement("canvas");
-        out.width = size;
-        out.height = size;
-        const og = out.getContext("2d");
-        og.shadowColor = "rgba(0, 0, 0, 0.55)";
-        og.shadowBlur = size / 20;
-        og.shadowOffsetY = size / 42;
-        og.drawImage(work, size * 0.04, size * 0.02, size * 0.92, size * 0.92);
-        resolve(out.toDataURL("image/png"));
+        // light from the upper-left, classic token lighting
+        const LX = -0.55,
+          LY = -0.7,
+          LZ = 0.62;
+        const HSCALE = 7.5;
+
+        const ramp = RAMPS[tint] || RAMPS.neutral;
+        const out = g.createImageData(W, W);
+        const od = out.data;
+        for (let y = 0; y < W; y++)
+          for (let x = 0; x < W; x++) {
+            const i = y * W + x;
+            if (!alpha[i]) continue;
+            const iL = x > 0 ? i - 1 : i,
+              iR = x < W - 1 ? i + 1 : i,
+              iU = y > 0 ? i - W : i,
+              iD = y < W - 1 ? i + W : i;
+            // normal from the height gradient
+            const gx = (hgt[iR] - hgt[iL]) * HSCALE;
+            const gy = (hgt[iD] - hgt[iU]) * HSCALE;
+            const inv = 1 / Math.sqrt(gx * gx + gy * gy + 1);
+            const ndl = (-gx * LX - gy * LY + LZ) * inv;
+            let v = 0.44 + 0.72 * Math.max(0, ndl);
+            // the officials run BRIGHT — push the lit tops toward white
+            if (ndl > 0.9) v += (ndl - 0.9) * 2.4;
+
+            // the source's own tones carry interior features (uploads);
+            // flat fills leave this neutral
+            v *= 0.72 + 0.42 * detail[i];
+
+            // wobbled ink contour
+            const cw = 1.6 + 2.2 * fbm(x, y, 17, seed + 43);
+            if (dist[i] < cw) v *= 0.16 + 0.5 * (dist[i] / cw);
+
+            // hatching in the shadow bands — the engraver's stroke
+            if (v < 0.46 && dist[i] > 1.5) {
+              const ph = fbm(x, y, 31, seed + 57) * 6;
+              const s = Math.sin((x + y) * 0.82 + ph);
+              if (s > 0.25) v *= 0.78;
+            }
+
+            // paper mottle — structure, not static
+            v *= 0.9 + 0.2 * fbm(x, y, 9, seed + 71);
+
+            // ramp lookup with linear blend between stops
+            const t = Math.max(0, Math.min(0.999, v)) * (ramp.length - 1);
+            const b0 = Math.floor(t),
+              f = t - b0;
+            const c0 = ramp[b0],
+              c1 = ramp[Math.min(ramp.length - 1, b0 + 1)];
+            od[i * 4] = c0[0] + (c1[0] - c0[0]) * f;
+            od[i * 4 + 1] = c0[1] + (c1[1] - c0[1]) * f;
+            od[i * 4 + 2] = c0[2] + (c1[2] - c0[2]) * f;
+            od[i * 4 + 3] = alpha[i];
+          }
+        g.putImageData(out, 0, 0);
+
+        // ---- bake the cast shadow into the final size ----
+        const fin = document.createElement("canvas");
+        fin.width = size;
+        fin.height = size;
+        const og = fin.getContext("2d");
+        og.shadowColor = "rgba(0, 0, 0, 0.6)";
+        og.shadowBlur = size / 16;
+        og.shadowOffsetY = size / 36;
+        og.drawImage(work, size * 0.03, size * 0.015, size * 0.94, size * 0.94);
+        resolve(fin.toDataURL("image/png"));
       } catch (e) {
         reject(e);
       }
