@@ -337,7 +337,7 @@ export default {
         left: x + 837 * s + "px",
         top: y + 56 * s + "px",
         // the lockup draws at 360 image-px wide (1657x651 native)
-        width: 360 * s + "px",
+        width: 318 * s + "px",
         fontSize: 88 * s + "px"
       };
     },
@@ -348,7 +348,7 @@ export default {
         left: x + 845 * s + "px",
         top: y + 198 * s + "px",
         // the lockup renders at 42 image-px tall (431x98 native)
-        height: 42 * s + "px"
+        height: 36 * s + "px"
       };
     },
     ontheGlyphs() {

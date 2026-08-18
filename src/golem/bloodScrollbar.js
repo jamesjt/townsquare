@@ -22,8 +22,8 @@ import dropSprite from "../assets/blood/drip-drop2.png";
 
 const LANE = 26; // reserved gutter
 const W = 18; // svg lane width
-const DROP_W = 15;
-const DROP_H = 24;
+const DROP_W = 11;
+const DROP_H = 100; // the t=2s long drip (58x528 sprite)
 
 // the teardrop path in a 15x24 box: crown point -> symmetric cubics into
 // the bulb -> back up
@@ -113,7 +113,7 @@ function update(el) {
     "transform",
     `translate(${W / 2 - (DROP_W * sx) / 2} ${y}) scale(${sx} ${sy})`
   );
-  s.trail.setAttribute("d", trailPath(y + DROP_H * 0.45));
+  s.trail.setAttribute("d", trailPath(y + 8));
 
   // dried beads appear where the drop has passed (seeded, stable spots)
   let beads = "";
