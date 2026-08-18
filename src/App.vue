@@ -167,7 +167,8 @@
       target="_blank"
       rel="noopener noreferrer"
       title="Blood on the Clocktower is by The Pandemonium Institute — visit their store"
-      >Support The Pandemonium Institute</a
+      ><img class="tpi-mark" :src="tpiLogo" alt="" />Support The Pandemonium
+      Institute</a
     >
     <!-- Golem fork: the version corner is the SESSION PILL — which room you
          are in, who is with you, the vote-history count, and the door out.
@@ -271,6 +272,9 @@ import ScriptDrawer from "./components/ScriptDrawer";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
+// The Pandemonium Institute's own mark, worn by the footer credit that links
+// to their store — their game, their branding, unaltered.
+import tpiLogo from "./assets/tpi-logo.png";
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
 import Vote from "./components/Vote";
@@ -412,6 +416,7 @@ export default {
       devLabs: false,
       grimoireClosed,
       grimoireOpen,
+      tpiLogo,
       // the drip lab
       drOpen: false,
       dripRef: dripKnobs,
@@ -1058,7 +1063,10 @@ video#background {
   left: 50%;
   bottom: 10px;
   transform: translateX(-50%);
-  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 10px;
   text-decoration: none;
   white-space: nowrap;
   color: rgba(210, 198, 174, 0.62);
@@ -1070,10 +1078,20 @@ video#background {
   z-index: 80;
   transition: color 200ms, border-color 200ms, background 200ms;
 
+  // their own mark, leading the credit — unaltered, just sized and calmed
+  .tpi-mark {
+    width: 20px;
+    height: 21px;
+    object-fit: contain;
+    opacity: 0.85;
+  }
   &:hover {
     color: #efe6d2;
     background: rgba(10, 8, 12, 0.9);
     border-color: rgba(150, 130, 175, 0.7);
+    .tpi-mark {
+      opacity: 1;
+    }
   }
 }
 

@@ -18,16 +18,16 @@
         <button
           class="rd-act"
           @click="assignRandomly"
-          title="Fill every roleless seat by the script's composition"
+          title="Deal the remaining valid roles out to the open seats"
         >
-          <font-awesome-icon icon="people-arrows" />
-          Assign {{ openSeats }}
+          <img class="act-glyph" :src="dealGlyph" alt="" />
+          Deal {{ openSeats }}
         </button>
         <button
           class="rd-act"
           :disabled="seatedCount < 2"
           @click="shuffleSeated"
-          title="Reshuffle the seated roles among their chairs"
+          title="Randomize the selected roles among the seats"
         >
           <font-awesome-icon icon="random" />
           Shuffle
@@ -103,6 +103,7 @@
 <script>
 import gameJSON from "../game";
 import demonGlyph from "../assets/blood/demon-glyph.png";
+import dealGlyph from "../assets/ui-deal.png";
 import outsiderGlyph from "../assets/blood/outsider-glyph.png";
 import { mapMutations, mapState } from "vuex";
 
@@ -121,12 +122,20 @@ export default {
         traveler: "Travellers"
       },
       folded: { traveler: true },
-      allowDup: false
+      dealGlyph
     };
   },
   computed: {
     ...mapState(["roles", "modals", "otherTravelers"]),
     ...mapState("players", ["players"]),
+    allowDup: {
+      get() {
+        return this.$store.state.allowDupRoles;
+      },
+      set(on) {
+        this.$store.commit("setAllowDupRoles", on);
+      }
+    },
     drawerPick() {
       return this.$store.state.drawerPick;
     },
@@ -335,6 +344,11 @@ $team-colors: (
         color: #ffd9d9;
         border-color: rgba(190, 90, 90, 0.8);
       }
+    }
+    .act-glyph {
+      width: 15px;
+      height: 15px;
+      object-fit: contain;
     }
     .rd-act {
       flex: 1;

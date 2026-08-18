@@ -371,11 +371,7 @@ export default {
     onLifeClick() {
       const pick = this.$store.state.drawerPick;
       if (pick && !this.session.isSpectator) {
-        this.$store.commit("players/update", {
-          player: this.player,
-          property: "role",
-          value: pick
-        });
+        this.placeRole(pick);
         this.$store.commit("setDrawerPick", null);
         return;
       }
@@ -387,6 +383,29 @@ export default {
     },
     /** A drop on this seat: a drawer role assigns; another seat's role
      *  SWAPS chairs with ours. */
+    /** Put a role in THIS chair. With duplicates off (the default) a role
+     *  lives in one chair only, so placing it anywhere else MOVES it — the
+     *  rule holds for every path (drag, click, assign, shuffle) instead of
+     *  each one policing itself. */
+    placeRole(role) {
+      if (!role || !role.id) return;
+      if (!this.$store.state.allowDupRoles) {
+        this.players.forEach(p => {
+          if (p !== this.player && p.role && p.role.id === role.id) {
+            this.$store.commit("players/update", {
+              player: p,
+              property: "role",
+              value: {}
+            });
+          }
+        });
+      }
+      this.$store.commit("players/update", {
+        player: this.player,
+        property: "role",
+        value: role
+      });
+    },
     onRoleDrop(e) {
       if (this.session.isSpectator) return;
       const roleId = e.dataTransfer.getData("golem/role");
@@ -395,13 +414,7 @@ export default {
         // state.roles is a Map keyed by role id — .find() is an array method
         // and threw here, so every drawer drop silently did nothing
         const role = this.$store.state.roles.get(roleId);
-        if (role) {
-          this.$store.commit("players/update", {
-            player: this.player,
-            property: "role",
-            value: role
-          });
-        }
+        if (role) this.placeRole(role);
         return;
       }
       if (from !== "" && Number(from) !== this.index) {

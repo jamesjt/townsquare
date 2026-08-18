@@ -132,6 +132,10 @@ export default new Vuex.Store({
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it
     drawerPick: null,
+    // FT-854: when OFF (the default), a role lives in at most one chair —
+    // placing it anywhere else MOVES it. Shared state so every placing path
+    // (drag, click, assign, shuffle) obeys the same rule.
+    allowDupRoles: false,
     // FT-857: which tab the script drawer opens on — "team" | "first" |
     // "other". The strip's night icon lands on "first".
     scriptDrawerView: "team",
@@ -187,6 +191,9 @@ export default new Vuex.Store({
     toggleNight: toggle("isNight"),
     toggleGrimoire: toggle("isPublic"),
     toggleImageOptIn: toggle("isImageOptIn"),
+    setAllowDupRoles(state, on) {
+      state.allowDupRoles = !!on;
+    },
     setDrawerPick(state, role) {
       state.drawerPick = role || null;
     },
