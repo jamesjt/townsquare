@@ -64,27 +64,30 @@ const CDFS = {
 const GRAIN_AMP = [16.5, 7.2, 8.3, 9.9, 14.6, 16.1, 20.5, 33.2];
 
 /** The engraver's dials — dragged live by the Ik lab, read at bake time. */
+// The USER'S calibration, baked as the shipped look (2026-08-18, dialed
+// live in the Ik lab): pure flow (no matching), heavy wash + pooling,
+// full measured grain, no contour/relief/rim — luminous painted color.
 const DEFAULTS = {
-  relief: 2, // 0 flat .. 8 embossed
-  base: 0.5, // ambient tone floor
-  wash: 0.7, // the DIRECTIONAL gradient's amplitude (origin -> away)
-  brush: 0.2, // vertical brush-pull amplitude
-  mottle: 0.16, // residual paint blotch (kept quiet — the wash leads)
-  grain: 0.45, // multiplier on the measured film grain
-  contour: 1, // ink contour width multiplier (0 = no outline)
+  relief: 0, // 0 flat .. 8 embossed
+  base: 0.2, // ambient tone floor
+  wash: 1.2, // the DIRECTIONAL gradient's amplitude (origin -> away)
+  brush: 0.32, // vertical brush-pull amplitude
+  mottle: 0, // residual paint blotch
+  grain: 2, // multiplier on the measured film grain
+  contour: 0, // ink contour width multiplier (0 = no outline)
   hatch: 0, // shadow-band hatching (OFF — the officials carry none)
-  match: 0.35, // histogram-match weight (1 = full official distribution —
+  match: 0, // histogram-match weight (1 = full official distribution —
   // which CRUSHES the gradient into the big dark bands; low keeps the flow)
-  pool: 0.85, // band-pooling dither width
-  rim: 0.35, // light-side pale rim strength
-  top: 6.6, // tone ceiling in bands for AREA pixels (rim may exceed it)
-  outline: 0.2, // the officials' hairline WHITE edge, in px (0 = none)
+  pool: 2, // band-pooling dither width
+  rim: 0, // light-side pale rim strength
+  top: 8, // tone ceiling in bands for AREA pixels (rim may exceed it)
+  outline: 0.1, // the officials' hairline WHITE edge, in px (0 = none)
   shadow: 0 // cast shadow opacity (officials have NONE)
 };
 // the pipeline VERSION — when a rework changes what the dials mean (v12:
 // wash became the directional gradient), stale saved settings would
 // silently disable the new look; a mismatch drops them
-const ENGRAVER_V = 14;
+const ENGRAVER_V = 15;
 let stored = {};
 try {
   stored = JSON.parse(localStorage.getItem("golem.engraver") || "{}");

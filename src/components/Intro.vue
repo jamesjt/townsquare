@@ -353,7 +353,7 @@ export default {
       const { x, y, s } = this.bgA;
       return {
         left: x + 837 * s + "px",
-        top: y + 60 * s + "px",
+        top: y + 74 * s + "px",
         fontSize: 88 * s + "px"
       };
     },
@@ -951,7 +951,9 @@ export default {
     }
     .on-the {
       // image-space: tucked right under the word (em units ride the
-      // anchored font-size)
+      // anchored font-size); nudged right so word and hand straddle evenly
+      position: relative;
+      left: 0.38em;
       margin-top: -0.28em;
       font-family: "Roboto Condensed", sans-serif;
       font-size: 0.3em;
