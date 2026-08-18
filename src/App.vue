@@ -564,22 +564,28 @@ export default {
     width: 7px;
     height: 0;
     overflow: hidden;
-    // ONE run, stretched to the trail's length — repetition is impossible;
-    // a long scroll just thins the streak like a real run would
-    background-repeat: no-repeat;
-    background-position: center top;
-    background-size: 100% 100%;
+    // natural-scale texture ANCHORED AT THE DROP: growth reveals more run
+    // instead of stretching it (the stretch read as mucus, not blood); the
+    // baked strip alternates flipped/jittered segments, so its repeat has
+    // no visible period
+    background-repeat: repeat-y;
+    background-position: center bottom;
+    background-size: 100% auto;
     opacity: 0.9;
   }
   .blooddrip-drop {
     position: absolute;
     top: 0;
-    left: 0;
+    left: 50%;
+    margin-left: -7.5px;
     pointer-events: auto;
     cursor: grab;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+    // a touch of liquid lag — the drop eases after the content
+    transition: transform 120ms ease-out;
     &:active {
       cursor: grabbing;
+      transition: none;
     }
   }
 }

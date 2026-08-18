@@ -47,30 +47,77 @@
 
       <div class="wb-body">
         <aside class="wb-sidebar">
-          <div class="wb-shelf-top">
-            <input
-              v-model="roleQuery"
-              class="wb-search"
-              placeholder="Search every role…"
-              @keyup.enter="searchRoles"
-            />
-            <div class="button wb-plus" title="New role" @click="openRoleForm()">
-              <font-awesome-icon icon="plus-circle" />
+          <!-- FT-855 r2: the FILTER BOX — its header row is the collapsible's
+               header (Filter · search · chevron far right). Typing opens the
+               box and narrows the facet values; groups open independently,
+               chevrons on their right. -->
+          <div class="wb-filterbox" :class="{ open: filterOpen }">
+            <div class="fb-head" @click="filterOpen = !filterOpen">
+              <span class="fb-title">Filter</span>
+              <input
+                v-model="roleQuery"
+                class="wb-search"
+                placeholder="Search every role…"
+                @click.stop
+                @input="onSearchInput"
+                @keyup.enter="searchRoles"
+              />
+              <font-awesome-icon
+                icon="chevron-down"
+                class="caret"
+                :class="{ open: filterOpen }"
+              />
+            </div>
+            <div class="fb-body" v-if="filterOpen">
+              <div
+                class="facet-group"
+                v-for="facet in facetList"
+                :key="facet.key"
+                v-show="!searchActive || facetTagsFiltered(facet).length"
+              >
+                <h5
+                  class="facet-head"
+                  :class="{ open: facetShowing(facet) }"
+                  @click="toggleFacetOpen(facet.key)"
+                >
+                  <span class="fh-label">
+                    {{ facet.label }}
+                    <em v-if="pillCountIn(facet.key)">{{ pillCountIn(facet.key) }}</em>
+                  </span>
+                  <font-awesome-icon icon="chevron-down" class="caret" />
+                </h5>
+                <template v-if="facetShowing(facet)">
+                  <div
+                    class="facet-val"
+                    v-for="tag in facetTagsFiltered(facet)"
+                    :key="tag.id"
+                    :class="{ zero: countFor(tag) === 0, active: !!pillFor(tag.id) }"
+                    @click="togglePillValue(tag)"
+                  >
+                    <span class="vlabel">
+                      {{ tag.label }}
+                      <em v-if="pillFor(tag.id)">{{
+                        pillFor(tag.id).not ? "hidden" : "shown"
+                      }}</em>
+                    </span>
+                    <span class="vcount">{{ countFor(tag) }}</span>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
-          <!-- FT-855: the researched filter. (1) TEAM ICON ROW — plain on/off
-               toggles, live counts, multi-select ORs. (2) Structured PILLS —
-               "Source is not TB ×": the verb flips is/is-not on click, the ×
-               removes; pills are the single truth of what's active. (3) The
-               +Filter menu lists facet values with LIVE match counts; zero
-               matches render dimmed, never a surprise empty shelf. -->
+          <!-- team toggles are TRI-STATE on click (show only → hide → off);
+               the + at the end forges a new role -->
           <div class="wb-team-row">
             <button
               v-for="t in teamRow"
               :key="t.team"
               class="wb-team-toggle"
-              :class="['team-' + t.team, { on: teamsOn.includes(t.team) }]"
-              :title="t.label"
+              :class="[
+                'team-' + t.team,
+                { on: teamState[t.team] === 1, exc: teamState[t.team] === -1 }
+              ]"
+              :title="teamTitle(t)"
               @click="toggleTeam(t.team)"
             >
               <img
@@ -82,6 +129,9 @@
               <font-awesome-icon v-else :icon="t.icon" />
               <span class="cnt">{{ t.count }}</span>
             </button>
+            <div class="button wb-plus" title="New role" @click="openRoleForm()">
+              <font-awesome-icon icon="plus-circle" />
+            </div>
           </div>
           <div class="wb-pill-row">
             <span
@@ -101,49 +151,10 @@
                 >×</span
               >
             </span>
-            <span
-              class="wb-addfilter"
-              :class="{ open: filterOpen }"
-              @click="filterOpen = !filterOpen"
-            >
-              <font-awesome-icon icon="plus-circle" /> Filter
-            </span>
             <span class="wb-clearall" v-if="pills.length" @click="pills = []"
               >Clear</span
             >
             <span class="wb-results">{{ filteredCount }} of {{ totalCount }}</span>
-          </div>
-          <!-- facet groups COLLAPSE instead of the menu scrolling (user
-               call); a collapsed header still counts its active pills -->
-          <div class="wb-facet-menu" v-if="filterOpen">
-            <div class="facet-group" v-for="facet in facetList" :key="facet.key">
-              <h5
-                class="facet-head"
-                :class="{ open: facetOpen[facet.key] }"
-                @click="toggleFacetOpen(facet.key)"
-              >
-                <font-awesome-icon icon="chevron-down" class="caret" />
-                {{ facet.label }}
-                <em v-if="pillCountIn(facet.key)">{{ pillCountIn(facet.key) }}</em>
-              </h5>
-              <template v-if="facetOpen[facet.key]">
-                <div
-                  class="facet-val"
-                  v-for="tag in facet.tags"
-                  :key="tag.id"
-                  :class="{ zero: countFor(tag) === 0, active: !!pillFor(tag.id) }"
-                  @click="togglePillValue(tag)"
-                >
-                  <span class="vlabel">
-                    {{ tag.label }}
-                    <em v-if="pillFor(tag.id)">{{
-                      pillFor(tag.id).not ? "hidden" : "shown"
-                    }}</em>
-                  </span>
-                  <span class="vcount">{{ countFor(tag) }}</span>
-                </div>
-              </template>
-            </div>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
           <ul class="wb-all-roles" v-blood-scroll @scroll.passive="hideRoleTip">
@@ -838,9 +849,9 @@ export default {
       nsJsonText: "",
       // the forge's paste-to-fill box
       roleJsonText: "",
-      // FT-855: team toggles (empty = all) + structured filter pills
-      // [{ id: 'src:tb', not: false }] — the pill row is the single truth.
-      teamsOn: [],
+      // FT-855: tri-state team toggles (1 show-only, -1 hide, absent off)
+      // + structured filter pills [{ id: 'src:tb', not: false }].
+      teamState: {},
       pills: [],
       filterOpen: false,
       // which facet groups are unfolded in the menu (Source starts open)
@@ -1027,6 +1038,9 @@ export default {
     },
     filteredCount() {
       return this.sidebarRoles.length;
+    },
+    searchActive() {
+      return !!this.roleQuery.trim();
     },
     totalCount() {
       return this.allShelfEntries.length;
@@ -1440,8 +1454,11 @@ export default {
     async searchRoles() {
       this.roleError = "";
       try {
-        // FT-855: a single toggled team narrows the library browse too.
-        const type = this.teamsOn.length === 1 ? this.teamsOn[0] : "";
+        // FT-855: a single shown-only team narrows the library browse too.
+        const inc = Object.keys(this.teamState).filter(
+          t => this.teamState[t] === 1
+        );
+        const type = inc.length === 1 ? inc[0] : "";
         const rows = await roleLib.browseRoles({
           q: this.roleQuery.trim(),
           type,
@@ -1807,7 +1824,11 @@ export default {
       return !q || (entry.name || "").toLowerCase().includes(q);
     },
     matchesTeams(entry) {
-      return !this.teamsOn.length || this.teamsOn.includes(entry.team);
+      if (this.teamState[entry.team] === -1) return false;
+      const inc = Object.keys(this.teamState).filter(
+        t => this.teamState[t] === 1
+      );
+      return !inc.length || inc.includes(entry.team);
     },
     /** Pills: includes OR within a facet, AND across facets; every is-not
      *  pill excludes. excludeFacet skips one facet's pills (its own counts). */
@@ -1822,10 +1843,40 @@ export default {
       );
     },
     // ── FT-855: controls ─────────────────────────────────────────────────
+    /** show only → hide → off, on the button itself (user call). */
     toggleTeam(team) {
-      this.teamsOn = this.teamsOn.includes(team)
-        ? this.teamsOn.filter(t => t !== team)
-        : [...this.teamsOn, team];
+      const next = { ...this.teamState };
+      if (next[team] === 1) next[team] = -1;
+      else if (next[team] === -1) delete next[team];
+      else next[team] = 1;
+      this.teamState = next;
+    },
+    teamTitle(t) {
+      const s = this.teamState[t.team];
+      return (
+        t.label +
+        (s === 1
+          ? " — showing only (click to hide)"
+          : s === -1
+            ? " — hidden (click to reset)"
+            : " — click to show only")
+      );
+    },
+    /** Typing opens the filter box and narrows its facet values too. */
+    onSearchInput() {
+      if (this.roleQuery.trim()) this.filterOpen = true;
+    },
+    facetTagsFiltered(facet) {
+      const q = this.roleQuery.trim().toLowerCase();
+      if (!q) return facet.tags;
+      return facet.tags.filter(t => t.label.toLowerCase().includes(q));
+    },
+    /** A group shows its values when opened — or while a search matches. */
+    facetShowing(facet) {
+      return (
+        this.facetOpen[facet.key] ||
+        (this.searchActive && this.facetTagsFiltered(facet).length > 0)
+      );
     },
     pillFor(id) {
       return this.pills.find(p => p.id === id) || null;
@@ -1846,9 +1897,9 @@ export default {
     removePill(pill) {
       this.pills = this.pills.filter(p => p !== pill);
     },
-    /** Accordion: opening a facet group folds the others (user call). */
+    /** Groups open independently (user call — the accordion retired). */
     toggleFacetOpen(key) {
-      this.facetOpen = this.facetOpen[key] ? {} : { [key]: true };
+      this.$set(this.facetOpen, key, !this.facetOpen[key]);
     },
     pillCountIn(key) {
       return this.pills.filter(p => p.facet === key).length;
@@ -2429,13 +2480,45 @@ $team-colors: (
     display: flex;
     flex-direction: column;
     min-height: 0;
-    .wb-shelf-top {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      .wb-search {
-        flex-grow: 1;
-        width: auto;
+    // FT-855 r2: the filter box — header row = Filter · search · chevron
+    .wb-filterbox {
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      margin-bottom: 7px;
+      &.open {
+        border-color: #7d0e0e;
+      }
+      .fb-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px;
+        cursor: pointer;
+        .fb-title {
+          font-size: 13px;
+          opacity: 0.85;
+          flex-shrink: 0;
+        }
+        .wb-search {
+          flex-grow: 1;
+          width: auto;
+          margin: 0;
+        }
+        .caret {
+          flex-shrink: 0;
+          font-size: 10px;
+          opacity: 0.7;
+          transition: transform 150ms;
+          &.open {
+            transform: rotate(180deg);
+          }
+        }
+      }
+      .fb-body {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 2px 8px 8px;
+        max-height: 300px;
+        overflow-y: auto;
       }
     }
     .wb-search {
@@ -2489,6 +2572,14 @@ $team-colors: (
               opacity: 1;
               font-weight: bold;
             }
+          }
+        }
+        // hidden: dimmed behind a blood hairline, count struck through
+        &.exc {
+          border-color: #7d0e0e;
+          opacity: 0.45;
+          .cnt {
+            text-decoration: line-through;
           }
         }
       }
@@ -2575,16 +2666,12 @@ $team-colors: (
         opacity: 0.6;
       }
     }
-    // FT-855: the facet menu — collapsible groups, values with live counts.
-    .wb-facet-menu {
-      background: rgba(8, 8, 12, 0.97);
-      border: 1px solid #400;
-      border-radius: 6px;
-      padding: 4px 8px 8px;
-      margin-bottom: 6px;
+    // FT-855 r2: facet groups inside the filter box.
+    .wb-filterbox .fb-body {
       .facet-group h5.facet-head {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 6px;
         margin: 5px 0 2px;
         font-size: 11px;
@@ -2592,6 +2679,7 @@ $team-colors: (
         letter-spacing: 1.5px;
         opacity: 0.65;
         cursor: pointer;
+        // chevron on the RIGHT (user call)
         .caret {
           font-size: 9px;
           transform: rotate(-90deg);
