@@ -537,12 +537,13 @@ export default {
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 9px;
+    width: 7px;
     height: 0;
+    overflow: hidden;
     background-repeat: repeat-y;
     background-position: center top;
     background-size: 100% auto;
-    opacity: 0.85;
+    opacity: 0.9;
   }
   .blooddrip-drop {
     position: absolute;

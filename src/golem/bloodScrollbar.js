@@ -25,14 +25,17 @@ function update(el) {
   const travel = el.clientHeight - DROP_H;
   const y = (el.scrollTop / maxScroll) * travel;
   s.drop.style.transform = `translateY(${y}px)`;
-  // the dried run marks where the drop has been (its furthest reach)
-  s.maxY = Math.max(s.maxY, y + DROP_H * 0.55);
-  s.trail.style.height = s.maxY + "px";
+  // the run FOLLOWS the drop — scrolling back up wipes it (user call)
+  s.trail.style.height = y + DROP_H * 0.5 + "px";
 }
 
 export default {
   inserted(el) {
     el.classList.add("blooddrip-host");
+    // the overlay needs its own lane — without this it sits on the rows'
+    // trailing content (the shelf's checkmarks)
+    el.__prevPadRight = el.style.paddingRight;
+    el.style.paddingRight = "26px";
     const wrap = el.parentElement;
     if (wrap && getComputedStyle(wrap).position === "static")
       wrap.style.position = "relative";
@@ -51,7 +54,7 @@ export default {
     track.appendChild(drop);
     wrap.appendChild(track);
 
-    el.__bloodScroll = { track, trail, drop, maxY: 0 };
+    el.__bloodScroll = { track, trail, drop };
 
     const onScroll = () => update(el);
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -93,5 +96,6 @@ export default {
       el.__bloodScroll.cleanup();
       delete el.__bloodScroll;
     }
+    el.style.paddingRight = el.__prevPadRight || "";
   }
 };
