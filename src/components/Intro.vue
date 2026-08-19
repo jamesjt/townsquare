@@ -876,9 +876,42 @@ export default {
         ? "blood-cap-" + letter.toLowerCase()
         : "font-cap";
     },
+    /**
+     * FT-anon (2026-08-19, user report — "the J is falling out of its box";
+     * follow-up — "same with the H"): glyphStyleFrom (titleFonts.js)
+     * normalizes every letter against the SET's reference letter (B) — the
+     * right job when it's matching cap-height ACROSS families, the wrong
+     * one WITHIN a family, where it silently assumes every capital crops to
+     * the same baseline B does. Measured against red-97/metrics.json: most
+     * capitals sit within a couple of px of B's baseline (173) — H at 174 is
+     * close enough to pass unnoticed — but J crops to 182, a real ~5%
+     * taller box, not an artifact (its hook genuinely extends the crop).
+     * Scaled by B's ratio instead of its own, J rendered taller AND its
+     * descender (computed the same wrong-reference way) rode 5% low too —
+     * enough, together, to clear the door's fixed height. So this was never
+     * one letter's exception: no two capitals in the set actually shared a
+     * cap-height, J was just the one far enough off to be seen first.
+     *
+     * Fixed HERE (Intro.vue's own door/button caps only — glyphStyleFrom
+     * and its title-word/"on the" callers are untouched) by normalizing
+     * each letter against ITS OWN baseline rather than the set's reference
+     * letter. That makes every letter's cap-top-to-baseline distance
+     * exactly `scale*CAP_SHRINK` em — identical across H/J/S/A/O — while
+     * width and the descender (h − baseline) scale at that same per-letter
+     * rate, so aspect ratio and the glyph's actual baked descent are both
+     * preserved exactly as trimmed.
+     */
     capStyle(letter, scale = 1.09) {
       if (this.capIsBaked()) return null;
-      return glyphStyleFrom(this.capKeyNow(), letter, scale * CAP_SHRINK);
+      const g = glyphFrom(this.capKeyNow(), letter);
+      if (!g || !g.baseline) return null;
+      const emPerPx = (scale * CAP_SHRINK) / g.baseline;
+      const em = px => (px * emPerPx).toFixed(3) + "em";
+      return {
+        width: em(g.w),
+        height: em(g.h),
+        verticalAlign: "-" + em(Math.max(0, g.h - g.baseline))
+      };
     },
     /** Golem fork: the Create door opens the script editor straight to its
      *  Custom Script surface — same access pattern as the "Custom / vault…"
