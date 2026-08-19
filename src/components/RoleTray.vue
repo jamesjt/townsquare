@@ -187,8 +187,16 @@ export default {
     pick(role) {
       this.setDrawerPick(this.isPicked(role) ? null : role);
     },
+    /**
+     * `immediate` means NO DELAY (the keyboard lands on a tile and wants its
+     * card at once), not "ignore the pointer". It used to skip the hover
+     * check as well — and a touch TAP focuses a tile, so on a phone the tray
+     * raised a card of its own on top of App's armed card, and left it up
+     * after the character was disarmed (blur never came). On a hoverless
+     * pointer the armed card is the one that speaks.
+     */
     showCard(role, e, immediate) {
-      if (!immediate && !window.matchMedia("(hover: hover)").matches) return;
+      if (!window.matchMedia("(hover: hover)").matches) return;
       const el = e.currentTarget;
       clearTimeout(this.$options.cardTimer);
       this.$options.cardTimer = setTimeout(

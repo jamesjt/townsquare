@@ -163,6 +163,48 @@ export default {
   }
 }
 
+// SMALL SCREEN: the workbench does not lay out its bench there — EditionModal
+// swaps the body for a short note (its SMALL_BENCH query, kept in step with
+// this one). A full-screen shell around one paragraph reads as a page that
+// failed to load, so the shell shrinks to what it holds.
+@media (max-width: 699px), (pointer: coarse) and (max-height: 519px) {
+  .modal-backdrop.editions.workbench .modal {
+    height: auto;
+    max-height: 92vh;
+    // a plate, not a pane: at 0.8 the build panel behind it read straight
+    // through the note (the full-screen bench never had anything behind it)
+    background: rgba(0, 0, 0, 0.94);
+    // A LANDSCAPE PHONE is 345px tall and the note is taller than that, which
+    // put its own Close button one pixel below the fold. The slot is the
+    // scroller so the whole note — including the way out — is always reachable.
+    > .slot {
+      height: auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+}
+
+// A thumb cannot reliably hit a 30px glyph in a corner. Every modal's close
+// gets a real box on a coarse pointer; the glyph inside is unchanged, so the
+// corner still reads as one blood ×.
+@media (pointer: coarse) {
+  .modal > .top-right-buttons {
+    top: 2px;
+    right: 6px;
+    > .close-x {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      font-size: 34px;
+    }
+  }
+}
+
 .modal-fade-enter,
 .modal-fade-leave-active {
   opacity: 0;

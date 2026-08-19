@@ -199,4 +199,26 @@ export default {
     top: -25%;
   }
 }
+
+/* THE PLATE FOLLOWS THE RING. It is the town's centre mark, and it is pinned
+   to the WINDOW's centre — which is the same place until the phone layouts
+   move the square. Once the night sheet takes the bottom (portrait) or the
+   right (landscape), the plate stayed behind: measured 375x812 it sat 244px
+   below the ring, underneath the checklist's first row; at 812x375 it sat
+   179px to the right of the ring, half under the sheet.
+
+   Translating by exactly what the square gave up is what keeps it centred:
+   the square loses 60% of the window's height in portrait (100% → 40%, so
+   its centre rises 30vh) and 44% of the width in landscape (100% → 56%, so
+   its centre moves 22vw left). */
+@media (pointer: coarse) and (orientation: portrait) {
+  #app.checklist-up .info {
+    transform: translateY(-30vh);
+  }
+}
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  #app.night-sheet-up .info {
+    transform: translateX(-22vw);
+  }
+}
 </style>

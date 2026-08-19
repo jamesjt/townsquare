@@ -36,8 +36,9 @@
           />
           <!-- ONE plus (user call): everything script-creation lives in the
                New-script overlay it opens — name, icon, and a paste/upload
-               seed. -->
-          <div class="wb-actions">
+               seed. It is an authoring surface like the rest of the bench, so
+               a small screen does not offer it. -->
+          <div class="wb-actions" v-if="!smallScreen">
             <div class="button wb-plus" title="New script" @click="newScript">
               <font-awesome-icon icon="plus" />
             </div>
@@ -45,7 +46,47 @@
         </div>
       </div>
 
-      <div class="wb-body">
+      <!-- SMALL SCREEN: the bench steps aside and says so.
+           The picker above it stays live — WHICH script is loaded is the one
+           thing worth reading here, and switching scripts is a single tap on
+           a component the host panel already ships to phones. Everything
+           below the picker (the 270px role rail, the three script views, the
+           drag that moves a character up the night order) needs a desk. -->
+      <div class="wb-small" v-if="smallScreen">
+        <h4 class="ws-lead">The Almanac wants a desk</h4>
+        <p class="ws-body">
+          Two columns, a rail of every character, and a drag to move one up the
+          night order. None of that fits in a hand — and the drag does not
+          exist on a touch screen at all.
+        </p>
+        <div class="ws-loaded">
+          <img class="ws-mark" :src="loadedCard.icon" alt="" />
+          <span class="ws-name">{{ loadedCard.name }}</span>
+        </div>
+        <div class="ws-counts">
+          <span
+            class="ws-count"
+            v-for="t in smallCounts"
+            :key="t.team"
+            :class="'team-' + t.team"
+            :title="t.label"
+          >
+            <img v-if="teamGlyph(t.team)" :src="teamGlyph(t.team)" alt="" />
+            <font-awesome-icon v-else :icon="t.icon" />
+            {{ t.count }}
+          </span>
+        </div>
+        <p class="ws-serves" v-if="servableText">Plays {{ servableText }}</p>
+        <p class="ws-note">
+          Pick a script above and it loads for the table as it always did. To
+          read what a character does, open the script drawer.
+        </p>
+        <button type="button" class="ws-close" @click="toggleModal('edition')">
+          Close
+        </button>
+      </div>
+
+      <div class="wb-body" v-else>
         <aside class="wb-sidebar">
           <!-- team toggles are TRI-STATE on click (show only → hide → off);
                the + at the end forges a new role -->
@@ -668,6 +709,23 @@ const TEAM_LABELS = {
 // "traveller". Normalize to the app side everywhere the two meet.
 const normTeam = t => (t || "").replace("traveller", "traveler");
 
+/**
+ * WHEN THE WORKBENCH STEPS ASIDE.
+ *
+ * Measured against the real layout, not guessed (sweep, 2026-08-18): the body
+ * is a fixed 270px role rail plus the script column, and the column measures
+ * 334px at a 700px window, 298 at 640, 147 at 480 and 85 at 414 — a role card
+ * stops being a card somewhere just under 700, and by 480 the ability text is
+ * three words to a line. Below that the tabs run off the modal's right edge.
+ *
+ * The second clause is the LANDSCAPE PHONE: 812x375 has all the width and none
+ * of the height, and the gesture the bench is built around — dragging a role
+ * up the night order — is HTML5 drag-and-drop, which does not fire on a touch
+ * screen at all. `pointer: coarse` keeps a short desktop window out of it.
+ */
+const SMALL_BENCH =
+  "(max-width: 699px), (pointer: coarse) and (max-height: 519px)";
+
 export default {
   components: {
     Modal,
@@ -685,6 +743,9 @@ export default {
       demonGlyph,
       outsiderGlyph,
       fontStateRef: fontState,
+      // Is the window too small to hold the bench? (see SMALL_BENCH). Live —
+      // a rotation or a desktop resize flips it either way.
+      smallScreen: false,
       // Golem fork: the vault shelf + which vault script is currently loaded
       // (the fork/update decision key on save).
       recents: vault.getRecents(),
@@ -905,6 +966,31 @@ export default {
       this.viewedScripts.forEach(e => cards.push(vaultCard(e, "viewed")));
       return cards;
     },
+    /** The picker's own card for what is loaded — the small-screen note's
+     *  whole read. A vault script that is not in the recents shelf still has
+     *  a name on the edition, so the fallback is never a blank plate. */
+    loadedCard() {
+      const id = this.wbPickedId;
+      const card = this.wbScriptCards.find(c => c.id === id);
+      if (card) return card;
+      const edition = this.$store.state.edition || {};
+      return { id: "", name: edition.name || "Custom script", icon: edCustom };
+    },
+    /** The four core teams with their counts, for the small-screen note. */
+    smallCounts() {
+      const icons = {
+        townsfolk: "users",
+        outsider: "walking",
+        minion: "mask",
+        demon: "user-secret"
+      };
+      return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
+        team,
+        label: TEAM_LABELS[team],
+        icon: icons[team],
+        count: this.teamCounts[team]
+      }));
+    },
     /** The current script as a list (state.roles is replaced wholesale). */
     scriptRoles() {
       const list = [];
@@ -1123,6 +1209,28 @@ export default {
     const id = new URLSearchParams(window.location.search).get("script");
     if (id) this.loadFromVault(id);
     this.setBaseline();
+  },
+  mounted() {
+    // The bench asks the window whether it has room, and keeps asking: a
+    // phone rotated into landscape, or a desktop window dragged narrow, has
+    // to flip live rather than at the next reload.
+    const mq = window.matchMedia(SMALL_BENCH);
+    const onChange = e => {
+      this.smallScreen = e.matches;
+    };
+    this.smallScreen = mq.matches;
+    // Safari before 14 has only the deprecated listener API.
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange);
+    this.$options.benchMQ = mq;
+    this.$options.benchOnChange = onChange;
+  },
+  beforeDestroy() {
+    const mq = this.$options.benchMQ;
+    if (!mq) return;
+    if (mq.removeEventListener)
+      mq.removeEventListener("change", this.$options.benchOnChange);
+    else mq.removeListener(this.$options.benchOnChange);
   },
   watch: {
     // FT-856: a team switch re-prints the baked library icon in the new tint
@@ -2586,6 +2694,120 @@ $team-colors: (
     min-height: 0;
     gap: 14px;
     padding-top: 8px;
+  }
+
+  // ── the small-screen stand-in (see SMALL_BENCH in the script) ───────────
+  // Not a stripped-down bench: a short note, the loaded script, and a way
+  // out. The picker above it is still live, which is the whole reason this
+  // is a note inside the modal rather than a modal that refuses to open.
+  .wb-small {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    padding: 18px 6px 8px;
+    text-align: center;
+
+    // a landscape phone gives the modal 345px; the note tightens to fit it
+    // rather than leaning on the slot's scroll for its own Close button
+    @media (max-height: 519px) {
+      gap: 5px;
+      padding: 6px 6px 4px;
+      .ws-body {
+        font-size: 82%;
+      }
+      .ws-note {
+        display: none;
+      }
+    }
+
+    .ws-lead {
+      font-family: PiratesBay, sans-serif;
+      letter-spacing: 1px;
+      font-size: 118%;
+      margin: 0;
+      color: #d8cdb4;
+    }
+    .ws-body,
+    .ws-note {
+      margin: 0;
+      max-width: 34em;
+      font-size: 88%;
+      line-height: 1.45;
+      opacity: 0.72;
+    }
+    .ws-note {
+      font-size: 82%;
+      opacity: 0.55;
+    }
+
+    .ws-loaded {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      margin-top: 4px;
+      .ws-mark {
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+      }
+      .ws-name {
+        font-family: PiratesBay, sans-serif;
+        letter-spacing: 1px;
+        font-size: 108%;
+      }
+    }
+
+    .ws-counts {
+      display: flex;
+      gap: 10px;
+    }
+    .ws-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 92%;
+      opacity: 0.85;
+      img,
+      svg {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+      }
+      @each $team, $color in $team-colors {
+        &.team-#{$team} {
+          color: $color;
+        }
+      }
+    }
+    .ws-serves {
+      margin: 0;
+      font-size: 84%;
+      opacity: 0.6;
+    }
+
+    // The shell's × is a 30px glyph in the corner — fine for a cursor, thin
+    // for a thumb. The note carries its own way out at full tap size.
+    .ws-close {
+      margin-top: 6px;
+      min-height: 44px;
+      padding: 0 26px;
+      font-family: PiratesBay, sans-serif;
+      letter-spacing: 1px;
+      font-size: 100%;
+      color: white;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid #3d3d3d;
+      border-radius: 7px;
+      cursor: pointer;
+      &:hover,
+      &:focus-visible {
+        outline: none;
+        border-color: #a01414;
+        color: #ff8a8a;
+      }
+    }
   }
 
   .wb-sidebar {

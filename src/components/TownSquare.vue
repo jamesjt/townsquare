@@ -373,6 +373,20 @@ export default {
     height: 44%;
     align-self: flex-start;
   }
+
+  /* THE SAME STACK FOR THE NIGHT CHECKLIST. The sheet is the build panel's
+     size and stands in the same place, so the square owes it the same room —
+     without this the ring sat under the checklist and the phase bar crossed
+     four chairs (measured 375x812, 2026-08-18).
+
+     40%, not the panel's 44%: the checklist is the taller sheet (52vh against
+     the panel's 48vh), and the ring's own box is capped to the window's WIDTH
+     anyway, so the extra 4% comes off the empty air above the ring rather
+     than off the seats. */
+  #app.checklist-up #townsquare {
+    height: 40%;
+    align-self: flex-start;
+  }
 }
 
 /* The same stack, turned on its side: a landscape phone has width to spare and
@@ -381,6 +395,19 @@ export default {
    the height, which this does not touch. */
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
   #app.building-tools #townsquare {
+    width: 56%;
+    margin-right: auto;
+  }
+
+  /* and the night sheet takes the same column the build panel takes. Turned
+     on its side the checklist was 700px wide over an 812px window — it
+     covered the ring outright (measured 812x375, 2026-08-18).
+
+     Keyed on the sheet EXISTING, not on the checklist being out: a landscape
+     phone is 355px of ring in a 375px window, so there is no third place for
+     the day's phase pill to stand — left in the middle it sat across three
+     chairs' name plates. The column is the night's, all day. */
+  #app.night-sheet-up #townsquare {
     width: 56%;
     margin-right: auto;
   }

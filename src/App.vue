@@ -14,7 +14,18 @@
       // stacks them instead — and needs to know, exactly, when the panel is up.
       // (`#townsquare.building` is a near-miss: it stays true for a re-hosted
       // town that is already cast, when this panel is NOT showing.)
-      'building-tools': showHostTools
+      'building-tools': showHostTools,
+      // The night sheet's twin of the same problem: on a phone the CHECKLIST
+      // is a sheet the size of the build panel, and the ring has to give it
+      // the room. Only the checklist — the day's phase pill is small enough
+      // to live inside the ring, and shrinking the square for it would move
+      // the town twice a day for nothing.
+      'checklist-up': showNightChecklist,
+      // Turned on its side a phone has no spare room at all — the ring is
+      // 355px of a 375px window — so the night column is permanent there
+      // rather than appearing at dusk. Measured: with the sheet's day PILL
+      // left in the middle, it covered three chairs' name plates.
+      'night-sheet-up': showNightSheet
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -160,6 +171,24 @@
          characters in play — is not in their page to be revealed by a missing
          style rule. -->
     <NightSheet v-if="showNightSheet" />
+    <!-- THE ARMED CHARACTER'S CARD (touch).
+         Every hover card in the app declines to appear without a mouse, which
+         is right — and left a touch storyteller with nowhere to read what a
+         character DOES outside the script drawer. The tap-to-place selection
+         is already the app's "this character, right now": while one is armed,
+         it explains itself.
+
+         ONE instance, here, rather than a copy in each arming surface: the
+         tray and the grimoire drawer both write the same `drawerPick`, and a
+         later surface that writes it inherits this for free. It is THE shared
+         card (RoleHoverCard), pinned to whichever tile is showing as picked,
+         and it never takes a tap — the card is pointer-events: none. -->
+    <RoleHoverCard
+      v-if="armedRole && armedAnchor"
+      :role="armedRole"
+      :anchor="armedAnchor"
+      @dismiss="armedAnchor = null"
+    />
     <TownSquare></TownSquare>
     <Menu ref="menu"></Menu>
     <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
@@ -309,6 +338,9 @@ import Menu from "./components/Menu";
 import RolesModal from "./components/modals/RolesModal";
 import EditionModal from "./components/modals/EditionModal";
 import RoleDrawer from "./components/RoleDrawer";
+// THE shared role card — App raises it for the ARMED character on a touch
+// screen, where no hover can raise it from a tile.
+import RoleHoverCard from "./components/RoleHoverCard";
 // FT-857: the player-facing script drawer (reference sheet + night order in
 // one), sharing the workbench's ScriptView.
 import ScriptDrawer from "./components/ScriptDrawer";
@@ -358,6 +390,7 @@ import ikRefEvil from "./assets/icons/imp.png";
 
 export default {
   components: {
+    RoleHoverCard,
     EndGameOverlay,
     StatsOverlay,
     GameStateModal,
@@ -409,6 +442,22 @@ export default {
       if (!this.players.length) return false;
       return !this.showHostTools;
     },
+    /**
+     * The sheet with its CHECKLIST out — the same condition NightSheet's own
+     * `has-list` uses, hoisted to the root so the square can step aside for
+     * it on a phone. Kept in step with NightSheet.showList by construction:
+     * both read night.mode and grimoire.isNight, and the component only
+     * exists when showNightSheet is true.
+     */
+    /** The tap-to-place selection — the character the next seat tap casts. */
+    armedRole() {
+      return this.$store.state.drawerPick;
+    },
+    showNightChecklist() {
+      return (
+        this.showNightSheet && this.night.mode !== "off" && this.grimoire.isNight
+      );
+    },
     // Golem fork: the building phase = hosting live, characters not yet dealt.
     // The deal moment is the DURABLE `dealAt` stash, not session
     // .isRolesDistributed — upstream sets that flag for two seconds and then
@@ -436,6 +485,28 @@ export default {
   // FT-850: hosting or joining a (different) session re-reads that session's
   // stashed deal moment and drops any overlay left open from the last one.
   watch: {
+    /**
+     * Arming a character raises its card; disarming puts it away.
+     *
+     * The anchor is looked up rather than passed because the tile lives in
+     * whichever surface did the arming — the build panel's tray or the
+     * grimoire drawer — and both already mark it `.picked`. A tile that is
+     * not on screen (the drawer closed behind a pick) simply yields no
+     * anchor, and the card stays down rather than pointing at nothing.
+     */
+    armedRole: {
+      handler(role) {
+        this.armedAnchor = null;
+        if (!role) return;
+        if (window.matchMedia("(hover: hover)").matches) return;
+        this.$nextTick(() => {
+          if (this.$store.state.drawerPick !== role) return;
+          this.armedAnchor = document.querySelector(
+            ".rt-icon.picked, .rd-token.picked"
+          );
+        });
+      }
+    },
     "session.sessionId"(sessionId) {
       this.dealAt = dealTimeFor(sessionId);
       this.endGameOpen = false;
@@ -483,6 +554,8 @@ export default {
       booted: false,
       version,
       pillCopied: false,
+      // the tile the armed character's card is pinned to (null = no card)
+      armedAnchor: null,
       // FT-850: game recording + stats state. dealAt mirrors the stashed
       // deal moment for the current session (null = no game underway) — a
       // reload mid-game re-reads it here (persistence has already restored

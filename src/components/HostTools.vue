@@ -58,12 +58,10 @@
           >{{ players.length }}</b
         >
       </span>
-      <small
-        title="Shift-click: fill the empty chairs with fake players (dev)"
-        @click.exact="() => {}"
-        @click.shift="devFillSeats"
-        >{{ claimedCount }} claimed</small
-      >
+      <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
+           shift-clicking START does the filling now, so there is one dev
+           gesture instead of two. devFillSeats itself is kept below.) -->
+      <small>{{ claimedCount }} claimed</small>
       <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
            ALWAYS rendered — appearing icons shove the row (user call);
            unusable states grey out instead. -->
@@ -417,13 +415,16 @@ export default {
       }
     },
     start(e) {
-      // DEV bypass (user call): shift-click starts with unclaimed seats —
-      // roles must still be assigned; only the claim gate is waived.
+      // DEV (user call 2026-08-18): shift-click START is now the ONE dev
+      // gesture — it fills every empty chair with a fake player and then
+      // starts. Roles must still be assigned; only the claim gate is waived,
+      // and only because the fill has just satisfied it.
       const devForce =
         e &&
         e.shiftKey &&
         this.players.length > 0 &&
         this.rolesAssigned >= this.players.length;
+      if (devForce) this.devFillSeats();
       if (!this.canStart && !devForce) {
         // The button explains itself instead of doing nothing.
         if (this.rolesAssigned < this.players.length && this.coreSeats.every(p => p.id)) {

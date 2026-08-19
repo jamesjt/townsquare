@@ -344,7 +344,9 @@ export default {
   }
 
   // PHONE: the sheet is the bottom half of the screen, the way the build
-  // panel is — the ring keeps the top (TownSquare's own rule).
+  // panel is — the ring keeps the top (TownSquare's `#app.checklist-up` rule
+  // is the other half of this stack; without it the ring stayed centred and
+  // the sheet stood on top of eight chairs).
   @media (pointer: coarse) and (orientation: portrait) {
     &.has-list {
       position: fixed;
@@ -355,7 +357,59 @@ export default {
       max-width: none;
       max-height: 52vh;
       padding: 8px 10px;
-      background: rgba(0, 0, 0, 0.94);
+      // the sheet now stands ON the town-centre plate rather than beside it,
+      // and at 0.94 the plate's "Night phase" read straight through row one
+      background: rgba(0, 0, 0, 0.96);
+    }
+
+    // THE DAY PILL. Off the checklist the sheet is one small bar, and its
+    // desktop offset (105px down from the town centre) drops it straight onto
+    // the ring's lower chairs on a phone. Docked with the same bottom edge
+    // the checklist uses, it stands where the storyteller is already looking
+    // for it and touches nothing.
+    &:not(.has-list) {
+      position: fixed;
+      left: 6px;
+      right: 6px;
+      bottom: 58px;
+      transform: none;
+      display: flex;
+      justify-content: center;
+    }
+  }
+
+  // LANDSCAPE PHONE: the same stack turned on its side, and the build panel's
+  // own answer — the ring keeps the left of the window (TownSquare's matching
+  // rule), the sheet takes a column down the right. Centred it was a 700px
+  // plate over an 812px window: the square was gone.
+  //
+  // The column is the sheet's ALL DAY here, not just at night: 355px of ring
+  // in a 375px window leaves nowhere else for the day's phase pill to stand,
+  // and in the middle it covered three chairs' name plates.
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    position: fixed;
+    // clear of the script/vote strip above and the session pill below, the
+    // two pieces of chrome that share this corner and outrank it
+    top: 46px;
+    right: 6px;
+    left: auto;
+    max-width: none;
+
+    // (the width is set per state rather than here: `.night-sheet.has-list`
+    //  carries the desktop's 700px at a higher specificity than this block's
+    //  bare class, so a shared declaration up here would lose to it)
+    &:not(.has-list) {
+      width: max(42vw, 330px);
+      transform: none;
+    }
+
+    &.has-list {
+      // a row is check | order | icon | who, and the targets wrap under it
+      width: max(42vw, 330px);
+      bottom: 50px;
+      max-height: none;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.96);
     }
   }
 }
@@ -433,6 +487,12 @@ export default {
   flex-grow: 1;
   min-height: 0;
   text-align: left;
+
+  // a phone drags the whole page when an inner list runs out of scroll
+  @media (pointer: coarse) {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .ns-row {
@@ -582,25 +642,47 @@ export default {
 
   // a finger needs a box, not a glyph
   @media (pointer: coarse) {
-    grid-template-columns: 34px 20px 30px minmax(70px, 1fr);
+    grid-template-columns: 44px 20px 30px minmax(70px, 1fr);
+    // 44px square, drawn as padding around the glyph so the mark itself is
+    // unchanged and the row does not grow a gutter it cannot use
     .ns-check,
     .ns-lie,
     .ns-note-toggle {
       box-sizing: content-box;
-      padding: 9px;
-      margin: -9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      padding: 12px;
+      margin: -12px;
     }
     .ns-acts {
       grid-column: 1 / -1;
       flex-wrap: wrap;
-      padding-left: 34px;
+      gap: 10px;
+      padding-left: 44px;
     }
     .ns-reminder {
       grid-column: 1 / -1;
-      padding-left: 34px;
+      padding-left: 44px;
     }
     .ns-told {
-      min-height: 36px;
+      min-height: 44px;
+    }
+    // THE TARGET PICKERS were 61x22 — the one control on the row a
+    // storyteller touches every single night, at a third of a fingertip.
+    // A native <select> opens the platform's own wheel once it can be hit.
+    .ns-target {
+      min-height: 44px;
+      max-width: none;
+      min-width: 108px;
+      font-size: 15px;
+      padding: 2px 6px;
+    }
+    .ns-note {
+      min-height: 44px;
+      font-size: 15px;
     }
   }
 }
