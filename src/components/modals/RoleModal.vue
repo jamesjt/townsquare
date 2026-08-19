@@ -117,7 +117,11 @@ export default {
 
 ul.tokens li {
   border-radius: 50%;
-  width: 6vw;
+  // Sized in `vw` alone, a character in this grid drew at 115px on a desktop
+  // and 22px on a phone — a third of a fingertip, in a grid of thirty of them,
+  // for the one control that assigns a character to a seat. The floor only
+  // ever binds below ~730px wide, so the desktop grid is untouched.
+  width: max(6vw, 44px);
   margin: 1%;
   transition: transform 500ms ease;
 

@@ -150,6 +150,16 @@
       ></TownInfo>
       <Vote v-if="session.nomination"></Vote>
     </transition>
+    <!-- FT-860: THE NIGHT SHEET — the storyteller's checklist, standing in the
+         town centre once the build panel steps aside. It sits outside the
+         transition because its phase bar is wanted during the DAY too, when
+         TownInfo owns the slot; the sheet drops clear of the plate there.
+
+         STORYTELLER ONLY, in every visibility mode. A spectator's component
+         tree never contains it, so the night order — which names the
+         characters in play — is not in their page to be revealed by a missing
+         style rule. -->
+    <NightSheet v-if="showNightSheet" />
     <TownSquare></TownSquare>
     <Menu ref="menu"></Menu>
     <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
@@ -180,6 +190,9 @@
          right-hand rail. Opening either closes the other (the store's
          toggleModal closes every other modal), so they never overlap. -->
     <VoteDrawer />
+    <!-- FT-860: a player's OWN night information — the third right-hand
+         drawer, mounted only while the town's night setting is "Everyone". -->
+    <NightInfoDrawer v-if="night.mode === 'everyone'" />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -301,6 +314,9 @@ import RoleDrawer from "./components/RoleDrawer";
 import ScriptDrawer from "./components/ScriptDrawer";
 // FT-858: the vote-history drawer — the nomination log on the same rail.
 import VoteDrawer from "./components/VoteDrawer";
+// FT-860: the storyteller's night checklist, and a player's own night notes.
+import NightSheet from "./components/NightSheet";
+import NightInfoDrawer from "./components/NightInfoDrawer";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -360,10 +376,12 @@ export default {
     RoleDrawer,
     ScriptDrawer,
     VoteDrawer,
+    NightSheet,
+    NightInfoDrawer,
     Gradients
   },
   computed: {
-    ...mapState(["grimoire", "session", "modals", "scriptDrawerView"]),
+    ...mapState(["grimoire", "session", "modals", "scriptDrawerView", "night"]),
     ...mapState("players", ["players"]),
     // in a session (or with a town on the table): the dial letters leave
     // and the handless clock art takes the wall (user call 2026-08-18)
@@ -374,7 +392,22 @@ export default {
     // dodges — it follows `--sd-width`, which whichever drawer is showing
     // publishes. Adding a third drawer means adding it here, nowhere else.
     rightDrawerOpen() {
-      return this.modals.scriptDrawer || this.modals.voteDrawer;
+      return (
+        this.modals.scriptDrawer ||
+        this.modals.voteDrawer ||
+        this.modals.nightDrawer
+      );
+    },
+    /**
+     * FT-860: the night sheet stands once the town is built and the build
+     * panel steps aside — and ONLY for the storyteller. A nomination takes the
+     * centre back (Vote owns it), and a town with no seats has no night.
+     */
+    showNightSheet() {
+      if (this.session.isSpectator) return false;
+      if (this.session.nomination) return false;
+      if (!this.players.length) return false;
+      return !this.showHostTools;
     },
     // Golem fork: the building phase = hosting live, characters not yet dealt.
     // The deal moment is the DURABLE `dealAt` stash, not session
@@ -996,6 +1029,15 @@ ul {
 }
 .button {
   padding: 0;
+  // THE SHARED BUTTON CHROME, and its height is nothing but line-height times
+  // a font size that shrinks twice on the way down to a phone: the vote
+  // controls (Countdown / Start / Close, Mark for execution) and the role
+  // picker's team tabs all drew about 19px tall. Vertical padding rather than
+  // a min-height, because the pill's width is built from inline `:before` and
+  // `:after` spacers that flex centring would throw away.
+  @media (pointer: coarse) {
+    padding: 11px 0;
+  }
   border: solid 0.125em transparent;
   border-radius: 15px;
   box-shadow: inset 0 1px 1px #9c9c9c, 0 0 10px #000;
@@ -1258,6 +1300,14 @@ video#background {
     left: 250px;
   }
   transition: left 220ms ease;
+
+  // The tab is pinned to the middle of the left edge, which on a portrait
+  // phone is exactly where the docked build sheet's first row now starts — it
+  // sat on top of the "Seats" label. It moves up into the square, where there
+  // is nothing behind it.
+  @media (pointer: coarse) and (orientation: portrait) {
+    top: 26%;
+  }
 }
 
 // in a game the hands leave the face — #app paints the handless art over

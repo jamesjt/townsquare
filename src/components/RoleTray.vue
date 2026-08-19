@@ -366,6 +366,16 @@ $team-colors: (
     gap: 3px;
     max-height: 132px;
     overflow-y: auto;
+
+    // ONE scroll, not two. The 132px window is right on a desktop, where the
+    // build panel itself never scrolls. On a portrait phone the panel is a
+    // docked sheet that scrolls already, and a scroller inside a scroller just
+    // hides the demons behind a second gesture with nothing to announce it.
+    // The sheet is the scroller there.
+    @media (pointer: coarse) and (orientation: portrait) {
+      max-height: none;
+      overflow-y: visible;
+    }
   }
   .rt-row {
     display: flex;

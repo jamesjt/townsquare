@@ -1210,6 +1210,14 @@ export default {
         &:hover {
           color: red;
         }
+        // "roll a new town name" drew at 12x17px
+        @media (pointer: coarse) {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 40px;
+          min-height: 40px;
+        }
       }
       .town-input {
         position: relative;
@@ -1233,6 +1241,11 @@ export default {
           cursor: pointer;
           opacity: 0.7;
           font-size: 75%;
+          // the door to the remembered-towns list, 26px wide inside a field
+          // that is itself only 29px tall
+          @media (pointer: coarse) {
+            width: 40px;
+          }
 
           &:hover,
           &.open {
@@ -1340,6 +1353,13 @@ export default {
         font-size: 80%;
         opacity: 0.9;
 
+        // Copying the invite link is how anyone else gets into the town, and
+        // the control is one line of 80%-size text — about 14px tall. It keeps
+        // its type and gains a row.
+        @media (pointer: coarse) {
+          min-height: 40px;
+        }
+
         .url {
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1373,6 +1393,18 @@ export default {
       &:hover {
         color: red;
         opacity: 1;
+      }
+      // A 13x16px arrow, and the only way back out of the Host and Join
+      // panels. (The `.back` rule further down this file styles a class the
+      // template no longer renders — this is the live one.)
+      @media (pointer: coarse) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+        left: 4px;
+        top: 0;
       }
     }
     .acts {

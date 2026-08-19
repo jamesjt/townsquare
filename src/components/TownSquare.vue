@@ -370,8 +370,19 @@ export default {
    moves the ring, it does not squash it. */
 @media (pointer: coarse) and (orientation: portrait) {
   #app.building-tools #townsquare {
-    height: 47%;
+    height: 44%;
     align-self: flex-start;
+  }
+}
+
+/* The same stack, turned on its side: a landscape phone has width to spare and
+   no height, so the build panel takes a column down the right and the square
+   gives up that column. Only the ring's CENTRE moves — its radius comes from
+   the height, which this does not touch. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  #app.building-tools #townsquare {
+    width: 56%;
+    margin-right: auto;
   }
 }
 

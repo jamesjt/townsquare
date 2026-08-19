@@ -26,9 +26,16 @@
             title="Vote history"
             @click="toggleModal('voteDrawer')"
           />
-          <!-- (the moon retired 2026-08-18 — night order is a TAB inside the
-               script drawer the scroll opens, so a second door was redundant.
-               uiNight import kept for the tabbed view's own use.) -->
+          <!-- (the moon retired 2026-08-18 as a NIGHT-ORDER door — that is a
+               tab inside the script drawer now. FT-860 gives it a different
+               job: a player's OWN night notes, and only where the town has
+               opted into sharing them.) -->
+          <img
+            v-if="showNightInfo"
+            :src="uiNight"
+            title="What you learned at night"
+            @click="toggleModal('nightDrawer')"
+          />
         </li>
 
         <template v-if="tab === 'grimoire'">
@@ -119,8 +126,29 @@ import uiNight from "../assets/ui-night.png";
 
 export default {
   computed: {
-    ...mapState(["grimoire", "session", "edition", "modals", "scriptDrawerView"]),
+    ...mapState([
+      "grimoire",
+      "session",
+      "edition",
+      "modals",
+      "scriptDrawerView",
+      "night"
+    ]),
     ...mapState("players", ["players"]),
+    /**
+     * FT-860: the night-notes door. It appears only where the town's night
+     * setting is "Everyone" AND this viewer holds a chair — the drawer behind
+     * it shows that seat's own rows and nothing else. The storyteller has the
+     * night sheet instead and never needs this.
+     */
+    showNightInfo() {
+      if (this.night.mode !== "everyone") return false;
+      if (!this.session.isSpectator) return false;
+      return (
+        this.session.claimedSeat >= 0 ||
+        this.players.some(p => p.id && p.id === this.session.playerId)
+      );
+    },
     // the player strip is IN-GAME chrome — on the intro there is no script,
     // no votes and no night to look at (user call, 2026-08-18)
     inGame() {

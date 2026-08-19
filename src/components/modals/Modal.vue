@@ -62,6 +62,16 @@ export default {
   max-height: 80%;
   max-width: 80%;
 
+  // 80% of a desktop is a comfortable dialog; 80% of a 375px phone throws away
+  // 75px of the little width there is, and every modal in this app is a grid
+  // of round tokens that then has to shrink to fit. On a small screen the
+  // dialog takes the screen.
+  @media (max-width: 640px) {
+    max-height: 92%;
+    max-width: 96%;
+    padding: 10px 10px;
+  }
+
   .vote-history &,
   .night-reference &,
   .characters & {
@@ -72,6 +82,12 @@ export default {
   .characters & {
     max-height: 100%;
     max-width: 60%;
+    // 60% of a phone is 225px — narrower than the token grid it holds. (This
+    // selector outranks the small-screen rule above whatever the media query
+    // says, so the override has to live here too.)
+    @media (max-width: 640px) {
+      max-width: 96%;
+    }
   }
 
   ul {

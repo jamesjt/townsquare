@@ -4,6 +4,8 @@ import persistence from "./persistence";
 import socket from "./socket";
 import players from "./modules/players";
 import session from "./modules/session";
+// FT-860: the storyteller's night checklist + append-only night log.
+import night from "./modules/night";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
 import fabledJSON from "../fabled.json";
@@ -99,7 +101,8 @@ const customRole = {
 export default new Vuex.Store({
   modules: {
     players,
-    session
+    session,
+    night
   },
   state: {
     grimoire: {
@@ -131,7 +134,10 @@ export default new Vuex.Store({
       // nomination log's surface now. `voteHistory` below is the old overlay:
       // it stays in place and still renders the same body, unrouted.
       voteDrawer: false,
-      voteHistory: false
+      voteHistory: false,
+      // FT-860: a PLAYER's own night information — the third right-hand
+      // drawer, and the only night surface a non-storyteller ever gets.
+      nightDrawer: false
     },
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it
@@ -192,7 +198,23 @@ export default new Vuex.Store({
     toggleMenu: toggle("isMenuOpen"),
     toggleNightOrder: toggle("isNightOrder"),
     toggleStatic: toggle("isStatic"),
-    toggleNight: toggle("isNight"),
+    /**
+     * FT-860: the phase flip, and the ONE place the day counter moves.
+     *
+     * Every path that reaches night comes through here — the night sheet's
+     * button, the S hotkey, the menu, and the socket's incoming gamestate —
+     * so putting the increment here is what stops the counter drifting
+     * between them. It fires only on a real day→night TRANSITION: a full
+     * gamestate sync re-commits the current value on every reconnect, and
+     * that must not count as a new night.
+     */
+    toggleNight(state, val) {
+      const wasNight = state.grimoire.isNight;
+      toggle("isNight")(state, val);
+      if (!wasNight && state.grimoire.isNight) {
+        state.night.day += 1;
+      }
+    },
     toggleGrimoire: toggle("isPublic"),
     toggleImageOptIn: toggle("isImageOptIn"),
     setAllowDupRoles(state, on) {

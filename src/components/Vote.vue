@@ -298,6 +298,12 @@ export default {
       stroke-width: 30px;
       stroke: white;
     }
+    // the − / + that set seconds-per-player drew at 10x10px on a phone
+    @media (pointer: coarse) {
+      box-sizing: content-box;
+      padding: 13px;
+      margin: -11px -4px;
+    }
   }
 }
 

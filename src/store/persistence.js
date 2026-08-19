@@ -1,6 +1,14 @@
 // Golem fork: every session entry path (panel, hash link, toolbar) lands on
 // setSessionId — remembering the town HERE catches them all.
 const { rememberTown, sessionIdFromPath } = require("../golem/towns");
+// FT-860: the night log is stashed PER TOWN (the same idiom golem/stats uses
+// for the deal moment); the visibility mode is a standing setting.
+const {
+  loadLog,
+  saveLog,
+  loadMode,
+  saveMode
+} = require("../golem/nightLog");
 
 module.exports = store => {
   const updatePagetitle = isPublic =>
@@ -76,6 +84,15 @@ module.exports = store => {
     store.commit("session/setSpectator", spectator);
     store.commit("session/setSessionId", sessionId);
   }
+
+  /**** FT-860: night sheet + log ****/
+  // The mode is a standing setting, so it is read before any town is known.
+  const savedMode = loadMode();
+  if (savedMode) store.commit("night/setMode", savedMode);
+  // The log belongs to a TOWN — read whichever one the block above restored.
+  // (setSessionId's own handler below catches every later hop between towns.)
+  const bootLog = loadLog(store.state.session.sessionId);
+  if (bootLog) store.commit("night/setLog", bootLog);
 
   // listen to mutations
   store.subscribe(({ type, payload }, state) => {
@@ -186,9 +203,29 @@ module.exports = store => {
             state.session.sessionId,
             state.session.isSpectator ? "player" : "host"
           );
+          // FT-860: a town carries its own night log — hopping to another
+          // town must never show the last one's. An unknown town starts clean.
+          store.commit(
+            "night/setLog",
+            loadLog(state.session.sessionId) || { day: 0, entries: [] }
+          );
         } else {
           localStorage.removeItem("session");
         }
+        break;
+      // FT-860 — the night sheet. The mode is a standing setting; the log and
+      // the day counter are stashed against the town they belong to. The day
+      // moves inside toggleNight (see the root mutation), so the phase flip
+      // has to write too or a reload would lose which night it is.
+      case "night/setMode":
+        saveMode(state.night.mode);
+        break;
+      case "toggleNight":
+      case "night/setDay":
+      case "night/setLog":
+      case "night/addEntry":
+      case "night/patchEntry":
+        saveLog(state.session.sessionId, state.night.day, state.night.entries);
         break;
       case "session/setPlayerId":
         if (payload) {

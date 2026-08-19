@@ -98,20 +98,31 @@
       </span>
     </div>
 
+    <!-- FT-860: the night sheet's three-state switch. Its own component so
+         the setting travels with the rest of the night code. -->
+    <NightModeRow />
+
     <!-- FT-859: the UNSEATED TRAY — the script's characters that have no
          chair yet, dragged straight onto a seat from here. Dropping a seated
          role anywhere that is not a seat sends it back to this tray. -->
     <RoleTray />
 
-    <div
-      class="start"
-      :class="{ ready: canStart }"
-      @click="start"
-      :title="startHint"
-    >
-      Start game
+    <!-- Start and the line explaining why it is greyed out are ONE footer.
+         On a phone the panel is a scrolling sheet, and they were the last
+         things in it — the button the panel exists to reach sat below the
+         fold. Grouped, the pair can ride the sheet's bottom edge (see the
+         portrait rule in the styles); on a desktop the wrapper is inert. -->
+    <div class="start-dock">
+      <div
+        class="start"
+        :class="{ ready: canStart }"
+        @click="start"
+        :title="startHint"
+      >
+        Start game
+      </div>
+      <small class="hint">{{ startHint }}</small>
     </div>
-    <small class="hint">{{ startHint }}</small>
   </div>
 </template>
 
@@ -121,13 +132,15 @@ import { listTowns, editKeyFor, updateTown } from "../golem/towns";
 import ScriptPicker from "./ScriptPicker";
 // FT-859: the unseated-role tray that lives under the Roles row.
 import RoleTray from "./RoleTray";
+// FT-860: the night sheet's Off / Storyteller / Everyone row.
+import NightModeRow from "./NightModeRow";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
 
 export default {
-  components: { ScriptPicker, RoleTray },
+  components: { ScriptPicker, RoleTray, NightModeRow },
   mounted() {
     // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
     // game (5-6 is Teensyville; user call 2026-08-18)
@@ -456,12 +469,74 @@ export default {
     position: fixed;
     left: 6px;
     right: 6px;
-    bottom: 6px;
+    // clear of the session pill, which is pinned to the bottom-right at a far
+    // higher z-index — docked flush, the panel put "Start game" underneath it
+    bottom: 58px;
     max-width: none;
-    max-height: 52vh;
+    max-height: 48vh;
     padding: 10px 14px;
     // it is over the town now, not floating in the middle of it
     background: rgba(0, 0, 0, 0.93);
+    // (the tray drops its own inner scroll here so the panel is the only
+    //  scroller — that rule lives in RoleTray, which owns those styles)
+
+    // The sheet scrolls, and the one control the whole panel exists to reach
+    // was the last thing in it — so on a phone "Start game" sat below the fold
+    // of a scroller with nothing to say so. Button and reason ride the bottom
+    // edge instead, and the rest of the panel scrolls underneath them. The
+    // reason has to come along: it is a `title` everywhere else, and a touch
+    // screen cannot raise a tooltip to ask why the button is grey.
+    .start-dock {
+      position: sticky;
+      bottom: -10px;
+      z-index: 1;
+      // its own ground, and OPAQUE — at the sheet's own 0.93 the character
+      // icons scrolling behind it showed straight through the button. This is
+      // what 0.93 black composites to over the sheet's art anyway.
+      background: #0a0a0c;
+      padding-bottom: 4px;
+      margin: 0 -14px;
+    }
+    .start {
+      margin-top: 6px;
+    }
+  }
+
+  // LANDSCAPE PHONE: the same problem turned on its side, and the same answer.
+  // Centred, the panel and the ring overlap just as badly as they do in
+  // portrait — the seats drew across the script picker and the tray. Here
+  // there is width to spare and no height, so the pair sit side by side: the
+  // ring keeps the left of the window (TownSquare's matching rule) and the
+  // panel takes a column down the right.
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    position: fixed;
+    right: 6px;
+    // clear of the two pieces of chrome that share this corner and outrank it:
+    // the script/vote strip above, the session pill below. Flush, the pill sat
+    // on "Start game" and the strip on the heading.
+    top: 46px;
+    bottom: 50px;
+    left: auto;
+    width: 42vw;
+    // the tray needs eight 34px characters to a row before it wraps
+    min-width: 330px;
+    max-width: none;
+    max-height: none;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.93);
+
+    .start-dock {
+      position: sticky;
+      // flush, not overhanging — the reason line under the button is the last
+      // thing in the panel and a negative offset clipped it
+      bottom: 0;
+      z-index: 1;
+      background: #0a0a0c;
+      margin: 0 -12px;
+    }
+    h3 {
+      margin-bottom: 4px;
+    }
   }
 
   h3 {
@@ -570,8 +645,8 @@ export default {
         // grows the target without touching the mark.
         @media (pointer: coarse) {
           box-sizing: content-box;
-          padding: 12px;
-          margin: -6px;
+          padding: 15px;
+          margin: -9px;
         }
       }
     }

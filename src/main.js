@@ -54,6 +54,9 @@ const faIcons = [
   "SearchPlus",
   "Skull",
   "Square",
+  // FT-860: the night sheet's phase bar wears the moon art for night and this
+  // for day (there is no sun in our own asset set).
+  "Sun",
   "TheaterMasks",
   "Times",
   "TimesCircle",

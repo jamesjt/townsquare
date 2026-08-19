@@ -1177,6 +1177,14 @@ li.move:not(.from) .player .overlay svg.move {
   box-shadow: 0 0 5px black;
   padding: 0 4px;
 
+  /* The name plate is the seat MENU — move player, swap seats, empty the
+     chair, nominate, claim — and it draws about 21px tall: fine to read, thin
+     to hit. It grows, but only so far: the ring is tight on a phone and a
+     plate tall enough for a 44px rule would collide with its neighbours'. */
+  @media (pointer: coarse) {
+    padding: 5px 4px;
+  }
+
   svg {
     top: 3px;
     margin-right: 2px;
