@@ -2,3 +2,6 @@
 node_modules
 dist
 *.pem
+
+# scratch build outputs from parallel lanes (each lane builds to its own --dest)
+dist-*
