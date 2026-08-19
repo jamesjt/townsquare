@@ -63,16 +63,22 @@
              (user call — the actions row lost its Save button) -->
         <span class="wb-dirty" v-if="editable && dirty">
           <font-awesome-icon
-            icon="check"
-            class="save"
-            title="Save this script to the vault"
-            @click="$emit('save')"
-          />
-          <font-awesome-icon
             icon="undo"
             class="discard"
             title="Discard the edits — back to the last saved state"
             @click="$emit('discard')"
+          />
+          <!-- discard LEFT, save RIGHT (user call). The save wears the
+               quill in its inkwell — the same mark the chronicle door
+               carries — because saving the script IS writing it down.
+               Sized like .tab-moon beside it, never a raw <img> at its
+               natural size. -->
+          <img
+            class="save"
+            :src="quill"
+            alt=""
+            title="Save this script to the vault"
+            @click="$emit('save')"
           />
         </span>
         <!-- the servable range rides the tooltip now (user call:
@@ -273,6 +279,9 @@ import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
 import moonFull from "../assets/moon-full.png";
 import outsiderGlyph from "../assets/blood/outsider-glyph.png";
+// the save mark: the quill in its inkwell, the same art the chronicle door
+// wears — saving the script is writing it down
+import quill from "../assets/ui-chronicle.png";
 // One definition of "the glyph for team X" (golem/glyphs), shared with
 // TownInfo, RoleDrawer and EditionModal.
 import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
@@ -311,6 +320,7 @@ export default {
     return {
       demonGlyph,
       outsiderGlyph,
+      quill,
       moonFirst,
       moonOther,
       moonFull,
@@ -605,10 +615,22 @@ $team-colors: (
         width: 14px;
         height: 14px;
       }
-      .save {
-        color: #7ed67e;
+      // the quill is ART, not a glyph — it carries its own box the way
+      // .tab-moon above does, so it never renders at natural size and
+      // shoves the meter row out of line
+      img.save {
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+        display: block;
+        opacity: 0.9;
+        transition:
+          opacity 150ms,
+          filter 150ms;
         &:hover {
-          filter: brightness(1.4);
+          opacity: 1;
+          filter: brightness(1.25);
         }
       }
       .discard {

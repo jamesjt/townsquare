@@ -96,15 +96,22 @@ export async function loadScript(id) {
 /**
  * Save the current script. Decides create / update / fork from what this
  * browser holds:
- *   - a stored edit key for `sourceId` → PUT in place (a 403 falls through to
- *     fork — the key was revoked or wrong);
+ *   - a stored edit key for `sourceId` → PUT in place;
  *   - otherwise → POST, with `sourceId` as parentId when the script came from
  *     the vault (the FORK) or none when it is brand new.
+ *
+ * A FORK NEVER HAPPENS BY ITSELF. The caller decides to fork and passes
+ * `forceFork` with the name the user confirmed for their copy — a fork used to
+ * inherit the original's name silently, which is how a vault filled up with
+ * three scripts all called the same thing. So a stale/revoked key does NOT
+ * fall through here any more: the PUT's 403 throws `code:"fork-required"` and
+ * the caller comes back round with a name.
+ *
  * Returns { script, created, forked }.
  */
-export async function saveScript({ name, author, roles, sourceId }) {
+export async function saveScript({ name, author, roles, sourceId, forceFork }) {
   const body = { name, author, roles };
-  const key = sourceId && editKeyFor(sourceId);
+  const key = !forceFork && sourceId && editKeyFor(sourceId);
   if (key) {
     const res = await fetch(`${API}/${sourceId}`, {
       method: "PUT",
@@ -117,7 +124,11 @@ export async function saveScript({ name, author, roles, sourceId }) {
       return { script, created: false, forked: false };
     }
     if (res.status !== 403) throw new Error(`save failed (${res.status})`);
-    // fall through: key no longer valid → fork
+    // the key is no longer good — this can only become a fork now, and a fork
+    // needs a name the user picked. Hand that decision back to the caller.
+    throw Object.assign(new Error("this script needs a name of its own"), {
+      code: "fork-required"
+    });
   }
   if (sourceId) body.parentId = sourceId;
   const res = await fetch(API, {

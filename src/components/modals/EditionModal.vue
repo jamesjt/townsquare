@@ -557,6 +557,51 @@
         </div>
       </div>
 
+      <!-- NAME YOUR COPY. Saving a script this browser holds no edit key for
+           makes a FORK, and a fork used to inherit the original's name in
+           silence — which is how a shelf ends up with three scripts wearing
+           the same name and no way to tell them apart. The save stops here
+           instead and asks.
+
+           An INLINE panel, never prompt(): a browser dialog is silently
+           auto-dismissed in dialog-less contexts (driven panes, embeds) —
+           Menu.leaveSession records that exact bug — and a dismissed prompt
+           returned empty, so Save simply did nothing and looked broken.
+
+           Cancel abandons the SAVE, not the work: the edits stay on the
+           bench, still unsaved, and Save can be pressed again. -->
+      <div class="role-form fork-form" v-if="forkForm">
+        <h3>{{ forkForm.forking ? "Name your copy" : "Name this script" }}</h3>
+        <p class="fk-note" v-if="forkForm.forking">
+          <strong>{{ forkForm.original }}</strong> is not yours to change —
+          saving makes your own copy of it, and the copy needs a name of its
+          own. The original is left exactly as it is.
+        </p>
+        <label>Name</label>
+        <input
+          ref="forkName"
+          class="fk-name"
+          v-model="forkForm.name"
+          maxlength="60"
+          @keyup.enter="confirmFork"
+        />
+        <div class="role-error" v-if="forkError">
+          {{ forkError }}
+          <span class="fk-fix" v-if="forkSuggestion" @click="useForkSuggestion"
+            >use “{{ forkSuggestion }}”</span
+          >
+        </div>
+        <div class="fk-acts">
+          <div class="button" @click="cancelFork">
+            <font-awesome-icon icon="times" /> Cancel
+          </div>
+          <div class="button fk-go" @click="confirmFork">
+            <font-awesome-icon :icon="forkForm.forking ? 'copy' : 'check'" />
+            {{ forkForm.forking ? "Fork" : "Save" }}
+          </div>
+        </div>
+      </div>
+
       <!-- the shelf's hover card: icon + bold name + ability (the almanac
            read), replacing the native title tooltip. FT-858: it IS
            RoleHoverCard now — the same component the seats and the grimoire
@@ -789,6 +834,12 @@ export default {
       nsError: "",
       nsDragOver: false,
       nsJsonText: "",
+      // the "name your copy" panel — non-null while a save is waiting on a
+      // name. { forking, original, name }
+      forkForm: null,
+      forkError: "",
+      // a free name offered next to a clash, one click to take it
+      forkSuggestion: "",
       // the forge's paste-to-fill box
       roleJsonText: "",
       // FT-856 slice B: the icon tabs — official borrow vs the new-icon
@@ -898,6 +949,12 @@ export default {
       if (this.ilHoverName) return this.ilHoverName;
       const f = this.roleForm;
       return f && f.iconRef ? f.iconRef.replace(/-/g, " ") : "";
+    },
+    /** Would the next save FORK? A script loaded from the vault that this
+     *  browser holds no edit key for cannot be updated in place — saving it
+     *  makes a copy, and a copy has to be named before it is made. */
+    willFork() {
+      return !!this.vaultSourceId && !vault.editKeyFor(this.vaultSourceId);
     },
     /** The forge header's drop-cap N, in the caps' font (Almanac-style). */
     forgeCap() {
@@ -1283,17 +1340,116 @@ export default {
       if (id) this.loadFromVault(id);
       else if (ref) alert("That does not look like a script link.");
     },
-    async saveToVault() {
-      // The CURRENT custom script = what the store holds. Plain base-role
-      // entries collapse back to id references; custom roles ship whole.
+    /**
+     * The dirty control's Save. An update in place goes straight through on
+     * the name the script already carries; a FORK stops and asks for a name
+     * first (see the fork panel's markup for why it is a panel and not a
+     * prompt). `willFork` is knowable up front: no edit key for the source
+     * means the save can only become a copy.
+     */
+    saveToVault() {
       const custom = this.$store.state.roles;
       if (this.$store.state.edition.id !== "custom" || !custom.size) {
         alert("Load or build a custom script first — the vault stores custom scripts.");
         return;
       }
+      const name = (this.$store.state.edition.name || "").trim();
+      if (this.willFork || !name) return this.openForkForm();
+      return this.commitSave(name);
+    },
+    /** Open the name panel, pre-filled: a fork gets a FREE derived name (so
+     *  confirming without typing can never re-use the original's), a nameless
+     *  script gets its own blank. The field opens focused and selected. */
+    openForkForm(forcing) {
+      const original = (this.$store.state.edition.name || "").trim();
+      // `forcing` is the stale-key case: the browser still holds a key, so
+      // willFork reads false, but the server has already refused it.
+      const forking = forcing === true || this.willFork;
+      this.forkError = "";
+      this.forkSuggestion = "";
+      this.forkForm = {
+        forking,
+        original,
+        name: forking ? this.suggestForkName(original) : original
+      };
+      this.$nextTick(() => {
+        const el = this.$refs.forkName;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      });
+    },
+    /** "<name> (fork)", bumped past anything already on this browser's shelf
+     *  — (fork 2), (fork 3) — so the panel never opens on a taken name.
+     *  Forking a fork re-uses the stem rather than stacking suffixes. */
+    suggestForkName(original) {
+      const base =
+        (original || "").replace(/\s*\(fork(?:\s+\d+)?\)\s*$/i, "").trim() ||
+        "My script";
+      let candidate = `${base} (fork)`;
+      let n = 2;
+      while (this.nameTaken(candidate)) candidate = `${base} (fork ${n++})`;
+      return candidate;
+    },
+    /** Is that name already on the shelf? The script being saved in place
+     *  does not clash with itself. */
+    nameTaken(name) {
+      const want = name.trim().toLowerCase();
+      return this.recents.some(
+        e =>
+          e.id !== this.vaultSourceId &&
+          (e.name || "").trim().toLowerCase() === want
+      );
+    },
+    /** Confirm the panel. The name must be there, must not be the original's,
+     *  and must not be one already on the shelf — a clash offers a free name
+     *  rather than dead-ending. */
+    confirmFork() {
+      const f = this.forkForm;
+      if (!f) return;
+      const name = (f.name || "").trim();
+      this.forkSuggestion = "";
+      if (!name) {
+        this.forkError = f.forking
+          ? "Your copy needs a name."
+          : "A script needs a name.";
+        return;
+      }
+      if (
+        f.forking &&
+        name.toLowerCase() === (f.original || "").toLowerCase()
+      ) {
+        this.forkError =
+          "That is the original's name — your copy needs its own.";
+        this.forkSuggestion = this.suggestForkName(f.original);
+        return;
+      }
+      if (this.nameTaken(name)) {
+        this.forkError = `You already have a script called “${name}”.`;
+        this.forkSuggestion = this.suggestForkName(name);
+        return;
+      }
+      this.forkError = "";
+      this.forkForm = null;
+      return this.commitSave(name, { forceFork: f.forking });
+    },
+    useForkSuggestion() {
+      if (!this.forkForm || !this.forkSuggestion) return;
+      this.forkForm.name = this.forkSuggestion;
+      this.forkSuggestion = "";
+      this.forkError = "";
+    },
+    /** Cancel abandons the SAVE, not the edits — the bench stays dirty. */
+    cancelFork() {
+      this.forkForm = null;
+      this.forkError = "";
+      this.forkSuggestion = "";
+    },
+    async commitSave(name, { forceFork = false } = {}) {
+      // The CURRENT custom script = what the store holds. Plain base-role
+      // entries collapse back to id references; custom roles ship whole.
       const meta = this.$store.state.edition;
-      const name = prompt("Script name", meta.name || "My script");
-      if (!name) return;
       // A role whose id exists upstream collapses back to an id reference
       // (the Script Tool convention) — kept as a bare string when it carries
       // no night-order override; a custom role ships whole, minus the
@@ -1318,8 +1474,17 @@ export default {
           name,
           author: meta.author,
           roles,
-          sourceId: this.vaultSourceId
+          sourceId: this.vaultSourceId,
+          forceFork
         });
+        // the confirmed name belongs to the script on the bench now, so the
+        // title, the picker and the next save all read the copy, not the
+        // original. setEdition closes the modal (upstream's flow ended
+        // there) — ensureOpen puts it back, as everywhere else here.
+        if (name !== meta.name) {
+          this.$store.commit("setEdition", { ...meta, id: "custom", name });
+          this.ensureOpen();
+        }
         this.vaultSourceId = script.id;
         this.recents = vault.getRecents();
         // FT-854: stamp (or clear) the non-conforming mark — a marker, not a
@@ -1342,6 +1507,13 @@ export default {
           alert(`${what}. Share link:\n${link}`);
         }
       } catch (e) {
+        // the stored key was revoked or wrong: the save can only be a fork
+        // now, so come back round through the panel for a name.
+        if (e && e.code === "fork-required") {
+          this.forkForm = null;
+          this.openForkForm(true);
+          return;
+        }
         alert("Save failed: " + e.message);
       }
     },
@@ -2538,24 +2710,33 @@ $team-colors: (
   min-height: 0;
   text-align: left;
 
-  // The + buttons: square, icon-only, blood on hover.
-  .wb-plus {
-    // a clear RED plus, centred in its plate (user call)
+  // The + buttons: square, icon-only, the book's purple on hover.
+  // `.button.wb-plus`, not `.wb-plus`: the workbench's own `.button:hover`
+  // (further down this sheet) paints every button #ff7070, and at equal
+  // specificity the later rule won — which is why the plus kept flashing red
+  // on hover whatever its own rule said. Three classes beats two.
+  .button.wb-plus {
+    // FT-882's pair, not a new tone: red is the blood, purple is the book,
+    // and the script bench IS the book. rgb(120, 105, 135) resting and
+    // rgb(150, 130, 175) lit — the exact two RoleDrawer's own controls use,
+    // recorded on NightSheet's .ns-check. (Was a red plus; user call.)
     padding: 0 !important;
     width: 26px;
     height: 26px;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    color: #c41818;
+    color: rgb(120, 105, 135);
     svg {
       width: 15px;
       height: 15px;
       display: block;
       margin: 0;
     }
+    // the edge follows the glyph — the shared button hover reddens it too
     &:hover {
-      color: #ff3b3b;
+      color: rgb(150, 130, 175);
+      border-color: rgba(150, 130, 175, 0.85);
     }
   }
   .ns-start {
@@ -3175,6 +3356,73 @@ $team-colors: (
       overflow: visible;
       .button {
         margin: 0;
+      }
+    }
+  }
+
+  // the "name your copy" panel — one field, so it stays narrow and reads as
+  // a question rather than a form.
+  .fork-form {
+    width: min(460px, 92%);
+    text-align: left;
+    h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    .fk-note {
+      margin: 0 0 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      opacity: 0.7;
+      strong {
+        opacity: 1;
+      }
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: 0.6;
+      margin-bottom: 4px;
+    }
+    .fk-name {
+      width: 100%;
+      font-size: 17px;
+      padding: 7px 12px;
+      margin: 0;
+    }
+    .role-error {
+      margin: 8px 0 0;
+      font-size: 13px;
+    }
+    .fk-fix {
+      display: inline-block;
+      margin-left: 6px;
+      font-weight: normal;
+      color: rgb(150, 130, 175);
+      text-decoration: underline;
+      cursor: pointer;
+      &:hover {
+        color: #fff;
+      }
+    }
+    .fk-acts {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+      .button {
+        margin: 0;
+      }
+      // the fork itself wears the book's purple, not the blood
+      .fk-go {
+        border-color: rgba(150, 130, 175, 0.85);
+        background: rgba(120, 105, 135, 0.42);
+        &:hover {
+          background: rgba(150, 130, 175, 0.55);
+          color: white;
+        }
       }
     }
   }
