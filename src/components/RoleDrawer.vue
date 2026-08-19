@@ -135,6 +135,57 @@
           </ul>
         </section>
       </div>
+
+      <!-- ── THE DEMON BLUFFS, pinned to the drawer's floor ────────────────
+           A SECOND WINDOW ONTO ONE SET OF DATA (user call 2026-08-19), never
+           a second copy of it: every slot here commits `players/setBluff`,
+           the same mutation the clock face's own cluster commits, so the two
+           surfaces cannot drift apart.
+
+           WHY a second window. The face cluster docks to the DEMON'S OWN SEAT
+           (TownSquare's `measureBluffAnchor`), so a town with no demon dealt
+           has nowhere to reach the bluffs from — and that is the whole build
+           phase, which is exactly when a storyteller picks them. This section
+           needs no demon and no dealt town.
+
+           OUTSIDE `.rd-groups` on purpose: the character list above goes on
+           scrolling and the three slots stay on the floor, always reachable.
+
+           The gate is the SPECTATOR half of the face cluster's own
+           `canSeeBluffs` (see `canSetBluffs` below for why only that half).
+           A v-if rather than a CSS hide, for the same reason TownSquare
+           gives: a spectator's DOM then holds no bluff name or icon to find
+           by inspecting it. -->
+      <section class="rd-bluffs" v-if="canSetBluffs">
+        <h4
+          title="Drag a character into a slot — or tap a character, then tap a slot. Drag a bluff back into the list to clear it."
+        >
+          <img
+            v-if="teamGlyph('demon')"
+            class="team-glyph"
+            :src="teamGlyph('demon')"
+            alt=""
+          />
+          Demon bluffs
+          <small>{{ bluffsSet }} / {{ bluffSize }}</small>
+        </h4>
+        <ul>
+          <li
+            v-for="i in bluffSize"
+            :key="i"
+            class="rd-bluff"
+            :class="{ armed: !!drawerPick, filled: !!bluffRole(i - 1) }"
+            :draggable="String(!!bluffRole(i - 1))"
+            :aria-label="spokenBluff(i - 1)"
+            @dragstart="dragBluff(i - 1, $event)"
+            @dragover.prevent
+            @drop="onBluffDrop(i - 1, $event)"
+            @click="tapBluff(i - 1)"
+          >
+            <Token :role="bluffs[i - 1]" />
+          </li>
+        </ul>
+      </section>
     </div>
   </transition>
 </template>
@@ -149,6 +200,11 @@ import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
 // FT-858: THE role hover card, shared with the Almanac workbench's shelf and
 // the seats in the square.
 import RoleHoverCard from "./RoleHoverCard";
+// THE coin — the same component the clock face's own bluff cluster renders in
+// each of its three slots (TownSquare's `<Token :role="bluffs[i]">`). An empty
+// slot is that coin with no role: blank parchment, which is what the face
+// cluster shows for an unset bluff too.
+import Token from "./Token";
 // FT-859: the drag itself is shared with the build panel's unseated tray —
 // one gesture, one definition (see golem/roleDrag).
 import { roleIcon as roleIconSrc, startRoleDrag } from "../golem/roleDrag";
@@ -163,13 +219,16 @@ const HOVER_DELAY = 170;
 
 export default {
   name: "RoleDrawer",
-  components: { RoleHoverCard },
+  components: { RoleHoverCard, Token },
   mixins: [bottomSheet],
   data() {
     return {
       // which role the hover card is describing, and the row it is pinned to
       cardRole: null,
       cardAnchor: null,
+      // how many bluffs a demon carries — TownSquare's own `bluffSize`, so the
+      // two windows onto this data agree on how many slots there are
+      bluffSize: 3,
       teams: ["townsfolk", "outsider", "minion", "demon", "traveler"],
       labels: {
         townsfolk: "Townsfolk",
@@ -179,12 +238,58 @@ export default {
         traveler: "Travellers"
       },
       folded: { traveler: true },
+      // the grimoire is waiting behind the character picker it opened — see
+      // `tapBluff` / the `modals.role` watcher below
+      reopenAfterPicker: false,
       dealGlyph
     };
   },
+  watch: {
+    /**
+     * The picker this section opened has closed — put the grimoire back.
+     *
+     * `toggleModal` shuts every OTHER modal when it opens one, and the
+     * grimoire is a modal flag (`modals.roleDrawer`), so opening the
+     * character picker from a slot closes the drawer underneath it. Left
+     * alone, choosing a bluff would cost the storyteller the surface they
+     * chose it from. This component survives that — the `v-if` is on its own
+     * root element, not on the component — so it can simply ask for itself
+     * back once the picker is gone.
+     */
+    "modals.role"(open) {
+      if (open || !this.reopenAfterPicker) return;
+      this.reopenAfterPicker = false;
+      this.toggleModal("roleDrawer");
+    },
+  },
   computed: {
-    ...mapState(["roles", "modals", "otherTravelers"]),
-    ...mapState("players", ["players"]),
+    ...mapState(["roles", "modals", "otherTravelers", "session"]),
+    ...mapState("players", ["players", "bluffs"]),
+    /**
+     * May this client set a bluff at all — the clock face's own `canSeeBluffs`
+     * SPECTATOR gate, restated: `session.isSpectator` catches every non-host
+     * client, a seated player included (this app has no separate
+     * player/spectator flag). It is the same test the grimoire tab itself
+     * carries (App.vue's `.drawer-tab`), so this drawer was never a
+     * spectator's surface to begin with.
+     *
+     * The face cluster's OTHER half — `!grimoire.isPublic` — deliberately
+     * does not carry over. `isPublic` starts TRUE and stays true until the
+     * host deals a town (HostTools flips it on `rolesAssigned`), so the
+     * cluster is dark for the whole BUILD phase — which is precisely when a
+     * storyteller picks bluffs, and precisely the gap this section exists to
+     * fill. The public-display worry it guards against cannot reach here
+     * anyway: this drawer already prints who is playing what next to every
+     * row (`seatedNames`), so it is a face-up surface by construction and a
+     * host mirroring a face-down grimoire has it shut.
+     */
+    canSetBluffs() {
+      return !this.session.isSpectator;
+    },
+    /** How many of the three the storyteller has actually chosen. */
+    bluffsSet() {
+      return this.bluffs.filter((role) => role && role.id).length;
+    },
     allowDup: {
       get() {
         return this.$store.state.allowDupRoles;
@@ -294,8 +399,16 @@ export default {
       const cur = this.drawerPick;
       this.setDrawerPick(cur && cur.id === role.id ? null : role);
     },
-    /** A seat's role dragged INTO the drawer unassigns it. */
+    /** A seat's role dragged INTO the drawer unassigns it — and, since
+     *  2026-08-19, a BLUFF dragged into it clears that slot. One idiom:
+     *  wherever a character came from, dropping it back on the list is how
+     *  you take it away. */
     onDrawerDrop(e) {
+      const bluff = e.dataTransfer.getData("golem/bluff");
+      if (bluff !== "") {
+        this.setBluffRole(Number(bluff), {});
+        return;
+      }
       const from = e.dataTransfer.getData("golem/from");
       if (from === "") return;
       const player = this.players[Number(from)];
@@ -305,6 +418,126 @@ export default {
         property: "role",
         value: {}
       });
+    },
+    // ── The demon bluffs, from the drawer's floor ─────────────────────────
+    /** What is in a slot, or null. */
+    bluffRole(index) {
+      const role = this.bluffs[index];
+      return role && role.id ? role : null;
+    },
+    /** What a screen reader hears from a slot that carries no text. */
+    spokenBluff(index) {
+      const role = this.bluffRole(index);
+      const n = index + 1;
+      if (!role) return `Demon bluff ${n}, empty`;
+      return role.ability
+        ? `Demon bluff ${n}: ${role.name}. ${role.ability}`
+        : `Demon bluff ${n}: ${role.name}`;
+    },
+    /**
+     * THE one write. Everything this section does ends here, and it commits
+     * exactly what the clock face's cluster commits.
+     *
+     * The padding loop is not defensive noise: `players/setBluff` sets its
+     * slot with `splice(index, 1, role)`, and splice CLAMPS its start to the
+     * array's length — so slot 3 of an empty `bluffs` array lands in slot 1
+     * instead, silently. (The face cluster has the same shape; it is simply
+     * always entered slot-by-slot from a modal, so the gap rarely opens.)
+     * Filling the gap with empty coins first keeps the index honest.
+     */
+    setBluffRole(index, role) {
+      for (let i = this.bluffs.length; i < index; i++) {
+        this.$store.commit("players/setBluff", { index: i, role: {} });
+      }
+      this.$store.commit("players/setBluff", { index, role: role || {} });
+    },
+    /**
+     * The tap path. HTML5 drag-and-drop fires nothing under a finger, so a
+     * slot has to accept an armed character the way a SEAT does
+     * (Player.onLifeClick): land it, then put the hand down.
+     *
+     * With nothing armed a slot opens the character picker for itself — the
+     * SAME picker the face cluster's coins open, asked for through the square
+     * rather than mounted a second time here (see `withSquare`).
+     */
+    tapBluff(index) {
+      if (!this.canSetBluffs) return;
+      const pick = this.drawerPick;
+      if (pick) {
+        this.setBluffRole(index, pick);
+        this.setDrawerPick(null);
+        return;
+      }
+      // TownSquare reads a bluff as a NEGATIVE seat: its own coins call
+      // openRoleModal(index * -1) for index 1..3, and RoleModal turns that
+      // back into a slot with `playerIndex * -1 - 1`.
+      this.reopenAfterPicker = true;
+      this.withSquare((square) => square.openRoleModal(-1 - index));
+      // nothing answered — do not sit waiting for a picker that never opened
+      if (!this.modals.role) this.reopenAfterPicker = false;
+    },
+    /**
+     * Ask the town square to open the role picker.
+     *
+     * The app has exactly ONE RoleModal, mounted by TownSquare and driven by
+     * its own `selectedPlayer`; `modals.role` is a single global flag, so a
+     * second instance mounted here would open at the same instant and stack
+     * two dialogs on one backdrop. Asking the square to do its own job is the
+     * same walk RoleTray and RoleActions already use to reach THIS drawer's
+     * Deal and Shuffle — found by the square's own element id, since
+     * TownSquare declares no component name.
+     */
+    withSquare(fn) {
+      const find = (c) =>
+        c.$el &&
+        c.$el.id === "townsquare" &&
+        typeof c.openRoleModal === "function"
+          ? c
+          : c.$children.reduce((a, x) => a || find(x), null);
+      const square = find(this.$root);
+      if (square) fn(square);
+    },
+    /** Pick a bluff up. It carries the ordinary role payload (so the ghost is
+     *  the icon alone, as everywhere else) PLUS the slot it came from, which
+     *  is what lets a drop on the list clear it and a drop on another slot
+     *  trade with it. */
+    dragBluff(index, e) {
+      const role = this.bluffRole(index);
+      if (!role || !this.canSetBluffs) {
+        e.preventDefault();
+        return;
+      }
+      this.hideCard();
+      startRoleDrag(role, e);
+      e.dataTransfer.setData("golem/bluff", String(index));
+    },
+    /**
+     * A drop on a slot: a character from the list (or the tray) BECOMES this
+     * bluff; another slot's bluff TRADES with it, so neither is lost.
+     *
+     * Anything else — a seated role, carrying `golem/from` — is left to
+     * bubble to `onDrawerDrop`, because dropping a seat's character anywhere
+     * in this drawer means the one thing it has always meant: unassign it.
+     */
+    onBluffDrop(index, e) {
+      if (!this.canSetBluffs) return;
+      const from = e.dataTransfer.getData("golem/bluff");
+      if (from !== "") {
+        e.stopPropagation();
+        const source = Number(from);
+        if (source === index) return;
+        const mine = this.bluffs[index] || {};
+        this.setBluffRole(index, this.bluffs[source] || {});
+        this.setBluffRole(source, mine);
+        return;
+      }
+      const roleId = e.dataTransfer.getData("golem/role");
+      if (!roleId) return;
+      e.stopPropagation();
+      // state.roles is a Map keyed by role id — the same lookup the seat's
+      // own drop does (Player.onRoleDrop)
+      const role = this.roles.get(roleId);
+      if (role) this.setBluffRole(index, role);
     },
     /** Fill every roleless non-traveler seat honouring the composition. */
     assignRandomly() {
@@ -441,6 +674,11 @@ $team-colors: (
     .rd-groups {
       // the sheet has its own edge padding now
       padding: 0 4px;
+    }
+    // …and the bluffs line up with it, the way they line up with the
+    // scroller's padding on the desktop drawer
+    .rd-bluffs {
+      margin: 8px 4px 0;
     }
   }
 
@@ -632,6 +870,76 @@ $team-colors: (
         cursor: default;
       }
       &.picked {
+        outline: 1px solid #a01414;
+        background: rgba(160, 20, 20, 0.16);
+      }
+    }
+  }
+
+  // ── THE DEMON BLUFFS, on the drawer's floor ──────────────────────────
+  // Nothing new is invented here. It is one of `.rd-groups`'s own team
+  // sections — the same hairline box, the same 4px corner, the same h4 at
+  // 13px with its glyph and its `small` count — lifted out of the scroller
+  // and stood on the floor, wearing the demon's colour because that is
+  // whose characters these are. Its margins are `.rd-groups`'s own padding
+  // (`0 6px 0 10px`) so the box lines up with the sections above it, and
+  // the 8px gap is those sections' own `margin-bottom`.
+  //
+  // `flex: none` is the whole of "pinned": `.rd-groups` is `flex: 1` with
+  // its own scroll, so a fixed-size sibling after it takes the floor and
+  // the list gives up the height.
+  .rd-bluffs {
+    flex: none;
+    margin: 8px 6px 0 10px;
+    border: 1px solid rgba($demon, 0.55);
+    border-radius: 4px;
+
+    h4 {
+      margin: 0;
+      padding: 5px 8px;
+      font-size: 13px;
+      color: lighten($demon, 22%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      small {
+        margin-left: auto;
+        opacity: 0.7;
+        font-weight: normal;
+      }
+    }
+
+    ul {
+      display: flex;
+      // the drawer's own action-row gap
+      gap: 6px;
+      list-style: none;
+      // capped at the drawer's OWN desktop width (250px, above): on a phone
+      // the sheet is full-bleed and three coins across 375px would eat a
+      // third of the sheet's height, so the row keeps the size it has on
+      // the desktop drawer instead of growing with the screen
+      max-width: 250px;
+      margin: 0 auto;
+      padding: 2px 4px 6px;
+    }
+
+    // A slot is THE coin (Token), sized by the row: three equal columns, and
+    // the coin squares itself off its own width — the same way the clock
+    // face's cluster leaves the li to say how big a bluff is.
+    .rd-bluff {
+      flex: 1 1 0;
+      min-width: 0;
+      border-radius: 5px;
+      cursor: pointer;
+      &.filled {
+        cursor: grab;
+      }
+      &:hover {
+        background: rgba(255, 255, 255, 0.07);
+      }
+      // a character is in hand — every slot is somewhere it can land, in the
+      // drawer's own picked colours
+      &.armed {
         outline: 1px solid #a01414;
         background: rgba(160, 20, 20, 0.16);
       }
