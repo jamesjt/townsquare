@@ -96,6 +96,9 @@
       <span class="value" @click="toggleModal('roleDrawer')">
         {{ rolesAssigned }} / {{ players.length }} assigned
       </span>
+      <!-- Deal / Shuffle / Dupes sit INLINE with the count on every width
+           (user call 2026-08-18) — the tray below carries only characters -->
+      <RoleActions />
     </div>
 
     <!-- FT-860: the night sheet's three-state switch. Its own component so
@@ -132,6 +135,8 @@ import { listTowns, editKeyFor, updateTown } from "../golem/towns";
 import ScriptPicker from "./ScriptPicker";
 // FT-859: the unseated-role tray that lives under the Roles row.
 import RoleTray from "./RoleTray";
+// FT-859: the three build actions, inline in the Roles row.
+import RoleActions from "./RoleActions";
 // FT-860: the night sheet's Off / Storyteller / Everyone row.
 import NightModeRow from "./NightModeRow";
 import editionJSON from "../editions";
@@ -140,7 +145,7 @@ import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
 
 export default {
-  components: { ScriptPicker, RoleTray, NightModeRow },
+  components: { ScriptPicker, RoleTray, RoleActions, NightModeRow },
   mounted() {
     // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
     // game (5-6 is Teensyville; user call 2026-08-18)

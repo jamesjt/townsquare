@@ -304,7 +304,19 @@ export default {
 // the sheet stands where the build panel stands — same plate, same rules
 .night-sheet {
   position: absolute;
-  z-index: 4;
+
+  // ABOVE THE SEATS. The build panel gets away with z-index 3 because at
+  // 363px it nests inside the ring's hole and never meets a chair. The
+  // checklist needs ~700px to hold a role, a seat, two target pickers and a
+  // reminder, so it crosses the ring — and the seats carry z-index 1…N (the
+  // 12 o'clock chair takes the seat count itself), which drew their name
+  // plates straight over the sheet's rows.
+  //
+  // 19 clears every chair at rest and still sits UNDER the right-hand drawers
+  // at 20, which is the order that matters: opening the grimoire or the script
+  // must cover the sheet, not slide under it. A HOVERED seat still lifts to 25
+  // and wins, which is fine — that is a deliberate reach for a chair.
+  z-index: 19;
   text-align: center;
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 20px);
@@ -320,7 +332,11 @@ export default {
     display: flex;
     flex-direction: column;
     padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.88);
+    // opaque enough to WIN. At 0.88 the clock face, the script's logo and
+    // TownInfo's counts read straight through the rows — "Night phase" landed
+    // across the Fortune Teller's line. The sheet is a plate on the table, not
+    // a pane of glass.
+    background: rgba(0, 0, 0, 0.95);
     border: 3px solid black;
     border-radius: 10px;
     box-shadow: 0 0 10px black;

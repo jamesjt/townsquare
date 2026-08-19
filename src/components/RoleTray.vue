@@ -16,31 +16,8 @@
     />
     <!-- the same three build actions the grimoire drawer carries, as icons
          with their own tooltips (user call 2026-08-18) -->
-    <div class="rt-acts">
-      <button
-        class="rt-act"
-        title="Deal the remaining valid roles out to the open seats"
-        @click="deal"
-      >
-        <img :src="dealGlyph" alt="Deal" />
-      </button>
-      <button
-        class="rt-act"
-        :disabled="seatedCount < 2"
-        title="Randomize the selected roles among the seats"
-        @click="shuffle"
-      >
-        <font-awesome-icon icon="random" />
-      </button>
-      <button
-        class="rt-act"
-        :class="{ on: allowDup }"
-        title="Let one role sit in more than one chair"
-        @click="allowDup = !allowDup"
-      >
-        <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
-      </button>
-    </div>
+    <!-- (the three build actions moved INLINE into the Roles row —
+         RoleActions.vue — so the tray carries only characters.) -->
     <div class="rt-rows" v-if="unseated.length" @scroll.passive="hideCard">
       <div class="rt-row" v-for="row in unseatedByTeam" :key="row.team">
       <span
