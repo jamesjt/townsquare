@@ -36,46 +36,24 @@
             title="What you learned at night"
             @click="toggleModal('nightDrawer')"
           />
-          <!-- TOWN RECORDS — the recorded-games ledger (StatsOverlay), which
-               until now had exactly one door: the session pill, bottom-right.
-               The pill is the wrong place to keep the only one — turned on its
-               side with a drawer out it hides itself entirely (App.vue's own
-               rule), and the records went with it.
-
-               The SAME overlay and the SAME piece of state: this asks App to
-               open the one it already owns rather than keeping a second flag
-               that could disagree with the pill's.
-
-               Open to everyone, matching the pill's door. What it shows is
-               finished games only — wins by team and by script, and each
-               player's games / wins / survivals. Nothing of the game being
-               played: no characters, no grimoire, no live state. There is
-               nothing in it a player may not see.
-
-               OUR OWN MARK now (user call 2026-08-19): Font Awesome's
-               chart-bar read as a digital bar chart, which is a different
-               century from everything beside it. ui-records is baked to the
-               measured material of the two marks it stands with — 128px,
-               silhouette only, no outline, the same warm stone grain (mean
-               rgb 154,146,133, luminance wandering 110-176).
-
-               An HOURGLASS, because every other literal object on this table
-               is taken: a scroll is the script, a gallows is the vote, a book
-               is the grimoire, so a ledger or tome would collide with the
-               book. Time already spent is exactly what town records are, and
-               the silhouette survives 26px, which a stack of books does
-               not. -->
+          <!-- TOWN RECORDS — the recorded-games ledger (StatsOverlay). Same
+               door, same overlay, same store flag as before; only the mark
+               changed (user call 2026-08-19): the quill that used to sit on
+               the chronicle moved here — a quill and inkwell reads as the
+               written ledger, which is what finished games are. Baked to the
+               strip's measured stone (128px, silhouette only, no outline,
+               mean rgb 154,146,133, luminance wandering 110-176). The
+               hourglass this mark replaced is unused now; ui-records.png
+               stays in the tree. -->
           <img
-            :src="uiRecords"
+            :src="uiQuill"
             title="Town records"
             @click="$emit('records')"
           />
-          <!-- FT-886: THE CHRONICLE — beside the hourglass on purpose, because
-               the two are the same question asked of two different games. The
-               hourglass opens the ledger of games already FINISHED; the quill
-               opens what has happened in the game being played right now,
-               which until now had no door at all — it was scattered across the
-               night log, the vote history and the shrouds on the seats.
+          <!-- FT-886: THE CHRONICLE — what has happened in the game being
+               played right now, which until now had no door at all — it was
+               scattered across the night log, the vote history and the
+               shrouds on the seats.
 
                Open to everyone. What each viewer gets differs, and the
                difference is enforced in the store rather than here: the drawer
@@ -84,11 +62,14 @@
                storyteller's marks stripped off. Nominations, executions and
                the dead are public at the table and public here.
 
-               A QUILL IN AN INKWELL, baked to the same measured stone as the
-               scroll, the gallows and the hourglass — the act of writing the
-               game down, next to the shelf the finished ones sit on. -->
+               A CHAT BUBBLE now (user call 2026-08-19): the chronicle is the
+               live, conversational log of the game in progress, so it wears
+               the mark for that rather than the quill, which moved to Town
+               records. Same baked stone as the rest of the strip (128px,
+               silhouette only, no outline, mean rgb 154,146,133, luminance
+               wandering 110-176). -->
           <img
-            :src="uiChronicle"
+            :src="uiChat"
             title="Chronicle — what has happened this game"
             @click="toggleModal('chronicleDrawer')"
           />
@@ -234,10 +215,14 @@
 import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
 import uiVotes from "../assets/ui-votes.png";
-import uiRecords from "../assets/ui-records.png";
 import uiNight from "../assets/ui-night.png";
-// FT-886: the chronicle's quill — this game's timeline, beside the hourglass
-import uiChronicle from "../assets/ui-chronicle.png";
+// FT-886: the chronicle's chat bubble — this game's live, running timeline
+import uiChat from "../assets/ui-chat.png";
+// the town-records quill — moved here from the chronicle 2026-08-19; the file
+// is still named for its old home (ui-chronicle.png) but the drawing on it,
+// a quill in an inkwell, is now the Town records door's mark. ui-records.png
+// (the hourglass this replaced) is unused but stays in the tree.
+import uiQuill from "../assets/ui-chronicle.png";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
 import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
@@ -281,9 +266,9 @@ export default {
     return {
       uiScript,
       uiVotes,
-      uiRecords,
       uiNight,
-      uiChronicle,
+      uiChat,
+      uiQuill,
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's
       // feel, not about the town's state, so it does not belong in the store.
