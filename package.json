@@ -1,8 +1,8 @@
 {
-  "name": "townsquare",
+  "name": "golem-townsquare",
   "version": "2.16.2",
-  "description": "Blood on the Clocktower Town Square",
-  "author": "Steffen Baumgart",
+  "description": "Golem — hosted Blood on the Clocktower town square (modified fork of bra1n/townsquare)",
+  "author": "Golem",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build ./src/main.js",
@@ -41,6 +41,7 @@
   "license": "GPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com//bra1n/townsquare.git"
-  }
+    "url": "https://github.com/jamesjt/townsquare.git"
+  },
+  "homepage": "https://botc.golem-studios.com"
 }
