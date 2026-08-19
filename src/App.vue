@@ -136,7 +136,7 @@
          NOTE on the scrub: its type-in strips non-digits, so a NEGATIVE offset
          can be dragged but not typed. Left as-is rather than forking the shared
          control for a dev tool that is coming out again. -->
-    <div id="face-lab" :class="{ open: faceLabOpen }">
+    <div id="face-lab" :class="{ open: faceLabOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Face lab" @click="faceLabOpen = !faceLabOpen">
         Fa
       </div>
@@ -742,10 +742,12 @@ export default {
       devLabs: false,
       // FT-881 follow-up: the face-lab scrubs, persisted so a dialled value
       // survives the reload it takes to look at it again.
+      // Storage keys carry a "2" since the +7px was BAKED: a browser holding the
+      // old bgOffX=7 would otherwise add it twice and land on 14.
       faceLabOpen: false,
-      bgOffX: Number(localStorage.getItem("golem.bgOffX") || 0),
-      bgOffY: Number(localStorage.getItem("golem.bgOffY") || 0),
-      bgH: Number(localStorage.getItem("golem.bgOffH") || 0),
+      bgOffX: Number(localStorage.getItem("golem.bgOffX2") || 0),
+      bgOffY: Number(localStorage.getItem("golem.bgOffY2") || 0),
+      bgH: Number(localStorage.getItem("golem.bgOffH2") || 0),
       grimoireClosed,
       grimoireOpen,
       tpiLogo,
@@ -803,7 +805,7 @@ export default {
       else this.bgH = v;
       this.applyBgOff();
       try {
-        localStorage.setItem("golem.bgOff" + axis.toUpperCase(), String(v));
+        localStorage.setItem("golem.bgOff" + axis.toUpperCase() + "2", String(v));
       } catch (e) {
         // storage off: the dial still works for this session
       }
@@ -1179,7 +1181,12 @@ body {
   // it is what a user is looking at most of the time, so a lab that only moved
   // `#app.in-game` appeared to do nothing at all.
   background: #0b0d12 url("assets/background-clocktower-centered.png");
-  background-position: calc(50% + var(--bg-off-x, 0px))
+  // THE BAKED OFFSET: +7px. The clock face measured about 4px left of the
+  // window centre, and 7 is where it looked right when dialled by eye — the
+  // art's own rim is not a perfect circle, so the eye is the better instrument
+  // here (FT-881). The lab's variables still ADD to this, so the dial reads 0
+  // at the shipped value.
+  background-position: calc(50% + 7px + var(--bg-off-x, 0px))
     calc(50% + var(--bg-off-y, 0px));
   background-size: auto
     calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
@@ -1248,7 +1255,12 @@ ul {
   // FT-881 follow-up: the paint is NUDGED by the face lab's scrubs.
   // X/Y move it; H grows or shrinks it. All three default to 0, so an
   // untouched app paints exactly as it did.
-  background-position: calc(50% + var(--bg-off-x, 0px))
+  // THE BAKED OFFSET: +7px. The clock face measured about 4px left of the
+  // window centre, and 7 is where it looked right when dialled by eye — the
+  // art's own rim is not a perfect circle, so the eye is the better instrument
+  // here (FT-881). The lab's variables still ADD to this, so the dial reads 0
+  // at the shipped value.
+  background-position: calc(50% + 7px + var(--bg-off-x, 0px))
     calc(50% + var(--bg-off-y, 0px));
   // `cover` written out longhand, because a keyword has no arithmetic and H
   // needs some. Cover's HEIGHT for this art is whichever is larger: the
@@ -1855,7 +1867,12 @@ video#background {
 #app.in-game {
   // Same dials, the other plate — the blank dial the town is played on.
   background: #0b0d12 url("assets/background-clocktower-blank-centered.png");
-  background-position: calc(50% + var(--bg-off-x, 0px))
+  // THE BAKED OFFSET: +7px. The clock face measured about 4px left of the
+  // window centre, and 7 is where it looked right when dialled by eye — the
+  // art's own rim is not a perfect circle, so the eye is the better instrument
+  // here (FT-881). The lab's variables still ADD to this, so the dial reads 0
+  // at the shipped value.
+  background-position: calc(50% + 7px + var(--bg-off-x, 0px))
     calc(50% + var(--bg-off-y, 0px));
   background-size: auto
     calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));

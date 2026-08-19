@@ -14,7 +14,11 @@
        the town readout above the clock face (another lane), because every
        player is meant to see it. What stays here, storyteller-only: the
        progress count, and the single Day-breaks/Night-falls button. -->
-  <div class="night-sheet" :class="{ 'is-night': isNight, 'has-list': showList }">
+  <div
+    class="night-sheet"
+    :class="{ 'is-night': isNight, 'has-list': showList }"
+    :style="labVars"
+  >
     <!-- OFF / DAYTIME: no checklist to show, so the sheet is just the one
          control that gets the storyteller INTO a night — nothing else
          belongs in a bar with one button in it. -->
@@ -276,10 +280,21 @@
               <!-- ...and whether it was a LIE — only offered where there is
                    information to have lied about (golem/nightInfo's
                    mayBeFalse). Poisoner/Monk/Butler/Imp tell nothing back, so
-                   the question doesn't apply. FT-874: a CHECKBOX, not a
-                   warning triangle — reads gold (#d8b45a, this fork's own —
-                   the phase sun, the votes count) when set, not a fifth
-                   invented accent. -->
+                   the question doesn't apply.
+
+                   FT-874 (2026-08-19, user call): THE LIAR MARK. It was a
+                   square checkbox, which says "a setting" where the row means
+                   "what you told them was not true". It is now the MASK — and
+                   the mask is not invented for it: this component already
+                   wears `theater-masks` on .ns-truth, a dozen lines up, for a
+                   seat being walked through a character it only thinks it has.
+                   Same glyph, same idea, same colour: what is shown is not
+                   what is true.
+
+                   The glyph no longer CHANGES between states (a mask is a
+                   mask), so brightness carries the state on its own — see
+                   .ns-lie: dim parchment in a pressable box when off, lit gold
+                   when on. Exactly two states, no third. -->
               <span
                 v-if="extraFieldsFor(row).mayBeFalse"
                 class="ns-lie"
@@ -287,13 +302,12 @@
                 tabindex="0"
                 role="checkbox"
                 :aria-checked="String(entryFor(row).isFalseInfo)"
-                title="The information given was FALSE (drunk, poisoned, a misread)"
+                :title="lieHint(row)"
                 @click="toggleLie(row)"
                 @keyup.enter="toggleLie(row)"
+                @keyup.space="toggleLie(row)"
               >
-                <font-awesome-icon
-                  :icon="entryFor(row).isFalseInfo ? 'check-square' : 'square'"
-                />
+                <font-awesome-icon icon="theater-masks" />
               </span>
             </div>
 
@@ -331,6 +345,61 @@
         {{ flipLabel }}
       </button>
     </template>
+
+    <!-- ── THE NIGHT-SHEET LAB (Ns) — TEMPORARY, DELETE ME ─────────────────
+         Four scrubs that nudge the disc's geometry so a value can be found by
+         EYE and then baked into the stylesheet below, at which point this
+         block, its script/style sections and the four `--ns-*-adj` reads all
+         come out together. Same idiom and the same dev-door column as
+         App.vue's FACE LAB (#face-lab, tab "Fa"), one notch below it: three
+         inventions read as three inventions, one column reads as a toolkit.
+
+         EVERY SCRUB IS AN OFFSET, never a replacement — zero is exactly what
+         ships, in all four — so Reset is a real return and not an
+         approximation of one.
+
+         DESKTOP DISC ONLY. All four values are read inside the disc's own
+         media query; a phone's bottom sheet has no disc, no caps and no band,
+         and never sees them.
+
+         IT LIVES IN document.body, moved there on mount (see mounted() —
+         which is also why it carries a ref and no scoped-layout assumptions).
+         The sheet is TRANSFORMED in every mode it has (translate(-50%,-50%)
+         on the disc, translateY on the day pill), and a transformed ancestor
+         becomes the containing block for `position: fixed` descendants — left
+         in place, a fixed lab would be positioned against the disc instead of
+         against the window. Moving it beats wrapping the sheet in a new root:
+         a temporary tool should not leave permanent scaffolding in the markup
+         it was built to tune.
+
+         NOTE, carried from the face lab: NumberScrub's type-in strips
+         non-digits, so a NEGATIVE offset can be DRAGGED but not typed. Left as
+         it is rather than forking a shared control for a tool that is coming
+         out again. -->
+    <div id="night-lab" ref="nsLab" :class="{ open: nsLabOpen }">
+      <button
+        type="button"
+        class="fd-toggle"
+        title="Night sheet lab — disc size, band width, header and button offsets"
+        :aria-expanded="String(nsLabOpen)"
+        @click="nsLabOpen = !nsLabOpen"
+      >
+        Ns
+      </button>
+      <div class="nl-rows" v-if="nsLabOpen">
+        <div class="nl-row" v-for="d in nsDials" :key="d.key">
+          <span class="nl-label" :title="d.hint">{{ d.label }}</span>
+          <NumberScrub
+            :value="nsLab[d.key]"
+            :min="d.min"
+            :max="d.max"
+            :title="d.hint"
+            @input="setNsLab(d.key, $event)"
+          />
+        </div>
+        <button type="button" class="nl-reset" @click="resetNsLab">Reset</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -357,8 +426,107 @@ export default {
     return {
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
-      flashing: {}
+      flashing: {},
+
+      // ── THE NIGHT-SHEET LAB — TEMPORARY, DELETE ME (see the template) ────
+      nsLabOpen: false,
+      // persisted, because a dialled value has to survive the reload it takes
+      // to go and look at it again — the face lab's own lesson
+      nsLab: {
+        r: Number(localStorage.getItem("golem.nsR") || 0),
+        band: Number(localStorage.getItem("golem.nsBand") || 0),
+        head: Number(localStorage.getItem("golem.nsHead") || 0),
+        foot: Number(localStorage.getItem("golem.nsFoot") || 0)
+      },
+      // THE FOUR SCRUBS, and the reasoning behind every bound. All measured at
+      // 1280×800 — the TIGHTEST viewport the disc runs at, since its media
+      // query floors at 1000×780 — so a bound that holds there holds
+      // everywhere the disc appears. At that size the face gives r = 211.6px:
+      // band 344.7px wide, list band 245.4px tall, each cap 88.9px.
+      //
+      // THE CAPS ARE WHAT BUY THE BAND ITS WIDTH — the rows are wider than the
+      // circle's inscribed square precisely because the header and the button
+      // sit in the caps instead of in the band. So the two bounds that could
+      // quietly strangle the row width (R and W) are the ones held tightest,
+      // and the two that move furniture WITHIN a cap (Hd and Ft) are bounded
+      // by the rim instead, since a transform cannot touch the band at all.
+      nsDials: [
+        {
+          key: "r",
+          label: "R",
+          // DOWN to −40: r = 172, band 280px — still a readable column, and
+          // about where the 640px rectangle layout's own reading width starts.
+          // Below that it strangles (−80 would leave 214px of line for a row
+          // carrying a label, two seat pickers and a sentence).
+          // UP to +60: past the painted rim the disc stops being a plate laid
+          // ON the dial and becomes one covering it — a different design, but
+          // watching that happen is the point of having a lab.
+          min: -40,
+          max: 60,
+          hint: "Disc radius, offset from the clock face (0 = the face itself)"
+        },
+        {
+          key: "band",
+          label: "W",
+          // The band is ALREADY the maximal chord the circle allows at cap
+          // 0.21: half-height 122.7, half-width 172.4, and 172.4² + 122.7² is
+          // exactly r². So the FIRST positive pixel is outside the circle and
+          // `overflow: hidden` shears the band's four corners, which shows as
+          // clipped row rules on the top and bottom rows. +30 is roughly where
+          // that reads at 1280×800, and it is allowed because the corner
+          // region carries no text (rows are left-aligned) and a wider line
+          // may still be the better trade.
+          // −80 is the floor, for the same reason as R's: 265px of line.
+          min: -80,
+          max: 30,
+          hint: "Text band width, offset from the chord the caps allow (0 = as built)"
+        },
+        {
+          key: "head",
+          label: "Hd",
+          // NEGATIVE IS UP. The header rides the bottom of the top cap and
+          // moves by transform, so the list band never shifts and the row
+          // width is untouched whatever this does — only the rim binds it.
+          // UP to −16: the header's content is a fixed ~263px wide and the arc
+          // at its top edge is ~277px where the bake below now puts it, so
+          // there are ~7px a side before its corners cross, and −16 is a notch
+          // past that so the failure can be SEEN rather than guessed at.
+          // DOWN to +24: further and it laps the first row.
+          min: -16,
+          max: 24,
+          hint: "Header up (negative) or down, from where it now sits in the top cap"
+        },
+        {
+          key: "foot",
+          label: "Ft",
+          // POSITIVE IS DOWN, toward the bottom pole. The button is 0.95r wide
+          // and the arc closes on it: measured at 1280×800 it had ~17px of
+          // descent before its bottom corners crossed the rim, and the bake
+          // below has already spent 10 of them — so +12 is again one notch
+          // past the edge, visible rather than theoretical.
+          // −24 lifts it back toward the list.
+          min: -24,
+          max: 12,
+          hint: "End-night button down (positive) or up, from where it now sits"
+        }
+      ]
     };
+  },
+  /**
+   * THE LAB'S PORTAL — TEMPORARY, DELETE ME (see the template for why the
+   * element cannot simply stay where it is written).
+   *
+   * Vue 2 patches by element reference rather than by parent, so the panel
+   * stays fully reactive after the move; only the teardown needs saying out
+   * loud, because Vue will look for it under a parent it no longer has.
+   */
+  mounted() {
+    const lab = this.$refs.nsLab;
+    if (lab && document.body) document.body.appendChild(lab);
+  },
+  beforeDestroy() {
+    const lab = this.$refs.nsLab;
+    if (lab && lab.parentNode) lab.parentNode.removeChild(lab);
   },
   computed: {
     ...mapState(["grimoire", "session", "night", "roles"]),
@@ -370,6 +538,23 @@ export default {
     ...mapGetters("night", ["isFirstNight"]),
     isNight() {
       return this.grimoire.isNight;
+    },
+    /**
+     * THE LAB'S OUTPUT — TEMPORARY, DELETE ME (see the template).
+     *
+     * Four custom properties on the sheet's own element, which the disc's
+     * media block reads with a `0px` fallback. Published even at zero and even
+     * on a phone, which costs nothing: the only rules that read them sit
+     * inside the desktop disc query, so a bottom sheet never sees them, and
+     * `var(--x, 0px)` against `--x: 0px` computes identically.
+     */
+    labVars() {
+      return {
+        "--ns-r-adj": this.nsLab.r + "px",
+        "--ns-band-adj": this.nsLab.band + "px",
+        "--ns-head-adj": this.nsLab.head + "px",
+        "--ns-foot-adj": this.nsLab.foot + "px"
+      };
     },
     /** The checklist shows at night, and only when the sheet is switched on. */
     showList() {
@@ -473,6 +658,31 @@ export default {
   },
   methods: {
     /**
+     * THE LAB — TEMPORARY, DELETE ME (see the template).
+     *
+     * Clamped against each dial's OWN declared bounds rather than a second
+     * copy of the numbers, so the range documented beside a scrub is the range
+     * actually enforced. NumberScrub clamps its own emissions too; two
+     * independently-written clamps are two things that can disagree.
+     */
+    setNsLab(key, px) {
+      const dial = this.nsDials.find(d => d.key === key);
+      if (!dial) return;
+      const v = Math.max(dial.min, Math.min(dial.max, Number(px) || 0));
+      this.nsLab[key] = v;
+      try {
+        localStorage.setItem(
+          "golem.ns" + key.charAt(0).toUpperCase() + key.slice(1),
+          String(v)
+        );
+      } catch (e) {
+        // storage off: the dial still works for this session
+      }
+    },
+    resetNsLab() {
+      this.nsDials.forEach(d => this.setNsLab(d.key, 0));
+    },
+    /**
      * The row's stored entry, or a blank stand-in that is NOT stored. A row is
      * born on its first write (the night/write action), so the log never fills
      * with rows the storyteller walked past without recording.
@@ -557,6 +767,15 @@ export default {
     },
     toggleLie(row) {
       this.write(row, { isFalseInfo: !this.entryFor(row).isFalseInfo });
+    },
+    /** FT-874 (2026-08-19): the liar mark says which of its two states it is
+     *  in, in words. The glyph is identical in both — brightness is the only
+     *  visual difference — so the hover text carries the state as well as the
+     *  action, the way every other two-state control on this row does. */
+    lieHint(row) {
+      return this.entryFor(row).isFalseInfo
+        ? "Marked FALSE — what you told them was a lie. Click to unmark."
+        : "Mark what you told them FALSE (drunk, poisoned, a misread)";
     },
     setNote(row, text) {
       this.writeTold(row, { text });
@@ -780,12 +999,46 @@ $ns-team-colors: (
   //     through the rim.
   @media (pointer: fine) and (min-width: 1000px) and (min-height: 780px) {
     &.has-list {
-      --ns-r: calc(var(--face-r, 238) * var(--fpx, 1px));
+      // THE FOUR `-adj` READS BELOW BELONG TO THE SIZE LAB — TEMPORARY, and
+      // they come out with it (see the template's DELETE ME block). Each is a
+      // `+ var(--x, 0px)` on the end of an expression that was already
+      // correct, so with the lab gone — or every scrub at zero — these lines
+      // compute exactly what they computed before it existed.
+      //
+      // They live HERE, inside the disc's media query, on purpose: a phone's
+      // bottom sheet has no disc, no caps and no band, and must not follow any
+      // of this.
+      --ns-r: calc(var(--face-r, 238) * var(--fpx, 1px) + var(--ns-r-adj, 0px));
       --ns-d: calc(2 * var(--ns-r));
       --ns-cap: 0.21;
       --ns-hw: 0.8146;
-      --ns-band: calc(2 * var(--ns-hw) * var(--ns-r));
+      --ns-band: calc(2 * var(--ns-hw) * var(--ns-r) + var(--ns-band-adj, 0px));
       --ns-caph: calc(var(--ns-cap) * var(--ns-d));
+
+      // ── WHERE THE CAP FURNITURE SITS (FT-882, 2026-08-19, user call) ─────
+      // "put that a bit higher in the circle, and end night a bit lower."
+      //
+      // BOTH MOVE BY TRANSFORM, never by margin and never by flex basis, and
+      // that is the load-bearing choice: a transform takes no part in layout,
+      // so the list band's height, width and CENTRING are untouched by
+      // anything either of these does. Move them with margins instead and the
+      // band slides off centre, at which point it is bound by whichever pole
+      // it now sits nearer and its far corners are sheared by the rim — the
+      // exact failure the band math above exists to avoid.
+      //
+      // The caps are also what BUY the band its width (the rows are wider than
+      // the inscribed square precisely because the header and the button sit
+      // in the caps rather than in the band), so this arrangement keeps that
+      // trade intact: the furniture moves within its cap; the cap does not
+      // move.
+      //
+      // The numbers are what the eye asked for, checked against the arc: −9px
+      // puts the header's content top edge at ~48px of depth, where the chord
+      // is ~277px against its ~263px of content. +10px drops the button's
+      // bottom edge to ~33px of depth, where the chord is ~230px against its
+      // 201px of width.
+      --ns-head-dy: -9px;
+      --ns-foot-dy: 10px;
 
       position: absolute;
       left: var(--face-cx, 50%);
@@ -868,6 +1121,9 @@ $ns-team-colors: (
         width: calc(1.3 * var(--ns-r));
         align-items: flex-end;
         padding: 0 0 2px;
+        // rides HIGHER in the top cap — the bake above plus whatever the lab
+        // is holding. Layout-free, so the band below never moves.
+        transform: translateY(calc(var(--ns-head-dy) + var(--ns-head-adj, 0px)));
       }
 
       > .ns-rows {
@@ -903,6 +1159,9 @@ $ns-team-colors: (
         flex: 0 0 auto;
         width: calc(0.95 * var(--ns-r));
         margin: 10px 0 0;
+        // …and the button rides LOWER in the bottom cap. Same mechanism, same
+        // reason: the list band above it cannot be moved by a transform.
+        transform: translateY(calc(var(--ns-foot-dy) + var(--ns-foot-adj, 0px)));
       }
 
       // ── THE ROW, IN A NARROWER COLUMN ──────────────────────────────────
@@ -1540,9 +1799,33 @@ $ns-team-colors: (
   // FT-862: the lie flag shares the same box treatment and height as every
   // other action control, not a bare floating glyph at a different weight.
   // FT-874: the note-toggle this was paired with is gone — the verb plus
-  // the picker now says what was recorded — and the flag itself became a
-  // checkbox (square/check-square, matching .ns-check's own pair) instead of
-  // a warning triangle.
+  // the picker now says what was recorded.
+  //
+  // FT-874 (2026-08-19, user call): A LIAR, ON OR OFF. The square checkbox
+  // became the MASK — the glyph .ns-truth already wears on this same row for
+  // "what is shown is not what is true".
+  //
+  // THE COLOUR STAYS GOLD, and this is the decision the surface was waiting
+  // on: the gold flag was the last non-purple thing on a sheet whose chrome
+  // all went purple in FT-882. It stays gold because purple and gold here are
+  // not competing accents, they are two different KINDS of statement, and this
+  // sheet already draws that line explicitly (see the team-colour block
+  // above): purple is CHROME — the tick, its outline, the finish button, the
+  // things you can PRESS — and gold on this row is what is NOT TRUE.
+  // .ns-truth's mask is #e0b45f; this is the same glyph carrying the same
+  // meaning a few pixels away from it, and painting one purple while the other
+  // stayed gold is what would actually read as a leftover.
+  //
+  // So the BOX is chrome and the MARK is data. The box takes the purple
+  // hairline .ns-check wears, because "you can press this" is what the box
+  // says and the box is the part that is always visible. The mask inside it
+  // goes gold only when lit.
+  //
+  // TWO STATES AND NO THIRD. The glyph is identical in both, so brightness
+  // does all the work and the two are kept far apart on purpose: 0.42 flat
+  // parchment against full gold with a glow. Hover is not a state — it lifts
+  // the OFF mark to legible and brightens the ON one, and neither reads as
+  // set.
   .ns-lie {
     height: 30px;
     width: 30px;
@@ -1551,21 +1834,42 @@ $ns-team-colors: (
     justify-content: center;
     flex-shrink: 0;
     cursor: pointer;
-    opacity: 0.5;
+    color: #d8cdb4;
+    opacity: 0.42;
     background: rgba(0, 0, 0, 0.55);
-    border: 1px solid #3d3d3d;
+    border: 1px solid rgba(120, 105, 135, 0.3);
     border-radius: 5px;
+    transition:
+      opacity 130ms,
+      color 130ms,
+      border-color 130ms,
+      background 130ms;
     &:hover,
     &:focus-visible {
-      opacity: 1;
+      opacity: 0.9;
+      border-color: rgba(150, 130, 175, 0.75);
+      background: rgba(120, 105, 135, 0.12);
       outline: none;
     }
     &.on {
       opacity: 1;
-      // FT-874 (user call): this fork's own gold — #d8b45a, the phase sun
-      // and the votes count — rather than a fifth invented accent colour.
-      color: #d8b45a;
+      // #e0b45f — .ns-truth's own gold, not a second one. (The phase sun and
+      // the votes count sit a shade under it at #d8b45a; the mask matches the
+      // mask.)
+      color: #e0b45f;
       border-color: #8a6f2e;
+      background: rgba(184, 137, 47, 0.16);
+      // a state change with no shape change needs the glow to be readable
+      // across a scanned list rather than only under the cursor
+      box-shadow: 0 0 7px rgba(184, 137, 47, 0.4);
+      &:hover,
+      &:focus-visible {
+        // brighter, still gold — hovering a set mark offers to UNSET it, not
+        // to become a different control
+        color: #f3d189;
+        border-color: #b8892f;
+        background: rgba(184, 137, 47, 0.24);
+      }
     }
   }
 
@@ -1659,6 +1963,100 @@ $ns-team-colors: (
     .ns-erase {
       width: 44px;
     }
+  }
+}
+
+// ── THE NIGHT-SHEET LAB — TEMPORARY, DELETE ME ─────────────────────────────
+// The fourth door in App.vue's dev column (drip 8px, coin 96px, face 140px,
+// this 184px), wearing the same shell so the four read as one toolkit and not
+// as four inventions. It lives in THIS file rather than App.vue's because what
+// it dials is this component's own geometry — the lab and the values it moves
+// come out together.
+//
+// NOT scoped away by the portal: these rules reach the panel in document.body
+// because Vue stamps the scope attribute onto the element at compile time, and
+// moving an element does not restyle it.
+//
+// The toggle is a real <button>, not the column's usual <div> — it costs
+// nothing and it is the difference between a control reachable by keyboard and
+// one that is not.
+#night-lab {
+  position: fixed;
+  top: 184px;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  font-size: 13px;
+
+  .fd-toggle {
+    width: 30px;
+    height: 26px;
+    line-height: 24px;
+    padding: 0;
+    text-align: center;
+    font-family: inherit;
+    font-size: 12px;
+    color: #d8cdb4;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid #3d3d3d;
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer;
+    opacity: 0.45;
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+      border-color: rgba(150, 130, 175, 0.75);
+      outline: none;
+    }
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: rgba(150, 130, 175, 0.75);
+  }
+
+  .nl-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    background: rgba(8, 6, 10, 0.92);
+    border: 1px solid rgba(120, 105, 135, 0.45);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+  }
+  .nl-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #d8cdb4;
+  }
+  .nl-label {
+    width: 18px;
+    opacity: 0.7;
+    cursor: help;
+  }
+  .nl-reset {
+    font-family: inherit;
+    font-size: 11px;
+    color: #d8cdb4;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    padding: 2px 6px;
+    cursor: pointer;
+    &:hover,
+    &:focus-visible {
+      border-color: rgba(150, 130, 175, 0.75);
+      outline: none;
+    }
+  }
+  // the scrub's "seat" preset inherits its colour, which reads on the sheet
+  // and disappears against this panel's own ground
+  .num-scrub-box {
+    color: #d8cdb4;
   }
 }
 

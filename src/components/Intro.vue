@@ -157,10 +157,18 @@
                vault); a taken name just hosts as a guest of that town. -->
           <div class="field keep" v-if="ownsPicked">
             <label></label>
-            <small class="owned-note"
-              >yours — its name{{ attachedScriptId ? " and script" : "" }}
-              travel with it</small
-            >
+            <!-- It read "yours — its name travel with it", which is a plural
+                 verb left behind when the script half is absent, and it never
+                 said what "travel with it" meant anyway (user 2026-08-19:
+                 "what is this trying to say?"). Now it says the thing: you own
+                 this town, so what you set on it is remembered and comes back
+                 the next time anyone opens it. -->
+            <small class="owned-note">
+              This town is yours — its name{{
+                attachedScriptId ? " and script are" : " is"
+              }}
+              saved and comes back next time.
+            </small>
           </div>
           <div class="field">
             <label title="Invite link"><font-awesome-icon icon="link" /></label>
@@ -349,7 +357,12 @@ export default {
     ontheStyle() {
       const { x, y, s } = this.bgA;
       return {
-        left: x + 820 * s + "px",
+        // + the background's baked 7px shift (FT-881). This lockup is anchored
+        // to a point in the ART — the rosette ring's centre — so when the paint
+        // moved right, it had to move with it or drift off the thing it sits
+        // on. Reading the same variable means it tracks any future change to
+        // that offset instead of needing to be re-found by hand.
+        left: `calc(${x + 820 * s}px + 7px + var(--bg-off-x, 0px))`,
         top: y + 191 * s + "px",
         // the lockup renders at 42 image-px tall (431x98 native)
         height: 36 * s + "px"

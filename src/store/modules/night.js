@@ -57,7 +57,10 @@ import {
 import { beliefOf, isBelieving } from "../../golem/belief";
 // FT-886: our own one-line instruction for a character's night action, where
 // one is written — see golem/nightInfo's THE INSTRUCTION LINE section.
-import { lineFor } from "../../golem/nightInfo";
+// FT-874 (2026-08-19): …and whether a character still wakes once its seat is
+// DEAD — see that file's WAKING WHEN DEAD section for the eleven and the sweep
+// that found them.
+import { lineFor, deadStillWakes, deadWakeTeams } from "../../golem/nightInfo";
 
 const state = () => ({
   // user call 2026-08-18: a fresh town shares. See DEFAULT_MODE's note for
@@ -88,6 +91,13 @@ const getters = {
     const first = getters.isFirstNight;
     const prop = first ? "firstNight" : "otherNight";
     const seats = [];
+    // FT-874 (2026-08-19): does anything in play keep DEAD seats of a whole
+    // team waking? In practice this is the Vigormortis and its Minions, and on
+    // almost every town it comes back empty. Computed once per roster read
+    // rather than per seat — it is a fact about the TOWN, not about a chair.
+    const deadTeams = deadWakeTeams(
+      rootState.players.players.map(p => (p.role && p.role.id) || "")
+    );
     rootState.players.players.forEach((player, seat) => {
       const trueRole = player.role || {};
       const shownRole = beliefOf(player);
@@ -121,6 +131,18 @@ const getters = {
       acting.forEach(({ role, isPerformance }) => {
         if (!role || !role.id) return;
         if (!(role[prop] > 0)) return;
+        // FT-874 (2026-08-19): A DEAD SEAT DOES NOT WAKE — unless its
+        // character says otherwise. The checklist is scanned under time
+        // pressure and a row for a seat that cannot act is pure noise; but for
+        // eleven characters DYING IS THE TRIGGER (the Ravenkeeper's own line
+        // already read "Only if they died tonight"), and dropping those
+        // deletes the row at the one moment it is needed.
+        //
+        // The test runs against `role`, which on a believing seat's
+        // PERFORMANCE row is the character the player THINKS they have — and
+        // that is right: a dead Drunk who believes they are the Ravenkeeper is
+        // still walked through the Ravenkeeper's wake.
+        if (player.isDead && !deadStillWakes(role, deadTeams)) return;
         // FT-886: THE TWO TEXTS OF A ROW.
         //   official — the shipped reminder, written for a table with physical
         //              tokens ("points to a player", "show the token"). Still

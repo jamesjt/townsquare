@@ -120,6 +120,85 @@ export function renderableType(type) {
  *               label the same way it falls through to a bare text box —
  *               never a guessed verb.
  *   line        FT-886: THE INSTRUCTION LINE — see the section below.
+ *   wakesWhenDead
+ *               FT-874 (2026-08-19): does a seat holding this character still
+ *               belong on the checklist once it is DEAD? — see the section
+ *               below.
+ *
+ * ── WAKING WHEN DEAD (`wakesWhenDead`) ───────────────────────────────────
+ *
+ * A dead seat does not wake, and listing it is noise on a surface a
+ * storyteller scans under time pressure. So the roster getter drops dead
+ * seats — EXCEPT that for a handful of characters, dying IS the trigger.
+ * Excluding those wholesale deletes the row at exactly the moment it is
+ * needed: the Ravenkeeper's own instruction line already read "Only if they
+ * died tonight."
+ *
+ * So it is a property of the CHARACTER, kept here beside everything else this
+ * file already knows about a character's night, and NOT a list of ids at the
+ * call site. `wakesWhenDead: true` means "keep this row when the seat is
+ * dead"; its absence means the ordinary rule.
+ *
+ * HOW THE ELEVEN WERE CHOSEN. Every character in roles.json carrying a night
+ * order (114 of them) was read against one question: is the seat's OWN death
+ * the trigger, or a precondition, of what happens at its slot? Eleven answer
+ * yes:
+ *
+ *   ravenkeeper   "If you die at night, you are woken to choose a player."
+ *   sage          "If the Demon kills you, you learn that it is 1 of 2."
+ *   sweetheart    "When you die, 1 player is drunk from now on."
+ *   barber        "If you died today or tonight, the Demon may swap 2."
+ *   moonchild     "When you learn that you died, publicly choose 1 alive."
+ *   farmer        "If you die at night, an alive good player becomes a Farmer."
+ *   poppygrower   "If you die, they learn who each other are that night."
+ *   banshee       "If the Demon kills you, all players learn this."
+ *   plaguedoctor  "When you die, the Storyteller gains a Minion ability."
+ *   hatter        "If you died today or tonight, the Minion & Demon players
+ *                  may choose new characters to be."
+ *   zombuul       the odd one out, and the one most easily missed: "The 1st
+ *                 time you die, you live but register as dead." The app has
+ *                 one death flag and a storyteller marks that first death on
+ *                 the seat, so a Zombuul spends most of its game on the board
+ *                 as a dead player that kills every night.
+ *
+ * DELIBERATELY NOT FLAGGED, where the wording invites it:
+ *   grandmother   DIES when the Demon kills the grandchild — alive up to that
+ *                 row, gone after it.
+ *   gambler       dies from a wrong guess; must be alive to guess.
+ *   fanggu        dies when its kill jumps to an Outsider; the character
+ *                 continues at a DIFFERENT seat.
+ *   acrobat / lleech / vizier  die under a condition; never act after.
+ *   professor / bonecollector  act ON the dead, and must be alive to do it.
+ *   scarletwoman  becomes the Demon when the Demon dies — alive throughout.
+ *   spy           "even if dead" qualifies how they REGISTER, not the wake.
+ *   pixie / bountyhunter  someone ELSE's death is the trigger.
+ *
+ * THE FALLBACK IS "does not wake when dead", and that is a real choice, and
+ * the OPPOSITE of `fieldsFor()`'s. A custom script's own character is not in
+ * this table, so it takes the ordinary rule. Keeping every unlisted dead seat
+ * instead would reproduce on custom scripts exactly the noise this change
+ * removes from the shipped ones — and the sweep above found 11 exceptions in
+ * 114.
+ *
+ * ── DEAD_WAKE_ENABLERS: when ANOTHER character keeps a dead seat waking ───
+ *
+ * One rule in the shipped roles is not a property of the seat that wakes at
+ * all. The Vigormortis's Minions "keep their ability" after it kills them —
+ * so a dead Poisoner under a Vigormortis poisons somebody every remaining
+ * night of the game, and dropping that row costs a wake per night for the
+ * rest of the game. That is the exact failure this whole section exists to
+ * prevent, so it is modelled rather than lost: see DEAD_WAKE_ENABLERS below.
+ *
+ * IT IS OVER-INCLUSIVE ON PURPOSE. Only the Minions the VIGORMORTIS killed
+ * keep their ability, and the log does not know which of them it killed. So a
+ * Vigormortis in play keeps every dead Minion on the list. A spurious row
+ * costs a glance; a missing one costs a wake.
+ *
+ * WHAT IS NOT AN ENABLER, and the line is worth drawing here: the Bone
+ * Collector also hands a dead player their ability back — but for ONE player,
+ * for ONE night, chosen by the storyteller on the Bone Collector's own row
+ * moments earlier. It is already in their hand. Making it an enabler would
+ * put every dead seat back on every night's list for a one-night effect.
  *
  * ── THE INSTRUCTION LINE (`line`, FT-886) ────────────────────────────────
  *
@@ -311,6 +390,8 @@ export const NIGHT_INFO = {
     ],
     mayBeFalse: true,
     label: "Learns:",
+    // the row exists ONLY for a dead seat — the line has said so all along
+    wakesWhenDead: true,
     line: "Only if they died tonight. They choose."
   },
   virgin: { wakes: [], fields: [], mayBeFalse: false }, // day ability — never reaches a night row
@@ -461,6 +542,7 @@ export const NIGHT_INFO = {
   },
   moonchild: {
     wakes: ["other"],
+    wakesWhenDead: true,
     line: "Only if they died today: their pick dies, if good."
   },
   // lunatic — DELIBERATELY UNWRITTEN, see LEFT ALONE in the header.
@@ -481,6 +563,9 @@ export const NIGHT_INFO = {
   },
   zombuul: {
     wakes: ["other"],
+    // "The 1st time you die, you live but register as dead" — the app marks
+    // that death on the seat, so a Zombuul is a DEAD player that kills
+    wakesWhenDead: true,
     line: "Only if nobody died today."
   },
   pukka: {
@@ -530,14 +615,17 @@ export const NIGHT_INFO = {
   },
   sage: {
     wakes: ["other"],
+    wakesWhenDead: true,
     line: "Only if the Demon killed them: two players."
   },
   sweetheart: {
     wakes: ["other"],
+    wakesWhenDead: true,
     line: "Only if they died: someone stays drunk."
   },
   barber: {
     wakes: ["other"],
+    wakesWhenDead: true,
     line: "If they died today, the Demon may swap two."
   },
   eviltwin: {
@@ -583,7 +671,37 @@ export const NIGHT_INFO = {
   bonecollector: {
     wakes: ["other"],
     line: "Once per game: a dead player's ability returns."
-  }
+  },
+
+  // ── Experimental / Carousel — FLAG-ONLY entries (FT-874, 2026-08-19) ─────
+  // Five characters that reach this table for ONE reason: the wakes-when-dead
+  // sweep found them, and without an entry a dead seat holding one would drop
+  // off the checklist on the very night it matters.
+  //
+  // They carry no `fields` and no `line`, which is a legal, already-handled
+  // shape and not an oversight: `fieldsFor()` treats a missing `fields` key
+  // exactly as it treats an unlisted role (one free-text box), and `lineFor()`
+  // returning "" falls the row back to the shipped reminder text. So each
+  // renders tonight precisely as it rendered yesterday — it just no longer
+  // vanishes when its player dies. Writing the prose and designing the
+  // controls is a later pass that touches nothing here.
+  farmer: { wakes: ["other"], wakesWhenDead: true },
+  poppygrower: { wakes: ["first", "other"], wakesWhenDead: true },
+  banshee: { wakes: ["other"], wakesWhenDead: true },
+  plaguedoctor: { wakes: ["other"], wakesWhenDead: true },
+  hatter: { wakes: ["other"], wakesWhenDead: true }
+};
+
+/**
+ * Characters whose presence IN PLAY keeps OTHER seats on the checklist after
+ * those seats die — keyed by the enabler's role id, valued by the TEAMS whose
+ * dead seats it keeps. See the DEAD_WAKE_ENABLERS section in the file header
+ * for why this is modelled at all, why it is deliberately over-inclusive, and
+ * why the Bone Collector is not one.
+ */
+export const DEAD_WAKE_ENABLERS = {
+  // "Minions you kill keep their ability & poison 1 Townsfolk neighbour"
+  vigormortis: ["minion"]
 };
 
 /**
@@ -676,6 +794,44 @@ export function lineFor(roleId, isFirstNight) {
   if (!line) return "";
   if (typeof line === "string") return line;
   return (isFirstNight ? line.first : line.other) || "";
+}
+
+/**
+ * FT-874 (2026-08-19): which TEAMS keep their dead seats on tonight's list,
+ * given the characters actually in play. Almost always empty — pass the seated
+ * role ids, get back a Set of team names (see DEAD_WAKE_ENABLERS).
+ *
+ * A Set rather than an array because the caller tests it once per seat, and
+ * because two enablers naming the same team must not double it.
+ */
+export function deadWakeTeams(roleIds) {
+  const teams = new Set();
+  (roleIds || []).forEach(id => {
+    (DEAD_WAKE_ENABLERS[id] || []).forEach(team => teams.add(team));
+  });
+  return teams;
+}
+
+/**
+ * FT-874 (2026-08-19): does a DEAD seat holding this character still belong on
+ * tonight's checklist?
+ *
+ * Two ways to answer yes, and they are different kinds of fact:
+ *   · the character's own trigger is dying (`wakesWhenDead` — the eleven
+ *     listed in the file header);
+ *   · something ELSE in play keeps this seat's team waking (a Vigormortis and
+ *     its Minions) — pass `deadWakeTeams()`'s Set as the second argument.
+ *
+ * Called ONLY for seats already known to be dead; a living seat never reaches
+ * it. An unlisted character answers no, which is the ordinary rule — see THE
+ * FALLBACK in the header for why that default is the safe one here and the
+ * opposite of the safe one for `fieldsFor()`.
+ */
+export function deadStillWakes(role, enabledTeams) {
+  if (!role || !role.id) return false;
+  const entry = NIGHT_INFO[role.id];
+  if (entry && entry.wakesWhenDead) return true;
+  return !!enabledTeams && enabledTeams.has(role.team);
 }
 
 /**
