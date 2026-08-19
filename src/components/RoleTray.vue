@@ -64,6 +64,23 @@
       ></span>
       </div>
     </div>
+    <!-- THE TAP PATH, SAID OUT LOUD. Dragging a character onto a chair is the
+         gesture this tray was built around, and HTML5 drag-and-drop does not
+         exist on a touch screen — no `dragstart` ever fires (verified on an
+         emulated phone, 2026-08-18). The click-to-arm path has always been
+         here and always worked; nothing on screen mentioned it, so on a phone
+         the tray read as broken rather than as a different gesture.
+
+         The line only appears where the drag is genuinely unavailable, and it
+         changes to name the armed character so the second half of the gesture
+         is as clear as the first. -->
+    <div class="rt-hint" :class="{ armed: !!drawerPick }" v-if="unseated.length">
+      <template v-if="drawerPick">
+        <font-awesome-icon icon="hand-point-right" />
+        {{ drawerPick.name }} — now tap a seat
+      </template>
+      <template v-else>Tap a character, then tap a seat</template>
+    </div>
     <div class="rt-done" v-else-if="dropArmed">
       <font-awesome-icon icon="undo" />
       release to unseat
@@ -312,6 +329,14 @@ $team-colors: (
     width: 26px;
     height: 24px;
     padding: 0;
+    // Deal, Shuffle and Dupes are 26x24 plates sitting 6px apart — three of
+    // the most consequential controls in the build, at a third of the area a
+    // fingertip needs. A coarse pointer gets a proper plate; the glyphs inside
+    // are unchanged, so the row still reads as three small marks.
+    @media (pointer: coarse) {
+      width: 42px;
+      height: 40px;
+    }
     color: #d8cdb4;
     background: rgba(20, 16, 22, 0.9);
     border: 1px solid rgba(120, 105, 135, 0.4);
@@ -410,6 +435,33 @@ $team-colors: (
     padding: 3px 0;
     font-size: 70%;
     opacity: 0.55;
+  }
+
+  // The tap-path line is for pointers that cannot drag. A mouse has the drag
+  // and does not need to be told about a second way in.
+  .rt-hint {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 0 1px;
+    font-size: 70%;
+    opacity: 0.5;
+  }
+  @media (hover: none) {
+    .rt-hint {
+      display: flex;
+    }
+    // the armed character's own line brightens — it is an instruction now,
+    // not a caption
+    .rt-hint.armed {
+      opacity: 0.85;
+      color: #ffbdbd;
+    }
+    // `cursor: grab` is a promise a touch screen cannot keep
+    .rt-icon {
+      cursor: pointer;
+    }
   }
 }
 </style>

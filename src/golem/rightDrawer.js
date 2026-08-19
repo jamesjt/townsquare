@@ -68,13 +68,23 @@ export default function rightDrawer({
           const next = startW + (startX - ev.clientX);
           this.width = Math.max(MIN_W, Math.min(MAX_W, next));
         };
-        const onUp = () => {
+        const finish = () => {
           grip.removeEventListener("pointermove", onMove);
-          grip.removeEventListener("pointerup", onUp);
+          grip.removeEventListener("pointerup", finish);
+          grip.removeEventListener("pointercancel", finish);
           localStorage.setItem(storageKey, String(this.width));
         };
         grip.addEventListener("pointermove", onMove);
-        grip.addEventListener("pointerup", onUp);
+        grip.addEventListener("pointerup", finish);
+        // A touch drag does not always end in `pointerup`. The browser can take
+        // the gesture back — it decides the swipe was a scroll, or a second
+        // finger arrives — and then it fires `pointercancel` and nothing else.
+        // The old handler listened for `pointerup` alone, so a taken-back drag
+        // left the move handler bound to the grip for the rest of the session
+        // AND never wrote the new width to storage, losing the resize. (The
+        // grip's `touch-action: none`, added alongside this, is what makes the
+        // cancel rare; this is what makes it harmless.)
+        grip.addEventListener("pointercancel", finish);
       },
       resetWidth() {
         this.width = defaultWidth;

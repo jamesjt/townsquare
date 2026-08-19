@@ -14,6 +14,19 @@
       >
         Grimoire
       </h3>
+      <!-- The `title` above is the ONLY place the click-then-click path is
+           written down, and a touch screen has no way to raise a tooltip. It
+           is also the only path that works there — HTML5 drag-and-drop fires
+           nothing at all under a finger. So on a hoverless pointer the same
+           sentence becomes a visible line, naming the armed role once there
+           is one. -->
+      <div class="rd-hint" :class="{ armed: !!drawerPick }">
+        <template v-if="drawerPick">
+          <font-awesome-icon icon="hand-point-right" />
+          {{ drawerPick.name }} — now tap a seat
+        </template>
+        <template v-else>Tap a character, then tap a seat</template>
+      </div>
       <div class="rd-acts">
         <button
           class="rd-act"
@@ -351,6 +364,33 @@ $team-colors: (
     font-family: PiratesBay, sans-serif;
     font-weight: normal;
     text-align: center;
+  }
+  // shown only where the drag is unavailable and the tooltip unreachable
+  .rd-hint {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0 10px;
+    font-size: 11px;
+    opacity: 0.5;
+    text-align: center;
+    &.armed {
+      opacity: 0.9;
+      color: #ffbdbd;
+    }
+  }
+  @media (hover: none) {
+    .rd-hint {
+      display: flex;
+    }
+    // a finger cannot grab, and the rows are the tap-to-arm target
+    .rd-token {
+      cursor: pointer;
+      // 30px rows in a list of forty characters: comfortable to read, easy to
+      // miss. The row keeps its type size and gains the height a thumb needs.
+      padding: 7px 4px;
+    }
   }
   // the two build actions, in OUR flat idiom — dark plate, hairline, no
   // upstream gradient pill (user call 2026-08-18)

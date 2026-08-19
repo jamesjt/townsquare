@@ -288,30 +288,51 @@ export default {
       e.preventDefault();
       const el = e.currentTarget;
       el.setPointerCapture(e.pointerId);
-      const startX = e.clientX;
       const startN = this.players.length;
-      let moved = 0;
+      // A finger never lands and lifts on the same pixel. The old 3px slop was
+      // a mouse's number: on a phone an ordinary tap wobbles well past it, so
+      // the tap read as a drag and the type-in field could not be opened by
+      // touch at all. A coarse pointer gets a finger-sized slop instead.
+      const slop = e.pointerType === "touch" ? 10 : 3;
+      // The scrub also starts counting from where the slop was CROSSED, not
+      // from where the pointer went down — otherwise widening the slop would
+      // make every drag jump by the slop's own width the moment it began.
+      let originX = e.clientX;
+      let scrubbing = false;
       const onMove = ev => {
-        moved = Math.max(moved, Math.abs(ev.clientX - startX));
-        this.setSeatCount(startN + Math.round((ev.clientX - startX) / 9));
+        if (!scrubbing) {
+          if (Math.abs(ev.clientX - originX) < slop) return;
+          scrubbing = true;
+          originX = ev.clientX;
+          return;
+        }
+        this.setSeatCount(startN + Math.round((ev.clientX - originX) / 9));
       };
-      const onUp = () => {
+      const unbind = () => {
         el.removeEventListener("pointermove", onMove);
         el.removeEventListener("pointerup", onUp);
-        if (moved < 3) {
-          this.seatEditVal = String(this.players.length);
-          this.seatEditing = true;
-          this.$nextTick(() => {
-            const inp = this.$refs.seatInput;
-            if (inp) {
-              inp.focus();
-              inp.select();
-            }
-          });
-        }
+        el.removeEventListener("pointercancel", unbind);
+      };
+      const onUp = () => {
+        unbind();
+        if (scrubbing) return;
+        this.seatEditVal = String(this.players.length);
+        this.seatEditing = true;
+        this.$nextTick(() => {
+          const inp = this.$refs.seatInput;
+          if (inp) {
+            inp.focus();
+            inp.select();
+          }
+        });
       };
       el.addEventListener("pointermove", onMove);
       el.addEventListener("pointerup", onUp);
+      // The browser can take a gesture away mid-drag — a pan it decided to own,
+      // a second finger, the app going to the background. That fires
+      // `pointercancel` and never `pointerup`, so without this the move handler
+      // stayed bound to the element for the rest of the session.
+      el.addEventListener("pointercancel", unbind);
     },
     commitSeatEdit() {
       if (!this.seatEditing) return;
@@ -409,6 +430,19 @@ export default {
   border: 3px solid black;
   border-radius: 10px;
   box-shadow: 0 0 10px black;
+
+  // The panel is as tall as its contents and had no relationship to the
+  // window, so on a landscape phone it stood 437px tall in a 375px window:
+  // the heading was cut off the top and "Start game" off the bottom, with no
+  // way to scroll to either (measured 812x375, 2026-08-18). Bounding it to
+  // the window and letting the overflow scroll costs nothing on a screen big
+  // enough to hold it, where neither cap binds.
+  max-height: calc(100vh - 20px);
+  max-width: calc(100vw - 20px);
+  overflow-y: auto;
+  // a phone drags the whole page when an inner list runs out of scroll
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 
   h3 {
     margin-bottom: 8px;

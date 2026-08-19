@@ -36,9 +36,38 @@
     cursor: ew-resize;
     background: transparent;
     transition: background 150ms;
+    // Without this the browser is free to read the drag as a page pan and take
+    // the gesture back part-way through, which kills the resize (see
+    // golem/rightDrawer's pointercancel handling).
+    touch-action: none;
     &:hover,
     &:active {
       background: rgba(150, 130, 175, 0.45);
+    }
+
+    // 7px is a mouse's target: a finger can neither find it nor hold it. On a
+    // coarse pointer with room to matter — a tablet — the visible seam stays
+    // 7px (a fat bar down the drawer's edge would be worse than no resize)
+    // and only its HIT AREA grows, starting below the head so it never sits
+    // on the close ×.
+    @media (pointer: coarse) {
+      &:after {
+        content: "";
+        position: absolute;
+        top: 46px;
+        bottom: 0;
+        left: -3px;
+        width: 24px;
+      }
+    }
+
+    // On a PHONE the control is retired rather than enlarged. The drawer is
+    // capped at 94vw and floored at 300px, so on a 375px screen the entire
+    // resize range is about 50px — there is nothing worth dragging for, and an
+    // invisible catch strip running down the list would cost more taps than
+    // the resize could ever return.
+    @media (pointer: coarse) and (max-width: 640px) {
+      display: none;
     }
   }
 
@@ -83,6 +112,16 @@
       &:hover {
         opacity: 1;
         color: red;
+      }
+      // The × is 16px of drawn glyph and was 16px of target with it. The mark
+      // keeps its size; the area a finger has to hit grows around it.
+      // (Padding, not a `::after` pad — a pseudo-element on an <svg> is not
+      // rendered at all, so that trick silently does nothing here. The
+      // negative `left` cancels the padding so the glyph does not move.)
+      @media (pointer: coarse) {
+        box-sizing: content-box;
+        padding: 14px;
+        left: -14px;
       }
     }
   }

@@ -70,6 +70,9 @@
         <!-- Golem fork: Host and Join swap the doors for in-app panels —
              no browser dialogs anywhere in the entry flow. -->
         <div class="panel" v-else-if="mode === 'host'">
+          <span class="panel-back" title="Back" @click="mode = null"
+            ><font-awesome-icon icon="arrow-left"
+          /></span>
           <ul class="towns" v-if="hostTowns.length">
             <li
               v-for="t in hostTowns"
@@ -171,9 +174,6 @@
             </span>
           </div>
           <div class="acts">
-            <span class="back" title="Back" @click="mode = null"
-              ><font-awesome-icon icon="arrow-left"
-            /></span>
             <!-- Golem fork (FT-854): the primary action wears WORDS in the
                  door idiom — blood-O drop cap + label. The blood letter is
                  the hotkey promise: O opens the town while this panel is up. -->
@@ -191,6 +191,9 @@
         </div>
 
         <div class="panel" v-else>
+          <span class="panel-back" title="Back" @click="mode = null"
+            ><font-awesome-icon icon="arrow-left"
+          /></span>
           <p class="hint">Join a town.</p>
           <ul class="towns" v-if="joinTowns.length">
             <li
@@ -226,9 +229,6 @@
             />
           </div>
           <div class="acts">
-            <span class="back" title="Back" @click="mode = null"
-              ><font-awesome-icon icon="arrow-left"
-            /></span>
             <button
               class="confirm"
               :class="{ disabled: !canJoin }"
@@ -1359,11 +1359,36 @@ export default {
       }
     }
 
+    // the way back sits in the panel's own top-left corner (user call
+    // 2026-08-18), leaving the bottom row to the action that matters
+    .panel-back {
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      z-index: 2;
+      cursor: pointer;
+      opacity: 0.7;
+      font-size: 120%;
+      line-height: 1;
+      &:hover {
+        color: red;
+        opacity: 1;
+      }
+    }
     .acts {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      // the primary action owns the bottom row: centred and wide
+      justify-content: center;
       margin-top: 12px;
+
+      button.confirm {
+        min-width: 60%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
 
       .back {
         cursor: pointer;

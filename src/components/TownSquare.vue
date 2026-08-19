@@ -410,6 +410,25 @@ export default {
   list-style: none;
   margin: 0;
 
+  /* THE RING'S RADIUS IS HALF THIS BOX'S HEIGHT — each seat is an absolutely
+     positioned spoke with `height: 50%`, swung out by a rotation. Nothing in
+     that geometry has ever consulted the box's WIDTH, so a window taller than
+     it is wide threw the 3- and 9-o'clock seats clean off both edges: at
+     375x812 six of eight seats sat outside the viewport with no way to reach
+     them (measured 2026-08-18).
+
+     Capping the HEIGHT caps the radius, which is all it takes. The reserve is
+     one seat wide — a seat is a `13.5vmin`-ish disc centred ON the ring, so
+     half of it hangs past the radius on each side — plus the padding. The
+     widest seat (a town under 7 players) is 15.5vmin, so that is the constant
+     the reserve uses: sized for the worst case, it never clips the others.
+
+     A landscape window is already wider than it is tall, so `100vw` there is
+     far larger than the natural height and this rule never binds — desktop
+     and landscape geometry are untouched. */
+  --seat-reserve: 15.5vmin;
+  max-height: calc(100vw - var(--seat-reserve) - 20px);
+
   > li {
     position: absolute;
     left: 50%;

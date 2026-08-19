@@ -366,7 +366,16 @@ export default {
       return indexAdjusted < session.lockedVote - 1;
     },
     zoom: function() {
-      const unit = window.innerWidth > window.innerHeight ? "vh" : "vw";
+      // A seat is sized off the window's SHORTER side, which is exactly what
+      // `vmin` means. It used to read `window.innerWidth > window.innerHeight`
+      // and pick vh or vw by hand — but a computed property only re-runs when
+      // one of its reactive deps changes, and the window's size is not one.
+      // Rotating a phone therefore left every seat sized in the old
+      // orientation's unit until something else happened to touch the roster
+      // (13.5vw of a 375px-wide portrait window is 51px; the same expression
+      // after a rotation to 812px wide is 110px). `vmin` is resolved by the
+      // browser on every reflow, so the staleness cannot happen.
+      const unit = "vmin";
       // Smaller across the board (user call 2026-08-18) — the coins were
       // crowding the dial; the ring reads better with air between the seats
       // and the clock face behind them.
@@ -725,6 +734,27 @@ export default {
   .go {
     cursor: pointer;
     &:hover {
+      color: red;
+    }
+  }
+}
+
+/* THE CLAIM PROMPT IS THE PLAYER'S WHOLE JOB ON A PHONE, and it was invisible
+   there. The overlay sits at `opacity: 0` and is revealed by `:hover`, a state
+   a touch screen never enters — so an empty chair offered no sign that tapping
+   it would take the seat. (It still WORKED: a transparent overlay takes clicks
+   perfectly well. Nothing said so.)
+
+   On a hoverless pointer it simply shows, dimmed enough that eight of them
+   around the ring do not shout over the town, and it keeps the same tap.
+   `:active` gives the press its own feedback in place of the hover it cannot
+   have. */
+@media (hover: none) {
+  .player .claim-overlay {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.42);
+    &:active {
+      background: rgba(0, 0, 0, 0.6);
       color: red;
     }
   }

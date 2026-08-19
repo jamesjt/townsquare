@@ -221,8 +221,29 @@ export default {
     track.style.pointerEvents = "none";
     const hit = document.createElement("div");
     hit.className = "blooddrip-hit";
-    hit.style.cssText = `position:absolute;right:0;top:0;width:${W + 4}px;height:100%;pointer-events:auto;cursor:grab;`;
+    // `touch-action: none` is what stops the browser deciding, mid-drag, that
+    // this gesture was really a scroll: without it the drag dies on a
+    // `pointercancel` that the old handler never listened for.
+    hit.style.cssText = `position:absolute;right:0;top:0;width:${W + 4}px;height:100%;pointer-events:auto;cursor:grab;touch-action:none;`;
     track.appendChild(hit);
+
+    // A COARSE POINTER MUST NOT MEET THIS STRIP AT ALL.
+    //
+    // It is 34px of always-on hit area pinned to the right edge of every
+    // scrolling list in the app — the grimoire drawer's role list is 250px
+    // wide, so the strip owns its right-hand seventh. On a mouse that is a
+    // scrollbar. Under a thumb it is a trap: the handler seeks on pointerDOWN,
+    // so beginning an ordinary swipe anywhere near the right edge did not
+    // scroll the list, it teleported it to wherever the finger happened to
+    // land — and right-edge is where a right-handed thumb naturally starts.
+    //
+    // A touch user loses nothing by its absence: dragging the list itself is
+    // the native gesture, and the drip still rides along, because it animates
+    // off the host's `scroll` event and does not care what caused it.
+    const coarse =
+      window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (coarse) hit.style.pointerEvents = "none";
+
     hit.addEventListener("pointerdown", e => {
       e.preventDefault();
       hit.setPointerCapture(e.pointerId);
@@ -240,9 +261,13 @@ export default {
         hit.style.cursor = "grab";
         hit.removeEventListener("pointermove", onMove);
         hit.removeEventListener("pointerup", onUp);
+        hit.removeEventListener("pointercancel", onUp);
       };
       hit.addEventListener("pointermove", onMove);
       hit.addEventListener("pointerup", onUp);
+      // a cancelled gesture fires no pointerup at all — without this the move
+      // handler outlived the drag and every later scroll kept seeking
+      hit.addEventListener("pointercancel", onUp);
     });
 
     el.__bloodScroll.cleanup = () => {
