@@ -10,9 +10,21 @@
  *                  it, so every path that flips the phase — the sheet's
  *                  button, the S hotkey, the menu — moves the counter
  *                  identically).
- *   entries        the log. Append-only: rows are added when the storyteller
- *                  first writes to them and are never removed, only patched
- *                  in place.
+ *   entries        the log. Rows are added when the storyteller first writes
+ *                  to them and are otherwise patched in place.
+ *
+ *                  FT-882 ENDED THE APPEND-ONLY RULE, deliberately and by
+ *                  the user's call: `removeEntry` takes a row back out. The
+ *                  reasoning is that the alternative on the table was a
+ *                  time-boxed undo for the phase flip — a snapshot, a
+ *                  broadcast, a cleanup of the abandoned night, and a rule
+ *                  about when the offer expires — and that machinery fixes
+ *                  exactly one mistake. An editable day counter plus a
+ *                  deletable row fixes that mistake and every other
+ *                  bookkeeping error, with no machinery at all, and treats
+ *                  the storyteller as the authority the rest of this sheet
+ *                  already treats them as. There is no undo behind the
+ *                  delete; the surface that offers it confirms first.
  *   requireChecks  FT-874: a standing setting, like `mode` — gates the night
  *                  sheet's "end night" button until every row is ticked.
  *                  Read by NightSheet's `canFlip`; set from NightModeRow's
@@ -303,6 +315,19 @@ const mutations = {
     });
     entry.at = new Date().toISOString();
     state.entries.splice(index, 1, entry);
+  },
+  /**
+   * FT-882: take a row back out of the log, by entry id.
+   *
+   * The whole entry goes — targets, told, the false-info mark and the tick —
+   * so the row reads as never-written rather than as written-and-empty. A
+   * missing id is a no-op: the sheet only offers this where an entry exists,
+   * and a double-fire must not throw.
+   */
+  removeEntry(state, id) {
+    const index = state.entries.findIndex(e => e.id === id);
+    if (index < 0) return;
+    state.entries.splice(index, 1);
   },
   /** Restore a stashed log (persistence only). */
   setLog(state, { day, entries } = {}) {

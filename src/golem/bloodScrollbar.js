@@ -224,7 +224,25 @@ export default {
     // `touch-action: none` is what stops the browser deciding, mid-drag, that
     // this gesture was really a scroll: without it the drag dies on a
     // `pointercancel` that the old handler never listened for.
-    hit.style.cssText = `position:absolute;right:0;top:0;width:${W + 4}px;height:100%;pointer-events:auto;cursor:grab;touch-action:none;`;
+    // THE GRAB STRIP COVERS THE RESERVED LANE, AND NOT A PIXEL MORE.
+    //
+    // It used to be `right: 0; width: LANE + 4`, anchored to the track's
+    // right edge — and because the track itself is planted 2px inside the
+    // lane, that put 16px of invisible, always-on grab area INSIDE the
+    // host's content column. Measured at 1920×1080 (FT-882,
+    // 2026-08-19-drip-overlap.mjs): the ul's text ended at x1162.7 and this
+    // strip started at x1146.4, so the right-most control on a row —
+    // whatever it happened to be — took its clicks on the scrollbar
+    // instead of on itself. It was found by a delete button that would not
+    // fire; the night sheet's false-info checkbox was already within a
+    // pixel or two of the same fate, and every other scrolling list in the
+    // app carried the same dead strip.
+    //
+    // `left: 2px` is measured off the track's own placement above
+    // (offsetLeft + clientWidth − LANE − 2), so the strip starts exactly at
+    // the content edge and runs the full width of the padding the host
+    // reserved for it.
+    hit.style.cssText = `position:absolute;left:2px;top:0;width:${LANE}px;height:100%;pointer-events:auto;cursor:grab;touch-action:none;`;
     track.appendChild(hit);
 
     // A COARSE POINTER MUST NOT MEET THIS STRIP AT ALL.

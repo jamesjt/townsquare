@@ -52,14 +52,21 @@
                played: no characters, no grimoire, no live state. There is
                nothing in it a player may not see.
 
-               Font Awesome, deliberately: this fork has no ledger mark of its
-               own yet, and the two candidates in the art set (the town count's
-               mark, the grimoire cover) each already MEAN something else on
-               screen — the exact collision FT-863 was filed for. It wears the
-               same chart-bar the pill's records door wears, so the two doors
-               to one overlay look like each other. -->
-          <font-awesome-icon
-            icon="chart-bar"
+               OUR OWN MARK now (user call 2026-08-19): Font Awesome's
+               chart-bar read as a digital bar chart, which is a different
+               century from everything beside it. ui-records is baked to the
+               measured material of the two marks it stands with — 128px,
+               silhouette only, no outline, the same warm stone grain (mean
+               rgb 154,146,133, luminance wandering 110-176).
+
+               An HOURGLASS, because every other literal object on this table
+               is taken: a scroll is the script, a gallows is the vote, a book
+               is the grimoire, so a ledger or tome would collide with the
+               book. Time already spent is exactly what town records are, and
+               the silhouette survives 26px, which a stack of books does
+               not. -->
+          <img
+            :src="uiRecords"
             title="Town records"
             @click="$emit('records')"
           />
@@ -205,6 +212,7 @@
 import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
 import uiVotes from "../assets/ui-votes.png";
+import uiRecords from "../assets/ui-records.png";
 import uiNight from "../assets/ui-night.png";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
@@ -249,6 +257,7 @@ export default {
     return {
       uiScript,
       uiVotes,
+      uiRecords,
       uiNight,
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's

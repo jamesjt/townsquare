@@ -45,6 +45,29 @@
           ><span class="pp-label">Night Checklist:</span>
           {{ progress.done }} / {{ progress.total }}</span
         >
+        <!-- FT-882: THE DAY IS EDITABLE, and this is the whole of the undo
+             the phase button does not have. A mis-tapped flip, a night
+             counted twice, a game resumed on the wrong number — all of them
+             are the same mistake, and all of them are fixed by saying which
+             night it actually is.
+
+             It is a NumberScrub, the control the build panel's seat count
+             and this sheet's own number answers already use, rather than a
+             bare input — one piece of furniture, three places.
+
+             Storyteller-only, like everything else in this component. It
+             travels: see setDay() below. -->
+        <span class="ns-day" :title="dayHint">
+          <span class="pp-label">Night</span>
+          <NumberScrub
+            preset="night"
+            :value="night.day"
+            :min="0"
+            :max="99"
+            :title="dayHint"
+            @input="setDay"
+          />
+        </span>
       </div>
 
       <p class="ns-empty" v-if="!roster.length">Nobody wakes tonight.</p>
@@ -230,14 +253,48 @@
                   :icon="entryFor(row).isFalseInfo ? 'check-square' : 'square'"
                 />
               </span>
+
+              <!-- FT-882: SCRUB THIS ROW FROM THE LOG. Present only once
+                   there IS something logged against it (`hasEntry`), so a
+                   fresh night carries no delete buttons at all and the
+                   control appears exactly where a mistake was made.
+
+                   It removes the ENTRY, not its contents: the row goes back
+                   to never-having-been-touched, which is the state the log
+                   is designed around (a row is born on its first write —
+                   see night/write) rather than a blanked ghost that still
+                   counts as a row. It also clears the row's tick, because
+                   the tick lives on the entry.
+
+                   There is no undo behind it — that is the design, not an
+                   oversight — so it asks first. A confirm is proportionate
+                   HERE and was not on the phase button: ending a phase
+                   happens every few minutes, deleting a record almost
+                   never. -->
+              <button
+                v-if="hasEntry(row)"
+                type="button"
+                class="ns-erase"
+                title="Delete what is logged for this row — this cannot be undone"
+                @click="eraseRow(row)"
+              >
+                <!-- trash-ALT: the icon set main.js already registers. The
+                     plain `trash` is not in that list and adding it would
+                     mean editing a file another lane is holding. -->
+                <font-awesome-icon icon="trash-alt" />
+              </button>
             </div>
 
             <!-- FT-874: ONE line, truncated — a storyteller is SCANNING a
                  checklist here (compare ScriptView, where the ability wraps
                  in full: there the storyteller is READING to learn a script,
-                 a different job). The title carries what the ellipsis cuts,
-                 so nothing said is lost, only hidden until asked for. -->
-            <span class="ns-reminder" :title="row.reminder">{{ row.reminder }}</span>
+                 a different job).
+                 FT-886/882: the row now SHOWS our own short line and the
+                 tooltip carries the OFFICIAL wording. Binding both to
+                 `reminder` made the hover a copy of the line already on
+                 screen and put the shipped text out of reach from the row —
+                 `official` is the field that lane left here for it. -->
+            <span class="ns-reminder" :title="row.official">{{ row.reminder }}</span>
           </div>
         </li>
       </ul>
@@ -365,6 +422,20 @@ export default {
         ? "Wake the town — the log stays on Night " + this.night.day
         : "Night " + (this.night.day + 1) + " begins, and the log moves with it";
     },
+    /**
+     * FT-882: what the day scrub explains about itself on hover. It says the
+     * consequence, not the mechanic — moving the counter re-keys tonight's
+     * rows (an entry's id is day+seat+role), so what was logged under the old
+     * number stays logged under it and tonight starts clean. That is the
+     * behaviour a storyteller correcting a mis-tapped flip actually wants,
+     * and it is not guessable, so the control says it.
+     */
+    dayHint() {
+      return (
+        "Which night this is — drag to scrub, click to type. " +
+        "Anything already logged stays under the night it was logged on."
+      );
+    },
     /** Every row checked off — the signal that flips the finish button from
      *  quiet to obvious (never blocking; a storyteller may move on early). */
     allChecked() {
@@ -407,6 +478,49 @@ export default {
     },
     write(row, patch) {
       this.$store.dispatch("night/write", { row, patch });
+    },
+    /** Is there anything in the log for this row at all? The delete control
+     *  exists only where the answer is yes — see the template. */
+    hasEntry(row) {
+      return !!this.entriesById[row.key];
+    },
+    /**
+     * FT-882: the day counter, moved by hand.
+     *
+     * It is a MUTATION, not local state, for the same reason the phase flip
+     * is: every client shows "Night N" in the town readout above the clock
+     * face, and each one derives that number from its own toggleNight. A
+     * host correcting the number here has to reach them or the town is
+     * reading a different night than the log is writing. socket.js carries
+     * it on the same gamestate the phase rides (see its `nightDay` field).
+     */
+    setDay(day) {
+      this.$store.commit("night/setDay", day);
+    },
+    /**
+     * FT-882: scrub one row from the log.
+     *
+     * WHAT THIS REMOVES: the whole entry — every target, everything told,
+     * the false-info mark, and the tick. Not a blanking: the row returns to
+     * the state it had before the storyteller first touched it, which is a
+     * state the log already models (rows are born on first write). A blanked
+     * row would have left a record saying "the storyteller logged nothing
+     * here", which is a different and untrue claim.
+     *
+     * It asks first, and the wording names the row so a mis-aimed click on
+     * a crowded list is caught by reading rather than by regret.
+     */
+    eraseRow(row) {
+      const who = row.player.name || "seat " + (row.seat + 1);
+      if (
+        !confirm(
+          `Delete everything logged for ${row.role.name} (${who}) on night ` +
+            `${this.night.day}?\n\nThis cannot be undone.`
+        )
+      ) {
+        return;
+      }
+      this.$store.commit("night/removeEntry", row.key);
     },
     /** Patch `told` by merging over the row's CURRENT told, so setting one
      *  field (a number) never clobbers another already on the entry (a
@@ -736,14 +850,19 @@ $ns-team-colors: (
         // inside the circle rather than on the rim
       }
 
-      // nobody wakes tonight: no header band to sit under, so this one
-      // centres itself in whatever the button leaves
+      // NOBODY WAKES TONIGHT. There is no header band on this night (the
+      // progress count is `v-if="roster.length"`), so this message has to
+      // reserve the top cap itself — measured: left to grow into the space
+      // the header would have held, it pushed the End-night button onto the
+      // disc's bottom edge and both their corners were sheared by the arc
+      // (2026-08-19-night-disc-empty.mjs, first run). Same band, same caps,
+      // whether the night has rows or a sentence.
       > .ns-empty {
-        flex: 1 1 auto;
+        flex: 0 0 calc(var(--ns-d) - 2 * var(--ns-caph));
+        margin: var(--ns-caph) 0 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0;
       }
 
       // The button rides the TOP of the bottom cap, where the circle is
@@ -958,6 +1077,21 @@ $ns-team-colors: (
     // opacity: the parent's 0.65 already mutes both label and count evenly.
     .pp-label {
       margin-right: 4px;
+    }
+  }
+
+  // FT-882: the editable night counter, beside the progress it belongs to.
+  // A shade more present than the count next to it — that is a readout, this
+  // is a control, and the difference should be visible before it is hovered.
+  .ns-day {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 14px;
+    font-size: 90%;
+    letter-spacing: 0.5px;
+    .pp-label {
+      opacity: 0.65;
     }
   }
 }
@@ -1387,6 +1521,35 @@ $ns-team-colors: (
     }
   }
 
+  // FT-882: scrub this row from the log. Same box, same height as every
+  // other row control — it is not a special shape, it is just the one with
+  // consequences. Quiet until reached for, then RED: red in this app means
+  // blood and harm, which is exactly what this is, and as a hover state it
+  // says "dangerous" without putting a second standing accent on a surface
+  // whose accent is now the grimoire's purple.
+  .ns-erase {
+    height: 30px;
+    width: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    opacity: 0.4;
+    font-size: 12px;
+    color: #d8cdb4;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid #3d3d3d;
+    border-radius: 5px;
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+      color: #ff8a8a;
+      border-color: #7d0e0e;
+      outline: none;
+    }
+  }
+
   // the reminder — FT-862: the sentence the storyteller reads aloud, sized
   // to be readable rather than a caption. FT-874: ONE line now, truncated —
   // a checklist is for SCANNING, not reading (compare ScriptView, which
@@ -1432,7 +1595,8 @@ $ns-team-colors: (
     }
     .ns-free,
     .ns-told,
-    .ns-lie {
+    .ns-lie,
+    .ns-erase {
       height: 44px;
       font-size: 15px;
     }
@@ -1440,7 +1604,8 @@ $ns-team-colors: (
       flex: 1;
       min-width: 140px;
     }
-    .ns-lie {
+    .ns-lie,
+    .ns-erase {
       width: 44px;
     }
   }

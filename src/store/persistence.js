@@ -233,6 +233,8 @@ module.exports = store => {
       // the day counter are stashed against the town they belong to. The day
       // moves inside toggleNight (see the root mutation), so the phase flip
       // has to write too or a reload would lose which night it is.
+      // FT-882: removeEntry joins them — a deleted row has to leave the stash
+      // as well, or a reload brings it straight back.
       case "night/setMode":
         saveMode(state.night.mode);
         break;
@@ -244,6 +246,7 @@ module.exports = store => {
       case "night/setLog":
       case "night/addEntry":
       case "night/patchEntry":
+      case "night/removeEntry":
         saveLog(state.session.sessionId, state.night.day, state.night.entries);
         break;
       case "session/setPlayerId":

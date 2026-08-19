@@ -189,6 +189,13 @@ class LiveSession {
         if (!this._isSpectator) return;
         this._store.commit("toggleNight", params);
         break;
+      // FT-882: the storyteller moved the night counter by hand (the night
+      // sheet's day scrub). Its own channel rather than a full gamestate
+      // resend — the same shape every other one-value ST broadcast here has.
+      case "nightDay":
+        if (!this._isSpectator) return;
+        this._store.commit("night/setDay", params);
+        break;
       case "isVoteHistoryAllowed":
         if (!this._isSpectator) return;
         this._store.commit("session/setVoteHistoryAllowed", params);
@@ -307,6 +314,12 @@ class LiveSession {
       this._sendDirect(playerId, "gs", {
         gamestate: this._gamestate,
         isNight: grimoire.isNight,
+        // FT-882: WHICH night it is, sent explicitly. Until now every client
+        // DERIVED this by counting its own day→night transitions, which is
+        // exact as long as nobody ever corrects it — and the night sheet now
+        // lets a storyteller correct it. A joiner also inherits the right
+        // number instead of starting from zero.
+        nightDay: this._store.state.night.day,
         isVoteHistoryAllowed: session.isVoteHistoryAllowed,
         nomination: session.nomination,
         votingSpeed: session.votingSpeed,
@@ -330,6 +343,9 @@ class LiveSession {
       gamestate,
       isLightweight,
       isNight,
+      // FT-882: the storyteller's night counter, now that it can be edited
+      // by hand and is no longer derivable from the transitions alone
+      nightDay,
       isVoteHistoryAllowed,
       nomination,
       votingSpeed,
@@ -383,6 +399,15 @@ class LiveSession {
     });
     if (!isLightweight) {
       this._store.commit("toggleNight", !!isNight);
+      // FT-882: AFTER toggleNight, never before — that mutation is the one
+      // place the counter auto-increments, so a value applied ahead of it
+      // would be bumped by the very sync that delivered it. The host's
+      // number is the authority; this overwrites whatever the client
+      // counted for itself. Guarded so an older host that sends no
+      // nightDay leaves the client's own count alone rather than zeroing it.
+      if (typeof nightDay === "number") {
+        this._store.commit("night/setDay", nightDay);
+      }
       this._store.commit("session/setVoteHistoryAllowed", isVoteHistoryAllowed);
       this._store.commit("session/nomination", {
         nomination,
@@ -821,6 +846,18 @@ class LiveSession {
   }
 
   /**
+   * FT-882: send WHICH night it is. ST only.
+   *
+   * Only needed because the counter became editable — a phase flip still
+   * moves it on every client by itself (toggleNight owns the increment), so
+   * this carries the corrections, and the full gamestate carries the rest.
+   */
+  setNightDay() {
+    if (this._isSpectator) return;
+    this._send("nightDay", this._store.state.night.day);
+  }
+
+  /**
    * Send the isVoteHistoryAllowed state. ST only
    */
   setVoteHistoryAllowed() {
@@ -1023,6 +1060,12 @@ export default store => {
         break;
       case "toggleNight":
         session.setIsNight();
+        break;
+      // FT-882: the night sheet's day scrub. It rides a mutation like every
+      // other ST broadcast in this table, so any later surface that wants to
+      // correct the counter commits the same thing and inherits the guard.
+      case "night/setDay":
+        session.setNightDay();
         break;
       case "setEdition":
         session.sendEdition();
