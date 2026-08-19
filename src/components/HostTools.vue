@@ -7,10 +7,9 @@
   <div class="host-tools">
     <!-- By this point the host has always already named the town, one menu
          back — restating "Build the town" here said nothing "Ravenswood" one
-         line below didn't already say, so the name IS the heading now. The
-         old Town row's rename affordance (the pencil, same startRename /
-         commitRename flow underneath) moves onto the heading with it, and
-         the row folds away.
+         line below didn't already say, so the name IS the heading now, and
+         the old Town row folds away. Its rename affordance moved onto the
+         heading first and then came off entirely — see the note on the h3.
 
          `.ht-head` wraps h3 rather than leaving it bare so the games-played
          line and the rename note can sit under the name without becoming a
@@ -18,14 +17,14 @@
          is measured for exactly three (cap / band / cap; see faceDisc.scss),
          and a fourth would push the band off its centre. -->
     <div class="ht-head">
-      <h3
-        v-if="!renaming"
-        :class="{ owned: ownedKey }"
-        @click="ownedKey && startRename()"
-        :title="headTitle"
-      >
+      <!-- NOT RENAMEABLE FROM HERE (user call, 2026-08-19). The town is named
+           in the host menu one screen earlier, and offering a second place to
+           change it here made the heading look like a control rather than a
+           title. The rename flow itself (startRename / commitRename / the
+           input below) is left in place, unwired, for whichever surface should
+           own renaming. -->
+      <h3 v-if="!renaming" :title="headTitle">
         {{ townName }}
-        <font-awesome-icon v-if="ownedKey" icon="pen" />
       </h3>
       <input
         v-else
