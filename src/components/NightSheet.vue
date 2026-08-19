@@ -14,11 +14,7 @@
        the town readout above the clock face (another lane), because every
        player is meant to see it. What stays here, storyteller-only: the
        progress count, and the single Day-breaks/Night-falls button. -->
-  <div
-    class="night-sheet"
-    :class="{ 'is-night': isNight, 'has-list': showList }"
-    :style="labVars"
-  >
+  <div class="night-sheet" :class="{ 'is-night': isNight, 'has-list': showList }">
     <!-- OFF / DAYTIME: no checklist to show, so the sheet is just the one
          control that gets the storyteller INTO a night — nothing else
          belongs in a bar with one button in it. -->
@@ -346,60 +342,20 @@
       </button>
     </template>
 
-    <!-- ── THE NIGHT-SHEET LAB (Ns) — TEMPORARY, DELETE ME ─────────────────
-         Four scrubs that nudge the disc's geometry so a value can be found by
-         EYE and then baked into the stylesheet below, at which point this
-         block, its script/style sections and the four `--ns-*-adj` reads all
-         come out together. Same idiom and the same dev-door column as
-         App.vue's FACE LAB (#face-lab, tab "Fa"), one notch below it: three
-         inventions read as three inventions, one column reads as a toolkit.
+    <!-- (THE DISC'S SIZE LAB used to stand here, as `#night-lab`. It moved to
+         App.vue — `src/components/FaceDiscLab.vue`, the "Fd" door — in FT-888,
+         because its dials now drive EVERY menu on the clock face rather than
+         this one, and because a lab that only exists at night, on a
+         storyteller's screen, with the checklist open, could not be found
+         during the day.
 
-         EVERY SCRUB IS AN OFFSET, never a replacement — zero is exactly what
-         ships, in all four — so Reset is a real return and not an
-         approximation of one.
-
-         DESKTOP DISC ONLY. All four values are read inside the disc's own
-         media query; a phone's bottom sheet has no disc, no caps and no band,
-         and never sees them.
-
-         IT LIVES IN document.body, moved there on mount (see mounted() —
-         which is also why it carries a ref and no scoped-layout assumptions).
-         The sheet is TRANSFORMED in every mode it has (translate(-50%,-50%)
-         on the disc, translateY on the day pill), and a transformed ancestor
-         becomes the containing block for `position: fixed` descendants — left
-         in place, a fixed lab would be positioned against the disc instead of
-         against the window. Moving it beats wrapping the sheet in a new root:
-         a temporary tool should not leave permanent scaffolding in the markup
-         it was built to tune.
-
-         NOTE, carried from the face lab: NumberScrub's type-in strips
-         non-digits, so a NEGATIVE offset can be DRAGGED but not typed. Left as
-         it is rather than forking a shared control for a tool that is coming
-         out again. -->
-    <div id="night-lab" ref="nsLab" :class="{ open: nsLabOpen }">
-      <button
-        type="button"
-        class="fd-toggle"
-        title="Night sheet lab — disc size, band width, header and button offsets"
-        :aria-expanded="String(nsLabOpen)"
-        @click="nsLabOpen = !nsLabOpen"
-      >
-        Ns
-      </button>
-      <div class="nl-rows" v-if="nsLabOpen">
-        <div class="nl-row" v-for="d in nsDials" :key="d.key">
-          <span class="nl-label" :title="d.hint">{{ d.label }}</span>
-          <NumberScrub
-            :value="nsLab[d.key]"
-            :min="d.min"
-            :max="d.max"
-            :title="d.hint"
-            @input="setNsLab(d.key, $event)"
-          />
-        </div>
-        <button type="button" class="nl-reset" @click="resetNsLab">Reset</button>
-      </div>
-    </div>
+         Its going also fixed this sheet. The lab was portalled into
+         document.body on mount to escape the sheet's transform, but Vue went
+         on using that element as the insert-before reference for the sheet's
+         own children — and Vue's `insert` silently does nothing when the
+         reference has been reparented. So the rows and the End-night button
+         were built and never inserted, and the disc rendered as a header over
+         an empty circle.) -->
   </div>
 </template>
 
@@ -426,118 +382,8 @@ export default {
     return {
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
-      flashing: {},
-
-      // ── THE NIGHT-SHEET LAB — TEMPORARY, DELETE ME (see the template) ────
-      nsLabOpen: false,
-      // persisted, because a dialled value has to survive the reload it takes
-      // to go and look at it again — the face lab's own lesson
-      nsLab: {
-        r: Number(localStorage.getItem("golem.nsR") || 0),
-        band: Number(localStorage.getItem("golem.nsBand") || 0),
-        head: Number(localStorage.getItem("golem.nsHead") || 0),
-        foot: Number(localStorage.getItem("golem.nsFoot") || 0)
-      },
-      // THE FOUR SCRUBS, and the reasoning behind every bound. All measured at
-      // 1280×800 — the TIGHTEST viewport the disc runs at, since its media
-      // query floors at 1000×780 — so a bound that holds there holds
-      // everywhere the disc appears. At that size the face gives r = 211.6px:
-      // band 344.7px wide, list band 245.4px tall, each cap 88.9px.
-      //
-      // THE CAPS ARE WHAT BUY THE BAND ITS WIDTH — the rows are wider than the
-      // circle's inscribed square precisely because the header and the button
-      // sit in the caps instead of in the band. So the row width is the thing
-      // that must not be strangled, and it is guarded in TWO places, because
-      // R and W are two scrubs against one quantity and their bounds compound:
-      //
-      //   · here, per scrub, so neither alone does anything silly;
-      //   · and in the stylesheet, as a `max()` FLOOR on the computed band
-      //     (--ns-band-floor, 265px) — the only bound that holds whatever the
-      //     two do BETWEEN them. Bounding each on its own still let R−40 and
-      //     W−80 meet at a 199px band; the floor is what makes that unreachable.
-      //
-      // Hd and Ft cannot touch the band at all — they are transforms, and a
-      // transform takes no part in layout — so those two are bounded by the
-      // RIM instead, at values read off the sweep rather than reasoned about.
-      nsDials: [
-        {
-          key: "r",
-          label: "R",
-          // DOWN to −40: r = 172, band 280px — still a readable column, and
-          // about where the 640px rectangle layout's own reading width starts.
-          // Below that it strangles (−80 would leave 214px of line for a row
-          // carrying a label, two seat pickers and a sentence).
-          // UP to +60: past the painted rim the disc stops being a plate laid
-          // ON the dial and becomes one covering it — a different design, but
-          // watching that happen is the point of having a lab.
-          min: -40,
-          max: 60,
-          hint: "Disc radius, offset from the clock face (0 = the face itself)"
-        },
-        {
-          key: "band",
-          label: "W",
-          // The band is ALREADY the maximal chord the circle allows at cap
-          // 0.21: half-height 122.7, half-width 172.4, and 172.4² + 122.7² is
-          // exactly r². So the FIRST positive pixel is outside the circle and
-          // `overflow: hidden` shears the band's four corners, which shows as
-          // clipped row rules on the top and bottom rows. +30 is roughly where
-          // that reads at 1280×800, and it is allowed because the corner
-          // region carries no text (rows are left-aligned) and a wider line
-          // may still be the better trade.
-          // −80 goes as narrow as the FLOOR permits and no further; the floor,
-          // not this number, is what actually stops the strangling.
-          min: -80,
-          max: 30,
-          hint: "Text band width, offset from the chord the caps allow (0 = as built)"
-        },
-        {
-          key: "head",
-          label: "Hd",
-          // NEGATIVE IS UP. The header rides the bottom of the top cap and
-          // moves by transform, so the list band never shifts and the row
-          // width is untouched whatever this does — only the rim binds it.
-          // SWEPT at 1280×800 (the binding viewport), clearance from the rim
-          // measured at the header content's worst corner, on top of the −9px
-          // bake: 0 → 10.5px, −4 → 7.3, −8 → 4.0, −12 → 0.7, −16 → −2.7.
-          // So −16 is deliberately ONE NOTCH PAST the edge: the failure is
-          // reachable and visible rather than theoretical, which is what a dial
-          // meant for finding a value by eye is for.
-          // DOWN to +24: further and it laps the first row.
-          min: -16,
-          max: 24,
-          hint: "Header up (negative) or down, from where it now sits in the top cap"
-        },
-        {
-          key: "foot",
-          label: "Ft",
-          // POSITIVE IS DOWN, toward the bottom pole, where the arc closes on
-          // a button that is 0.95r wide. Same sweep, same viewport, on top of
-          // the +6px bake: −10 → 11.2px, 0 → 4.9, +4 → 1.3, +8 → −2.2.
-          // +8 is again one notch past the edge; +4 is the last safe value.
-          // −24 lifts it back up toward the list.
-          min: -24,
-          max: 8,
-          hint: "End-night button down (positive) or up, from where it now sits"
-        }
-      ]
+      flashing: {}
     };
-  },
-  /**
-   * THE LAB'S PORTAL — TEMPORARY, DELETE ME (see the template for why the
-   * element cannot simply stay where it is written).
-   *
-   * Vue 2 patches by element reference rather than by parent, so the panel
-   * stays fully reactive after the move; only the teardown needs saying out
-   * loud, because Vue will look for it under a parent it no longer has.
-   */
-  mounted() {
-    const lab = this.$refs.nsLab;
-    if (lab && document.body) document.body.appendChild(lab);
-  },
-  beforeDestroy() {
-    const lab = this.$refs.nsLab;
-    if (lab && lab.parentNode) lab.parentNode.removeChild(lab);
   },
   computed: {
     ...mapState(["grimoire", "session", "night", "roles"]),
@@ -549,23 +395,6 @@ export default {
     ...mapGetters("night", ["isFirstNight"]),
     isNight() {
       return this.grimoire.isNight;
-    },
-    /**
-     * THE LAB'S OUTPUT — TEMPORARY, DELETE ME (see the template).
-     *
-     * Four custom properties on the sheet's own element, which the disc's
-     * media block reads with a `0px` fallback. Published even at zero and even
-     * on a phone, which costs nothing: the only rules that read them sit
-     * inside the desktop disc query, so a bottom sheet never sees them, and
-     * `var(--x, 0px)` against `--x: 0px` computes identically.
-     */
-    labVars() {
-      return {
-        "--ns-r-adj": this.nsLab.r + "px",
-        "--ns-band-adj": this.nsLab.band + "px",
-        "--ns-head-adj": this.nsLab.head + "px",
-        "--ns-foot-adj": this.nsLab.foot + "px"
-      };
     },
     /** The checklist shows at night, and only when the sheet is switched on. */
     showList() {
@@ -668,31 +497,6 @@ export default {
     }
   },
   methods: {
-    /**
-     * THE LAB — TEMPORARY, DELETE ME (see the template).
-     *
-     * Clamped against each dial's OWN declared bounds rather than a second
-     * copy of the numbers, so the range documented beside a scrub is the range
-     * actually enforced. NumberScrub clamps its own emissions too; two
-     * independently-written clamps are two things that can disagree.
-     */
-    setNsLab(key, px) {
-      const dial = this.nsDials.find(d => d.key === key);
-      if (!dial) return;
-      const v = Math.max(dial.min, Math.min(dial.max, Number(px) || 0));
-      this.nsLab[key] = v;
-      try {
-        localStorage.setItem(
-          "golem.ns" + key.charAt(0).toUpperCase() + key.slice(1),
-          String(v)
-        );
-      } catch (e) {
-        // storage off: the dial still works for this session
-      }
-    },
-    resetNsLab() {
-      this.nsDials.forEach(d => this.setNsLab(d.key, 0));
-    },
     /**
      * The row's stored entry, or a blank stand-in that is NOT stored. A row is
      * born on its first write (the night/write action), so the log never fills
@@ -910,6 +714,9 @@ export default {
 
 <style scoped lang="scss">
 @import "../vars.scss";
+// FT-888: the clock face's disc — geometry, gate and material, shared with the
+// entry panels and the build panel.
+@import "../faceDisc.scss";
 
 // ROW CONTROL HEIGHT CONTRACT: 30px desktop / 44px coarse-pointer — matched
 // by hand in SeatPicker.vue and CharacterPicker.vue's own styles. A change
@@ -965,239 +772,58 @@ $ns-team-colors: (
     overflow: hidden;
   }
 
-  // ── THE DISC (FT-882, desktop only) ───────────────────────────────────
+  // ── THE DISC (FT-882; shared in FT-888, desktop only) ─────────────────
   //
   // The checklist stops being a rectangle floating over the dial and becomes
-  // a PLATE LAID ON IT: same centre, same radius, border-radius 50%.
-  //
-  // This is only buildable because the art was recentred (FT-anon,
-  // 2026-08-19): App.vue publishes --face-cx / --face-cy / --face-r, so the
-  // disc is placed and sized from the face's own published geometry and NOT
-  // from a hand-tuned offset. Those three are the single source of truth —
-  // if the disc ever sits off the dial, the numbers there are what to fix.
-  //
-  // THE SHAPE COSTS WIDTH, AND THE ROWS GET THE MIDDLE OF IT.
-  // A circle's usable line width changes row by row — nothing at the poles,
-  // everything at the equator — and this list is scanned under time pressure
-  // with a full sentence on every row. So the DISC IS THE FRAME and the rows
-  // live in the rectangle inscribed in it, dead centre. What the poles get
-  // instead is the two things short enough to want them: the progress count
-  // at the top, the End-night button at the bottom.
-  //
-  // THE BAND MATH, once, here:
-  //   cap  t  = --ns-cap × diameter, the height surrendered at EACH pole
-  //   half-height  b = r − t          (the list band is centred, so both
-  //                                    poles must give up the same t — the
-  //                                    NARROWER cap is what binds the width)
-  //   half-width   a = √(r² − b²) = √(2rt − t²)
-  // --ns-hw is a/r, kept in sync BY HAND against --ns-cap: CSS sqrt() is too
-  // new to lean on in a fork that has to run in whatever a storyteller has
-  // open. cap .18 → hw .768 | .21 → .8146 | .25 → .866 | .28 → .898.
-  //
-  // Widening the band (a bigger cap) buys line width and spends visible
-  // rows; .21 is the measured settlement — see the FT-882 report for the
-  // widths this lands at on each viewport.
-  //
-  // THE FLOOR, and it is measured rather than guessed. Below it a small
-  // desktop window keeps the 640px rectangle above rather than getting an
-  // unreadable disc. Two things set it:
-  //   · the band stops being a readable column as the face shrinks;
-  //   · the header's contents do NOT shrink with the disc — "Checklist: 0/11"
-  //     plus the day scrub is a fixed ~263px — and the arc above the band
-  //     closes in faster than that. At 780px of window height the safe width
-  //     where the header's top edge sits is ~280px; below roughly 760 it
-  //     crosses under the header's own width and the scrub starts poking
-  //     through the rim.
-  @media (pointer: fine) and (min-width: 1000px) and (min-height: 780px) {
+  // a PLATE LAID ON IT. Everything the shape IS — the radius off --face-r,
+  // the cap fraction, the band chord and its floor, the desktop gate, the
+  // material — now lives in src/faceDisc.scss, because three other menus on
+  // this face are the same object and each used to carry its own copy of
+  // these numbers. What stays HERE is only what is this sheet's own: which
+  // element is the header, which is the band, and what the rows do once the
+  // column narrows.
+  @include face-disc-gate {
     &.has-list {
-      // THE FOUR `-adj` READS BELOW BELONG TO THE SIZE LAB — TEMPORARY, and
-      // they come out with it (see the template's DELETE ME block). Each is a
-      // `+ var(--x, 0px)` on the end of an expression that was already
-      // correct, so with the lab gone — or every scrub at zero — these lines
-      // compute exactly what they computed before it existed.
-      //
-      // They live HERE, inside the disc's media query, on purpose: a phone's
-      // bottom sheet has no disc, no caps and no band, and must not follow any
-      // of this.
-      --ns-r: calc(var(--face-r, 238) * var(--fpx, 1px) + var(--ns-r-adj, 0px));
-      --ns-d: calc(2 * var(--ns-r));
-      --ns-cap: 0.21;
-      --ns-hw: 0.8146;
-      // THE BAND HAS A FLOOR, and the floor is the reason it is `max()` and
-      // not a plain sum. R and W are two scrubs against ONE quantity, so their
-      // clamps COMPOUND: bounding each on its own still let R−40 and W−80 meet
-      // at a 199px band (measured), which is not a column anybody can read a
-      // labelled row in. Clamping the RESULT is the only bound that holds
-      // whatever the two scrubs do between them.
-      // 265px is the number: the narrowest disc in range (R−40 at 1000×780,
-      // the smallest viewport the disc runs at) still allows a 270.8px chord,
-      // so the floor is always inside the circle and never itself the thing
-      // that pokes out.
-      --ns-band-floor: 265px;
-      --ns-band: max(
-        var(--ns-band-floor),
-        calc(2 * var(--ns-hw) * var(--ns-r) + var(--ns-band-adj, 0px))
-      );
-      --ns-caph: calc(var(--ns-cap) * var(--ns-d));
+      @include face-disc-frame;
 
-      // ── WHERE THE CAP FURNITURE SITS (FT-882, 2026-08-19, user call) ─────
-      // "put that a bit higher in the circle, and end night a bit lower."
-      //
-      // BOTH MOVE BY TRANSFORM, never by margin and never by flex basis, and
-      // that is the load-bearing choice: a transform takes no part in layout,
-      // so the list band's height, width and CENTRING are untouched by
-      // anything either of these does. Move them with margins instead and the
-      // band slides off centre, at which point it is bound by whichever pole
-      // it now sits nearer and its far corners are sheared by the rim — the
-      // exact failure the band math above exists to avoid.
-      //
-      // The caps are also what BUY the band its width (the rows are wider than
-      // the inscribed square precisely because the header and the button sit
-      // in the caps rather than in the band), so this arrangement keeps that
-      // trade intact: the furniture moves within its cap; the cap does not
-      // move.
-      //
-      // THE TWO NUMBERS ARE MEASURED, not guessed — swept at 1280×800,
-      // 1920×1080 and 1000×780 (the disc's own floor), reading each box's
-      // WORST CORNER distance from the disc centre against the radius. The
-      // binding viewport is 1280×800 for both. Clearance left at the bake:
-      //
-      //   header  −9px  → 10.5px spare (was 17.0 at rest; the header's content
-      //                   is 233px wide and its top edge sits 48px down)
-      //   button  +6px  →  4.9px spare (was 10.0 at rest)
-      //
-      // The button is the tight one and the sweep is why it reads +6 and not
-      // the +10 this started at: at +10 the clearance came out at 1.3px, which
-      // is not a margin, it is a coincidence — one longer label or one font
-      // fallback and `overflow: hidden` takes the corners off. +6 is still
-      // plainly lower and keeps half the original margin. The lab is right
-      // there for anyone who wants to spend the rest of it.
-      --ns-head-dy: -9px;
-      --ns-foot-dy: 6px;
-
-      position: absolute;
-      left: var(--face-cx, 50%);
-      top: var(--face-cy, 50%);
-      transform: translate(-50%, -50%);
-      width: var(--ns-d);
-      height: var(--ns-d);
-      // THE DISC IS THE FACE. The window caps on the base rule would square
-      // this off into an oval the moment a viewport got tight — and an oval
-      // no longer registers to the dial, which is the whole point. A freak
-      // aspect ratio crops the face; the disc crops with it.
-      max-width: none;
-      max-height: none;
-      border-radius: 50%;
-      border: none;
-      padding: 0;
-      align-items: center;
-
-      // THE MATERIAL: a plate laid on the dial, not a hole cut in it. Dark
-      // (every colour on these rows — the text, the purple ticks, the gold
-      // lie flag — is built for a dark ground) and thinnest at the middle,
-      // so the dial's rose still reads faintly under the list instead of
-      // being blotted out.
-      //
-      // WHAT SHOWS THROUGH, AND WHAT MUST NOT. Under this disc sits the
-      // hub — and the hub carries the town readout: script name in display
-      // type, the alive/vote counts at 40px, the edition mark. At 0.78 and
-      // again at 0.88 those read straight through the middle three rows
-      // (shots: cap021-1280x800, passes 1 and 2) — the same failure the
-      // rectangle's own history records at 0.88 over the build plate.
-      //
-      // Raising the alpha until they vanish also takes the rose with them,
-      // and the rose showing through is the point of laying a disc on a
-      // dial. So the blur does the separating instead: `backdrop-filter`
-      // smears everything behind into a wash, which destroys TEXT (fine
-      // strokes, and text is the thing that must not read) while leaving
-      // the rose's broad shapes and colour perfectly legible as a ground.
-      // Alpha then only has to knock the wash back, not erase it.
-      backdrop-filter: blur(7px) brightness(0.5) saturate(0.85);
-      //
-      // THE COLOUR IS THE GRIMOIRE'S, not parchment's (FT-882, decided with
-      // the tick going purple in the same pass): rgba(20, 16, 22) is the
-      // ground RoleDrawer's own controls sit on, a cool purple-black — the
-      // book's paper. A warm brown plate here would have read as a third
-      // material on a surface that already has the bronze dial under it and
-      // the purple book on it.
-      background: radial-gradient(
-        circle at 50% 44%,
-        rgba(30, 24, 34, 0.82) 0%,
-        rgba(22, 17, 25, 0.88) 52%,
-        rgba(14, 10, 16, 0.93) 86%,
-        rgba(9, 6, 10, 0.95) 100%
-      );
-      // TWO threads, and they say different things. The inner hairline is
-      // the grimoire's purple — this sheet's own edge. Outside it, one
-      // bronze thread seats the disc ON the dial's painted rim rather than
-      // letting it hover as a separate object.
-      box-shadow:
-        inset 0 0 0 1px rgba(120, 105, 135, 0.38),
-        inset 0 0 34px rgba(0, 0, 0, 0.8),
-        0 0 0 1px rgba(150, 120, 60, 0.22),
-        0 0 26px rgba(0, 0, 0, 0.75);
-
-      // ── the three bands, exact: cap + (d − 2cap) + cap = d ──────────────
-      // The list band MUST come out centred — an off-centre band is bound by
-      // whichever pole it sits closer to, and its far corners then poke out
-      // through the circle (where `overflow: hidden` quietly shears them).
-      // So every basis below is stated, and none of them flex.
-      // THE HEADER IS NARROWER THAN THE BAND, and it has to be. It sits at
-      // the BOTTOM of the top cap, so the arc that bounds it is the one at
-      // its content's TOP edge — about 30px higher than the band line, where
-      // the circle has already closed in. Measured at 1280×800 (FT-882): the
-      // band is 344.7px there but only 288px is safe at that height, and a
-      // header laid out to the full band pushed the day scrub's corner
-      // 14px outside the disc. 1.3r clears it at every size in range, and
-      // the 2px bottom padding buys back most of what the check costs by
-      // sitting the row lower.
+      // THE HEADER — the progress count and the night scrub, in the top cap.
+      // The 2px bottom padding buys back most of what the arc check costs by
+      // sitting the row lower; `align-items: flex-end` is what puts it at the
+      // BOTTOM of the cap, which is the placement the 1.3r width was measured
+      // against.
       > .phase {
-        flex: 0 0 var(--ns-caph);
-        width: calc(1.3 * var(--ns-r));
+        @include face-disc-head;
         align-items: flex-end;
         padding: 0 0 2px;
-        // rides HIGHER in the top cap — the bake above plus whatever the lab
-        // is holding. Layout-free, so the band below never moves.
-        transform: translateY(calc(var(--ns-head-dy) + var(--ns-head-adj, 0px)));
       }
 
+      // THE BAND — the checklist itself. The drip runs down the band's own
+      // inside edge (the directive reserves its 30px lane in the host's
+      // padding), so it lands well inside the circle rather than on the rim.
       > .ns-rows {
-        flex: 0 0 calc(var(--ns-d) - 2 * var(--ns-caph));
-        width: var(--ns-band);
-        // the drip runs down the band's own inside edge (the directive
-        // reserves its 30px lane in the host's padding), so it lands well
-        // inside the circle rather than on the rim
+        @include face-disc-band;
       }
 
-      // NOBODY WAKES TONIGHT. There is no header band on this night (the
-      // progress count is `v-if="roster.length"`), so this message has to
-      // reserve the top cap itself — measured: left to grow into the space
-      // the header would have held, it pushed the End-night button onto the
-      // disc's bottom edge and both their corners were sheared by the arc
+      // NOBODY WAKES TONIGHT. There is no header on this night (the progress
+      // count is `v-if="roster.length"`), so this message has to reserve the
+      // top cap itself — measured: left to grow into the space the header
+      // would have held, it pushed the End-night button onto the disc's bottom
+      // edge and both their corners were sheared by the arc
       // (2026-08-19-night-disc-empty.mjs, first run). Same band, same caps,
       // whether the night has rows or a sentence.
       > .ns-empty {
-        flex: 0 0 calc(var(--ns-d) - 2 * var(--ns-caph));
-        margin: var(--ns-caph) 0 0;
+        @include face-disc-band($width: null);
+        margin: var(--fd-caph) 0 0;
         display: flex;
         align-items: center;
         justify-content: center;
       }
 
-      // The button rides the TOP of the bottom cap, where the circle is
-      // still wide. NEVER full-bleed (its rectangle setting): at this height
-      // the band's own width would run its bottom corners straight through
-      // the rim, where `overflow: hidden` shears them off. 0.95r is measured
-      // to clear the arc at the button's BOTTOM edge — the binding one — at
-      // every cap in the swept range, with room for a longer label.
+      // THE PRIMARY BUTTON — End night, in the bottom cap.
       > .phase-flip.bottom {
-        flex: 0 0 auto;
-        width: calc(0.95 * var(--ns-r));
-        margin: 10px 0 0;
-        // …and the button rides LOWER in the bottom cap. Same mechanism, same
-        // reason: the list band above it cannot be moved by a transform.
-        transform: translateY(calc(var(--ns-foot-dy) + var(--ns-foot-adj, 0px)));
+        @include face-disc-foot;
       }
+
 
       // ── THE ROW, IN A NARROWER COLUMN ──────────────────────────────────
       // The band is ~345–465px against the rectangle's 640, and the row's
@@ -2014,106 +1640,6 @@ $ns-team-colors: (
   }
 }
 
-// ── THE NIGHT-SHEET LAB — TEMPORARY, DELETE ME ─────────────────────────────
-// The fourth door in App.vue's dev column (drip 8px, coin 96px, face 140px,
-// this 184px), wearing the same shell so the four read as one toolkit and not
-// as four inventions. It lives in THIS file rather than App.vue's because what
-// it dials is this component's own geometry — the lab and the values it moves
-// come out together.
-//
-// NOT scoped away by the portal: these rules reach the panel in document.body
-// because Vue stamps the scope attribute onto the element at compile time, and
-// moving an element does not restyle it.
-//
-// The toggle is a real <button>, not the column's usual <div> — it costs
-// nothing and it is the difference between a control reachable by keyboard and
-// one that is not.
-#night-lab {
-  position: fixed;
-  top: 184px;
-  left: 0;
-  z-index: 60;
-  display: flex;
-  align-items: flex-start;
-  font-size: 13px;
-
-  // NOT ON A PHONE. Every value this dials is read inside the desktop disc's
-  // media query, so here the door opens onto nothing — and it lands on top of
-  // the grimoire thumbnail while doing it.
-  @media (pointer: coarse) {
-    display: none;
-  }
-
-  .fd-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
-    font-family: inherit;
-    font-size: 12px;
-    color: #d8cdb4;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid #3d3d3d;
-    border-left: none;
-    border-radius: 0 6px 6px 0;
-    cursor: pointer;
-    opacity: 0.45;
-    &:hover,
-    &:focus-visible {
-      opacity: 1;
-      border-color: rgba(150, 130, 175, 0.75);
-      outline: none;
-    }
-  }
-  &.open .fd-toggle {
-    opacity: 1;
-    border-color: rgba(150, 130, 175, 0.75);
-  }
-
-  .nl-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px;
-    background: rgba(8, 6, 10, 0.92);
-    border: 1px solid rgba(120, 105, 135, 0.45);
-    border-left: none;
-    border-radius: 0 8px 8px 0;
-  }
-  .nl-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: #d8cdb4;
-  }
-  .nl-label {
-    width: 18px;
-    opacity: 0.7;
-    cursor: help;
-  }
-  .nl-reset {
-    font-family: inherit;
-    font-size: 11px;
-    color: #d8cdb4;
-    background: rgba(20, 16, 22, 0.9);
-    border: 1px solid rgba(120, 105, 135, 0.4);
-    border-radius: 5px;
-    padding: 2px 6px;
-    cursor: pointer;
-    &:hover,
-    &:focus-visible {
-      border-color: rgba(150, 130, 175, 0.75);
-      outline: none;
-    }
-  }
-  // the scrub's "seat" preset inherits its colour, which reads on the sheet
-  // and disappears against this panel's own ground
-  .num-scrub-box {
-    color: #d8cdb4;
-  }
-}
 
 // FT-874: the guided escape's brief highlight — see .ns-row.flash above and
 // flashUnchecked() in the script block. A pulse, not a state: it always ends

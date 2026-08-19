@@ -941,6 +941,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-888: the clock face's disc — geometry, gate and material, shared with the
+// night checklist and the build panel.
+@import "../faceDisc.scss";
+
 // Bloody (J. Fordyce, 1994, freeware) — the user's pick for the initials;
 // Rubik Wet Paint (OFL) stays as the licensed fallback.
 @font-face {
@@ -1551,33 +1555,23 @@ export default {
       }
     }
 
-    // ── THE DISC (FT-887, desktop only) ─────────────────────────────────
+    // ── THE DISC (FT-887; shared in FT-888, desktop only) ───────────────
     //
-    // The same object NightSheet.vue's checklist already is: the panel
-    // stops being a rectangle floating over the dial and becomes a plate
-    // laid ON it — registered to App.vue's published --face-cx/--face-cy/
-    // --face-r, same geometry constants NightSheet's disc uses (cap 0.21,
-    // half-width 0.8146 — see that file's own derivation of the chord
-    // math; reused rather than re-derived so the two discs read as one
-    // family of object rather than two inventions that happen to be
-    // circular). Same gate NightSheet uses too: fine pointer, a window
-    // wide and tall enough to hold it. Below the gate — including every
-    // touch device — the rectangle above is untouched.
-    //
-    // --face-cx/--face-cy carry the background's baked +7px/--bg-off shift
-    // THEMSELVES now (App.vue: `--face-cx: calc(50% + 7px + var(--bg-off-x,
-    // 0px))`) — read plain, no term restated here. (An earlier pass of this
-    // file added +7px by hand, back when --face-cx was still the un-shifted
-    // container centre; that hand-add is gone now that the variable carries
-    // it, so it is never applied twice.)
+    // The same object the night checklist and the build panel are: the
+    // panel stops being a rectangle floating over the dial and becomes a
+    // plate laid ON it. The geometry — radius off --face-r, cap fraction,
+    // band chord, the gate, the material — is src/faceDisc.scss's, not
+    // this file's. It used to be a COPY of NightSheet's numbers sitting
+    // here (cap 0.21, half-width 0.8146, the same media query written out
+    // again), which is exactly how a shape becomes three shapes.
     //
     // TWO CAPS, ONE BAND. The back arrow (+ the join panel's one-line
     // hint) rides the top cap; the primary button rides the bottom cap;
     // `.panel-body` — the town list and the fields — lives in the band
-    // between them, exactly the swap NightSheet made for its own header
-    // and end-night button.
+    // between them.
     //
-    // NO overflow:hidden ON THE DISC. NightSheet's rows never open
+    // NO overflow:hidden ON THE DISC, and that is this panel's own
+    // departure from the checklist. The checklist's rows never open
     // anything outside themselves; this panel's town-name field and its
     // ScriptPicker both do (`ul.recents`, `.script-pick .grid` — both
     // `position: absolute`, both wider than the band). A circular clip
@@ -1585,57 +1579,17 @@ export default {
     // sized to hold ordinary content and a popup is left free to sit over
     // the rim the way it already sits over the rectangle's edge today —
     // asked for explicitly, and checked in the proof rig.
-    @media (pointer: fine) and (min-width: 1000px) and (min-height: 780px) {
-      --pn-r: calc(var(--face-r, 238) * var(--fpx, 1px));
-      --pn-d: calc(2 * var(--pn-r));
-      --pn-cap: 0.21;
-      --pn-hw: 0.8146;
-      --pn-band: calc(2 * var(--pn-hw) * var(--pn-r));
-      --pn-caph: calc(var(--pn-cap) * var(--pn-d));
-
-      left: var(--face-cx, 50%);
-      top: var(--face-cy, 50%);
-      width: var(--pn-d);
-      height: var(--pn-d);
-      // the base rule's 92vw/420px cap would square this off into an oval
-      // the moment the window narrowed — the disc is the face, not a
-      // capped rectangle that happens to be round.
-      max-width: none;
-      padding: 0;
-      border: none;
-      border-radius: 50%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    @include face-disc-gate {
+      @include face-disc-frame;
       overflow: visible;
 
-      // the same plate NightSheet's disc is cut from — one material, two
-      // callers, so the two discs read as kin.
-      backdrop-filter: blur(7px) brightness(0.5) saturate(0.85);
-      background: radial-gradient(
-        circle at 50% 44%,
-        rgba(30, 24, 34, 0.82) 0%,
-        rgba(22, 17, 25, 0.88) 52%,
-        rgba(14, 10, 16, 0.93) 86%,
-        rgba(9, 6, 10, 0.95) 100%
-      );
-      box-shadow:
-        inset 0 0 0 1px rgba(120, 105, 135, 0.38),
-        inset 0 0 34px rgba(0, 0, 0, 0.8),
-        0 0 0 1px rgba(150, 120, 60, 0.22),
-        0 0 26px rgba(0, 0, 0, 0.75);
-
       .panel-head {
-        flex: 0 0 var(--pn-caph);
-        width: calc(1.3 * var(--pn-r));
+        @include face-disc-head;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: flex-end;
         padding: 0 0 4px;
-        // rides higher in the top cap, same mechanism as NightSheet's
-        // header (transform only — the band below never moves).
-        transform: translateY(-9px);
 
         .panel-back {
           margin: 0;
@@ -1646,8 +1600,7 @@ export default {
       }
 
       .panel-body {
-        flex: 0 0 calc(var(--pn-d) - 2 * var(--pn-caph));
-        width: var(--pn-band);
+        @include face-disc-band;
         padding: 0 6px;
         text-align: left;
 
@@ -1659,22 +1612,21 @@ export default {
         }
       }
 
+      // THE FOOT SITS 10px LOWER HERE, not the disc's own +6px default.
+      // The checklist's +6 was measured against a 42px button; this one is
+      // 48px and its own sweep landed here. Passed as an argument rather
+      // than pushed into the shared default, which the checklist would
+      // then have to override back.
       .acts {
-        flex: 0 0 auto;
-        width: calc(0.95 * var(--pn-r));
-        margin: 10px 0 0;
-        // rides lower in the bottom cap, same mechanism as NightSheet's
-        // end-night button.
-        transform: translateY(10px);
+        @include face-disc-foot(10px);
 
         // "Open the town" wrapped to two lines at the rectangle's 120%/
         // 8px-22px sizing — measured against a 0.95r box (the same bound
-        // NightSheet's own end-night button clears the arc at, at this
-        // same foot-dy) it needs to be smaller, not the box wider: past
-        // 0.95r the button starts crossing the rim (NightSheet's own
-        // measurement, reused here rather than re-derived). The join
-        // panel's icon-only button was never close to this bound and is
-        // untouched by the size drop.
+        // the checklist's end-night button clears the arc at, at this same
+        // foot offset) it needs to be smaller, not the box wider: past
+        // 0.95r the button starts crossing the rim. The join panel's
+        // icon-only button was never close to this bound and is untouched
+        // by the size drop.
         button.confirm {
           font-size: 92%;
           padding: 7px 12px;

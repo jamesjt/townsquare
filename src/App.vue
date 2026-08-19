@@ -163,6 +163,16 @@
         </button>
       </div>
     </div>
+    <!-- THE FACE-DISC LAB (Fd) — TEMPORARY, DELETE ME. One notch below the face
+         lab, in the same column. It dials the geometry of EVERY menu on the
+         clock face at once — the night checklist, the Host and Join entry
+         panels, the build panel — which is why it stands here rather than
+         inside any one of them: it used to live in NightSheet, where it moved
+         one disc of four and could not be found during the day at all.
+
+         Visible without `devLabs`, exactly as the night-sheet lab it replaces
+         was: it is only useful while someone is looking at a disc. -->
+    <FaceDiscLab />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
@@ -471,6 +481,9 @@ import NightSheet from "./components/NightSheet";
 import NightInfoDrawer from "./components/NightInfoDrawer";
 // FT-886: the chronicle — this game's own timeline
 import ChronicleDrawer from "./components/ChronicleDrawer";
+// FT-888: the face-disc lab — TEMPORARY, and it comes out with src/faceDisc.scss's
+// four `--fd-*-adj` reads and src/golem/faceDisc.js.
+import FaceDiscLab from "./components/FaceDiscLab";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -547,6 +560,7 @@ export default {
     NightSheet,
     NightInfoDrawer,
     ChronicleDrawer,
+    FaceDiscLab,
     Gradients
   },
   computed: {

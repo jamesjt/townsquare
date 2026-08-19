@@ -87,7 +87,31 @@ export default {
 </script>
 
 <style scoped lang="scss">
+@import "../faceDisc.scss";
+
 .night-mode {
+  // FT-888: THE EXPLANATION FOLDS INSIDE THE BUILD PANEL'S DISC.
+  //
+  // This block is three stacked things — the switch, a sentence explaining the
+  // chosen mode, and the Require-checks box — and it stands 112.6px tall. On
+  // the disc that is 46% of a 245px band, taken from the character tray, which
+  // is the one thing on that panel a host actually drags.
+  //
+  // The sentence is the part that folds, and it costs nothing to fold: each of
+  // the three mode buttons already carries the same wording as its own `title`
+  // (see `titles` / MODE_TITLES), and the disc only exists on a fine pointer,
+  // which can hover. The switch and the checkbox both stay — a control is not
+  // an explanation.
+  //
+  // Written here rather than in HostTools because `.nm-hint` is this
+  // component's own element: a parent's scoped styles reach a child's ROOT and
+  // nothing below it.
+  @include face-disc-build-gate {
+    .host-tools & .nm-hint {
+      display: none;
+    }
+  }
+
   // the build panel's own row shape, restated here — see the template note on
   // why the parent's `.row` rules cannot reach inside this component
   .nm-row {

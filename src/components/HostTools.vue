@@ -7,6 +7,18 @@
   <div class="host-tools">
     <h3>Build the town</h3>
 
+    <!-- FT-888: THE BAND. On the desktop disc this wrapper is the ring's
+         middle third — the slice between the two caps, where the rows live,
+         with the title in the cap above and Start in the cap below (exactly
+         the arrangement the checklist and the entry panels already use).
+
+         EVERYWHERE ELSE IT GENERATES NO BOX AT ALL. `display: contents` means
+         the rectangle and both phone sheets lay out their children in this
+         wrapper's place, byte-for-byte as they did before it existed — the
+         same trick the checklist's own `.ns-work` wrapper uses, for the same
+         reason. A wrapper that only one layout can see costs the other three
+         nothing. -->
+    <div class="ht-body">
     <!-- FT-847: an OWNED town (this browser holds its edit key) can be
          renamed in place — the new name lands on the server and the shelf. -->
     <div class="row" v-if="ownedKey">
@@ -33,7 +45,10 @@
       <small v-if="renameNote">{{ renameNote }}</small>
     </div>
 
-    <div class="row">
+    <!-- the row carries the claimed count as a `title` as well as on the line,
+         because the disc folds the visible copy away for room (see the styles)
+         and the number must stay reachable there -->
+    <div class="row" :title="seatsHint">
       <span class="label">Seats</span>
       <!-- the number is a SCRUBBER: drag it sideways to set the count
            (user call — the +/- pair retired). FT-874: extracted into
@@ -48,10 +63,41 @@
           @input="setSeatCount"
         />
       </span>
+      <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition the
+           seat count implies, right of the number that decides it. Drag the
+           scrub and the four counts move with it, which is the whole reason it
+           belongs on this row and not on another one.
+
+           It is the SAME OBJECT the town readout above the clock face already
+           renders (TownInfo's second line): the same `gameJSON[nonTravelers-5]`
+           table, the same golem/glyphs team art, the same "tint the digit in
+           the team's own colour" idiom. Not a second implementation of a
+           readout this app already has.
+
+           THESE ARE IMPLIED COUNTS, NOT ASSIGNED ONES, and the distinction is
+           deliberate: this row is where the seat count is set, so the useful
+           answer here is "and that means 5/0/1/1". What has actually been dealt
+           is the Roles row's job, one line down. Two rows disagreeing about
+           what "2 outsiders" means would be worse than not showing it.
+
+           Below five non-travellers there is no official composition to state,
+           so nothing is stated — same gate TownInfo uses. -->
+      <span class="ht-comp" v-if="composition" :title="compHint">
+        <span
+          v-for="t in COMP_TEAMS"
+          :key="t"
+          class="stat"
+          :class="t"
+          :title="TEAM_LABELS[t] + ': ' + composition[t]"
+        >
+          {{ composition[t] }}
+          <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+        </span>
+      </span>
       <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
            shift-clicking START does the filling now, so there is one dev
            gesture instead of two. devFillSeats itself is kept below.) -->
-      <small>{{ claimedCount }} claimed</small>
+      <small class="claimed">{{ claimedCount }} claimed</small>
       <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
            ALWAYS rendered — appearing icons shove the row (user call);
            unusable states grey out instead. -->
@@ -97,6 +143,7 @@
          chair yet, dragged straight onto a seat from here. Dropping a seated
          role anywhere that is not a seat sends it back to this tray. -->
     <RoleTray />
+    </div>
 
     <!-- Start and the line explaining why it is greyed out are ONE footer.
          On a phone the panel is a scrolling sheet, and they were the last
@@ -133,6 +180,18 @@ import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
+// FT-888: the composition readout on the Seats row. Both of these are the
+// sources TownInfo's own composition line reads — the official setup table and
+// the fork's team art — so the two readouts stay one object in two places.
+import gameJSON from "../game";
+import { teamGlyph } from "../golem/glyphs";
+import { TEAM_LABELS } from "../golem/composition";
+
+// The four teams the setup table names, in the order every other surface in
+// this app states them (the reading order of a composition, best to worst).
+// Travellers are outside the table entirely — they sit beyond the base count
+// and outside distribution maths — so they are not here.
+const COMP_TEAMS = ["townsfolk", "outsider", "minion", "demon"];
 
 export default {
   components: { ScriptPicker, RoleTray, RoleActions, NightModeRow, NumberScrub },
@@ -151,6 +210,9 @@ export default {
   },
   data() {
     return {
+      // FT-888: the composition readout's static furniture
+      COMP_TEAMS,
+      TEAM_LABELS,
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
@@ -186,6 +248,41 @@ export default {
     },
     rolesAssigned() {
       return this.players.filter(p => p.role && p.role.team).length;
+    },
+    /**
+     * FT-888: what THIS MANY SEATS makes — the official setup table, read the
+     * same way TownInfo's own composition line reads it, off the same file.
+     *
+     * Travellers are excluded from the lookup (the `nonTravelers` getter caps
+     * at 15 for us), because they sit outside the composition. Under five
+     * non-travellers the table has no row and this is null, which is the
+     * template's gate: there is no official answer to state, so none is stated.
+     */
+    composition() {
+      const n = this.$store.getters["players/nonTravelers"];
+      return n >= 5 ? gameJSON[n - 5] : null;
+    },
+    /** The whole Seats row on hover — the claimed count included, because the
+     *  disc folds the visible copy of it away for room (see the styles). */
+    seatsHint() {
+      return (
+        this.claimedCount +
+        " of " +
+        this.players.length +
+        (this.players.length === 1 ? " seat" : " seats") +
+        " claimed. Drag the number to change how many there are."
+      );
+    },
+    /** The readout says what it IS on hover, because "5 2 3 1" beside a seat
+     *  count could equally be read as what has been dealt — which is the row
+     *  below's business, and the one thing this must not be mistaken for. */
+    compHint() {
+      return (
+        "What " +
+        this.$store.getters["players/nonTravelers"] +
+        " seats makes — the script's composition at this size. " +
+        "Roles actually assigned are on the Roles row."
+      );
     },
     canRemoveSeat() {
       // The spinner never evicts: only an EMPTY seat can go.
@@ -244,6 +341,8 @@ export default {
   },
   methods: {
     ...mapMutations(["toggleModal"]),
+    // FT-888: golem/glyphs' team art, the same call TownInfo makes.
+    teamGlyph,
     // ── FT-847: owned-town rename ────────────────────────────────────────
     loadTownName() {
       const id = this.session.sessionId;
@@ -371,9 +470,24 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// the team colours the composition readout wears
+@import "../vars.scss";
+// FT-888: the clock face's disc — geometry, gate and material, shared with the
+// night checklist and the two entry panels.
+@import "../faceDisc.scss";
+
 .host-tools {
   position: absolute;
-  z-index: 3;
+  // FT-888: 19, MATCHING THE NIGHT CHECKLIST. These two are the same object in
+  // the same slot — the plate in the middle of the clock face — and the
+  // checklist has always stood at 19 while this stood at 3. The seats' own
+  // list items are 11, so the pair disagreed about the one thing they had to
+  // agree on: at 1280x800 the ring is tighter than the panel is wide and the
+  // seats' name plates painted straight through "Build the town" (visible in
+  // the FT-888 before-shot, so this is not new). Only the plates reach that far
+  // in — the coins, which are what a role is dragged onto, sit outside the
+  // panel at every size.
+  z-index: 19;
   text-align: center;
   padding: 15px 25px;
   // the dial behind it is busy — the panel needs to win (user call)
@@ -389,11 +503,31 @@ export default {
   // the window and letting the overflow scroll costs nothing on a screen big
   // enough to hold it, where neither cap binds.
   max-height: calc(100vh - 20px);
-  max-width: calc(100vw - 20px);
+  // FT-888: AND A CAP OF ITS OWN, because this panel has no width — it is
+  // shrink-to-fit around its widest row, and the Seats row just gained the
+  // composition readout. Measured at 1280x800: that took the rectangle from
+  // 415px to 506px, and the rectangle stands INSIDE the ring, where 90px of
+  // extra width is 90px further under the seats. 420px is where it has always
+  // sat (the character tray's own 336px plus its padding is what set it), so
+  // the cap holds the footprint the ring was arranged around and the Seats row
+  // takes a second line instead — see `.row`'s wrap below.
+  //
+  // The two phone sheets and the disc all set `max-width: none` after this, and
+  // must keep doing so: on a phone the panel IS the width of the screen, and a
+  // disc is the width of the face.
+  max-width: min(calc(100vw - 20px), 420px);
   overflow-y: auto;
   // a phone drags the whole page when an inner list runs out of scroll
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+
+  // FT-888: the band wrapper is INVISIBLE to the layout everywhere except the
+  // disc — `display: contents` generates no box at all, so the rectangle and
+  // both phone sheets place its children exactly where they were.
+  .ht-body {
+    display: contents;
+  }
+
 
   // PORTRAIT PHONE: the panel stops being a plate in the middle of the ring
   // and becomes the bottom half of the screen.
@@ -508,6 +642,11 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    // FT-888: a safety valve, not a layout. Every row still sits on one line
+    // wherever it fits; the Seats row, now carrying the composition, takes a
+    // second one at the widths where it does not — which beats the alternative
+    // of running its last control out past the panel's edge.
+    flex-wrap: wrap;
     gap: 14px;
     min-height: 34px;
 
@@ -543,6 +682,78 @@ export default {
         }
       }
     }
+    // FT-888: WHAT THIS MANY SEATS MAKES. The same treatment TownInfo's own
+    // composition line wears — team-coloured digit, the fork's team glyph, a
+    // glow in the team's colour behind it — because it is the same readout in
+    // a second place, not a new one.
+    //
+    // ONE THING IS DIFFERENT AND IT IS THE SPACING. TownInfo's stats stand on
+    // the open clock face and can afford a 10px lane after every glyph; this
+    // one shares a 34px row with a label, a scrub, a claimed count and a
+    // shuffle, and on the disc that row is only ~345px wide. So the pairs sit
+    // tight (4px inside a pair, 7px between pairs) and the glyph carries no
+    // trailing margin. The TYPE is untouched — the counts read at the row's own
+    // size; shrinking digits to buy room is how a readout becomes decoration.
+    .ht-comp {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-shrink: 0;
+      // it is a consequence of the number to its left, not a control — a shade
+      // back from the row's own weight, the way `small` already is here
+      font-size: 92%;
+      cursor: help;
+
+      .stat {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .team-glyph {
+        // sized to the type it rides beside, so it tracks the row instead of
+        // being pinned to a pixel size — TownInfo's own rule
+        width: 1.05em;
+        height: 1.05em;
+        object-fit: contain;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+      }
+      .townsfolk {
+        color: $townsfolk;
+        .team-glyph {
+          filter: drop-shadow(0 0 4px rgba($townsfolk, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+      }
+      .outsider {
+        color: $outsider;
+        .team-glyph {
+          filter: drop-shadow(0 0 4px rgba($outsider, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+      }
+      .minion {
+        color: $minion;
+        .team-glyph {
+          filter: drop-shadow(0 0 4px rgba($minion, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+      }
+      .demon {
+        color: $demon;
+        .team-glyph {
+          filter: drop-shadow(0 0 4px rgba($demon, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+      }
+
+      // a finger cannot hover a title, so on a touch screen the row gives the
+      // cluster a real height rather than a 14px line of text
+      @media (pointer: coarse) {
+        min-height: 40px;
+      }
+    }
+
     .tools {
       display: flex;
       align-items: center;
@@ -631,6 +842,129 @@ export default {
     margin-top: 6px;
     opacity: 0.6;
     font-size: 70%;
+  }
+
+  // ── THE DISC (FT-888, desktop only) ───────────────────────────────────
+  //
+  // The build panel joins the checklist and the two entry panels: same
+  // geometry, same gate, same material, all of it from src/faceDisc.scss.
+  // It is the DENSEST of the four — a town name, seats, a script, roles and
+  // their three actions, the night switch, a tray of characters and Start —
+  // so the arrangement matters more here than anywhere else.
+  //
+  // TITLE IN THE TOP CAP, START IN THE BOTTOM ONE, everything else in the
+  // band. That is the same swap the other three made, and it is what buys the
+  // band its width: the rows are wider than the circle's inscribed square
+  // precisely because the two short things sit in the poles.
+  //
+  // THE BAND DOES NOT SCROLL, AND THAT IS DELIBERATE. Two of its children
+  // open things OUTSIDE themselves — the script picker's grid and (on an
+  // owned town) nothing else, but the grid alone is enough: it is
+  // `position: absolute` and wider than the band, so a scrolling band would
+  // become its clipping container and cut the picker in half. The same
+  // argument is why the disc itself is `overflow: visible` here and on the
+  // entry panels, where the checklist can afford `hidden`.
+  //
+  // SO THE TRAY ABSORBS INSTEAD. It is the one child whose height is a
+  // variable — a bag of unseated characters — and it already owns a scroll
+  // for exactly this (RoleTray's `.rt-rows`, 132px on the rectangle). Inside
+  // the disc it takes whatever the four fixed rows leave, and scrolls the
+  // rest. Nothing else changes size, and no type shrinks.
+  @include face-disc-build-gate {
+    @include face-disc-frame;
+    // the script picker's grid opens out over the rim — see above
+    overflow: visible;
+
+    > h3 {
+      @include face-disc-head;
+      // the flex basis IS the cap; a margin would sit outside it and push the
+      // band off centre, which is the one thing the arithmetic cannot take
+      margin: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    > .ht-body {
+      @include face-disc-band;
+      display: flex;
+      flex-direction: column;
+      // without this the band's automatic minimum is its content's height and
+      // the tray never gets told to shrink
+      min-height: 0;
+      padding: 0 6px;
+
+      // NOTHING IN THE BAND SHRINKS EXCEPT THE TRAY, and this line is what says
+      // so. As column flex items the rows default to `flex-shrink: 1`, so an
+      // over-subscribed band silently squeezed each row BELOW its content —
+      // measured: the Seats row held at 34px with its claimed count and shuffle
+      // drawn on a second line straight through the Script row beneath it, and
+      // "Night checklist" ran under its own switch. The tray is the one child
+      // whose height is genuinely a variable, so it is the only one allowed to
+      // give.
+      > .row,
+      > .night-mode {
+        flex-shrink: 0;
+      }
+
+      // THE ROWS WRAP RATHER THAN OVERFLOW, for the size where even the folds
+      // below are not enough. The gap comes down from 14px to 8px first, which
+      // is spacing rather than type.
+      > .row {
+        flex-wrap: wrap;
+        gap: 4px 8px;
+      }
+
+      // THE CLAIMED COUNT FOLDS INTO THE ROW'S TOOLTIP — a JUDGEMENT CALL, and
+      // the one thing on this panel that the disc takes away rather than
+      // rearranges, so it is stated plainly rather than buried.
+      //
+      // The Seats row is the crowded one: a label, the scrub, the new
+      // composition readout, "N claimed" and the shuffle want 427px of a
+      // 345px band at 1280x800. Something has to give, and this is the
+      // cheapest thing on the line: it is 78px with its gap, it reads "0
+      // claimed" for the whole of the build, and the session pill in the
+      // bottom-right corner is already saying the same number out loud. Taking
+      // it back keeps the Seats row on ONE line at every size the disc runs at,
+      // which in turn is worth ~30px of band to the character tray — the
+      // difference between a tray you can drag from at 1280x800 and one you
+      // cannot.
+      //
+      // It is a FOLD, not a deletion: the row's own `title` carries it, the
+      // rectangle and both phone sheets are untouched, and one deleted rule
+      // brings it back.
+      .row .claimed {
+        display: none;
+      }
+    }
+
+    > .start-dock {
+      @include face-disc-foot;
+
+      // START, AT THE DISC'S OWN BUTTON SIZE. On the rectangle this is 120%
+      // type in 8px/20px padding inside a 3px border — 60.7px tall, against
+      // the checklist's 42px and the entry panels' 48px. In a bottom cap that
+      // is not a style choice, it is the difference between clearing the arc
+      // and being sheared by it, and the three primary buttons on this face
+      // should be one object anyway. The label is two short words; it is the
+      // padding that comes off, not the reading size.
+      .start {
+        margin-top: 0;
+        font-size: 100%;
+        padding: 4px 14px;
+      }
+      // THE REASON LINE FOLDS INTO THE BUTTON'S TOOLTIP HERE, and this is a
+      // fold rather than a loss: it is the same string as the button's own
+      // `title`, and the disc only exists on a fine pointer, which can hover.
+      // It was added for the PHONE sheet, where nothing can. Measured: with the
+      // line showing, the dock stands 73.8px in a 96.8px cap and Start's bottom
+      // corners cross the rim by 7.8px at 1280x800 — the cap has room for the
+      // button or for the pair, not both, and the button is what the panel
+      // exists to reach.
+      .hint {
+        display: none;
+      }
+    }
   }
 }
 </style>

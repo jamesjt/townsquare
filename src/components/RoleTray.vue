@@ -288,7 +288,36 @@ $team-colors: (
   "demon": #ce0100
 );
 
+// FT-888: THE TRAY IS THE BUILD PANEL'S SHOCK ABSORBER on the clock-face disc.
+//
+// The disc's band is a fixed slice of the circle — the four rows above this
+// tray are fixed heights, and the band cannot scroll (the script picker opens a
+// popup out of it, and a scrolling band would clip it). So the one child whose
+// height is genuinely a variable takes whatever is left and scrolls the rest,
+// which is the job this tray's own `.rt-rows` scroller already does at 132px on
+// the rectangle. Here it is told the height instead of guessing it.
+//
+// Written in THIS file rather than HostTools' because `.rt-rows` is this
+// component's own element: a parent's scoped styles reach a child's ROOT (which
+// is why `.role-tray` is stylable from there) but nothing inside it.
+@import "../faceDisc.scss";
+
 .role-tray {
+  @include face-disc-build-gate {
+    .host-tools & {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+
+      .rt-rows {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+      }
+    }
+  }
+
   margin: 2px 0 4px;
   padding: 5px 4px;
   // the border is always there so arming only repaints it — nothing moves

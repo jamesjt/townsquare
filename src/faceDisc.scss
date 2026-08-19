@@ -1,0 +1,272 @@
+// Golem fork (FT-888): THE FACE DISC — the clock face's menus, in one place.
+//
+// A "face disc" is a menu that stops being a rectangle floating over the dial
+// and becomes a PLATE LAID ON IT: same centre, same radius, border-radius 50%.
+// Four surfaces are one now — the night checklist (NightSheet), the Host and
+// Join entry panels (Intro) and the build panel (HostTools) — and before this
+// file each carried its own copy of the numbers. Copies drift, and the next
+// menu would have copied whichever copy it found first.
+//
+// WHY HERE and not in `src/golem/`. That directory is JS modules — behaviour
+// mixins (`rightDrawer.js`, `bottomSheet.js`) and data (`glyphs.js`) — and has
+// never held a stylesheet. The fork's SHARED STYLE partials all sit at the top
+// of `src/`: `vars.scss`, `media.scss`, `drawer.scss`. `drawer.scss` is the
+// exact precedent — one chrome, several callers, a `$phone-sheet` string so
+// every surface changes shape at the same instant. This is that file for the
+// disc. Its JS half — the lab only — is `src/golem/faceDisc.js`.
+//
+// ── THE GATE, and the phone's rectangle ─────────────────────────────────────
+// The disc is DESKTOP ONLY, and the condition is written once here so all four
+// surfaces turn round at the same instant. Below the gate — every touch
+// device, every small window — each surface keeps its OWN rectangle, untouched
+// and unreferenced by anything in this file. That is the rule, not a fallback:
+// a phone has no room for a 420px circle, and a circle whose band has narrowed
+// past a readable column is worse than the rectangle it replaced.
+//
+// THE FLOOR IS MEASURED. Two things set it: the band stops being a readable
+// column as the face shrinks, and the header's contents do NOT shrink with the
+// disc — at 780px of window height the arc above the band has closed in to
+// about the width a header already needs. Below that the rectangle is the
+// better object. (Full derivation: the FT-882 report.)
+$face-disc-gate: "(pointer: fine) and (min-width: 1000px) and (min-height: 780px)";
+
+// ── AND THE BUILD PANEL'S OWN, HIGHER GATE (FT-888) ─────────────────────────
+// The build panel is the densest surface on this face by a distance — a town
+// name, a seat count, the composition that count implies, a script, a role
+// count and its three actions, the night switch and its checkbox, a tray of
+// draggable characters, and Start — and it is the one that does not fit the
+// band at every size the other three do.
+//
+// MEASURED, at 12 seats on Trouble Brewing:
+//   1920x1080  band 465x331 — every row on one line, 155px of tray
+//   1600x1000  band 431x307 — every row on one line, 104px of tray
+//   1440x900   band 388x276 — every row on one line,  73px of tray  ← the floor
+//   1280x800   band 345x245 — Seats AND Roles take a second line, the band
+//                             overflows by 13px, the tray is squeezed to ZERO
+//                             and one child crosses the rim
+//
+// So the gate is written as "the disc is at least 476px across" rather than as
+// a window size, because that is the quantity that actually binds. The face's
+// radius is 238 x --fpx, and --fpx is max(0.0609cqw, 0.11111cqh), so r reaches
+// 238 when the window is 900px tall OR 1642px wide — which is exactly the two
+// clauses below. Under it the build panel keeps the rectangle it has always
+// had, untouched; a small window gets a panel it can read rather than a circle
+// it cannot.
+//
+// If the panel later sheds a row, drop these numbers back toward the shared
+// gate and re-run claude_temp_test/2026-08-19-ft888-build-disc.mjs — the table
+// above is what it prints.
+$face-disc-build-gate:
+  "(pointer: fine) and (min-width: 1000px) and (min-height: 900px), " +
+  "(pointer: fine) and (min-width: 1642px) and (min-height: 780px)";
+
+// ── THE BAND MATH, once, here ───────────────────────────────────────────────
+// A circle's usable line width changes row by row — nothing at the poles,
+// everything at the equator — and these surfaces are read under time pressure.
+// So the DISC IS THE FRAME and the content lives in the rectangle inscribed in
+// it, dead centre. What the poles get instead is the two things short enough to
+// want them: a header at the top, the primary button at the bottom.
+//
+//   cap  t = $face-disc-cap x diameter, the height surrendered at EACH pole
+//   half-height  b = r - t     (the band is centred, so both poles must give
+//                               up the same t)
+//   half-width   a = sqrt(r^2 - b^2) = sqrt(2rt - t^2)
+//
+// $face-disc-hw is a/r, kept in sync BY HAND against the cap: CSS sqrt() is too
+// new to lean on in a fork that has to run in whatever a storyteller has open.
+//   cap .18 -> hw .768 | .21 -> .8146 | .25 -> .866 | .28 -> .898
+// Widening the band (a bigger cap) buys line width and spends visible rows;
+// .21 is the measured settlement.
+$face-disc-cap: 0.21;
+$face-disc-hw: 0.8146;
+
+// THE BAND HAS A FLOOR, and the floor is why `--fd-band` is a `max()` and not a
+// plain sum. The lab's R and W scrubs are two dials against ONE quantity, so
+// their clamps COMPOUND: bounding each on its own still let R-40 and W-80 meet
+// at a 199px band (measured), which is not a column anybody can read a labelled
+// row in. Clamping the RESULT is the only bound that holds whatever the two do
+// between them. 265px is the number: the narrowest disc in range (R-40 at
+// 1000x780, the smallest window the disc runs at) still allows a 270.8px chord,
+// so the floor is always inside the circle and never itself the thing that
+// pokes out through the rim.
+$face-disc-band-floor: 265px;
+
+// WHERE THE CAP FURNITURE SITS. Both defaults are MEASURED, not guessed — swept
+// at 1280x800, 1920x1080 and 1000x780 (the gate's own floor), reading each box's
+// WORST CORNER distance from the disc centre against the radius. The binding
+// viewport is 1280x800 for both. Clearance left, on the checklist:
+//   header  -9px -> 10.5px spare (17.0 at rest)
+//   button  +6px ->  4.9px spare (10.0 at rest)
+// The button is the tight one, which is why it reads +6 and not the +10 it
+// started at: at +10 the clearance came out at 1.3px, which is not a margin, it
+// is a coincidence — one longer label or one font fallback and the corners go.
+// A surface whose furniture is a different size passes its own value.
+$face-disc-head-dy: -9px;
+$face-disc-foot-dy: 6px;
+
+// ── THE GATE, as a mixin ────────────────────────────────────────────────────
+// Every disc opens with `@include face-disc-gate { ... }`, so there is exactly
+// one copy of the condition in the app.
+@mixin face-disc-gate($gate: $face-disc-gate) {
+  @media #{$gate} {
+    @content;
+  }
+}
+
+// The build panel's three files — HostTools, and the two components whose own
+// insides it rearranges (RoleTray, NightModeRow) — all open with this, so the
+// panel and everything inside it turns round at the same instant. Written as a
+// named mixin rather than each file passing the string, because three copies of
+// a condition is the failure this whole file exists to end.
+@mixin face-disc-build-gate {
+  @include face-disc-gate($face-disc-build-gate) {
+    @content;
+  }
+}
+
+// ── THE DISC ITSELF: geometry + material ────────────────────────────────────
+//
+// THE RADIUS COMES FROM THE FACE. App.vue publishes --face-cx / --face-cy /
+// --face-r off the recentred art, and those three are the single source of
+// truth — if a disc ever sits off the dial, the numbers there are what to fix.
+// --face-cx/--face-cy carry the background's baked +7px/--bg-off shift
+// THEMSELVES (App.vue: `--face-cx: calc(50% + 7px + var(--bg-off-x, 0px))`), so
+// they are read PLAIN here. Never restate that term: an earlier pass of the
+// entry panels added the +7px by hand and applied it twice.
+//
+// THE SIX `--fd-*-adj` READS BELONG TO THE LAB — TEMPORARY, and they come out
+// with it (see `src/golem/faceDisc.js`). Each is a `+ var(--x, 0px)` on the end
+// of an expression that was already correct, so with the lab gone — or every
+// scrub at zero — these lines compute exactly what they computed before it
+// existed. They live INSIDE the gate, because a phone's rectangle has no disc,
+// no caps and no band and must not follow any of this.
+@mixin face-disc-frame {
+  --fd-r: calc(var(--face-r, 238) * var(--fpx, 1px) + var(--fd-r-adj, 0px));
+  --fd-d: calc(2 * var(--fd-r));
+  --fd-cap: #{$face-disc-cap};
+  --fd-hw: #{$face-disc-hw};
+  --fd-band-floor: #{$face-disc-band-floor};
+  --fd-band: max(
+    var(--fd-band-floor),
+    calc(2 * var(--fd-hw) * var(--fd-r) + var(--fd-band-adj, 0px))
+  );
+  --fd-caph: calc(var(--fd-cap) * var(--fd-d));
+
+  position: absolute;
+  // THE CENTRE, plus the lab's own two nudges. --face-cx/--face-cy already
+  // carry the background art's baked +7px/--bg-off shift, so they are read
+  // PLAIN and the only term added here is the lab's. At X=0/Y=0 this computes
+  // identically to reading the variables bare — `calc(50% + 7px + 0px + 0px)`
+  // is `calc(50% + 7px)` — which is what the zero-delta acceptance checks.
+  left: calc(var(--face-cx, 50%) + var(--fd-x-adj, 0px));
+  top: calc(var(--face-cy, 50%) + var(--fd-y-adj, 0px));
+  transform: translate(-50%, -50%);
+  width: var(--fd-d);
+  height: var(--fd-d);
+  // THE DISC IS THE FACE. Every one of these surfaces carries a window cap on
+  // its rectangle rule (92vw, 420px, calc(100vh - 20px)…), and any of them
+  // would square the disc off into an oval the moment a viewport got tight —
+  // and an oval no longer registers to the dial, which is the whole point. A
+  // freak aspect ratio crops the face; the disc crops with it.
+  max-width: none;
+  max-height: none;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  @include face-disc-plate;
+}
+
+// THE MATERIAL: a plate laid on the dial, not a hole cut in it. One material,
+// four callers, so the discs read as kin rather than as four circular
+// inventions.
+//
+// WHAT SHOWS THROUGH, AND WHAT MUST NOT. Under a disc sits the hub — and the
+// hub carries the town readout: script name in display type, the alive/vote
+// counts at 40px, the edition mark. At 0.78 and again at 0.88 those read
+// straight through the middle rows. Raising the alpha until they vanish also
+// takes the dial's rose with them, and the rose showing through is the point of
+// laying a disc on a dial. So the BLUR does the separating instead:
+// `backdrop-filter` smears everything behind into a wash, which destroys TEXT
+// (fine strokes, and text is the thing that must not read) while leaving the
+// rose's broad shapes and colour perfectly legible as a ground. Alpha then only
+// has to knock the wash back, not erase it.
+//
+// THE COLOUR IS THE GRIMOIRE'S, not parchment's: rgba(20, 16, 22) is the ground
+// RoleDrawer's own controls sit on, a cool purple-black — the book's paper. A
+// warm brown plate would read as a third material on a surface that already has
+// the bronze dial under it and the purple book on it.
+@mixin face-disc-plate {
+  backdrop-filter: blur(7px) brightness(0.5) saturate(0.85);
+  background: radial-gradient(
+    circle at 50% 44%,
+    rgba(30, 24, 34, 0.82) 0%,
+    rgba(22, 17, 25, 0.88) 52%,
+    rgba(14, 10, 16, 0.93) 86%,
+    rgba(9, 6, 10, 0.95) 100%
+  );
+  // TWO threads, and they say different things. The inner hairline is the
+  // grimoire's purple — the sheet's own edge. Outside it, one bronze thread
+  // seats the disc ON the dial's painted rim rather than letting it hover as a
+  // separate object.
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 105, 135, 0.38),
+    inset 0 0 34px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(150, 120, 60, 0.22),
+    0 0 26px rgba(0, 0, 0, 0.75);
+}
+
+// ── THE THREE BANDS, exact: cap + (d - 2cap) + cap = d ──────────────────────
+// The middle band MUST come out centred — an off-centre band is bound by
+// whichever pole it sits closer to, and its far corners then poke out through
+// the circle (where `overflow: hidden` quietly shears them). So every basis
+// below is stated, and none of them flex.
+
+// THE HEADER IS NARROWER THAN THE BAND, and it has to be. It sits at the BOTTOM
+// of the top cap, so the arc that bounds it is the one at its content's TOP
+// edge — about 30px higher than the band line, where the circle has already
+// closed in. Measured at 1280x800: the band is 344.7px there but only 288px is
+// safe at that height, and a header laid out to the full band pushed its
+// right-hand corner 14px outside the disc. 1.3r clears it at every size in
+// range.
+//
+// IT MOVES BY TRANSFORM, never by margin and never by flex basis, and that is
+// the load-bearing choice: a transform takes no part in layout, so the band's
+// height, width and CENTRING are untouched by anything the furniture does. Move
+// it with margins instead and the band slides off centre, at which point it is
+// bound by whichever pole it now sits nearer and its far corners are sheared by
+// the rim — the exact failure the band math exists to avoid.
+@mixin face-disc-head($dy: $face-disc-head-dy) {
+  flex: 0 0 var(--fd-caph);
+  width: calc(1.3 * var(--fd-r));
+  transform: translateY(calc(#{$dy} + var(--fd-head-adj, 0px)));
+}
+
+// THE BAND. The caps are what BUY it its width — the content is wider than the
+// circle's inscribed square precisely because the header and the button sit in
+// the caps instead of in the band.
+// $width takes `null` for the surfaces that want the band's HEIGHT — the exact
+// slice between the two caps — without claiming its width. A one-line "nobody
+// wakes tonight" is the case: it reserves the same vertical space so the caps
+// keep their furniture, and stays shrink-to-fit so the flex centring still
+// centres the sentence rather than a 345px box containing it.
+@mixin face-disc-band($width: var(--fd-band)) {
+  flex: 0 0 calc(var(--fd-d) - 2 * var(--fd-caph));
+  width: $width;
+}
+
+// THE PRIMARY BUTTON rides the TOP of the bottom cap, where the circle is still
+// wide. NEVER full-bleed (its rectangle setting): at this height the band's own
+// width would run the bottom corners straight through the rim, where
+// `overflow: hidden` shears them off. 0.95r is measured to clear the arc at the
+// button's BOTTOM edge — the binding one — at every cap in the swept range,
+// with room for a longer label.
+@mixin face-disc-foot($dy: $face-disc-foot-dy) {
+  flex: 0 0 auto;
+  width: calc(0.95 * var(--fd-r));
+  margin: 10px 0 0;
+  transform: translateY(calc(#{$dy} + var(--fd-foot-adj, 0px)));
+}
