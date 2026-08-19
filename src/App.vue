@@ -48,7 +48,11 @@
       // rather than re-trimmed. These shift the PAINT, not its scale: `cover`
       // still covers, which a smaller background-size would not.
       '--bg-off-x': bgOffX + 'px',
-      '--bg-off-y': bgOffY + 'px'
+      '--bg-off-y': bgOffY + 'px',
+      // H: added to cover's own height, so + zooms in and − zooms out. Past
+      // the point where cover stops covering, the edges show — which is the
+      // trade, made visible rather than argued about.
+      '--bg-h': bgH + 'px'
     }"
   >
     <video
@@ -145,7 +149,16 @@
           <span class="fa-label">Y</span>
           <NumberScrub :value="bgOffY" :min="-40" :max="40" @input="setBgOff('y', $event)" />
         </div>
-        <button class="fa-reset" @click="setBgOff('x', 0), setBgOff('y', 0)">
+        <!-- H is the size, and it needs a wider range than the two nudges: it
+             is how far the art zooms past (or short of) covering the window. -->
+        <div class="fa-row">
+          <span class="fa-label">H</span>
+          <NumberScrub :value="bgH" :min="-200" :max="400" @input="setBgOff('h', $event)" />
+        </div>
+        <button
+          class="fa-reset"
+          @click="setBgOff('x', 0), setBgOff('y', 0), setBgOff('h', 0)"
+        >
           Reset
         </button>
       </div>
@@ -730,6 +743,7 @@ export default {
       faceLabOpen: false,
       bgOffX: Number(localStorage.getItem("golem.bgOffX") || 0),
       bgOffY: Number(localStorage.getItem("golem.bgOffY") || 0),
+      bgH: Number(localStorage.getItem("golem.bgOffH") || 0),
       grimoireClosed,
       grimoireOpen,
       tpiLogo,
@@ -777,9 +791,14 @@ export default {
   methods: {
     /** Face lab: shift the background PAINT and remember it. */
     setBgOff(axis, px) {
-      const v = Math.max(-40, Math.min(40, Number(px) || 0));
+      // H ranges wider than the two nudges: X/Y move the paint a few pixels,
+      // H changes how far the art overshoots the window.
+      const lo = axis === "h" ? -200 : -40;
+      const hi = axis === "h" ? 400 : 40;
+      const v = Math.max(lo, Math.min(hi, Number(px) || 0));
       if (axis === "x") this.bgOffX = v;
-      else this.bgOffY = v;
+      else if (axis === "y") this.bgOffY = v;
+      else this.bgH = v;
       try {
         localStorage.setItem("golem.bgOff" + axis.toUpperCase(), String(v));
       } catch (e) {
@@ -1203,12 +1222,24 @@ ul {
     opacity: 0 !important;
   }
 
-  // FT-881 follow-up: the paint is NUDGED by the face lab's two scrubs, not
-  // resized — `cover` still covers, which a smaller background-size would not.
-  // Both default to 0px, so an untouched app paints exactly as it did.
+  // FT-881 follow-up: the paint is NUDGED by the face lab's scrubs.
+  // X/Y move it; H grows or shrinks it. All three default to 0, so an
+  // untouched app paints exactly as it did.
   background-position: calc(50% + var(--bg-off-x, 0px))
     calc(50% + var(--bg-off-y, 0px));
-  background-size: cover;
+  // `cover` written out longhand, because a keyword has no arithmetic and H
+  // needs some. Cover's HEIGHT for this art is whichever is larger: the
+  // window's own height, or the height the image must reach for its width to
+  // span the window — that second term is 100vw / 1.8244, the aspect of the
+  // 1642x900 recentred background. `auto` then takes the width from it, so
+  // the image never distorts, only zooms.
+  //
+  // Adding to that height zooms IN and stays covered. Subtracting zooms out,
+  // and past zero-cover the edges stop being covered — that is the letterbox
+  // seam, and the scrub is how you find where it starts rather than being
+  // told about it.
+  background-size: auto
+    calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
   display: flex;
   align-items: center;
   align-content: center;
