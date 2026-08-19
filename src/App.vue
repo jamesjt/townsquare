@@ -671,6 +671,8 @@ export default {
     }
   },
   mounted() {
+    // the face lab's persisted dials, published to <html> — see applyBgOff
+    this.applyBgOff();
     // FT-880: start watching for the first gesture, so the call-back's audio
     // element has earned its autoplay credit long before there is a summons to
     // play. Costs nothing until something is clicked; see golem/callBack.js.
@@ -799,11 +801,26 @@ export default {
       if (axis === "x") this.bgOffX = v;
       else if (axis === "y") this.bgOffY = v;
       else this.bgH = v;
+      this.applyBgOff();
       try {
         localStorage.setItem("golem.bgOff" + axis.toUpperCase(), String(v));
       } catch (e) {
         // storage off: the dial still works for this session
       }
+    },
+    /**
+     * The dials live on <html>, not on #app.
+     *
+     * The background outside a game is painted by the `html, body` rule, and a
+     * custom property set on #app cannot reach it — variables inherit DOWN.
+     * Published here they reach both that rule and #app.in-game's own plate,
+     * which is the whole point: one set of dials, both backgrounds.
+     */
+    applyBgOff() {
+      const r = document.documentElement.style;
+      r.setProperty("--bg-off-x", this.bgOffX + "px");
+      r.setProperty("--bg-off-y", this.bgOffY + "px");
+      r.setProperty("--bg-h", this.bgH + "px");
     },
     /** the coin lab: swap every seat's coin art, and remember it */
     pickCoin(id) {
@@ -1157,9 +1174,15 @@ body {
   // background.jpg stays in the tree untouched).
   // The dark ground paints FIRST — while the 2.3MB art is still downloading,
   // the page reads as night instead of flashing white behind the intro.
-  background: #0b0d12 url("assets/background-clocktower-centered.png") center
-    center;
-  background-size: cover;
+  // The face lab's dials reach HERE too. This rule paints the background
+  // everywhere outside a game — the intro, the lobby, the waiting screen — and
+  // it is what a user is looking at most of the time, so a lab that only moved
+  // `#app.in-game` appeared to do nothing at all.
+  background: #0b0d12 url("assets/background-clocktower-centered.png");
+  background-position: calc(50% + var(--bg-off-x, 0px))
+    calc(50% + var(--bg-off-y, 0px));
+  background-size: auto
+    calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
   color: white;
   height: 100%;
   font-family: "Roboto Condensed", sans-serif;
@@ -1830,9 +1853,12 @@ video#background {
 // in a game the hands leave the face — #app paints the handless art over
 // the body's default (the class rides #app, not body)
 #app.in-game {
-  background: #0b0d12 url("assets/background-clocktower-blank-centered.png")
-    center center;
-  background-size: cover;
+  // Same dials, the other plate — the blank dial the town is played on.
+  background: #0b0d12 url("assets/background-clocktower-blank-centered.png");
+  background-position: calc(50% + var(--bg-off-x, 0px))
+    calc(50% + var(--bg-off-y, 0px));
+  background-size: auto
+    calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
 }
 
 #app > .dial-letters {
