@@ -40,9 +40,13 @@
         }}</span>
       </div>
 
+      <!-- The seat's night-order badges are RETIRED (user call 2026-08-18):
+           the storyteller's night checklist replaces them. Markup and styles
+           stay in the file behind showNightBadges rather than being deleted,
+           so the old read is one flag away while the checklist is built. -->
       <div
         class="night-order first"
-        v-if="nightOrder.get(player).first && grimoire.isNightOrder"
+        v-if="showNightBadges && nightOrder.get(player).first"
       >
         <em>{{ nightOrder.get(player).first }}.</em>
         <span v-if="player.role.firstNightReminder">{{
@@ -51,7 +55,7 @@
       </div>
       <div
         class="night-order other"
-        v-if="nightOrder.get(player).other && grimoire.isNightOrder"
+        v-if="showNightBadges && nightOrder.get(player).other"
       >
         <em>{{ nightOrder.get(player).other }}.</em>
         <span v-if="player.role.otherNightReminder">{{
@@ -293,6 +297,11 @@ export default {
     ...mapState("players", ["players"]),
     ...mapState(["grimoire", "session"]),
     ...mapGetters({ nightOrder: "players/nightOrder" }),
+    /** Retired with the night checklist (user call 2026-08-18) — flip to
+     *  `this.grimoire.isNightOrder` to bring the seat badges back. */
+    showNightBadges() {
+      return false;
+    },
     index: function() {
       return this.players.indexOf(this.player);
     },
@@ -793,7 +802,11 @@ export default {
     // Golem fork (2026-08-18): our OWN seat token — a disc of the
     // clocktower's gold filigree (life-golem.png; upstream's life.png
     // stays in the tree untouched)
-    background: url("../assets/life-golem.png") center center;
+    // The token's two faces are now the SAME COIN (user call 2026-08-18):
+    // the public face is the blank coin, the storyteller face is the coin
+    // with the role on it. Identical silhouettes mean nothing can peek out
+    // from behind the other. life-golem.png stays in the tree, unreferenced.
+    background: url("../assets/token-golem.png") center center;
     background-size: 100%;
     border: 3px solid black;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
@@ -804,21 +817,12 @@ export default {
     position: absolute;
     left: 0;
     top: 0;
-    // Tucked behind the coin's parchment once a role is on the seat: the
-    // coin's teeth leave gaps at the rim, and at full size this disc's own
-    // black ring showed through them (user call 2026-08-18). An empty chair
-    // still shows it at full size — there is no coin over it then.
-    // ONLY in the storyteller's view: this disc is the token's PUBLIC face
-    // (the coin flips away and this flips in), so in the players' view it is
-    // the token itself and must keep its own size and ring.
-    #townsquare:not(.public) .player.has-role & {
-      width: 92%;
-      height: 92%;
-      left: 4%;
-      top: 4%;
-      border-color: transparent;
-      box-shadow: none;
-    }
+    // Both faces are the SAME COIN now, so there is no mismatched silhouette
+    // to hide — the earlier 92% tuck (which shrank this disc so its ring
+    // stopped showing through the coin's teeth) is retired. The ring goes
+    // with it: the coin art carries its own edge.
+    border-color: transparent;
+    box-shadow: none;
 
     &:before {
       content: " ";
@@ -852,7 +856,8 @@ export default {
 
     .life {
       // Golem fork: our shroud disc (upstream death.png stays untouched)
-      background-image: url("../assets/death-golem.png");
+      // the dead plate is the same coin, drained and cooled
+      background-image: url("../assets/token-golem-dead.png");
 
       &:after {
         content: " ";

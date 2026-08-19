@@ -158,10 +158,15 @@ export default {
     // hide itself (the consumer owns the v-if), so it asks
     window.addEventListener("scroll", this.onDismiss, true);
     window.addEventListener("resize", this.onDismiss);
+    // A drag is a different intent from a read: the card would sit under the
+    // cursor over the very seats the storyteller is dragging onto. It gets
+    // out of the way the moment a drag starts (user call 2026-08-18).
+    document.addEventListener("dragstart", this.onDismiss, true);
   },
   beforeDestroy() {
     window.removeEventListener("scroll", this.onDismiss, true);
     window.removeEventListener("resize", this.onDismiss);
+    document.removeEventListener("dragstart", this.onDismiss, true);
     // We took the element out of our own subtree, so we have to put it away
     // ourselves: when a CONSUMER is torn down whole — a seat removed from the
     // square while its card is up — the framework removes the seat's node and
@@ -227,7 +232,19 @@ export default {
         let top;
         const fitsRight = rect.right + GAP + w <= vw - m;
         const fitsLeft = rect.left - GAP - w >= m;
-        if (this.placement === "side" && (fitsRight || fitsLeft)) {
+        // An anchor in the MIDDLE of the screen (the host panel's role tray,
+        // the town centre) is surrounded by things the card would cover — the
+        // ring of seats and the tray itself. Push the card right out to the
+        // side with more room instead of parking it against the anchor.
+        // (user call 2026-08-18: the note got in the way of dragging.)
+        const cx = rect.left + rect.width / 2;
+        const inMiddle = cx > vw * 0.3 && cx < vw * 0.7;
+        if (this.placement === "side" && inMiddle) {
+          const roomRight = vw - rect.right;
+          left =
+            roomRight >= rect.left ? Math.max(m, vw - w - m) : m;
+          top = clamp(rect.top + rect.height / 2 - h / 2, vh - h - m);
+        } else if (this.placement === "side" && (fitsRight || fitsLeft)) {
           left = fitsRight ? rect.right + GAP : rect.left - GAP - w;
           top = clamp(rect.top + rect.height / 2 - h / 2, vh - h - m);
         } else {

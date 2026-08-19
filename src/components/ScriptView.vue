@@ -16,13 +16,13 @@
         class="wb-tab"
         :class="{ active: view === 'first' }"
         @click="setView('first')"
-        >First night</span
+        ><img class="tab-moon" :src="moonFirst" alt="" />First night</span
       >
       <span
         class="wb-tab"
         :class="{ active: view === 'other' }"
         @click="setView('other')"
-        >Other nights</span
+        ><img class="tab-moon" :src="moonOther" alt="" />Other nights</span
       >
       <!-- the composition meter rides the tab line; icon + count per
            team, tinted in the team's color (icon REPLACES text —
@@ -261,6 +261,12 @@ import {
 } from "../golem/composition";
 // The user's demon mask + outsider face (design/red/*, cut + baked).
 import demonGlyph from "../assets/blood/demon-glyph.png";
+// the night tabs wear moon PHASES: a crescent for the first night, the rest
+// of that moon for the other nights — together they make the full moon a
+// role wearing both nights gets
+import moonFirst from "../assets/moon-first.png";
+import moonOther from "../assets/moon-other.png";
+import moonFull from "../assets/moon-full.png";
 import outsiderGlyph from "../assets/blood/outsider-glyph.png";
 
 export default {
@@ -297,6 +303,9 @@ export default {
     return {
       demonGlyph,
       outsiderGlyph,
+      moonFirst,
+      moonOther,
+      moonFull,
       view: this.initialView || "team",
       // By-type group folding (click the header)
       foldedGroups: {},
@@ -500,6 +509,9 @@ $team-colors: (
     // in the app's idiom (user call): dark plates, blood on the active,
     // and the TITLE's lettering (PiratesBay — what "Almanac" wears)
     .wb-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       cursor: pointer;
       padding: 3px 16px;
       border-radius: 5px;
@@ -593,6 +605,13 @@ $team-colors: (
       }
     }
   }
+  .tab-moon {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+    opacity: 0.9;
+  }
+
   .wb-empty {
     color: rgba(255, 255, 255, 0.6);
     padding: 40px;
