@@ -7,7 +7,10 @@ const {
   loadLog,
   saveLog,
   loadMode,
-  saveMode
+  saveMode,
+  // FT-874: the "require every row ticked before the night can end" setting.
+  loadRequireChecks,
+  saveRequireChecks
 } = require("../golem/nightLog");
 
 module.exports = store => {
@@ -94,6 +97,10 @@ module.exports = store => {
   // The mode is a standing setting, so it is read before any town is known.
   const savedMode = loadMode();
   if (savedMode) store.commit("night/setMode", savedMode);
+  // FT-874: same idiom — a standing setting, read before any town is known.
+  const savedRequireChecks = loadRequireChecks();
+  if (savedRequireChecks !== null)
+    store.commit("night/setRequireChecks", savedRequireChecks);
   // The log belongs to a TOWN — read whichever one the block above restored.
   // (setSessionId's own handler below catches every later hop between towns.)
   const bootLog = loadLog(store.state.session.sessionId);
@@ -228,6 +235,9 @@ module.exports = store => {
       // has to write too or a reload would lose which night it is.
       case "night/setMode":
         saveMode(state.night.mode);
+        break;
+      case "night/setRequireChecks":
+        saveRequireChecks(state.night.requireChecks);
         break;
       case "toggleNight":
       case "night/setDay":

@@ -124,9 +124,11 @@ const STAINS = stainCtx
   .map(stainCtx);
 
 // The dial, in the background art's own pixels (see --fpx in App.vue): both
-// clocktower backgrounds are 1672x941 with the face centred at image
-// (851,450) — +15,-20.5 from the image centre, which is where
-// .blood-dial .stain anchors below. The rose runs out to r~250.
+// clocktower backgrounds are trimmed to 1642x900 with the face centred
+// EXACTLY at the image centre (recentred FT-anon 2026-08-19 — the originals
+// were 1672x941 with the face at (851,450), +15,-20.5 off-centre, which
+// .blood-dial .stain used to carry as a baked-in offset). The rose runs out
+// to r~250 (see --face-r in App.vue for the measured rim radius).
 //
 // Stains ride the OUTER band of the face: the hub carries the town readout
 // (script name, alive/dead counts), so blood is kept off it and the wedges
@@ -549,10 +551,10 @@ export default {
 
   .stain {
     position: absolute;
-    /* the DIAL's centre, not the box's — the art's face sits +15,-20.5
-       face-pixels off the image centre */
-    left: calc(50% + 15 * var(--fpx));
-    top: calc(50% + -20.5 * var(--fpx));
+    /* the DIAL's centre — now the box's centre too (recentred art), so no
+       offset is needed */
+    left: 50%;
+    top: 50%;
     background: center / contain no-repeat;
     /* the stone drinks it — the dial's filigree still reads underneath */
     opacity: 0.88;

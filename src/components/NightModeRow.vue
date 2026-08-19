@@ -37,6 +37,19 @@
       </span>
     </div>
     <small class="nm-hint">{{ hints[mode] }}</small>
+
+    <!-- FT-874: gates the checklist's "end night" button until every row is
+         ticked — ON by default, so this is where a storyteller who wants the
+         old always-open button turns it off. A plain checkbox, not a segment
+         like the switch above: it is one binary setting, not three modes. -->
+    <label class="nm-require" title="Block ending the night until every row is checked off">
+      <input
+        type="checkbox"
+        :checked="requireChecks"
+        @change="toggleRequireChecks($event.target.checked)"
+      />
+      <span class="label">Require checks</span>
+    </label>
   </div>
 </template>
 
@@ -60,11 +73,14 @@ export default {
     };
   },
   computed: {
-    ...mapState("night", ["mode"])
+    ...mapState("night", ["mode", "requireChecks"])
   },
   methods: {
     pick(mode) {
       this.$store.commit("night/setMode", mode);
+    },
+    toggleRequireChecks(checked) {
+      this.$store.commit("night/setRequireChecks", checked);
     }
   }
 };
@@ -143,6 +159,37 @@ export default {
     // tracks the label column above it
     padding-left: 96px;
     margin-top: -2px;
+  }
+
+  // FT-874: the "Require checks" toggle — a plain checkbox, not the switch's
+  // segmented-button idiom (one binary setting, not three modes to pick
+  // between). Sits under the hint, left-aligned to the same 96px label
+  // column the rest of this component tracks.
+  .nm-require {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding-left: 96px;
+    cursor: pointer;
+    width: fit-content;
+
+    input {
+      margin: 0;
+      cursor: pointer;
+      // a real tap target on a phone, without inflating the visible box
+      @media (pointer: coarse) {
+        width: 22px;
+        height: 22px;
+      }
+    }
+    .label {
+      opacity: 0.85;
+      width: auto;
+    }
+    &:hover .label {
+      color: #ff8a8a;
+    }
   }
 }
 </style>

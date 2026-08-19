@@ -6,11 +6,17 @@ the source-of-truth art the runtime assets are cut from.
 ## clocktower/
 The background art, in variants (creative director, 2026-08-16):
 
-- `clocktower.png` — the live background (hands + numerals), currently shipped
-  as `src/assets/background-clocktower.png`.
-- `clocktower-blank.png` — SAME scene, no hands, no numerals. The base for the
-  live clock-hands layer idea: render hands (and player-count numerals) as DOM
-  on top, use them for voting.
+- `clocktower.png` — the live background (hands + numerals), cut down to
+  `src/assets/background-clocktower.png`, which the FT-anon 2026-08-19
+  recentre trims further into the actually-shipped
+  `src/assets/background-clocktower-centered.png` (dial's centre moved to the
+  image's own centre — 30px off the left, 41px off the bottom). The
+  untrimmed `background-clocktower.png` stays in `src/assets/` unshipped by
+  any current reference, kept per the never-delete rule.
+- `clocktower-blank.png` — SAME scene, no hands, no numerals. Same story:
+  shipped as `src/assets/background-clocktower-blank-centered.png` now. The
+  base for the live clock-hands layer idea: render hands (and player-count
+  numerals) as DOM on top, use them for voting.
 - `clocktower-blank-blood.png` / `-blood2.png` — the blank face with blood
   treatments; candidate backgrounds for dramatic moments (executions, demon
   win) or as an alternate skin.

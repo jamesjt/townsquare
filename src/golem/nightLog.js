@@ -28,6 +28,9 @@
 
 const LOG_KEY = "golem.nightLog";
 const MODE_KEY = "golem.nightMode";
+// FT-874: "require every row ticked before the night can end" — a standing
+// setting like MODE_KEY above, not per-town log data.
+const REQUIRE_CHECKS_KEY = "golem.nightRequireChecks";
 
 /** The three visibility states of the night sheet, in toggle order. */
 export const MODES = ["off", "storyteller", "everyone"];
@@ -294,4 +297,15 @@ export function loadMode() {
 
 export function saveMode(mode) {
   if (MODES.includes(mode)) localStorage.setItem(MODE_KEY, mode);
+}
+
+/** The saved "Require checks" setting, or null if never set — the store's
+ *  own default (ON) applies in that case, same idiom as loadMode(). */
+export function loadRequireChecks() {
+  const v = localStorage.getItem(REQUIRE_CHECKS_KEY);
+  return v === null ? null : v === "1";
+}
+
+export function saveRequireChecks(require) {
+  localStorage.setItem(REQUIRE_CHECKS_KEY, require ? "1" : "0");
 }

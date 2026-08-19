@@ -567,7 +567,7 @@ export default {
       const img = new Image();
       img.onload = resolve;
       img.onerror = resolve;
-      img.src = require("./assets/background-clocktower.png");
+      img.src = require("./assets/background-clocktower-centered.png");
     });
     const fonts = Promise.all([
       document.fonts.load("1em PiratesBay"),
@@ -948,7 +948,8 @@ body {
   // background.jpg stays in the tree untouched).
   // The dark ground paints FIRST — while the 2.3MB art is still downloading,
   // the page reads as night instead of flashing white behind the intro.
-  background: #0b0d12 url("assets/background-clocktower.png") center center;
+  background: #0b0d12 url("assets/background-clocktower-centered.png") center
+    center;
   background-size: cover;
   color: white;
   height: 100%;
@@ -1255,19 +1256,33 @@ video#background {
   object-fit: cover;
 }
 
-/* Golem fork (FT-852): one face-pixel — the unit the background's cover fit
-   actually draws at. The art is 1672×941 with the dial centered at
-   image (851,450); every dial-anchored element positions in these units so
-   it rides the face at any viewport. Adjust letters by editing the plain
-   numbers below (they are image pixels). */
+/* Golem fork (FT-852, recentred FT-anon 2026-08-19): one face-pixel — the
+   unit the background's cover fit actually draws at. The art was 1672×941
+   with the dial centred at image (851,450) — +15,-20.5 off the image's own
+   centre, which every anchor below had to carry as a baked-in offset.
+   background-clocktower(-blank)-centered.png trims that away: 30px off the
+   left, 41px off the bottom (measured, see the trim script), so the art is
+   now 1642×900 with the dial's centre AT the image centre. Every
+   dial-anchored element now positions as a plain offset from 50%/50% — no
+   folded-in offset anywhere. Adjust letters by editing the plain numbers
+   below (they are image pixels, face-relative). */
 #app {
   /* container units so the face math reads the SAME box the background
      paints in — mobile browser bars make vh lie; cqh doesn't. */
   container-type: size;
-  --fpx: max(0.05981cqw, 0.10627cqh);
+  --fpx: max(0.0609cqw, 0.11111cqh);
   /* the door stack's unit: face-proportional but CAPPED so the cover-fit
      zoom on portrait phones can't balloon the buttons. */
   --dfpx: min(var(--fpx), 0.145vmin);
+  /* THE FACE, published for whoever lays the next thing over it (e.g. a
+     night sheet): centre is now just the container centre — no offset — and
+     the radius is in face-px (multiply by --fpx for a length). Measured off
+     the trimmed art's outer bronze rim, ray-cast at 5° steps averaged
+     across both background images: ~230-249px depending on angle (the rim
+     isn't a perfect circle — it's painted), 238 is the mean. */
+  --face-cx: 50%;
+  --face-cy: 50%;
+  --face-r: 238;
 }
 // the DRIP LAB — top-left, the user's own scrollbar dials
 #coin-lab {
@@ -1471,8 +1486,8 @@ video#background {
 // in a game the hands leave the face — #app paints the handless art over
 // the body's default (the class rides #app, not body)
 #app.in-game {
-  background: #0b0d12 url("assets/background-clocktower-blank.png") center
-    center;
+  background: #0b0d12 url("assets/background-clocktower-blank-centered.png")
+    center center;
   background-size: cover;
 }
 
@@ -1498,18 +1513,19 @@ video#background {
       filter: drop-shadow(0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.45));
     }
   }
-  /* hour positions on the measured tick rays (image px from viewport
-     center, dial center offset +15,-20.5 already folded in) */
-  .dl-c1 { left: calc(50% + 96.9 * var(--fpx)); top: calc(50% + -172.6 * var(--fpx)); }
-  .dl-l  { left: calc(50% + 163.3 * var(--fpx)); top: calc(50% + -117.4 * var(--fpx)); }
-  .dl-o1 { left: calc(50% + 177.5 * var(--fpx)); top: calc(50% + -34.0 * var(--fpx)); }
-  .dl-c2 { left: calc(50% + 156.1 * var(--fpx)); top: calc(50% + 47.5 * var(--fpx)); }
-  .dl-k  { left: calc(50% + 105.0 * var(--fpx)); top: calc(50% + 109.0 * var(--fpx)); }
-  .dl-t  { left: calc(50% + -85.4 * var(--fpx)); top: calc(50% + 111.7 * var(--fpx)); }
-  .dl-o2 { left: calc(50% + -139.5 * var(--fpx)); top: calc(50% + 47.4 * var(--fpx)); }
-  .dl-w  { left: calc(50% + -162.5 * var(--fpx)); top: calc(50% + -33.5 * var(--fpx)); }
-  .dl-e  { left: calc(50% + -141.5 * var(--fpx)); top: calc(50% + -117.2 * var(--fpx)); }
-  .dl-r  { left: calc(50% + -82.5 * var(--fpx)); top: calc(50% + -176.6 * var(--fpx)); }
+  /* hour positions on the measured tick rays (image px from the face's own
+     centre, which is now the viewport centre — recentred art, no more
+     baked-in +15,-20.5) */
+  .dl-c1 { left: calc(50% + 81.9 * var(--fpx)); top: calc(50% + -152.1 * var(--fpx)); }
+  .dl-l  { left: calc(50% + 148.3 * var(--fpx)); top: calc(50% + -96.9 * var(--fpx)); }
+  .dl-o1 { left: calc(50% + 162.5 * var(--fpx)); top: calc(50% + -13.5 * var(--fpx)); }
+  .dl-c2 { left: calc(50% + 141.1 * var(--fpx)); top: calc(50% + 68.0 * var(--fpx)); }
+  .dl-k  { left: calc(50% + 90.0 * var(--fpx)); top: calc(50% + 129.5 * var(--fpx)); }
+  .dl-t  { left: calc(50% + -100.4 * var(--fpx)); top: calc(50% + 132.2 * var(--fpx)); }
+  .dl-o2 { left: calc(50% + -154.5 * var(--fpx)); top: calc(50% + 67.9 * var(--fpx)); }
+  .dl-w  { left: calc(50% + -177.5 * var(--fpx)); top: calc(50% + -13.0 * var(--fpx)); }
+  .dl-e  { left: calc(50% + -156.5 * var(--fpx)); top: calc(50% + -96.7 * var(--fpx)); }
+  .dl-r  { left: calc(50% + -97.5 * var(--fpx)); top: calc(50% + -156.1 * var(--fpx)); }
 }
 
 /* Golem fork: the FONT LAB — the top-left dev dropdown owning every

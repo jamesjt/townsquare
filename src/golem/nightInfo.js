@@ -109,6 +109,16 @@ export function renderableType(type) {
  *               corrupt) or when a reveal genuinely can't be corrupted
  *               (Scarlet Woman's "you are now the Demon" is a state
  *               transition, not information).
+ *   label       FT-874: the ACTION being recorded, storyteller-voice, ending
+ *               in a colon — "Kills:", "Poisons:", "Learns executed was:".
+ *               Renders once, immediately before the row's first control (see
+ *               NightSheet's `rowLabel`), so what's being recorded is STATED
+ *               rather than left implied by the ability text. Present only on
+ *               characters that actually record something; a character with
+ *               `wakes: []` (nothing chosen, nothing learned) carries no
+ *               `label` key at all, and an unlisted role falls through to no
+ *               label the same way it falls through to a bare text box —
+ *               never a guessed verb.
  *
  * COVERAGE (checked by hand against roles.json + the shipped reminder text,
  * 2026-08-18): every Trouble Brewing character that wakes at all, PLUS the
@@ -129,7 +139,8 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   librarian: {
     wakes: ["first"],
@@ -138,7 +149,8 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   investigator: {
     wakes: ["first"],
@@ -147,17 +159,20 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   chef: {
     wakes: ["first"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 7 }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   empath: {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 2 }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   fortuneteller: {
     wakes: ["first", "other"],
@@ -166,17 +181,20 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
       { type: FIELD_TYPES.BOOLEAN, by: FIELD_OWNERS.STORYTELLER }
     ],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   undertaker: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns executed was:"
   },
   monk: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
-    mayBeFalse: false
+    mayBeFalse: false,
+    label: "Protects:"
   },
   ravenkeeper: {
     wakes: ["other"],
@@ -184,7 +202,8 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   virgin: { wakes: [], fields: [], mayBeFalse: false }, // day ability — never reaches a night row
   slayer: { wakes: [], fields: [], mayBeFalse: false }, // day ability
@@ -194,7 +213,8 @@ export const NIGHT_INFO = {
   butler: {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
-    mayBeFalse: false
+    mayBeFalse: false,
+    label: "Chooses master:"
   },
   drunk: { wakes: [], fields: [], mayBeFalse: false }, // never wakes as itself — see golem/belief's performance rows
   recluse: { wakes: [], fields: [], mayBeFalse: false }, // passive
@@ -203,26 +223,30 @@ export const NIGHT_INFO = {
   poisoner: {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
-    mayBeFalse: false
+    mayBeFalse: false,
+    label: "Poisons:"
   },
   spy: {
     wakes: ["first", "other"],
     // sees the WHOLE grimoire — nothing structured to set; TEXT is the
     // honest choice here, not a placeholder for a control that's missing
     fields: [{ type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }],
-    mayBeFalse: false
+    mayBeFalse: false,
+    label: "Sees:"
   },
   scarletwoman: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
-    mayBeFalse: false // "you are now the Demon" is a state transition, not corruptible info
+    mayBeFalse: false, // "you are now the Demon" is a state transition, not corruptible info
+    label: "Becomes:"
   },
   baron: { wakes: [], fields: [], mayBeFalse: false }, // setup-only, never wakes
   // ── Trouble Brewing — Demon ──────────────────────────────────────────────
   imp: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
-    mayBeFalse: false // chooses a kill, told nothing back — the Demon's OWN first-night reveal is GROUP_INFO.demon, below
+    mayBeFalse: false, // chooses a kill, told nothing back — the Demon's OWN first-night reveal is GROUP_INFO.demon, below
+    label: "Kills:"
   },
 
   // ── Bad Moon Rising / Sects & Violets — entered opportunistically ───────
@@ -233,27 +257,32 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
       { type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 2 }
     ],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   clockmaker: {
     wakes: ["first"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 1, max: 20 }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   mathematician: {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 20 }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   oracle: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 20 }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   },
   juggler: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 5 }],
-    mayBeFalse: true
+    mayBeFalse: true,
+    label: "Learns:"
   }
 };
 
@@ -307,6 +336,18 @@ export function fieldsFor(roleId) {
     };
   }
   return { fields: entry.fields || [], mayBeFalse: !!entry.mayBeFalse, known: true };
+}
+
+/**
+ * FT-874: the night-action label for one character — "Kills:", "Poisons:" —
+ * or "" when there is nothing to name: an unlisted role (never a guessed
+ * verb), or a listed one with nothing to record (`wakes: []` entries never
+ * carry a `label` key at all). Never throws, always a string — the template
+ * can `v-if` on the return value directly.
+ */
+export function labelFor(roleId) {
+  const entry = NIGHT_INFO[roleId];
+  return (entry && entry.label) || "";
 }
 
 /**

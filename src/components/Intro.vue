@@ -331,23 +331,25 @@ export default {
     },
     /** "on the" in the chosen family's lowercase (goldart mode bypasses). */
     /** Title GLUED to the art: positioned + sized in image coordinates
-     *  (tower axis x 837; the dark band above the arch tops at y 60; the
-     *  lettering is 88 image-px tall), so no window size moves it. */
+     *  (tower axis x 807 — was x 837 on the original 1672-wide art, shifted
+     *  -30 by the recentre trim; the dark band above the arch tops at y 60;
+     *  the lettering is 88 image-px tall), so no window size moves it. */
     titleStyle() {
       const { x, y, s } = this.bgA;
       return {
-        left: x + 837 * s + "px",
+        left: x + 807 * s + "px",
         top: y + 56 * s + "px",
         // the lockup draws at 360 image-px wide (1657x651 native)
         width: 318 * s + "px",
         fontSize: 88 * s + "px"
       };
     },
-    /** "on the" — the lockup script, image-anchored (user-calibrated). */
+    /** "on the" — the lockup script, image-anchored (user-calibrated; x 820
+     *  was x 850 on the original art, shifted -30 by the recentre trim). */
     ontheStyle() {
       const { x, y, s } = this.bgA;
       return {
-        left: x + 850 * s + "px",
+        left: x + 820 * s + "px",
         top: y + 191 * s + "px",
         // the lockup renders at 42 image-px tall (431x98 native)
         height: 36 * s + "px"
@@ -489,8 +491,11 @@ export default {
       // Golem fork (2026-08-18, user diagnosis): the background renders
       // center/cover, so anything positioned in VIEWPORT pixels drifts
       // against the art as the window changes — the title was a moving
-      // target. It now anchors in IMAGE coordinates (the art is 1672x941;
-      // the tower band's centre sits at x 837): this holds the cover math.
+      // target. It now anchors in IMAGE coordinates (the art is trimmed to
+      // 1642x900 as of the recentre — FT-anon 2026-08-19 — with the dial's
+      // centre now AT the image centre; the tower band's centre sits at
+      // x 807, shifted from the original art's x 837 by the same 30px the
+      // trim took off the left edge): this holds the cover math.
       bgA: { x: 0, y: 0, s: 1 },
       // Golem fork: the app-wide PNG-font choice (titleFonts.js) — reactive,
       // persisted; the title click is the dev control.
@@ -552,10 +557,14 @@ export default {
     window.removeEventListener("resize", this.computeBgAnchor);
   },
   methods: {
-    /** The background's cover transform: scale + top-left offset. */
+    /** The background's cover transform: scale + top-left offset.
+     *  W/H are the recentred art's own dimensions (background-clocktower
+     *  -centered.png) — the trim shaved 30px off the left and 41px off the
+     *  bottom of the original 1672x941, so it must track this file, not the
+     *  untrimmed original still in the tree. */
     computeBgAnchor() {
-      const W = 1672,
-        H = 941;
+      const W = 1642,
+        H = 900;
       const vw = window.innerWidth,
         vh = window.innerHeight;
       const s = Math.max(vw / W, vh / H);
@@ -990,17 +999,21 @@ export default {
     justify-content: center;
     // FT-852: sized in door face-pixels (--dfpx — face-proportional with a
     // phone cap, see App.vue). ANCHORED THE SAME WAY THE DIAL LETTERS ARE:
-    // fixed to the app box at the hub point (+15,-20.5 image px) — NOT
-    // centered inside .intro, whose 460px overlay box moves with the
-    // viewport (the drift that kept eating the calibration). Nudge with
+    // fixed to the app box at the hub point — NOT centered inside .intro,
+    // whose 460px overlay box moves with the viewport (the drift that kept
+    // eating the calibration). Recentred art (FT-anon 2026-08-19): the hub
+    // sits at plain 50% left, no offset needed any more. Nudge with
     // --stack-trim, in image pixels, positive = down.
     --stack-trim: 0;
     position: absolute;
     pointer-events: auto;
-    left: calc(50% + 15 * var(--fpx));
-    // -36.5 = the face's VISUAL center (the hands' boss, image y=434) —
+    left: 50%;
+    // -16.0 = the face's VISUAL center (the hands' boss, image y=434) —
     // measured against the art and confirmed by eye, not by formula alone.
-    top: calc(50% + (-36.5 + var(--stack-trim)) * var(--fpx));
+    // (Was -36.5 against the original art's centre; the recentre trim
+    // moved the reference point, not the boss itself, so the coefficient
+    // shifted by +20.5 to match.)
+    top: calc(50% + (-16.0 + var(--stack-trim)) * var(--fpx));
     transform: translate(-50%, -50%);
     margin: 0;
     gap: calc(5.5 * var(--dfpx));
@@ -1077,10 +1090,12 @@ export default {
   .panel {
     // FT-852: hub-anchored exactly like the doors and the dial letters —
     // one coordinate system for everything sitting on the clock face.
+    // Recentred art (FT-anon 2026-08-19): left needs no offset now; top's
+    // -16.0 is the same hands'-boss adjustment the doors block above uses.
     position: absolute;
     pointer-events: auto;
-    left: calc(50% + 15 * var(--fpx));
-    top: calc(50% + -36.5 * var(--fpx));
+    left: 50%;
+    top: calc(50% + -16.0 * var(--fpx));
     transform: translate(-50%, -50%);
     width: min(92vw, 420px);
     margin: 0;

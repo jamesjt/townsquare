@@ -19,15 +19,30 @@
          control that gets the storyteller INTO a night — nothing else
          belongs in a bar with one button in it. -->
     <div class="phase pill" v-if="!showList">
-      <button type="button" class="phase-flip" :title="flipHint" @click="flipPhase">
+      <button
+        type="button"
+        class="phase-flip"
+        :class="{ blocked: !canFlip }"
+        :title="flipHint"
+        @click="flipPhase"
+      >
+        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
+        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
         {{ flipLabel }}
+        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
+        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
       </button>
     </div>
 
     <!-- ── the checklist ─────────────────────────────────────────────────── -->
     <template v-if="showList">
+      <!-- FT-874: labelled — a bare "0 / 4" floated with no context once the
+           phase word itself moved to the public readout (FT-862). -->
       <div class="phase" v-if="roster.length">
-        <span class="phase-progress">{{ progress.done }} / {{ progress.total }}</span>
+        <span class="phase-progress"
+          ><span class="pp-label">Night Checklist:</span>
+          {{ progress.done }} / {{ progress.total }}</span
+        >
       </div>
 
       <p class="ns-empty" v-if="!roster.length">Nobody wakes tonight.</p>
@@ -37,21 +52,28 @@
           v-for="row in roster"
           :key="row.key"
           class="ns-row"
+          :data-row-key="row.key"
           :class="[
             'team-' + (row.role.team || 'townsfolk'),
             {
               done: entryFor(row).done,
               // FT-861: this row is a PERFORMANCE — the seat is being walked
               // through a character it only thinks it has
-              performance: row.isPerformance
+              performance: row.isPerformance,
+              // FT-874: the guided escape from a blocked end-night press —
+              // a brief highlight, not a permanent state
+              flash: flashing[row.key]
             }
           ]"
         >
-          <!-- THE DONE STATE. A left-edge tick, not a big object: the row's
-               OWN dimming (see .done above) already says "finished" at a
-               glance, so the mark itself only needs to be findable, not
-               loud. Blood red (#800000, user-named) once checked; the touch
-               target stays 44px via padding even though the ink shrank. -->
+          <!-- THE DONE STATE. FT-874: ONE control, spanning BOTH lines of
+               the row (grid-area "state" now names both rows in column 1,
+               see the style block) — not a small glyph beside the identity
+               line, so the click/tap target is the row's own full height.
+               The row's own dimming (see .done below) already says
+               "finished" at a glance, so the mark itself only needs to be
+               findable, not loud. Blood red (#800000, user-named) once
+               checked. -->
           <span
             class="ns-check"
             :class="{ checked: entryFor(row).done }"
@@ -68,9 +90,9 @@
             />
           </span>
 
-          <!-- IDENTITY (left zone): the character, whose chair it is, and
-               the instruction to read aloud — the things that carry
-               MEANING, sized to be read first. -->
+          <!-- IDENTITY (top-left): order, icon, "Role · Player" on ONE line
+               (FT-874 — was two stacked lines) plus the performance/belief
+               line when there is one. -->
           <div class="ns-identity">
             <span class="ns-ord" :title="'Night order ' + row.night">{{ row.order }}</span>
             <span
@@ -78,12 +100,15 @@
               :style="{ backgroundImage: `url(${roleIconUrl(row.role)})` }"
             ></span>
             <span class="ns-who">
-              <b>{{ row.role.name }}</b>
-              <small>{{ row.player.name || "Open seat" }}</small>
+              <span class="ns-name-line">
+                <b>{{ row.role.name }}</b>
+                <span class="ns-sep">·</span>
+                <small>{{ row.player.name || "Open seat" }}</small>
+              </span>
               <!-- FT-861: THE OTHER CHARACTER. The row names the one that
                    ACTS in full, and the one the storyteller must not forget
-                   in a line under it — because which of the two it is
-                   decides whether anything actually happens. -->
+                   — because which of the two it is decides whether anything
+                   actually happens. -->
               <small class="ns-truth" v-if="row.isPerformance">
                 <font-awesome-icon icon="theater-masks" />
                 a performance — really the {{ row.trueRole.name }}
@@ -102,6 +127,11 @@
                here; PLAYER-typed fields never appear a second time, they're
                already the SeatPickers to the left of this zone. -->
           <div class="ns-answer">
+            <!-- FT-874: what's being recorded, stated rather than implied by
+                 the ability text — golem/nightInfo's per-character label,
+                 immediately before this row's first control. -->
+            <span v-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
+
             <SeatPicker
               v-for="slot in row.slots"
               :key="'seat' + slot"
@@ -127,16 +157,16 @@
                 {{ pingLabel(row) }}
               </button>
 
-              <input
+              <NumberScrub
                 v-else-if="kindOf(field) === 'number'"
                 :key="'f' + fi"
-                type="number"
                 class="ns-num"
+                preset="night"
+                :value="numberValue(row, field)"
                 :min="field.min"
                 :max="field.max"
                 :title="numberHint(field)"
-                :value="entryFor(row).told.number"
-                @input="setNumber(row, $event.target.value)"
+                @input="n => setNumber(row, n)"
               />
 
               <CharacterPicker
@@ -166,7 +196,10 @@
             <!-- ...and whether it was a LIE — only offered where there is
                  information to have lied about (golem/nightInfo's
                  mayBeFalse). Poisoner/Monk/Butler/Imp tell nothing back, so
-                 the question doesn't apply. -->
+                 the question doesn't apply. FT-874: a CHECKBOX, not a
+                 warning triangle — reads gold (#d8b45a, this fork's own —
+                 the phase sun, the votes count) when set, not a fifth
+                 invented accent. -->
             <span
               v-if="extraFieldsFor(row).mayBeFalse"
               class="ns-lie"
@@ -178,36 +211,18 @@
               @click="toggleLie(row)"
               @keyup.enter="toggleLie(row)"
             >
-              <font-awesome-icon icon="exclamation-triangle" />
-            </span>
-
-            <!-- the free-text field above already IS "the exact words" —
-                 offering the note pencil too would be two boxes for one
-                 value -->
-            <span
-              v-if="!hasFreeTextField(row)"
-              class="ns-note-toggle"
-              :class="{ on: hasNote(row) || noteOpen[row.key] }"
-              tabindex="0"
-              title="Write down exactly what was said"
-              @click="toggleNote(row)"
-              @keyup.enter="toggleNote(row)"
-            >
-              <font-awesome-icon icon="pen" />
+              <font-awesome-icon
+                :icon="entryFor(row).isFalseInfo ? 'check-square' : 'square'"
+              />
             </span>
           </div>
 
-          <span class="ns-reminder">{{ row.reminder }}</span>
-
-          <input
-            v-if="noteOpen[row.key]"
-            class="ns-note"
-            type="text"
-            :value="entryFor(row).told.text"
-            placeholder="What you told them — the words, not the truth"
-            spellcheck="false"
-            @input="setNote(row, $event.target.value)"
-          />
+          <!-- FT-874: ONE line, truncated — a storyteller is SCANNING a
+               checklist here (compare ScriptView, where the ability wraps
+               in full: there the storyteller is READING to learn a script,
+               a different job). The title carries what the ellipsis cuts,
+               so nothing said is lost, only hidden until asked for. -->
+          <span class="ns-reminder" :title="row.reminder">{{ row.reminder }}</span>
         </li>
       </ul>
 
@@ -220,12 +235,16 @@
       <button
         type="button"
         class="phase-flip bottom"
-        :class="{ ready: allChecked }"
+        :class="{ ready: allChecked, blocked: !canFlip }"
         :title="flipHint"
         @click="flipPhase"
       >
+        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
+        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
         <font-awesome-icon icon="check" v-if="allChecked" />
         {{ flipLabel }}
+        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
+        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
       </button>
     </template>
   </div>
@@ -234,17 +253,27 @@
 <script>
 import { mapState, mapGetters } from "vuex";
 import { entryId } from "../golem/nightLog";
-import { extraFields, renderableType } from "../golem/nightInfo";
+import { extraFields, renderableType, labelFor } from "../golem/nightInfo";
 import SeatPicker from "./SeatPicker";
 import CharacterPicker from "./CharacterPicker";
+// FT-874: the shared drag-scrub / click-to-type number control (also used by
+// HostTools' Seats row) — replaces a bare <input type="number">.
+import NumberScrub from "./NumberScrub";
+// FT-874: the phase button's moon mark — same two filenames TownInfo.vue and
+// RoleHoverCard already import, so whatever art lands there (an art lane is
+// redrawing these in place) shows up here too without a second import to
+// keep in sync.
+import moonFirst from "../assets/moon-first.png";
+import moonOther from "../assets/moon-other.png";
 
 export default {
   name: "NightSheet",
-  components: { SeatPicker, CharacterPicker },
+  components: { SeatPicker, CharacterPicker, NumberScrub },
   data() {
     return {
-      // which rows have their note field open (view state, not log state)
-      noteOpen: {}
+      // FT-874: rows the "end night" button just pointed at because the
+      // storyteller pressed it early — view state, not log state.
+      flashing: {}
     };
   },
   computed: {
@@ -254,6 +283,7 @@ export default {
       rawRoster: "night/roster",
       progress: "night/progress"
     }),
+    ...mapGetters("night", ["isFirstNight"]),
     isNight() {
       return this.grimoire.isNight;
     },
@@ -292,10 +322,30 @@ export default {
     scriptRoles() {
       return [...this.roles.values()];
     },
+    /**
+     * FT-874: the button names the ACTION ("End night" / "End day"), not the
+     * world's own result ("Night falls" read as a status, not a control) —
+     * user call. The atmosphere the old pair carried stays on the marks and
+     * the title (flipHint below), which cost nothing to keep.
+     */
     flipLabel() {
-      return this.isNight ? "Day breaks" : "Night falls";
+      return this.isNight ? "End night" : "End day";
+    },
+    /** The phase the flip is heading INTO — what the sun/moon mark shows,
+     *  the opposite of the CURRENT phase (ending a night heads into day). */
+    nextIsNight() {
+      return !this.isNight;
+    },
+    moonMarkSrc() {
+      return this.isFirstNight ? moonFirst : moonOther;
     },
     flipHint() {
+      // FT-874: a BLOCKED button explains itself on hover rather than being
+      // silently inert — see canFlip/uncheckedRows.
+      if (!this.canFlip) {
+        const n = this.uncheckedRows.length;
+        return n + (n === 1 ? " row still unchecked" : " rows still unchecked");
+      }
       return this.isNight
         ? "Wake the town — the log stays on Night " + this.night.day
         : "Night " + (this.night.day + 1) + " begins, and the log moves with it";
@@ -304,6 +354,23 @@ export default {
      *  quiet to obvious (never blocking; a storyteller may move on early). */
     allChecked() {
       return this.roster.length > 0 && this.progress.done >= this.progress.total;
+    },
+    /** FT-874: tonight's rows still unticked. Empty on a night nobody wakes
+     *  for (roster.length === 0) — nothing to require in that case. */
+    uncheckedRows() {
+      return this.roster.filter(row => !this.entryFor(row).done);
+    },
+    /**
+     * Can the phase button actually flip right now? Starting a night (day →
+     * night) is NEVER gated — the setting is "require the checklist before
+     * the night can END", not before it begins, and a fresh night's own
+     * roster starts unchecked by definition. Ending a night is gated only
+     * when the town's "Require checks" setting (NightModeRow) is on AND
+     * something is still unticked.
+     */
+    canFlip() {
+      if (!this.isNight) return true;
+      return !this.night.requireChecks || this.uncheckedRows.length === 0;
     }
   },
   methods: {
@@ -350,12 +417,6 @@ export default {
     toggleLie(row) {
       this.write(row, { isFalseInfo: !this.entryFor(row).isFalseInfo });
     },
-    toggleNote(row) {
-      this.$set(this.noteOpen, row.key, !this.noteOpen[row.key]);
-    },
-    hasNote(row) {
-      return !!this.entryFor(row).told.text;
-    },
     setNote(row, text) {
       this.writeTold(row, { text });
     },
@@ -392,17 +453,34 @@ export default {
         ? "You told them YES. Click for no."
         : "You told them NO. Click to clear.";
     },
-    setNumber(row, raw) {
-      let n = parseInt(raw, 10);
-      if (raw === "" || isNaN(n)) n = null;
-      else n = Math.max(0, n);
+    /** NumberScrub always emits a clamped integer, never a raw string or an
+     *  empty value — the parsing this used to do lived in the old bare
+     *  <input type="number">'s @input handler and moved into the shared
+     *  component's own clamp(). */
+    setNumber(row, n) {
       this.writeTold(row, { number: n });
+    },
+    /** NumberScrub's `value` prop is required and must be a concrete number
+     *  — never null. Before the storyteller has touched this row nothing is
+     *  stored yet (`told.number` is null, the blank stand-in from
+     *  entryFor()), so the scrub starts at the field's own minimum rather
+     *  than showing nothing; no store write happens until it's interacted
+     *  with either way. */
+    numberValue(row, field) {
+      const n = this.entryFor(row).told.number;
+      return n === null || n === undefined ? field.min || 0 : n;
     },
     numberHint(field) {
       const base = "What you showed them — a count";
       return field.min !== undefined && field.max !== undefined
         ? `${base} (${field.min}–${field.max})`
         : base;
+    },
+    /** golem/nightInfo's per-character label — see that file for the rules
+     *  (present only where a character actually records something; never
+     *  guessed for an unlisted role). */
+    rowLabel(row) {
+      return labelFor(row.role.id);
     },
     setCharacter(row, id, name) {
       this.writeTold(row, { characterId: id, characterName: name });
@@ -415,19 +493,45 @@ export default {
     kindOf(field) {
       return renderableType(field.type);
     },
-    hasFreeTextField(row) {
-      return this.extraFieldsFor(row).fields.some(f => this.kindOf(f) === "text");
-    },
     /**
      * Swap the phase. The day counter moves inside the root toggleNight
      * mutation, so this button and the S hotkey stay in step by construction.
      * Clearing the block on nightfall mirrors Menu.toggleNight.
+     *
+     * FT-874: BLOCKED (canFlip false) is not a dead click — the button stays
+     * a real, clickable <button> (never the native `disabled` attribute,
+     * which would swallow the click entirely) and a press instead points at
+     * what's missing. The escape from a wrong checklist is still exactly one
+     * tap PER ROW (tick it and move on) — never a "check all", which would
+     * teach a hurried storyteller to tick without reading and defeat the
+     * point of the list.
      */
     flipPhase() {
+      if (!this.canFlip) {
+        this.flashUnchecked();
+        return;
+      }
       this.$store.commit("toggleNight");
       if (this.grimoire.isNight) {
         this.$store.commit("session/setMarkedPlayer", -1);
       }
+    },
+    /** Scroll the first unticked row into view and flash every unticked row
+     *  briefly — the guided escape for a blocked "end night" press. */
+    flashUnchecked() {
+      const rows = this.uncheckedRows;
+      if (!rows.length) return;
+      this.$nextTick(() => {
+        const first = this.$el.querySelector(
+          '[data-row-key="' + rows[0].key + '"]'
+        );
+        if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      rows.forEach(r => this.$set(this.flashing, r.key, true));
+      clearTimeout(this._flashTimer);
+      this._flashTimer = setTimeout(() => {
+        rows.forEach(r => this.$set(this.flashing, r.key, false));
+      }, 900);
     }
   }
 };
@@ -558,6 +662,13 @@ export default {
     opacity: 0.65;
     font-size: 90%;
     letter-spacing: 0.5px;
+
+    // FT-874: the count used to float with no context once "Day N/Night N"
+    // moved out (FT-862 above) — this names what it's counting. Not its own
+    // opacity: the parent's 0.65 already mutes both label and count evenly.
+    .pp-label {
+      margin-right: 4px;
+    }
   }
 }
 
@@ -565,10 +676,20 @@ export default {
   font-family: PiratesBay, sans-serif;
   letter-spacing: 1px;
   font-size: 95%;
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  // FT-874 (user call): "make the button a bit gold" — warmed off the plain
+  // grey-on-black plate toward this fork's own gold (#d8b45a — the phase
+  // sun's own colour, TownInfo's .phase-sun) without going full yellow-slab:
+  // a warm dark ground and a gold-tinted border, the text itself still
+  // reading as text. It sits under a list of otherwise dark rows and is
+  // meant to be the one warm thing there — the end of the night.
+  color: #f2e6c8;
   padding: 5px 16px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid #3d3d3d;
+  background: rgba(48, 36, 12, 0.55);
+  border: 1px solid rgba(216, 180, 90, 0.45);
   border-radius: 6px;
   cursor: pointer;
   &:hover,
@@ -578,21 +699,50 @@ export default {
     outline: none;
   }
 
+  // FT-874: sun (heading into day) or moon (heading into night) on either
+  // side of the label — the flavour the plain-verb label ("End night") no
+  // longer carries in its own wording rides the marks and the title instead.
+  .pf-mark {
+    flex-shrink: 0;
+  }
+  .pf-sun {
+    width: 14px;
+    height: 14px;
+    color: #d8b45a;
+  }
+  .pf-moon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+
+  // FT-874: BLOCKED — "Require checks" is on and something is still
+  // unticked. Reads as disabled but ISN'T: the click still lands (see
+  // flipPhase/flashUnchecked) rather than the native `disabled` attribute,
+  // which would swallow it and turn the press into a dead click.
+  &.blocked {
+    cursor: not-allowed;
+    opacity: 0.55;
+    &:hover,
+    &:focus-visible {
+      border-color: rgba(216, 180, 90, 0.45);
+      color: #f2e6c8;
+    }
+  }
+
   // bottom-of-list placement: full width, so it reads as "the next step"
   // rather than a floating button
   &.bottom {
     width: 100%;
     margin-top: 8px;
     padding: 8px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
     flex-shrink: 0;
 
     // FT-862 (user call, my read of "worth considering"): a FINISHED list
     // makes this the obvious next step — brighter, a hint of the blood-red
-    // the done-state already wears, never disabled either way.
+    // the done-state already wears, never disabled either way. Mutually
+    // exclusive with .blocked in practice (a finished list is never gated).
     &.ready {
       color: #ffd9d9;
       background: rgba(128, 0, 0, 0.35);
@@ -634,48 +784,57 @@ export default {
 
 .ns-row {
   display: grid;
-  // state | identity | answer, instruction runs full width under both
-  grid-template-columns: 26px minmax(150px, 1fr) auto;
+  // FT-874: the row redesign, user-specified — TWO lines: identity+answer,
+  // then the ability. "state" (the check) names BOTH rows of column 1, which
+  // is what makes it ONE control spanning the row's full height rather than
+  // a small glyph beside the identity line — CSS grid stretches an item
+  // across every row its area name appears in, by construction, no explicit
+  // row-span needed. The team-coloured left border is retired (user call):
+  // the icon alone carries the team now.
+  grid-template-columns: 34px minmax(150px, 1fr) auto;
   grid-template-areas:
     "state identity answer"
-    ".     instruct instruct";
+    "state instruct instruct";
   column-gap: 10px;
   row-gap: 3px;
   align-items: center;
   padding: 7px 4px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  border-left: 3px solid transparent;
 
-  &.team-townsfolk {
-    border-left-color: #1f65ff;
-  }
-  &.team-outsider {
-    border-left-color: #46d5ff;
-  }
-  &.team-minion {
-    border-left-color: #ff6900;
-  }
-  &.team-demon {
-    border-left-color: #ce0100;
-  }
-  &.team-traveler {
-    border-left-color: #cc04ff;
-  }
-
-  &.done {
+  // FT-874: the TICK stays full-strength on a done row — it is the evidence
+  // the row IS done and the control that undoes it, so it is the one thing
+  // that should never recede. Everything else has already been read and
+  // acted on and can dim. Opacity on the ROW would dim the tick too — a
+  // child's own opacity cannot escape an ancestor's (the composited result
+  // is bounded by the ancestor's alpha regardless), which is exactly the bug
+  // this replaces — so the fade targets every child EXCEPT the check.
+  &.done > *:not(.ns-check) {
     opacity: 0.45;
+  }
+  // FT-874: a row the "end night" button just pointed at — a brief pulse,
+  // not a permanent state (JS clears `flashing` on a timer).
+  &.flash {
+    animation: ns-row-flash 900ms ease;
   }
   &:hover {
     background: rgba(255, 255, 255, 0.05);
   }
 
-  // FT-862: shrunk (13px, low resting opacity) and recoloured blood red once
-  // checked — the ink shrank, the touch target below did not
+  // FT-862: recoloured blood red once checked — FT-874: enlarged from a
+  // small glyph beside the identity line into ONE control filling the
+  // row's full two-line height (grid-area "state" spans both rows; this
+  // element stretches to fill that whole cell by CSS grid's own default —
+  // no explicit sizing needed, `align-self: stretch` just keeps the row's
+  // own `align-items: center` from overriding it back to glyph-sized).
   .ns-check {
     grid-area: state;
-    justify-self: center;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-size: 13px;
+    border-radius: 4px;
+    font-size: 15px;
     opacity: 0.32;
     // The hover is BLOOD RED too (user call 2026-08-18) — green was the one
     // note on this sheet borrowed from outside the fork's palette, and a
@@ -684,6 +843,7 @@ export default {
     &:focus-visible {
       opacity: 1;
       color: #a52a2a;
+      background: rgba(255, 255, 255, 0.05);
       outline: none;
     }
     // BLOOD RED once checked (#800000, user-named — not in vars.scss as of
@@ -721,11 +881,9 @@ export default {
     background-size: cover;
     background-position: center;
   }
-  // FT-861: a PERFORMANCE row — the team stripe goes dashed, this wake
-  // resolves into nothing
-  &.performance {
-    border-left-style: dashed;
-  }
+  // FT-861: a PERFORMANCE row — this wake resolves into nothing. The dashed
+  // team-stripe cue retired with the border itself (FT-874); the tint below
+  // is now the row's only "something's different here" signal.
   &.performance:not(:hover) {
     background: rgba(184, 137, 47, 0.07);
   }
@@ -735,6 +893,18 @@ export default {
     flex-direction: column;
     line-height: 1.2;
     min-width: 0;
+    // FT-874: "Role · Player" on ONE line (was stacked) — the row is two
+    // lines total now, not three-to-four, so identity gave up a line too.
+    .ns-name-line {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ns-sep {
+      flex-shrink: 0;
+      opacity: 0.4;
+    }
     small.ns-truth {
       color: #e0b45f;
       opacity: 0.9;
@@ -744,8 +914,12 @@ export default {
       }
     }
     // FT-862: the character IS the meaning of the row — bigger, brighter
-    // than everything around it except the instruction line
+    // than everything around it except the instruction line. Shrinks before
+    // the player name does (FT-874): a role has nowhere else to be read, a
+    // player's name is already on their seat.
     b {
+      flex-shrink: 0;
+      max-width: 65%;
       font-size: 17px;
       font-weight: 600;
       white-space: nowrap;
@@ -753,6 +927,7 @@ export default {
       text-overflow: ellipsis;
     }
     small {
+      min-width: 0;
       opacity: 0.68;
       font-size: 13px;
       white-space: nowrap;
@@ -770,8 +945,19 @@ export default {
     gap: 6px;
   }
 
-  // number field (Empath/Chef/…) — same rhythm as the other action controls
-  .ns-num,
+  // FT-874: what's being recorded, before the row's first control —
+  // golem/nightInfo's per-character label
+  .ns-label {
+    flex-shrink: 0;
+    opacity: 0.75;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  // FT-874: the box styling that used to live here for .ns-num moved into
+  // NumberScrub's own "night" preset (it needs a THIRD state — the resting
+  // scrub label — that a plain <input> selector can't reach). This block is
+  // .ns-free only now, the free-text fallback.
   .ns-free {
     height: 30px;
     font-family: inherit;
@@ -781,17 +967,11 @@ export default {
     border: 1px solid #3d3d3d;
     border-radius: 5px;
     padding: 0 8px;
+    width: 128px;
     &:focus-visible {
       outline: none;
       border-color: #a01414;
     }
-  }
-  .ns-num {
-    width: 52px;
-    text-align: center;
-  }
-  .ns-free {
-    width: 128px;
   }
 
   .ns-told {
@@ -822,11 +1002,13 @@ export default {
     }
   }
 
-  // FT-862: the lie flag and the note toggle now share the SAME box
-  // treatment and height as every other action control, not bare floating
-  // glyphs at a different weight
-  .ns-lie,
-  .ns-note-toggle {
+  // FT-862: the lie flag shares the same box treatment and height as every
+  // other action control, not a bare floating glyph at a different weight.
+  // FT-874: the note-toggle this was paired with is gone — the verb plus
+  // the picker now says what was recorded — and the flag itself became a
+  // checkbox (square/check-square, matching .ns-check's own pair) instead of
+  // a warning triangle.
+  .ns-lie {
     height: 30px;
     width: 30px;
     display: inline-flex;
@@ -845,78 +1027,84 @@ export default {
     }
     &.on {
       opacity: 1;
+      // FT-874 (user call): this fork's own gold — #d8b45a, the phase sun
+      // and the votes count — rather than a fifth invented accent colour.
+      color: #d8b45a;
+      border-color: #8a6f2e;
     }
   }
-  .ns-lie.on {
-    color: #ffb03a;
-    border-color: #7d5a10;
-  }
-  .ns-note-toggle.on {
-    color: #ff8a8a;
-    border-color: #7d0e0e;
-  }
 
-  // the reminder — FT-862: the sentence the storyteller reads aloud, now
-  // sized to be readable rather than a caption
+  // the reminder — FT-862: the sentence the storyteller reads aloud, sized
+  // to be readable rather than a caption. FT-874: ONE line now, truncated —
+  // a checklist is for SCANNING, not reading (compare ScriptView, which
+  // wraps the same text in full because there the job is learning a
+  // script). `min-width: 0` overrides grid's own default item minimum,
+  // which otherwise refuses to shrink below content size and silently
+  // defeats the ellipsis.
   .ns-reminder {
     grid-area: instruct;
+    display: block;
+    min-width: 0;
     font-size: 13.5px;
     line-height: 1.32;
     opacity: 0.78;
-  }
-  .ns-note {
-    grid-column: 1 / -1;
-    width: 100%;
-    font-size: 12px;
-    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  // a finger needs a box, not a glyph — the state column stays put (its
-  // 44px comes from padding on .ns-check itself, not the grid track), the
-  // rest stacks
+  // a finger needs a box, not a glyph — the state column stays put (it is
+  // now the full height of ALL THREE stacked rows below, "state" naming
+  // every one of them — an even taller target than the two-row desktop
+  // case), the rest stacks
   @media (pointer: coarse) {
-    grid-template-columns: 44px 1fr;
+    grid-template-columns: 48px 1fr;
     grid-template-areas:
       "state identity"
       "state answer"
-      ".     instruct";
+      "state instruct";
     row-gap: 6px;
 
     .ns-check {
-      align-self: start;
-      box-sizing: content-box;
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      padding: 15px;
-      margin: -15px;
+      font-size: 18px;
     }
     .ns-answer {
       justify-content: flex-start;
     }
-    .ns-num,
-    .ns-free,
-    .ns-told,
-    .ns-lie,
-    .ns-note-toggle {
-      height: 44px;
+    // FT-874: .ns-num dropped from this list — NumberScrub's "night" preset
+    // carries its own coarse-pointer sizing (44px height, 64px width, 15px
+    // font — same numbers this rule used to apply) inside the component.
+    .ns-label {
       font-size: 15px;
     }
-    .ns-num {
-      width: 64px;
+    .ns-free,
+    .ns-told,
+    .ns-lie {
+      height: 44px;
+      font-size: 15px;
     }
     .ns-free {
       flex: 1;
       min-width: 140px;
     }
-    .ns-lie,
-    .ns-note-toggle {
+    .ns-lie {
       width: 44px;
     }
-    .ns-note {
-      min-height: 44px;
-      font-size: 15px;
-    }
+  }
+}
+
+// FT-874: the guided escape's brief highlight — see .ns-row.flash above and
+// flashUnchecked() in the script block. A pulse, not a state: it always ends
+// back at transparent, matching whatever the row's own rules (hover, .done)
+// were already drawing under it.
+@keyframes ns-row-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  25%,
+  65% {
+    background: rgba(160, 20, 20, 0.35);
   }
 }
 </style>

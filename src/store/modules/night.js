@@ -3,14 +3,20 @@
  * and the append-only night log.
  *
  * WHAT LIVES HERE
- *   mode     the town's visibility setting: off | storyteller | everyone
- *   day      the day counter. 0 = the town has not reached its first night;
- *            entering a night increments it (see the root toggleNight
- *            mutation, which is the ONE place that does it, so every path
- *            that flips the phase — the sheet's button, the S hotkey, the
- *            menu — moves the counter identically).
- *   entries  the log. Append-only: rows are added when the storyteller first
- *            writes to them and are never removed, only patched in place.
+ *   mode           the town's visibility setting: off | storyteller | everyone
+ *   day            the day counter. 0 = the town has not reached its first
+ *                  night; entering a night increments it (see the root
+ *                  toggleNight mutation, which is the ONE place that does
+ *                  it, so every path that flips the phase — the sheet's
+ *                  button, the S hotkey, the menu — moves the counter
+ *                  identically).
+ *   entries        the log. Append-only: rows are added when the storyteller
+ *                  first writes to them and are never removed, only patched
+ *                  in place.
+ *   requireChecks  FT-874: a standing setting, like `mode` — gates the night
+ *                  sheet's "end night" button until every row is ticked.
+ *                  Read by NightSheet's `canFlip`; set from NightModeRow's
+ *                  own "Require checks" checkbox, next to the mode switch.
  *
  * WHAT DOES NOT LIVE HERE
  *   The night ORDER. That is firstNight / otherNight on the roles plus the
@@ -43,7 +49,11 @@ const state = () => ({
   // exactly how much "everyone" opens up (one per-seat read, never the sheet).
   mode: DEFAULT_MODE,
   day: 0,
-  entries: []
+  entries: [],
+  // FT-874: ON by default — a checklist nobody is asked to finish has no
+  // teeth. The escape is unconditional and one tap per row (tick it, move
+  // on), never blocking; see NightSheet's flipPhase/flashUnchecked.
+  requireChecks: true
 });
 
 const getters = {
@@ -254,6 +264,10 @@ const actions = {
 const mutations = {
   setMode(state, mode) {
     if (MODES.includes(mode)) state.mode = mode;
+  },
+  /** FT-874: NightModeRow's "Require checks" toggle. */
+  setRequireChecks(state, require) {
+    state.requireChecks = !!require;
   },
   setDay(state, day) {
     state.day = Math.max(0, parseInt(day, 10) || 0);

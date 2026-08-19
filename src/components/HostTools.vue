@@ -36,27 +36,17 @@
     <div class="row">
       <span class="label">Seats</span>
       <!-- the number is a SCRUBBER: drag it sideways to set the count
-           (user call — the +/- pair retired) -->
+           (user call — the +/- pair retired). FT-874: extracted into
+           NumberScrub so the night sheet's own number fields run the SAME
+           gesture code — see that component for the full history. -->
       <span class="stepper">
-        <input
-          v-if="seatEditing"
-          ref="seatInput"
-          class="seat-input"
-          type="text"
-          inputmode="numeric"
-          v-model="seatEditVal"
-          @input="seatEditVal = seatEditVal.replace(/\D/g, '')"
-          @keyup.enter="commitSeatEdit"
-          @keyup.esc="seatEditing = false"
-          @blur="commitSeatEdit"
+        <NumberScrub
+          class="seat-scrub-ctl"
+          :value="players.length"
+          :min="0"
+          :max="20"
+          @input="setSeatCount"
         />
-        <b
-          v-else
-          class="seat-scrub"
-          title="Drag sideways to scrub — click to type"
-          @pointerdown="scrubSeats"
-          >{{ players.length }}</b
-        >
       </span>
       <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
            shift-clicking START does the filling now, so there is one dev
@@ -137,13 +127,15 @@ import RoleTray from "./RoleTray";
 import RoleActions from "./RoleActions";
 // FT-860: the night sheet's Off / Storyteller / Everyone row.
 import NightModeRow from "./NightModeRow";
+// FT-874: the shared drag-scrub / click-to-type number control.
+import NumberScrub from "./NumberScrub";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
 
 export default {
-  components: { ScriptPicker, RoleTray, RoleActions, NightModeRow },
+  components: { ScriptPicker, RoleTray, RoleActions, NightModeRow, NumberScrub },
   mounted() {
     // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
     // game (5-6 is Teensyville; user call 2026-08-18)
@@ -162,9 +154,6 @@ export default {
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
-      // seat-count type-in editing (click the scrub number)
-      seatEditing: false,
-      seatEditVal: 0,
       // FT-847: owned-town rename state.
       renaming: false,
       renameDraft: "",
@@ -297,63 +286,6 @@ export default {
       while (this.players.length < want && guard--) this.addSeat();
       while (this.players.length > want && this.canRemoveSeat && guard--)
         this.removeSeat();
-    },
-    /** Drag the number sideways — one seat per 9px. A plain CLICK (no
-     *  drag) opens type-in editing instead (user call). */
-    scrubSeats(e) {
-      e.preventDefault();
-      const el = e.currentTarget;
-      el.setPointerCapture(e.pointerId);
-      const startN = this.players.length;
-      // A finger never lands and lifts on the same pixel. The old 3px slop was
-      // a mouse's number: on a phone an ordinary tap wobbles well past it, so
-      // the tap read as a drag and the type-in field could not be opened by
-      // touch at all. A coarse pointer gets a finger-sized slop instead.
-      const slop = e.pointerType === "touch" ? 10 : 3;
-      // The scrub also starts counting from where the slop was CROSSED, not
-      // from where the pointer went down — otherwise widening the slop would
-      // make every drag jump by the slop's own width the moment it began.
-      let originX = e.clientX;
-      let scrubbing = false;
-      const onMove = ev => {
-        if (!scrubbing) {
-          if (Math.abs(ev.clientX - originX) < slop) return;
-          scrubbing = true;
-          originX = ev.clientX;
-          return;
-        }
-        this.setSeatCount(startN + Math.round((ev.clientX - originX) / 9));
-      };
-      const unbind = () => {
-        el.removeEventListener("pointermove", onMove);
-        el.removeEventListener("pointerup", onUp);
-        el.removeEventListener("pointercancel", unbind);
-      };
-      const onUp = () => {
-        unbind();
-        if (scrubbing) return;
-        this.seatEditVal = String(this.players.length);
-        this.seatEditing = true;
-        this.$nextTick(() => {
-          const inp = this.$refs.seatInput;
-          if (inp) {
-            inp.focus();
-            inp.select();
-          }
-        });
-      };
-      el.addEventListener("pointermove", onMove);
-      el.addEventListener("pointerup", onUp);
-      // The browser can take a gesture away mid-drag — a pan it decided to own,
-      // a second finger, the app going to the background. That fires
-      // `pointercancel` and never `pointerup`, so without this the move handler
-      // stayed bound to the element for the rest of the session.
-      el.addEventListener("pointercancel", unbind);
-    },
-    commitSeatEdit() {
-      if (!this.seatEditing) return;
-      this.seatEditing = false;
-      this.setSeatCount(parseInt(this.seatEditVal, 10) || 0);
     },
     removeSeat() {
       // remove the LAST empty seat; claimed chairs are a targeted act only
@@ -588,60 +520,17 @@ export default {
       display: flex;
       align-items: center;
       gap: 10px;
-      // Scrub and input share ONE footprint — same box, same padding, same
-      // border width — so clicking in only makes the field VISIBLE; nothing
-      // moves. (The earlier attempt fused this selector with .row-book and
-      // nested the input inside it, so the rule never reached the input.)
-      .seat-scrub,
-      .seat-input {
-        box-sizing: border-box;
-        display: inline-block;
-        width: 2.8em;
-        height: 1.5em;
-        line-height: 1.5em;
-        padding: 0 2px;
-        margin: 0;
-        text-align: center;
+      // FT-874: the scrub/type-in box itself (the "one footprint" rule) now
+      // lives in NumberScrub.vue's own scoped style, under its "seat" preset
+      // — this row just sizes and positions the component like any other
+      // flex child (`.seat-scrub-ctl` below).
+      .seat-scrub-ctl {
         vertical-align: middle;
-        font-weight: bold;
-        font-size: inherit;
-        font-family: inherit;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        background: transparent;
       }
       .row-book {
         width: 20px;
         height: 20px;
         vertical-align: middle;
-      }
-      .seat-scrub {
-        cursor: ew-resize;
-        user-select: none;
-        touch-action: none;
-        // The number is 2.8em x 1.5em, which on a phone's shrunken root font
-        // is about 29x15px — and it is not a button but a DRAG handle, the
-        // hardest kind of control to catch. The box cannot simply grow: it
-        // shares one footprint with the type-in field so that clicking in
-        // moves nothing. So the hit area grows instead, as a pad centred on
-        // the digits and sized to stay inside the row's 14px gaps.
-        @media (pointer: coarse) {
-          position: relative;
-          &:after {
-            content: "";
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 44px;
-            height: 44px;
-          }
-        }
-      }
-      .seat-input {
-        border-color: #400;
-        background: rgba(0, 0, 0, 0.6);
-        outline: none;
       }
       svg {
         cursor: pointer;
