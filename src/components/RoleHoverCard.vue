@@ -270,14 +270,21 @@ export default {
         // side with more room instead of parking it against the anchor.
         // (user call 2026-08-18: the note got in the way of dragging.)
         const cx = rect.left + rect.width / 2;
-        const inMiddle = cx > vw * 0.3 && cx < vw * 0.7;
-        if (this.placement === "side" && inMiddle) {
-          const roomRight = vw - rect.right;
-          left =
-            roomRight >= rect.left ? Math.max(m, vw - w - m) : m;
-          top = clamp(rect.top + rect.height / 2 - h / 2, vh - h - m);
-        } else if (this.placement === "side" && (fitsRight || fitsLeft)) {
-          left = fitsRight ? rect.right + GAP : rect.left - GAP - w;
+        if (this.placement === "side" && (fitsRight || fitsLeft)) {
+          // Lean OUTWARD — away from the middle of the window, which is where
+          // the ring of seats lives. A seat on the right of the ring gets its
+          // card to the right, so the card sits in the empty margin instead of
+          // lying across its neighbours.
+          //
+          // This replaces a rule that flung the card to the far EDGE of the
+          // screen whenever the anchor was anywhere near the middle (added
+          // 2026-08-18 because the card was getting in the way of dragging).
+          // It did clear the ring, and it also detached the card from the thing
+          // it describes — the user's report was tooltips appearing
+          // "incredibly far away from the hover target". Adjacent-but-outward
+          // clears the seats without breaking that tie.
+          const useRight = cx >= vw / 2 ? fitsRight : !fitsLeft;
+          left = useRight ? rect.right + GAP : rect.left - GAP - w;
           top = clamp(rect.top + rect.height / 2 - h / 2, vh - h - m);
         } else {
           // stacked: centred on the anchor, above it when there is room

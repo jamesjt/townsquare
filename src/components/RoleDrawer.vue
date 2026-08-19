@@ -3,9 +3,22 @@
     <div
       class="role-drawer"
       v-if="modals.roleDrawer"
+      :style="sheetStyle"
       @dragover.prevent
       @drop="onDrawerDrop"
     >
+      <!-- PHONE ONLY: on a phone this drawer is a bottom sheet (drawer.scss's
+           `bottom-sheet`), and a sheet needs a handle to pull down and a × to
+           tap. Both are display:none on desktop, where the left-edge tab has
+           always been the way in and out — nothing there changes. -->
+      <div class="gs-handle" @pointerdown="startSheetDrag"></div>
+      <font-awesome-icon
+        icon="times"
+        class="rd-close"
+        title="Close the grimoire"
+        @pointerup="sheetDismiss"
+        @click="sheetDismiss"
+      />
       <!-- the how-to rides the title as a tooltip; the actions sit at the top
            where they are reachable without scrolling (user call 2026-08-18) -->
       <h3
@@ -139,6 +152,9 @@ import RoleHoverCard from "./RoleHoverCard";
 // FT-859: the drag itself is shared with the build panel's unseated tray —
 // one gesture, one definition (see golem/roleDrag).
 import { roleIcon as roleIconSrc, startRoleDrag } from "../golem/roleDrag";
+// the phone's drag-to-dismiss — the same gesture the right-hand rail's three
+// sheets take, so all four dismiss identically
+import bottomSheet from "../golem/bottomSheet";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 // the cursor has to rest on a row before its card appears — running the list
@@ -148,6 +164,7 @@ const HOVER_DELAY = 170;
 export default {
   name: "RoleDrawer",
   components: { RoleHoverCard },
+  mixins: [bottomSheet],
   data() {
     return {
       // which role the hover card is describing, and the row it is pinned to
@@ -206,6 +223,12 @@ export default {
   },
   methods: {
     ...mapMutations(["toggleModal", "setDrawerPick"]),
+    /** Shut the grimoire — what the sheet's × and its pull-down both call.
+     *  (The left-edge tab commits the same mutation; this is the drawer's own
+     *  handle on it, which golem/bottomSheet requires by contract.) */
+    close() {
+      this.toggleModal("roleDrawer");
+    },
     /** What a screen reader hears — the reading the row's `title` used to
      *  carry, now that the hover card has taken over the pointer path. */
     spokenRole(role) {
@@ -348,6 +371,11 @@ export default {
 
 <style scoped lang="scss">
 @import "../vars.scss";
+// The grimoire keeps its OWN chrome on desktop (plum, left edge, its own tab)
+// — this import is for the phone's shared bottom-sheet form and grab handle,
+// so the left drawer and the right-hand rail's three become the same object
+// on a phone rather than two lookalikes.
+@import "../drawer.scss";
 
 // the workbench's team palette (its map lives in EditionModal's scope)
 $team-colors: (
@@ -372,6 +400,49 @@ $team-colors: (
   border-right: 1px solid #4b3565;
   box-shadow: 6px 0 30px rgba(0, 0, 0, 0.6);
   padding: 10px 0 8px;
+
+  // the phone sheet's grab handle — display:none anywhere it is a side drawer
+  @include sheet-handle;
+
+  // The sheet's dismiss. The grimoire is the one drawer with no × of its own:
+  // on desktop the left-edge tab opens and shuts it and that is enough. A
+  // full-width sheet has no tab beside it to aim at, and a sheet whose only
+  // exit is a gesture is a trap — so on a phone it gets a real one.
+  .rd-close {
+    display: none;
+  }
+
+  // PHONE: the grimoire stops being a column down the left and becomes the
+  // bottom half of the screen — the same shape the build panel, the night
+  // checklist and the right-hand rail's drawers all take here. The ring keeps
+  // the top (TownSquare's `#app.sheet-up` rule is the other half of this
+  // stack), which matters more for this drawer than for any other: tap a
+  // character, then tap a seat is THE way to cast on a touch screen, and the
+  // seats have to be on screen for the second half of it.
+  @media #{$phone-sheet} {
+    @include bottom-sheet(#4b3565);
+
+    .rd-close {
+      display: block;
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      z-index: 1;
+      box-sizing: content-box;
+      width: 20px;
+      height: 20px;
+      padding: 12px;
+      opacity: 0.9;
+      cursor: pointer;
+    }
+    .rd-title {
+      font-size: 17px;
+    }
+    .rd-groups {
+      // the sheet has its own edge padding now
+      padding: 0 4px;
+    }
+  }
 
   .rd-title {
     margin: 0 12px 2px;
@@ -575,5 +646,13 @@ $team-colors: (
 .rd-slide-enter,
 .rd-slide-leave-to {
   transform: translateX(-100%);
+}
+
+// on a phone it rises from the bottom, because that is the edge it stands on
+@media #{$phone-sheet} {
+  .rd-slide-enter,
+  .rd-slide-leave-to {
+    transform: translateY(100%);
+  }
 }
 </style>

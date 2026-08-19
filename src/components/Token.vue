@@ -144,8 +144,12 @@ const CY = 75;
 // the marks sit just INSIDE the gold hairline rather than in the ring, which
 // is where they fit and where upstream's leaves read from.
 const MARK_R = 67.5;
-// the phase mark, centred on the top of the wheel just inside the hairline
-const PHASE_W = 15;
+// the phase mark, centred on the top of the wheel just inside the hairline.
+// 15 read as a smudge at seat sizes (user report 2026-08-18) -- 21 is the
+// biggest step that still clears the parchment edge at this anchor; PHASE_X/
+// PHASE_Y grow around the same MARK_R centre, so raising this one constant
+// is the whole resize.
+const PHASE_W = 21;
 const PHASE_X = (CX - PHASE_W / 2).toFixed(2);
 const PHASE_Y = (CY - MARK_R - PHASE_W / 2 + 2).toFixed(2);
 const RAD = Math.PI / 180;
@@ -457,9 +461,15 @@ $blood: #970000; // our red, for the one mark that must not be missed
   //            slack, which lands its centre at 47.6% — a deliberate 2.4%
   //            lift to make room for the name on the bottom arc
   .icon {
-    background-size: 76%;
+    // Bigger, and sitting nearer the middle of the face (user call
+    // 2026-08-18). 76% at 40% left the character small and riding high, with
+    // dead parchment under it. The name curves along an arc that starts at
+    // y=81 of 150 and bottoms around y=130, so the icon cannot simply centre
+    // at 50% without its lower edge crossing the lettering — 45% is the
+    // furthest down it goes while the art still clears the name.
+    background-size: 86%;
     background-repeat: no-repeat;
-    background-position: center 40%;
+    background-position: center 45%;
   }
 
   // `closest-side` makes the stops read as a fraction of the coin's radius,
@@ -513,6 +523,14 @@ $blood: #970000; // our red, for the one mark that must not be missed
     }
     .stone {
       fill: $blood;
+    }
+
+    // the moon PNG bakes its own halo, but on dark iron it still wants a
+    // second lift: a warm glow stacked outside the parent's dark contact
+    // shadow above, the same two-tier trick the name halo below uses.
+    .mark.phase {
+      filter: drop-shadow(0 0 2.6px rgba(250, 240, 210, 0.85))
+        drop-shadow(0 0 1.2px rgba(250, 240, 210, 0.9));
     }
   }
 

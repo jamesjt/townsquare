@@ -460,6 +460,10 @@ class LiveSession {
   sendPlayer({ player, property, value }) {
     if (this._isSpectator || property === "reminders") return;
     const index = this._store.state.players.players.indexOf(player);
+    // FT-871: a player object that is no longer in the roster (evicted while an
+    // update was in flight) has no seat to name — indexOf hands back -1 and
+    // every line below it addresses the wrong chair or none at all.
+    if (index < 0) return;
     // FT-861: THE BELIEF IS NEVER BROADCAST. Without this the property would
     // fall through to the plain _send below and go to the whole town, naming
     // both the seat that does not know what it is and the character it thinks
@@ -470,9 +474,15 @@ class LiveSession {
       return;
     }
     if (property === "role") {
+      // FT-871: the gamestate is a PARALLEL array to the roster, rebuilt on
+      // its own schedule — it can be shorter than the seating for a beat after
+      // a chair appears. Both reads below used to assume the entry was there.
+      // A missing entry means only that there is no traveller memory to keep;
+      // the broadcast itself still has to go out.
+      const seat = this._gamestate[index];
       if (value.team && value.team === "traveler") {
         // update local gamestate to remember this player as a traveler
-        this._gamestate[index].roleId = value.id;
+        if (seat) seat.roleId = value.id;
         this._send("player", {
           index,
           property,
@@ -480,9 +490,9 @@ class LiveSession {
         });
         return;
       }
-      if (this._gamestate[index].roleId) {
+      if (seat && seat.roleId) {
         // player was previously a traveler
-        delete this._gamestate[index].roleId;
+        delete seat.roleId;
         this._send("player", { index, property, value: "" });
       }
       // FT-861: a character changed on a chair AFTER the deal — the player

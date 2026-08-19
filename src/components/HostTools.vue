@@ -545,6 +545,29 @@ export default {
     }
   }
 
+  // A DRAWER IS OUT: the panel stands down (2026-08-18, both orientations).
+  //
+  // On a phone every drawer is a bottom sheet at 52vh and this panel is a
+  // bottom sheet at 48vh — the same edge, the same half of the screen, and
+  // both up at once is the whole window with no ring left. Turned on its side
+  // they want the same right-hand column instead, which is the same argument.
+  //
+  // The DRAWER wins because the user just reached for it, and the panel comes
+  // straight back when it closes: `sheet-up` is a class on #app, so this is a
+  // repaint, not a state change. Nothing about the town being built is lost —
+  // and the grimoire sheet does this panel's own job while it is up, so on a
+  // phone the two are alternatives rather than a pair.
+  @media (pointer: coarse) and (orientation: portrait) {
+    #app.sheet-up & {
+      display: none;
+    }
+  }
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    #app.sheet-up & {
+      display: none;
+    }
+  }
+
   h3 {
     margin-bottom: 8px;
   }

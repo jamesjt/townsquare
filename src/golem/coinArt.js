@@ -9,14 +9,21 @@ import Vue from "vue";
 const req = require.context("../assets/coins", false, /\.png$/);
 const art = id => req("./" + id + ".png");
 
-//  is where each coin's parchment ends, as a fraction of its radius —
-// measured off the baked art, not guessed. The team ring rides just inside it,
-// so switching coins moves the ring with them.
+// `face` is where each coin's PARCHMENT ends, as a fraction of its radius. The
+// team ring rides just inside it, so switching coins moves the ring with them.
+//
+// Re-measured 2026-08-18 (user: the ring is still too big). The first numbers
+// were the outer edge of the ARTWORK — which on these coins is the tip of the
+// gear teeth, not the face. A radial alpha profile tells them apart: inside the
+// parchment every pixel of a ring is opaque, and past it the tapered teeth
+// cover less and less of each ring, so coverage ramps down instead of cutting
+// off. coin4 was ringed at 0.947 with its parchment ending at 0.897 — the band
+// was sitting out on the teeth. Rig: claude_temp_test/2026-08-18-coin-ring-measure.mjs.
 export const COINS = [
-  { id: "coin4", label: "Coin 4", face: 0.947 },
-  { id: "coin3", label: "Coin 3", face: 0.951 },
-  { id: "player2", label: "Player 2", face: 0.961 },
-  { id: "player1", label: "Player 1", face: 0.971 }
+  { id: "coin4", label: "Coin 4", face: 0.887 },
+  { id: "coin3", label: "Coin 3", face: 0.828 },
+  { id: "player2", label: "Player 2", face: 0.887 },
+  { id: "player1", label: "Player 1", face: 0.902 }
 ];
 
 const KEY = "golem.coin";

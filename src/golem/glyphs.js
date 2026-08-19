@@ -50,6 +50,17 @@ export const teamGlyph = team => TEAM_GLYPHS[team] || null;
  * art rather than baking a second gallows and a second moon — in this fork a
  * gallows already means "the vote", and the vote count is how many hands
  * could send someone to it.
+ *
+ * FT-863: that reuse is also the reported bug — the SAME gallows PNG opens
+ * the vote-history drawer from the Menu strip (Menu.vue's `uiVotes`,
+ * VoteDrawer.vue's `gallows` — both import ui-votes.png directly, not
+ * through this module) and, here, stands for a count. TownInfo.vue disambig-
+ * uates it with its own gold tint + an explicit "Votes available" tooltip
+ * rather than a second baked icon — this fork's actual vote-token art
+ * (vote-golem.png) was the obvious swap-in but reads as a featureless blob
+ * at the ~17px this renders at (no internal contrast to survive the
+ * downscale). Menu.vue and VoteDrawer.vue are untouched; their gallows still
+ * means "open the history".
  */
 export const COUNT_ICONS = {
   town: townIcon,

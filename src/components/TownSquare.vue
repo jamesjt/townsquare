@@ -139,6 +139,53 @@ const STAIN_RADIUS = 185;
 const STAIN_SPAN = 470;
 const STAIN_MAX = 172;
 
+/** FNV-1a over a string — the hash the stains already use for size and lie. */
+const hashString = str => {
+  let h = 2166136261;
+  for (let c = 0; c < str.length; c++) {
+    h ^= str.charCodeAt(c);
+    h = (h * 16777619) >>> 0;
+  }
+  return h;
+};
+
+/**
+ * A SHUFFLE BAG of stain indices: all 16 are dealt before any of them repeats
+ * (user call 2026-08-18 — repeats were showing on the dial).
+ *
+ * Hashing a seat straight into the set, the way its size and lie are hashed,
+ * collides long before the set runs out: seven deaths drawing from 16 stains
+ * repeat more often than not. A permutation cannot.
+ *
+ * Deterministic on purpose, like everything else about a stain: the order is
+ * dealt from the town's OWN id, so every client derives the same bag from
+ * already-synced state and nothing new goes over the wire. Two towns stain
+ * differently; the same town stains identically in every browser watching it.
+ *
+ * Indexed by SEAT rather than by order of death, which matters: a seat's mark
+ * is then fixed for the whole game, instead of changing texture under the
+ * player's eyes when somebody else dies.
+ */
+const stainOrder = seed => {
+  const bag = STAINS.map((_, i) => i);
+  let s = hashString(seed) || 1;
+  const next = () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s >>>= 0;
+    return s / 4294967296;
+  };
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    const swap = bag[i];
+    bag[i] = bag[j];
+    bag[j] = swap;
+  }
+  return bag;
+};
+
 export default {
   components: {
     Player,
@@ -168,16 +215,14 @@ export default {
     deadStains() {
       const count = this.players.length;
       if (!count) return [];
+      // dealt per town, so two towns do not stain alike
+      const bag = stainOrder(this.session.sessionId || "golem");
       const stains = [];
       this.players.forEach((player, i) => {
         if (!player.isDead) return;
         const angle = ((i + 1) * 360) / count;
         const key = i + "·" + player.name;
-        let h = 2166136261;
-        for (let c = 0; c < key.length; c++) {
-          h ^= key.charCodeAt(c);
-          h = (h * 16777619) >>> 0;
-        }
+        const h = hashString(key);
         const base = Math.min(STAIN_MAX, STAIN_SPAN / Math.sqrt(count));
         const size = base * (0.88 + ((h >> 4) % 28) / 100);
         const radius = STAIN_RADIUS + (((h >> 12) % 29) - 14);
@@ -185,7 +230,7 @@ export default {
         stains.push({
           key,
           style: {
-            backgroundImage: `url(${STAINS[h % STAINS.length]})`,
+            backgroundImage: `url(${STAINS[bag[i % STAINS.length]]})`,
             width: `calc(${size.toFixed(1)} * var(--fpx))`,
             height: `calc(${size.toFixed(1)} * var(--fpx))`,
             // centre on the dial, swing out along the seat's own angle, then
@@ -201,6 +246,22 @@ export default {
     }
   },
   data() {
+    // FT-870: BLUFFS/FABLED DEFAULT CLOSED ON A PHONE. Open, the panel is a
+    // stacked 3-coin column in portrait (~42vh) or a wide row in landscape —
+    // taller/wider than the room a phone ever has to give it, because the
+    // ring already gives up height to the checklist or a bottom sheet
+    // (`#app.checklist-up` / `.sheet-up`, TownSquare's own style block below).
+    // Measured 375x812: open by default, the panel rode up over three seats
+    // with the checklist out (FT-870).
+    //
+    // Collapsing costs nothing here — `#townsquare.public > .bluffs` is
+    // already invisible to everyone but the storyteller, so a phone-only
+    // default only has to serve the one person who ever sees it, and the
+    // existing toggle (the same +/- icon every viewport uses) reopens it in
+    // one tap.
+    const isPhone =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
     return {
       selectedPlayer: 0,
       // FT-861: which job the role picker is doing — the seat's CHARACTER, or
@@ -211,8 +272,8 @@ export default {
       swap: -1,
       move: -1,
       nominate: -1,
-      isBluffsOpen: true,
-      isFabledOpen: true
+      isBluffsOpen: !isPhone,
+      isFabledOpen: !isPhone
     };
   },
   methods: {
@@ -412,6 +473,21 @@ export default {
     height: 40%;
     align-self: flex-start;
   }
+
+  /* AND THE SAME STACK FOR A DRAWER (2026-08-18). On a phone the grimoire,
+     the script, the vote log and the night notes are all bottom sheets too,
+     standing in the same place at the same 52vh, so the square owes them the
+     same room it owes the checklist.
+
+     LAST in this block on purpose: `sheet-up` can be true at the same time as
+     `building-tools` (open the grimoire while building a town), the two rules
+     carry identical specificity, and the sheet must win — it is the surface
+     the user just reached for, and the build panel steps aside for it
+     (HostTools's own rule). Source order is the whole tie-break. */
+  #app.sheet-up #townsquare {
+    height: 40%;
+    align-self: flex-start;
+  }
 }
 
 /* The same stack, turned on its side: a landscape phone has width to spare and
@@ -435,6 +511,26 @@ export default {
   #app.night-sheet-up #townsquare {
     width: 56%;
     margin-right: auto;
+  }
+
+  /* A DRAWER, turned on its side. Here a drawer stays a DRAWER — a 375px-tall
+     window has no room for a sheet across the bottom (52vh is 195px, and the
+     ring alone is 355px across) — so the answer is the landscape answer the
+     build panel already uses: the drawer takes a column, the square gives it
+     up. Without this a 400px script drawer over an 812px window covered four
+     chairs outright.
+
+     Two rules because the grimoire comes from the other side: it is the
+     narrower drawer (250px against the rail's 400) and it takes the LEFT, so
+     the square keeps more of the window and slides the other way. */
+  #app.sheet-up #townsquare {
+    width: 56%;
+    margin-right: auto;
+  }
+  #app.sheet-up.sheet-left #townsquare {
+    width: 68%;
+    margin-right: 0;
+    margin-left: auto;
   }
 }
 

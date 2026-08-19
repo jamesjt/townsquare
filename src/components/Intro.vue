@@ -1379,13 +1379,15 @@ export default {
       }
     }
 
-    // the way back sits in the panel's own top-left corner (user call
-    // 2026-08-18), leaving the bottom row to the action that matters
+    // the way back sits at the panel's top-left (user call 2026-08-18), leaving
+    // the bottom row to the action that matters — but IN FLOW, on a line of its
+    // own. Floated over the corner it landed on the first remembered town, and
+    // at a fingertip's 44px it covered that row's name outright (user report).
     .panel-back {
-      position: absolute;
-      left: 12px;
-      top: 8px;
-      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      margin: -2px 0 6px;
       cursor: pointer;
       opacity: 0.7;
       font-size: 120%;
@@ -1398,13 +1400,10 @@ export default {
       // panels. (The `.back` rule further down this file styles a class the
       // template no longer renders — this is the live one.)
       @media (pointer: coarse) {
-        display: inline-flex;
-        align-items: center;
         justify-content: center;
         min-width: 44px;
         min-height: 44px;
-        left: 4px;
-        top: 0;
+        margin: -6px 0 2px -8px;
       }
     }
     .acts {

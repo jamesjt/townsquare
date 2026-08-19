@@ -4,7 +4,11 @@
        script. Its body is THE vote-history view (VoteHistoryView), the same
        component the old overlay renders, so the two can never drift. -->
   <transition name="sd-slide">
-    <div class="vote-drawer" v-if="isOpen" :style="{ width: width + 'px' }">
+    <div
+      class="vote-drawer"
+      v-if="isOpen"
+      :style="[{ '--sd-w': width + 'px' }, sheetStyle]"
+    >
       <!-- drag the left edge to resize; the width persists per browser and
            the view inside reflows once it gets narrow -->
       <div
@@ -13,13 +17,16 @@
         @pointerdown="startResize"
         @dblclick="resetWidth"
       ></div>
+      <!-- PHONE ONLY: the sheet's grab handle (the × stays the reliable exit) -->
+      <div class="gs-handle" @pointerdown="startSheetDrag"></div>
       <!-- close first, then the name — both top-LEFT, as the script drawer -->
       <div class="sd-head">
         <font-awesome-icon
           icon="times"
           class="sd-close"
           title="Close the vote history"
-          @click="close"
+          @pointerup="sheetDismiss"
+          @click="sheetDismiss"
         />
         <h3 class="sd-title">
           <img class="sd-mark" :src="gallows" alt="" />
@@ -34,6 +41,8 @@
 <script>
 import VoteHistoryView from "./VoteHistoryView";
 import rightDrawer from "../golem/rightDrawer";
+// the phone's drag-to-dismiss (the sheet form's gesture half)
+import bottomSheet from "../golem/bottomSheet";
 // the strip's own gallows — the mark that opens this drawer leads its title
 import gallows from "../assets/ui-votes.png";
 
@@ -41,6 +50,7 @@ export default {
   name: "VoteDrawer",
   components: { VoteHistoryView },
   mixins: [
+    bottomSheet,
     rightDrawer({
       modal: "voteDrawer",
       storageKey: "golem.voteDrawerW",
@@ -60,6 +70,7 @@ export default {
 
 .vote-drawer {
   @include right-drawer(#4a0d0d);
+  @include sheet-handle;
 }
 
 @include right-drawer-slide;

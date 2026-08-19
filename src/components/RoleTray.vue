@@ -384,8 +384,12 @@ $team-colors: (
   }
 
   .rt-icon {
-    width: 34px;
-    height: 34px;
+    // 34px read as a smudge at arm's length and was under a fingertip on a
+    // phone, where this is a primary drag/tap target (user call 2026-08-18).
+    // A 13-townsfolk row costs the shrink-to-fit panel about 100px of width
+    // for the change; on a phone the row wraps as it already did.
+    width: 42px;
+    height: 42px;
     flex: none;
     background-size: contain;
     background-position: center;

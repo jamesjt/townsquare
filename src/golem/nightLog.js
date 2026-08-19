@@ -234,8 +234,18 @@ export function makeEntry({
     targets: new Array(slots).fill(-1),
     targetNames: new Array(slots).fill(""),
     // WHAT THEY WERE TOLD — the delivered information, never the truth.
-    // ping: null = nothing signalled, true/false = the yes/no given.
-    told: { ping: null, text: "" },
+    // FT-862: golem/nightInfo's field table decides which of these a row
+    // actually uses; every key exists on every entry regardless (Vue 2's
+    // reactivity rule again), so a row switching what it records — a script
+    // edit that reclassifies a custom character — never needs a shape
+    // migration.
+    //   ping           null = nothing signalled, true/false = the yes/no given
+    //   number         a numeric readout (a finger/hand-signal count), or null
+    //   characterId/Name  a character shown (cached name for a role that's
+    //                  later renamed or leaves the script)
+    //   text           free-form — the universal fallback, and also "the
+    //                  exact words" a supplementary note captures elsewhere
+    told: { ping: null, number: null, characterId: "", characterName: "", text: "" },
     // the storyteller's mark that the delivered information was FALSE
     // (drunk, poisoned, a Recluse read). With `told` this recovers the truth.
     isFalseInfo: false,

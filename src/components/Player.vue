@@ -291,11 +291,16 @@
     </div>
 
     <template v-if="player.reminders">
+      <!-- FT-869: `--ri`/`--rn` are this reminder's index and this seat's
+           total reminder count — the CSS fan below reads them to spread
+           reminders left/right of the seat instead of stacking them toward
+           the ring's centre (see the `.reminder:not(.add)` rule). -->
       <div
         class="reminder"
         :key="reminder.role + ' ' + reminder.name"
-        v-for="reminder in player.reminders"
+        v-for="(reminder, ri) in player.reminders"
         :class="[reminder.role]"
+        :style="{ '--ri': ri, '--rn': player.reminders.length }"
         @click="removeReminder(reminder)"
       >
         <span
@@ -1612,36 +1617,82 @@ li.move:not(.from) .player .overlay svg.move {
 }
 
 /* ── REMINDERS ON A COARSE POINTER ──────────────────────────────────────────
-   A seat's reminders hang INWARD down its spoke, which is right on a desktop:
-   the ring is 700px across and the hub swallows them with room to spare
-   (measured 1440x900: six chips on the hub, zero overlapping another seat's).
-   On a phone the same geometry converges — the ring is 300px across, so every
-   seat's stack marches into the same middle, over the build panel, the night
-   sheet and the town readout (measured 375x812: 12 overlapping pairs).
+   `.reminder.add` (the hover-revealed plus disc) is untouched below — this
+   section is about the ADD affordance only. Placed reminders (the tokens a
+   player actually puts on a seat) moved to their own section further down
+   (FT-869) after this coarse-only fix turned out not to be the fix at all:
+   it only ever touched the plus discs, and the pile the user kept reporting
+   was the PLACED tokens, which this pointer-gated rule never reached. */
 
-   Two rules, both gated on the pointer, so the desktop ring is untouched.  */
-
-/* 1. THE PLUS LEAVES THE RING. `(hover: none)` in media.scss pinned all eight
-      of them open — the only alternative that stylesheet had, since a hover
-      reveal is unreachable with a finger. The seat menu carries it now
-      (`.rem-act`), so nothing is lost and the hub clears. The id keeps this
-      above media.scss's own `.circle li .reminder.add`. */
+/* THE PLUS LEAVES THE RING. `(hover: none)` in media.scss pinned all eight
+   of them open — the only alternative that stylesheet had, since a hover
+   reveal is unreachable with a finger. The seat menu carries it now
+   (`.rem-act`), so nothing is lost and the hub clears. The id keeps this
+   above media.scss's own `.circle li .reminder.add`. */
 #townsquare .circle li .reminder.add {
   @media (pointer: coarse) {
     display: none;
   }
 }
 
-/* 2. THE CHIPS STAY BY THEIR OWN CHAIR. Two-thirds the size and stacked
-      tight, a seat's pair reaches ~36px inward instead of ~61 — short of the
-      hub, and short of the arc where the neighbours' stacks used to meet. The
-      disc keeps its art and its words; only the scale changes. */
+/* ── PLACED REMINDERS FAN FROM THEIR OWN SEAT (FT-869) ──────────────────────
+   A reminder used to render as a normal-flow sibling stacked BELOW the seat
+   token inside the seat's own `li` — and that `li` IS the spoke from the
+   seat to the ring's centre (TownSquare.vue's on-circle mixin: the li's
+   height is the ring's radius, `transform-origin: 0 100%` pins its bottom to
+   the hub). "Below the seat" is therefore "toward the hub" by construction,
+   on EVERY pointer — the coarse-only fix above only ever caught the plus
+   discs; the tokens people actually place were still walking to the centre
+   (measured 1440x900, mouse: six placed chips already sitting on the hub —
+   a bigger screen just gave them further to fall before it showed).
+
+   The fix pins a reminder's radius to roughly where its own seat already
+   sits — hugging the coin's own lower rim — and fans left/right instead of
+   growing down. Sideways is the direction this ring actually has room in:
+   neighbouring seats sit 60-235px apart centre-to-centre across 8-15 seats
+   at 375-1280px wide (FT-869 rig), while the room PAST a seat's own rim is
+   as little as 20px on desktop — too tight to grow a stack outward instead,
+   which is why this pins the radius rather than pushing further out.
+
+   Every offset is a PERCENT OF THE SEAT'S OWN WIDTH, via `margin`, not
+   `top`/`left`. `top`/`left` percentages on an absolutely-positioned element
+   resolve against the containing block's HEIGHT for `top` — here the li's
+   height, which is the ring's RADIUS and swings wildly by seat count.
+   Margin percentages resolve against the containing block's WIDTH on every
+   side, `margin-top` included — the li's width is the SEAT's own width, so
+   this scales with the coin regardless of how many seats are in the ring.
+
+   `--ri` (this reminder's index) and `--rn` (this seat's reminder count)
+   come from the template's `v-for`. A lone reminder (`--rn: 1`) still
+   centres under the seat exactly as before — the fan only opens for two or
+   more, so the common case looks unchanged. */
 #townsquare .circle li .reminder:not(.add) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin-top: 68%;
+  margin-left: calc(-25% + (var(--ri, 0) - (var(--rn, 1) - 1) / 2) * 60%);
+  // `.player` carries `z-index: 2` and (being `position: relative` with a
+  // set z-index) opens its own stacking context — sibling elements at the
+  // default `z-index: auto` lose to it outright, which is why the badge sat
+  // BEHIND the seat's own name plate once it moved up to hug the coin
+  // (measured 375x812: almost every badge fully hidden under the "Open" /
+  // name pill). A badge overlapping its own seat is expected; hidden by it
+  // is not.
+  z-index: 3;
+
   @media (pointer: coarse) {
+    /* two-thirds size, unchanged from the earlier touch fix — the fan
+       tightens FURTHER to match (measured: 375x812/12 seats is the tightest
+       ring the FT-869 rig covers, seats only 60px apart centre-to-centre;
+       42% spacing grazed the next seat's own token 8 times there, 26%
+       still grazed it by 1-2px vertically 4 times). 20% spacing plus a
+       shallower tuck (66% vs 74%) clears every graze with room to spare. */
     width: 34%;
     padding-bottom: 34%;
-    margin: 2px 0 0 -17%;
     border-width: 2px;
+    margin-top: 66%;
+    margin-left: calc(-17% + (var(--ri, 0) - (var(--rn, 1) - 1) / 2) * 20%);
     .text {
       font-size: 38%;
       top: 10%;

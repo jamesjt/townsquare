@@ -516,14 +516,21 @@ $team-colors: (
     .wb-tab {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      // Narrow enough that all three sit on ONE line in the drawer (user call
+      // 2026-08-18 — they were wrapping, and a wrapped tab strip reads as two
+      // groups rather than one choice). The ink shrinks, not the target: the
+      // padding was doing nothing a smaller tracking and a tighter gap could
+      // not do, and the label never breaks mid-word now.
+      gap: 5px;
       cursor: pointer;
-      padding: 3px 16px;
+      padding: 3px 9px;
+      font-size: 88%;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
       border-radius: 5px;
       background: rgba(0, 0, 0, 0.55);
       border: 1px solid #3d3d3d;
       font-family: PiratesBay, sans-serif;
-      letter-spacing: 1px;
       &:hover {
         border-color: #7d0e0e;
         color: #ff8a8a;

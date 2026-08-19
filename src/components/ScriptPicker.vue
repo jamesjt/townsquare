@@ -211,6 +211,23 @@ export default {
     box-shadow: 0 0 12px black;
     z-index: 20;
 
+    // Below this width the popup stops being a centred sheet and becomes
+    // exactly as wide as the control it hangs from. A 94vw box centred on a
+    // trigger that is NOT itself centred in the window hangs off both edges —
+    // which is what a phone was getting (user report). The trigger is always
+    // on screen, so a popup measured from the trigger always is too.
+    @media (max-width: 760px) {
+      left: 0;
+      right: 0;
+      width: auto;
+      transform: none;
+      max-height: 44vh;
+      // and the COUNT drops rather than the columns squeezing — three tracks
+      // in a trigger-width popup is a ~90px card carrying a 56px icon and a
+      // wrapping name. Two is a card you can actually hit.
+      grid-template-columns: repeat(2, 1fr);
+    }
+
     .card {
       display: flex;
       flex-direction: column;

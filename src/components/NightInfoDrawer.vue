@@ -9,19 +9,26 @@
        lie) and no `done`. The secrets are absent from the data, so they are
        absent from the DOM — not present and hidden. -->
   <transition name="sd-slide">
-    <div class="night-drawer" v-if="isOpen" :style="{ width: width + 'px' }">
+    <div
+      class="night-drawer"
+      v-if="isOpen"
+      :style="[{ '--sd-w': width + 'px' }, sheetStyle]"
+    >
       <div
         class="sd-grip"
         title="Drag to resize — double-click to reset"
         @pointerdown="startResize"
         @dblclick="resetWidth"
       ></div>
+      <!-- PHONE ONLY: the sheet's grab handle (the × stays the reliable exit) -->
+      <div class="gs-handle" @pointerdown="startSheetDrag"></div>
       <div class="sd-head">
         <font-awesome-icon
           icon="times"
           class="sd-close"
           title="Close your night notes"
-          @click="close"
+          @pointerup="sheetDismiss"
+          @click="sheetDismiss"
         />
         <h3 class="sd-title">
           <img class="sd-mark" :src="moon" alt="" />
@@ -43,6 +50,13 @@
             <span class="nd-told" :class="pingClass(row)" v-if="row.ping !== null">
               {{ row.ping ? "Yes" : "No" }}
             </span>
+            <!-- FT-862: the two new answer shapes (a count, a character) —
+                 same badge treatment as the yes/no, no colour verdict since
+                 neither is a boolean -->
+            <span class="nd-told" v-if="row.number !== null && row.number !== undefined">
+              {{ row.number }}
+            </span>
+            <span class="nd-told" v-if="row.characterName">{{ row.characterName }}</span>
             <span class="nd-text" v-if="row.text">{{ row.text }}</span>
           </div>
         </section>
@@ -54,11 +68,14 @@
 <script>
 import { mapGetters } from "vuex";
 import rightDrawer from "../golem/rightDrawer";
+// the phone's drag-to-dismiss (the sheet form's gesture half)
+import bottomSheet from "../golem/bottomSheet";
 import moon from "../assets/moon-other.png";
 
 export default {
   name: "NightInfoDrawer",
   mixins: [
+    bottomSheet,
     rightDrawer({
       modal: "nightDrawer",
       storageKey: "golem.nightDrawerW",
@@ -96,6 +113,23 @@ export default {
 
 .night-drawer {
   @include right-drawer(#2b2350);
+  @include sheet-handle;
+}
+
+// This drawer names its transition "sd-slide" like the rail's other two but
+// never included their slide mixin, so on DESKTOP it appears rather than
+// slides. Left exactly as it was. On a phone it is a sheet, and a sheet that
+// materialises out of nowhere reads as a glitch, so the rise is defined here
+// and nowhere else.
+@media #{$phone-sheet} {
+  .sd-slide-enter-active,
+  .sd-slide-leave-active {
+    transition: transform 220ms ease;
+  }
+  .sd-slide-enter,
+  .sd-slide-leave-to {
+    transform: translateY(100%);
+  }
 }
 
 .nd-body {

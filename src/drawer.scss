@@ -7,12 +7,45 @@
 //
 // $accent tints the drawer's own edge — the seam that says which drawer this
 // is (the grimoire on the left takes plum; the right-hand pair take blood).
+//
+// ── AND THE PHONE'S BOTTOM SHEET (2026-08-18, user call) ─────────────────
+// A portrait phone has no room for a drawer down either edge: the ring is
+// 355px of a 375px window, so a side drawer either covers the town or is too
+// narrow to read. On a phone every drawer — the grimoire on the left, the
+// script, vote and night drawers on the right — stands on the BOTTOM EDGE
+// instead, taking a fixed share of the height with the ring above it.
+//
+// That is not a new idea in this app: the build panel (HostTools) and the
+// night checklist (NightSheet) already dock exactly this way, and the square
+// already shrinks to make room for them. The `bottom-sheet` mixin below is
+// the same pattern for the drawers, so the phone has ONE idiom instead of two.
+// The RoleDrawer has its own chrome and no `right-drawer`, so it includes
+// `bottom-sheet` directly — that is why this lives on its own rather than
+// inside the right-hand mixin.
+
+// THE PHONE SHEET's condition, written once and used by every surface that
+// changes shape for it. Deliberately identical to HostTools's and NightSheet's
+// portrait rules: all four surfaces must change form at the same instant, or
+// two of them fight for the bottom edge at some in-between width.
+$phone-sheet: "(pointer: coarse) and (orientation: portrait)";
+
+// A sheet's height is a share of the window, and THREE things read it: the
+// sheet itself, the town square's matching give (TownSquare), and the session
+// pill's step up onto the sheet's top edge (App). It is a CSS custom property
+// rather than a Sass one because App.vue does not import this file — the
+// declaration lives on `#app` there, and this is the reader.
+$sheet-h: var(--sheet-h, 52vh);
 
 @mixin right-drawer($accent: #4a0d0d) {
   position: fixed;
   right: 0;
   top: 0;
   bottom: 0;
+  // The resizable width arrives as a CUSTOM PROPERTY, not as an inline
+  // `width` — a phone sheet is full-bleed, and an inline width would outrank
+  // any stylesheet rule trying to say so. Set as a variable it lands in the
+  // cascade here, where the sheet's `width: auto` can win it back.
+  width: var(--sd-w, 400px);
   max-width: 94vw;
   z-index: 20;
   display: flex;
@@ -67,6 +100,13 @@
     // invisible catch strip running down the list would cost more taps than
     // the resize could ever return.
     @media (pointer: coarse) and (max-width: 640px) {
+      display: none;
+    }
+
+    // …and it is meaningless wherever the drawer is a BOTTOM SHEET, whatever
+    // the width: the sheet is full-bleed and its height is its own decision,
+    // so a vertical drag-to-widen strip has nothing left to widen.
+    @media #{$phone-sheet} {
       display: none;
     }
   }
@@ -131,6 +171,112 @@
     flex-grow: 1;
     min-height: 0;
   }
+
+  // PHONE: the rail's three drawers stop being a rail and become sheets.
+  @media #{$phone-sheet} {
+    @include bottom-sheet($accent);
+
+    .sd-head {
+      // the head is under the grab handle now, and the title has the whole
+      // width to itself — the player strip it used to keep clear of is at the
+      // top of the window, half a screen above the sheet
+      .sd-title {
+        max-width: calc(100% - 96px);
+        font-size: 17px;
+      }
+      // the × moves to the sheet's own top-RIGHT: on a full-width sheet the
+      // left corner is the far side of a thumb's reach, and the right corner
+      // is where a phone puts a dismiss
+      .sd-close {
+        left: auto;
+        right: -10px;
+        width: 20px;
+        height: 20px;
+        padding: 12px;
+        opacity: 0.9;
+      }
+    }
+  }
+}
+
+// ── THE BOTTOM SHEET ──────────────────────────────────────────────────────
+// The phone form of a drawer: full width, standing on the bottom edge, a fixed
+// share of the height. Included by `right-drawer` above (for the script, vote
+// and night drawers) and directly by RoleDrawer, which carries its own chrome.
+//
+// It does NOT set its own media query — the caller does, so a component can
+// state the condition once alongside its other phone rules.
+@mixin bottom-sheet($accent: #4a0d0d) {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  // beats the inline `--sd-w` width the desktop rail rides on
+  width: auto;
+  max-width: none;
+  height: $sheet-h;
+  // The seam is the sheet's TOP edge now — the same accent, moved to the side
+  // that is actually visible. `border: none` first because the drawers set a
+  // left or right border of their own that would otherwise survive.
+  border: none;
+  border-top: 1px solid $accent;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.7);
+  // the town is directly above it, not behind it — opaque enough to be a
+  // plate on the table rather than a pane of glass (the build panel's 0.93
+  // is the same call)
+  background: rgba(6, 6, 8, 0.96);
+  padding: 0 10px 8px;
+  // the home indicator sits in the bottom few millimetres of an iPhone
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  // the spring-back half of drag-to-dismiss (golem/bottomSheet drives the
+  // transform; while the finger is down the mixin turns this off)
+  transition: transform 200ms ease;
+  // a phone drags the whole page when an inner list runs out of scroll
+  overscroll-behavior: contain;
+}
+
+// The sheet's GRAB HANDLE — the bar across the top that a finger pulls down to
+// dismiss. It exists only on a phone: on desktop there is no sheet to pull.
+//
+// It is never the only way out. Every sheet also carries a close ×, because a
+// touch drag is arbitrated by the browser and can be taken back mid-gesture
+// (the resize grip learned this the hard way — see golem/rightDrawer's
+// pointercancel handling), and a sheet you cannot close is a trap.
+@mixin sheet-handle {
+  .gs-handle {
+    display: none;
+  }
+
+  @media #{$phone-sheet} {
+    .gs-handle {
+      display: block;
+      flex: none;
+      align-self: center;
+      // the drawn bar is 4px; this is the AREA a thumb has to find
+      width: 64px;
+      height: 24px;
+      margin-top: 2px;
+      cursor: grab;
+      // without this the browser is free to read the pull as a page scroll and
+      // take the gesture back part-way through
+      touch-action: none;
+      &:after {
+        content: "";
+        position: absolute;
+        left: 9px;
+        right: 9px;
+        top: 10px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(216, 205, 180, 0.5);
+      }
+      &:active:after {
+        background: rgba(216, 205, 180, 0.8);
+      }
+    }
+  }
 }
 
 // The slide-in. Both drawers name their transition "sd-slide", so this emits
@@ -143,5 +289,15 @@
   .sd-slide-enter,
   .sd-slide-leave-to {
     transform: translateX(100%);
+  }
+
+  // …and on a phone the same drawer arrives from the BOTTOM, because that is
+  // the edge it is standing on. Only the direction changes; the timing and the
+  // class names are the desktop's.
+  @media #{$phone-sheet} {
+    .sd-slide-enter,
+    .sd-slide-leave-to {
+      transform: translateY(100%);
+    }
   }
 }

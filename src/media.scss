@@ -73,6 +73,24 @@
   }
 }
 
+// FT-870: the SAME odd aspect ratio, TOUCH ONLY. Stacked at the full 14vh a
+// coin, three of them plus the header run ~48vh tall — taller than the room
+// a phone ever has left: the checklist and a bottom sheet already take 40-48%
+// of the window height off TownSquare (`#app.checklist-up` / `.sheet-up` in
+// TownSquare.vue's own style block). Opened there, the panel rode up past the
+// top of the square and into the FABLED panel's own corner (measured
+// 375x812, FT-870) — a coarse pointer has no hover fallback to notice before
+// tapping, so it has to fit, not just look right once you already know.
+@media (pointer: coarse) and (max-aspect-ratio: 11/7) {
+  .bluffs,
+  .fabled {
+    ul li {
+      width: 9vh;
+      height: 9vh;
+    }
+  }
+}
+
 // touch devices
 @media (hover: none) {
   .circle li .reminder.add {

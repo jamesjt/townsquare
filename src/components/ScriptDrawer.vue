@@ -8,7 +8,7 @@
     <div
       class="script-drawer"
       v-if="isOpen"
-      :style="{ width: width + 'px' }"
+      :style="[{ '--sd-w': width + 'px' }, sheetStyle]"
     >
       <!-- drag the left edge to resize; the width persists per browser and
            the view inside reflows once it gets narrow (user call) -->
@@ -18,13 +18,17 @@
         @pointerdown="startResize"
         @dblclick="resetWidth"
       ></div>
+      <!-- PHONE ONLY: the sheet's grab handle. Pull it down to dismiss — the
+           close × below stays the reliable way out. -->
+      <div class="gs-handle" @pointerdown="startSheetDrag"></div>
       <!-- close first, then the name — both top-LEFT (user call) -->
       <div class="sd-head">
         <font-awesome-icon
           icon="times"
           class="sd-close"
           title="Close the script"
-          @click="close"
+          @pointerup="sheetDismiss"
+          @click="sheetDismiss"
         />
         <h3 class="sd-title">
           <img class="sd-mark" :src="editionIcon" alt="" />
@@ -45,6 +49,8 @@
 import { mapState } from "vuex";
 import ScriptView from "./ScriptView";
 import rightDrawer from "../golem/rightDrawer";
+// the phone's drag-to-dismiss (the sheet form's gesture half)
+import bottomSheet from "../golem/bottomSheet";
 import { EDITION_ICONS, edCustom } from "../golem/editionArt";
 
 export default {
@@ -53,6 +59,7 @@ export default {
   // FT-858: the right-hand rail — width, persistence, the resize grip, the
   // close, and publishing `--sd-width` while open. Shared with VoteDrawer.
   mixins: [
+    bottomSheet,
     rightDrawer({
       modal: "scriptDrawer",
       storageKey: "golem.scriptDrawerW",
@@ -86,6 +93,9 @@ export default {
 
 .script-drawer {
   @include right-drawer(#4a0d0d);
+  // the phone sheet's grab handle (drawer.scss owns its look; it is
+  // display:none anywhere the drawer is not a sheet)
+  @include sheet-handle;
 }
 
 @include right-drawer-slide;

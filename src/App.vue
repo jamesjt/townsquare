@@ -25,7 +25,19 @@
       // 355px of a 375px window — so the night column is permanent there
       // rather than appearing at dusk. Measured: with the sheet's day PILL
       // left in the middle, it covered three chairs' name plates.
-      'night-sheet-up': showNightSheet
+      'night-sheet-up': showNightSheet,
+      // A DRAWER IS OUT. On a phone every drawer is a bottom sheet, and the
+      // bottom edge is the one piece of a phone every docked surface wants:
+      // the build panel and the night checklist are standing there already.
+      // The sheet wins it — the user reached for it — and this class is what
+      // moves the other three out of its way: the square shrinks (TownSquare),
+      // the build panel and the night sheet stand down (their own rules), and
+      // the session pill steps up onto the sheet's top edge (below).
+      'sheet-up': anyDrawerOpen,
+      // …and WHICH edge it came from, which only matters turned on its side:
+      // there a drawer stays a drawer (a 375px-tall window has no room for a
+      // sheet) and the square gives up the column it is standing in.
+      'sheet-left': modals.roleDrawer
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -431,6 +443,17 @@ export default {
         this.modals.voteDrawer ||
         this.modals.nightDrawer
       );
+    },
+    /**
+     * ANY drawer at all, the grimoire on the left included. On a phone all
+     * four are the same object — a sheet on the bottom edge — so the layout
+     * around them answers to one flag rather than to a side.
+     *
+     * Only one can ever be true: the store's `toggleModal` closes every other
+     * modal when one opens.
+     */
+    anyDrawerOpen() {
+      return !!(this.modals.roleDrawer || this.rightDrawerOpen);
     },
     /**
      * FT-860: the night sheet stands once the town is built and the build
@@ -972,6 +995,13 @@ ul {
 #app {
   height: 100%;
 
+  // THE PHONE SHEET'S HEIGHT — one number, three readers: the sheets
+  // themselves (drawer.scss reads it as `var(--sheet-h)`), the session pill's
+  // step up (below), and — by hand, because a flex box wants a percentage of
+  // its own — the town square's matching give in TownSquare. Change it here
+  // and the pill follows it exactly.
+  --sheet-h: 52vh;
+
   // Golem fork: the boot gate — children stay invisible until the background
   // art and display fonts are ready, then fade in together. Until then the
   // dark body ground is all that shows.
@@ -1004,8 +1034,9 @@ ul {
   bottom: 10px;
   z-index: 80;
   // the right drawer would bury the Leave door — the pill steps aside for it
-  // instead of hiding under it (user call 2026-08-18)
-  transition: right 220ms ease;
+  // instead of hiding under it (user call 2026-08-18). On a phone the step is
+  // UP rather than sideways (see the sheet rule below), so both edges move.
+  transition: right 220ms ease, bottom 220ms ease;
   &.drawer-open {
     // follows the drawer's own (resizable) width
     right: calc(var(--sd-width, 400px) + 10px);
@@ -1069,6 +1100,42 @@ ul {
         background: rgba(255, 255, 255, 0.12);
       }
     }
+  }
+}
+
+// THE PILL AND THE SHEET. On desktop the pill dodges SIDEWAYS by the open
+// drawer's own width, which is the right answer for a drawer down the right
+// edge and the wrong one for a sheet across the bottom: `--sd-width` is 400px
+// on a 375px window, so the sideways dodge threw the pill off the left of the
+// screen — and a sheet standing on the bottom edge would have buried it there
+// anyway. It steps UP onto the sheet's top edge instead, where the town square
+// has already given up the room (the ring stops at 40% of the window; the
+// sheet starts at 48%; the pill's band is what is left between them).
+//
+// Up rather than hidden: Leave, End game and Town records all live in the pill
+// and all of them stay one tap away with a sheet out.
+@media (pointer: coarse) and (orientation: portrait) {
+  #app.sheet-up #session-pill {
+    right: 10px;
+    bottom: calc(var(--sheet-h) + 8px);
+  }
+}
+
+// TURNED ON ITS SIDE the pill has nowhere to stand at all, so it stands down.
+//
+// A landscape phone with a drawer out is 812px holding a 400px drawer and a
+// 355px ring, and the square has already shifted to clear the drawer. There is
+// no band left: measured at 812x375, the sideways dodge put the pill across
+// THREE chairs with the script drawer out and two with the grimoire, and the
+// pill outranks a seat (z-index 80 against a chair's 1..N), so those chairs
+// stopped taking taps as well as stopped being readable.
+//
+// Hidden, not moved, because every candidate position is on top of something
+// that matters more. It is one tap back: closing the drawer returns it, and
+// Leave, End game and Town records come with it.
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  #app.sheet-up #session-pill {
+    display: none;
   }
 }
 
@@ -1388,6 +1455,16 @@ video#background {
   // is nothing behind it.
   @media (pointer: coarse) and (orientation: portrait) {
     top: 26%;
+
+    // …and it stays put when the grimoire opens. The 250px step is the width
+    // of the DRAWER it is stepping clear of; on a phone the grimoire is a
+    // full-width sheet across the bottom, so there is no width to step by and
+    // nothing to step clear of — the sheet rises past the tab, half a screen
+    // below it. Left at 250px the tab walked off a 375px screen and the one
+    // control that shuts the grimoire went with it.
+    &.open {
+      left: 0;
+    }
   }
 }
 

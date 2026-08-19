@@ -16,7 +16,10 @@
        the build panel's `.row` rules would not have reached inside here. -->
   <div class="night-mode">
     <div class="nm-row">
-      <span class="label">Night</span>
+      <!-- "Night" alone did not say what the switch DOES (user call
+           2026-08-18). It names the thing it turns on — the checklist and its
+           log — rather than describing itself as a control. -->
+      <span class="label">Night checklist</span>
       <span class="nm-seg" role="radiogroup" aria-label="Night sheet visibility">
         <button
           v-for="m in modes"
@@ -79,10 +82,15 @@ export default {
     min-height: 34px;
   }
 
+  // Wider than the panel's other labels (55px) because this one is two words.
+  // Nothing misaligns: every label is left-aligned at the same edge, and this
+  // row's control is pushed to the right edge by the row itself, not by where
+  // the label ends.
   .label {
     opacity: 0.7;
-    width: 55px;
+    width: 96px;
     text-align: left;
+    white-space: nowrap;
   }
 
   .nm-seg {
@@ -132,7 +140,8 @@ export default {
     opacity: 0.55;
     font-size: 70%;
     line-height: 1.25;
-    padding-left: 55px;
+    // tracks the label column above it
+    padding-left: 96px;
     margin-top: -2px;
   }
 }

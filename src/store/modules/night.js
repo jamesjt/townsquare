@@ -181,8 +181,14 @@ const getters = {
         roleName: e.roleName,
         // their own choices, by the names those seats wore that night
         targetNames: (e.targetNames || []).filter(Boolean),
-        // what they were TOLD — never whether it was true
+        // what they were TOLD — never whether it was true. FT-862 added
+        // number/characterName alongside the original ping; characterId is
+        // deliberately NOT projected (a player gets the name shown to them,
+        // never an id to cross-reference against anything else — the same
+        // reasoning targetNames-not-targets already applies here).
         ping: e.told ? e.told.ping : null,
+        number: e.told && e.told.number !== undefined ? e.told.number : null,
+        characterName: e.told ? e.told.characterName : "",
         text: e.told ? e.told.text : ""
       }));
   },
