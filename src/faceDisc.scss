@@ -237,12 +237,22 @@ $face-disc-foot-dy: 14px;
   // and applied it twice, which is the same mistake in a different place as
   // baking these two without bumping the lab's storage keys.
   //
-  // -12 / -13 are the user's dialled X and Y. With both scrubs at zero this now
-  // computes `calc(50% + 7px - 12px)` / `calc(50% + 7px - 13px)`, which is where
-  // the disc sat on screen when they stopped dragging — that equality IS what
-  // "baked" means here, and it is what the zero-delta acceptance checks.
-  left: calc(var(--face-cx, 50%) - 12px + var(--fd-x-adj, 0px));
-  top: calc(var(--face-cy, 50%) - 13px + var(--fd-y-adj, 0px));
+  // -13 / -15 are the user's dialled X and Y, in TWO rounds: -12/-13 baked
+  // first, then a further -1/-2 dialled on top of that and folded in here. The
+  // second round needed NO key bump, and that is a consequence of the first
+  // one rather than a lucky escape: after a bake the lab reads zero at the
+  // shipped position, so the browser is holding "0" under the fd*2 keys and
+  // adding a second bake to a stored zero is still that bake. A key bump is
+  // owed whenever a NON-ZERO stored value would survive into a changed base —
+  // which is the state a bake ends, not the state it begins. (Checked, not
+  // assumed: claude_temp_test/2026-08-19-discglass-accept.mjs.)
+  //
+  // With both scrubs at zero this now computes `calc(50% + 7px - 13px)` /
+  // `calc(50% + 7px - 15px)`, which is where the disc sat on screen when they
+  // stopped dragging — that equality IS what "baked" means here, and it is what
+  // the zero-delta acceptance checks.
+  left: calc(var(--face-cx, 50%) - 13px + var(--fd-x-adj, 0px));
+  top: calc(var(--face-cy, 50%) - 15px + var(--fd-y-adj, 0px));
   transform: translate(-50%, -50%);
   width: var(--fd-d);
   height: var(--fd-d);
@@ -284,74 +294,224 @@ $face-disc-foot-dy: 14px;
 // warm brown plate would read as a third material on a surface that already has
 // the bronze dial under it and the purple book on it.
 //
-// ── GLASSIER (user call: "much more glassy") ────────────────────────────────
-// Bought in the ORDER the paragraph above demands, because the order is the
-// whole safety argument:
+// ── FROSTED WAS NOT GLASS (user, second pass): "it just reads blurred
+//    background instead of glassy now." ──────────────────────────────────────
 //
-//   1. BLUR FIRST, 7px -> 20px. Blur is the term that destroys text — fine
-//      strokes are the first thing a wash eats — while the rose's broad shapes
-//      and colour survive it intact. Doubling it again is what pays for the
-//      alpha coming off.
-//   2. BRIGHTNESS AND SATURATION SECOND, 0.5 -> 0.62 and 0.85 -> 1.12. This is
-//      where the "glass" actually reads: the dial arrives as LIGHT AND COLOUR
-//      rather than as grey. A darkened, desaturated wash is a smoked plate; a
-//      lit, saturated one is glass.
-//   3. ALPHA LAST, and only then. 0.82/0.88/0.93/0.95 -> 0.56/0.62/0.70/0.75.
-//      Alpha is doing the job it was always meant to do — knocking the wash
-//      back — not the separating, so it is the term with slack in it.
+// That is a DIAGNOSIS, not a preference, and it is right. The first pass bought
+// glassiness the only way a single backdrop-filter can — more blur, less alpha,
+// a little more light — and that recipe has a name: FROSTING. A frosted pane
+// and a glass pane are different materials, and the difference is not how much
+// you can see through the middle. It is the EDGE.
 //
-// VERIFIED, not assumed. Under a disc sits the hub, carrying the town readout:
-// script name in display type, the alive/vote counts at 40px, the edition mark.
-// Those MUST NOT be readable through the plate — a glassier disc that lets the
-// alive count read through is a regression, not a polish. Checked with the
-// readout live underneath and the checklist open over it, at 1280x800 and
-// 1920x1080: no glyph of it survives (the proof shots sit beside this bake).
-// If the alpha is ever cut further, that check is the one to re-run FIRST.
+// WHAT MAKES A PANE READ AS GLASS, and none of it happens in the centre:
+//   · a BRIGHT REFRACTED RIM. Light bends through a curved edge and piles up
+//     there, so the boundary is the BRIGHTEST part of the object. A dark
+//     hairline round a dark disc says "hole cut in the page"; a bright band
+//     says "solid thing with a curved edge".
+//   · VISIBLE THICKNESS — a bevel, lit on the side the light comes from and
+//     shadowed opposite. This is what separates an OBJECT with depth from a
+//     translucent hole.
+//   · a SPECULAR STREAK WITH AN EDGE. A soft bloom reads as fog; a streak with
+//     a boundary reads as a reflection off a hard surface.
+//   · what is behind arriving BRIGHTER at the rim than in the middle, because
+//     the edge concentrates light. A uniform brightness() knock-down is the
+//     frosting signature: it flattens the very gradient that says "glass".
+//
+// ── THE THING THAT HAD TO BE MEASURED FIRST ────────────────────────────────
+// The obvious build is a second backdrop-filter on a ring — blur less, brighten
+// and saturate more, out at the rim. IT DOES NOT WORK ON THIS DIAL, and the
+// probe is worth keeping because the reasoning is invisible from the result:
+// `backdrop-filter: brightness(3) saturate(3)` on the rim ring lifted almost
+// nothing (claude_temp_test/2026-08-19-discglass-shots/diag-after-backdrop-
+// crank.png). brightness() is a MULTIPLY, the dial behind the disc's rim is
+// near-black shadow, and three times nearly nothing is nearly nothing.
+//
+// So the light at the edge is PAINTED, not filtered. That is the whole design:
+// filters do what filters are good at (destroying text in the middle), and the
+// glass is drawn.
+//
+// ── HOW THE THREE LAYERS SPLIT THE WORK ────────────────────────────────────
+//   the element  ONE backdrop-filter over the whole disc — the heavy blur that
+//                destroys text. Unchanged in job from the first pass, and this
+//                is where the READABILITY CONSTRAINT lives.
+//   ::before     THE GROUND: a dark wash, heaviest dead centre, gone by the rim.
+//                It is what makes the middle dark WITHOUT darkening the edge —
+//                so "brighter at the rim than in the middle" is true of the
+//                real backdrop, not painted on as a lie.
+//   ::after      THE EDGE: painted light on `screen`, masked to a ring. The
+//                refraction band, the specular arcs, and nothing else.
+//
+// THE READOUT CONSTRAINT HAS NOT MOVED. Under a disc sits the hub: script name
+// in display type, the alive/vote counts at 40px, the edition mark. None of it
+// may be readable. All of it sits dead centre, under the full blur AND the
+// ground's heaviest wash, while the edge work happens from 52% of the radius
+// outward. Re-proved after this pass at 1280x800 and 1920x1080 with the readout
+// live underneath (claude_temp_test/2026-08-19-discglass-shots/readout-*):
+// nothing survives but the blood splat's broad red shape, which is the intent.
+//
+// FOUR STRENGTHS WERE RENDERED SIDE BY SIDE before picking (the variant-* shots
+// in that directory), and the notes are worth keeping because the failure modes
+// are at both ends:
+//   weak    the edge lit but timid — still reads as the frosted plate the user
+//           rejected. This is the control that proves the shipped one is doing
+//           something.
+//   medium  a clear glass rim, but the bevel is polite enough to miss at a
+//           glance on a busy dial.
+//   PLUS    what ships. The rim is unmistakably the brightest thing on the
+//           object, the bevel has real contrast between its lit and shadowed
+//           faces, and the specular still stops at the edge.
+//   strong  the specular blooms inward across the first checklist rows and the
+//           rim goes milky — it stops reading as glass and starts reading as
+//           polished plastic, and it drops the plum for near-white, which
+//           leaves the grimoire's family altogether.
+// The difference between PLUS and strong is NOT brightness, it is where the
+// mask starts: 46% keeps the light on the edge, 36% lets it wash the middle.
+// That boundary is the setting to reach for first if this is ever re-tuned.
 @mixin face-disc-plate {
-  backdrop-filter: blur(20px) brightness(0.62) saturate(1.12);
-  background:
-    // THE SPECULAR, and it is a sheen rather than a gloss: one soft off-centre
-    // bloom high-left, in the grimoire's own pale violet rather than white, so
-    // it reads as light IN the glass and not as a shine painted on top of it.
-    // It fades out by 55% of the radius — a highlight that reached the rim
-    // would ring the disc and turn the plate into a button.
-    radial-gradient(
-        circle at 33% 20%,
-        rgba(206, 190, 224, 0.11) 0%,
-        rgba(206, 190, 224, 0.04) 26%,
-        rgba(206, 190, 224, 0) 55%
-      ),
-    radial-gradient(
-      circle at 50% 44%,
-      rgba(30, 24, 34, 0.56) 0%,
-      rgba(22, 17, 25, 0.62) 52%,
-      rgba(14, 10, 16, 0.7) 86%,
-      rgba(9, 6, 10, 0.75) 100%
-    );
-  // TWO threads, and they say different things. The inner hairline is the
-  // GRIMOIRE'S OWN EDGE — #4b3565, taken straight off RoleDrawer's
-  // `border-right: 1px solid #4b3565` ("the drawer IS the grimoire — plum,
-  // matching its cover", user call). It used to be rgba(120, 105, 135, 0.38),
-  // which is the book's inner CONTROL border, one step in: a greyer, dimmer
-  // thread that read as chrome rather than as the book's cover. Outside it, one
-  // bronze thread seats the disc ON the dial's painted rim rather than letting
-  // it hover as a separate object.
+  // THE RECTANGLE'S OWN GROUND MUST NOT SURVIVE INTO THE DISC. All these
+  // surfaces set an opaque black background on their rectangle rule
+  // (rgba(0, 0, 0, 0.95) on the checklist, 0.8 on the build panel). The plate
+  // used to overwrite it with its own gradient; now the gradient lives on
+  // ::before, so there would be nothing here to overwrite it with. An opaque
+  // plate with a glass rim painted on it is the exact failure this pass exists
+  // to fix.
+  background: transparent;
+  // ::before and ::after ride at z-index -1 — above this element's own box
+  // decorations, below every scrap of its content, which is where a material
+  // belongs. That only holds inside a stacking context, and `.panel` (the entry
+  // panels) has no z-index of its own, so one is forced here rather than
+  // inherited from the two surfaces that happen to carry z-index: 19.
+  // `isolation` also gives ::after's `screen` blend a group to blend WITHIN,
+  // so the lit edge cannot reach past the disc onto the dial.
+  isolation: isolate;
+
+  // THE BLUR, over the whole disc, and it is the readability contract. Text is
+  // fine strokes and fine strokes are the first thing a wash eats, while the
+  // dial's rose keeps its broad shapes. brightness is 0.78 rather than the
+  // first pass's 0.62: the darkening that used to be uniform has moved onto
+  // ::before, where it can be heaviest in the middle and absent at the rim.
+  // saturate 1.55 is what keeps the dial arriving as COLOUR — a desaturated
+  // wash is smoked perspex.
+  backdrop-filter: blur(22px) brightness(0.78) saturate(1.55);
+
+  // THE THICKNESS. Two facing bevels, not a ring: a lit face up-and-left where
+  // this file's light has always come from, a shadowed one down-and-right. Both
+  // are inset shadows on a border-radius:50% box, so each follows the circle and
+  // lands as a CRESCENT, which is how a bevel looks on a round pane. The offsets
+  // are large (9px/11px against a 400px disc) because the first attempt used
+  // 3px/4px and measured out as invisible — on an object this size a bevel has
+  // to be tens of pixels to be a bevel rather than an artefact.
   //
-  // AND TWO MORE, both in service of the glass. The plum halo just inside the
-  // hairline gives the rim thickness — glass has an edge, a decal does not —
-  // and the pale crescent at the TOP is the specular's other half: an inset
-  // shadow on a border-radius:50% box follows the circle, so a downward one
-  // lights the upper arc only, which is where light lands on a lens. The black
-  // vignette that used to sit here at 34px/0.8 is down to 22px/0.42: it was the
-  // single biggest reason the plate read as a flat dark disc rather than as
-  // something you were looking THROUGH.
+  // THE TWO THREADS ARE UNCHANGED IN INTENT. The hairline is the GRIMOIRE'S OWN
+  // EDGE — #4b3565, straight off RoleDrawer's `border-right: 1px solid #4b3565`
+  // ("the drawer IS the grimoire — plum, matching its cover", user call) — and
+  // outside it one bronze thread seats the disc ON the dial's painted rim. The
+  // hairline is DARK and the refraction band just inside it is BRIGHT: that
+  // ordering is the physical one, a glass edge meeting its surround in a dark
+  // line with the light piled up just inside.
+  //
+  // The old inset black vignette is gone entirely. It was the last of the
+  // frosting — a dark ring pulling the eye INWARD, when the whole point of a
+  // glass edge is that the brightness runs the other way. What replaces it
+  // outside the disc is a plum halo, which is the light this thing spills.
   box-shadow:
+    inset 11px 13px 26px -12px rgba(248, 243, 255, 0.95),
+    inset -11px -13px 28px -15px rgba(0, 0, 0, 0.85),
     inset 0 0 0 1px #4b3565,
-    inset 0 0 14px rgba(75, 53, 101, 0.4),
-    inset 0 2px 3px -1px rgba(226, 214, 240, 0.28),
-    inset 0 0 22px rgba(0, 0, 0, 0.42),
     0 0 0 1px rgba(150, 120, 60, 0.22),
-    0 0 26px rgba(0, 0, 0, 0.75);
+    0 0 32px rgba(112, 74, 172, 0.46),
+    0 0 32px rgba(0, 0, 0, 0.7);
+
+  // ── THE GROUND ─────────────────────────────────────────────────────────────
+  // The dark wash that makes the middle unreadable, and it is a RAMP: full
+  // strength dead centre, gone by the rim. No mask — the gradient's own alpha
+  // does it, which is one moving part fewer.
+  //
+  // This layer is why "brighter at the rim" is true rather than painted. The
+  // backdrop is equally lit all the way across; what changes is how much of
+  // this wash sits on top of it.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at 50% 46%,
+      rgba(28, 22, 32, 0.74) 0%,
+      rgba(21, 16, 24, 0.74) 50%,
+      rgba(17, 13, 20, 0.62) 78%,
+      rgba(14, 10, 17, 0.26) 92%,
+      rgba(12, 9, 15, 0) 100%
+    );
+  }
+
+  // ── THE EDGE ───────────────────────────────────────────────────────────────
+  // Painted light, on `screen`, masked to the outer half. `screen` rather than
+  // `plus-lighter`: it lifts a dark ground almost as hard, it cannot blow out,
+  // and it does not need a browser from the last two years.
+  //
+  // THE REFRACTION BAND is the plum one and it is the brightest thing on the
+  // object — deliberately, because "the boundary is the brightest part" IS the
+  // diagnosis. It is a lightened #4b3565 rather than a white: this is the
+  // grimoire's own edge catching light, not a chrome ring. It ramps from 58%
+  // so the rim has THICKNESS; the first attempt confined it to the outer 12%
+  // and it read as a hairline, which is the failure it was meant to fix.
+  //
+  // THE SPECULAR IS A CONIC, and that is the point: hard angular stops give the
+  // streak a BOUNDARY. The long one rides the upper-left arc where the bevel is
+  // lit, so the two agree about where the light is; the short one opposite is
+  // that light wrapping round the far edge — the detail that stops a lit ring
+  // reading as a ring painted on and makes it read as a round solid thing.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    background:
+      conic-gradient(
+          from 288deg at 50% 50%,
+          rgba(240, 234, 255, 0) 0deg,
+          rgba(240, 234, 255, 0.44) 10deg,
+          rgba(254, 251, 255, 0.72) 22deg,
+          rgba(234, 225, 255, 0.32) 36deg,
+          rgba(234, 225, 255, 0) 52deg,
+          rgba(234, 225, 255, 0) 156deg,
+          rgba(218, 205, 248, 0.3) 180deg,
+          rgba(218, 205, 248, 0) 206deg,
+          rgba(234, 225, 255, 0) 360deg
+        ),
+      radial-gradient(
+        circle at 50% 50%,
+        rgba(122, 90, 176, 0) 52%,
+        rgba(122, 90, 176, 0.22) 72%,
+        rgba(162, 124, 220, 0.46) 87%,
+        rgba(216, 193, 252, 0.78) 96%,
+        rgba(230, 216, 255, 0.58) 99.5%,
+        rgba(230, 216, 255, 0) 100%
+      );
+    // The specular has to be a streak on the EDGE, not a wedge across the whole
+    // pane, so the conic is cut back to the outer half. 52% is where the band
+    // starts too — one boundary for the whole edge treatment.
+    -webkit-mask-image: radial-gradient(
+      circle at 50% 50%,
+      transparent 46%,
+      rgba(0, 0, 0, 0.5) 66%,
+      #000 82%,
+      #000 100%
+    );
+    mask-image: radial-gradient(
+      circle at 50% 50%,
+      transparent 46%,
+      rgba(0, 0, 0, 0.5) 66%,
+      #000 82%,
+      #000 100%
+    );
+  }
 }
 
 // ── THE THREE BANDS, exact: cap + (d - 2cap) + cap = d ──────────────────────

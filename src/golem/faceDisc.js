@@ -16,15 +16,28 @@
 // EVERY SCRUB IS AN OFFSET, never a replacement — zero is exactly what ships,
 // in all six — so Reset is a real return and not an approximation of one.
 //
-// ONE ROUND HAS NOW BEEN BAKED (2026-08-19): X -12, Y -13, R -10, W 0, Hd -16,
-// Ft +8 were dialled, folded into faceDisc.scss's base expressions, and the six
-// storage keys below bumped to their "2" set in the same commit. The invariant
-// above survived it intact and is checked rather than asserted
-// (claude_temp_test/2026-08-19-discbake-accept.mjs): zero computes identically
-// to the lab's properties being absent altogether, Reset lands on the BAKED
-// position, and a browser still holding the old keys is ignored. Any future
-// bake repeats all three of those steps, in that order — the key bump is the
-// one that is easy to forget and impossible to see going wrong.
+// TWO ROUNDS HAVE NOW BEEN BAKED (both 2026-08-19):
+//   1st  X -12, Y -13, R -10, W 0, Hd -16, Ft +8 — folded into faceDisc.scss's
+//        base expressions, and the six storage keys below bumped to their "2"
+//        set in the same commit.
+//   2nd  a further X -1, Y -2 on top, so the SCSS now reads -13 / -15. NO key
+//        bump this time, and the reason is the first bake rather than luck:
+//        after a bake the lab reads ZERO at the shipped position, so what a
+//        browser holds under the fd*2 keys is "0", and folding another -1/-2
+//        into the base on top of a stored zero is still just that -1/-2.
+//
+// SO THE RULE IS NOT "bump the keys every bake" — it is BUMP THEM WHENEVER A
+// NON-ZERO STORED VALUE WOULD SURVIVE INTO A CHANGED BASE. That is the state a
+// bake ENDS, not the state it begins in. Get it backwards and the first bake
+// after a dialling session silently applies itself twice, which looks like the
+// app being wrong rather than the storage being stale.
+//
+// The invariant at the top survived both rounds and is checked rather than
+// asserted (claude_temp_test/2026-08-19-discglass-accept.mjs, five claims):
+// zero computes identically to the lab's properties being absent altogether, a
+// stored zero lands where a virgin browser lands, the pre-bake keys are still
+// dead, Reset returns to the BAKED position, and the disc's measured centre
+// matches the arithmetic the CSS claims.
 //
 // THE VALUES ARE PUBLISHED ON <html>, not on any one surface's element. That is
 // what makes one lab drive four discs: custom properties inherit DOWN, and the
