@@ -19,6 +19,12 @@
          control that gets the storyteller INTO a night — nothing else
          belongs in a bar with one button in it. -->
     <div class="phase pill" v-if="!showList">
+      <!-- FT-882 (user call): the flanking sun/moon marks came OFF this
+           button. The sun and the moon belong to the phase readout above the
+           clock face, which every player sees; a second pair down here was
+           the control competing with the readout for the same job. The
+           title still carries the atmosphere the marks were carrying, at no
+           cost — see flipHint. -->
       <button
         type="button"
         class="phase-flip"
@@ -26,11 +32,7 @@
         :title="flipHint"
         @click="flipPhase"
       >
-        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
-        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
         {{ flipLabel }}
-        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
-        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
       </button>
     </div>
 
@@ -232,6 +234,9 @@
            the night is worked through). A finished list makes it the
            obvious next step; an unfinished one keeps it quiet — never
            blocked either way, a storyteller may move the night on early. -->
+      <!-- FT-882: marks off here too (see the day pill above). The finished
+           tick STAYS — it is not a flanking ornament, it is the only mark
+           that says "the list is complete", and it rides the ready plate. -->
       <button
         type="button"
         class="phase-flip bottom"
@@ -239,12 +244,8 @@
         :title="flipHint"
         @click="flipPhase"
       >
-        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
-        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
         <font-awesome-icon icon="check" v-if="allChecked" />
         {{ flipLabel }}
-        <font-awesome-icon v-if="!nextIsNight" icon="sun" class="pf-mark pf-sun" />
-        <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
       </button>
     </template>
   </div>
@@ -639,21 +640,48 @@ export default {
       align-items: center;
 
       // THE MATERIAL: a plate laid on the dial, not a hole cut in it. Dark
-      // (every colour on these rows — white text, blood-red ticks, the gold
-      // lie flag — is built for a dark ground), warm rather than the flat
-      // 0.95 black the rectangle wore, and thinnest at the middle so the
-      // rose still reads faintly under the list instead of being blotted
-      // out. The gold hairline is the bronze rim's own note, picked up.
+      // (every colour on these rows — the text, the purple ticks, the gold
+      // lie flag — is built for a dark ground) and thinnest at the middle,
+      // so the dial's rose still reads faintly under the list instead of
+      // being blotted out.
+      //
+      // WHAT SHOWS THROUGH, AND WHAT MUST NOT. Under this disc sits the
+      // hub — and the hub carries the town readout: script name in display
+      // type, the alive/vote counts at 40px, the edition mark. At 0.78 and
+      // again at 0.88 those read straight through the middle three rows
+      // (shots: cap021-1280x800, passes 1 and 2) — the same failure the
+      // rectangle's own history records at 0.88 over the build plate.
+      //
+      // Raising the alpha until they vanish also takes the rose with them,
+      // and the rose showing through is the point of laying a disc on a
+      // dial. So the blur does the separating instead: `backdrop-filter`
+      // smears everything behind into a wash, which destroys TEXT (fine
+      // strokes, and text is the thing that must not read) while leaving
+      // the rose's broad shapes and colour perfectly legible as a ground.
+      // Alpha then only has to knock the wash back, not erase it.
+      backdrop-filter: blur(7px) brightness(0.5) saturate(0.85);
+      //
+      // THE COLOUR IS THE GRIMOIRE'S, not parchment's (FT-882, decided with
+      // the tick going purple in the same pass): rgba(20, 16, 22) is the
+      // ground RoleDrawer's own controls sit on, a cool purple-black — the
+      // book's paper. A warm brown plate here would have read as a third
+      // material on a surface that already has the bronze dial under it and
+      // the purple book on it.
       background: radial-gradient(
         circle at 50% 44%,
-        rgba(36, 25, 16, 0.78) 0%,
-        rgba(24, 16, 11, 0.88) 52%,
-        rgba(13, 9, 6, 0.95) 86%,
-        rgba(8, 5, 4, 0.97) 100%
+        rgba(30, 24, 34, 0.82) 0%,
+        rgba(22, 17, 25, 0.88) 52%,
+        rgba(14, 10, 16, 0.93) 86%,
+        rgba(9, 6, 10, 0.95) 100%
       );
+      // TWO threads, and they say different things. The inner hairline is
+      // the grimoire's purple — this sheet's own edge. Outside it, one
+      // bronze thread seats the disc ON the dial's painted rim rather than
+      // letting it hover as a separate object.
       box-shadow:
-        inset 0 0 0 1px rgba(216, 180, 90, 0.32),
+        inset 0 0 0 1px rgba(120, 105, 135, 0.38),
         inset 0 0 34px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(150, 120, 60, 0.22),
         0 0 26px rgba(0, 0, 0, 0.75);
 
       // ── the three bands, exact: cap + (d − 2cap) + cap = d ──────────────
@@ -700,43 +728,69 @@ export default {
 
       // ── THE ROW, IN A NARROWER COLUMN ──────────────────────────────────
       // The band is ~345–465px against the rectangle's 640, and the row's
-      // job does not change: TWO lines, identity+answer over the ability.
-      // Measured at 1280×800 (FT-882), the row on its rectangle settings
-      // broke its answer zone onto a second and third line on 8 of 9 rows
-      // and stood 103–139px tall — three lines of controls in a list you are
-      // meant to scan, and barely two rows visible at a time.
+      // job does not change: TWO lines, and the character has to be
+      // readable on the first one.
       //
-      // What gives, in order of what costs least:
-      //   · the answer zone stops WRAPPING and starts SHRINKING. The pickers
-      //     carry `min-width: 0` already and ellipsize their name, so a
-      //     narrow one still shows seat + icon + as much name as there is
-      //     room for — where a wrapped one bought its full name by taking
-      //     another line off every row on screen.
-      //   · the identity column's floor drops 150 → 92px, and its gaps
-      //     tighten. It holds the role name, which ellipsizes; the answer
-      //     zone holds CONTROLS, which do not.
-      //   · the character icon drops 40 → 30px and the role name 17 →
-      //     15.5px. That is the only type on this sheet that moves, it is
-      //     the largest type on the row, and it stays above the reminder
-      //     line's own 13.5px. Nothing else is resized.
+      // WHAT WAS MEASURED, 1280×800, before any of this (FT-882):
+      //   · on the rectangle's settings the answer zone WRAPPED on 8 of 9
+      //     rows and the rows stood 103–139px tall — barely two visible.
+      //   · stopping the wrap fixed the height (every row 65px) and moved
+      //     the damage onto the name: with identity and answer sharing line
+      //     one, "Washerwoman · Player 2" came out as "W…". The player's
+      //     name did not render at all.
+      //   · giving identity the room it needs on a shared line (~215px)
+      //     leaves ~56px for a label and three controls. Also unusable.
+      //
+      // So the two lines SWAP what they carry. Line one is the identity,
+      // full width, unshared: the character reads in full, which is the
+      // thing a storyteller is scanning for. Line two carries the ability
+      // sentence AND the controls, side by side — the sentence already
+      // truncates by design (FT-874: this is a scanning surface, and the
+      // title attribute carries what the ellipsis cuts), where a control
+      // that truncates is just a control you cannot use.
+      //
+      // Total ink is unchanged; only which line each zone sits on moves.
+      // THE SENTENCE GETS A FLOOR. `auto` on the answer track means "as wide
+      // as your content wants", and grid honours that BEFORE it gives a 1fr
+      // track anything — so with a bare `1fr auto` the two-picker rows took
+      // their full 189px and the ability line rendered at zero width. It did
+      // not truncate; it disappeared (shot: pass2-1280x800). 33% is the
+      // floor at which it stops disappearing, and it only binds when the
+      // controls are greedy — a one-control row still gets the whole line.
       .ns-row {
-        grid-template-columns: 28px minmax(92px, 1fr) auto;
+        grid-template-columns: 28px minmax(33%, 1fr) minmax(0, max-content);
+        grid-template-areas:
+          "state identity identity"
+          "state instruct answer";
         column-gap: 8px;
         padding: 6px 2px 7px;
 
-        .ns-icon {
-          width: 30px;
-          height: 30px;
-        }
-        .ns-who b {
-          font-size: 15.5px;
-        }
+        // the answer SHRINKS rather than wrapping: the pickers carry
+        // `min-width: 0` and ellipsize their own name, so a squeezed one
+        // still shows seat + character icon — where a wrapped one bought
+        // its full name by taking a line off every row on screen
         .ns-answer {
           flex-wrap: nowrap;
           gap: 5px;
         }
         .ns-label {
           font-size: 11.5px;
+        }
+        // the character icon drops 40 → 30px: it is the row's height driver
+        // on line one, and the band is short enough that ten wasted pixels
+        // a row costs a whole visible row. The role name comes down with it
+        // (17 → 15.5px) so it still sits ABOVE the reminder's 13.5px rather
+        // than towering over a line it now shares the row with. That is the
+        // only type on this sheet that moves.
+        .ns-icon {
+          width: 30px;
+          height: 30px;
+        }
+        .ns-who b {
+          font-size: 15.5px;
+          // with the whole line to itself the name no longer has to yield
+          // most of its width to a neighbouring control zone
+          max-width: 72%;
         }
       }
     }
@@ -846,28 +900,31 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  // FT-874 (user call): "make the button a bit gold" — warmed off the plain
-  // grey-on-black plate toward this fork's own gold (#d8b45a — the phase
-  // sun's own colour, TownInfo's .phase-sun) without going full yellow-slab:
-  // a warm dark ground and a gold-tinted border, the text itself still
-  // reading as text. It sits under a list of otherwise dark rows and is
-  // meant to be the one warm thing there — the end of the night.
-  color: #f2e6c8;
+  // FT-882 (user call): GRIMOIRE PURPLE, replacing FT-874's gold-tinted
+  // plate. The whole checklist's accent moved to purple in this pass (see
+  // .ns-check) — red is the blood, purple is the book — and a lone gold
+  // button under a purple-ticked list read as the leftover of another
+  // system. Ground, edge and label are RoleDrawer's own three tones.
+  color: #d8cdb4;
   padding: 5px 16px;
-  background: rgba(48, 36, 12, 0.55);
-  border: 1px solid rgba(216, 180, 90, 0.45);
+  background: rgba(20, 16, 22, 0.9);
+  border: 1px solid rgba(120, 105, 135, 0.4);
   border-radius: 6px;
   cursor: pointer;
+  transition: color 150ms, border-color 150ms, background 150ms;
   &:hover,
   &:focus-visible {
-    border-color: #a01414;
-    color: #ff8a8a;
+    background: rgba(32, 24, 38, 0.95);
+    border-color: rgba(150, 130, 175, 0.75);
+    color: #fff;
     outline: none;
   }
 
-  // FT-874: sun (heading into day) or moon (heading into night) on either
-  // side of the label — the flavour the plain-verb label ("End night") no
-  // longer carries in its own wording rides the marks and the title instead.
+  // FT-882: the flanking sun/moon marks came off the button (see the
+  // template). These rules are left standing rather than torn out — the
+  // marks may yet come back somewhere on this sheet, and the plumbing they
+  // read (moonMarkSrc / isFirstNight) is still here for that. Right now
+  // they style nothing.
   .pf-mark {
     flex-shrink: 0;
   }
@@ -892,8 +949,9 @@ export default {
     opacity: 0.55;
     &:hover,
     &:focus-visible {
-      border-color: rgba(216, 180, 90, 0.45);
-      color: #f2e6c8;
+      background: rgba(20, 16, 22, 0.9);
+      border-color: rgba(120, 105, 135, 0.4);
+      color: #d8cdb4;
     }
   }
 
@@ -906,17 +964,22 @@ export default {
     flex-shrink: 0;
 
     // FT-862 (user call, my read of "worth considering"): a FINISHED list
-    // makes this the obvious next step — brighter, a hint of the blood-red
+    // makes this the obvious next step — brighter, wearing the same accent
     // the done-state already wears, never disabled either way. Mutually
     // exclusive with .blocked in practice (a finished list is never gated).
+    //
+    // FT-882: that accent is now the grimoire's purple, so this is too. It
+    // is the ONLY signal the list is complete, so the two states are kept
+    // far apart on purpose — a near-black plate with a faint edge at rest,
+    // a lit purple plate with a glow and a tick when finished.
     &.ready {
-      color: #ffd9d9;
-      background: rgba(128, 0, 0, 0.35);
-      border-color: #a01414;
-      box-shadow: 0 0 10px rgba(160, 20, 20, 0.4);
+      color: #f4ecff;
+      background: rgba(120, 105, 135, 0.42);
+      border-color: rgba(150, 130, 175, 0.85);
+      box-shadow: 0 0 10px rgba(120, 105, 135, 0.45);
       &:hover,
       &:focus-visible {
-        background: rgba(160, 20, 20, 0.5);
+        background: rgba(150, 130, 175, 0.55);
       }
     }
   }
@@ -986,12 +1049,19 @@ export default {
     background: rgba(255, 255, 255, 0.05);
   }
 
-  // FT-862: recoloured blood red once checked — FT-874: enlarged from a
-  // small glyph beside the identity line into ONE control filling the
-  // row's full two-line height (grid-area "state" spans both rows; this
-  // element stretches to fill that whole cell by CSS grid's own default —
-  // no explicit sizing needed, `align-self: stretch` just keeps the row's
-  // own `align-items: center` from overriding it back to glyph-sized).
+  // FT-874: enlarged from a small glyph beside the identity line into ONE
+  // control filling the row's full two-line height (grid-area "state" spans
+  // both rows; this element stretches to fill that whole cell by CSS grid's
+  // own default — no explicit sizing needed, `align-self: stretch` just
+  // keeps the row's own `align-items: center` from overriding it back to
+  // glyph-sized).
+  //
+  // FT-882 (user call): GRIMOIRE PURPLE, not blood red. Red means BLOOD in
+  // this app — deaths, the stains on the dial, the drip on every scrollbar —
+  // and the night checklist is not blood, it is the storyteller's private
+  // book. So the tick wears the book's colour: rgba(120, 105, 135) resting
+  // and rgba(150, 130, 175) lit, the exact two tones RoleDrawer's own
+  // controls already use. No new purple was invented for this.
   .ns-check {
     grid-area: state;
     align-self: stretch;
@@ -999,29 +1069,40 @@ export default {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border-radius: 4px;
     font-size: 15px;
-    opacity: 0.32;
-    // The hover is BLOOD RED too (user call 2026-08-18) — green was the one
-    // note on this sheet borrowed from outside the fork's palette, and a
-    // green "about to mark done" next to a red "done" reads as two systems.
+    // FT-882: THE BOX HAS AN EDGE NOW, ticked or not. Unticked it was a flat
+    // grey glyph with nothing around it — nothing said "press here". The
+    // outline is the same purple at low alpha.
+    //
+    // The dimming moved OFF this element and ONTO the glyph: an opacity on
+    // the span would take the outline down with it, and the outline's whole
+    // job is to be visible while the glyph is not.
+    border: 1px solid rgba(120, 105, 135, 0.3);
+    border-radius: 4px;
+    svg {
+      opacity: 0.34;
+    }
     &:hover,
     &:focus-visible {
-      opacity: 1;
-      color: #a52a2a;
-      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(150, 130, 175, 0.75);
+      background: rgba(120, 105, 135, 0.12);
+      color: rgb(150, 130, 175);
       outline: none;
+      svg {
+        opacity: 1;
+      }
     }
-    // BLOOD RED once checked (#800000, user-named — not in vars.scss as of
-    // this fork's palette, checked 2026-08-18). Hover-after-checking stays
-    // in the red family (undo it) rather than flashing back to the
-    // before-checking green (do it).
     &.checked {
-      opacity: 0.92;
-      color: #800000;
+      color: rgb(120, 105, 135);
+      border-color: rgba(120, 105, 135, 0.55);
+      svg {
+        opacity: 0.95;
+      }
+      // hover-after-ticking stays in the purple family (undo it) rather
+      // than reading as a different control
       &:hover,
       &:focus-visible {
-        color: #a52a2a;
+        color: rgb(150, 130, 175);
       }
     }
   }

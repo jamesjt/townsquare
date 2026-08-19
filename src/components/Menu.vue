@@ -595,16 +595,22 @@ export default {
   filter: drop-shadow(0 1px 2px black);
 }
 /* THE STRIP IS ONE SET, not a row of PNGs with some icons after it.
-   Two of the marks are our engraved art and (now) two are Font Awesome, and
-   the glyphs arrive carrying the `.tabs svg` rules further up this file —
-   35px tall, black borders on two sides, 5px of vertical padding, which is
-   the OLD tab treatment and would have stood them a head above the art with
-   dividing lines between. These override it: same 26px box, same shadow, same
-   hover, so the eye reads four marks of one family. */
-.player-strip svg {
+   Two of the marks are our engraved art and two are Font Awesome, and the
+   glyphs arrive already carrying `.tabs svg` from further up this file — 35px
+   tall, 5px of vertical padding, black borders down two sides. That is the OLD
+   tab treatment, and it out-specifies a plain `.player-strip svg`: measured,
+   it stood the two new marks 26x35 beside the art's 26x26, and on a phone gave
+   them a 29x48 tap box against the art's 42x42.
+
+   Hence `li.tabs.player-strip` — the same row the old rule matches, named
+   precisely enough to outrank it rather than tie with it on source order.
+   Same 26px box, same shadow, same hover, so the eye reads four marks of one
+   family and a finger finds four boxes of one size. */
+.menu ul li.tabs.player-strip svg {
   width: 26px;
   height: 26px;
   flex-grow: 0;
+  flex-shrink: 0;
   padding: 0;
   border: 0;
   cursor: pointer;
@@ -612,7 +618,7 @@ export default {
   filter: drop-shadow(0 1px 2px black);
   transition: color 200ms, filter 200ms;
 }
-.player-strip svg:hover {
+.menu ul li.tabs.player-strip svg:hover {
   color: #fff;
   filter: drop-shadow(0 1px 2px black) brightness(1.3);
 }
@@ -620,7 +626,7 @@ export default {
    so a second press has something to say no with that the storyteller can
    see. It does not vanish — a control that disappears under your finger reads
    as a fault, not as a wait. */
-.player-strip svg.call-back.cooling {
+.menu ul li.tabs.player-strip svg.call-back.cooling {
   color: #7a736a;
   cursor: default;
   pointer-events: none;
@@ -635,7 +641,7 @@ export default {
     padding: 0 4px;
   }
   .player-strip img,
-  .player-strip svg {
+  .menu ul li.tabs.player-strip svg {
     box-sizing: content-box;
     padding: 8px;
   }

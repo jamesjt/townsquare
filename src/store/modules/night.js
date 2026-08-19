@@ -109,6 +109,16 @@ const getters = {
       acting.forEach(({ role, isPerformance }) => {
         if (!role || !role.id) return;
         if (!(role[prop] > 0)) return;
+        // FT-886: THE TWO TEXTS OF A ROW.
+        //   official — the shipped reminder, written for a table with physical
+        //              tokens ("points to a player", "show the token"). Still
+        //              the row's fallback, and still the exact wording a
+        //              storyteller can go and ask for.
+        //   reminder — what the row SHOWS: our own line where one is written,
+        //              the official text where none is. Keeping the display
+        //              under the existing key means the sheet reads it without
+        //              knowing any of this happened.
+        const official = reminderFor(role, first);
         seats.push({
           seat,
           player,
@@ -124,7 +134,8 @@ const getters = {
           isBelieving: believes,
           night: role[prop],
           slots: targetCount(role, first),
-          reminder: reminderFor(role, first)
+          reminder: lineFor(role.id, first) || official,
+          official
         });
       });
     });

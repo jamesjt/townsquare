@@ -1251,19 +1251,33 @@ ul {
   // Where there is no mouse the notice is the tap target, so it gets a real
   // one — and a phone is exactly where a tab sits untouched long enough to
   // lose its autoplay credit in the first place.
+  //
+  // It also has to STAND ON the pill rather than beside it. On a desktop the
+  // two share the bottom edge happily (300px on the left, the pill far away on
+  // the right); at 375px wide there is no "beside" — measured, the full-width
+  // notice lay straight across the pill, burying Leave and the records door
+  // behind an element that takes every tap. So on a phone it goes up by the
+  // pill's own height instead.
   @media (pointer: coarse) {
+    // measured at 375x812: the pill stands 58px tall there (its controls are
+    // given a 40px minimum for fingertips, plus padding and its 3px border).
+    // 20px of air on top of that so they read as two things, not one.
+    --pill-clearance: 78px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
     min-height: 44px;
-    max-width: calc(100vw - 20px);
+    bottom: var(--pill-clearance);
   }
 }
 
-// …and it steps up onto a bottom sheet's top edge, the same as the pill does,
-// rather than hiding under it. Unlike the pill this NEVER stands down: the
-// pill's controls are all one tap away again by closing the drawer, and this
-// one is the only thing telling a player their sound is broken.
+// …and both of them step up onto a bottom sheet's top edge together, keeping
+// the same gap. Unlike the pill this NEVER stands down: the pill's controls
+// are all one tap away again by closing the drawer, and this is the only thing
+// telling a player their sound is broken.
 @media (pointer: coarse) and (orientation: portrait) {
   #app.sheet-up .callback-blocked {
-    bottom: calc(var(--sheet-h) + 8px);
+    bottom: calc(var(--sheet-h) + 8px + var(--pill-clearance));
   }
 }
 

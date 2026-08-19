@@ -65,7 +65,7 @@
       :class="{ closed: !isBluffsOpen, anchored: !!bluffAnchor }"
       :style="bluffAnchorStyle"
     >
-      <h3>
+      <h3 :style="bluffTitleStyle">
         <!-- This div only ever renders for the storyteller now (see
              canSeeBluffs), so the spectator title below can never be
              reached — kept rather than deleted, the same never-delete
@@ -79,7 +79,7 @@
         <li
           v-for="index in bluffSize"
           :key="index"
-          :style="{ '--bi': index - 1 }"
+          :style="bluffCoinStyle(index - 1)"
           @click="openRoleModal(index * -1)"
         >
           <Token :role="bluffs[index - 1]"></Token>
@@ -304,22 +304,38 @@ export default {
       );
     },
     /**
-     * `left`/`top` in px (see measureBluffAnchor) plus the demon seat's own
-     * measured width as `--seat-sz` — every anchored-state rule in this
-     * file's <style> block sizes off that ONE variable, so the cluster
-     * scales exactly how Player.vue's `zoom` already scaled that seat (a
-     * 6-seat town's big coins down to a 15-seat town's small ones) without
-     * this file re-deriving that formula. Null (no demon found yet) means
-     * no inline override — the static corner CSS applies untouched.
+     * The demon seat's own measured width as `--seat-sz` (inherited by
+     * every child below — custom properties inherit) — every anchored-state
+     * size rule in this file's <style> block reads off that ONE variable,
+     * so the cluster scales exactly how Player.vue's `zoom` already scaled
+     * that seat (a 6-seat town's big coins down to a 15-seat town's small
+     * ones) without this file re-deriving that formula. Null (no demon
+     * found yet) means no inline override — the static corner CSS applies
+     * untouched.
+     *
+     * `left`/`top` are NOT set here (2026-08-19 fix — see measureBluffAnchor):
+     * the title and each coin are positioned INDEPENDENTLY (bluffTitleStyle /
+     * bluffCoinStyle below), each with its own fully-computed pixel centre.
+     * An earlier pass centred this whole container (h3 stacked over ul) on
+     * one anchor point — but h3's own height then pushed the coin row away
+     * from that point by a FIXED SCREEN-SPACE amount (h3 sits above ul in
+     * normal block flow), which is only "further from the hub" for a seat
+     * at the top of the ring; for other seats it silently ate back part of
+     * the outward clearance and the coins drifted into the reminder band
+     * (measured — see the collision table in claude_temp_test/
+     * 2026-08-19-bluffs-seat.mjs before/after this fix).
      */
     bluffAnchorStyle() {
       if (!this.bluffAnchor) return null;
-      const { left, top, size } = this.bluffAnchor;
-      return {
-        left: `${left}px`,
-        top: `${top}px`,
-        "--seat-sz": `${size}px`
-      };
+      return { "--seat-sz": `${this.bluffAnchor.size}px` };
+    },
+    /** The title pill's own centre point — a little further outward than
+     *  the coin row, so it reads as sitting ABOVE the fan rather than among
+     *  it. Null (no demon) leaves h3 in the static corner's normal flow. */
+    bluffTitleStyle() {
+      if (!this.bluffAnchor) return null;
+      const { left, top } = this.bluffAnchor.title;
+      return { left: `${left}px`, top: `${top}px` };
     }
   },
   data() {
@@ -445,14 +461,44 @@ export default {
       const dist = Math.hypot(dx, dy) || 1;
       dx /= dist;
       dy /= dist;
-      // Tuned against claude_temp_test/2026-08-19-bluffs-seat.mjs — see its
-      // collision table for what a bigger/smaller value measured like.
-      const OUTWARD = 0.6;
+      // The tangent (perpendicular to outward) — the direction the 3 coins
+      // fan ALONG, mirroring how Player.vue's own reminders fan sideways
+      // (`--ri`/`--rn`) rather than growing further down the spoke.
+      const tx = -dy;
+      const ty = dx;
+      const size = seatRect.width;
+      const rootLeft = rootRect.left;
+      const rootTop = rootRect.top;
+      // Every offset below is in SEAT-WIDTHS, tuned against the measured
+      // collision table in claude_temp_test/2026-08-19-bluffs-seat.mjs.
+      // RADIAL is deliberately modest: proof requirement #1 allows a bluff
+      // coin to sit ON the demon's own coin (only OTHER seats' coins and
+      // ANY reminder are off limits), so this only needs to clear the
+      // reminder band Player.vue parks at the coin's inner-outer edge
+      // (`margin-top: 66-68%` of the seat's own width) — not the coin
+      // itself. SPREAD is small enough that three coins fan more like a
+      // held hand of cards than a wide row: a full-width row of three
+      // half-size coins measured wider than the ring's own outward slack
+      // at a 15-seat town on a phone (this file's earlier pass).
+      const RADIAL = 0.62;
+      const TITLE_RADIAL = 0.98;
+      const SPREAD = 0.34;
+      const point = (radial, tangent) => ({
+        left: seatCx - rootLeft + dx * size * radial + tx * size * tangent,
+        top: seatCy - rootTop + dy * size * radial + ty * size * tangent
+      });
       this.bluffAnchor = {
-        left: seatCx - rootRect.left + dx * seatRect.width * OUTWARD,
-        top: seatCy - rootRect.top + dy * seatRect.width * OUTWARD,
-        size: seatRect.width
+        size,
+        title: point(TITLE_RADIAL, 0),
+        coins: [-1, 0, 1].map(k => point(RADIAL, SPREAD * k))
       };
+    },
+    /** This bluff slot's own computed centre (see measureBluffAnchor) — null
+     *  (no demon found) leaves the slot in the static corner's flex row. */
+    bluffCoinStyle(i) {
+      if (!this.bluffAnchor) return null;
+      const { left, top } = this.bluffAnchor.coins[i];
+      return { left: `${left}px`, top: `${top}px` };
     },
     toggleBluffs() {
       this.isBluffsOpen = !this.isBluffsOpen;
@@ -1032,26 +1078,45 @@ export default {
    `.anchored` class only ever lands on top of a demon seat that was
    actually measured, so the corner is the fallback, never a lost panel.
 
-   `left`/`top` come from that measurement (inline style, bluffAnchorStyle);
-   `--seat-sz` is the demon's own coin's measured width, so every size
-   below scales with the SAME number Player.vue's own `zoom` already sized
-   that coin with — a 6-seat town's big coins, a 15-seat town's small
-   ones — without this file re-deriving that formula. */
+   `--seat-sz` (inherited by every descendant — custom properties inherit)
+   is the demon's own coin's measured width, so every size below scales
+   with the SAME number Player.vue's own `zoom` already sized that coin
+   with — a 6-seat town's big coins, a 15-seat town's small ones — without
+   this file re-deriving that formula.
+
+   The CONTAINER itself carries no left/top any more: h3 and each coin are
+   positioned INDEPENDENTLY, each with its own fully-computed pixel centre
+   (bluffTitleStyle / bluffCoinStyle in the script block). An earlier pass
+   centred the whole h3-over-ul stack on one anchor point, and h3's own
+   height pushed the coin row away from that point by a fixed
+   SCREEN-SPACE amount — correct only for a seat at the top of the ring;
+   everywhere else it quietly ate back the outward clearance and the
+   coins drifted into the reminder band (measured — see the collision
+   table in claude_temp_test/2026-08-19-bluffs-seat.mjs). Positioning each
+   element off the SAME seat-relative point sidesteps that entirely. */
 #townsquare > .bluffs.anchored {
   bottom: auto;
   left: 0;
-  transform-origin: center center;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.62);
-  border-radius: 999px;
-  padding: calc(var(--seat-sz, 15vmin) * 0.05)
-    calc(var(--seat-sz, 15vmin) * 0.1);
-  // the corner panel's own drop-shadow reads as a stray dark smear at this
-  // scale, right up against the coin it now sits beside
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  top: 0;
+  width: 0;
+  height: 0;
+  background: none;
+  border: none;
+  filter: none;
+  transform: none;
+  transform-origin: initial;
+  padding: 0;
+  overflow: visible;
 
   h3 {
-    margin: 0 0 2px;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    background: rgba(0, 0, 0, 0.62);
+    border-radius: 999px;
+    padding: calc(var(--seat-sz, 15vmin) * 0.05)
+      calc(var(--seat-sz, 15vmin) * 0.1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
     font-size: calc(var(--seat-sz, 15vmin) * 0.095);
     white-space: nowrap;
     span {
@@ -1063,20 +1128,20 @@ export default {
     }
   }
 
-  // OPEN: a tight cascade, not a wide row. Three slots stay close to the
-  // footprint of ONE coin — a full-width row of three half-size coins
-  // measured wider than the ring's own outward slack at a 15-seat town on
-  // a phone (see the collision table in claude_temp_test/
-  // 2026-08-19-bluffs-seat.mjs). Fanning by --bi (this slot's 0-based
-  // index, set in the template) rather than growing sideways from centre
-  // keeps the whole cluster's bounding box close to a single coin's.
+  ul li {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    margin: 0;
+  }
+
+  // OPEN: three small coins, each independently placed (bluffCoinStyle) —
+  // a held-hand-of-cards fan, not a wide row. A full-width row of three
+  // half-size coins measured wider than the ring's own outward slack at a
+  // 15-seat town on a phone (see the collision table in claude_temp_test/
+  // 2026-08-19-bluffs-seat.mjs).
   &:not(.closed) ul li {
-    width: calc(var(--seat-sz, 15vmin) * 0.44);
-    height: calc(var(--seat-sz, 15vmin) * 0.44);
-    margin: 0 0 0 calc(var(--seat-sz, 15vmin) * -0.12 * var(--bi, 0));
-    transform: translateY(
-      calc(var(--seat-sz, 15vmin) * 0.1 * var(--bi, 0))
-    );
+    width: calc(var(--seat-sz, 15vmin) * 0.4);
+    height: calc(var(--seat-sz, 15vmin) * 0.4);
   }
 }
 

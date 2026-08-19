@@ -61,6 +61,24 @@ let el = null;
 let unlocked = false;
 let listening = false;
 
+/**
+ * WHO OWNS THE ELEMENT RIGHT NOW. There is only one audio element (see above),
+ * so the silent unlock and a real summons can be in flight over the same object
+ * at the same time — and they routinely are, because the tap that unlocks a
+ * blocked player is usually the very tap asking to hear the sound.
+ *
+ * Without this the two collide in the worst way: the unlock's tidy-up pauses
+ * and re-mutes the element a beat after the real play started, killing it and
+ * rejecting its promise with an AbortError, which reads exactly like a refusal.
+ * The player's notice would come back and the sound would stop dead — the
+ * silent failure this whole module exists to prevent, caused by the fix for it.
+ *
+ * Every operation takes a token. A later one outranks an earlier one: the
+ * unlock declines to clean up if it no longer holds the element, and a play
+ * that was superseded declines to report itself as refused.
+ */
+let opToken = 0;
+
 /** THE element. Created once; never replaced, or the credit goes with it. */
 function element() {
   if (!el) {
@@ -78,13 +96,21 @@ function element() {
  */
 function unlock() {
   const a = element();
-  const wasMuted = a.muted;
+  const token = ++opToken;
   a.muted = true;
   const p = a.play();
   function settle(ok) {
-    a.pause();
-    a.currentTime = 0;
-    a.muted = wasMuted;
+    // Only tidy up if nothing else has claimed the element since — otherwise
+    // this pause would be cutting off a real summons. See opToken.
+    if (opToken === token) {
+      a.pause();
+      try {
+        a.currentTime = 0;
+      } catch (e) {
+        // never loaded; nothing to rewind
+      }
+      a.muted = false;
+    }
     if (!ok) return;
     unlocked = true;
     callBackState.blocked = false;
@@ -140,12 +166,17 @@ export function armCallBackAudio() {
 export function playCallBack(isMuted) {
   if (isMuted) return Promise.resolve(false);
   const a = element();
+  // A real summons outranks any silent unlock still in flight — it takes the
+  // element, and undoes the mute that unlock may have just put on it. Without
+  // this the confirming sound plays perfectly and inaudibly.
+  const token = ++opToken;
+  a.muted = false;
   // rewind rather than stack: one element means the second press replaces the
   // first play instead of doubling it
   try {
     a.currentTime = 0;
   } catch (e) {
-    // a element that has never loaded throws on seek; play() will start it
+    // an element that has never loaded throws on seek; play() will start it
   }
   const p = a.play();
   if (!p || !p.then) {
@@ -160,6 +191,10 @@ export function playCallBack(isMuted) {
       return true;
     })
     .catch(() => {
+      // A play that something else has already superseded was ABORTED, not
+      // refused — reporting it as refused would stand the notice back up in
+      // front of a player whose sound is working.
+      if (opToken !== token) return false;
       // THE FAILURE THIS MODULE EXISTS FOR. Nothing is thrown, nothing is
       // logged anywhere a player would look — so it is written down here, and
       // App.vue turns it into something they can see and act on.
