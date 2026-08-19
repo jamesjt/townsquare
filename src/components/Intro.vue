@@ -215,7 +215,7 @@
             <span class="panel-back" title="Back" @click="mode = null"
               ><font-awesome-icon icon="arrow-left"
             /></span>
-            <p class="hint">Join a town.</p>
+            <p class="hint">Enter a Town</p>
           </div>
           <div class="panel-body">
           <ul class="towns" v-if="joinTowns.length">
@@ -259,7 +259,13 @@
               title="Enter the town"
               @click="confirmJoin"
             >
-              <font-awesome-icon icon="sign-in-alt" />
+              <!-- our own mark (user-supplied art, 2026-08-19): a figure on
+                   the road to a town whose tallest building is a clocktower.
+                   Baked to the same measured material as the strip's marks —
+                   silhouette only, no outline, the fork's stone grain — from a
+                   source that was white on TRANSPARENT, so its own alpha is
+                   the mask rather than anything the pixels' darkness says. -->
+              <img class="enter-mark" :src="uiEnter" alt="" />
             </button>
           </div>
         </div>
@@ -306,6 +312,7 @@ import bloodMetrics from "../assets/blood/metrics.json";
 import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
 import ontheLockup from "../assets/title/onthe-lockup.png";
+import uiEnter from "../assets/ui-enter.png";
 import bloodLockup from "../assets/title/blood-lockup.png";
 // FT-854: the Open-the-town button's blood O (alphabet archive; ems baked
 // from its metrics at the title conversion — 341x410, baseline 352, /370).
@@ -515,6 +522,7 @@ export default {
       bloodLogo,
       ontheLogo,
       ontheLockup,
+      uiEnter,
       bloodLockup,
       bloodO,
       // Golem fork (2026-08-18, user diagnosis): the background renders
