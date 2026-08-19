@@ -525,12 +525,62 @@ export default {
       const size = seatRect.width;
       const rootLeft = rootRect.left;
       const rootTop = rootRect.top;
+      /**
+       * Proof requirement #4: all three coins (and the title) stay inside
+       * the viewport. Defined early — ahead of the anchor below — because
+       * the anchor itself needs clamping, not just the final coin/title
+       * positions: an unclamped outward step can overshoot the viewport
+       * edge on its own (measured: a 12-seat desktop ring's top seat sits
+       * only 68px below the viewport top, and a 0.9-seat-width step up
+       * from there lands at y=-18, off-screen). Once that happens the row's
+       * height is permanently invalid, no amount of the SIDEWAYS push
+       * further down can fix a vertical problem, and the search exhausts
+       * its whole budget for nothing (measured: pushPx maxed at 4 seat-
+       * widths, coins ended up hundreds of px from the seat after the
+       * final clamp).
+       */
+      const EDGE_PAD = 2;
+      const inViewport = (left, top, right, bottom) =>
+        left >= EDGE_PAD &&
+        top >= EDGE_PAD &&
+        right <= window.innerWidth - EDGE_PAD &&
+        bottom <= window.innerHeight - EDGE_PAD;
+      const clampX = (cx, halfW) =>
+        Math.min(Math.max(cx, halfW + EDGE_PAD), window.innerWidth - halfW - EDGE_PAD);
+      const clampY = (cy, halfH) =>
+        Math.min(Math.max(cy, halfH + EDGE_PAD), window.innerHeight - halfH - EDGE_PAD);
       // A bluff coin is 0.4 seat-widths square (see the CSS below) — half
       // 0.2. This is now a plain axis-aligned box check (screen-x row,
       // fixed screen-y), not the tangent/radial approximation the old fan
       // used, so the true half-width is exact — no diagonal-corner pad
       // needed the way the fan's scalar tangential-span check did.
       const COIN_HALF = 0.2;
+      const coinHalfPx = size * COIN_HALF;
+      /**
+       * (2026-08-19, coordinator correction — the sweep couldn't catch this
+       * because it never asserted proximity, only overlap): the row's own
+       * base point moves OUTWARD along the seat's true spoke (ox, oy)
+       * FIRST, before fanning sideways by `side`. Fanning straight from the
+       * seat's own centre, in pure screen-x, is only safe at 3/9 o'clock,
+       * where screen-x already points away from the ring. At 12/6 o'clock
+       * screen-x runs ALONG the ring, straight through every neighbouring
+       * seat — so the collision search correctly kept pushing until it
+       * cleared all of them, and landed in a viewport corner, hundreds of
+       * px from the demon (measured: desktop 12-seat, demon at 12 and 6
+       * o'clock, both screenshots). Stepping outward past the seat's own
+       * edge (0.5) by about one coin's width (0.4) first puts the anchor
+       * in open space outside the ring plane, so the SAME sideways fan and
+       * SAME collision search below rarely has anything left to clear —
+       * it terminates in one step instead of walking to the edge. At 3/9
+       * o'clock, outward and `side` are already the same axis, so this is
+       * a small added standoff, not a different behaviour.
+       *
+       * Clamped immediately (see the viewport comment above): the outward
+       * step is a further-out ask, not a guarantee there's room for it.
+       */
+      const ANCHOR_OUT = 0.9; // seat edge (0.5) + ~one coin's width (0.4)
+      const anchorCx = clampX(seatCx + ox * size * ANCHOR_OUT, coinHalfPx);
+      const anchorCy = clampY(seatCy + oy * size * ANCHOR_OUT, coinHalfPx);
       // Slot 0's centre sits exactly at the demon's own coin's edge — the
       // two half-widths sum to touching, not overlapping. This is a floor,
       // not a requirement: proof requirement #1 allows a bluff coin to sit
@@ -578,31 +628,14 @@ export default {
             top >= r.bottom + MARGIN_PX ||
             bottom <= r.top - MARGIN_PX
         );
-      /**
-       * Proof requirement #4: all three coins (and the title) stay inside
-       * the viewport. Folded into the SAME clearance predicate as the name
-       * plates and other coins — not a clamp applied afterwards — because a
-       * narrow phone screen can put the collision-free spot the search
-       * finds partly off-screen, and clamping that position back on-screen
-       * can walk it straight back into the very plate the search avoided
-       * (measured: a 6/10-seat phone title, clamp-reintroduced a few px².
-       * Checking the viewport bound DURING the search instead means every
-       * candidate the search accepts was always both.
-       */
-      const EDGE_PAD = 2;
-      const inViewport = (left, top, right, bottom) =>
-        left >= EDGE_PAD &&
-        top >= EDGE_PAD &&
-        right <= window.innerWidth - EDGE_PAD &&
-        bottom <= window.innerHeight - EDGE_PAD;
-
-      const coinHalfPx = size * COIN_HALF;
-      const rowTop = seatCy - coinHalfPx;
-      const rowBottom = seatCy + coinHalfPx;
+      // (viewport clearance folded into `clears`+`inViewport` — both defined
+      // above, ahead of the anchor, which also needs them)
+      const rowTop = anchorCy - coinHalfPx;
+      const rowBottom = anchorCy + coinHalfPx;
       const baseOffsets = [0, 1, 2].map(k => size * (START + SPREAD * k));
       const rowClears = pushPx =>
         baseOffsets.every(off => {
-          const cx = seatCx + side * (off + pushPx);
+          const cx = anchorCx + side * (off + pushPx);
           const box = [cx - coinHalfPx, rowTop, cx + coinHalfPx, rowBottom];
           return clears(...box) && inViewport(...box);
         });
@@ -618,14 +651,10 @@ export default {
       while (!rowClears(pushPx) && pushPx < MAX_PUSH_PX) {
         pushPx += STEP_PX;
       }
-      const clampX = (cx, halfW) =>
-        Math.min(Math.max(cx, halfW + EDGE_PAD), window.innerWidth - halfW - EDGE_PAD);
-      const clampY = (cy, halfH) =>
-        Math.min(Math.max(cy, halfH + EDGE_PAD), window.innerHeight - halfH - EDGE_PAD);
       const coinScreenCx = baseOffsets.map(off =>
-        clampX(seatCx + side * (off + pushPx), coinHalfPx)
+        clampX(anchorCx + side * (off + pushPx), coinHalfPx)
       );
-      const coinScreenCy = clampY(seatCy, coinHalfPx);
+      const coinScreenCy = clampY(anchorCy, coinHalfPx);
       const coins = coinScreenCx.map(cx => ({
         left: cx - rootLeft,
         top: coinScreenCy - rootTop
@@ -657,7 +686,7 @@ export default {
       const TITLE_UP_BASE = 0.5 + 0.46; // matches the row's own base offset idiom
       /**
        * Anchored off the coins' own ALREADY-CLAMPED screen x (coinScreenCx),
-       * not re-derived from the raw seatCx + side*(offset+pushPx) the coins
+       * not re-derived from the raw anchorCx + side*(offset+pushPx) the coins
        * started from: when a collision pushes the row far enough that the
        * clamp above pulls it back on-screen, that raw value can itself
        * already sit past the viewport edge, and the title's own search only
@@ -685,7 +714,7 @@ export default {
       const titleHalfH = size * 0.17; // approximates the pill's own height/2
       const titleClears = (dir, extraOut, extraSide) => {
         const cx = titleBaseX + side * extraSide;
-        const cy = seatCy + dir * (size * TITLE_UP_BASE + extraOut);
+        const cy = anchorCy + dir * (size * TITLE_UP_BASE + extraOut);
         const box = [cx - titleHalfW, cy - titleHalfH, cx + titleHalfW, cy + titleHalfH];
         return clears(...box) && inViewport(...box);
       };
@@ -696,14 +725,24 @@ export default {
       // phone ring (measured: neither direction cleared within that budget,
       // even with plenty of raw vertical room — the title pill is ~1.15
       // seat-widths wide, wide enough that a short push doesn't reliably
-      // clear a neighbour's plate). 3.5 gave every swept case room to find
-      // a genuine clear spot without reintroducing the original "wanders
-      // across the whole ring" failure the two-direction-with-outward-first
-      // order above already guards against.
+      // clear a neighbour's plate).
+      //
+      // `out` (further from the row, same x) is tried BEFORE `sidePush`
+      // (same distance, drifting sideways) — the opposite order regressed
+      // the proximity bound (2026-08-19 coordinator addendum): sidePush is
+      // exactly the axis that makes the title "read as belonging to
+      // nothing", since it walks away from the coin row's own x, while
+      // `out` stays stacked directly above/below it. Trying every `out` at
+      // sidePush=0 first found a clear spot in every swept case without
+      // ever needing to drift (measured — see the proximity columns in
+      // claude_temp_test/2026-08-19-bluffs-side-after.out). `sidePush`
+      // keeps a much smaller budget: it is the fallback for the (untested)
+      // case a whole vertical column is blocked, not the first resort.
       const TITLE_MAX_PUSH = size * 3.5;
+      const TITLE_MAX_SIDE_PUSH = size * 1.2;
       const searchDir = dir => {
-        for (let out = 0; out <= TITLE_MAX_PUSH; out += STEP_PX * 2) {
-          for (let sidePush = 0; sidePush <= TITLE_MAX_PUSH; sidePush += STEP_PX * 2) {
+        for (let sidePush = 0; sidePush <= TITLE_MAX_SIDE_PUSH; sidePush += STEP_PX * 2) {
+          for (let out = 0; out <= TITLE_MAX_PUSH; out += STEP_PX * 2) {
             if (titleClears(dir, out, sidePush)) return { out, sidePush };
           }
         }
@@ -720,13 +759,13 @@ export default {
         // has more raw viewport room, at zero push — clamped on-screen
         // below like every other slot, and the closest any candidate here
         // got to actually clearing.
-        titleDir = window.innerHeight - seatCy > seatCy ? 1 : -1;
+        titleDir = window.innerHeight - anchorCy > anchorCy ? 1 : -1;
         found = { out: 0, sidePush: 0 };
       }
       const titleExtraOut = found.out;
       const titleExtraSide = found.sidePush;
       const titleX = titleBaseX + side * titleExtraSide;
-      const titleYRaw = seatCy + titleDir * (size * TITLE_UP_BASE + titleExtraOut);
+      const titleYRaw = anchorCy + titleDir * (size * TITLE_UP_BASE + titleExtraOut);
       const titleCx = clampX(titleX, titleHalfW);
       const titleCy = clampY(titleYRaw, titleHalfH);
       this.bluffAnchor = {
