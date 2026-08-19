@@ -43,6 +43,9 @@ import {
 } from "../../golem/nightLog";
 // FT-861: what a seat IS versus what its player is TOLD it is.
 import { beliefOf, isBelieving } from "../../golem/belief";
+// FT-886: our own one-line instruction for a character's night action, where
+// one is written — see golem/nightInfo's THE INSTRUCTION LINE section.
+import { lineFor } from "../../golem/nightInfo";
 
 const state = () => ({
   // user call 2026-08-18: a fresh town shares. See DEFAULT_MODE's note for

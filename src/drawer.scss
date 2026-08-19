@@ -51,7 +51,11 @@ $sheet-h: var(--sheet-h, 52vh);
   display: flex;
   flex-direction: column;
   background: rgba(8, 8, 10, 0.96);
-  border-left: 1px solid $accent;
+  // NO LEFT BORDER (user call 2026-08-19). The drawer already separates itself
+  // from the square with its own dark ground and a deep shadow; the hairline
+  // was a second, weaker edge drawn along a boundary that already read.
+  // (The phone bottom-sheet rule below clears borders itself, so nothing
+  // there depended on this one existing.)
   box-shadow: -6px 0 30px rgba(0, 0, 0, 0.6);
   // the head sits ON the player strip's line (user call) — the strip floats
   // top-right at z-index 75, but the centred title clears it horizontally, so

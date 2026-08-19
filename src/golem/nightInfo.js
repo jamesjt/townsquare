@@ -238,19 +238,23 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.BOOLEAN, by: FIELD_OWNERS.STORYTELLER }
     ],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    // the red herring is the rule this row exists to stop you forgetting
+    line: "They choose two; yes if either is the Demon, or the red herring."
   },
   undertaker: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: true,
-    label: "Learns executed was:"
+    label: "Learns executed was:",
+    line: "Only if a player was executed today."
   },
   monk: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
-    label: "Protects:"
+    label: "Protects:",
+    line: "Anyone but themselves — safe from the Demon until dawn."
   },
   ravenkeeper: {
     wakes: ["other"],
@@ -259,7 +263,8 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "Only if they died tonight. They choose the player."
   },
   virgin: { wakes: [], fields: [], mayBeFalse: false }, // day ability — never reaches a night row
   slayer: { wakes: [], fields: [], mayBeFalse: false }, // day ability
@@ -270,7 +275,8 @@ export const NIGHT_INFO = {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
-    label: "Chooses master:"
+    label: "Chooses master:",
+    line: "Tomorrow they may only vote alongside that player."
   },
   drunk: { wakes: [], fields: [], mayBeFalse: false }, // never wakes as itself — see golem/belief's performance rows
   recluse: { wakes: [], fields: [], mayBeFalse: false }, // passive
@@ -280,7 +286,12 @@ export const NIGHT_INFO = {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
-    label: "Poisons:"
+    label: "Poisons:",
+    // night one has nobody to recover — the only difference between the two
+    line: {
+      first: "Poisoned tonight and all through tomorrow.",
+      other: "Poisoned tonight and all through tomorrow; the last one recovers."
+    }
   },
   spy: {
     wakes: ["first", "other"],
@@ -288,13 +299,15 @@ export const NIGHT_INFO = {
     // honest choice here, not a placeholder for a control that's missing
     fields: [{ type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: false,
-    label: "Sees:"
+    label: "Sees:",
+    line: "They read the whole grimoire, for as long as they need."
   },
   scarletwoman: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: false, // "you are now the Demon" is a state transition, not corruptible info
-    label: "Becomes:"
+    label: "Becomes:",
+    line: "Only if the Demon died today, five or more alive — Travellers aside."
   },
   baron: { wakes: [], fields: [], mayBeFalse: false }, // setup-only, never wakes
   // ── Trouble Brewing — Demon ──────────────────────────────────────────────
@@ -302,7 +315,20 @@ export const NIGHT_INFO = {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false, // chooses a kill, told nothing back — the Demon's OWN first-night reveal is GROUP_INFO.demon, below
-    label: "Kills:"
+    label: "Kills:",
+    // "Kills:" already says the kill; the starpass is what the label can't say
+    line: "If they choose themselves, a Minion you pick takes their place."
+  },
+  // ── Trouble Brewing — Travellers ─────────────────────────────────────────
+  // Line-only (see the header): both already render a seat picker off their
+  // reminder text, and neither field design was ever made.
+  bureaucrat: {
+    wakes: ["first", "other"],
+    line: "Another player's vote counts three times tomorrow."
+  },
+  thief: {
+    wakes: ["first", "other"],
+    line: "Another player's vote counts as minus one tomorrow."
   },
 
   // ── Bad Moon Rising / Sects & Violets — entered opportunistically ───────
@@ -314,31 +340,205 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 2 }
     ],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "They choose two living others — how many of them wake tonight."
   },
   clockmaker: {
     wakes: ["first"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 1, max: 20 }],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "How many seats from the Demon to its nearest Minion."
   },
   mathematician: {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 20 }],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "How many abilities have misfired since dawn, by another's doing."
   },
   oracle: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 20 }],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "How many of the dead are evil."
   },
   juggler: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 5 }],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "Only after their first day — how many guesses they got right."
+  },
+
+  // ── Bad Moon Rising — line-only (FT-886) ─────────────────────────────────
+  // Prose written, field design not yet made: each of these renders exactly
+  // as it did before (a free text box), now with a sentence written for a
+  // screen instead of a table full of tokens. See the header.
+  grandmother: {
+    wakes: ["first", "other"],
+    line: {
+      first: "Name a good player and their character — their grandchild.",
+      other: "If the Demon killed their grandchild tonight, they die too."
+    }
+  },
+  sailor: {
+    wakes: ["first", "other"],
+    line: "Either they or their choice is drunk until dusk — you decide which."
+  },
+  exorcist: {
+    wakes: ["other"],
+    line: "Not last night's choice. A chosen Demon learns them, and skips tonight."
+  },
+  innkeeper: {
+    wakes: ["other"],
+    line: "Both are safe tonight; one of them is drunk until dusk — your pick."
+  },
+  gambler: {
+    wakes: ["other"],
+    line: "They name a player and a character; wrong, and they die."
+  },
+  gossip: {
+    wakes: ["other"],
+    line: "Only if their public claim today was true: someone dies, your choice."
+  },
+  courtier: {
+    wakes: ["first", "other"],
+    line: "Once per game: a character they name is drunk three days and nights."
+  },
+  professor: {
+    wakes: ["other"],
+    line: "Once per game they choose a dead player — a Townsfolk returns to life."
+  },
+  tinker: {
+    wakes: ["other"],
+    line: "They may die at any moment; tonight is your choice."
+  },
+  moonchild: {
+    wakes: ["other"],
+    line: "Only if they were told they died today: their pick dies, if good."
+  },
+  // lunatic — DELIBERATELY UNWRITTEN, see LEFT ALONE in the header.
+  godfather: {
+    wakes: ["first", "other"],
+    line: {
+      first: "Name every Outsider in play.",
+      other: "Only if an Outsider died today — then they choose a kill."
+    }
+  },
+  devilsadvocate: {
+    wakes: ["first", "other"],
+    line: "Someone living survives tomorrow's execution — never twice running."
+  },
+  assassin: {
+    wakes: ["other"],
+    line: "Once per game: their choice dies, whatever protects them."
+  },
+  zombuul: {
+    wakes: ["other"],
+    line: "Only if nobody died today — then they choose a kill."
+  },
+  pukka: {
+    wakes: ["first", "other"],
+    line: {
+      first: "Their choice is poisoned.",
+      other: "Their new choice is poisoned; the last one dies."
+    }
+  },
+  shabaloth: {
+    wakes: ["other"],
+    line: "Two die; one of last night's dead may return, your call."
+  },
+  po: {
+    wakes: ["other"],
+    line: "They may choose nobody; if they did last night, three die tonight."
+  },
+  apprentice: {
+    wakes: ["first"],
+    line: "They gain a Townsfolk ability if good, a Minion's if evil."
+  },
+
+  // ── Sects & Violets — line-only (FT-886) ─────────────────────────────────
+  dreamer: {
+    wakes: ["first", "other"],
+    line: "They choose someone; name a good and an evil character, one true."
+  },
+  snakecharmer: {
+    wakes: ["first", "other"],
+    line: "Choosing the Demon swaps them, sides and all — the new one is poisoned."
+  },
+  flowergirl: {
+    wakes: ["other"],
+    line: "Whether the Demon voted today."
+  },
+  towncrier: {
+    wakes: ["other"],
+    line: "Whether a Minion nominated today."
+  },
+  seamstress: {
+    wakes: ["first", "other"],
+    line: "Once per game: two others, and whether they share an alignment."
+  },
+  philosopher: {
+    wakes: ["first", "other"],
+    line: "Once per game they gain a good character's ability; its owner goes drunk."
+  },
+  sage: {
+    wakes: ["other"],
+    line: "Only if the Demon killed them — two players, one of them it."
+  },
+  sweetheart: {
+    wakes: ["other"],
+    line: "Only if they died — someone of your choosing is drunk from now on."
+  },
+  barber: {
+    wakes: ["other"],
+    line: "Only if they died today: the Demon may swap two players' characters."
+  },
+  eviltwin: {
+    wakes: ["first"],
+    line: "Wake both twins; each learns who the other is."
+  },
+  witch: {
+    wakes: ["first", "other"],
+    line: "Their choice dies if they nominate tomorrow, while four still live."
+  },
+  cerenovus: {
+    wakes: ["first", "other"],
+    line: "They pick a player and a character: mad as it tomorrow, or executable."
+  },
+  pithag: {
+    wakes: ["other"],
+    line: "A player and a character — if it is out of play, they become it."
+  },
+  fanggu: {
+    wakes: ["other"],
+    line: "The first Outsider they kill becomes an evil Fang Gu; they die instead."
+  },
+  vigormortis: {
+    wakes: ["other"],
+    line: "A Minion killed keeps its ability and poisons a Townsfolk neighbour."
+  },
+  nodashii: {
+    wakes: ["other"],
+    line: "Their two Townsfolk neighbours are poisoned."
+  },
+  vortox: {
+    wakes: ["other"],
+    line: "Every Townsfolk reading is false tonight."
+  },
+  barista: {
+    wakes: ["first", "other"],
+    line: "Tell one player which: true information tonight, or a double ability."
+  },
+  harlot: {
+    wakes: ["other"],
+    line: "If they agree, they learn that character — and both may die."
+  },
+  bonecollector: {
+    wakes: ["other"],
+    line: "Once per game: a dead player has their ability back until dusk."
   }
 };
 
@@ -384,14 +584,19 @@ export const GROUP_INFO = {
  */
 export function fieldsFor(roleId) {
   const entry = NIGHT_INFO[roleId];
-  if (!entry) {
+  // FT-886: no entry, or a LINE-ONLY entry (one that carries prose but has no
+  // `fields` KEY at all) — both mean "nobody has designed this row's controls",
+  // and both must render identically. Note this is `!entry.fields`, not a
+  // length check: `fields: []` is a deliberate answer — "records nothing" —
+  // and keeps meaning that.
+  if (!entry || !entry.fields) {
     return {
       fields: [{ type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }],
       mayBeFalse: true,
       known: false
     };
   }
-  return { fields: entry.fields || [], mayBeFalse: !!entry.mayBeFalse, known: true };
+  return { fields: entry.fields, mayBeFalse: !!entry.mayBeFalse, known: true };
 }
 
 /**
@@ -404,6 +609,29 @@ export function fieldsFor(roleId) {
 export function labelFor(roleId) {
   const entry = NIGHT_INFO[roleId];
   return (entry && entry.label) || "";
+}
+
+/**
+ * FT-886: the instruction line for one character on THIS night — our sentence
+ * for what the storyteller does on a screen — or "" when none is written.
+ *
+ * "" is the signal to fall back to the shipped reminder text, which the caller
+ * owns (the night roster getter does exactly `lineFor(...) || reminderFor(...)`).
+ * That keeps this function honest about one thing only: whether WE have
+ * written a line. Never throws, always a string.
+ *
+ * A `line` may be a plain string (both nights read the same) or
+ * `{ first, other }` where the action genuinely differs — the Godfather learns
+ * the Outsiders on night one and kills on the nights after. A split line with
+ * only the half that doesn't apply tonight returns "", so the row falls back
+ * to the official text rather than showing a sentence about a different night.
+ */
+export function lineFor(roleId, isFirstNight) {
+  const entry = NIGHT_INFO[roleId];
+  const line = entry && entry.line;
+  if (!line) return "";
+  if (typeof line === "string") return line;
+  return (isFirstNight ? line.first : line.other) || "";
 }
 
 /**

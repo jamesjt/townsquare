@@ -686,12 +686,15 @@ export default {
         margin: 0;
       }
 
-      // the button rides the TOP of the bottom cap, where the circle is
-      // still wide — never full-bleed, which at this height would run it
-      // straight through the rim
+      // The button rides the TOP of the bottom cap, where the circle is
+      // still wide. NEVER full-bleed (its rectangle setting): at this height
+      // the band's own width would run its bottom corners straight through
+      // the rim, where `overflow: hidden` shears them off. 0.95r is measured
+      // to clear the arc at the button's BOTTOM edge — the binding one — at
+      // every cap in the swept range, with room for a longer label.
       > .phase-flip.bottom {
         flex: 0 0 auto;
-        width: calc(1.2 * var(--ns-r));
+        width: calc(0.95 * var(--ns-r));
         margin: 10px 0 0;
       }
 
