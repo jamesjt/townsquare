@@ -137,7 +137,12 @@ export default new Vuex.Store({
       voteHistory: false,
       // FT-860: a PLAYER's own night information — the third right-hand
       // drawer, and the only night surface a non-storyteller ever gets.
-      nightDrawer: false
+      nightDrawer: false,
+      // FT-886: THE CHRONICLE — this game's own timeline, the fourth drawer on
+      // the right-hand rail. It holds no state of its own: golem/chronicle
+      // assembles it out of the night log, the vote history and the seats
+      // every time it renders, so this flag is the whole of its footprint here.
+      chronicleDrawer: false
     },
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it

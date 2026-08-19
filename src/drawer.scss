@@ -122,11 +122,34 @@ $sheet-h: var(--sheet-h, 52vh);
     justify-content: center;
     min-height: 32px;
     margin-bottom: 6px;
+    // FT-886: THE STRIP CLEARS THE TITLE — measured, because the note below
+    // used to CLAIM it did and it never has.
+    //
+    // The player strip is fixed to the window's top-right, over the drawer's
+    // head (a user call put the head on the strip's line). Measured at
+    // 1280x800 its left edge sits 232px in from the window's right, and every
+    // right-hand drawer's title ran underneath it: the script by 69px, the
+    // night drawer by 62, the vote log by 13 — before this feature's own mark
+    // widened the strip by a further 36 and made each one worse.
+    //
+    // The old guard was `max-width: calc(100% - 176px)` on the title, which
+    // cannot work: the title is CENTRED, so capping its width shrinks it
+    // symmetrically about the drawer's midpoint and never moves its right
+    // edge out from under the strip.
+    //
+    // So reserve the space instead and let "centred" mean centred in the part
+    // of the head that is actually visible. 240px on the right (the measured
+    // 232 plus a gap); the ×'s own width on the left, because it is
+    // absolutely positioned against the padding box and the centring must not
+    // run under it either. Both are reset for the phone sheet below, where the
+    // head is half a screen beneath the strip and has the full width.
+    padding-left: 26px;
+    padding-right: 240px;
     .sd-title {
       margin: 0;
-      // the player strip floats over the drawer's top-right corner; the title
-      // stays centred but is capped so it can never reach it
-      max-width: calc(100% - 176px);
+      // the head reserves the strip's footprint above, so the title may use
+      // all of what is left
+      max-width: 100%;
       font-size: 15px;
       display: flex;
       align-items: center;
@@ -183,7 +206,11 @@ $sheet-h: var(--sheet-h, 52vh);
     .sd-head {
       // the head is under the grab handle now, and the title has the whole
       // width to itself — the player strip it used to keep clear of is at the
-      // top of the window, half a screen above the sheet
+      // top of the window, half a screen above the sheet. FT-886's desktop
+      // reserve is therefore undone here rather than carried down: kept, it
+      // would shove the title 240px off the centre of a full-width sheet.
+      padding-left: 0;
+      padding-right: 0;
       .sd-title {
         max-width: calc(100% - 96px);
         font-size: 17px;

@@ -251,6 +251,11 @@
     <!-- FT-860: a player's OWN night information — the third right-hand
          drawer, mounted only while the town's night setting is "Everyone". -->
     <NightInfoDrawer v-if="night.mode === 'everyone'" />
+    <!-- FT-886: the CHRONICLE — this game's timeline, the fourth drawer on the
+         right-hand rail. Mounted for everyone: what it shows differs by viewer
+         and that difference is made in the store (night/visibleEntries), not
+         by whether the component exists. -->
+    <ChronicleDrawer />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -414,6 +419,8 @@ import VoteDrawer from "./components/VoteDrawer";
 // FT-860: the storyteller's night checklist, and a player's own night notes.
 import NightSheet from "./components/NightSheet";
 import NightInfoDrawer from "./components/NightInfoDrawer";
+// FT-886: the chronicle — this game's own timeline
+import ChronicleDrawer from "./components/ChronicleDrawer";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -487,6 +494,7 @@ export default {
     VoteDrawer,
     NightSheet,
     NightInfoDrawer,
+    ChronicleDrawer,
     Gradients
   },
   computed: {
@@ -504,7 +512,8 @@ export default {
       return (
         this.modals.scriptDrawer ||
         this.modals.voteDrawer ||
-        this.modals.nightDrawer
+        this.modals.nightDrawer ||
+        this.modals.chronicleDrawer
       );
     },
     /**

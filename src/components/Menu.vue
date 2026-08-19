@@ -70,6 +70,28 @@
             title="Town records"
             @click="$emit('records')"
           />
+          <!-- FT-886: THE CHRONICLE — beside the hourglass on purpose, because
+               the two are the same question asked of two different games. The
+               hourglass opens the ledger of games already FINISHED; the quill
+               opens what has happened in the game being played right now,
+               which until now had no door at all — it was scattered across the
+               night log, the vote history and the shrouds on the seats.
+
+               Open to everyone. What each viewer gets differs, and the
+               difference is enforced in the store rather than here: the drawer
+               reads night/visibleEntries, which hands a storyteller the whole
+               log and a player either nothing or only their own rows with the
+               storyteller's marks stripped off. Nominations, executions and
+               the dead are public at the table and public here.
+
+               A QUILL IN AN INKWELL, baked to the same measured stone as the
+               scroll, the gallows and the hourglass — the act of writing the
+               game down, next to the shelf the finished ones sit on. -->
+          <img
+            :src="uiChronicle"
+            title="Chronicle — what has happened this game"
+            @click="toggleModal('chronicleDrawer')"
+          />
           <!-- FT-880: CALL THE TOWN BACK — every connected client makes a
                noise at once. During the day the town scatters into private
                conversations and the storyteller has no way to end them.
@@ -214,6 +236,8 @@ import uiScript from "../assets/ui-script.png";
 import uiVotes from "../assets/ui-votes.png";
 import uiRecords from "../assets/ui-records.png";
 import uiNight from "../assets/ui-night.png";
+// FT-886: the chronicle's quill — this game's timeline, beside the hourglass
+import uiChronicle from "../assets/ui-chronicle.png";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
 import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
@@ -259,6 +283,7 @@ export default {
       uiVotes,
       uiRecords,
       uiNight,
+      uiChronicle,
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's
       // feel, not about the town's state, so it does not belong in the store.
