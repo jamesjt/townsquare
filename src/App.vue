@@ -1616,8 +1616,15 @@ video#background {
      the trimmed art's outer bronze rim, ray-cast at 5° steps averaged
      across both background images: ~230-249px depending on angle (the rim
      isn't a perfect circle — it's painted), 238 is the mean. */
-  --face-cx: 50%;
-  --face-cy: 50%;
+  // THE FACE CENTRE FOLLOWS THE PAINT. When the +7px offset was baked into the
+  // background rules it was not carried here, so everything registered to the
+  // face — the night checklist's disc, the entry panels — sat 7px left of the
+  // face it was supposed to be centred on. Caught by the checklist lane, whose
+  // disc geometry is measured against these to a hundredth of a pixel and so
+  // noticed immediately. One expression, so a future change to the offset moves
+  // the art and everything on it together.
+  --face-cx: calc(50% + 7px + var(--bg-off-x, 0px));
+  --face-cy: calc(50% + var(--bg-off-y, 0px));
   --face-r: 238;
 }
 // the DRIP LAB — top-left, the user's own scrollbar dials

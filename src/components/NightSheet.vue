@@ -446,10 +446,19 @@ export default {
       //
       // THE CAPS ARE WHAT BUY THE BAND ITS WIDTH — the rows are wider than the
       // circle's inscribed square precisely because the header and the button
-      // sit in the caps instead of in the band. So the two bounds that could
-      // quietly strangle the row width (R and W) are the ones held tightest,
-      // and the two that move furniture WITHIN a cap (Hd and Ft) are bounded
-      // by the rim instead, since a transform cannot touch the band at all.
+      // sit in the caps instead of in the band. So the row width is the thing
+      // that must not be strangled, and it is guarded in TWO places, because
+      // R and W are two scrubs against one quantity and their bounds compound:
+      //
+      //   · here, per scrub, so neither alone does anything silly;
+      //   · and in the stylesheet, as a `max()` FLOOR on the computed band
+      //     (--ns-band-floor, 265px) — the only bound that holds whatever the
+      //     two do BETWEEN them. Bounding each on its own still let R−40 and
+      //     W−80 meet at a 199px band; the floor is what makes that unreachable.
+      //
+      // Hd and Ft cannot touch the band at all — they are transforms, and a
+      // transform takes no part in layout — so those two are bounded by the
+      // RIM instead, at values read off the sweep rather than reasoned about.
       nsDials: [
         {
           key: "r",
@@ -476,7 +485,8 @@ export default {
           // that reads at 1280×800, and it is allowed because the corner
           // region carries no text (rows are left-aligned) and a wider line
           // may still be the better trade.
-          // −80 is the floor, for the same reason as R's: 265px of line.
+          // −80 goes as narrow as the FLOOR permits and no further; the floor,
+          // not this number, is what actually stops the strangling.
           min: -80,
           max: 30,
           hint: "Text band width, offset from the chord the caps allow (0 = as built)"
@@ -487,10 +497,12 @@ export default {
           // NEGATIVE IS UP. The header rides the bottom of the top cap and
           // moves by transform, so the list band never shifts and the row
           // width is untouched whatever this does — only the rim binds it.
-          // UP to −16: the header's content is a fixed ~263px wide and the arc
-          // at its top edge is ~277px where the bake below now puts it, so
-          // there are ~7px a side before its corners cross, and −16 is a notch
-          // past that so the failure can be SEEN rather than guessed at.
+          // SWEPT at 1280×800 (the binding viewport), clearance from the rim
+          // measured at the header content's worst corner, on top of the −9px
+          // bake: 0 → 10.5px, −4 → 7.3, −8 → 4.0, −12 → 0.7, −16 → −2.7.
+          // So −16 is deliberately ONE NOTCH PAST the edge: the failure is
+          // reachable and visible rather than theoretical, which is what a dial
+          // meant for finding a value by eye is for.
           // DOWN to +24: further and it laps the first row.
           min: -16,
           max: 24,
@@ -499,14 +511,13 @@ export default {
         {
           key: "foot",
           label: "Ft",
-          // POSITIVE IS DOWN, toward the bottom pole. The button is 0.95r wide
-          // and the arc closes on it: measured at 1280×800 it had ~17px of
-          // descent before its bottom corners crossed the rim, and the bake
-          // below has already spent 10 of them — so +12 is again one notch
-          // past the edge, visible rather than theoretical.
-          // −24 lifts it back toward the list.
+          // POSITIVE IS DOWN, toward the bottom pole, where the arc closes on
+          // a button that is 0.95r wide. Same sweep, same viewport, on top of
+          // the +6px bake: −10 → 11.2px, 0 → 4.9, +4 → 1.3, +8 → −2.2.
+          // +8 is again one notch past the edge; +4 is the last safe value.
+          // −24 lifts it back up toward the list.
           min: -24,
-          max: 12,
+          max: 8,
           hint: "End-night button down (positive) or up, from where it now sits"
         }
       ]
@@ -1012,7 +1023,21 @@ $ns-team-colors: (
       --ns-d: calc(2 * var(--ns-r));
       --ns-cap: 0.21;
       --ns-hw: 0.8146;
-      --ns-band: calc(2 * var(--ns-hw) * var(--ns-r) + var(--ns-band-adj, 0px));
+      // THE BAND HAS A FLOOR, and the floor is the reason it is `max()` and
+      // not a plain sum. R and W are two scrubs against ONE quantity, so their
+      // clamps COMPOUND: bounding each on its own still let R−40 and W−80 meet
+      // at a 199px band (measured), which is not a column anybody can read a
+      // labelled row in. Clamping the RESULT is the only bound that holds
+      // whatever the two scrubs do between them.
+      // 265px is the number: the narrowest disc in range (R−40 at 1000×780,
+      // the smallest viewport the disc runs at) still allows a 270.8px chord,
+      // so the floor is always inside the circle and never itself the thing
+      // that pokes out.
+      --ns-band-floor: 265px;
+      --ns-band: max(
+        var(--ns-band-floor),
+        calc(2 * var(--ns-hw) * var(--ns-r) + var(--ns-band-adj, 0px))
+      );
       --ns-caph: calc(var(--ns-cap) * var(--ns-d));
 
       // ── WHERE THE CAP FURNITURE SITS (FT-882, 2026-08-19, user call) ─────
@@ -1032,13 +1057,23 @@ $ns-team-colors: (
       // trade intact: the furniture moves within its cap; the cap does not
       // move.
       //
-      // The numbers are what the eye asked for, checked against the arc: −9px
-      // puts the header's content top edge at ~48px of depth, where the chord
-      // is ~277px against its ~263px of content. +10px drops the button's
-      // bottom edge to ~33px of depth, where the chord is ~230px against its
-      // 201px of width.
+      // THE TWO NUMBERS ARE MEASURED, not guessed — swept at 1280×800,
+      // 1920×1080 and 1000×780 (the disc's own floor), reading each box's
+      // WORST CORNER distance from the disc centre against the radius. The
+      // binding viewport is 1280×800 for both. Clearance left at the bake:
+      //
+      //   header  −9px  → 10.5px spare (was 17.0 at rest; the header's content
+      //                   is 233px wide and its top edge sits 48px down)
+      //   button  +6px  →  4.9px spare (was 10.0 at rest)
+      //
+      // The button is the tight one and the sweep is why it reads +6 and not
+      // the +10 this started at: at +10 the clearance came out at 1.3px, which
+      // is not a margin, it is a coincidence — one longer label or one font
+      // fallback and `overflow: hidden` takes the corners off. +6 is still
+      // plainly lower and keeps half the original margin. The lab is right
+      // there for anyone who wants to spend the rest of it.
       --ns-head-dy: -9px;
-      --ns-foot-dy: 10px;
+      --ns-foot-dy: 6px;
 
       position: absolute;
       left: var(--face-cx, 50%);
@@ -1822,10 +1857,16 @@ $ns-team-colors: (
   // goes gold only when lit.
   //
   // TWO STATES AND NO THIRD. The glyph is identical in both, so brightness
-  // does all the work and the two are kept far apart on purpose: 0.42 flat
-  // parchment against full gold with a glow. Hover is not a state — it lifts
-  // the OFF mark to legible and brightens the ON one, and neither reads as
-  // set.
+  // does all the work and the two are kept far apart on purpose: a dim
+  // parchment mask against a lit gold one with a glow. Hover is not a state —
+  // it lifts the OFF mark to legible and brightens the ON one, and neither
+  // reads as set.
+  //
+  // THE DIMMING IS ON THE GLYPH, NOT ON THE BOX, and that is .ns-check's
+  // lesson applied rather than re-learned: an opacity on the span takes the
+  // border down with it (0.3 × 0.42 ≈ 0.13 alpha — measured at 6× before this
+  // was moved, and the edge had all but vanished), and the border's whole job
+  // is to say "press here" while the mark is quiet.
   .ns-lie {
     height: 30px;
     width: 30px;
@@ -1835,24 +1876,28 @@ $ns-team-colors: (
     flex-shrink: 0;
     cursor: pointer;
     color: #d8cdb4;
-    opacity: 0.42;
     background: rgba(0, 0, 0, 0.55);
     border: 1px solid rgba(120, 105, 135, 0.3);
     border-radius: 5px;
     transition:
-      opacity 130ms,
       color 130ms,
       border-color 130ms,
-      background 130ms;
+      background 130ms,
+      box-shadow 130ms;
+    svg {
+      opacity: 0.42;
+      transition: opacity 130ms;
+    }
     &:hover,
     &:focus-visible {
-      opacity: 0.9;
       border-color: rgba(150, 130, 175, 0.75);
       background: rgba(120, 105, 135, 0.12);
       outline: none;
+      svg {
+        opacity: 0.92;
+      }
     }
     &.on {
-      opacity: 1;
       // #e0b45f — .ns-truth's own gold, not a second one. (The phase sun and
       // the votes count sit a shade under it at #d8b45a; the mask matches the
       // mask.)
@@ -1862,6 +1907,9 @@ $ns-team-colors: (
       // a state change with no shape change needs the glow to be readable
       // across a scanned list rather than only under the cursor
       box-shadow: 0 0 7px rgba(184, 137, 47, 0.4);
+      svg {
+        opacity: 1;
+      }
       &:hover,
       &:focus-visible {
         // brighter, still gold — hovering a set mark offers to UNSET it, not
@@ -1988,6 +2036,13 @@ $ns-team-colors: (
   display: flex;
   align-items: flex-start;
   font-size: 13px;
+
+  // NOT ON A PHONE. Every value this dials is read inside the desktop disc's
+  // media query, so here the door opens onto nothing — and it lands on top of
+  // the grimoire thumbnail while doing it.
+  @media (pointer: coarse) {
+    display: none;
+  }
 
   .fd-toggle {
     width: 30px;

@@ -69,10 +69,21 @@
 
         <!-- Golem fork: Host and Join swap the doors for in-app panels —
              no browser dialogs anywhere in the entry flow. -->
+        <!-- FT-887: both panels are DISCS on the desktop clock face now, the
+             same object NightSheet's checklist already is (see the style
+             block's disc media query) — a phone/small window still gets the
+             original rectangle, untouched. The disc's two caps are furniture
+             a circle can actually hold: the back arrow (+ the join panel's
+             one-line hint) up top, the primary button at the foot. Everything
+             else — the town list and the fields — is `.panel-body`, the
+             band inscribed between them. -->
         <div class="panel" v-else-if="mode === 'host'">
-          <span class="panel-back" title="Back" @click="mode = null"
-            ><font-awesome-icon icon="arrow-left"
-          /></span>
+          <div class="panel-head">
+            <span class="panel-back" title="Back" @click="mode = null"
+              ><font-awesome-icon icon="arrow-left"
+            /></span>
+          </div>
+          <div class="panel-body">
           <ul class="towns" v-if="hostTowns.length">
             <li
               v-for="t in hostTowns"
@@ -181,6 +192,7 @@
               <font-awesome-icon :icon="copied ? 'check' : 'copy'" />
             </span>
           </div>
+          </div>
           <div class="acts">
             <!-- Golem fork (FT-854): the primary action wears WORDS in the
                  door idiom — blood-O drop cap + label. The blood letter is
@@ -199,10 +211,13 @@
         </div>
 
         <div class="panel" v-else>
-          <span class="panel-back" title="Back" @click="mode = null"
-            ><font-awesome-icon icon="arrow-left"
-          /></span>
-          <p class="hint">Join a town.</p>
+          <div class="panel-head">
+            <span class="panel-back" title="Back" @click="mode = null"
+              ><font-awesome-icon icon="arrow-left"
+            /></span>
+            <p class="hint">Join a town.</p>
+          </div>
+          <div class="panel-body">
           <ul class="towns" v-if="joinTowns.length">
             <li
               v-for="t in joinTowns"
@@ -235,6 +250,7 @@
               placeholder="what the town calls you"
               @keyup.enter="confirmJoin"
             />
+          </div>
           </div>
           <div class="acts">
             <button
@@ -1119,7 +1135,10 @@ export default {
     box-shadow: 0 0 10px black;
     text-align: left;
 
-    > .hint {
+    // FT-887: lives in .panel-head now (both the base rectangle and the
+    // disc keep the wrapper — see the template), so this is a descendant
+    // selector rather than the old direct child.
+    .hint {
       text-align: center;
       margin-bottom: 8px;
     }
@@ -1487,6 +1506,140 @@ export default {
           opacity: 0.4;
           cursor: not-allowed;
           border-color: black;
+        }
+      }
+    }
+
+    // ── THE DISC (FT-887, desktop only) ─────────────────────────────────
+    //
+    // The same object NightSheet.vue's checklist already is: the panel
+    // stops being a rectangle floating over the dial and becomes a plate
+    // laid ON it — registered to App.vue's published --face-cx/--face-cy/
+    // --face-r, same geometry constants NightSheet's disc uses (cap 0.21,
+    // half-width 0.8146 — see that file's own derivation of the chord
+    // math; reused rather than re-derived so the two discs read as one
+    // family of object rather than two inventions that happen to be
+    // circular). Same gate NightSheet uses too: fine pointer, a window
+    // wide and tall enough to hold it. Below the gate — including every
+    // touch device — the rectangle above is untouched.
+    //
+    // --face-cx/--face-cy carry the background's baked +7px/--bg-off shift
+    // THEMSELVES now (App.vue: `--face-cx: calc(50% + 7px + var(--bg-off-x,
+    // 0px))`) — read plain, no term restated here. (An earlier pass of this
+    // file added +7px by hand, back when --face-cx was still the un-shifted
+    // container centre; that hand-add is gone now that the variable carries
+    // it, so it is never applied twice.)
+    //
+    // TWO CAPS, ONE BAND. The back arrow (+ the join panel's one-line
+    // hint) rides the top cap; the primary button rides the bottom cap;
+    // `.panel-body` — the town list and the fields — lives in the band
+    // between them, exactly the swap NightSheet made for its own header
+    // and end-night button.
+    //
+    // NO overflow:hidden ON THE DISC. NightSheet's rows never open
+    // anything outside themselves; this panel's town-name field and its
+    // ScriptPicker both do (`ul.recents`, `.script-pick .grid` — both
+    // `position: absolute`, both wider than the band). A circular clip
+    // would cut them off along with everything else, so the ring here is
+    // sized to hold ordinary content and a popup is left free to sit over
+    // the rim the way it already sits over the rectangle's edge today —
+    // asked for explicitly, and checked in the proof rig.
+    @media (pointer: fine) and (min-width: 1000px) and (min-height: 780px) {
+      --pn-r: calc(var(--face-r, 238) * var(--fpx, 1px));
+      --pn-d: calc(2 * var(--pn-r));
+      --pn-cap: 0.21;
+      --pn-hw: 0.8146;
+      --pn-band: calc(2 * var(--pn-hw) * var(--pn-r));
+      --pn-caph: calc(var(--pn-cap) * var(--pn-d));
+
+      left: var(--face-cx, 50%);
+      top: var(--face-cy, 50%);
+      width: var(--pn-d);
+      height: var(--pn-d);
+      // the base rule's 92vw/420px cap would square this off into an oval
+      // the moment the window narrowed — the disc is the face, not a
+      // capped rectangle that happens to be round.
+      max-width: none;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: visible;
+
+      // the same plate NightSheet's disc is cut from — one material, two
+      // callers, so the two discs read as kin.
+      backdrop-filter: blur(7px) brightness(0.5) saturate(0.85);
+      background: radial-gradient(
+        circle at 50% 44%,
+        rgba(30, 24, 34, 0.82) 0%,
+        rgba(22, 17, 25, 0.88) 52%,
+        rgba(14, 10, 16, 0.93) 86%,
+        rgba(9, 6, 10, 0.95) 100%
+      );
+      box-shadow:
+        inset 0 0 0 1px rgba(120, 105, 135, 0.38),
+        inset 0 0 34px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(150, 120, 60, 0.22),
+        0 0 26px rgba(0, 0, 0, 0.75);
+
+      .panel-head {
+        flex: 0 0 var(--pn-caph);
+        width: calc(1.3 * var(--pn-r));
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 0 4px;
+        // rides higher in the top cap, same mechanism as NightSheet's
+        // header (transform only — the band below never moves).
+        transform: translateY(-9px);
+
+        .panel-back {
+          margin: 0;
+        }
+        .hint {
+          margin: 4px 0 0;
+        }
+      }
+
+      .panel-body {
+        flex: 0 0 calc(var(--pn-d) - 2 * var(--pn-caph));
+        width: var(--pn-band);
+        padding: 0 6px;
+        text-align: left;
+
+        // the town list keeps its OWN internal scroll (unchanged — it
+        // holds no popup, so clipping it costs nothing); it just stops
+        // claiming most of the band the way 30vh did on a ~245px band.
+        ul.towns {
+          max-height: 96px;
+        }
+      }
+
+      .acts {
+        flex: 0 0 auto;
+        width: calc(0.95 * var(--pn-r));
+        margin: 10px 0 0;
+        // rides lower in the bottom cap, same mechanism as NightSheet's
+        // end-night button.
+        transform: translateY(10px);
+
+        // "Open the town" wrapped to two lines at the rectangle's 120%/
+        // 8px-22px sizing — measured against a 0.95r box (the same bound
+        // NightSheet's own end-night button clears the arc at, at this
+        // same foot-dy) it needs to be smaller, not the box wider: past
+        // 0.95r the button starts crossing the rim (NightSheet's own
+        // measurement, reused here rather than re-derived). The join
+        // panel's icon-only button was never close to this bound and is
+        // untouched by the size drop.
+        button.confirm {
+          font-size: 92%;
+          padding: 7px 12px;
+          min-width: 0;
+          width: 100%;
+          white-space: nowrap;
         }
       }
     }
