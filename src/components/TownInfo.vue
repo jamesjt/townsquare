@@ -14,7 +14,8 @@
     <!-- FT-862: the PUBLIC phase readout — everyone at the table sees which
          day or night it is; that is not a secret. It is a label, not a
          control: nothing here advances the phase (compare NightSheet's
-         "Night falls" button, which stays storyteller-only where it was).
+         "End night"/"End day" button — renamed FT-874, same button — which
+         stays storyteller-only where it was).
          Sits above the counts, at the top of the in-flow stack — the
          edition badge above it floats independently (position: absolute). -->
     <li class="info-phase">
@@ -82,9 +83,17 @@
            "distinct" mark. The tooltip does the rest: it says what the
            strip's identical-looking icon does not — "available", not
            "history". -->
+      <!-- OVERRULED 2026-08-19 by the user, who looked at the shipped version
+           and said "still not sure what this means... available votes?". The
+           reasoning above is sound about the ART and wrong about the answer:
+           a tooltip cannot rescue a glyph that reads as the wrong thing, and
+           the gallows reads as execution because that is what it opens from
+           the strip. This number is how many HANDS can still be raised, so it
+           wears the hand the seats themselves vote with — already in the app
+           (Player.vue's vote overlay) and unmistakable at 17px. -->
       <span class="stat votes" tabindex="0" :aria-label="'Votes available: ' + teams.votes">
         {{ teams.votes }}
-        <img class="count-icon" :src="countIcons.votes" alt="" />
+        <font-awesome-icon class="count-icon votes-hand" icon="hand-paper" />
         <span class="tip" role="tooltip">Votes available</span>
       </span>
     </li>
@@ -161,7 +170,7 @@ export default {
       };
     },
     // FT-862: PUBLIC phase readout, split off NightSheet's storyteller-only
-    // checklist header (which keeps the "Night falls" BUTTON where it was —
+    // checklist header (which keeps the "End night"/"End day" BUTTON where it was —
     // this is the label half, for every session role). Reads the same state
     // that header reads (night.day, grimoire.isNight, night/isFirstNight) —
     // no second phase counter. Day 0 (before the town's first night) reads

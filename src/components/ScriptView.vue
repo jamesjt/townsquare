@@ -10,7 +10,9 @@
         class="wb-tab"
         :class="{ active: view === 'team' }"
         @click="setView('team')"
-        >By type</span
+        ><!-- "By type" described the SORT; this tab is the script itself,
+             and its two siblings are the two night orders (user call
+             2026-08-19) -->Script</span
       >
       <span
         class="wb-tab"
@@ -796,14 +798,30 @@ $team-colors: (
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      // The ability WRAPS (user call 2026-08-19). Truncating it with an
+      // ellipsis hid the half of the sentence that says what the character
+      // actually does, on the one screen a storyteller reads to learn a
+      // script — the row is allowed to be two lines.
       .wb-row-ability {
         flex-grow: 1;
         min-width: 0;
         font-size: 15px;
         opacity: 0.85;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        overflow: visible;
+        line-height: 1.3;
+      }
+      // The TEAM reads off the icon, not off the lettering (user call
+      // 2026-08-19): a coloured mark is a stronger signal than coloured text,
+      // and tinting the name fought its own legibility on parchment.
+      @each $team, $color in $team-colors {
+        &.team-#{$team} .icon {
+          border-radius: 50%;
+          box-shadow: 0 0 0 2px rgba($color, 0.85), 0 0 6px rgba($color, 0.4);
+        }
+      }
+      .wb-row-name {
+        color: inherit;
       }
       .wb-card-actions {
         display: flex;

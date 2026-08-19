@@ -318,7 +318,13 @@
         <span class="text">{{ reminder.name }}</span>
       </div>
     </template>
-    <div class="reminder add" @click="$emit('trigger', ['openReminderModal'])">
+    <!-- `--rn` so the add disc can sit one slot past the last placed
+         reminder (see the `.reminder.add` rule) -->
+    <div
+      class="reminder add"
+      :style="{ '--rn': player.reminders ? player.reminders.length : 0 }"
+      @click="$emit('trigger', ['openReminderModal'])"
+    >
       <span class="icon"></span>
     </div>
     <!-- (the reminder HOVER TARGET is retired — an invisible box in the
@@ -1633,6 +1639,21 @@ li.move:not(.from) .player .overlay svg.move {
   @media (pointer: coarse) {
     display: none;
   }
+
+  /* AND IT COMES WITH THEM. When placed reminders moved to the seat's outer
+     rim (below), the add disc was left on its old anchor — `top: 30px` down
+     the spoke — so it drifted away from the seat it belongs to and sat on its
+     own out in the ring. That is the "note button in the wrong place".
+     It takes the same radius as a placed reminder and lands one slot past the
+     last one, so it never covers a reminder and never moves the ones already
+     there (giving it a slot INSIDE the fan would re-centre the whole group
+     every time a hover revealed it). */
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin-top: 68%;
+  margin-left: calc(-25% + (var(--rn, 0) - (var(--rn, 1) - 1) / 2) * 60%);
+  z-index: 3;
 }
 
 /* ── PLACED REMINDERS FAN FROM THEIR OWN SEAT (FT-869) ──────────────────────
