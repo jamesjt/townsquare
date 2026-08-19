@@ -58,9 +58,21 @@
          inspecting devtools, unlike the old `#townsquare.public > .bluffs`
          CSS-only hide (still in the stylesheet, untouched, and still the
          right belt for the host's own public/mirrored screen). -->
+    <!-- Golem fork (2026-08-19, user call): gated on a DEMON SEATED, not just
+         a dealt town. Un-gated, the no-demon case fell to the static corner
+         CSS below (bluffAnchor null) — a floating "Demon bluffs" box with
+         three empty coins, bottom-left, sitting on top of the grimoire
+         drawer with nothing in it to show. RoleDrawer.vue now carries its
+         own "Demon bluffs" section pinned to the drawer floor for exactly
+         this no-demon case (`canSetBluffs`, same `players/setBluff` data —
+         see the comment there), so nothing is lost by this panel staying
+         out of the DOM: v-if, not a CSS hide, so a spectator's devtools
+         still find nothing here either. The corner CSS/fallback branch
+         itself is untouched — a demon seated but not yet measured (the
+         gap before measureBluffAnchor's nextTick fires) still needs it. -->
     <div
       class="bluffs"
-      v-if="players.length && canSeeBluffs"
+      v-if="players.length && canSeeBluffs && demonIndex > -1"
       ref="bluffs"
       :class="{ closed: !isBluffsOpen, anchored: !!bluffAnchor }"
       :style="bluffAnchorStyle"
@@ -415,13 +427,16 @@ export default {
   methods: {
     /**
      * Golem fork (2026-08-19): measures the demon's own rendered coin and
-     * parks `bluffAnchor` just past its outer rim — the OUTWARD side, away
-     * from the ring's centre, in the slack `.circle`'s own `--seat-reserve`
-     * comment already documents (half a seat-width of overhang, provisioned
-     * for exactly this kind of thing). Reminders (Player.vue's
-     * `.reminder:not(.add)`) fan the OTHER way — `margin-top: 68%` of the
-     * seat's own width pulls them in-and-sideways, toward the hub — so the
-     * two never compete for the same band.
+     * parks `bluffAnchor` beside it — a horizontal row held at the coin's
+     * own screen height, confined to ONE side (screen-left or screen-right,
+     * chosen by `side` below), never fanned symmetrically along the seat's
+     * outward spoke the way an earlier pass here did (that fan put half its
+     * coins on each side of the seat's own centreline, which is where the
+     * name plate sits — see `side`'s own comment for the measured bug).
+     * Reminders (Player.vue's `.reminder:not(.add)`) sit BELOW the coin now
+     * — `margin-top: 68%` of the seat's own width — so a same-height row
+     * clears them in the ordinary case; the clearance pass further down
+     * measures rather than assumes that.
      *
      * A measured DOM position, not a re-derivation of the ring's own
      * rotate()/vmin math: the ring's radius, each seat's width, and even
@@ -484,87 +499,243 @@ export default {
       const odist = Math.hypot(ox, oy) || 1;
       ox /= odist;
       oy /= odist;
-      // The tangent (perpendicular to outward) — the direction the 3 coins
-      // fan ALONG, mirroring how Player.vue's own reminders fan sideways
-      // (`--ri`/`--rn`) rather than growing further down the spoke.
-      const tx = -oy;
-      const ty = ox;
+      /**
+       * (2026-08-19, user call #3): ONE SIDE OF THE SEAT, in screen space —
+       * not a fan spread symmetrically along the outward spoke. At the top
+       * of the ring the spoke points straight up, so a fan spread left AND
+       * right from it put half the coins to the left of the seat and half
+       * to the right — squarely across the seat's own centreline, which is
+       * where its name plate sits regardless of which way the spoke points
+       * (measured, screenshot: Imp at 12 o'clock, bluffs spilling across
+       * its own plate — see claude_temp_test/2026-08-19-bluffs-side.mjs's
+       * before-sweep for the reproduced overlap). A cluster confined to one
+       * side never crosses that centreline, so it never crosses the plate
+       * either.
+       *
+       * `ox` — already the outward unit vector's screen-x component,
+       * computed above off the seat's own rotation matrix rather than any
+       * bounding box (see the block comment just above) — already answers
+       * "which side": positive means the seat sits right-of-hub, negative
+       * left-of-hub. At 12 and 6 o'clock ox≈0, and the `> 0.05` threshold
+       * resolves that to -1 (screen-left) — exactly the user's "top or
+       * bottom → left" rule fires for free, with no separate case needed
+       * for those two seats.
+       */
+      const side = ox > 0.05 ? 1 : -1;
       const size = seatRect.width;
       const rootLeft = rootRect.left;
       const rootTop = rootRect.top;
+      // A bluff coin is 0.4 seat-widths square (see the CSS below) — half
+      // 0.2. This is now a plain axis-aligned box check (screen-x row,
+      // fixed screen-y), not the tangent/radial approximation the old fan
+      // used, so the true half-width is exact — no diagonal-corner pad
+      // needed the way the fan's scalar tangential-span check did.
+      const COIN_HALF = 0.2;
+      // Slot 0's centre sits exactly at the demon's own coin's edge — the
+      // two half-widths sum to touching, not overlapping. This is a floor,
+      // not a requirement: proof requirement #1 allows a bluff coin to sit
+      // ON the demon's own seat coin, so the clearance pass below is free
+      // to push a slot in past this if nothing else needs the room.
+      const START = 0.5 + COIN_HALF;
+      const SPREAD = 0.34; // spacing between the 3 row slots, unchanged
+      // touching-but-not-overlapping slop: the title box is an ESTIMATE of
+      // the pill's rendered size (font metrics, padding, border aren't
+      // known until layout), so its own clearance check needs more room
+      // than the coins' exact 0.2-seat-width box does — 2px left a ~1px²
+      // sliver on a couple of phone/6-seat combinations (measured).
+      const MARGIN_PX = 6;
       /**
-       * How far outward each coin sits is MEASURED per slot, not a fixed
-       * guess: it reads THIS seat's own reminder band (if any, in both
-       * the radial AND tangential directions — see reminderBoxes below)
-       * and clears it, with a margin for the coin's own half-size. A
-       * single hard-coded distance from the seat's centre turned out not
-       * to hold across seats OR across the three fanned slots — the
-       * on-circle mixin nudges each seat's OWN coin within its <li> by a
-       * different amount per seat (`.player { margin-bottom: ... }`,
-       * "move reminders closer to the sides of the circle"), and a
-       * reminder's own sideways fan (Player.vue's `--ri`/`--rn`) only
-       * threatens the SPECIFIC fan slot it lines up with tangentially,
-       * not all three (measured — see the collision table in
-       * claude_temp_test/2026-08-19-bluffs-seat.mjs before this fix).
-       * Reading the actual band sidesteps needing to know why it moves.
-       *
-       * Proof requirement #1 allows a bluff coin to sit ON the demon's own
-       * seat coin (only OTHER seats' coins and ANY reminder are off
-       * limits), so there is no separate "clear the coin itself" term —
-       * only the reminder band, when this seat has one.
+       * Every box this cluster must clear, in screen pixels: every seat's
+       * own name plate (the demon's own included — that is the bug), every
+       * OTHER seat's life coin (the demon's own is exempt — proof
+       * requirement #1), and every reminder on the board. Reminders sit
+       * BELOW their seat's coin now (Player.vue's `margin-top: 68%`), so a
+       * row held at the seat's own centre height clears them in the common
+       * case already — but this MEASURES rather than assumes, the same
+       * "read the box already laid out" idiom the rest of this method
+       * uses, because a short or unusually laid-out town could still put
+       * one in the row's path.
        */
-      // A coin is 0.4 seat-widths square (see the CSS below) — half-width
-      // 0.2, but a corner reaches its half-DIAGONAL, ~0.283, and a
-      // margin pinned exactly to that touches rather than clears (measured
-      // — a 0.24 margin left a 1-2px sliver overlap on a diagonal corner).
-      // 0.36 clears the diagonal with real room to spare.
-      const COIN_HALF = 0.36; // this cluster's own coin, in seat-widths
-      const BASE_RADIAL = 0.5; // a bare coin, nothing to clear
-      const SPREAD = 0.34; // tangential spacing between the 3 fan slots
-      // Each reminder's own footprint, in (tangent, radial) seat-width
-      // units relative to the seat's centre — computed once, reused for
-      // every slot's clearance check below.
-      const reminderBoxes = [];
-      seatLi.querySelectorAll(".reminder:not(.add)").forEach(rEl => {
-        const rRect = rEl.getBoundingClientRect();
-        if (!rRect.width) return;
-        let minT = Infinity;
-        let maxT = -Infinity;
-        let maxR = -Infinity;
-        [
-          [rRect.left, rRect.top],
-          [rRect.right, rRect.top],
-          [rRect.left, rRect.bottom],
-          [rRect.right, rRect.bottom]
-        ].forEach(([cx, cy]) => {
-          const t = ((cx - seatCx) * tx + (cy - seatCy) * ty) / size;
-          const r = ((cx - seatCx) * ox + (cy - seatCy) * oy) / size;
-          minT = Math.min(minT, t);
-          maxT = Math.max(maxT, t);
-          maxR = Math.max(maxR, r);
-        });
-        reminderBoxes.push({ minT, maxT, maxR });
+      const collisionRects = [];
+      rootEl.querySelectorAll(".player > .name").forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.width) collisionRects.push(r);
       });
-      // This slot's own outward distance: BASE_RADIAL, or far enough to
-      // clear every reminder whose tangential footprint reaches into
-      // this slot's own tangential span.
-      const radialFor = tangentCenter => {
-        let radial = BASE_RADIAL;
-        reminderBoxes.forEach(rb => {
-          const overlapsTangentially =
-            tangentCenter - COIN_HALF < rb.maxT && tangentCenter + COIN_HALF > rb.minT;
-          if (overlapsTangentially) radial = Math.max(radial, rb.maxR + COIN_HALF);
+      rootEl.querySelectorAll(".player .life").forEach(el => {
+        if (el === seatEl) return; // the demon's own coin — may be covered
+        const r = el.getBoundingClientRect();
+        if (r.width) collisionRects.push(r);
+      });
+      rootEl.querySelectorAll(".reminder:not(.add)").forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.width) collisionRects.push(r);
+      });
+      const clears = (left, top, right, bottom) =>
+        collisionRects.every(
+          r =>
+            left >= r.right + MARGIN_PX ||
+            right <= r.left - MARGIN_PX ||
+            top >= r.bottom + MARGIN_PX ||
+            bottom <= r.top - MARGIN_PX
+        );
+      /**
+       * Proof requirement #4: all three coins (and the title) stay inside
+       * the viewport. Folded into the SAME clearance predicate as the name
+       * plates and other coins — not a clamp applied afterwards — because a
+       * narrow phone screen can put the collision-free spot the search
+       * finds partly off-screen, and clamping that position back on-screen
+       * can walk it straight back into the very plate the search avoided
+       * (measured: a 6/10-seat phone title, clamp-reintroduced a few px².
+       * Checking the viewport bound DURING the search instead means every
+       * candidate the search accepts was always both.
+       */
+      const EDGE_PAD = 2;
+      const inViewport = (left, top, right, bottom) =>
+        left >= EDGE_PAD &&
+        top >= EDGE_PAD &&
+        right <= window.innerWidth - EDGE_PAD &&
+        bottom <= window.innerHeight - EDGE_PAD;
+
+      const coinHalfPx = size * COIN_HALF;
+      const rowTop = seatCy - coinHalfPx;
+      const rowBottom = seatCy + coinHalfPx;
+      const baseOffsets = [0, 1, 2].map(k => size * (START + SPREAD * k));
+      const rowClears = pushPx =>
+        baseOffsets.every(off => {
+          const cx = seatCx + side * (off + pushPx);
+          const box = [cx - coinHalfPx, rowTop, cx + coinHalfPx, rowBottom];
+          return clears(...box) && inViewport(...box);
         });
-        return radial;
+      // Push the WHOLE row further from the seat, together, until every
+      // slot clears every collision box AND stays on-screen — a uniform
+      // push (not a per-slot one) so the three coins keep reading as one
+      // row instead of a stagger. Bounded so a pathological layout can't
+      // spin this forever; the clamp below is then just a safety net for
+      // the (untested) case the bound is hit without finding a clear spot.
+      const STEP_PX = Math.max(2, size * 0.02);
+      const MAX_PUSH_PX = size * 4;
+      let pushPx = 0;
+      while (!rowClears(pushPx) && pushPx < MAX_PUSH_PX) {
+        pushPx += STEP_PX;
+      }
+      const clampX = (cx, halfW) =>
+        Math.min(Math.max(cx, halfW + EDGE_PAD), window.innerWidth - halfW - EDGE_PAD);
+      const clampY = (cy, halfH) =>
+        Math.min(Math.max(cy, halfH + EDGE_PAD), window.innerHeight - halfH - EDGE_PAD);
+      const coinScreenCx = baseOffsets.map(off =>
+        clampX(seatCx + side * (off + pushPx), coinHalfPx)
+      );
+      const coinScreenCy = clampY(seatCy, coinHalfPx);
+      const coins = coinScreenCx.map(cx => ({
+        left: cx - rootLeft,
+        top: coinScreenCy - rootTop
+      }));
+      /**
+       * The title follows the row to the same side, offset off the seat's
+       * TRUE outward direction (`oy`'s sign — the ring's own exterior,
+       * where the `--seat-reserve` overhang comment says there is slack
+       * provisioned) as its FIRST try, rather than a hard-coded "up": a
+       * 12+-seat ring packs seats close enough together that "always up"
+       * from a seat near the BOTTOM of the ring walks the search straight
+       * through the crowded interior and out the far side, past several
+       * unrelated seats' plates, before finding clear space next to a seat
+       * nowhere near this cluster (measured — a 6-o'clock demon's title
+       * landed by the 10-o'clock seat). Outward heads for the ring's own
+       * open exterior margin instead, which is normally both closer and
+       * far less contested.
+       *
+       * "Normally" — a 6-o'clock seat's outward is DOWN, and on a short
+       * viewport (desktop 800px tall, a 6-seat ring) that seat can already
+       * sit close enough to the bottom edge that outward has no room left
+       * at all (measured: the search's own viewport bound rejected every
+       * `out` before it ever cleared the seat's own plate, so the
+       * best-effort fallback below landed ON that plate). Trying the
+       * OPPOSITE direction next, still bounded, catches exactly that case
+       * without giving up outward's better result everywhere else.
+       */
+      const outwardDir = Math.abs(oy) > 0.3 ? Math.sign(oy) : -1;
+      const TITLE_UP_BASE = 0.5 + 0.46; // matches the row's own base offset idiom
+      /**
+       * Anchored off the coins' own ALREADY-CLAMPED screen x (coinScreenCx),
+       * not re-derived from the raw seatCx + side*(offset+pushPx) the coins
+       * started from: when a collision pushes the row far enough that the
+       * clamp above pulls it back on-screen, that raw value can itself
+       * already sit past the viewport edge, and the title's own search only
+       * ever pushes FURTHER along `side` — never back — so it could never
+       * recover (measured: found `null` in both directions regardless of
+       * how large the push budget below was, because every candidate it
+       * tried inherited an already-off-screen starting x). Starting from
+       * where the coins actually ended up is always on-screen already.
+       */
+      const titleHalfW = size * 0.6; // approximates the pill's own max-width/2
+      /**
+       * Clamped to ITS OWN half-width right away, not just anchored to the
+       * coins' (narrower) clamp: the title pill is 3x a coin's half-width,
+       * so a coin sitting validly near the edge can still put
+       * `coinScreenCx[0] + a small nudge` close enough to the edge that
+       * the wider title box overflows anyway — and every candidate the
+       * search below tries only pushes `extraSide` FURTHER along `side`,
+       * never back, so an off-screen starting x can never self-correct
+       * (measured: `searchDir` returned null in both directions no matter
+       * the push budget, because every single candidate shared the same
+       * already-overflowing x). Starting pre-clamped means the search only
+       * ever has to solve the vertical/collision half of the problem.
+       */
+      const titleBaseX = clampX(coinScreenCx[0] + side * size * (SPREAD * 0.5), titleHalfW);
+      const titleHalfH = size * 0.17; // approximates the pill's own height/2
+      const titleClears = (dir, extraOut, extraSide) => {
+        const cx = titleBaseX + side * extraSide;
+        const cy = seatCy + dir * (size * TITLE_UP_BASE + extraOut);
+        const box = [cx - titleHalfW, cy - titleHalfH, cx + titleHalfW, cy + titleHalfH];
+        return clears(...box) && inViewport(...box);
       };
-      const point = (radial, tangent) => ({
-        left: seatCx - rootLeft + ox * size * radial + tx * size * tangent,
-        top: seatCy - rootTop + oy * size * radial + ty * size * tangent
-      });
+      // A bounded 2D search per direction (further out, then further along
+      // the row's own side) — never further than a couple of seat-widths,
+      // so a crowded ring gets a nearby nudge, never a cross-ring teleport.
+      // 1.5 seat-widths left real cases unresolved on a packed 6/10-seat
+      // phone ring (measured: neither direction cleared within that budget,
+      // even with plenty of raw vertical room — the title pill is ~1.15
+      // seat-widths wide, wide enough that a short push doesn't reliably
+      // clear a neighbour's plate). 3.5 gave every swept case room to find
+      // a genuine clear spot without reintroducing the original "wanders
+      // across the whole ring" failure the two-direction-with-outward-first
+      // order above already guards against.
+      const TITLE_MAX_PUSH = size * 3.5;
+      const searchDir = dir => {
+        for (let out = 0; out <= TITLE_MAX_PUSH; out += STEP_PX * 2) {
+          for (let sidePush = 0; sidePush <= TITLE_MAX_PUSH; sidePush += STEP_PX * 2) {
+            if (titleClears(dir, out, sidePush)) return { out, sidePush };
+          }
+        }
+        return null;
+      };
+      let titleDir = outwardDir;
+      let found = searchDir(outwardDir);
+      if (!found) {
+        found = searchDir(-outwardDir);
+        if (found) titleDir = -outwardDir;
+      }
+      if (!found) {
+        // Neither direction cleared within budget: fall back to whichever
+        // has more raw viewport room, at zero push — clamped on-screen
+        // below like every other slot, and the closest any candidate here
+        // got to actually clearing.
+        titleDir = window.innerHeight - seatCy > seatCy ? 1 : -1;
+        found = { out: 0, sidePush: 0 };
+      }
+      const titleExtraOut = found.out;
+      const titleExtraSide = found.sidePush;
+      const titleX = titleBaseX + side * titleExtraSide;
+      const titleYRaw = seatCy + titleDir * (size * TITLE_UP_BASE + titleExtraOut);
+      const titleCx = clampX(titleX, titleHalfW);
+      const titleCy = clampY(titleYRaw, titleHalfH);
       this.bluffAnchor = {
         size,
-        title: point(radialFor(0) + 0.46, 0),
-        coins: [-1, 0, 1].map(k => point(radialFor(SPREAD * k), SPREAD * k))
+        title: {
+          left: titleCx - rootLeft,
+          top: titleCy - rootTop
+        },
+        coins
       };
     },
     /** This bluff slot's own computed centre (see measureBluffAnchor) — null
