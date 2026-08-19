@@ -16,6 +16,16 @@
 // EVERY SCRUB IS AN OFFSET, never a replacement — zero is exactly what ships,
 // in all six — so Reset is a real return and not an approximation of one.
 //
+// ONE ROUND HAS NOW BEEN BAKED (2026-08-19): X -12, Y -13, R -10, W 0, Hd -16,
+// Ft +8 were dialled, folded into faceDisc.scss's base expressions, and the six
+// storage keys below bumped to their "2" set in the same commit. The invariant
+// above survived it intact and is checked rather than asserted
+// (claude_temp_test/2026-08-19-discbake-accept.mjs): zero computes identically
+// to the lab's properties being absent altogether, Reset lands on the BAKED
+// position, and a browser still holding the old keys is ignored. Any future
+// bake repeats all three of those steps, in that order — the key bump is the
+// one that is easy to forget and impossible to see going wrong.
+//
 // THE VALUES ARE PUBLISHED ON <html>, not on any one surface's element. That is
 // what makes one lab drive four discs: custom properties inherit DOWN, and the
 // four discs have no common ancestor closer than the document. It is also the
@@ -34,21 +44,40 @@
 // and deliberately: those held a value calibrated against ONE disc, and a
 // browser holding a dialled -20 would now apply it to four. Same idea as
 // App.vue's own "2"-suffixed bgOff keys, for the same reason.
+//
+// AND NOW A "2" ON ALL SIX, FOR THE SAME REASON AGAIN. The dialled set
+// (X -12, Y -13, R -10, W 0, Hd -16, Ft +8) was BAKED into faceDisc.scss's base
+// expressions — so a browser that still held those numbers under the old keys
+// would read them back on load and apply the whole set a SECOND time, landing
+// the disc 24px left of where it was dialled with the header 32px up. Bumping
+// the key is what makes the bake a bake: every browser starts from zero, and
+// zero is now the baked position. This is not a nicety, it is the one step that
+// separates "shipped the value" from "shipped it twice".
+//
+// The old keys are LEFT IN PLACE in storage, unread — there is nothing to gain
+// by clearing them and a cleanup pass that touches a user's localStorage is a
+// worse habit than a stale key.
 const STORAGE = {
-  x: "golem.fdX",
-  y: "golem.fdY",
-  r: "golem.fdR",
-  band: "golem.fdBand",
-  head: "golem.fdHead",
-  foot: "golem.fdFoot"
+  x: "golem.fdX2",
+  y: "golem.fdY2",
+  r: "golem.fdR2",
+  band: "golem.fdBand2",
+  head: "golem.fdHead2",
+  foot: "golem.fdFoot2"
 };
 
 /**
  * THE SIX SCRUBS, and the reasoning behind every bound. All measured at
  * 1280x800 — the TIGHTEST viewport the disc runs at, since its gate floors at
- * 1000x780 — so a bound that holds there holds everywhere the disc appears. At
- * that size the face gives r = 211.6px: band 344.7px wide, 245.4px tall, each
- * cap 88.9px.
+ * 1000x780 — so a bound that holds there holds everywhere the disc appears.
+ *
+ * SINCE THE BAKE the disc is 10px smaller than every number written below was
+ * measured against: at 1280x800 the face now gives r = 201.5px (was 211.6),
+ * band 328.4px wide by 233.8px tall (was 344.7 x 245.4), each cap 84.6px (was
+ * 88.9). The bounds are LEFT WHERE THEY ARE — each one is a distance to drag,
+ * not a position, and every one of them still reaches its own failure and stops
+ * short of anything worse. What the bake changes is the ORIGIN they count from,
+ * and that origin is now the user's dialled set rather than the pre-lab one.
  *
  * THE CAPS ARE WHAT BUY THE BAND ITS WIDTH, so the band width is the thing that
  * must not be strangled, and it is guarded in TWO places, because R and W are
@@ -126,10 +155,17 @@ export const FACE_DISC_DIALS = [
     // transform, so the band never shifts and the content width is untouched
     // whatever this does — only the rim binds it. SWEPT at 1280x800 (the binding
     // viewport), clearance from the rim measured at the header content's worst
-    // corner, on top of the -9px bake: 0 -> 10.5px, -4 -> 7.3, -8 -> 4.0,
-    // -12 -> 0.7, -16 -> -2.7. So -16 is deliberately ONE NOTCH PAST the edge:
-    // the failure is reachable and visible rather than theoretical, which is
-    // what a dial meant for finding a value by eye is for.
+    // corner, on top of the then-current -9px bake: 0 -> 10.5px, -4 -> 7.3,
+    // -8 -> 4.0, -12 -> 0.7, -16 -> -2.7. So -16 was deliberately ONE NOTCH PAST
+    // the edge: the failure is reachable and visible rather than theoretical,
+    // which is what a dial meant for finding a value by eye is for.
+    //
+    // AND -16 IS THE VALUE THAT WAS THEN BAKED (faceDisc.scss's -25px is
+    // -9 + -16). The sweep above therefore describes where this dial STARTS
+    // from now: zero is the -2.7 row, and the re-sweep at the baked geometry
+    // reads -10.9 at this viewport because R -10 brought the rim in as well.
+    // The range is unchanged — a dial that can only make things better is a
+    // dial that cannot show you the edge.
     // DOWN to +24: further and it laps the band's first row.
     min: -16,
     max: 24,
@@ -139,9 +175,16 @@ export const FACE_DISC_DIALS = [
     key: "foot",
     label: "Ft",
     // POSITIVE IS DOWN, toward the bottom pole, where the arc closes on a button
-    // that is 0.95r wide. Same sweep, same viewport, on top of the +6px bake:
-    // -10 -> 11.2px, 0 -> 4.9, +4 -> 1.3, +8 -> -2.2. +8 is again one notch past
-    // the edge; +4 is the last safe value. -24 lifts it back up toward the band.
+    // that is 0.95r wide. Same sweep, same viewport, on top of the then-current
+    // +6px bake: -10 -> 11.2px, 0 -> 4.9, +4 -> 1.3, +8 -> -2.2. +8 was again
+    // one notch past the edge; +4 was the last safe value.
+    //
+    // AND +8 IS THE VALUE THAT WAS THEN BAKED (faceDisc.scss's +14px is 6 + 8),
+    // so this dial's zero is now the -2.2 row of that sweep — -4.9 at the baked
+    // radius. Reading the sweep backwards from here: about -8 on this dial puts
+    // the End-night button back inside the rim at 1280x800, which is the number
+    // to reach for if that corner is ever called wrong.
+    // -24 lifts it back up toward the band.
     min: -24,
     max: 8,
     hint: "Primary button down (positive) or up, from where it now sits"

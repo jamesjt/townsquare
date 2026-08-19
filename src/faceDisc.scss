@@ -89,20 +89,86 @@ $face-disc-hw: 0.8146;
 // 1000x780, the smallest window the disc runs at) still allows a 270.8px chord,
 // so the floor is always inside the circle and never itself the thing that
 // pokes out through the rim.
+//
+// THAT LAST SENTENCE NOW CARRIES AN EXCEPTION, written down rather than left to
+// be rediscovered. Baking R -10 (see the bake note below) took 10px off every
+// disc, so the same extreme — R-40 at 1000x780 — now allows a 254.6px chord and
+// the 265px floor is 10.4px WIDER than the circle there. Measured, not deduced:
+// claude_temp_test/2026-08-19-discbake-floor.mjs.
+//
+// It stays at 265 all the same. The floor's job is to stop the band being
+// strangled below a readable column, and 265 is that number whatever the radius
+// happens to be; the condition it now fails is reachable only by DRAGGING R to
+// its own minimum in the smallest window the disc runs at — a lab state, watched
+// by the person dragging, which is exactly what that dial's range is for.
+// Nothing that ships goes near it.
 $face-disc-band-floor: 265px;
 
-// WHERE THE CAP FURNITURE SITS. Both defaults are MEASURED, not guessed — swept
-// at 1280x800, 1920x1080 and 1000x780 (the gate's own floor), reading each box's
-// WORST CORNER distance from the disc centre against the radius. The binding
-// viewport is 1280x800 for both. Clearance left, on the checklist:
-//   header  -9px -> 10.5px spare (17.0 at rest)
-//   button  +6px ->  4.9px spare (10.0 at rest)
-// The button is the tight one, which is why it reads +6 and not the +10 it
-// started at: at +10 the clearance came out at 1.3px, which is not a margin, it
-// is a coincidence — one longer label or one font fallback and the corners go.
-// A surface whose furniture is a different size passes its own value.
-$face-disc-head-dy: -9px;
-$face-disc-foot-dy: 6px;
+// WHERE THE CAP FURNITURE SITS. Both are the USER'S DIALLED VALUES, baked out
+// of the lab (FT-888 bake): the lab's Hd -16 folded into the old -9px, and its
+// Ft +8 into the old +6px. The lab's six storage keys were bumped in the same
+// pass (`golem.fdX` -> `golem.fdX2`, and so on) — bake the numbers without
+// bumping the keys and a browser still holding the dialled set applies every
+// one of them TWICE.
+//
+// THESE TWO ARE PAST THE OLD SWEEP'S EDGE, deliberately and knowingly. The
+// lab's bounds put Hd -16 and Ft +8 one notch BEYOND the last safe value at the
+// old geometry (they were bounded there so the failure would be reachable and
+// visible in the lab), and at the old radius they left -2.7px and -2.2px of rim
+// clearance. R -10, baked at the same time, makes that worse again: a smaller
+// disc brings the rim IN while the furniture inside it does not shrink to match.
+//
+// X AND Y CANNOT AFFECT ANY OF THIS, and it is worth saying so once rather than
+// re-deriving it: the header and the button are CHILDREN of the disc, so the two
+// position bakes move the plate and its furniture by the same vector. Clearance
+// is the distance from the disc's own centre to a corner of its own child —
+// translate both and it does not move. R is the only one of the four that
+// touches the rim arithmetic.
+//
+// SO IT WAS RE-SWEPT AT THE BAKED VALUES — same method, each box's WORST CORNER
+// distance from the disc centre against the radius, all four surfaces, and the
+// pre-bake reading beside each so the DELTA is visible rather than implied.
+// (Rig: claude_temp_test/2026-08-19-discbake-sweep.mjs. Positive = inside.)
+//
+//                            header            button
+//                          before  after     before  after
+//   1280x800  checklist     +7.4  -10.9       +4.8   -4.9
+//             host panel   +42.0  +21.9       -4.0   -6.6
+//             join panel   -11.4  -31.1      -96.0  -99.0
+//             build panel   — below its own higher gate, still a rectangle —
+//   1440x900  checklist    +21.3   +2.8      +11.7   +2.1
+//             host panel   +53.2  +33.0       +3.0   +0.4
+//             join panel    +0.5  -19.3      -88.2  -91.2
+//             build panel  +36.9  +17.7       +8.0   -1.6
+//   1920x1080 checklist    +45.6  +26.8      +24.0  +14.6
+//             host panel   +73.3  +53.1      +15.5  +12.8
+//             join panel   +21.6   +1.7      -74.6  -77.4
+//             build panel  +59.4  +40.0      +20.4  +10.9
+//
+// READ IT HONESTLY: this is the user's dialled set, kept as asked, and at
+// 1280x800 the checklist's header now sits 10.9px past the rim and its End-night
+// button 4.9px past it. NOTHING IS SHEARED — the corner the measure takes is the
+// content BOX's, and the ink at that corner is whitespace — but at 1280x800 the
+// header's ends now cross the plum hairline instead of clearing it, and the
+// button's bottom corners are drawn outside the circle
+// (claude_temp_test/2026-08-19-discbake-shots/after-zoom-{head,foot}-1280x800.png
+// against the before- pair). 1440x900 is the first size where everything on the
+// checklist clears, and it clears by ~2px. 1920x1080 is comfortable.
+//
+// The build panel's button lands 1.6px out at 1440x900 — its own gate's floor,
+// so its tightest size — and clears everywhere above.
+//
+// THE JOIN PANEL'S BUTTON IS NOT THIS BAKE'S DOING. It was already ~96px past
+// the rim before a single value moved: `img.enter-mark` in Intro.vue carries no
+// CSS at all, so it renders at its natural size and drags `.acts` down with it.
+// Reported rather than fixed — Intro.vue is another lane's file.
+//
+// A surface whose furniture is a different size passes its own value — which is
+// why the entry panels, which pass `face-disc-foot(10px)`, do NOT take the Ft
+// bake at all. Their movement in the table above is R -10 and Y -13 alone: a
+// smaller disc with the same 48px button in its cap is a tighter fit.
+$face-disc-head-dy: -25px;
+$face-disc-foot-dy: 14px;
 
 // ── THE GATE, as a mixin ────────────────────────────────────────────────────
 // Every disc opens with `@include face-disc-gate { ... }`, so there is exactly
@@ -140,8 +206,19 @@ $face-disc-foot-dy: 6px;
 // scrub at zero — these lines compute exactly what they computed before it
 // existed. They live INSIDE the gate, because a phone's rectangle has no disc,
 // no caps and no band and must not follow any of this.
+//
+// THE BAKE (FT-888). Three of the six dialled values are folded into the
+// expressions below — X -12, Y -13, R -10 — and the `var(--fd-*-adj)` reads
+// stay exactly where they were, because ZERO MUST KEEP MEANING "what ships".
+// A bake that replaced the reads would make the lab a re-authoring tool rather
+// than an offset tool, and Reset would stop being a real return. The lab's
+// storage keys were bumped to the "2" set in the same pass (see
+// `src/golem/faceDisc.js`): a browser still holding the dialled values against
+// the OLD keys would otherwise apply all six a second time on top of the bake.
 @mixin face-disc-frame {
-  --fd-r: calc(var(--face-r, 238) * var(--fpx, 1px) + var(--fd-r-adj, 0px));
+  --fd-r: calc(
+    var(--face-r, 238) * var(--fpx, 1px) - 10px + var(--fd-r-adj, 0px)
+  );
   --fd-d: calc(2 * var(--fd-r));
   --fd-cap: #{$face-disc-cap};
   --fd-hw: #{$face-disc-hw};
@@ -153,13 +230,19 @@ $face-disc-foot-dy: 6px;
   --fd-caph: calc(var(--fd-cap) * var(--fd-d));
 
   position: absolute;
-  // THE CENTRE, plus the lab's own two nudges. --face-cx/--face-cy already
-  // carry the background art's baked +7px/--bg-off shift, so they are read
-  // PLAIN and the only term added here is the lab's. At X=0/Y=0 this computes
-  // identically to reading the variables bare — `calc(50% + 7px + 0px + 0px)`
-  // is `calc(50% + 7px)` — which is what the zero-delta acceptance checks.
-  left: calc(var(--face-cx, 50%) + var(--fd-x-adj, 0px));
-  top: calc(var(--face-cy, 50%) + var(--fd-y-adj, 0px));
+  // THE CENTRE, the bake, then the lab's own two nudges. --face-cx/--face-cy
+  // already carry the background art's baked +7px/--bg-off shift, so they are
+  // read PLAIN and the only terms added here are the bake's and the lab's.
+  // Never restate the +7: an earlier pass of the entry panels added it by hand
+  // and applied it twice, which is the same mistake in a different place as
+  // baking these two without bumping the lab's storage keys.
+  //
+  // -12 / -13 are the user's dialled X and Y. With both scrubs at zero this now
+  // computes `calc(50% + 7px - 12px)` / `calc(50% + 7px - 13px)`, which is where
+  // the disc sat on screen when they stopped dragging — that equality IS what
+  // "baked" means here, and it is what the zero-delta acceptance checks.
+  left: calc(var(--face-cx, 50%) - 12px + var(--fd-x-adj, 0px));
+  top: calc(var(--face-cy, 50%) - 13px + var(--fd-y-adj, 0px));
   transform: translate(-50%, -50%);
   width: var(--fd-d);
   height: var(--fd-d);
@@ -186,10 +269,11 @@ $face-disc-foot-dy: 6px;
 //
 // WHAT SHOWS THROUGH, AND WHAT MUST NOT. Under a disc sits the hub — and the
 // hub carries the town readout: script name in display type, the alive/vote
-// counts at 40px, the edition mark. At 0.78 and again at 0.88 those read
-// straight through the middle rows. Raising the alpha until they vanish also
-// takes the dial's rose with them, and the rose showing through is the point of
-// laying a disc on a dial. So the BLUR does the separating instead:
+// counts at 40px, the edition mark. At 0.78 and again at 0.88 — both at the
+// original 7px blur — those read straight through the middle rows. Raising the
+// alpha until they vanish also takes the dial's rose with them, and the rose
+// showing through is the point of laying a disc on a dial. So the BLUR does the
+// separating instead:
 // `backdrop-filter` smears everything behind into a wash, which destroys TEXT
 // (fine strokes, and text is the thing that must not read) while leaving the
 // rose's broad shapes and colour perfectly legible as a ground. Alpha then only
@@ -199,22 +283,73 @@ $face-disc-foot-dy: 6px;
 // RoleDrawer's own controls sit on, a cool purple-black — the book's paper. A
 // warm brown plate would read as a third material on a surface that already has
 // the bronze dial under it and the purple book on it.
+//
+// ── GLASSIER (user call: "much more glassy") ────────────────────────────────
+// Bought in the ORDER the paragraph above demands, because the order is the
+// whole safety argument:
+//
+//   1. BLUR FIRST, 7px -> 20px. Blur is the term that destroys text — fine
+//      strokes are the first thing a wash eats — while the rose's broad shapes
+//      and colour survive it intact. Doubling it again is what pays for the
+//      alpha coming off.
+//   2. BRIGHTNESS AND SATURATION SECOND, 0.5 -> 0.62 and 0.85 -> 1.12. This is
+//      where the "glass" actually reads: the dial arrives as LIGHT AND COLOUR
+//      rather than as grey. A darkened, desaturated wash is a smoked plate; a
+//      lit, saturated one is glass.
+//   3. ALPHA LAST, and only then. 0.82/0.88/0.93/0.95 -> 0.56/0.62/0.70/0.75.
+//      Alpha is doing the job it was always meant to do — knocking the wash
+//      back — not the separating, so it is the term with slack in it.
+//
+// VERIFIED, not assumed. Under a disc sits the hub, carrying the town readout:
+// script name in display type, the alive/vote counts at 40px, the edition mark.
+// Those MUST NOT be readable through the plate — a glassier disc that lets the
+// alive count read through is a regression, not a polish. Checked with the
+// readout live underneath and the checklist open over it, at 1280x800 and
+// 1920x1080: no glyph of it survives (the proof shots sit beside this bake).
+// If the alpha is ever cut further, that check is the one to re-run FIRST.
 @mixin face-disc-plate {
-  backdrop-filter: blur(7px) brightness(0.5) saturate(0.85);
-  background: radial-gradient(
-    circle at 50% 44%,
-    rgba(30, 24, 34, 0.82) 0%,
-    rgba(22, 17, 25, 0.88) 52%,
-    rgba(14, 10, 16, 0.93) 86%,
-    rgba(9, 6, 10, 0.95) 100%
-  );
+  backdrop-filter: blur(20px) brightness(0.62) saturate(1.12);
+  background:
+    // THE SPECULAR, and it is a sheen rather than a gloss: one soft off-centre
+    // bloom high-left, in the grimoire's own pale violet rather than white, so
+    // it reads as light IN the glass and not as a shine painted on top of it.
+    // It fades out by 55% of the radius — a highlight that reached the rim
+    // would ring the disc and turn the plate into a button.
+    radial-gradient(
+        circle at 33% 20%,
+        rgba(206, 190, 224, 0.11) 0%,
+        rgba(206, 190, 224, 0.04) 26%,
+        rgba(206, 190, 224, 0) 55%
+      ),
+    radial-gradient(
+      circle at 50% 44%,
+      rgba(30, 24, 34, 0.56) 0%,
+      rgba(22, 17, 25, 0.62) 52%,
+      rgba(14, 10, 16, 0.7) 86%,
+      rgba(9, 6, 10, 0.75) 100%
+    );
   // TWO threads, and they say different things. The inner hairline is the
-  // grimoire's purple — the sheet's own edge. Outside it, one bronze thread
-  // seats the disc ON the dial's painted rim rather than letting it hover as a
-  // separate object.
+  // GRIMOIRE'S OWN EDGE — #4b3565, taken straight off RoleDrawer's
+  // `border-right: 1px solid #4b3565` ("the drawer IS the grimoire — plum,
+  // matching its cover", user call). It used to be rgba(120, 105, 135, 0.38),
+  // which is the book's inner CONTROL border, one step in: a greyer, dimmer
+  // thread that read as chrome rather than as the book's cover. Outside it, one
+  // bronze thread seats the disc ON the dial's painted rim rather than letting
+  // it hover as a separate object.
+  //
+  // AND TWO MORE, both in service of the glass. The plum halo just inside the
+  // hairline gives the rim thickness — glass has an edge, a decal does not —
+  // and the pale crescent at the TOP is the specular's other half: an inset
+  // shadow on a border-radius:50% box follows the circle, so a downward one
+  // lights the upper arc only, which is where light lands on a lens. The black
+  // vignette that used to sit here at 34px/0.8 is down to 22px/0.42: it was the
+  // single biggest reason the plate read as a flat dark disc rather than as
+  // something you were looking THROUGH.
   box-shadow:
-    inset 0 0 0 1px rgba(120, 105, 135, 0.38),
-    inset 0 0 34px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px #4b3565,
+    inset 0 0 14px rgba(75, 53, 101, 0.4),
+    inset 0 2px 3px -1px rgba(226, 214, 240, 0.28),
+    inset 0 0 22px rgba(0, 0, 0, 0.42),
     0 0 0 1px rgba(150, 120, 60, 0.22),
     0 0 26px rgba(0, 0, 0, 0.75);
 }
