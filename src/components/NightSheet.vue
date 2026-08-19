@@ -36,6 +36,27 @@
       </button>
     </div>
 
+    <!-- WHAT THE `warn` STATE SAYS (2026-08-19). The night ENDED with rows
+         unticked, and this is the sheet saying so — a line, never a
+         confirm()/alert(): this app has been bitten twice by native dialogs
+         being auto-dismissed, and a dialog would also have had to appear
+         BEFORE the flip, which turns "warn" into a second press to get past
+         and makes it a soft version of "required" rather than its own state.
+
+         It appears in DAY, because that is where the storyteller is standing
+         once the night they were warned about is over, and it clears itself
+         when the next night begins (flipPhase).
+
+         Absolutely positioned on purpose: `.night-sheet` in its day form is
+         a shrink-to-fit box around one pill, and a sentence IN the flow
+         would stretch that pill to the width of the sentence. Out of flow it
+         contributes nothing — the same trick NightModeRow's hint uses, and
+         for the same reason. -->
+    <small class="ns-warned" v-if="!showList && endedUnticked">
+      <font-awesome-icon icon="exclamation-triangle" />
+      Night {{ endedNight }} ended with {{ endedUntickedText }} unticked.
+    </small>
+
     <!-- ── the checklist ─────────────────────────────────────────────────── -->
     <template v-if="showList">
       <!-- FT-874: labelled — a bare "0 / 4" floated with no context once the
@@ -330,14 +351,26 @@
       <!-- FT-882: marks off here too (see the day pill above). The finished
            tick STAYS — it is not a flanking ornament, it is the only mark
            that says "the list is complete", and it rides the ready plate. -->
+      <!-- The WARN state's pre-press half rides this same button: the mark
+           slot the finished tick already owns takes a warning triangle
+           instead, and the plate goes gold. Chosen over a line above the
+           button because on the disc this button IS the bottom cap and the
+           rows are the band — there is no spare line there to put a sentence
+           on, and the sentence would have cost the tray height the chip on
+           the build panel just gave back. The count rides the tooltip
+           (flipHint) and the day-side line says it in full. -->
       <button
         type="button"
         class="phase-flip bottom"
-        :class="{ ready: allChecked, blocked: !canFlip }"
+        :class="{ ready: allChecked, blocked: !canFlip, warn: warnUnchecked }"
         :title="flipHint"
         @click="flipPhase"
       >
         <font-awesome-icon icon="check" v-if="allChecked" />
+        <font-awesome-icon
+          icon="exclamation-triangle"
+          v-else-if="warnUnchecked"
+        />
         {{ flipLabel }}
       </button>
     </template>
@@ -382,7 +415,14 @@ export default {
     return {
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
-      flashing: {}
+      flashing: {},
+      // THE WARNING THE `warn` STATE LEAVES BEHIND. How many rows the night
+      // that just ended was carrying unticked, and which night it was.
+      // View state, deliberately: it is a note about a press, not a fact
+      // about the log, and it should not survive a reload the way a setting
+      // does. Cleared when the next night begins.
+      endedUnticked: 0,
+      endedNight: 0
     };
   },
   computed: {
@@ -455,6 +495,15 @@ export default {
         const n = this.uncheckedRows.length;
         return n + (n === 1 ? " row still unchecked" : " rows still unchecked");
       }
+      // WARN: same count, opposite promise — the press works.
+      if (this.warnUnchecked) {
+        const n = this.uncheckedRows.length;
+        return (
+          n +
+          (n === 1 ? " row is" : " rows are") +
+          " still unchecked — ending the night anyway is allowed"
+        );
+      }
       return this.isNight
         ? "Wake the town — the log stays on Night " + this.night.day
         : "Night " + (this.night.day + 1) + " begins, and the log moves with it";
@@ -487,13 +536,37 @@ export default {
      * Can the phase button actually flip right now? Starting a night (day →
      * night) is NEVER gated — the setting is "require the checklist before
      * the night can END", not before it begins, and a fresh night's own
-     * roster starts unchecked by definition. Ending a night is gated only
-     * when the town's "Require checks" setting (NightModeRow) is on AND
-     * something is still unticked.
+     * roster starts unchecked by definition.
+     *
+     * Ending a night is blocked ONLY in the `required` state (NightModeRow's
+     * chip). `warn` deliberately returns true: it is the state that lets the
+     * night end and says so afterwards — see warnUnchecked and endedUnticked.
      */
     canFlip() {
       if (!this.isNight) return true;
-      return !this.night.requireChecks || this.uncheckedRows.length === 0;
+      return (
+        this.night.requireChecks !== "required" ||
+        this.uncheckedRows.length === 0
+      );
+    },
+    /**
+     * The WARN state, live: the night may end, and something would be left
+     * behind if it did. Drives the button's own amber mark — the pre-press
+     * half of the warning, which costs no layout at all because it rides the
+     * slot the finished-list tick already occupies. (The post-press half is
+     * the line under the day pill; see endedUnticked.)
+     */
+    warnUnchecked() {
+      return (
+        this.isNight &&
+        this.night.requireChecks === "warn" &&
+        this.uncheckedRows.length > 0
+      );
+    },
+    /** "3 rows" / "1 row" — said in three places, spelled once. */
+    endedUntickedText() {
+      const n = this.endedUnticked;
+      return n + (n === 1 ? " row" : " rows");
     }
   },
   methods: {
@@ -673,18 +746,30 @@ export default {
      * mutation, so this button and the S hotkey stay in step by construction.
      * Clearing the block on nightfall mirrors Menu.toggleNight.
      *
-     * FT-874: BLOCKED (canFlip false) is not a dead click — the button stays
-     * a real, clickable <button> (never the native `disabled` attribute,
-     * which would swallow the click entirely) and a press instead points at
-     * what's missing. The escape from a wrong checklist is still exactly one
-     * tap PER ROW (tick it and move on) — never a "check all", which would
-     * teach a hurried storyteller to tick without reading and defeat the
-     * point of the list.
+     * FT-874: BLOCKED (canFlip false — the `required` state only) is not a
+     * dead click — the button stays a real, clickable <button> (never the
+     * native `disabled` attribute, which would swallow the click entirely)
+     * and a press instead points at what's missing. The escape from a wrong
+     * checklist is still exactly one tap PER ROW (tick it and move on) —
+     * never a "check all", which would teach a hurried storyteller to tick
+     * without reading and defeat the point of the list.
+     *
+     * WARN (2026-08-19) ends the night and records what it ended with, read
+     * BEFORE the flip because the roster the count comes from is tonight's
+     * and the flip re-keys it. That count is what the day-side line says.
      */
     flipPhase() {
       if (!this.canFlip) {
         this.flashUnchecked();
         return;
+      }
+      if (this.isNight) {
+        this.endedUnticked = this.warnUnchecked ? this.uncheckedRows.length : 0;
+        this.endedNight = this.night.day;
+      } else {
+        // a night beginning clears the last one's note — it is about the
+        // night that ended, not a standing complaint
+        this.endedUnticked = 0;
       }
       this.$store.commit("toggleNight");
       if (this.grimoire.isNight) {
@@ -750,6 +835,37 @@ $ns-team-colors: (
   // the town-centre plate
   &:not(.has-list) {
     transform: translateY(105px);
+  }
+
+  // THE WARN STATE'S OWN LINE — "Night 2 ended with 3 rows unticked."
+  // Out of the flow (see the template note): the day sheet is shrink-to-fit
+  // around its pill, and a sentence inside it would drag the pill out to the
+  // sentence's width. Sits directly under the pill, centred on it, and is
+  // read-only furniture — clicks belong to the button above it.
+  .ns-warned {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 250px;
+    margin-top: 6px;
+    pointer-events: none;
+    font-size: 80%;
+    line-height: 1.3;
+    color: #f0d9a0;
+    // It lands in DAY, over the lit stained-glass dial, which is the
+    // brightest ground in the app — gold on gold. The plate is what makes it
+    // readable there without turning the line into a banner, and it matches
+    // the pill it hangs under.
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(216, 180, 90, 0.35);
+    border-radius: 8px;
+    padding: 3px 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    svg {
+      margin-right: 4px;
+      opacity: 0.9;
+    }
   }
 
   &.has-list {
@@ -1155,6 +1271,24 @@ $ns-team-colors: (
       &:hover,
       &:focus-visible {
         background: rgba(150, 130, 175, 0.55);
+      }
+    }
+
+    // WARN: the press WORKS, and the button says it is going to cost
+    // something. Gold, not the blocked state's grey-out — the same gold the
+    // chip that set this state wears on the build panel, so the two ends of
+    // one setting look like one setting. Mutually exclusive with .ready in
+    // practice (a finished list has nothing to warn about) and with .blocked
+    // by construction (warn never blocks).
+    &.warn {
+      color: #f0d9a0;
+      background: rgba(216, 180, 90, 0.16);
+      border-color: rgba(216, 180, 90, 0.7);
+      &:hover,
+      &:focus-visible {
+        background: rgba(216, 180, 90, 0.28);
+        border-color: rgba(216, 180, 90, 0.9);
+        color: #fff3d8;
       }
     }
   }

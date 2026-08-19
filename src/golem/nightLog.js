@@ -28,12 +28,57 @@
 
 const LOG_KEY = "golem.nightLog";
 const MODE_KEY = "golem.nightMode";
-// FT-874: "require every row ticked before the night can end" — a standing
-// setting like MODE_KEY above, not per-town log data.
+// FT-874: "how hard the checklist is enforced when the night ends" — a
+// standing setting like MODE_KEY above, not per-town log data. The key name
+// predates the setting going tri-state (it was a boolean, "Require checks");
+// the values it holds are CHECK_MODES below.
 const REQUIRE_CHECKS_KEY = "golem.nightRequireChecks";
 
 /** The three visibility states of the night sheet, in toggle order. */
 export const MODES = ["off", "storyteller", "everyone"];
+
+/**
+ * FT-874 → tri-state (2026-08-19, user call): HOW HARD THE CHECKLIST IS
+ * ENFORCED when the storyteller presses "End night". In cycle order.
+ *
+ *   off       Nothing is asked. The night ends in silence.
+ *   warn      The night ENDS — and the sheet says what was left unticked.
+ *             This is the state the old boolean was missing: a storyteller
+ *             who wants the list to mean something without a button that
+ *             refuses to work.
+ *   required  Ending the night is blocked until every row is ticked. The
+ *             old `true`.
+ *
+ * The middle state is the honest default position of every stop-control on
+ * this fork — warn rather than enforce, and enforce only where the thing is
+ * genuinely impossible. Ending a night early is never impossible: it is a
+ * storyteller deciding to move their own table on.
+ */
+export const CHECK_MODES = ["off", "warn", "required"];
+
+/** A fresh town's setting. Unchanged from FT-874's boolean default (ON): a
+ *  checklist nobody is asked to finish has no teeth. */
+export const DEFAULT_CHECK_MODE = "required";
+
+/**
+ * The chip's own word, which is the ONLY thing that says which state this is
+ * — it replaced a labelled checkbox on its own line. "Optional" rather than
+ * "Off" on purpose: the mode switch sitting immediately to its left already
+ * has an "Off" in it, and two Offs on one row read as one setting said twice.
+ */
+export const CHECK_LABELS = {
+  off: "Optional",
+  warn: "Warn",
+  required: "Required",
+};
+
+/** The full explanation, on the chip's tooltip — the chip is one word wide. */
+export const CHECK_TITLES = {
+  off: "Ticking the rows is optional — the night ends without comment. Click for Warn.",
+  warn: "The night still ends with rows unticked, and the sheet says how many. Click for Required.",
+  required:
+    "Ending the night is blocked until every row is ticked. Click for Optional.",
+};
 
 /**
  * A fresh town's setting (user call 2026-08-18: "Default to everyone").
@@ -299,13 +344,25 @@ export function saveMode(mode) {
   if (MODES.includes(mode)) localStorage.setItem(MODE_KEY, mode);
 }
 
-/** The saved "Require checks" setting, or null if never set — the store's
- *  own default (ON) applies in that case, same idiom as loadMode(). */
+/**
+ * The saved enforcement setting, or null if never set — the store's own
+ * default applies in that case, same idiom as loadMode().
+ *
+ * A stored "1" / "0" is FT-874's BOOLEAN, written before this went tri-state.
+ * It is read across rather than migrated (we are in dev; there is no stored
+ * value anywhere that is owed a migration): the old ON blocked, so it reads
+ * as `required`, and the old OFF asked nothing, so it reads as `off`. The
+ * warn state simply had no boolean to come from.
+ */
 export function loadRequireChecks() {
   const v = localStorage.getItem(REQUIRE_CHECKS_KEY);
-  return v === null ? null : v === "1";
+  if (v === null) return null;
+  if (v === "1") return "required";
+  if (v === "0") return "off";
+  return CHECK_MODES.includes(v) ? v : null;
 }
 
-export function saveRequireChecks(require) {
-  localStorage.setItem(REQUIRE_CHECKS_KEY, require ? "1" : "0");
+export function saveRequireChecks(checkMode) {
+  if (CHECK_MODES.includes(checkMode))
+    localStorage.setItem(REQUIRE_CHECKS_KEY, checkMode);
 }

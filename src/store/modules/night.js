@@ -25,10 +25,12 @@
  *                  the storyteller as the authority the rest of this sheet
  *                  already treats them as. There is no undo behind the
  *                  delete; the surface that offers it confirms first.
- *   requireChecks  FT-874: a standing setting, like `mode` — gates the night
- *                  sheet's "end night" button until every row is ticked.
- *                  Read by NightSheet's `canFlip`; set from NightModeRow's
- *                  own "Require checks" checkbox, next to the mode switch.
+ *   requireChecks  FT-874: a standing setting, like `mode` — how hard the
+ *                  checklist is enforced when the night ends. TRI-STATE:
+ *                  off (silent) | warn (ends, and says what was skipped) |
+ *                  required (blocked until every row is ticked). Read by
+ *                  NightSheet's `canFlip` and `warnUnchecked`; set from the
+ *                  chip on NightModeRow's own row, beside the mode switch.
  *
  * WHAT DOES NOT LIVE HERE
  *   The night ORDER. That is firstNight / otherNight on the roles plus the
@@ -48,6 +50,8 @@
 import {
   DEFAULT_MODE,
   MODES,
+  CHECK_MODES,
+  DEFAULT_CHECK_MODE,
   targetCount,
   reminderFor,
   entryId,
@@ -68,10 +72,15 @@ const state = () => ({
   mode: DEFAULT_MODE,
   day: 0,
   entries: [],
-  // FT-874: ON by default — a checklist nobody is asked to finish has no
-  // teeth. The escape is unconditional and one tap per row (tick it, move
-  // on), never blocking; see NightSheet's flipPhase/flashUnchecked.
-  requireChecks: true
+  // FT-874: "required" by default — a checklist nobody is asked to finish has
+  // no teeth. The escape is unconditional and one tap per row (tick it, move
+  // on); see NightSheet's flipPhase/flashUnchecked.
+  //
+  // TRI-STATE since 2026-08-19 (user call): off | warn | required. See
+  // CHECK_MODES in golem/nightLog for what each one does. The key keeps its
+  // FT-874 name — every consumer already reads `night.requireChecks`, and
+  // what it holds is still "how much this town requires the checks".
+  requireChecks: DEFAULT_CHECK_MODE
 });
 
 const getters = {
@@ -313,9 +322,16 @@ const mutations = {
   setMode(state, mode) {
     if (MODES.includes(mode)) state.mode = mode;
   },
-  /** FT-874: NightModeRow's "Require checks" toggle. */
-  setRequireChecks(state, require) {
-    state.requireChecks = !!require;
+  /**
+   * FT-874: NightModeRow's enforcement chip — off | warn | required.
+   *
+   * Guarded like setMode above rather than coerced: an unknown value is
+   * ignored, so a stale boolean arriving from anywhere cannot land the store
+   * in a state no branch of canFlip handles. (loadRequireChecks does the
+   * boolean read-across before this ever sees it.)
+   */
+  setRequireChecks(state, checkMode) {
+    if (CHECK_MODES.includes(checkMode)) state.requireChecks = checkMode;
   },
   setDay(state, day) {
     state.day = Math.max(0, parseInt(day, 10) || 0);

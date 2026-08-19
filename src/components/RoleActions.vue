@@ -20,13 +20,28 @@
     >
       <font-awesome-icon icon="random" />
     </button>
+    <!-- DUPES. The mark is `copy` — two of the same sheet, one behind the
+         other, which is the thing this setting allows: one character sitting
+         in more than one chair. It replaced a tickbox glyph
+         (check-square/square) that said only "a setting, on or off" and never
+         said WHICH setting — the button's whole job on a row of three marks.
+         `copy` is already in main.js's registry, so nothing new is
+         registered for it; `clone` (the other candidate) is not, and
+         registering it would mean editing a file this lane does not hold.
+
+         The STATE is the button's own lit/dim, not a tick inside the mark:
+         `.on` is the accent RoleTray's and RoleDrawer's own toggles already
+         wear (#ffd9d9 on a red edge), and off is the muted plate the two
+         action buttons beside it wear at rest, taken down a further step
+         because those two have no off-state to be confused with. -->
     <button
-      class="ra-act"
+      class="ra-act ra-dup"
       :class="{ on: allowDup }"
+      :aria-pressed="String(allowDup)"
       title="Let one role sit in more than one chair"
       @click.stop="allowDup = !allowDup"
     >
-      <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
+      <font-awesome-icon icon="copy" />
     </button>
   </span>
 </template>
@@ -123,6 +138,17 @@ export default {
     &:disabled {
       opacity: 0.4;
       cursor: not-allowed;
+    }
+  }
+
+  // Dupes is the only TOGGLE in this row, so its off state has to look off —
+  // Deal and Shuffle have no off to be mistaken for. The dim is RoleDrawer's
+  // own `.rd-dup` resting tone (rgba(216,205,180,.75) — the same control,
+  // in the drawer), not a new treatment: lit is `.on` above, unchanged.
+  .ra-act.ra-dup:not(.on) {
+    color: rgba(216, 205, 180, 0.62);
+    &:hover {
+      color: #fff;
     }
   }
 }
