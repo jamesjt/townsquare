@@ -36,22 +36,25 @@
             : 'No standard player count fits this composition'
         "
       >
-        <!-- clear team glyphs (the good/evil token art read as
-             thumbs up/down at this size — user call): the town, the
-             loner, the masks, the skull -->
+        <!-- our own team art for all four now (golem/glyphs): the many,
+             the loner, the cowl, the horned head — no Font Awesome -->
         <span class="chip team-townsfolk" title="Townsfolk">
-          <font-awesome-icon icon="users" />{{ teamCounts.townsfolk }}
+          <img class="demon-glyph" :src="teamGlyph('townsfolk')" alt="" />{{
+            teamCounts.townsfolk
+          }}
         </span>
         <span class="chip team-outsider" title="Outsiders">
-          <img class="demon-glyph" :src="outsiderGlyph" alt="" />{{
+          <img class="demon-glyph" :src="teamGlyph('outsider')" alt="" />{{
             teamCounts.outsider
           }}
         </span>
         <span class="chip team-minion" title="Minions">
-          <font-awesome-icon icon="mask" />{{ teamCounts.minion }}
+          <img class="demon-glyph" :src="teamGlyph('minion')" alt="" />{{
+            teamCounts.minion
+          }}
         </span>
         <span class="chip team-demon" title="Demons">
-          <img class="demon-glyph" :src="demonGlyph" alt="" />
+          <img class="demon-glyph" :src="teamGlyph('demon')" alt="" />
           {{ teamCounts.demon }}
         </span>
         <!-- unsaved edits: Save / Discard appear ONLY when dirty
@@ -268,6 +271,9 @@ import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
 import moonFull from "../assets/moon-full.png";
 import outsiderGlyph from "../assets/blood/outsider-glyph.png";
+// One definition of "the glyph for team X" (golem/glyphs), shared with
+// TownInfo, RoleDrawer and EditionModal.
+import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
 
 export default {
   name: "ScriptView",
@@ -378,12 +384,11 @@ export default {
     }
   },
   methods: {
-    /** The type's own art, where we have it (outsider + demon are baked
-     *  glyphs; townsfolk + minion ride Font Awesome). */
+    /** The type's own art — every team has ours now, defined once in
+     *  golem/glyphs and shared with TownInfo, RoleDrawer and EditionModal.
+     *  teamIcon below stays as the fallback for a team the map lacks. */
     teamGlyph(team) {
-      if (team === "outsider") return this.outsiderGlyph;
-      if (team === "demon") return this.demonGlyph;
-      return null;
+      return teamGlyphSrc(team);
     },
     teamIcon(team) {
       if (team === "townsfolk") return "users";

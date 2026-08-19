@@ -25,6 +25,7 @@ import travelerGlyph from "../assets/blood/traveler-glyph.png";
 
 import aliveIcon from "../assets/ui-alive.png";
 import deadIcon from "../assets/ui-dead.png";
+import nightIcon from "../assets/ui-night.png";
 import townIcon from "../assets/ui-town.png";
 import votesIcon from "../assets/ui-votes.png";
 
@@ -45,15 +46,17 @@ export const TEAM_GLYPHS = {
 export const teamGlyph = team => TEAM_GLYPHS[team] || null;
 
 /**
- * The town square's counts. `votes` reuses the player strip's gallows — in
- * this fork a gallows already means "the vote", and the vote count is how
- * many hands could send someone to it.
+ * The town square's counts. `votes` and `night` reuse the player strip's own
+ * art rather than baking a second gallows and a second moon — in this fork a
+ * gallows already means "the vote", and the vote count is how many hands
+ * could send someone to it.
  */
 export const COUNT_ICONS = {
   town: townIcon,
   alive: aliveIcon,
   dead: deadIcon,
-  votes: votesIcon
+  votes: votesIcon,
+  night: nightIcon
 };
 
 export default { TEAM_GLYPHS, teamGlyph, COUNT_ICONS };

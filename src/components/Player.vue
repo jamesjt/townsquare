@@ -23,12 +23,15 @@
         player.role.team
       ]"
     >
-      <!-- Golem fork (FT-848): a death leaves blood on the tower behind the
-           seat. Deterministic per seat+name, so every client shows the same
-           splatter without any extra sync. -->
+      <!-- Golem fork (FT-848): the blood a death leaves has MOVED to the
+           clock face — TownSquare's .blood-dial stains the dead seat's own
+           wedge of the dial, so the tower gets bloodier as the town dies
+           instead of the splatter hiding behind a coin (user call
+           2026-08-18). Markup and splatStyle stay behind showSeatSplat
+           rather than being deleted, the same way the night badges did. -->
       <div
         class="blood-splat"
-        v-if="player.isDead"
+        v-if="showSeatSplat && player.isDead"
         :style="splatStyle"
       ></div>
       <div class="shroud" @click="toggleStatus()"></div>
@@ -300,6 +303,12 @@ export default {
     /** Retired with the night checklist (user call 2026-08-18) — flip to
      *  `this.grimoire.isNightOrder` to bring the seat badges back. */
     showNightBadges() {
+      return false;
+    },
+    /** Retired 2026-08-18 (user call): a death's blood belongs on the CLOCK
+     *  FACE, not behind the seat's coin. TownSquare's .blood-dial owns it
+     *  now — flip this to `true` to bring the behind-the-coin splatter back. */
+    showSeatSplat() {
       return false;
     },
     index: function() {
@@ -806,10 +815,15 @@ export default {
     // the public face is the blank coin, the storyteller face is the coin
     // with the role on it. Identical silhouettes mean nothing can peek out
     // from behind the other. life-golem.png stays in the tree, unreferenced.
-    background: url("../assets/token-golem.png") center center;
-    background-size: 100%;
-    border: 3px solid black;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    // no-repeat — the shorthand resets background-repeat, and a TILED coin put
+    // the next tile's top edge just under this one: that is the "melting" rim,
+    // the stray red nub and the thing peeking from behind the disc, all one
+    // bug (user diagnosis 2026-08-18). The shadow follows the art's alpha for
+    // the same reason the coin's does — a box-shadow draws a circle.
+    background: url("../assets/token-golem.png") center center / contain
+      no-repeat;
+    border: 3px solid transparent;
+    filter: drop-shadow(0 0 7px rgba(0, 0, 0, 0.55));
     cursor: pointer;
     transition: transform 200ms ease-in-out;
     transform: perspective(400px) rotateY(180deg);

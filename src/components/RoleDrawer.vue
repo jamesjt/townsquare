@@ -115,10 +115,11 @@
 
 <script>
 import gameJSON from "../game";
-import demonGlyph from "../assets/blood/demon-glyph.png";
 import dealGlyph from "../assets/ui-deal.png";
-import outsiderGlyph from "../assets/blood/outsider-glyph.png";
 import { mapMutations, mapState } from "vuex";
+// One definition of "the glyph for team X" (golem/glyphs), shared with
+// TownInfo, ScriptView and EditionModal — it used to be a copy per surface.
+import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
 // FT-858: THE role hover card, shared with the Almanac workbench's shelf and
 // the seats in the square.
 import RoleHoverCard from "./RoleHoverCard";
@@ -218,10 +219,12 @@ export default {
     roleIcon(role) {
       return roleIconSrc(role);
     },
+    /** Every team now has our own art — golem/glyphs is the one definition,
+     *  shared with the town square's counts, the script workbench's meter and
+     *  the edition modal's team toggles. teamIcon below stays as the fallback
+     *  for a team the map does not know. */
     teamGlyph(team) {
-      if (team === "outsider") return outsiderGlyph;
-      if (team === "demon") return demonGlyph;
-      return null;
+      return teamGlyphSrc(team);
     },
     teamIcon(team) {
       if (team === "townsfolk") return "users";

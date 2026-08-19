@@ -13,6 +13,19 @@
         !session.isRolesDistributed
     }"
   >
+    <!-- Golem fork (FT-848): the tower's face keeps the count. Every death
+         stains the wedge of the dial that belongs to that seat, so a town
+         that has lost half its players shows a visibly bloodier clock.
+         Sits under the seats and their names; never takes a click. -->
+    <div class="blood-dial" aria-hidden="true" v-if="deadStains.length">
+      <div
+        class="stain"
+        v-for="stain in deadStains"
+        :key="stain.key"
+        :style="stain.style"
+      ></div>
+    </div>
+
     <ul class="circle" :class="['size-' + players.length]">
       <Player
         v-for="(player, index) in players"
@@ -98,6 +111,31 @@ import Token from "./Token";
 import ReminderModal from "./modals/ReminderModal";
 import RoleModal from "./modals/RoleModal";
 
+// Golem fork (FT-848): the re-baked dried-blood stains, bundled once for the
+// whole dial. (The older per-seat splats in ../assets/blood/splats stay in the
+// tree, unreferenced.)
+const stainCtx = require.context("../assets/blood/stains", false, /\.png$/);
+const STAINS = stainCtx
+  .keys()
+  .sort()
+  .map(stainCtx);
+
+// The dial, in the background art's own pixels (see --fpx in App.vue): both
+// clocktower backgrounds are 1672x941 with the face centred at image
+// (851,450) — +15,-20.5 from the image centre, which is where
+// .blood-dial .stain anchors below. The rose runs out to r~250.
+//
+// Stains ride the OUTER band of the face: the hub carries the town readout
+// (script name, alive/dead counts), so blood is kept off it and the wedges
+// still read as belonging to their seats.
+const STAIN_RADIUS = 185;
+// stain size = SPAN / sqrt(seats): the face's area split n ways, so a 5-seat
+// town gets big stains and a 20-seat town small ones, and either town ends up
+// properly drenched once everyone is dead. Capped so a small town's stains
+// stay on the face instead of washing over the stonework.
+const STAIN_SPAN = 470;
+const STAIN_MAX = 172;
+
 export default {
   components: {
     Player,
@@ -108,7 +146,56 @@ export default {
   computed: {
     ...mapGetters({ nightOrder: "players/nightOrder" }),
     ...mapState(["grimoire", "roles", "session"]),
-    ...mapState("players", ["players", "bluffs", "fabled"])
+    ...mapState("players", ["players", "bluffs", "fabled"]),
+    /**
+     * Golem fork (FT-848): one stain per dead seat, laid on that seat's wedge
+     * of the clock face.
+     *
+     * A seat's angle is the ONLY thing that places its stain: seat i sits at
+     * (i+1) * 360/n clockwise from 12 o'clock, which is exactly the angle the
+     * on-circle mixin rotates that seat's spoke to. Both read the same
+     * players.length, so the stain stays under its seat at any town size and
+     * follows the ring when seats are added, removed, moved or swapped.
+     *
+     * Everything else about a stain — which of the 16 it is, how big, how far
+     * out, how it lies — is hashed from seat + name, so every client paints
+     * the same dial from the already-synced death state with no extra sync.
+     * Stains accumulate: five deaths put five separate marks on the face.
+     */
+    deadStains() {
+      const count = this.players.length;
+      if (!count) return [];
+      const stains = [];
+      this.players.forEach((player, i) => {
+        if (!player.isDead) return;
+        const angle = ((i + 1) * 360) / count;
+        const key = i + "·" + player.name;
+        let h = 2166136261;
+        for (let c = 0; c < key.length; c++) {
+          h ^= key.charCodeAt(c);
+          h = (h * 16777619) >>> 0;
+        }
+        const base = Math.min(STAIN_MAX, STAIN_SPAN / Math.sqrt(count));
+        const size = base * (0.88 + ((h >> 4) % 28) / 100);
+        const radius = STAIN_RADIUS + (((h >> 12) % 29) - 14);
+        const spin = ((h >> 18) % 51) - 25;
+        stains.push({
+          key,
+          style: {
+            backgroundImage: `url(${STAINS[h % STAINS.length]})`,
+            width: `calc(${size.toFixed(1)} * var(--fpx))`,
+            height: `calc(${size.toFixed(1)} * var(--fpx))`,
+            // centre on the dial, swing out along the seat's own angle, then
+            // let the splatter lie a little off-square
+            transform:
+              `translate(-50%, -50%) rotate(${angle.toFixed(2)}deg)` +
+              ` translateY(calc(${(-radius).toFixed(1)} * var(--fpx)))` +
+              ` rotate(${spin}deg)`
+          }
+        });
+      });
+      return stains;
+    }
   },
   data() {
     return {
@@ -273,6 +360,47 @@ export default {
   align-items: center;
   align-content: center;
   justify-content: center;
+}
+
+/***** The bloody dial (FT-848) *****/
+/* Under every seat (the circle's own li's carry z-index 1..n) and under the
+   bluffs/fabled panels at z-index 50, so the tower stains without ever
+   covering a token, a name or a click target. */
+.blood-dial {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+
+  .stain {
+    position: absolute;
+    /* the DIAL's centre, not the box's — the art's face sits +15,-20.5
+       face-pixels off the image centre */
+    left: calc(50% + 15 * var(--fpx));
+    top: calc(50% + -20.5 * var(--fpx));
+    background: center / contain no-repeat;
+    /* the stone drinks it — the dial's filigree still reads underneath */
+    opacity: 0.88;
+    transform-origin: center center;
+    animation: stain-in 420ms ease-out;
+  }
+}
+
+@keyframes stain-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.88;
+  }
+}
+
+/* the app's animation kill-switch */
+#app.static .blood-dial .stain {
+  animation: none;
 }
 
 .circle {

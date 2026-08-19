@@ -63,7 +63,7 @@
       </span>
       <span v-if="grimoire.isNight">
         Night phase
-        <font-awesome-icon :icon="['fas', 'cloud-moon']" />
+        <img class="count-icon" :src="countIcons.night" alt="night" />
       </span>
     </li>
   </ul>
@@ -145,6 +145,20 @@ export default {
 
     svg {
       margin-right: 10px;
+    }
+
+    // Golem fork: our own count + team art, sized to the type it rides beside
+    // so it tracks the panel instead of being pinned to a pixel size
+    .count-icon,
+    .team-glyph {
+      width: 1.05em;
+      height: 1.05em;
+      object-fit: contain;
+      margin-right: 10px;
+      vertical-align: -0.17em;
+      // the counts sit on the lit clock face, so pale art needs its own
+      // edge — the li's shadow alone leaves thin work (the gallows) faint
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
     }
 
     .players {

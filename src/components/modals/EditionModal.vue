@@ -61,16 +61,12 @@
               :title="teamTitle(t)"
               @click="toggleTeam(t.team)"
             >
+              <!-- our own team art for every team (golem/glyphs); t.icon
+                   stays as the fallback for a team the map lacks -->
               <img
-                v-if="t.team === 'demon'"
+                v-if="teamGlyph(t.team)"
                 class="demon-glyph"
-                :src="demonGlyph"
-                alt=""
-              />
-              <img
-                v-else-if="t.team === 'outsider'"
-                class="demon-glyph"
-                :src="outsiderGlyph"
+                :src="teamGlyph(t.team)"
                 alt=""
               />
               <font-awesome-icon v-else :icon="t.icon" />
@@ -250,16 +246,12 @@
             ]"
             @click="roleForm.roleType = t"
           >
+            <!-- our own team art for every team (golem/glyphs); the Font
+                 Awesome branch stays as the fallback for an unknown team -->
             <img
-              v-if="t === 'demon'"
+              v-if="teamGlyph(t)"
               class="demon-glyph"
-              :src="demonGlyph"
-              alt=""
-            />
-            <img
-              v-else-if="t === 'outsider'"
-              class="demon-glyph"
-              :src="outsiderGlyph"
+              :src="teamGlyph(t)"
               alt=""
             />
             <font-awesome-icon
@@ -586,6 +578,9 @@ import goldLogo from "../../assets/gold/botc-logo-icon.png";
 // The user's demon mask + outsider face (design/red/*, cut + baked).
 import demonGlyph from "../../assets/blood/demon-glyph.png";
 import outsiderGlyph from "../../assets/blood/outsider-glyph.png";
+// One definition of "the glyph for team X" (golem/glyphs), shared with
+// TownInfo, ScriptView and RoleDrawer.
+import { teamGlyph } from "../../golem/glyphs";
 // The app-wide PNG-font choice — the Almanac's A wears the caps' font.
 import {
   fontState,
@@ -1136,6 +1131,8 @@ export default {
     }
   },
   methods: {
+    /** The team's own art, one definition for the whole app (golem/glyphs). */
+    teamGlyph,
     // ── Golem fork: the script vault ─────────────────────────────────────
     async loadFromVault(id, attach = true) {
       try {

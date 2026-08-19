@@ -347,8 +347,12 @@ $blood: #970000; // our red, for the one mark that must not be missed
   border-radius: 50%;
   width: 100%;
   // OUR coin. Upstream's token.png stays in the tree, unreferenced.
-  background: url("../assets/token-golem.png") center center;
-  background-size: 100%;
+  // no-repeat: the shorthand resets background-repeat, and a tiled coin put
+  // the NEXT tile's top edge just below this one — the "melting" rim, the
+  // stray red nub and the thing peeking from behind the disc were all one
+  // bug (user diagnosis 2026-08-18)
+  background: url("../assets/token-golem.png") center center / contain
+    no-repeat;
   text-align: center;
   // The border stays — the bluffs collapse zeroes its width and the "you"
   // seat's glow animates its colour — but it goes transparent at rest: a
@@ -469,11 +473,12 @@ $blood: #970000; // our red, for the one mark that must not be missed
       // paint-order outline the earlier passes wore, which was a traced ring
       // of constant width and the loudest "vector" tell on the coin. The
       // last shadow is the lit lower lip of the cut.
-      // The user's own coin is bright enough that dark letters need no halo
-      // to be legible (user call 2026-08-18) — the pale blooms read as a
-      // sticker at size. What is left is the CUT: a lit lower lip and the
-      // faint shadow it casts.
-      filter: drop-shadow(0 0.7px 0 #{$lip}) drop-shadow(0 -0.5px 0.5px rgba(40, 28, 14, 0.45));
+      // The halo is BACK (user call 2026-08-18): it went when the coin was
+      // pale, and the darker coin art needs it again for the name to read.
+      filter: drop-shadow(0 0 1.6px rgba(250, 240, 214, 0.95))
+        drop-shadow(0 0 0.9px rgba(250, 240, 214, 0.95))
+        drop-shadow(0 0 0.6px rgba(250, 240, 214, 0.8))
+        drop-shadow(0 0.9px 0 #{$lip});
       // PiratesBay is what the rest of our chrome is lettered in; upstream's
       // Papyrus stays in assets/fonts, unreferenced
       font-family: "PiratesBay", Georgia, serif;
