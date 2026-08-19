@@ -184,19 +184,22 @@ export default {
       const link = window.location.origin + "/" + this.session.sessionId;
       navigator.clipboard.writeText(link);
     },
+    /**
+     * Deal the assigned characters out to the seated players. No confirm:
+     * starting the game IS the intent, and a native dialog is worse than
+     * redundant here — driven and embedded contexts auto-dismiss it, which
+     * returns false and silently swallows the deal (the same trap FT-852
+     * hit on Leave). (user call 2026-08-18)
+     */
     distributeRoles() {
       if (this.session.isSpectator) return;
-      const popup =
-        "Do you want to distribute assigned characters to all SEATED players?";
-      if (confirm(popup)) {
-        this.$store.commit("session/distributeRoles", true);
-        setTimeout(
-          (() => {
-            this.$store.commit("session/distributeRoles", false);
-          }).bind(this),
-          2000
-        );
-      }
+      this.$store.commit("session/distributeRoles", true);
+      setTimeout(
+        (() => {
+          this.$store.commit("session/distributeRoles", false);
+        }).bind(this),
+        2000
+      );
     },
     imageOptIn() {
       const popup =

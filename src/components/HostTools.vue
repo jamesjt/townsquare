@@ -362,11 +362,11 @@ export default {
       if (modal) modal.loadFromVault(card.id);
     },
     // FT-847 follow-up: relocated from the retired Players toolbar tab.
+    // No confirm: shuffling seats during setup is the point of the button,
+    // and it is undone by pressing it again. (user call 2026-08-18)
     randomizeSeatings() {
       if (this.players.length <= 2) return;
-      if (confirm("Are you sure you want to randomize seatings?")) {
-        this.$store.dispatch("players/randomize");
-      }
+      this.$store.dispatch("players/randomize");
     },
     clearAllPlayers() {
       if (!this.players.length) return;
