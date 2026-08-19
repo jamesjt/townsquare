@@ -26,7 +26,7 @@
       ></div>
     </div>
 
-    <ul class="circle" :class="['size-' + players.length]" ref="circle">
+    <ul class="circle" :class="['size-' + players.length]">
       <Player
         v-for="(player, index) in players"
         :key="index"
@@ -437,60 +437,134 @@ export default {
       const idx = this.demonIndex;
       const seatVm =
         idx >= 0 && this.$refs.players ? this.$refs.players[idx] : null;
-      const seatEl =
-        seatVm && seatVm.$el && seatVm.$el.querySelector(".player .life");
-      const ringEl = this.$refs.circle;
+      const seatLi = seatVm && seatVm.$el;
+      const seatEl = seatLi && seatLi.querySelector(".player .life");
       const rootEl = this.$el;
-      if (!seatEl || !ringEl || !rootEl) {
+      if (!seatLi || !seatEl || !rootEl) {
         this.bluffAnchor = null;
         return;
       }
       const seatRect = seatEl.getBoundingClientRect();
-      const ringRect = ringEl.getBoundingClientRect();
       const rootRect = rootEl.getBoundingClientRect();
-      if (!seatRect.width || !ringRect.width) {
+      if (!seatRect.width) {
         this.bluffAnchor = null;
         return;
       }
       const seatCx = seatRect.left + seatRect.width / 2;
       const seatCy = seatRect.top + seatRect.height / 2;
-      const ringCx = ringRect.left + ringRect.width / 2;
-      const ringCy = ringRect.top + ringRect.height / 2;
-      let dx = seatCx - ringCx;
-      let dy = seatCy - ringCy;
-      const dist = Math.hypot(dx, dy) || 1;
-      dx /= dist;
-      dy /= dist;
+      /**
+       * The seat's own OUTWARD direction, read directly off its <li>'s
+       * rotation — NOT re-derived from the ring's bounding box (an earlier
+       * pass here used seat-centre-minus-ring-bbox-centre, and it pointed
+       * the wrong way for several seats: measured, `.circle`'s box is
+       * WIDER than it is tall, is not centred on the true rotation hub,
+       * and the on-circle mixin's own "move reminders closer to the
+       * sides" per-seat `margin-bottom` means seats are not even
+       * equidistant from that hub — 96px to 126px away across one 15-seat
+       * town. That surfaced as reminder collisions with no radial logic
+       * to them; see claude_temp_test/2026-08-19-bluffs-seat.mjs).
+       *
+       * The mixin rotates each seat's <li> by `((i+1) * 360 / count)deg`
+       * and the seat's own content counter-rotates to stay upright — so
+       * the LI's OWN computed transform matrix is the ring's ground
+       * truth for "which way is outward from this seat", independent of
+       * any box geometry. `matrix(a, b, c, d, e, f)` maps local "straight
+       * up" (0, -1) — the outward direction before rotation, since the
+       * li's un-rotated top edge is the point farthest from the hub — to
+       * screen-space (-c, -d).
+       */
+      let ox = 0;
+      let oy = -1;
+      const matrix = /matrix\(([^)]+)\)/.exec(getComputedStyle(seatLi).transform);
+      if (matrix) {
+        const parts = matrix[1].split(",").map(Number);
+        ox = -parts[2]; // -c
+        oy = -parts[3]; // -d
+      }
+      const odist = Math.hypot(ox, oy) || 1;
+      ox /= odist;
+      oy /= odist;
       // The tangent (perpendicular to outward) — the direction the 3 coins
       // fan ALONG, mirroring how Player.vue's own reminders fan sideways
       // (`--ri`/`--rn`) rather than growing further down the spoke.
-      const tx = -dy;
-      const ty = dx;
+      const tx = -oy;
+      const ty = ox;
       const size = seatRect.width;
       const rootLeft = rootRect.left;
       const rootTop = rootRect.top;
-      // Every offset below is in SEAT-WIDTHS, tuned against the measured
-      // collision table in claude_temp_test/2026-08-19-bluffs-seat.mjs.
-      // RADIAL is deliberately modest: proof requirement #1 allows a bluff
-      // coin to sit ON the demon's own coin (only OTHER seats' coins and
-      // ANY reminder are off limits), so this only needs to clear the
-      // reminder band Player.vue parks at the coin's inner-outer edge
-      // (`margin-top: 66-68%` of the seat's own width) — not the coin
-      // itself. SPREAD is small enough that three coins fan more like a
-      // held hand of cards than a wide row: a full-width row of three
-      // half-size coins measured wider than the ring's own outward slack
-      // at a 15-seat town on a phone (this file's earlier pass).
-      const RADIAL = 0.62;
-      const TITLE_RADIAL = 0.98;
-      const SPREAD = 0.34;
+      /**
+       * How far outward each coin sits is MEASURED per slot, not a fixed
+       * guess: it reads THIS seat's own reminder band (if any, in both
+       * the radial AND tangential directions — see reminderBoxes below)
+       * and clears it, with a margin for the coin's own half-size. A
+       * single hard-coded distance from the seat's centre turned out not
+       * to hold across seats OR across the three fanned slots — the
+       * on-circle mixin nudges each seat's OWN coin within its <li> by a
+       * different amount per seat (`.player { margin-bottom: ... }`,
+       * "move reminders closer to the sides of the circle"), and a
+       * reminder's own sideways fan (Player.vue's `--ri`/`--rn`) only
+       * threatens the SPECIFIC fan slot it lines up with tangentially,
+       * not all three (measured — see the collision table in
+       * claude_temp_test/2026-08-19-bluffs-seat.mjs before this fix).
+       * Reading the actual band sidesteps needing to know why it moves.
+       *
+       * Proof requirement #1 allows a bluff coin to sit ON the demon's own
+       * seat coin (only OTHER seats' coins and ANY reminder are off
+       * limits), so there is no separate "clear the coin itself" term —
+       * only the reminder band, when this seat has one.
+       */
+      // A coin is 0.4 seat-widths square (see the CSS below) — half-width
+      // 0.2, but a corner reaches its half-DIAGONAL, ~0.283, and a
+      // margin pinned exactly to that touches rather than clears (measured
+      // — a 0.24 margin left a 1-2px sliver overlap on a diagonal corner).
+      // 0.36 clears the diagonal with real room to spare.
+      const COIN_HALF = 0.36; // this cluster's own coin, in seat-widths
+      const BASE_RADIAL = 0.5; // a bare coin, nothing to clear
+      const SPREAD = 0.34; // tangential spacing between the 3 fan slots
+      // Each reminder's own footprint, in (tangent, radial) seat-width
+      // units relative to the seat's centre — computed once, reused for
+      // every slot's clearance check below.
+      const reminderBoxes = [];
+      seatLi.querySelectorAll(".reminder:not(.add)").forEach(rEl => {
+        const rRect = rEl.getBoundingClientRect();
+        if (!rRect.width) return;
+        let minT = Infinity;
+        let maxT = -Infinity;
+        let maxR = -Infinity;
+        [
+          [rRect.left, rRect.top],
+          [rRect.right, rRect.top],
+          [rRect.left, rRect.bottom],
+          [rRect.right, rRect.bottom]
+        ].forEach(([cx, cy]) => {
+          const t = ((cx - seatCx) * tx + (cy - seatCy) * ty) / size;
+          const r = ((cx - seatCx) * ox + (cy - seatCy) * oy) / size;
+          minT = Math.min(minT, t);
+          maxT = Math.max(maxT, t);
+          maxR = Math.max(maxR, r);
+        });
+        reminderBoxes.push({ minT, maxT, maxR });
+      });
+      // This slot's own outward distance: BASE_RADIAL, or far enough to
+      // clear every reminder whose tangential footprint reaches into
+      // this slot's own tangential span.
+      const radialFor = tangentCenter => {
+        let radial = BASE_RADIAL;
+        reminderBoxes.forEach(rb => {
+          const overlapsTangentially =
+            tangentCenter - COIN_HALF < rb.maxT && tangentCenter + COIN_HALF > rb.minT;
+          if (overlapsTangentially) radial = Math.max(radial, rb.maxR + COIN_HALF);
+        });
+        return radial;
+      };
       const point = (radial, tangent) => ({
-        left: seatCx - rootLeft + dx * size * radial + tx * size * tangent,
-        top: seatCy - rootTop + dy * size * radial + ty * size * tangent
+        left: seatCx - rootLeft + ox * size * radial + tx * size * tangent,
+        top: seatCy - rootTop + oy * size * radial + ty * size * tangent
       });
       this.bluffAnchor = {
         size,
-        title: point(TITLE_RADIAL, 0),
-        coins: [-1, 0, 1].map(k => point(RADIAL, SPREAD * k))
+        title: point(radialFor(0) + 0.46, 0),
+        coins: [-1, 0, 1].map(k => point(radialFor(SPREAD * k), SPREAD * k))
       };
     },
     /** This bluff slot's own computed centre (see measureBluffAnchor) — null
@@ -1112,19 +1186,29 @@ export default {
     position: absolute;
     transform: translate(-50%, -50%);
     margin: 0;
+    // a hard cap on the PILL itself, not just the text inside it — the
+    // span's own ellipsis (the shared h3 span rule, untouched) only
+    // truncates within room the flex layout actually gives it, and an
+    // absolutely-positioned h3 with no positioned ancestor width has
+    // nothing to constrain it: unchecked, "Demon bluffs" ran wide enough
+    // to sit across the NEXT seat's own name plate (measured, desktop,
+    // 8 seats, demon at index 4 — the crop in claude_temp_test/
+    // 2026-08-19-bluffs-shots/desktop-8seats-demon4-crop.png).
+    max-width: calc(var(--seat-sz, 15vmin) * 1.15);
+    overflow: hidden;
     background: rgba(0, 0, 0, 0.62);
     border-radius: 999px;
     padding: calc(var(--seat-sz, 15vmin) * 0.05)
-      calc(var(--seat-sz, 15vmin) * 0.1);
+      calc(var(--seat-sz, 15vmin) * 0.09);
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-    font-size: calc(var(--seat-sz, 15vmin) * 0.095);
+    font-size: calc(var(--seat-sz, 15vmin) * 0.078);
     white-space: nowrap;
     span {
-      max-width: calc(var(--seat-sz, 15vmin) * 1.7);
+      max-width: calc(var(--seat-sz, 15vmin) * 0.72);
     }
     svg {
-      width: calc(var(--seat-sz, 15vmin) * 0.15);
-      height: calc(var(--seat-sz, 15vmin) * 0.15);
+      width: calc(var(--seat-sz, 15vmin) * 0.14);
+      height: calc(var(--seat-sz, 15vmin) * 0.14);
     }
   }
 

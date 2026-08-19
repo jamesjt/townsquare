@@ -182,7 +182,13 @@
          tree never contains it, so the night order — which names the
          characters in play — is not in their page to be revealed by a missing
          style rule. -->
-    <NightSheet v-if="showNightSheet" />
+    <!-- ref'd so the E key can flip the phase through the sheet's OWN button
+         method (flipPhase) rather than committing the phase mutation itself.
+         That method carries the "require the checklist before the night can
+         end" gate, and anything added to it later — a confirmation, say —
+         covers the key at the same moment it covers the button, because they
+         are one function and not two. -->
+    <NightSheet ref="nightSheet" v-if="showNightSheet" />
     <!-- THE ARMED CHARACTER'S CARD (touch).
          Every hover card in the app declines to appear without a mouse, which
          is right — and left a touch storyteller with nowhere to read what a
@@ -205,8 +211,15 @@
     <TownSquare></TownSquare>
     <!-- The strip's records mark asks for the overlay App already owns, rather
          than keeping a second flag of its own that could disagree with the
-         pill's door. -->
-    <Menu ref="menu" @records="statsOpen = true"></Menu>
+         pill's door. Its key list is the same arrangement. -->
+    <Menu
+      ref="menu"
+      @records="statsOpen = true"
+      @hotkeys="hotkeyHelpOpen = true"
+    ></Menu>
+    <!-- FT-880: the key list. The app has had hotkeys since upstream and has
+         never told anyone; this is the first surface that does. -->
+    <HotkeyHelp v-if="hotkeyHelpOpen" @close="hotkeyHelpOpen = false" />
     <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
          through the same vault path as a ?script= link. -->
     <EditionModal ref="edition" />
@@ -419,6 +432,9 @@ import VoteHistoryModal from "@/components/modals/VoteHistoryModal";
 import GameStateModal from "@/components/modals/GameStateModal";
 import EndGameOverlay from "./components/EndGameOverlay";
 import StatsOverlay from "./components/StatsOverlay";
+// FT-880: the key list — the first surface in the app that says the hotkeys
+// exist. Its contents come from golem/hotkeys, the same table keyup reads.
+import HotkeyHelp from "./components/HotkeyHelp";
 import { markDealt, dealTimeFor } from "./golem/stats";
 // FT-880: the town summons. App owns only the two ends a player sees — the
 // gesture that buys autoplay credit, and the notice when it was not enough.
@@ -452,6 +468,7 @@ export default {
     RoleHoverCard,
     EndGameOverlay,
     StatsOverlay,
+    HotkeyHelp,
     GameStateModal,
     VoteHistoryModal,
     FabledModal,
@@ -587,6 +604,7 @@ export default {
       this.dealAt = dealTimeFor(sessionId);
       this.endGameOpen = false;
       this.statsOpen = false;
+      this.hotkeyHelpOpen = false;
       clearTimeout(this.leaveTimer);
       this.leaveArmed = false;
     }
@@ -643,6 +661,8 @@ export default {
       // the session by the time the root component's data runs).
       endGameOpen: false,
       statsOpen: false,
+      // FT-880: the key list's own flag (the strip's question mark opens it)
+      hotkeyHelpOpen: false,
       dealAt: dealTimeFor(this.$store.state.session.sessionId),
       // FT-852: the pill Leave's two-click arm.
       leaveArmed: false,
@@ -817,49 +837,99 @@ export default {
         this.$store.commit("toggleModal", "scriptDrawer");
       }
     },
+    /**
+     * FT-880: THE KEY TABLE — remapped whole (user's map). The letters and
+     * what they mean are published in golem/hotkeys.js, which is what the help
+     * panel prints, so the map cannot be changed here without the app's own
+     * documentation of it changing too.
+     *
+     * What moved, and why the old letters could not simply stay:
+     *  - G was the seat COINS (upstream's toggleGrimoire / isPublic), which is
+     *    not what the grimoire tab does. G is the drawer now, and the coins —
+     *    which are not being dropped, only rehomed — take R, freed below.
+     *  - E was the edition picker; it is the phase flip now (the day's most
+     *    used action deserves the letter that names it). The edition moved to
+     *    D, still reachable and still host-only.
+     *  - S was the night toggle in a town and the Scripts door outside one; it
+     *    is THE SCRIPT key in both places now, and reads the viewer's role to
+     *    decide which script surface that means.
+     *  - R was the script drawer and N was the first night: R goes to the
+     *    coins, and the night orders become F (first) and N (others).
+     */
     keyup({ key, ctrlKey, metaKey, target }) {
       if (ctrlKey || metaKey) return;
       // Golem fork: keys typed into a field are typing, not hotkeys.
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      const inSession = !!this.session.sessionId;
+      const isHost = inSession && !this.session.isSpectator;
       switch (key.toLocaleLowerCase()) {
         case "g":
+          // the GRIMOIRE DRAWER — the same toggle the drawer's own tab fires,
+          // and gated the same way the tab is (a host, with a town on the
+          // table); the tab is not rendered otherwise and nor is this.
+          if (!isHost || !this.players.length) return;
+          this.$store.commit("toggleModal", "roleDrawer");
+          break;
+        case "r":
+          // the seat COINS face up / face down — upstream's toggleGrimoire,
+          // rehomed off G. Kept, not dropped: it is the only way to turn the
+          // town square face-down, and the menu still lists it.
+          if (!isHost) return;
           this.$store.commit("toggleGrimoire");
           break;
+        case "e":
+          // END THE DAY / END THE NIGHT. Deliberately routed through the night
+          // sheet's own button method, never the phase mutation directly —
+          // see the ref on <NightSheet>. When the sheet is not standing (a
+          // nomination owns the centre, or the town has no seats) there is no
+          // checklist to answer to, and this falls back to the plain flip the
+          // menu has always used.
+          if (!isHost) return;
+          if (this.$refs.nightSheet) this.$refs.nightSheet.flipPhase();
+          else this.$refs.menu.toggleNight();
+          break;
+        case "s":
+          // THE SCRIPT, in whichever sense applies to you: a storyteller (or
+          // anyone standing on the index page with no town) gets the EDITOR;
+          // a player in a town gets the script sheet to read.
+          if (!inSession || isHost) {
+            if (this.$refs.intro) this.$refs.intro.openCreate();
+            else this.$store.commit("toggleModal", "edition");
+            break;
+          }
+          this.openScriptDrawer("team");
+          break;
+        case "f":
+          this.openScriptDrawer("first");
+          break;
+        case "n":
+          this.openScriptDrawer("other");
+          break;
+        case "d":
+          // the edition picker, rehomed off E
+          if (!isHost) return;
+          this.$store.commit("toggleModal", "edition");
+          break;
         case "a":
-          // in-session: upstream's add player (the Scripts door moved to S)
-          if (this.session.sessionId) this.$refs.menu.addPlayer();
+          // in-session: upstream's add player
+          if (inSession) this.$refs.menu.addPlayer();
           break;
         case "h":
           // Golem fork: sessionless routes to the SAME panel the Host door
           // opens (Intro.openHost) — the legacy prompt() path only remains
           // reachable in-session, where it's already a no-op (guarded).
-          if (this.session.sessionId) this.$refs.menu.hostSession();
+          if (inSession) this.$refs.menu.hostSession();
           else if (this.$refs.intro) this.$refs.intro.openHost();
           break;
         case "j":
           // Golem fork: sessionless → Intro.openJoin (the Join door's own
           // panel). In-session, unchanged — joinSession() drives the leave
           // flow there.
-          if (this.session.sessionId) this.$refs.menu.joinSession();
+          if (inSession) this.$refs.menu.joinSession();
           else if (this.$refs.intro) this.$refs.intro.openJoin();
           break;
-        // FT-857: R and N open the ONE script drawer, on their own tab. The
-        // reference / night-order overlays stay mounted; nothing routes there.
-        case "r":
-          this.openScriptDrawer("team");
-          break;
-        case "n":
-          this.openScriptDrawer("first");
-          break;
-        case "e":
-          if (this.session.isSpectator) return;
-          this.$store.commit("toggleModal", "edition");
-          break;
         case "c":
-          if (this.session.isSpectator) return;
-          // In-session: the roles modal, as upstream. (The sessionless
-          // Almanac moved to the A key with the door's rename.)
-          if (!this.session.sessionId) break;
+          if (!isHost) return;
           this.$store.commit("toggleModal", "roles");
           break;
         case "v":
@@ -869,17 +939,8 @@ export default {
             this.$store.commit("toggleModal", "voteDrawer");
           }
           break;
-        case "s":
-          // Golem fork: sessionless, S opens the SCRIPTS door (renamed from
-          // Almanac 2026-08-18); in-session it keeps the night toggle.
-          if (!this.session.sessionId && this.$refs.intro) {
-            this.$refs.intro.openCreate();
-            break;
-          }
-          if (this.session.isSpectator) return;
-          this.$refs.menu.toggleNight();
-          break;
         case "escape":
+          this.hotkeyHelpOpen = false;
           this.$store.commit("toggleModal");
       }
     }

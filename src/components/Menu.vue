@@ -95,6 +95,16 @@
             "
             @click="callTownBack"
           />
+          <!-- FT-880: THE KEYS. Every one of this app's hotkeys has been
+               undiscoverable since upstream — no screen mentions them. This is
+               the door onto the list, and it is last in the row on purpose:
+               it is the one mark here that is never part of running a game,
+               so it sits where the eye stops rather than where it starts. -->
+          <font-awesome-icon
+            icon="question"
+            title="Keys"
+            @click="$emit('hotkeys')"
+          />
         </li>
 
         <template v-if="tab === 'grimoire'">
@@ -103,7 +113,10 @@
           <li @click="toggleGrimoire" v-if="players.length">
             <template v-if="!grimoire.isPublic">Hide</template>
             <template v-if="grimoire.isPublic">Show</template>
-            <em>[G]</em>
+            <!-- FT-880: the coins moved off G (which is the grimoire drawer
+                 now) onto R, and the badge wears the index page's own key
+                 treatment rather than bracketed plain text. -->
+            <em><KeyCap letter="R" /></em>
           </li>
           <!-- Golem fork (2026-08-18, user call): Switch to Night, Select
                Edition, Show Custom Images and Disable Animations left the
@@ -158,11 +171,22 @@
           <!-- FT-857: both entries open the one script drawer, on their tab -->
           <li @click="openScriptDrawer('team')">
             Reference Sheet
-            <em>[R]</em>
+            <!-- FT-880: S is the script key now, but for a HOST it opens the
+                 editor, not this sheet — so this entry claims no letter
+                 rather than promising one that does something else. The
+                 strip's scroll mark is its other door. -->
           </li>
           <li @click="openScriptDrawer('first')">
             Night Order Sheet
-            <em>[N]</em>
+            <em><KeyCap letter="F" /></em>
+          </li>
+          <li @click="openScriptDrawer('other')">
+            Other Nights
+            <em><KeyCap letter="N" /></em>
+          </li>
+          <li @click="$emit('hotkeys')">
+            All keys
+            <em><font-awesome-icon icon="question"/></em>
           </li>
           <li @click="toggleModal('gameState')">
             Game State JSON
@@ -185,8 +209,12 @@ import uiNight from "../assets/ui-night.png";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
 import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
+// FT-880: the index page's key lettering, shared so the menu's badges and the
+// key list print a key the same way.
+import KeyCap from "./KeyCap";
 
 export default {
+  components: { KeyCap },
   computed: {
     ...mapState([
       "grimoire",

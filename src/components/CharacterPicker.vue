@@ -174,6 +174,10 @@ export default {
   align-items: center;
   gap: 5px;
   height: 30px;
+  // FT-882: same fix, same reason as SeatPicker's .sp-trigger — a <button>
+  // sizes to its content, so a squeezed .char-pick left this trigger drawing
+  // outside it. See that file for the measurement. At rest nothing moves.
+  width: 100%;
   max-width: 130px;
   padding: 0 6px;
   font-family: inherit;

@@ -137,6 +137,18 @@ export default {
   align-items: center;
   gap: 5px;
   height: 30px;
+  // FT-882: a <button> sizes to its CONTENT, not to its box, even as a
+  // block-level flex container — so when .seat-pick (which carries
+  // `min-width: 0` precisely so it CAN be squeezed) shrank to 33px inside a
+  // narrow row, this trigger stayed at its full 104px and drew straight over
+  // the picker next to it. Measured in the night sheet's disc layout at
+  // 1280×800; the same overflow was latent anywhere this control is put
+  // under pressure. `width: 100%` makes it follow its parent, and the name
+  // and role lines inside already ellipsize.
+  //
+  // At rest nothing moves: .seat-pick is a content-sized flex item, so 100%
+  // of it IS the content width.
+  width: 100%;
   max-width: 150px;
   padding: 0 6px;
   font-family: inherit;

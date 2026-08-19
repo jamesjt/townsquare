@@ -122,6 +122,19 @@
             </span>
           </div>
 
+          <!-- THE WORKING LINE (FT-882). A wrapper that is INVISIBLE to the
+               layout everywhere it has always worked: `display: contents`
+               makes it generate no box at all, so on the 640px rectangle and
+               on both phone layouts the two children below sit in the row's
+               grid areas exactly as they did before this pass.
+
+               It exists for the DISC, where the band is ~275px of line and
+               the two children have to negotiate: the ability sentence and
+               the controls share one line where they both fit, and the
+               controls drop to a line of their own where they do not. Grid
+               cannot do that — it has no wrap — and a fixed three-line row
+               would charge every row for the two or three that need it. -->
+          <div class="ns-work">
           <!-- THE ANSWER (right zone): what a storyteller records tonight.
                FT-862: this used to be a yes/no toggle on EVERY row — wrong
                for the Undertaker (a character) or the Empath (a number).
@@ -225,6 +238,7 @@
                a different job). The title carries what the ellipsis cuts,
                so nothing said is lost, only hidden until asked for. -->
           <span class="ns-reminder" :title="row.reminder">{{ row.reminder }}</span>
+          </div>
         </li>
       </ul>
 
@@ -539,9 +553,27 @@ export default {
 </script>
 
 <style scoped lang="scss">
+@import "../vars.scss";
+
 // ROW CONTROL HEIGHT CONTRACT: 30px desktop / 44px coarse-pointer — matched
 // by hand in SeatPicker.vue and CharacterPicker.vue's own styles. A change
 // to one changes all three.
+
+// FT-882: the checklist's character names take their TEAM's colour — the
+// same move the script view's card names made earlier today. Built from
+// vars.scss's own team variables rather than a third literal copy of the
+// hexes (ScriptView and EditionModal each carry one); this map points at the
+// source. `fabled` is included where ScriptView omits it: a Fabled can hold
+// a night order, and an uncoloured name in a list where every other name is
+// coloured reads as a bug rather than as a category.
+$ns-team-colors: (
+  "townsfolk": $townsfolk,
+  "outsider": $outsider,
+  "minion": $minion,
+  "demon": $demon,
+  "traveler": $traveler,
+  "fabled": $fabled
+);
 
 // the sheet stands where the build panel stands — same plate, same rules
 .night-sheet {
@@ -750,27 +782,65 @@ export default {
       // that truncates is just a control you cannot use.
       //
       // Total ink is unchanged; only which line each zone sits on moves.
-      // THE SENTENCE GETS A FLOOR. `auto` on the answer track means "as wide
-      // as your content wants", and grid honours that BEFORE it gives a 1fr
-      // track anything — so with a bare `1fr auto` the two-picker rows took
-      // their full 189px and the ability line rendered at zero width. It did
-      // not truncate; it disappeared (shot: pass2-1280x800). 33% is the
-      // floor at which it stops disappearing, and it only binds when the
-      // controls are greedy — a one-control row still gets the whole line.
+      // LINE TWO NEGOTIATES. Two earlier arrangements were measured and both
+      // failed on the same 275px of line:
+      //   · sentence and controls as two GRID tracks (`1fr auto`) — grid
+      //     hands an `auto` track its full max-content before a `1fr` track
+      //     gets anything, so the two-picker rows took their 189px and the
+      //     sentence rendered at zero width. It did not truncate; it
+      //     vanished. (shot: pass2-1280x800)
+      //   · the same two tracks with a floor under the sentence
+      //     (`minmax(33%, 1fr)`) — now the controls take the squeeze, and a
+      //     seat picker squeezed to 33px shows a seat number and nothing
+      //     else. Worse: SeatPicker's trigger is a <button>, which sizes to
+      //     its content rather than to its shrunk parent, so the pickers
+      //     drew ON TOP of one another. (shot: pass3-1280x800, measured in
+      //     2026-08-19-night-disc-overlap.mjs)
+      //
+      // So they WRAP instead. The sentence and the controls sit on one line
+      // wherever both fit, and the controls take a line of their own where
+      // they do not — which at 1280×800 is the four-control rows only, and
+      // at 1920×1080 is none of them. A fixed three-line row would have
+      // charged every row on every screen for the two that need it.
       .ns-row {
-        grid-template-columns: 28px minmax(33%, 1fr) minmax(0, max-content);
+        grid-template-columns: 28px 1fr;
         grid-template-areas:
-          "state identity identity"
-          "state instruct answer";
+          "state identity"
+          "state work";
         column-gap: 8px;
         padding: 6px 2px 7px;
 
-        // the answer SHRINKS rather than wrapping: the pickers carry
-        // `min-width: 0` and ellipsize their own name, so a squeezed one
-        // still shows seat + character icon — where a wrapped one bought
-        // its full name by taking a line off every row on screen
+        .ns-work {
+          grid-area: work;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px 8px;
+          min-width: 0;
+        }
+        // the sentence leads and takes the slack; 130px is the basis the
+        // wrap decision is made against, not a floor it is held to
+        .ns-reminder {
+          order: 0;
+          flex: 1 1 130px;
+        }
+        // …the controls follow it, hard right, on whichever line they end up
+        // on. The WRAP absorbs a crowded row first; only once they have a
+        // whole line to themselves and still do not fit does the shrink
+        // start, and then it lands on the pickers, which ellipsize their
+        // player and role lines and keep the two things that identify a
+        // choice — the seat number and the character icon.
+        // `min-width: 0` is load-bearing, and it was measured: without it
+        // this zone's AUTOMATIC minimum is its own max-content, so a
+        // four-control row sat at its full 335px inside a 275px line and
+        // simply hung out over the rim — flex-shrink never got to run
+        // (2026-08-19-night-disc-overlap.mjs, before/after).
         .ns-answer {
+          order: 1;
+          flex: 0 1 auto;
           flex-wrap: nowrap;
+          min-width: 0;
+          margin-left: auto;
           gap: 5px;
         }
         .ns-label {
@@ -1037,7 +1107,15 @@ export default {
   // child's own opacity cannot escape an ancestor's (the composited result
   // is bounded by the ancestor's alpha regardless), which is exactly the bug
   // this replaces — so the fade targets every child EXCEPT the check.
-  &.done > *:not(.ns-check) {
+  //
+  // FT-882: the fade reaches PAST .ns-work to its two children, and never
+  // lands on .ns-work itself. Two reasons, one for each mode it runs in:
+  // where the wrapper is `display: contents` it generates no box, so an
+  // opacity on it would silently do nothing and a done row would stop
+  // dimming its sentence and controls; where it IS a box (the disc), it
+  // would dim them a second time on top of their own 0.45.
+  &.done > *:not(.ns-check):not(.ns-work),
+  &.done > .ns-work > * {
     opacity: 0.45;
   }
   // FT-874: a row the "end night" button just pointed at — a brief pulse,
@@ -1135,6 +1213,23 @@ export default {
     background: rgba(184, 137, 47, 0.07);
   }
 
+  // FT-882: THE NAME WEARS ITS TEAM. Only the name — the seat after it stays
+  // muted, because colouring both makes the row loud and the character is
+  // the thing being scanned for. This is the row's one piece of colour-as-
+  // data; everything else on the surface (the tick, its outline, the finish
+  // button) is the grimoire's purple, which is chrome. They do not compete:
+  // one says WHAT this is, the other says what you can PRESS.
+  @each $team, $color in $ns-team-colors {
+    &.team-#{$team} .ns-who b {
+      color: $color;
+    }
+  }
+  // the demon's #ce0100 is too dark to hold against this ground — the same
+  // 14% lift ScriptView gives it, for the same reason
+  &.team-demon .ns-who b {
+    color: lighten($demon, 14%);
+  }
+
   .ns-who {
     display: flex;
     flex-direction: column;
@@ -1181,6 +1276,14 @@ export default {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+  }
+
+  // FT-882: the wrapper around the ability sentence and the controls. It
+  // generates NO BOX here — its two children go straight into the row's own
+  // grid areas, so the rectangle and both phone layouts are byte-for-byte
+  // what they were. Only the disc turns it into a real flex line.
+  .ns-work {
+    display: contents;
   }
 
   .ns-answer {
