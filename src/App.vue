@@ -348,11 +348,16 @@ export default {
     rightDrawerOpen() {
       return this.modals.scriptDrawer || this.modals.voteDrawer;
     },
-    // Golem fork: the building phase = hosting live, roles not yet dealt.
+    // Golem fork: the building phase = hosting live, characters not yet dealt.
+    // The deal moment is the DURABLE `dealAt` stash, not session
+    // .isRolesDistributed — upstream sets that flag for two seconds and then
+    // clears it, so gating on it brought the build panel back mid-game a
+    // couple of seconds after Start (user report 2026-08-18).
     showHostTools() {
       return (
         !!this.session.sessionId &&
         !this.session.isSpectator &&
+        !this.dealAt &&
         !this.session.isRolesDistributed
       );
     }
