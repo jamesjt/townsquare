@@ -278,95 +278,110 @@ $face-disc-foot-dy: 14px;
 // inventions.
 //
 // WHAT SHOWS THROUGH, AND WHAT MUST NOT. Under a disc sits the hub — and the
-// hub carries the town readout: script name in display type, the alive/vote
-// counts at 40px, the edition mark. At 0.78 and again at 0.88 — both at the
-// original 7px blur — those read straight through the middle rows. Raising the
-// alpha until they vanish also takes the dial's rose with them, and the rose
-// showing through is the point of laying a disc on a dial. So the BLUR does the
-// separating instead:
-// `backdrop-filter` smears everything behind into a wash, which destroys TEXT
-// (fine strokes, and text is the thing that must not read) while leaving the
-// rose's broad shapes and colour perfectly legible as a ground. Alpha then only
-// has to knock the wash back, not erase it.
+// hub carries the town readout: the script name in display type, the alive and
+// vote counts, the edition mark. None of it may read through, and the rose
+// under it MUST, because the rose showing through is the point of laying a disc
+// on a dial rather than a panel over one.
 //
-// THE COLOUR IS THE GRIMOIRE'S, not parchment's: rgba(20, 16, 22) is the ground
+// THAT SENTENCE USED TO END "so the BLUR does the separating". It does not, and
+// the third pass measured it: blur spreads the readout's leak without removing
+// it, while tint and the selective filters remove it. See the third-pass block
+// below — the correction is the whole reason this material changed.
+//
+// THE COLOUR IS THE GRIMOIRE'S, not parchment's: rgba(26, 20, 33) is the ground
 // RoleDrawer's own controls sit on, a cool purple-black — the book's paper. A
 // warm brown plate would read as a third material on a surface that already has
 // the bronze dial under it and the purple book on it.
 //
-// ── FROSTED WAS NOT GLASS (user, second pass): "it just reads blurred
-//    background instead of glassy now." ──────────────────────────────────────
+// ── THIRD PASS: "the glass still looks like frost, it needs to have less
+//    blur, the glare didn't help." (user) ─────────────────────────────────────
 //
-// That is a DIAGNOSIS, not a preference, and it is right. The first pass bought
-// glassiness the only way a single backdrop-filter can — more blur, less alpha,
-// a little more light — and that recipe has a name: FROSTING. A frosted pane
-// and a glass pane are different materials, and the difference is not how much
-// you can see through the middle. It is the EDGE.
+// Both earlier passes moved the SAME dial in the SAME direction — more blur to
+// buy separation, more painted light to buy glassiness — and both were rejected
+// with the same word. The premise was wrong, and it is nearly definitional:
+// HEAVY BLUR IS FROST. Frosted glass is glass whose surface scatters; scatter
+// is blur. Clear glass transmits an image and barely blurs at all.
 //
-// WHAT MAKES A PANE READ AS GLASS, and none of it happens in the centre:
-//   · a BRIGHT REFRACTED RIM. Light bends through a curved edge and piles up
-//     there, so the boundary is the BRIGHTEST part of the object. A dark
-//     hairline round a dark disc says "hole cut in the page"; a bright band
-//     says "solid thing with a curved edge".
-//   · VISIBLE THICKNESS — a bevel, lit on the side the light comes from and
-//     shadowed opposite. This is what separates an OBJECT with depth from a
-//     translucent hole.
-//   · a SPECULAR STREAK WITH AN EDGE. A soft bloom reads as fog; a streak with
-//     a boundary reads as a reflection off a hard surface.
-//   · what is behind arriving BRIGHTER at the rim than in the middle, because
-//     the edge concentrates light. A uniform brightness() knock-down is the
-//     frosting signature: it flattens the very gradient that says "glass".
+// The research behind this pass is written up in full at
+// mind/episteme/research/2026-08-19/css-glass-material.md. The two numbers that
+// matter: the best-specified CSS "liquid glass" on the open web uses
+// `blur(4px) brightness(150%)` over a 15%-alpha LIGHT tint. This file used
+// `blur(22px) brightness(0.78)` over a 74%-alpha DARK wash. The SIGNS are
+// flipped, not just the magnitudes — it was not under-tuned glass, it was a
+// different material.
 //
-// ── THE THING THAT HAD TO BE MEASURED FIRST ────────────────────────────────
-// The obvious build is a second backdrop-filter on a ring — blur less, brighten
-// and saturate more, out at the rim. IT DOES NOT WORK ON THIS DIAL, and the
-// probe is worth keeping because the reasoning is invisible from the result:
-// `backdrop-filter: brightness(3) saturate(3)` on the rim ring lifted almost
-// nothing (claude_temp_test/2026-08-19-discglass-shots/diag-after-backdrop-
-// crank.png). brightness() is a MULTIPLY, the dial behind the disc's rim is
-// near-black shadow, and three times nearly nothing is nearly nothing.
+// ── WHAT WAS MEASURED, because three passes of eyeballing earned it ─────────
 //
-// So the light at the edge is PAINTED, not filtered. That is the whole design:
-// filters do what filters are good at (destroying text in the middle), and the
-// glass is drawn.
+// 1. THE READOUT LEAK IS NOW A NUMBER. Shoot the same frame twice — readout
+//    live, readout stood down — and the mean pixel difference inside the disc
+//    IS the leak (rig: claude_temp_test/2026-08-19-glass2-leak.mjs). The
+//    shipped 22px frost scores mean 1.5 / peak 9 at 1280x800. That is the bar,
+//    because that material is the one already accepted as concealing.
+//
+// 2. BLUR BARELY BUYS CONCEALMENT. Holding the tint at .72 and taking the blur
+//    from 0.008r to 0.044r — five and a half times — moved the mean leak from
+//    3.41 to 2.86. Holding blur and moving the TINT from .45 to .82 moved it
+//    from 5.35 to 1.94. Blur SPREADS the leak (the peak falls) without
+//    removing it; tint removes it. So the 22px was never buying what it was
+//    justified by. It was buying a smaller peak, and paying in frost.
+//
+// 3. SATURATION IS SELECTIVE, and that is the lever this pass runs on. The
+//    readout is bright, near-achromatic text with black haloes; the dial is
+//    mid-bronze COLOUR. `saturate()` lifts the dial and does nothing at all
+//    for achromatic text — it raises the signal without raising the noise.
+//    `brightness(<1)` and `contrast(<1)` cut the text harder than the dial for
+//    the same reason. Those three, plus tint, do the concealing now.
+//
+// 4. THE DIAL IS DIM, NOT BLACK — correcting what this file used to claim.
+//    Sampled luminance around the bare dial runs median 49 at 0.30r down to 26
+//    at the rim (out of 255). It is also DARKER OUTWARD, so "brighter at the
+//    rim", which is the true physical signature of glass, cannot come from the
+//    backdrop here. That much of the previous pass was right: the edge light
+//    has to be painted. What was wrong was the AMOUNT — a broad, soft,
+//    0.72-alpha glare across the outer half is what a MATT surface does, which
+//    is exactly why "the glare didn't help".
+//
+// ── WHAT SHIPS, AND WHAT LOST ──────────────────────────────────────────────
+// Five materials were rendered side by side over both the night dial and the
+// lit day dial (CONTACT-FIN-*.png in claude_temp_test/2026-08-19-glass2-shots):
+//   W1  least blur (0.010r). Conceals almost as well; the readout's brightest
+//       marks survive as a faint smudge — peak 21 against the bar's 9.
+//   W2  WHAT SHIPS. blur 0.018r, saturate 2.3, contrast .72, brightness .70,
+//       tint .78. Mean leak 1.38 — BETTER than the 22px frost — at a fifth of
+//       the blur. The dial's rose reads through it as structure rather than as
+//       a wash, and the checklist's own rows stay legible over it.
+//   W3  the same with brightness .85. Prettier over the lit dial, and it lets
+//       the blood splat through at night.
+//   W4  tint .62. Plainly leaks — the count glyphs' colours are visible
+//       through the middle rows.
+//   Z   the shipped frost, as the control.
+//
+// ── THE BLUR IS A FRACTION OF THE RADIUS, not a pixel count ────────────────
+// Text stops being readable at a blur that scales with its stroke width, and
+// this app's type scales with the face (--fpx is cqw/cqh-based). A fixed 22px
+// was therefore a different material at every window size. 0.018r is ~3.6px at
+// 1280x800 and ~5px at 1920x1080 — one object, whatever the window.
+//
+// ── THE CONSTRAINT THAT IS STILL DISTORTING THIS ───────────────────────────
+// Everything above is the best material available WHILE THE TOWN READOUT SITS
+// LIT UNDERNEATH. It is not the best material available. With the readout
+// stood down while a disc is open, the tint can fall to ~.35, the contrast and
+// brightness knocks come off entirely, and the disc becomes properly clear
+// glass — photographed, both ways, in
+// claude_temp_test/2026-08-19-glass2-shots/CONTACT-FINAL-build-1920x1080.png
+// (A_clear) against the same frame here. That change belongs to TownInfo.vue
+// or App.vue, neither of which is this file's to touch; it is written up in
+// the FT report as the recommendation, and the numbers above are what it buys.
 //
 // ── HOW THE THREE LAYERS SPLIT THE WORK ────────────────────────────────────
-//   the element  ONE backdrop-filter over the whole disc — the heavy blur that
-//                destroys text. Unchanged in job from the first pass, and this
-//                is where the READABILITY CONSTRAINT lives.
-//   ::before     THE GROUND: a dark wash, heaviest dead centre, gone by the rim.
-//                It is what makes the middle dark WITHOUT darkening the edge —
-//                so "brighter at the rim than in the middle" is true of the
-//                real backdrop, not painted on as a lie.
-//   ::after      THE EDGE: painted light on `screen`, masked to a ring. The
-//                refraction band, the specular arcs, and nothing else.
-//
-// THE READOUT CONSTRAINT HAS NOT MOVED. Under a disc sits the hub: script name
-// in display type, the alive/vote counts at 40px, the edition mark. None of it
-// may be readable. All of it sits dead centre, under the full blur AND the
-// ground's heaviest wash, while the edge work happens from 52% of the radius
-// outward. Re-proved after this pass at 1280x800 and 1920x1080 with the readout
-// live underneath (claude_temp_test/2026-08-19-discglass-shots/readout-*):
-// nothing survives but the blood splat's broad red shape, which is the intent.
-//
-// FOUR STRENGTHS WERE RENDERED SIDE BY SIDE before picking (the variant-* shots
-// in that directory), and the notes are worth keeping because the failure modes
-// are at both ends:
-//   weak    the edge lit but timid — still reads as the frosted plate the user
-//           rejected. This is the control that proves the shipped one is doing
-//           something.
-//   medium  a clear glass rim, but the bevel is polite enough to miss at a
-//           glance on a busy dial.
-//   PLUS    what ships. The rim is unmistakably the brightest thing on the
-//           object, the bevel has real contrast between its lit and shadowed
-//           faces, and the specular still stops at the edge.
-//   strong  the specular blooms inward across the first checklist rows and the
-//           rim goes milky — it stops reading as glass and starts reading as
-//           polished plastic, and it drops the plum for near-white, which
-//           leaves the grimoire's family altogether.
-// The difference between PLUS and strong is NOT brightness, it is where the
-// mask starts: 46% keeps the light on the edge, 36% lets it wash the middle.
-// That boundary is the setting to reach for first if this is ever re-tuned.
+//   the element  ONE backdrop-filter: a LOW blur, saturation up hard, and the
+//                brightness/contrast knock that does the concealing the blur
+//                used to be blamed for.
+//   ::before     THE GROUND: the tint ramp, heaviest dead centre, gone by the
+//                rim. It carries most of the concealment now, and it is what
+//                keeps the edge lighter than the middle.
+//   ::after      THE EDGE: painted light on `screen`, masked to a THIN ring —
+//                85% out, not 46%. A rim, not a glare.
 @mixin face-disc-plate {
   // THE RECTANGLE'S OWN GROUND MUST NOT SURVIVE INTO THE DISC. All these
   // surfaces set an opaque black background on their rectangle rule
@@ -385,22 +400,38 @@ $face-disc-foot-dy: 14px;
   // so the lit edge cannot reach past the disc onto the dial.
   isolation: isolate;
 
-  // THE BLUR, over the whole disc, and it is the readability contract. Text is
-  // fine strokes and fine strokes are the first thing a wash eats, while the
-  // dial's rose keeps its broad shapes. brightness is 0.78 rather than the
-  // first pass's 0.62: the darkening that used to be uniform has moved onto
-  // ::before, where it can be heaviest in the middle and absent at the rim.
-  // saturate 1.55 is what keeps the dial arriving as COLOUR — a desaturated
-  // wash is smoked perspex.
-  backdrop-filter: blur(22px) brightness(0.78) saturate(1.55);
+  // THE FILTER, and every term in it is doing a job the blur used to be
+  // credited with.
+  //
+  //   blur 0.018r  ~3.6px at 1280x800, ~5px at 1920x1080 — a FIFTH of the 22px
+  //                it replaces. A fraction of the radius rather than a pixel
+  //                count, because the type behind it scales with the face.
+  //   saturate 2.3 the selective lever. The readout is near-achromatic text;
+  //                the dial is colour. This lifts the dial and does nothing for
+  //                the text — signal up, noise flat. It is also what stops a
+  //                low-blur pane reading as smoked perspex.
+  //   contrast .72 compresses the readout's white-stroke-on-black-halo edge,
+  //                which is the thing that makes small text legible at all.
+  //   brightness .7 cuts the bright marks harder than the mid-toned dial.
+  //
+  // Measured leak against the frost this replaces (rig:
+  // claude_temp_test/2026-08-19-glass2-leak2.mjs): mean 1.38 vs 1.50. It
+  // conceals BETTER than the 22px did, on a fifth of the blur.
+  backdrop-filter: blur(calc(var(--fd-r) * 0.018)) saturate(2.3) contrast(0.72)
+    brightness(0.7);
+  -webkit-backdrop-filter: blur(calc(var(--fd-r) * 0.018)) saturate(2.3)
+    contrast(0.72) brightness(0.7);
 
   // THE THICKNESS. Two facing bevels, not a ring: a lit face up-and-left where
   // this file's light has always come from, a shadowed one down-and-right. Both
   // are inset shadows on a border-radius:50% box, so each follows the circle and
-  // lands as a CRESCENT, which is how a bevel looks on a round pane. The offsets
-  // are large (9px/11px against a 400px disc) because the first attempt used
-  // 3px/4px and measured out as invisible — on an object this size a bevel has
-  // to be tens of pixels to be a bevel rather than an artefact.
+  // lands as a CRESCENT, which is how a bevel looks on a round pane.
+  //
+  // THEY ARE MUCH TIGHTER THAN THE LAST PASS'S. 26px/28px spreads at -12/-15
+  // put a soft white crescent across the top-left quarter of the pane, and a
+  // soft broad highlight is the signature of a MATT surface — it was part of
+  // what "the glare didn't help" was pointing at. 8px/9px at -5/-6 keeps the
+  // bevel ON the edge, where a bevel is.
   //
   // THE TWO THREADS ARE UNCHANGED IN INTENT. The hairline is the GRIMOIRE'S OWN
   // EDGE — #4b3565, straight off RoleDrawer's `border-right: 1px solid #4b3565`
@@ -410,26 +441,31 @@ $face-disc-foot-dy: 14px;
   // ordering is the physical one, a glass edge meeting its surround in a dark
   // line with the light piled up just inside.
   //
-  // The old inset black vignette is gone entirely. It was the last of the
-  // frosting — a dark ring pulling the eye INWARD, when the whole point of a
-  // glass edge is that the brightness runs the other way. What replaces it
-  // outside the disc is a plum halo, which is the light this thing spills.
+  // The outer halo is pulled back too (32px/0.46 -> 16px/0.30). A wide glow
+  // around a pane reads as the pane EMITTING light, which glass does not do.
   box-shadow:
-    inset 11px 13px 26px -12px rgba(248, 243, 255, 0.95),
-    inset -11px -13px 28px -15px rgba(0, 0, 0, 0.85),
+    inset 4px 5px 8px -5px rgba(250, 246, 255, 0.82),
+    inset -4px -5px 9px -6px rgba(0, 0, 0, 0.7),
     inset 0 0 0 1px #4b3565,
     0 0 0 1px rgba(150, 120, 60, 0.22),
-    0 0 32px rgba(112, 74, 172, 0.46),
-    0 0 32px rgba(0, 0, 0, 0.7);
+    0 0 16px rgba(112, 74, 172, 0.3),
+    0 0 24px rgba(0, 0, 0, 0.66);
 
   // ── THE GROUND ─────────────────────────────────────────────────────────────
-  // The dark wash that makes the middle unreadable, and it is a RAMP: full
-  // strength dead centre, gone by the rim. No mask — the gradient's own alpha
-  // does it, which is one moving part fewer.
+  // The tint ramp: full strength dead centre, gone by the rim. No mask — the
+  // gradient's own alpha does it, which is one moving part fewer.
   //
-  // This layer is why "brighter at the rim" is true rather than painted. The
-  // backdrop is equally lit all the way across; what changes is how much of
-  // this wash sits on top of it.
+  // THIS LAYER IS NOW THE CONCEALMENT, and that is the whole reframe of this
+  // pass. The measured frontier says tint removes the readout's leak and blur
+  // only spreads it, so the job moved here off the backdrop-filter — which is
+  // what let the blur come down by a factor of five. A tint is glass's own
+  // property (this is smoked glass, and smoked glass is glass); a smear is not.
+  //
+  // It is also why the edge is lighter than the middle. The backdrop is equally
+  // lit all the way across; what changes is how much of this sits on top of it.
+  //
+  // The colour is unchanged and deliberately so: rgba(26, 20, 33) is the
+  // grimoire's cool purple-black, the ground RoleDrawer's own controls sit on.
   &::before {
     content: "";
     position: absolute;
@@ -439,31 +475,38 @@ $face-disc-foot-dy: 14px;
     pointer-events: none;
     background: radial-gradient(
       circle at 50% 46%,
-      rgba(28, 22, 32, 0.74) 0%,
-      rgba(21, 16, 24, 0.74) 50%,
-      rgba(17, 13, 20, 0.62) 78%,
-      rgba(14, 10, 17, 0.26) 92%,
-      rgba(12, 9, 15, 0) 100%
+      rgba(26, 20, 33, 0.78) 0%,
+      rgba(26, 20, 33, 0.741) 55%,
+      rgba(26, 20, 33, 0.484) 80%,
+      rgba(17, 13, 23, 0) 100%
     );
   }
 
   // ── THE EDGE ───────────────────────────────────────────────────────────────
-  // Painted light, on `screen`, masked to the outer half. `screen` rather than
+  // Painted light, on `screen`, masked to a THIN ring. `screen` rather than
   // `plus-lighter`: it lifts a dark ground almost as hard, it cannot blow out,
   // and it does not need a browser from the last two years.
   //
-  // THE REFRACTION BAND is the plum one and it is the brightest thing on the
-  // object — deliberately, because "the boundary is the brightest part" IS the
-  // diagnosis. It is a lightened #4b3565 rather than a white: this is the
-  // grimoire's own edge catching light, not a chrome ring. It ramps from 58%
-  // so the rim has THICKNESS; the first attempt confined it to the outer 12%
-  // and it read as a hairline, which is the failure it was meant to fix.
+  // THE WHOLE TREATMENT MOVED OUTWARD, and that is what "the glare didn't help"
+  // was asking for. The mask used to open at 46% of the radius, which put
+  // painted light across more than three quarters of the pane's AREA — a broad
+  // soft highlight, which is what a matt surface does. It now opens at 85%.
+  // Same light, an eighth of the area, and it reads as a rim instead of a haze.
+  //
+  // THE REFRACTION BAND is the plum one and it is still the brightest thing on
+  // the object — that part of the diagnosis was right, and the measured dial
+  // (darker at the rim than the middle) says it has to be painted rather than
+  // filtered. It is a lightened #4b3565 rather than a white: the grimoire's own
+  // edge catching light, not a chrome ring. It now ramps from 89% rather than
+  // 58%, so it is a rim with thickness rather than a band across the outer half.
   //
   // THE SPECULAR IS A CONIC, and that is the point: hard angular stops give the
   // streak a BOUNDARY. The long one rides the upper-left arc where the bevel is
   // lit, so the two agree about where the light is; the short one opposite is
   // that light wrapping round the far edge — the detail that stops a lit ring
-  // reading as a ring painted on and makes it read as a round solid thing.
+  // reading as a ring painted on and makes it read as a round solid thing. Both
+  // are dimmer than the last pass (0.72 -> 0.44 at the peak): with the mask
+  // this tight they no longer have to shout to be seen.
   &::after {
     content: "";
     position: absolute;
@@ -474,41 +517,38 @@ $face-disc-foot-dy: 14px;
     mix-blend-mode: screen;
     background:
       conic-gradient(
-          from 288deg at 50% 50%,
-          rgba(240, 234, 255, 0) 0deg,
-          rgba(240, 234, 255, 0.44) 10deg,
-          rgba(254, 251, 255, 0.72) 22deg,
-          rgba(234, 225, 255, 0.32) 36deg,
-          rgba(234, 225, 255, 0) 52deg,
-          rgba(234, 225, 255, 0) 156deg,
-          rgba(218, 205, 248, 0.3) 180deg,
-          rgba(218, 205, 248, 0) 206deg,
-          rgba(234, 225, 255, 0) 360deg
+          from 292deg at 50% 50%,
+          rgba(238, 232, 255, 0) 0deg,
+          rgba(246, 241, 255, 0.3) 8deg,
+          rgba(252, 249, 255, 0.44) 15deg,
+          rgba(238, 232, 255, 0.14) 25deg,
+          rgba(238, 232, 255, 0) 35deg,
+          rgba(238, 232, 255, 0) 172deg,
+          rgba(214, 200, 246, 0.19) 189deg,
+          rgba(214, 200, 246, 0) 205deg,
+          rgba(238, 232, 255, 0) 360deg
         ),
       radial-gradient(
         circle at 50% 50%,
-        rgba(122, 90, 176, 0) 52%,
-        rgba(122, 90, 176, 0.22) 72%,
-        rgba(162, 124, 220, 0.46) 87%,
-        rgba(216, 193, 252, 0.78) 96%,
-        rgba(230, 216, 255, 0.58) 99.5%,
-        rgba(230, 216, 255, 0) 100%
+        rgba(140, 104, 196, 0) 89%,
+        rgba(168, 130, 224, 0.3) 95.5%,
+        rgba(214, 192, 250, 0.62) 98.7%,
+        rgba(226, 212, 255, 0.42) 99.7%,
+        rgba(226, 212, 255, 0) 100%
       );
-    // The specular has to be a streak on the EDGE, not a wedge across the whole
-    // pane, so the conic is cut back to the outer half. 52% is where the band
-    // starts too — one boundary for the whole edge treatment.
+    // 85% is the number to reach for first if this is ever re-tuned: it is the
+    // boundary between "a rim" and "a glare", and the two rejected passes both
+    // sat inside it.
     -webkit-mask-image: radial-gradient(
       circle at 50% 50%,
-      transparent 46%,
-      rgba(0, 0, 0, 0.5) 66%,
-      #000 82%,
+      transparent 85%,
+      #000 93.5%,
       #000 100%
     );
     mask-image: radial-gradient(
       circle at 50% 50%,
-      transparent 46%,
-      rgba(0, 0, 0, 0.5) 66%,
-      #000 82%,
+      transparent 85%,
+      #000 93.5%,
       #000 100%
     );
   }
