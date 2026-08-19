@@ -6,20 +6,29 @@
   <div class="endgame-overlay" @click="$emit('close')">
     <div class="panel" @click.stop>
       <h3>Who won?</h3>
+      <!-- FT-889 follow-up: the choices wear the fork's own team art
+           (golem/glyphs, the same glyphs TownInfo's counts and the build
+           panel's composition row use) instead of bare text on a flat
+           colour — the icon is the point of the control, the word confirms
+           it. Good stands for the townsfolk glyph, evil for the demon
+           glyph, mirroring TownSquare's own "demon is the evil seat"
+           convention (demonIndex). -->
       <div class="button-group">
         <div
-          class="button townsfolk"
+          class="choice good"
           :class="{ disabled: busy }"
           @click="record('good')"
         >
-          Good
+          <img class="choice-icon" :src="goodGlyph" alt="" />
+          <span class="choice-label">Good</span>
         </div>
         <div
-          class="button demon"
+          class="choice evil"
           :class="{ disabled: busy }"
           @click="record('evil')"
         >
-          Evil
+          <img class="choice-icon" :src="evilGlyph" alt="" />
+          <span class="choice-label">Evil</span>
         </div>
       </div>
       <div class="cancel" @click="$emit('close')">cancel</div>
@@ -30,6 +39,10 @@
 <script>
 import { recordGame, dealTimeFor, clearDealt } from "../golem/stats";
 import { flashHint } from "../golem/hint";
+// the fork's own team art — one definition of "the glyph for team X",
+// already worn by TownInfo's counts, HostTools' composition row, RoleDrawer's
+// group headers and EditionModal's team toggles/picker.
+import { teamGlyph } from "../golem/glyphs";
 
 /** The five role classes the stats server records. The app spells the
  *  travelling folk "traveler"; the BotC taxonomy (and the server enum)
@@ -45,7 +58,12 @@ const ROLE_TYPES = {
 export default {
   data() {
     return {
-      busy: false
+      busy: false,
+      // resolved once — the glyphs are static per team, not per role, so
+      // there is nothing to recompute on every render (unlike roleIcon,
+      // which resolves per-role art)
+      goodGlyph: teamGlyph("townsfolk"),
+      evilGlyph: teamGlyph("demon")
     };
   },
   mounted() {
@@ -127,6 +145,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// the two team colours this panel wears — the same variables HostTools'
+// composition row and TownInfo's counts read, not a hard-coded blue/red.
+@import "../vars.scss";
+
 .endgame-overlay {
   position: fixed;
   top: 0;
@@ -142,7 +164,9 @@ export default {
   .panel {
     text-align: center;
     padding: 15px 30px;
-    background: rgba(0, 0, 0, 0.75);
+    // 0.9, matching Intro's host/join panel (this app's other "one question,
+    // a choice, a way out" dialog) rather than this file's previous 0.75
+    background: rgba(0, 0, 0, 0.9);
     border: 3px solid black;
     border-radius: 10px;
     box-shadow: 0 0 10px black;
@@ -151,12 +175,89 @@ export default {
       margin-bottom: 8px;
     }
 
-    .button {
-      min-width: 90px;
+    .button-group {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin: 4px 0 2px;
+    }
+
+    // FT-889 follow-up: a dark plate with a team-coloured edge and a glowing
+    // glyph — EditionModal's wb-team-toggle shape (icon over a count, on a
+    // rgba(0,0,0,0.45) plate), sized up because here the icon IS the answer,
+    // not a count label beside it.
+    .choice {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-width: 96px;
+      padding: 14px 16px 10px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      cursor: pointer;
+      transition:
+        background 150ms,
+        border-color 150ms;
+
+      .choice-icon {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+      }
+      // PiratesBay + letter-spacing: the primary-action label idiom (the
+      // build panel's Start button, the night checklist's phase-flip button)
+      .choice-label {
+        font-family: PiratesBay, sans-serif;
+        letter-spacing: 1px;
+        font-size: 105%;
+      }
+
+      // team-coloured border + glyph glow — RoleDrawer's per-team section
+      // border (rgba($color, 0.55)) and TownInfo/HostTools' glyph glow
+      // (drop-shadow(0 0 4px rgba($color, 0.8))), the same recipe both
+      // already use for "this readout belongs to team X".
+      &.good {
+        border-color: rgba($townsfolk, 0.55);
+        .choice-label {
+          color: $townsfolk;
+        }
+        .choice-icon {
+          filter: drop-shadow(0 0 4px rgba($townsfolk, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+        &:hover:not(.disabled) {
+          background: rgba($townsfolk, 0.18);
+          border-color: rgba($townsfolk, 0.85);
+        }
+      }
+      &.evil {
+        border-color: rgba($demon, 0.55);
+        .choice-label {
+          color: $demon;
+        }
+        .choice-icon {
+          filter: drop-shadow(0 0 4px rgba($demon, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+        &:hover:not(.disabled) {
+          background: rgba($demon, 0.18);
+          border-color: rgba($demon, 0.85);
+        }
+      }
+
+      // visual-only, matching the panel's previous behaviour: the click
+      // still lands, record() itself guards on busy (see the script block)
+      &.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
     }
 
     .cancel {
-      margin-top: 6px;
+      margin-top: 10px;
       opacity: 0.6;
       font-size: 80%;
       cursor: pointer;
