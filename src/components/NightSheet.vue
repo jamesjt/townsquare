@@ -39,10 +39,14 @@
     <!-- ── the checklist ─────────────────────────────────────────────────── -->
     <template v-if="showList">
       <!-- FT-874: labelled — a bare "0 / 4" floated with no context once the
-           phase word itself moved to the public readout (FT-862). -->
+           phase word itself moved to the public readout (FT-862).
+           FT-882: "Night Checklist:" lost its first word, because the day
+           control that landed beside it says "Night" already and the pair
+           was saying it twice on one line. The context FT-874 added is
+           intact — it just stopped being said twice. -->
       <div class="phase" v-if="roster.length">
         <span class="phase-progress"
-          ><span class="pp-label">Night Checklist:</span>
+          ><span class="pp-label">Checklist:</span>
           {{ progress.done }} / {{ progress.total }}</span
         >
         <!-- FT-882: THE DAY IS EDITABLE, and this is the whole of the undo
@@ -143,6 +147,44 @@
                 believes they are the {{ row.shownRole.name }}
               </small>
             </span>
+
+            <!-- FT-882: SCRUB THIS ROW FROM THE LOG. Present only once there
+                 IS something logged against it (`hasEntry`), so a fresh
+                 night carries no delete buttons at all and the control turns
+                 up exactly where a mistake was made.
+
+                 It sits on the IDENTITY line, hard right, and not with the
+                 answer controls where it started. Measured at 1280×800: down
+                 there it cost the crowded rows 35px of a 275px line and
+                 squeezed two seat pickers past the point of reading
+                 (shot: final-1280x800). Up here the line has slack going
+                 spare, and the placement is truer anyway — this is
+                 administration of the row, not an answer recorded on it. The
+                 gap between the name and the button is what keeps it from
+                 reading as "delete this player".
+
+                 It removes the ENTRY, not its contents: the row goes back to
+                 never-having-been-touched, which is a state the log already
+                 models (a row is born on its first write — see night/write)
+                 rather than a blanked ghost that still counts as a row. The
+                 tick goes with it, because the tick lives on the entry.
+
+                 There is no undo behind it — that is the design, not an
+                 oversight — so it asks first. A confirm is proportionate
+                 HERE and was not on the phase button: ending a phase happens
+                 every few minutes, deleting a record almost never. -->
+            <button
+              v-if="hasEntry(row)"
+              type="button"
+              class="ns-erase"
+              title="Delete what is logged for this row — this cannot be undone"
+              @click="eraseRow(row)"
+            >
+              <!-- trash-ALT: the icon set main.js already registers. The
+                   plain `trash` is not in that list and adding it would mean
+                   editing a file another lane is holding. -->
+              <font-awesome-icon icon="trash-alt" />
+            </button>
           </div>
 
           <!-- THE WORKING LINE (FT-882). A wrapper that is INVISIBLE to the
@@ -253,36 +295,6 @@
                   :icon="entryFor(row).isFalseInfo ? 'check-square' : 'square'"
                 />
               </span>
-
-              <!-- FT-882: SCRUB THIS ROW FROM THE LOG. Present only once
-                   there IS something logged against it (`hasEntry`), so a
-                   fresh night carries no delete buttons at all and the
-                   control appears exactly where a mistake was made.
-
-                   It removes the ENTRY, not its contents: the row goes back
-                   to never-having-been-touched, which is the state the log
-                   is designed around (a row is born on its first write —
-                   see night/write) rather than a blanked ghost that still
-                   counts as a row. It also clears the row's tick, because
-                   the tick lives on the entry.
-
-                   There is no undo behind it — that is the design, not an
-                   oversight — so it asks first. A confirm is proportionate
-                   HERE and was not on the phase button: ending a phase
-                   happens every few minutes, deleting a record almost
-                   never. -->
-              <button
-                v-if="hasEntry(row)"
-                type="button"
-                class="ns-erase"
-                title="Delete what is logged for this row — this cannot be undone"
-                @click="eraseRow(row)"
-              >
-                <!-- trash-ALT: the icon set main.js already registers. The
-                     plain `trash` is not in that list and adding it would
-                     mean editing a file another lane is holding. -->
-                <font-awesome-icon icon="trash-alt" />
-              </button>
             </div>
 
             <!-- FT-874: ONE line, truncated — a storyteller is SCANNING a
@@ -756,10 +768,17 @@ $ns-team-colors: (
   // rows; .21 is the measured settlement — see the FT-882 report for the
   // widths this lands at on each viewport.
   //
-  // The floor: below ~1000×700 the face itself is small enough that the
-  // inscribed band stops being a readable column, so a small desktop window
-  // keeps the 640px rectangle above rather than getting an unreadable disc.
-  @media (pointer: fine) and (min-width: 1000px) and (min-height: 700px) {
+  // THE FLOOR, and it is measured rather than guessed. Below it a small
+  // desktop window keeps the 640px rectangle above rather than getting an
+  // unreadable disc. Two things set it:
+  //   · the band stops being a readable column as the face shrinks;
+  //   · the header's contents do NOT shrink with the disc — "Checklist: 0/11"
+  //     plus the day scrub is a fixed ~263px — and the arc above the band
+  //     closes in faster than that. At 780px of window height the safe width
+  //     where the header's top edge sits is ~280px; below roughly 760 it
+  //     crosses under the header's own width and the scrub starts poking
+  //     through the rim.
+  @media (pointer: fine) and (min-width: 1000px) and (min-height: 780px) {
     &.has-list {
       --ns-r: calc(var(--face-r, 238) * var(--fpx, 1px));
       --ns-d: calc(2 * var(--ns-r));
@@ -835,11 +854,20 @@ $ns-team-colors: (
       // whichever pole it sits closer to, and its far corners then poke out
       // through the circle (where `overflow: hidden` quietly shears them).
       // So every basis below is stated, and none of them flex.
+      // THE HEADER IS NARROWER THAN THE BAND, and it has to be. It sits at
+      // the BOTTOM of the top cap, so the arc that bounds it is the one at
+      // its content's TOP edge — about 30px higher than the band line, where
+      // the circle has already closed in. Measured at 1280×800 (FT-882): the
+      // band is 344.7px there but only 288px is safe at that height, and a
+      // header laid out to the full band pushed the day scrub's corner
+      // 14px outside the disc. 1.3r clears it at every size in range, and
+      // the 2px bottom padding buys back most of what the check costs by
+      // sitting the row lower.
       > .phase {
         flex: 0 0 var(--ns-caph);
-        width: var(--ns-band);
+        width: calc(1.3 * var(--ns-r));
         align-items: flex-end;
-        padding: 0 0 8px;
+        padding: 0 0 2px;
       }
 
       > .ns-rows {
@@ -1086,12 +1114,32 @@ $ns-team-colors: (
   .ns-day {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     margin-left: 14px;
     font-size: 90%;
     letter-spacing: 0.5px;
     .pp-label {
       opacity: 0.65;
+    }
+  }
+
+  // The scrub's row-control width (52px) centres a single digit far enough
+  // from the word beside it that "Night      1" read as two separate things
+  // rather than one label (shot: final-1280x800). Narrowed for THIS use only
+  // — a row control still gets the shared 52px, because there it sits in a
+  // line of same-width boxes. Two digits still fit at 34px.
+  //
+  // Nested under `.phase` on purpose, and NOT written out as
+  // `.phase .ns-day …` here — that compiles to `.phase .phase .ns-day …`,
+  // which matches nothing (found by measuring: the box stayed 52px). The
+  // one inherited `.phase` is what puts this ahead of NumberScrub's own
+  // `.num-scrub-box.night`, which is otherwise an exact specificity tie
+  // decided by whichever stylesheet happens to be emitted last.
+  .ns-day .num-scrub-box {
+    width: 34px;
+    padding: 0 4px;
+    @media (pointer: coarse) {
+      width: 46px;
     }
   }
 }
@@ -1534,6 +1582,9 @@ $ns-team-colors: (
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    // hard right of the identity line, with the row's own empty space
+    // between it and the player's name
+    margin-left: auto;
     cursor: pointer;
     opacity: 0.4;
     font-size: 12px;
