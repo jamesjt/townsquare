@@ -583,7 +583,13 @@ export default {
   min-width: 0;
   padding: 5px 6px;
   font-family: inherit;
-  font-size: 13px;
+  // a <button> does not inherit font-size on its own (Chrome's UA default is
+  // its own fixed control size, ~13.3px) — this was implicit before only
+  // because the button carried its own literal `font-size: 13px`. `.nm`'s
+  // 92% below needs the REAL ambient size to land on the player script
+  // view's number, so this makes the inheritance explicit instead of
+  // accidental.
+  font-size: inherit;
   color: inherit;
   text-align: left;
   background: none;
@@ -591,15 +597,25 @@ export default {
   border-radius: 5px;
   cursor: pointer;
 
+  // Borrowed, not invented (user call): the icon and name here are the
+  // player script view's own sizes (ScriptView.vue's `.wb-card` row, as it
+  // actually renders in the script drawer's default 400px width — the
+  // `.wb-main.narrow` variant). Icon 26px -> 44px, name 13px/normal ->
+  // 92%/bold, which computes to the same 21.2px this app's compounded
+  // root em (body's 23.04px) already gives `.wb-card-name`. `align-items:
+  // center` above centers the name against the icon on its own — growing
+  // both together keeps that true, it does not need re-deriving.
   .icon {
-    width: 26px;
-    height: 26px;
+    width: 44px;
+    height: 44px;
     flex: none;
-    background-size: contain;
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
   }
   .nm {
+    font-size: 92%;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
