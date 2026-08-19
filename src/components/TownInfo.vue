@@ -19,49 +19,47 @@
         {{ edition.name }}
         {{ edition.author ? "by " + edition.author : "" }}
       </span>
-      <span>
-        {{ players.length }} <font-awesome-icon class="players" icon="users" />
+      <!-- Golem fork: our own count art (golem/glyphs), not Font Awesome —
+           the town, the living, the dead, the votes those hands can cast. -->
+      <span title="In the town">
+        {{ players.length }}
+        <img class="count-icon" :src="countIcons.town" alt="players" />
       </span>
-      <span>
+      <span title="Alive">
         {{ teams.alive }}
-        <font-awesome-icon class="alive" icon="heartbeat" />
+        <img class="count-icon" :src="countIcons.alive" alt="alive" />
       </span>
-      <span>
-        {{ teams.votes }} <font-awesome-icon class="votes" icon="vote-yea" />
+      <span title="Dead">
+        {{ teams.dead }}
+        <img class="count-icon" :src="countIcons.dead" alt="dead" />
+      </span>
+      <span title="Votes available">
+        {{ teams.votes }}
+        <img class="count-icon" :src="countIcons.votes" alt="votes" />
       </span>
     </li>
     <li v-if="players.length - teams.traveler >= 5">
-      <span>
+      <!-- the composition, in the same team art the drawer and the script
+           workbench wear (golem/glyphs) -->
+      <span title="Townsfolk">
         {{ teams.townsfolk }}
-        <font-awesome-icon class="townsfolk" icon="user-friends" />
+        <img class="team-glyph" :src="teamGlyph('townsfolk')" alt="townsfolk" />
       </span>
-      <span>
+      <span title="Outsiders">
         {{ teams.outsider }}
-        <font-awesome-icon
-          class="outsider"
-          :icon="teams.outsider > 1 ? 'user-friends' : 'user'"
-        />
+        <img class="team-glyph" :src="teamGlyph('outsider')" alt="outsiders" />
       </span>
-      <span>
+      <span title="Minions">
         {{ teams.minion }}
-        <font-awesome-icon
-          class="minion"
-          :icon="teams.minion > 1 ? 'user-friends' : 'user'"
-        />
+        <img class="team-glyph" :src="teamGlyph('minion')" alt="minions" />
       </span>
-      <span>
+      <span title="Demons">
         {{ teams.demon }}
-        <font-awesome-icon
-          class="demon"
-          :icon="teams.demon > 1 ? 'user-friends' : 'user'"
-        />
+        <img class="team-glyph" :src="teamGlyph('demon')" alt="demons" />
       </span>
-      <span v-if="teams.traveler">
+      <span v-if="teams.traveler" title="Travellers">
         {{ teams.traveler }}
-        <font-awesome-icon
-          class="traveler"
-          :icon="teams.traveler > 1 ? 'user-friends' : 'user'"
-        />
+        <img class="team-glyph" :src="teamGlyph('traveler')" alt="travellers" />
       </span>
       <span v-if="grimoire.isNight">
         Night phase
@@ -74,8 +72,14 @@
 <script>
 import gameJSON from "./../game";
 import { mapState } from "vuex";
+// Golem fork: the fork's own icon art, defined once (golem/glyphs) and shared
+// with the role drawer, the script workbench and the edition modal.
+import { COUNT_ICONS, teamGlyph } from "../golem/glyphs";
 
 export default {
+  data() {
+    return { countIcons: COUNT_ICONS };
+  },
   computed: {
     teams: function() {
       const { players } = this.$store.state.players;
@@ -85,6 +89,7 @@ export default {
         ...gameJSON[nonTravelers - 5],
         traveler: players.length - nonTravelers,
         alive,
+        dead: players.length - alive,
         votes:
           alive +
           players.filter(
@@ -94,6 +99,9 @@ export default {
     },
     ...mapState(["edition", "grimoire"]),
     ...mapState("players", ["players"])
+  },
+  methods: {
+    teamGlyph
   }
 };
 </script>

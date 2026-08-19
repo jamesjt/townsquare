@@ -50,23 +50,18 @@
 
     <!-- night order, reminder count and setup, set into the wheel -->
     <svg viewBox="0 0 150 150" class="marks" v-if="hasMarks">
-      <path
-        v-if="role.firstNight || role.firstNightReminder"
-        class="mark moon"
-        :d="firstNightMoon"
-      />
-      <path
-        v-if="role.otherNight || role.otherNightReminder"
-        class="mark moon"
-        :d="otherNightMoon"
-      />
-      <circle
-        v-for="(stud, i) in reminderStuds"
-        :key="'stud' + i"
-        class="mark stud"
-        :cx="stud.x"
-        :cy="stud.y"
-        r="2.9"
+      <!-- ONE phase at top centre says when this character wakes (user call
+           2026-08-18): a crescent for the first night, the rest of that moon
+           for later nights, the full moon for both. It takes the spot the
+           reminder studs held — the studs' computed stays below, unused. -->
+      <image
+        v-if="nightPhase"
+        class="mark phase"
+        :href="nightPhase"
+        :x="PHASE_X"
+        :y="PHASE_Y"
+        :width="PHASE_W"
+        :height="PHASE_W"
       />
       <template v-if="role.setup">
         <path class="mark setting" :d="setupLozenge.bezel" />
@@ -110,6 +105,9 @@ import { mapState } from "vuex";
 // FT-858: THE role hover card, shared with the Almanac workbench's shelf and
 // the grimoire drawer.
 import RoleHoverCard from "./RoleHoverCard";
+import moonFirst from "../assets/moon-first.png";
+import moonOther from "../assets/moon-other.png";
+import moonFull from "../assets/moon-full.png";
 
 // how long the cursor has to rest on a coin before its card appears —
 // enough that sweeping across the square does not strobe cards
@@ -125,6 +123,10 @@ const CY = 75;
 // the marks sit just INSIDE the gold hairline rather than in the ring, which
 // is where they fit and where upstream's leaves read from.
 const MARK_R = 67.5;
+// the phase mark, centred on the top of the wheel just inside the hairline
+const PHASE_W = 15;
+const PHASE_X = (CX - PHASE_W / 2).toFixed(2);
+const PHASE_Y = (CY - MARK_R - PHASE_W / 2 + 2).toFixed(2);
 const RAD = Math.PI / 180;
 
 /**
@@ -184,6 +186,19 @@ export default {
     }
   },
   computed: {
+    /**
+     * When this character wakes, as one moon: a crescent for the first night,
+     * the rest of that moon for later nights, the full moon for both. (user
+     * call 2026-08-18 — it took the reminder studs' place at top centre.)
+     */
+    nightPhase: function() {
+      const first = !!(this.role.firstNight || this.role.firstNightReminder);
+      const other = !!(this.role.otherNight || this.role.otherNightReminder);
+      if (first && other) return moonFull;
+      if (first) return moonFirst;
+      if (other) return moonOther;
+      return null;
+    },
     /**
      * How many reminder tokens this role puts on the board — the count the
      * studs across the top of the wheel report.
@@ -265,7 +280,11 @@ export default {
     return {
       // the coin element the hover card is pinned to, once the cursor has
       // rested on it; null while nothing is showing
-      cardAnchor: null
+      cardAnchor: null,
+      // the phase mark's geometry, exposed for the template
+      PHASE_W,
+      PHASE_X,
+      PHASE_Y
     };
   },
   beforeDestroy() {
@@ -336,7 +355,11 @@ $blood: #970000; // our red, for the one mark that must not be missed
   // black hoop drawn round a toothed wheel closes the silhouette back into
   // a circle and throws the gear away.
   border: 3px solid transparent;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  // A box-shadow follows the BOX (a circle, here) and so drew a dark ring
+  // that showed past the coin's teeth — the "something peeking from behind
+  // the disc" (user report 2026-08-18). drop-shadow follows the art's own
+  // alpha, teeth included.
+  filter: drop-shadow(0 0 7px rgba(0, 0, 0, 0.55));
   cursor: pointer;
   display: flex;
   align-items: center;

@@ -31,7 +31,9 @@
       <!-- the role's tags as chips (team rides the border, so it stays off
            the chips) -->
       <span class="tip-chips" v-if="shownChips.length">
-        <span class="tip-chip" v-for="c in shownChips" :key="c">{{ c }}</span>
+        <span class="tip-chip" v-for="c in shownChips" :key="c.label">
+          <img class="chip-mark" v-if="c.icon" :src="c.icon" alt="" />{{ c.label }}
+        </span>
       </span>
     </span>
   </div>
@@ -41,6 +43,11 @@
 import { mapState } from "vuex";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
+import { EDITION_ICONS, edCustom } from "../golem/editionArt";
+import moonFirst from "../assets/moon-first.png";
+import moonOther from "../assets/moon-other.png";
+import moonFull from "../assets/moon-full.png";
+import setupGlyph from "../assets/blood/demon-glyph.png";
 
 // Which official roles came from where — the same labels the workbench's tag
 // filter uses, so a chip reads identically on both surfaces.
@@ -123,7 +130,11 @@ export default {
       }
     },
     shownChips() {
-      return this.chips === null ? this.derivedChips : this.chips;
+      if (this.chips === null) return this.derivedChips;
+      // consumers may pass plain strings; the card draws {label, icon}
+      return this.chips.map(c =>
+        typeof c === "string" ? { label: c, icon: null } : c
+      );
     },
     /**
      * What is provable about the role from the role alone: where it came
@@ -134,9 +145,11 @@ export default {
     derivedChips() {
       const r = this.role;
       const out = [];
-      if (EDITION_LABELS[r.edition]) out.push(EDITION_LABELS[r.edition]);
-      else if (LUF_ROLES.has(r.id)) out.push("Laissez un Faire");
-      else if (OFFICIAL_IDS.has(r.id)) out.push("Experimental");
+      const chip = (label, icon) => out.push({ label, icon: icon || null });
+      if (EDITION_LABELS[r.edition])
+        chip(EDITION_LABELS[r.edition], EDITION_ICONS[r.edition] || edCustom);
+      else if (LUF_ROLES.has(r.id)) chip("Laissez un Faire", EDITION_ICONS.luf || edCustom);
+      else if (OFFICIAL_IDS.has(r.id)) chip("Experimental", edCustom);
       const first = r.firstNight > 0 || !!r.firstNightReminder;
       const other = r.otherNight > 0 || !!r.otherNightReminder;
       const knowsNights =
@@ -144,10 +157,11 @@ export default {
         "otherNight" in r ||
         "firstNightReminder" in r ||
         "otherNightReminder" in r;
-      if (first) out.push("Wakes first night");
-      if (other) out.push("Wakes other nights");
-      if (!first && !other && knowsNights) out.push("Never wakes");
-      if (r.setup) out.push("Affects setup");
+      if (first && other) chip("Wakes every night", moonFull);
+      else if (first) chip("Wakes first night", moonFirst);
+      else if (other) chip("Wakes other nights", moonOther);
+      else if (knowsNights) chip("Never wakes");
+      if (r.setup) chip("Affects setup", setupGlyph);
       return out;
     }
   },
@@ -327,6 +341,13 @@ $team-colors: (
     flex-wrap: wrap;
     gap: 4px;
     margin-top: 5px;
+  }
+  .chip-mark {
+    width: 12px;
+    height: 12px;
+    object-fit: contain;
+    margin-right: 5px;
+    vertical-align: -2px;
   }
   .tip-chip {
     font-size: 10px;
