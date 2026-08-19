@@ -98,7 +98,21 @@ export default {
      * right-hand column the build panel and the night sheet already use, and
      * the CSS rule at the bottom of this file owns its box.
      */
-    pinned: { type: Boolean, default: false }
+    pinned: { type: Boolean, default: false },
+    /**
+     * Which side to try FIRST when placing beside the anchor.
+     *
+     * "auto" leans away from the middle of the window, which is right for a
+     * coin in the ring — the card lands in the empty margin instead of across
+     * the neighbouring seats. A seat's NAME PLATE wants "right" instead (user
+     * call 2026-08-19): it sits below the ring rather than in it, so there is
+     * no neighbour to lie across, and a consistent side is easier to read than
+     * one that flips depending on where the chair happens to sit.
+     *
+     * Either way the fallback is the other side, and then above/below — a
+     * preference, never a promise to place off-screen.
+     */
+    prefer: { type: String, default: "auto" }
   },
   data() {
     return {
@@ -283,7 +297,14 @@ export default {
           // it describes — the user's report was tooltips appearing
           // "incredibly far away from the hover target". Adjacent-but-outward
           // clears the seats without breaking that tie.
-          const useRight = cx >= vw / 2 ? fitsRight : !fitsLeft;
+          const useRight =
+            this.prefer === "right"
+              ? fitsRight
+              : this.prefer === "left"
+              ? !fitsLeft
+              : cx >= vw / 2
+              ? fitsRight
+              : !fitsLeft;
           left = useRight ? rect.right + GAP : rect.left - GAP - w;
           top = clamp(rect.top + rect.height / 2 - h / 2, vh - h - m);
         } else {

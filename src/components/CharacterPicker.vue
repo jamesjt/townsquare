@@ -25,7 +25,10 @@
       <span class="cp-name">{{ pickedLabel }}</span>
       <font-awesome-icon icon="chevron-down" class="cp-caret" />
     </button>
-    <ul class="cp-list" v-if="open" ref="popup">
+    <!-- our own blood-drip scrollbar, like every other scroll container in this
+         app — a native bar here was an oversight, not a choice (user call
+         2026-08-19) -->
+    <ul class="cp-list" v-if="open" ref="popup" v-blood-scroll>
       <li
         class="cp-row cp-clear"
         :class="{ picked: !pickedId }"
@@ -34,11 +37,15 @@
         @keydown.enter="pick('', '')"
         @keydown.space.prevent="pick('', '')"
       >
+        <!-- Just a dash (user call 2026-08-19). This picker chooses a
+             CHARACTER, so "Nobody" was the wrong noun — and the phrase was
+             long enough to truncate in the trigger, which is how it read as
+             "Nobody / uncl…". A dash in a list of names says "none" without
+             claiming to be one. -->
         <span class="cp-dash">—</span>
-        <span class="cp-name">Nobody / unclear</span>
       </li>
       <li
-        v-for="r in roles"
+        v-for="r in mainRoles"
         :key="r.id"
         class="cp-row"
         :class="{ picked: pickedId === r.id }"
@@ -53,6 +60,47 @@
         ></span>
         <span class="cp-name">{{ r.name }}</span>
       </li>
+
+      <!-- TRAVELLERS LAST, AND FOLDED (user call 2026-08-19). They came first
+           only because that is the order the script data happens to carry, and
+           they are the rarest thing in this list — a Traveller is added
+           mid-game, not told to somebody at night. Folded, they cost one row
+           instead of five before every character a storyteller actually
+           reaches for. -->
+      <template v-if="travelerRoles.length">
+        <li
+          class="cp-row cp-group"
+          tabindex="0"
+          @click="travelersOpen = !travelersOpen"
+          @keydown.enter="travelersOpen = !travelersOpen"
+          @keydown.space.prevent="travelersOpen = !travelersOpen"
+        >
+          <font-awesome-icon
+            class="cp-fold"
+            icon="chevron-down"
+            :class="{ open: travelersOpen }"
+          />
+          <span class="cp-name">Travellers</span>
+          <small class="cp-count">{{ travelerRoles.length }}</small>
+        </li>
+        <li
+          v-for="r in travelerRoles"
+          v-show="travelersOpen"
+          :key="r.id"
+          class="cp-row cp-traveler"
+          :class="{ picked: pickedId === r.id }"
+          tabindex="0"
+          @click="pick(r.id, r.name)"
+          @keydown.enter="pick(r.id, r.name)"
+          @keydown.space.prevent="pick(r.id, r.name)"
+        >
+          <span
+            class="cp-icon"
+            :style="{ backgroundImage: `url(${iconFor(r)})` }"
+          ></span>
+          <span class="cp-name">{{ r.name }}</span>
+        </li>
+      </template>
     </ul>
   </div>
 </template>
@@ -73,6 +121,9 @@ import floatingPicker from "../golem/floatingPicker";
 export default {
   name: "CharacterPicker",
   mixins: [floatingPicker],
+  data() {
+    return { travelersOpen: false };
+  },
   props: {
     roles: { type: Array, required: true },
     pickedId: { type: String, default: "" },
@@ -81,6 +132,13 @@ export default {
     title: { type: String, default: "" }
   },
   computed: {
+    /** Travellers are split out so they can sit at the BOTTOM, folded. */
+    mainRoles() {
+      return this.roles.filter(r => (r.team || "") !== "traveler");
+    },
+    travelerRoles() {
+      return this.roles.filter(r => (r.team || "") === "traveler");
+    },
     pickedRole() {
       return this.pickedId ? this.roles.find(r => r.id === this.pickedId) : null;
     },
@@ -179,6 +237,33 @@ export default {
   border-radius: 8px;
   box-shadow: 0 0 12px black;
   z-index: 60;
+
+  // the folded Travellers header — a row, but it picks nothing
+  .cp-group {
+    opacity: 0.65;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    border-top: 1px solid rgba(120, 105, 135, 0.28);
+    border-radius: 0;
+    .cp-fold {
+      width: 12px;
+      flex-shrink: 0;
+      opacity: 0.7;
+      transition: transform 150ms;
+      &.open {
+        transform: rotate(180deg);
+      }
+    }
+    .cp-count {
+      margin-left: auto;
+      opacity: 0.6;
+    }
+    &:hover {
+      opacity: 1;
+    }
+  }
 
   .cp-row {
     display: flex;

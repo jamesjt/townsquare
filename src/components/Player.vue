@@ -5,8 +5,6 @@
       class="player"
       @dragover.prevent
       @drop="onRoleDrop"
-      @mouseenter="showCard"
-      @mouseleave="hideCard"
       :class="[
         {
           dead: player.isDead,
@@ -96,6 +94,7 @@
         v-if="cardAnchor"
         :role="player.role"
         :anchor="cardAnchor"
+        prefer="right"
         @dismiss="hideCard"
       />
 
@@ -192,6 +191,8 @@
       <div
         class="name"
         @click="isMenuOpen = !isMenuOpen"
+        @mouseenter="showCard"
+        @mouseleave="hideCard"
         :class="{ active: isMenuOpen }"
       >
         <!-- an unclaimed chair says so instead of a fake name (user call) -->
@@ -525,12 +526,16 @@ export default {
       if (!role || !role.id) return;
       if (this.grimoire.isPublic && role.team !== "traveler") return;
       if (!window.matchMedia("(hover: hover)").matches) return;
-      const seat = e.currentTarget;
+      // THE NAME PLATE RAISES THE CARD, not the coin (user call 2026-08-19).
+      // The coin is what a storyteller DOES things to — drags onto, clicks,
+      // shrouds — and a card appearing under the cursor there was in the way
+      // of all of it. The plate is the part of a seat you only ever read, so
+      // reading is what it answers, and the card lands beside it at the same
+      // height rather than floating off the coin.
+      const plate = e.currentTarget;
       clearTimeout(this.$options.cardTimer);
       this.$options.cardTimer = setTimeout(() => {
-        // pinned to the COIN, so the card sits level with the character it
-        // describes rather than with the name plate under it
-        this.cardAnchor = seat.querySelector(".token") || seat;
+        this.cardAnchor = plate;
       }, HOVER_DELAY);
     },
     hideCard() {
