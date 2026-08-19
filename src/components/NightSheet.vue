@@ -135,109 +135,109 @@
                cannot do that — it has no wrap — and a fixed three-line row
                would charge every row for the two or three that need it. -->
           <div class="ns-work">
-          <!-- THE ANSWER (right zone): what a storyteller records tonight.
-               FT-862: this used to be a yes/no toggle on EVERY row — wrong
-               for the Undertaker (a character) or the Empath (a number).
-               golem/nightInfo's field table says which control belongs
-               here; PLAYER-typed fields never appear a second time, they're
-               already the SeatPickers to the left of this zone. -->
-          <div class="ns-answer">
-            <!-- FT-874: what's being recorded, stated rather than implied by
-                 the ability text — golem/nightInfo's per-character label,
-                 immediately before this row's first control. -->
-            <span v-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
+            <!-- THE ANSWER (right zone): what a storyteller records tonight.
+                 FT-862: this used to be a yes/no toggle on EVERY row — wrong
+                 for the Undertaker (a character) or the Empath (a number).
+                 golem/nightInfo's field table says which control belongs
+                 here; PLAYER-typed fields never appear a second time, they're
+                 already the SeatPickers to the left of this zone. -->
+            <div class="ns-answer">
+              <!-- FT-874: what's being recorded, stated rather than implied by
+                   the ability text — golem/nightInfo's per-character label,
+                   immediately before this row's first control. -->
+              <span v-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
 
-            <SeatPicker
-              v-for="slot in row.slots"
-              :key="'seat' + slot"
-              class="ns-target"
-              :players="players"
-              :picked-seat="entryFor(row).targets[slot - 1]"
-              :show-role="isStoryteller"
-              :icon-for="p => roleIconUrl(p.role)"
-              :title="'Who they chose (' + slot + ' of ' + row.slots + ')'"
-              @pick="seat => setTarget(row, slot - 1, seat)"
-            />
+              <SeatPicker
+                v-for="slot in row.slots"
+                :key="'seat' + slot"
+                class="ns-target"
+                :players="players"
+                :picked-seat="entryFor(row).targets[slot - 1]"
+                :show-role="isStoryteller"
+                :icon-for="p => roleIconUrl(p.role)"
+                :title="'Who they chose (' + slot + ' of ' + row.slots + ')'"
+                @pick="seat => setTarget(row, slot - 1, seat)"
+              />
 
-            <template v-for="(field, fi) in extraFieldsFor(row).fields">
-              <button
-                v-if="kindOf(field) === 'boolean'"
-                :key="'f' + fi"
-                type="button"
-                class="ns-told"
-                :class="pingClass(row)"
-                :title="pingHint(row)"
-                @click="cyclePing(row)"
+              <template v-for="(field, fi) in extraFieldsFor(row).fields">
+                <button
+                  v-if="kindOf(field) === 'boolean'"
+                  :key="'f' + fi"
+                  type="button"
+                  class="ns-told"
+                  :class="pingClass(row)"
+                  :title="pingHint(row)"
+                  @click="cyclePing(row)"
+                >
+                  {{ pingLabel(row) }}
+                </button>
+
+                <NumberScrub
+                  v-else-if="kindOf(field) === 'number'"
+                  :key="'f' + fi"
+                  class="ns-num"
+                  preset="night"
+                  :value="numberValue(row, field)"
+                  :min="field.min"
+                  :max="field.max"
+                  :title="numberHint(field)"
+                  @input="n => setNumber(row, n)"
+                />
+
+                <CharacterPicker
+                  v-else-if="kindOf(field) === 'character'"
+                  :key="'f' + fi"
+                  class="ns-charpick"
+                  :roles="scriptRoles"
+                  :picked-id="entryFor(row).told.characterId"
+                  :picked-name="entryFor(row).told.characterName"
+                  :icon-for="roleIconUrl"
+                  title="What you showed them — a character"
+                  @pick="c => setCharacter(row, c.id, c.name)"
+                />
+
+                <input
+                  v-else
+                  :key="'f' + fi"
+                  type="text"
+                  class="ns-free"
+                  placeholder="What you told them"
+                  spellcheck="false"
+                  :value="entryFor(row).told.text"
+                  @input="setNote(row, $event.target.value)"
+                />
+              </template>
+
+              <!-- ...and whether it was a LIE — only offered where there is
+                   information to have lied about (golem/nightInfo's
+                   mayBeFalse). Poisoner/Monk/Butler/Imp tell nothing back, so
+                   the question doesn't apply. FT-874: a CHECKBOX, not a
+                   warning triangle — reads gold (#d8b45a, this fork's own —
+                   the phase sun, the votes count) when set, not a fifth
+                   invented accent. -->
+              <span
+                v-if="extraFieldsFor(row).mayBeFalse"
+                class="ns-lie"
+                :class="{ on: entryFor(row).isFalseInfo }"
+                tabindex="0"
+                role="checkbox"
+                :aria-checked="String(entryFor(row).isFalseInfo)"
+                title="The information given was FALSE (drunk, poisoned, a misread)"
+                @click="toggleLie(row)"
+                @keyup.enter="toggleLie(row)"
               >
-                {{ pingLabel(row) }}
-              </button>
+                <font-awesome-icon
+                  :icon="entryFor(row).isFalseInfo ? 'check-square' : 'square'"
+                />
+              </span>
+            </div>
 
-              <NumberScrub
-                v-else-if="kindOf(field) === 'number'"
-                :key="'f' + fi"
-                class="ns-num"
-                preset="night"
-                :value="numberValue(row, field)"
-                :min="field.min"
-                :max="field.max"
-                :title="numberHint(field)"
-                @input="n => setNumber(row, n)"
-              />
-
-              <CharacterPicker
-                v-else-if="kindOf(field) === 'character'"
-                :key="'f' + fi"
-                class="ns-charpick"
-                :roles="scriptRoles"
-                :picked-id="entryFor(row).told.characterId"
-                :picked-name="entryFor(row).told.characterName"
-                :icon-for="roleIconUrl"
-                title="What you showed them — a character"
-                @pick="c => setCharacter(row, c.id, c.name)"
-              />
-
-              <input
-                v-else
-                :key="'f' + fi"
-                type="text"
-                class="ns-free"
-                placeholder="What you told them"
-                spellcheck="false"
-                :value="entryFor(row).told.text"
-                @input="setNote(row, $event.target.value)"
-              />
-            </template>
-
-            <!-- ...and whether it was a LIE — only offered where there is
-                 information to have lied about (golem/nightInfo's
-                 mayBeFalse). Poisoner/Monk/Butler/Imp tell nothing back, so
-                 the question doesn't apply. FT-874: a CHECKBOX, not a
-                 warning triangle — reads gold (#d8b45a, this fork's own —
-                 the phase sun, the votes count) when set, not a fifth
-                 invented accent. -->
-            <span
-              v-if="extraFieldsFor(row).mayBeFalse"
-              class="ns-lie"
-              :class="{ on: entryFor(row).isFalseInfo }"
-              tabindex="0"
-              role="checkbox"
-              :aria-checked="String(entryFor(row).isFalseInfo)"
-              title="The information given was FALSE (drunk, poisoned, a misread)"
-              @click="toggleLie(row)"
-              @keyup.enter="toggleLie(row)"
-            >
-              <font-awesome-icon
-                :icon="entryFor(row).isFalseInfo ? 'check-square' : 'square'"
-              />
-            </span>
-          </div>
-
-          <!-- FT-874: ONE line, truncated — a storyteller is SCANNING a
-               checklist here (compare ScriptView, where the ability wraps
-               in full: there the storyteller is READING to learn a script,
-               a different job). The title carries what the ellipsis cuts,
-               so nothing said is lost, only hidden until asked for. -->
-          <span class="ns-reminder" :title="row.reminder">{{ row.reminder }}</span>
+            <!-- FT-874: ONE line, truncated — a storyteller is SCANNING a
+                 checklist here (compare ScriptView, where the ability wraps
+                 in full: there the storyteller is READING to learn a script,
+                 a different job). The title carries what the ellipsis cuts,
+                 so nothing said is lost, only hidden until asked for. -->
+            <span class="ns-reminder" :title="row.reminder">{{ row.reminder }}</span>
           </div>
         </li>
       </ul>
@@ -981,7 +981,10 @@ $ns-team-colors: (
   border: 1px solid rgba(120, 105, 135, 0.4);
   border-radius: 6px;
   cursor: pointer;
-  transition: color 150ms, border-color 150ms, background 150ms;
+  transition:
+    color 150ms,
+    border-color 150ms,
+    background 150ms;
   &:hover,
   &:focus-visible {
     background: rgba(32, 24, 38, 0.95);
