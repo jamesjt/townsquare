@@ -7,7 +7,14 @@
       night: grimoire.isNight,
       static: grimoire.isStatic,
       booting: !booted,
-      'in-game': inGame
+      'in-game': inGame,
+      // The build panel and the ring are both centred, which is fine on a
+      // screen wide enough for the panel to nest inside the ring and impossible
+      // on a portrait phone, where they are the same size. The phone layout
+      // stacks them instead — and needs to know, exactly, when the panel is up.
+      // (`#townsquare.building` is a near-miss: it stays true for a re-hosted
+      // town that is already cast, when this panel is NOT showing.)
+      'building-tools': showHostTools
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -918,6 +925,36 @@ ul {
   // FT-852: the armed Leave reads as the question it is.
   .leave.armed {
     color: red;
+  }
+
+  // THE PILL IS SIZED BY TYPE, and the type shrinks twice on the way down to a
+  // phone — `html` drops to 0.8em under 576px and the pill takes 80% of that.
+  // Its controls are bare glyphs with no box of their own, so they inherited
+  // the shrink and ended up 8x11px: Town records, Copy link and Leave, all
+  // under a tenth of the area a fingertip covers (measured 375x812).
+  //
+  // Where there is no mouse, the controls take a real plate. The pill's
+  // wording is untouched — this is the tap area, not a redesign.
+  @media (pointer: coarse) {
+    gap: 4px;
+    padding: 6px 8px;
+    .nomlog,
+    .stats,
+    .endgame,
+    .copylink,
+    .leave {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-width: 40px;
+      min-height: 40px;
+      padding: 0 8px;
+      border-radius: 8px;
+      &:active {
+        background: rgba(255, 255, 255, 0.12);
+      }
+    }
   }
 }
 

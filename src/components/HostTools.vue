@@ -444,6 +444,26 @@ export default {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 
+  // PORTRAIT PHONE: the panel stops being a plate in the middle of the ring
+  // and becomes the bottom half of the screen.
+  //
+  // Centred, it and the ring want the same 340-odd pixels: the panel is as
+  // wide as the ring is across, so on a 375px screen the seats drew straight
+  // through the script picker and the character tray. Stacked, both fit — the
+  // ring takes the top of the window (see TownSquare's matching rule) and this
+  // takes the bottom, with its own scroll for the tray.
+  @media (pointer: coarse) and (orientation: portrait) {
+    position: fixed;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    max-width: none;
+    max-height: 52vh;
+    padding: 10px 14px;
+    // it is over the town now, not floating in the middle of it
+    background: rgba(0, 0, 0, 0.93);
+  }
+
   h3 {
     margin-bottom: 8px;
   }
@@ -495,6 +515,24 @@ export default {
         cursor: ew-resize;
         user-select: none;
         touch-action: none;
+        // The number is 2.8em x 1.5em, which on a phone's shrunken root font
+        // is about 29x15px — and it is not a button but a DRAG handle, the
+        // hardest kind of control to catch. The box cannot simply grow: it
+        // shares one footprint with the type-in field so that clicking in
+        // moves nothing. So the hit area grows instead, as a pad centred on
+        // the digits and sized to stay inside the row's 14px gaps.
+        @media (pointer: coarse) {
+          position: relative;
+          &:after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 44px;
+            height: 44px;
+          }
+        }
       }
       .seat-input {
         border-color: #400;
@@ -527,6 +565,14 @@ export default {
           opacity: 0.3;
           pointer-events: none;
         }
+        // Shuffle seat order drew at 10x10px on a phone — an icon scaled by
+        // the row's font size, with nothing else to give it a box. Padding
+        // grows the target without touching the mark.
+        @media (pointer: coarse) {
+          box-sizing: content-box;
+          padding: 12px;
+          margin: -6px;
+        }
       }
     }
     .value {
@@ -536,6 +582,11 @@ export default {
       gap: 8px;
       &:hover {
         color: red;
+      }
+      // "0 / 8 assigned" opens the grimoire drawer — a 14px-tall line of text
+      // doing a button's job.
+      @media (pointer: coarse) {
+        min-height: 40px;
       }
     }
     small {

@@ -362,6 +362,19 @@ export default {
   justify-content: center;
 }
 
+/* The other half of the portrait-phone stack (HostTools owns the first half):
+   while the build panel is docked across the bottom, the square gives up the
+   part of the window the panel is standing in and centres the ring in what is
+   left. Centring inside a shorter box is all it takes — the ring's radius is
+   already capped to the window's WIDTH, so shrinking the height here only
+   moves the ring, it does not squash it. */
+@media (pointer: coarse) and (orientation: portrait) {
+  #app.building-tools #townsquare {
+    height: 47%;
+    align-self: flex-start;
+  }
+}
+
 /***** The bloody dial (FT-848) *****/
 /* Under every seat (the circle's own li's carry z-index 1..n) and under the
    bluffs/fabled panels at z-index 50, so the tower stains without ever

@@ -842,7 +842,9 @@ export default {
 .player {
   z-index: 2;
   .life {
-    border-radius: 50%;
+    // no circular clip — see Token.vue: border-radius: 50% cut off every
+    // tooth that crossed the inscribed circle, which is the "clipping" the
+    // user saw. The coin art carries its own edge.
     width: 100%;
     // Golem fork (2026-08-18): our OWN seat token — a disc of the
     // clocktower's gold filigree (life-golem.png; upstream's life.png
@@ -883,7 +885,11 @@ export default {
     .seat-numeral {
       position: absolute;
       left: 0;
-      top: 0;
+      // The coin art's face sits a touch high inside its own square (measured
+      // on coin_4: the opaque box centres 4px above the image centre at 512,
+      // ~0.8%), so the numeral follows the FACE rather than the element box —
+      // which is why it read as off-centre (user report 2026-08-18).
+      top: -0.8%;
       width: 100%;
       height: 100%;
       display: flex;

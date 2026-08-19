@@ -473,6 +473,20 @@ export default {
   cursor: pointer;
   filter: drop-shadow(0 1px 2px black);
 }
+/* The scroll and the gallows are the only two doors a PLAYER has in a running
+   game — the script and the vote history — and they were 26px marks with no
+   box around them. The art keeps its size; the box a finger has to find grows
+   under it. */
+@media (pointer: coarse) {
+  .menu ul li.player-strip {
+    gap: 4px;
+    padding: 0 4px;
+  }
+  .player-strip img {
+    box-sizing: content-box;
+    padding: 8px;
+  }
+}
 .player-strip img:hover {
   filter: drop-shadow(0 1px 2px black) brightness(1.3);
 }

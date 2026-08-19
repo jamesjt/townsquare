@@ -344,7 +344,6 @@ $bone: #ded0ac; // rim marks: bone set into the iron
 $blood: #970000; // our red, for the one mark that must not be missed
 
 .token {
-  border-radius: 50%;
   width: 100%;
   // OUR coin. Upstream's token.png stays in the tree, unreferenced.
   // no-repeat: the shorthand resets background-repeat, and a tiled coin put
@@ -354,6 +353,9 @@ $blood: #970000; // our red, for the one mark that must not be missed
   background: var(--coin, url("../assets/token-golem.png")) center center /
       contain no-repeat;
   text-align: center;
+  // NO circular clip: the coin is a TOOTHED wheel, and border-radius: 50%
+  // cut every tooth that crossed the inscribed circle (user report
+  // 2026-08-18 — the coins looked clipped). The art carries its own edge.
   // The border stays — the bluffs collapse zeroes its width and the "you"
   // seat's glow animates its colour — but it goes transparent at rest: a
   // black hoop drawn round a toothed wheel closes the silhouette back into
