@@ -1,5 +1,5 @@
 <template>
-  <li :style="zoom">
+  <li :style="zoom" :class="{ 'name-hover': nameHover }">
     <div
       ref="player"
       class="player"
@@ -191,8 +191,8 @@
       <div
         class="name"
         @click="isMenuOpen = !isMenuOpen"
-        @mouseenter="showCard"
-        @mouseleave="hideCard"
+        @mouseenter="showCard($event); nameHover = true"
+        @mouseleave="hideCard(); nameHover = false"
         :class="{ active: isMenuOpen }"
       >
         <!-- an unclaimed chair says so instead of a fake name (user call) -->
@@ -481,6 +481,10 @@ export default {
   data() {
     return {
       isMenuOpen: false,
+      // the plate is hovered — reveals the add-reminder disc (see the
+      // .name-hover rule; the disc is the plate's sibling, so CSS alone
+      // cannot reach it)
+      nameHover: false,
       // Golem fork: the name to apply once a one-tap claim lands.
       pendingName: null,
       // Golem fork: first claim on this browser asks the name in place.
@@ -1619,11 +1623,25 @@ li.move:not(.from) .player .overlay svg.move {
   z-index: -1;
 }
 
-.circle li:hover .reminder.add {
+/* THE NAME PLATE REVEALS IT, not the coin (user call 2026-08-19, raised three
+   times — the card moved to the plate and this did not, which is the same
+   mistake made twice on two different elements).
+
+   The division is the one already drawn for the ability card: the COIN is what
+   a storyteller does things to — drags onto, clicks, shrouds — and anything
+   that appears under the cursor there is in the way of all of it. The PLATE is
+   the part of a seat you only ever read, so it is where a seat's affordances
+   answer from.
+
+   Driven by a class rather than `:hover`, because the plate lives inside
+   `.player` while the disc is `.player`'s SIBLING — a hover selector cannot
+   reach across that, and `:has()` would leave the behaviour resting on a
+   selector this fork does not use anywhere else. */
+.circle li.name-hover .reminder.add {
   opacity: 1;
   top: 0;
 }
-.circle li:hover .reminder.add:before {
+.circle li.name-hover .reminder.add:before {
   opacity: 1;
 }
 
