@@ -44,6 +44,25 @@
         <template v-else>{{ d.letter }}</template>
       </span>
     </div>
+    <!-- the COIN LAB (Co): swap the seats' coin art live (user call
+         2026-08-18). The choice rides CSS variables, so it is a repaint. -->
+    <div id="coin-lab" :class="{ open: coinLabOpen }">
+      <div class="fd-toggle" title="Coin lab" @click="coinLabOpen = !coinLabOpen">
+        Co
+      </div>
+      <div class="co-rows" v-if="coinLabOpen">
+        <button
+          v-for="c in coinOptions"
+          :key="c.id"
+          class="co-pick"
+          :class="{ on: coinPick.id === c.id }"
+          @click="pickCoin(c.id)"
+        >
+          <img :src="coinThumb(c.id)" alt="" />
+          {{ c.label }}
+        </button>
+      </div>
+    </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
     <!-- the DRIP LAB (Dr): the user's own dials for the blood scrollbar -->
     <div id="drip-lab" :class="{ open: drOpen }" v-if="devLabs">
@@ -281,6 +300,8 @@ import grimoireOpen from "./assets/grimoire-open.png";
 // The Pandemonium Institute's own mark, worn by the footer credit that links
 // to their store — their game, their branding, unaltered.
 import tpiLogo from "./assets/tpi-logo.png";
+import { COINS, coinChoice, applyCoin } from "./golem/coinArt";
+const coinThumbs = require.context("./assets/coins", false, /.png$/);
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
 import Vote from "./components/Vote";
@@ -354,12 +375,17 @@ export default {
     // clears it, so gating on it brought the build panel back mid-game a
     // couple of seconds after Start (user report 2026-08-18).
     showHostTools() {
-      return (
-        !!this.session.sessionId &&
-        !this.session.isSpectator &&
-        !this.dealAt &&
-        !this.session.isRolesDistributed
-      );
+      if (!this.session.sessionId || this.session.isSpectator) return false;
+      if (this.session.isRolesDistributed) return false;
+      // A town REMEMBERS having been dealt in (dealAt), which is what stops
+      // the panel returning two seconds after Start. But that marker outlives
+      // the game: re-hosting the same town later showed the live square with
+      // nobody in it and no way back to setup (user report 2026-08-18). A town
+      // whose chairs are not all cast is being BUILT, whatever it remembers.
+      const cast =
+        this.players.length > 0 &&
+        this.players.every(p => p.role && p.role.id);
+      return !this.dealAt || !cast;
     }
   },
   // Golem fork: THE BOOT GATE — the ordering the user asked for, literally:
@@ -435,6 +461,9 @@ export default {
       grimoireClosed,
       grimoireOpen,
       tpiLogo,
+      coinLabOpen: false,
+      coinOptions: COINS,
+      coinPick: coinChoice,
       // the drip lab
       drOpen: false,
       dripRef: dripKnobs,
@@ -474,6 +503,13 @@ export default {
     };
   },
   methods: {
+    /** the coin lab: swap every seat's coin art, and remember it */
+    pickCoin(id) {
+      applyCoin(id);
+    },
+    coinThumb(id) {
+      return coinThumbs("./" + id + ".png");
+    },
     // FT-852: arm on the first click, leave on the second — no native
     // confirm() anywhere in the pill (see the template note).
     // ── the drip lab ────────────────────────────────────────────────────
@@ -1007,6 +1043,48 @@ video#background {
   --dfpx: min(var(--fpx), 0.145vmin);
 }
 // the DRIP LAB — top-left, the user's own scrollbar dials
+#coin-lab {
+  position: fixed;
+  top: 96px;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+
+  .co-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(8, 6, 10, 0.92);
+    border: 1px solid rgba(120, 105, 135, 0.45);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+  }
+  .co-pick {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 8px 3px 3px;
+    font-family: inherit;
+    font-size: 12px;
+    color: #d8cdb4;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    cursor: pointer;
+    img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+    }
+    &.on {
+      color: #fff;
+      border-color: rgba(200, 170, 90, 0.9);
+    }
+  }
+}
+
 #drip-lab {
   position: fixed;
   top: 8px;

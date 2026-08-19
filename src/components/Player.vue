@@ -364,14 +364,17 @@ export default {
     },
     zoom: function() {
       const unit = window.innerWidth > window.innerHeight ? "vh" : "vw";
+      // Smaller across the board (user call 2026-08-18) — the coins were
+      // crowding the dial; the ring reads better with air between the seats
+      // and the clock face behind them.
       if (this.players.length < 7) {
-        return { width: 18 + this.grimoire.zoom + unit };
+        return { width: 15.5 + this.grimoire.zoom + unit };
       } else if (this.players.length <= 10) {
-        return { width: 16 + this.grimoire.zoom + unit };
+        return { width: 13.5 + this.grimoire.zoom + unit };
       } else if (this.players.length <= 15) {
-        return { width: 14 + this.grimoire.zoom + unit };
-      } else {
         return { width: 12 + this.grimoire.zoom + unit };
+      } else {
+        return { width: 10.5 + this.grimoire.zoom + unit };
       }
     }
   },
@@ -871,7 +874,7 @@ export default {
     .life {
       // Golem fork: our shroud disc (upstream death.png stays untouched)
       // the dead plate is the same coin, drained and cooled
-      background-image: url("../assets/token-golem-dead.png");
+      background-image: var(--coin-dead, url("../assets/token-golem-dead.png"));
 
       &:after {
         content: " ";

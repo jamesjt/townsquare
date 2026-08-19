@@ -351,8 +351,8 @@ $blood: #970000; // our red, for the one mark that must not be missed
   // the NEXT tile's top edge just below this one — the "melting" rim, the
   // stray red nub and the thing peeking from behind the disc were all one
   // bug (user diagnosis 2026-08-18)
-  background: url("../assets/token-golem.png") center center / contain
-    no-repeat;
+  background: var(--coin, url("../assets/token-golem.png")) center center /
+      contain no-repeat;
   text-align: center;
   // The border stays — the bluffs collapse zeroes its width and the "you"
   // seat's glow animates its colour — but it goes transparent at rest: a
@@ -413,10 +413,10 @@ $blood: #970000; // our red, for the one mark that must not be missed
   @mixin team-ring($color) {
     background: radial-gradient(
       circle closest-side,
-      transparent 0 87.5%,
-      rgba($color, 0.55) 89%,
-      rgba($color, 0.55) 92%,
-      transparent 93.5%
+      transparent 0 var(--ring-in, 87.5%),
+      rgba($color, 0.55) var(--ring-a, 89%),
+      rgba($color, 0.55) var(--ring-b, 92%),
+      transparent var(--ring-out, 93.5%)
     );
   }
 
@@ -543,6 +543,6 @@ $blood: #970000; // our red, for the one mark that must not be missed
 // shrouds. `.player` lives in Player.vue; the coin is this component's root,
 // which is what scoping keys off.
 .player.dead .token {
-  background-image: url("../assets/token-golem-dead.png");
+  background-image: var(--coin-dead, url("../assets/token-golem-dead.png"));
 }
 </style>
