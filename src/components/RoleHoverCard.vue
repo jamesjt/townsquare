@@ -341,11 +341,19 @@ $team-colors: (
   pointer-events: none;
   text-align: left;
 
+  // The engraving is the card's one picture and it was reading small in a lot
+  // of empty space (user call 2026-08-19). Two causes, both fixed here: the box
+  // was 78px in a card two text lines tall, and it sat at the TOP of the row
+  // rather than against the middle of the text it belongs to. The source art
+  // carries its own transparent margin, so the box is also scaled past 100% to
+  // eat some of that padding — the glyph grows without the card growing.
   .icon {
-    width: 78px;
-    height: 78px;
+    width: 96px;
+    height: 96px;
     flex-shrink: 0;
-    background-size: cover;
+    align-self: center;
+    background-size: 118%;
+    background-repeat: no-repeat;
     background-position: center;
   }
   .txt {
@@ -419,8 +427,9 @@ $team-colors: (
     gap: 10px;
     padding: 10px 14px;
     .icon {
-      width: 54px;
-      height: 54px;
+      width: 68px;
+      height: 68px;
+      align-self: center;
     }
     .txt b {
       font-size: 17px;
