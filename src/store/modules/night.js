@@ -35,6 +35,8 @@ import {
   entryId,
   makeEntry
 } from "../../golem/nightLog";
+// FT-861: what a seat IS versus what its player is TOLD it is.
+import { beliefOf, isBelieving } from "../../golem/belief";
 
 const state = () => ({
   // user call 2026-08-18: a fresh town shares. See DEFAULT_MODE's note for
@@ -55,32 +57,71 @@ const getters = {
    * neutral fact: it names which characters are in play, so it is exactly as
    * secret as the grimoire. "Everyone" mode does not widen this.
    */
-  roster(state, getters, rootState, rootGetters) {
+  roster(state, getters, rootState) {
     if (state.mode === "off") return [];
     if (rootState.session.isSpectator) return [];
     const first = getters.isFirstNight;
-    const key = first ? "first" : "other";
     const prop = first ? "firstNight" : "otherNight";
-    const order = rootGetters["players/nightOrder"];
     const seats = [];
     rootState.players.players.forEach((player, seat) => {
-      const role = player.role;
-      if (!role || !role.id) return;
-      if (!(role[prop] > 0)) return;
-      const rank = order.get(player);
-      seats.push({
-        seat,
-        player,
-        role,
-        // the canonical rank from the shared getter; the raw night number is
-        // the tiebreak so two seats never trade places between renders
-        rank: (rank && rank[key]) || 0,
-        night: role[prop],
-        slots: targetCount(role, first),
-        reminder: reminderFor(role, first)
+      const trueRole = player.role || {};
+      const shownRole = beliefOf(player);
+      const believes = isBelieving(player);
+
+      // FT-861: A BELIEVING SEAT CAN OWE THE STORYTELLER TWO ROWS, because two
+      // different things happen at that chair on a night:
+      //
+      //   the PERFORMANCE — wake them and play out the character they think
+      //   they have, at the position THAT character wakes. This is the row the
+      //   user's correction is about: the Drunk wakes too, not only the
+      //   Lunatic. The Drunk has no night of its own at all (firstNight and
+      //   otherNight are both 0), so without this row a Drunk-as-Empath is
+      //   simply missing from the checklist and never gets their number.
+      //
+      //   the TRUTH — the character the seat really is, at its own position,
+      //   when it has one. Dropping this would lose real wakes: a true Lunatic
+      //   is woken at the Lunatic's slot and its own reminder text IS the
+      //   script for the deception ("Allow the Lunatic to do the actions of the
+      //   Demon"), and the Marionette's first night is the Demon learning who
+      //   they are. Neither is recoverable from the believed character.
+      //
+      // A seat that knows what it is is unchanged: one row, the way it was.
+      const acting = believes
+        ? [
+            { role: shownRole, isPerformance: true },
+            { role: trueRole, isPerformance: false }
+          ]
+        : [{ role: trueRole, isPerformance: false }];
+
+      acting.forEach(({ role, isPerformance }) => {
+        if (!role || !role.id) return;
+        if (!(role[prop] > 0)) return;
+        seats.push({
+          seat,
+          player,
+          role,
+          // both characters ride every row: the sheet shows the one that acts
+          // big and the other one small, because the storyteller needs to know
+          // which of the two they are looking at without a second lookup
+          trueRole,
+          shownRole,
+          isPerformance,
+          // does this seat know what it is at all? (true on BOTH of a
+          // believing seat's rows — the sheet says a different thing on each)
+          isBelieving: believes,
+          night: role[prop],
+          slots: targetCount(role, first),
+          reminder: reminderFor(role, first)
+        });
       });
     });
-    seats.sort((a, b) => a.rank - b.rank || a.night - b.night || a.seat - b.seat);
+    // Ordered by the raw night number rather than the players/nightOrder rank.
+    // The two give the SAME order for a true role — the rank is just the dense
+    // index of the sorted night numbers — but that getter is built from the
+    // seated players' true characters, so a BELIEVED character's number is
+    // frequently absent from it and would rank 0 and sort to the top of the
+    // night. The raw number is the thing the rank was standing in for.
+    seats.sort((a, b) => a.night - b.night || a.seat - b.seat);
     return seats.map((row, i) => ({ ...row, order: i + 1 }));
   },
 
@@ -124,6 +165,14 @@ const getters = {
         if (e.playerId && playerId) return e.playerId === playerId;
         return claimedSeat >= 0 && e.seat === claimedSeat;
       })
+      // FT-861: WHICH ROWS, second filter. A believing seat has a row for the
+      // character it really is, and that row names it outright — the Lunatic's
+      // own row would tell the Lunatic they are the Lunatic. A player may read
+      // only rows about the character they were told they have, which is
+      // exactly `roleId === shownRoleId`: true on every ordinary row, true on a
+      // performance, false on a truth row. (Rows written before this field
+      // existed carry no shownRoleId and stay readable.)
+      .filter(e => !e.shownRoleId || e.shownRoleId === e.roleId)
       .map(e => ({
         id: e.id,
         day: e.day,
@@ -172,6 +221,18 @@ const actions = {
             playerId: player.id || "",
             roleId: row.role.id,
             roleName: row.role.name || "",
+            // FT-861: both of the seat's characters, stamped at the moment the
+            // row was written — so a finished game can be read back and say
+            // what each player believed, night by night, without the grimoire
+            // that produced it. (Rows fall back to the acting character, which
+            // is what a seat that knows itself has anyway.)
+            trueRoleId: (row.trueRole && row.trueRole.id) || row.role.id,
+            trueRoleName:
+              (row.trueRole && row.trueRole.name) || row.role.name || "",
+            shownRoleId: (row.shownRole && row.shownRole.id) || row.role.id,
+            shownRoleName:
+              (row.shownRole && row.shownRole.name) || row.role.name || "",
+            isPerformance: !!row.isPerformance,
             order: row.order,
             slots: row.slots
           }),

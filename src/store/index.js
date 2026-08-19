@@ -142,6 +142,12 @@ export default new Vuex.Store({
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it
     drawerPick: null,
+    // Which SEAT the armed character was picked up from, or null when it came
+    // off a list (the tray, the grimoire drawer). This is the tap path's twin
+    // of the drag's `golem/from` payload, and it is what makes tapping a
+    // second seat a SWAP rather than an overwrite — the same trade the drag
+    // has always done. Local view state: neither persisted nor synced.
+    drawerPickFrom: null,
     // FT-854: when OFF (the default), a role lives in at most one chair —
     // placing it anywhere else MOVES it. Shared state so every placing path
     // (drag, click, assign, shuffle) obeys the same rule.
@@ -220,8 +226,15 @@ export default new Vuex.Store({
     setAllowDupRoles(state, on) {
       state.allowDupRoles = !!on;
     },
+    /** Arm a character. The source seat always resets here, so a pick made
+     *  from a list can never inherit the last seat-pick's origin — a caller
+     *  that means "from this chair" says so with setDrawerPickFrom after. */
     setDrawerPick(state, role) {
       state.drawerPick = role || null;
+      state.drawerPickFrom = null;
+    },
+    setDrawerPickFrom(state, seat) {
+      state.drawerPickFrom = typeof seat === "number" ? seat : null;
     },
     /** FT-857: point the script drawer at one of its three tabs. */
     setScriptDrawerView(state, view) {

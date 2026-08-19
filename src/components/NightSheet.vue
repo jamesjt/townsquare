@@ -41,7 +41,15 @@
           v-for="row in roster"
           :key="row.key"
           class="ns-row"
-          :class="['team-' + (row.role.team || 'townsfolk'), { done: entryFor(row).done }]"
+          :class="[
+            'team-' + (row.role.team || 'townsfolk'),
+            {
+              done: entryFor(row).done,
+              // FT-861: this row is a PERFORMANCE — the seat is being walked
+              // through a character it only thinks it has
+              performance: row.isPerformance
+            }
+          ]"
         >
           <span
             class="ns-check"
@@ -67,6 +75,19 @@
           <span class="ns-who">
             <b>{{ row.role.name }}</b>
             <small>{{ row.player.name || "Open seat" }}</small>
+            <!-- FT-861: THE OTHER CHARACTER. The row names the one that ACTS
+                 in full, and the one the storyteller must not forget in a line
+                 under it — because which of the two it is decides whether
+                 anything actually happens. A real Imp's kill lands; the same
+                 pointing by a Lunatic does nothing at all. -->
+            <small class="ns-truth" v-if="row.isPerformance">
+              <font-awesome-icon icon="theater-masks" />
+              a performance — really the {{ row.trueRole.name }}
+            </small>
+            <small class="ns-truth" v-else-if="row.isBelieving">
+              <font-awesome-icon icon="theater-masks" />
+              believes they are the {{ row.shownRole.name }}
+            </small>
           </span>
 
           <span class="ns-acts">
@@ -375,6 +396,11 @@ export default {
       transform: none;
       display: flex;
       justify-content: center;
+      // The demon-bluffs panel owns the square's bottom-left corner at z-index
+      // 50 and drew across the label, which read "he first night". The one
+      // control that moves the game from day to night wins that corner; the
+      // bluff it covers is one coin of three, and only while it is day.
+      z-index: 51;
     }
   }
 
@@ -426,6 +452,16 @@ export default {
   border-radius: 10px;
   box-shadow: 0 0 10px black;
   white-space: nowrap;
+
+  // "Before the first night" and "Night falls" together are wider than a
+  // 375px phone, and a nowrap bar centred in a docked sheet spilled off BOTH
+  // edges — the label read "he first night". It stacks instead.
+  @media (pointer: coarse) {
+    flex-wrap: wrap;
+    white-space: normal;
+    row-gap: 6px;
+    text-align: center;
+  }
 
   .has-list & {
     margin: -4px -4px 8px;
@@ -550,11 +586,33 @@ export default {
     background-size: cover;
     background-position: center;
   }
+  // FT-861: a PERFORMANCE row. The team stripe stays — the character being
+  // played is still a character, and the storyteller reads that colour to know
+  // what they are about to act out — but it goes dashed, because this wake
+  // resolves into nothing.
+  &.performance {
+    border-left-style: dashed;
+  }
+  // (`:not(:hover)` because the row's hover tint is declared above this one and
+  //  would otherwise lose to it — a row you are pointing at must still light up)
+  &.performance:not(:hover) {
+    background: rgba(184, 137, 47, 0.07);
+  }
+
   .ns-who {
     display: flex;
     flex-direction: column;
     line-height: 1.15;
     min-width: 0;
+    // the other character, in the warm tone the seat's own scan mark wears
+    small.ns-truth {
+      color: #e0b45f;
+      opacity: 0.9;
+      svg {
+        width: 11px;
+        margin-right: 3px;
+      }
+    }
     b {
       font-size: 15px;
       white-space: nowrap;

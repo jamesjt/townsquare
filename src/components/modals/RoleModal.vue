@@ -1,6 +1,12 @@
 <template>
   <Modal v-if="modals.role && availableRoles.length" @close="close">
-    <h3>
+    <!-- FT-861: ONE grid, two questions. Without `forBelief` this is the seat's
+         character, exactly as it has always been; with it, the same grid sets
+         what that seat's player is TOLD they are. -->
+    <h3 v-if="forBelief">
+      What does {{ seatName }} think they are?
+    </h3>
+    <h3 v-else>
       Choose a new character for
       {{
         playerIndex >= 0 && players.length
@@ -8,6 +14,10 @@
           : "bluffing"
       }}
     </h3>
+    <p class="belief-hint" v-if="forBelief">
+      They will be dealt this character and shown nothing else. The blank coin
+      at the end tells them the truth again.
+    </p>
     <ul class="tokens" v-if="tab === 'editionRoles' || !otherTravelers.size">
       <li
         v-for="role in availableRoles"
@@ -55,8 +65,27 @@ import Token from "../Token";
 
 export default {
   components: { Token, Modal },
-  props: ["playerIndex"],
+  props: {
+    playerIndex: {
+      type: Number,
+      default: 0
+    },
+    /**
+     * FT-861: set the seat's BELIEVED character instead of its real one — what
+     * its player is told they are. Only the seat's belief chip opens it this
+     * way; every other entry point leaves it false.
+     */
+    forBelief: {
+      type: Boolean,
+      default: false
+    }
+  },
   computed: {
+    /** Whose belief is being set — the heading's subject. */
+    seatName() {
+      const player = this.players[this.playerIndex];
+      return (player && player.name) || "this seat";
+    },
     availableRoles() {
       const availableRoles = [];
       const players = this.$store.state.players.players;
@@ -84,6 +113,22 @@ export default {
   },
   methods: {
     setRole(role) {
+      // FT-861: the belief branch. The blank coin the grid always appends has
+      // no id, and that is the clear: back to believing the truth.
+      if (this.forBelief) {
+        if (this.session.isSpectator || this.playerIndex < 0) return;
+        const player = this.$store.state.players.players[this.playerIndex];
+        if (player) {
+          this.$store.commit("players/update", {
+            player,
+            property: "believedRole",
+            value: role && role.id ? role : null
+          });
+        }
+        this.tab = "editionRoles";
+        this.$store.commit("toggleModal", "role");
+        return;
+      }
       if (this.playerIndex < 0) {
         // assign to bluff slot (index < 0)
         this.$store.commit("players/setBluff", {
@@ -114,6 +159,16 @@ export default {
 
 <style scoped lang="scss">
 @import "../../vars.scss";
+
+/* FT-861: the one line that says what this grid is doing when it is asking
+   about a belief rather than a character. */
+.belief-hint {
+  max-width: 46em;
+  margin: -6px auto 10px;
+  opacity: 0.7;
+  font-size: 90%;
+  line-height: 1.3;
+}
 
 ul.tokens li {
   border-radius: 50%;

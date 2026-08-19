@@ -2,6 +2,15 @@ const NEWPLAYER = {
   name: "",
   id: "",
   role: {},
+  // Golem fork (FT-861): THE BELIEVED ROLE — the character this seat SHOWS its
+  // player, or null when they were told the truth (nearly every seat). The
+  // Drunk, the Lunatic and the Marionette are one mechanism through this field
+  // rather than three booleans. See golem/belief.js — and note that this is
+  // not "registers as", which is a separate axis and gets its own field.
+  //
+  // The key exists from the start because Vue 2 cannot see keys added later,
+  // and every seat is built from this object.
+  believedRole: null,
   reminders: [],
   isVoteless: false,
   isDead: false,
@@ -76,6 +85,9 @@ const actions = {
         if (player.role.team !== "traveler") {
           player.role = {};
         }
+        // FT-861: a cleared chair believes nothing — the belief must not
+        // outlive the character it was attached to.
+        player.believedRole = null;
         player.reminders = [];
         return player;
       });

@@ -90,6 +90,18 @@ export default {
     width: 34px;
     height: 30px;
     padding: 0;
+    // Deal, Shuffle and Dupes are three of the most consequential controls in
+    // the build, and at 34x30 they are well under a fingertip. A coarse
+    // pointer gets a proper plate; the glyphs inside are unchanged, so the row
+    // still reads as three small marks.
+    //
+    // The mobile pass wrote this rule against the tray's `.rt-act`; the
+    // buttons then moved into this row (FT-859) and the rule did not travel
+    // with them — the tray's copy is still there, styling nothing.
+    @media (pointer: coarse) {
+      width: 42px;
+      height: 40px;
+    }
     color: #d8cdb4;
     background: rgba(20, 16, 22, 0.9);
     border: 1px solid rgba(120, 105, 135, 0.4);

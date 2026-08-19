@@ -191,6 +191,11 @@ export function makeEntry({
   playerId,
   roleId,
   roleName,
+  trueRoleId,
+  trueRoleName,
+  shownRoleId,
+  shownRoleName,
+  isPerformance,
   order,
   slots
 }) {
@@ -208,6 +213,22 @@ export function makeEntry({
     playerId: playerId || "",
     roleId: roleId || "",
     roleName: roleName || "",
+    // FT-861: THE TWO CHARACTERS OF A SEAT, both stamped on every row so a
+    // finished game can be read back without the grimoire that produced it.
+    //   trueRole  — what the seat WAS. What resolved.
+    //   shownRole — what its player was TOLD they were. Equal to the truth on
+    //               nearly every row; different on a Drunk, a Lunatic, a
+    //               Marionette.
+    // `roleId` above stays the character THIS ROW is about, which is the shown
+    // one on a performance and the true one otherwise — so a per-seat read can
+    // be scoped by comparing it to shownRoleId and never has to know why.
+    trueRoleId: trueRoleId || "",
+    trueRoleName: trueRoleName || "",
+    shownRoleId: shownRoleId || "",
+    shownRoleName: shownRoleName || "",
+    // this row is the storyteller PERFORMING a character the seat only thinks
+    // it has — the wake happened, the effect did not
+    isPerformance: !!isPerformance,
     // WHAT THEY DID — seat indexes, and the names those seats wore tonight
     // (seats move; a replay needs the name it was told)
     targets: new Array(slots).fill(-1),

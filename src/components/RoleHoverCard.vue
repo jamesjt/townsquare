@@ -16,7 +16,7 @@
   -->
   <div
     class="role-hover-card"
-    :class="'team-' + teamKey"
+    :class="['team-' + teamKey, { pinned }]"
     :style="style"
     ref="card"
   >
@@ -87,7 +87,18 @@ export default {
     fallbackAbility: { type: String, default: "" },
     /** `side` puts the card beside the anchor (the shelf, the drawer, a seat);
      *  it falls back to above/below when neither side has room. */
-    placement: { type: String, default: "side" }
+    placement: { type: String, default: "side" },
+    /**
+     * Hand the placement to CSS instead of measuring.
+     *
+     * A LANDSCAPE PHONE has no free space to place into: the ring fills the
+     * left of the window and the panel column the right, so every answer the
+     * measured placement can give lands on a chair (measured 812x375: the
+     * armed card covered five seats). Pinned, the card stands in the same
+     * right-hand column the build panel and the night sheet already use, and
+     * the CSS rule at the bottom of this file owns its box.
+     */
+    pinned: { type: Boolean, default: false }
   },
   data() {
     return {
@@ -231,8 +242,15 @@ export default {
      */
     place() {
       const el = this.$el;
+      if (!el) return;
+      // pinned: the stylesheet owns the box; drop the off-screen park style
+      if (this.pinned) {
+        this.hoist();
+        this.style = {};
+        return;
+      }
       const rect = this.anchorRect();
-      if (!el || !rect) return;
+      if (!rect) return;
       this.hoist();
       const run = () => {
         const m = 8;
@@ -356,6 +374,34 @@ $team-colors: (
     border-radius: 8px;
     opacity: 0.8;
     white-space: nowrap;
+  }
+}
+
+// PINNED (see the `pinned` prop): the same right-hand column the build panel
+// and the night sheet stand in on a landscape phone, so the card never lands
+// on the ring. Top-level, like everything else in this file — the card lives
+// on document.body.
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  .role-hover-card.pinned {
+    top: 46px;
+    right: 6px;
+    left: auto;
+    width: max(42vw, 330px);
+    max-width: none;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    gap: 10px;
+    padding: 10px 14px;
+    .icon {
+      width: 54px;
+      height: 54px;
+    }
+    .txt b {
+      font-size: 17px;
+    }
+    .txt .ability {
+      font-size: 15px;
+    }
   }
 }
 

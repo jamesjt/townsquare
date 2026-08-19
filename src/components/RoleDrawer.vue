@@ -285,6 +285,20 @@ export default {
     },
     /** Fill every roleless non-traveler seat honouring the composition. */
     assignRandomly() {
+      // A full town RE-DEALS (user call 2026-08-18): with no open chair left,
+      // Deal would otherwise be a no-op. Clear every seat first so the whole
+      // script is back in the pool, then deal the composition fresh.
+      if (!this.openSeats && this.seatedCount) {
+        this.players.forEach(p => {
+          if (p.role && p.role.id) {
+            this.$store.commit("players/update", {
+              player: p,
+              property: "role",
+              value: {}
+            });
+          }
+        });
+      }
       const need = { ...this.comp };
       // subtract what's already seated
       this.players.forEach(p => {

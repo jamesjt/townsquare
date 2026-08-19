@@ -187,6 +187,7 @@
       v-if="armedRole && armedAnchor"
       :role="armedRole"
       :anchor="armedAnchor"
+      :pinned="armedPinned"
       @dismiss="armedAnchor = null"
     />
     <TownSquare></TownSquare>
@@ -499,6 +500,12 @@ export default {
         this.armedAnchor = null;
         if (!role) return;
         if (window.matchMedia("(hover: hover)").matches) return;
+        // Turned on its side there is nowhere to place into — see the card's
+        // `pinned` prop. Read once, here, because a rotation drops the card
+        // anyway (the card asks to be dismissed on resize).
+        this.armedPinned = window.matchMedia(
+          "(orientation: landscape) and (max-height: 500px)"
+        ).matches;
         this.$nextTick(() => {
           if (this.$store.state.drawerPick !== role) return;
           this.armedAnchor = document.querySelector(
@@ -556,6 +563,7 @@ export default {
       pillCopied: false,
       // the tile the armed character's card is pinned to (null = no card)
       armedAnchor: null,
+      armedPinned: false,
       // FT-850: game recording + stats state. dealAt mirrors the stashed
       // deal moment for the current session (null = no game underway) — a
       // reload mid-game re-reads it here (persistence has already restored

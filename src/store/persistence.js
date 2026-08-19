@@ -60,14 +60,19 @@ module.exports = store => {
     });
   }
   if (localStorage.players) {
+    // FT-861: the believed role is stashed as an id beside the true one and is
+    // resolved the same way — null (not {}) when the seat believes the truth,
+    // because "no belief" is what golem/belief.js tests for.
+    const roleById = id =>
+      store.state.roles.get(id) || store.getters.rolesJSONbyId.get(id);
     store.commit(
       "players/set",
       JSON.parse(localStorage.players).map(player => ({
         ...player,
-        role:
-          store.state.roles.get(player.role) ||
-          store.getters.rolesJSONbyId.get(player.role) ||
-          {}
+        role: roleById(player.role) || {},
+        believedRole: player.believedRole
+          ? roleById(player.believedRole) || null
+          : null
       }))
     );
   }
@@ -183,7 +188,11 @@ module.exports = store => {
               state.players.players.map(player => ({
                 ...player,
                 // simplify the stored data
-                role: player.role.id || {}
+                role: player.role.id || {},
+                // FT-861: what this seat's player was TOLD they are, by id;
+                // null when they were told the truth
+                believedRole:
+                  (player.believedRole && player.believedRole.id) || null
               }))
             )
           );

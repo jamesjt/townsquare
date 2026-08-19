@@ -1,4 +1,7 @@
 import { sessionIdFromPath } from "../golem/towns";
+// FT-861: what a seat's player is TOLD they are. Every message that carries a
+// character TO a player reads this instead of player.role.
+import { beliefOf } from "../golem/belief";
 
 class LiveSession {
   constructor(store) {
@@ -457,6 +460,15 @@ class LiveSession {
   sendPlayer({ player, property, value }) {
     if (this._isSpectator || property === "reminders") return;
     const index = this._store.state.players.players.indexOf(player);
+    // FT-861: THE BELIEF IS NEVER BROADCAST. Without this the property would
+    // fall through to the plain _send below and go to the whole town, naming
+    // both the seat that does not know what it is and the character it thinks
+    // it has — the loudest possible version of the leak this feature exists to
+    // prevent. It travels to exactly one chair, and only after the deal.
+    if (property === "believedRole") {
+      this._sendBelief(player, index);
+      return;
+    }
     if (property === "role") {
       if (value.team && value.team === "traveler") {
         // update local gamestate to remember this player as a traveler
@@ -466,11 +478,18 @@ class LiveSession {
           property,
           value: value.id
         });
-      } else if (this._gamestate[index].roleId) {
+        return;
+      }
+      if (this._gamestate[index].roleId) {
         // player was previously a traveler
         delete this._gamestate[index].roleId;
         this._send("player", { index, property, value: "" });
       }
+      // FT-861: a character changed on a chair AFTER the deal — the player
+      // holding it is re-dealt what they BELIEVE, privately. On a believing
+      // seat that is unchanged by construction (the belief did not move), so
+      // editing the Drunk's true character tells them nothing.
+      this._sendBelief(player, index);
     } else {
       this._send("player", { index, property, value });
     }
@@ -487,6 +506,10 @@ class LiveSession {
     if (!this._isSpectator) return;
     const player = this._store.state.players.players[index];
     if (!player) return;
+    // FT-861: a player's client has no use for anybody's belief and nothing
+    // sends one — refusing it here means a future sender cannot create the
+    // leak by accident either.
+    if (property === "believedRole") return;
     // special case where a player stops being a traveler
     if (property === "role") {
       if (!value && player.role.team === "traveler") {
@@ -696,13 +719,43 @@ class LiveSession {
       if (player.id && player.role) {
         message[player.id] = [
           "player",
-          { index, property: "role", value: player.role.id }
+          // FT-861: THE SUBSTITUTION. This is the one moment a character
+          // crosses to the player who holds that chair, so it is the one place
+          // the Drunk is handed the Empath and the Lunatic is handed the Imp.
+          // The truth never enters this message at all — it is not sent and
+          // hidden, it is absent, which is the only version of this that
+          // survives a missing CSS rule.
+          { index, property: "role", value: beliefOf(player).id }
         ];
       }
     });
     if (Object.keys(message).length) {
       this._send("direct", message);
     }
+  }
+
+  /**
+   * FT-861: hand ONE seat's player the character they believe they have.
+   *
+   * The private twin of distributeRoles, for everything that happens after the
+   * deal: a storyteller who makes a seat the Drunk on night two, or who edits a
+   * character mid-game, would otherwise leave that player holding a stale (or
+   * true) character. It is a DIRECT message by construction — a belief is
+   * between the storyteller and one chair, and broadcasting it would tell the
+   * whole town both that the seat is lying to itself and what it was told.
+   *
+   * Silent before the deal: nobody has been handed anything yet, and pushing a
+   * character to a player mid-build is how the town learns the grimoire early.
+   */
+  _sendBelief(player, index) {
+    if (this._isSpectator) return;
+    if (!player || !player.id) return;
+    if (!this._store.state.session.isRolesDistributed) return;
+    this._sendDirect(player.id, "player", {
+      index,
+      property: "role",
+      value: beliefOf(player).id || ""
+    });
   }
 
   /**

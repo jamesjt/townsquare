@@ -100,7 +100,10 @@
     </div>
 
     <ReminderModal :player-index="selectedPlayer"></ReminderModal>
-    <RoleModal :player-index="selectedPlayer"></RoleModal>
+    <RoleModal
+      :player-index="selectedPlayer"
+      :for-belief="beliefMode"
+    ></RoleModal>
   </div>
 </template>
 
@@ -200,6 +203,10 @@ export default {
   data() {
     return {
       selectedPlayer: 0,
+      // FT-861: which job the role picker is doing — the seat's CHARACTER, or
+      // the character it SHOWS its player. Both entry points set it, so the
+      // grid never has to remember what it was opened for.
+      beliefMode: false,
       bluffSize: 3,
       swap: -1,
       move: -1,
@@ -240,6 +247,24 @@ export default {
       const player = this.players[playerIndex];
       if (this.session.isSpectator && player && player.role.team === "traveler")
         return;
+      this.beliefMode = false;
+      this.selectedPlayer = playerIndex;
+      this.$store.commit("toggleModal", "role");
+    },
+    /**
+     * FT-861: the same grid, asking the other question — what does this seat's
+     * player think they are?
+     *
+     * It reuses the role modal rather than the grimoire drawer because the
+     * modal is already the SEAT's own picker: it is opened from the coin, it is
+     * scoped to one chair by `playerIndex`, and it closes on the pick. The
+     * drawer is a build-time tray driven by an armed-character channel
+     * (`drawerPick`) whose whole meaning is "the next seat you tap gets this" —
+     * borrowing it would put a second, invisible meaning on every seat tap.
+     */
+    openBeliefModal(playerIndex) {
+      if (this.session.isSpectator) return;
+      this.beliefMode = true;
       this.selectedPlayer = playerIndex;
       this.$store.commit("toggleModal", "role");
     },
@@ -576,6 +601,36 @@ export default {
       .seat {
         animation-delay: ($i - 1) * 50ms;
         transition-delay: ($i - 1) * 50ms;
+      }
+
+      // THE MENU GROWS DOWN FROM THE TOP OF THE RING (touch only).
+      //
+      // It hangs from the seat's bottom edge, which is right until the rows
+      // inside it are finger-sized: at 40px a row the menu is ~250px tall and
+      // the chairs at the top of the ring pushed it off the top of the screen
+      // (measured 812x375 — three of eight menus were clipped).
+      //
+      // A chair is in the TOP half when its rotation is within 90 degrees of
+      // twelve o'clock, which is exactly this slot test — inclusive, so the
+      // chairs ON the horizon flip too: hanging upward they had only the
+      // window's top half to grow into, which is the least room of any chair.
+      // Flipped, every chair has at least half the window below its anchor,
+      // and the height cap in Player.vue's own short-window rule takes it
+      // from there. Coarse pointers only: a desktop menu is 80px tall and has
+      // never needed the flip.
+      @if $pos <= math.div($item-count, 4) or
+        $pos >= math.div($item-count * 3, 4)
+      {
+        @media (pointer: coarse) {
+          .player > .menu {
+            top: -5px;
+            bottom: auto;
+            &:before {
+              top: 5px;
+              bottom: auto;
+            }
+          }
+        }
       }
 
       // move reminders closer to the sides of the circle

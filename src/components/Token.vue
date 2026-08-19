@@ -86,6 +86,27 @@
     </svg>
     <div class="edition" :class="[`edition-${role.edition}`, role.team]"></div>
 
+    <!-- FT-861: THE BELIEF CHIP — what this seat's player was TOLD they are,
+         pinned to the coin's bottom edge (the moon took the top). The truth
+         stays the whole coin; the lie is a chip on its rim, which is the right
+         proportion: the storyteller reads the character that resolves first and
+         the performance second. Only a SEAT passes `belief`; the bluffs, the
+         fabled and both pickers never do, so nothing else grows one. -->
+    <button
+      v-if="belief && belief.id"
+      type="button"
+      class="belief-chip"
+      :class="belief.team"
+      :title="`Believes they are the ${belief.name} — click to change what they were told`"
+      :aria-label="`Believes they are the ${belief.name}`"
+      @click.stop="$emit('set-belief')"
+    >
+      <span
+        class="belief-icon"
+        :style="{ backgroundImage: `url(${beliefIcon})` }"
+      ></span>
+    </button>
+
     <!-- FT-858: the coin's read is THE role hover card — the same component
          the Almanac workbench's shelf hovers (user-directed: one component,
          both surfaces). It supersedes the flat `.ability` box that used to
@@ -183,6 +204,16 @@ export default {
     hoverCard: {
       type: Boolean,
       default: true
+    },
+    /**
+     * FT-861: the character this seat's player was TOLD they are, when it is
+     * not the one on the coin. Null on every coin that is not a storyteller's
+     * seat — see Player.vue, which is the only caller that passes it and which
+     * gates it on being the storyteller's own grimoire view.
+     */
+    belief: {
+      type: Object,
+      default: null
     }
   },
   computed: {
@@ -272,7 +303,28 @@ export default {
      * reach about 60 units from the middle; the parchment ends at 63.6.
      */
     nameCurve: function() {
+      // FT-861: with a belief chip pinned to the bottom edge the name rises
+      // out of its way. The truth's name stays whole and legible — that is the
+      // one thing on this coin that is not tradeable for the chip.
+      if (this.belief && this.belief.id) {
+        return "M 25 70 C 25 130, 125 130, 125 70";
+      }
       return "M 25 81 C 25 147, 125 147, 125 81";
+    },
+    /**
+     * FT-861: the believed character's engraved art, for the chip. Bundled
+     * icons only (a chip is 30px — a remote image would be a smudge and would
+     * need the opt-in), falling back the way the night sheet's rows do.
+     */
+    beliefIcon: function() {
+      const role = this.belief;
+      if (!role || !role.id) return "";
+      if (role.golemIconData) return role.golemIconData;
+      try {
+        return require("../assets/icons/" + (role.imageAlt || role.id) + ".png");
+      } catch (e) {
+        return require("../assets/icons/custom.png");
+      }
     },
     ...mapState(["grimoire"])
   },
@@ -497,6 +549,93 @@ $blood: #970000; // our red, for the one mark that must not be missed
     height: 30px;
     background-size: 100%;
     display: none;
+  }
+
+  // FT-861: THE BELIEF CHIP. A smaller coin struck in the same metal, set into
+  // the wheel's bottom edge — half on the rim, half proud of it, so it reads as
+  // pinned TO the coin rather than as part of the face. The team's colour is a
+  // hairline on its collar, the same whisper the big coin's rim carries.
+  .belief-chip {
+    position: absolute;
+    left: 50%;
+    bottom: -6%;
+    transform: translateX(-50%);
+    width: 26%;
+    height: 26%;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--coin, url("../assets/token-golem.png")) center center /
+      cover no-repeat;
+    box-shadow: 0 0 0 1.5px rgba(20, 14, 8, 0.9),
+      0 2px 4px rgba(0, 0, 0, 0.65);
+    cursor: pointer;
+    // the coin's own click opens the character picker; the chip's opens the
+    // BELIEF picker, so it must never reach the coin underneath
+    pointer-events: auto;
+    z-index: 4;
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      transform: translateX(-50%) scale(1.12);
+      box-shadow: 0 0 0 1.5px #{$blood}, 0 2px 6px rgba(0, 0, 0, 0.75);
+    }
+
+    // the collar's whisper of team colour, drawn as a ring on the chip's edge
+    @mixin chip-collar($color) {
+      &:after {
+        border-color: rgba($color, 0.85);
+      }
+    }
+    &:after {
+      content: " ";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      border: 1.5px solid rgba(222, 208, 172, 0.7);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    &.townsfolk {
+      @include chip-collar($townsfolk);
+    }
+    &.outsider {
+      @include chip-collar($outsider);
+    }
+    &.minion {
+      @include chip-collar($minion);
+    }
+    &.demon {
+      @include chip-collar($demon);
+    }
+    &.traveler {
+      @include chip-collar($traveler);
+    }
+
+    // `.token span` makes every span in here a full-bleed 100% layer; the icon
+    // wants the same box but its own fit, so it restates it rather than
+    // inheriting a size meant for the coin's face.
+    // The chip is a third of the coin across, so its art gets nearly the whole
+    // face — at 78% the engraving read as a smudge. It also carries the big
+    // coin's own lift off centre, so the two read as the same object struck at
+    // two sizes.
+    .belief-icon {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-position: center 47%;
+      background-repeat: no-repeat;
+      background-size: 88%;
+      pointer-events: none;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+    }
   }
 
   // FT-858: superseded by RoleHoverCard, which the coin now renders instead.
