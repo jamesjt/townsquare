@@ -198,6 +198,10 @@ export default {
 
 <style lang="scss" scoped>
 @import "../vars.scss";
+// FT-912: for `face-disc-gate` — the one copy of the
+// condition that decides whether the menus on the clock face are discs or
+// rectangles.
+@import "../faceDisc.scss";
 
 .info {
   position: absolute;
@@ -211,6 +215,45 @@ export default {
   flex-wrap: wrap;
   background: url("../assets/demon-head.png") center center no-repeat;
   background-size: auto 100%;
+
+  // ── FT-912: THE READOUT STANDS DOWN UNDER A DISC ──────
+  //
+  // A face disc is a menu that stops being a rectangle over the dial and
+  // becomes a plate laid ON it — same centre, same radius (src/faceDisc.scss).
+  // This readout sits directly underneath one, and hiding it was the disc's
+  // material's job for three passes: 22px of blur and a 78%-opaque wash, which
+  // is the recipe for FROSTED glass and is what the user rejected, three
+  // times, in the same words.
+  //
+  // It does not have to be there at all. Nothing on this line is being read
+  // while a storyteller is working a checklist laid over the top of it, and
+  // every one of these numbers is back the instant the disc closes. Standing
+  // it down is what let the plate's tint fall from .78 to .22 and its blur to
+  // a sixth of the frost's — measured both ways in
+  // claude_temp_test/2026-08-19-glassclear-sweep.mjs.
+  //
+  // THE GATE IS THE POINT OF THIS RULE, not decoration on it. `#app
+  // .face-disc-open` is true whenever one of those menus is showing, disc or
+  // not; BELOW the disc's own media query (a phone, a small window) they are
+  // ordinary rectangles that do not cover the hub at all, and standing the
+  // readout down there would hide it for no reason whatsoever. So the flag
+  // says what is SHOWING and this gate says whether it is a DISC — one copy of
+  // the condition, shared with all four surfaces.
+  //
+  // FADE, NOT CUT — and the fade is already here rather than declared again:
+  // App.vue's boot gate gives every direct child of #app `transition: opacity
+  // 400ms ease-in`, this element is one, and that rule outranks anything a
+  // scoped class can say. So opacity is the only thing this needs to set, and
+  // the readout dissolves under the disc instead of blinking out. It is well
+  // inside the second the night backdrop takes to fall, so it never races the
+  // checklist's own arrival.
+  @include face-disc-gate {
+    #app.face-disc-open > & {
+      opacity: 0;
+      // no hover targets and no tooltips under an opaque plate
+      pointer-events: none;
+    }
+  }
 
   li {
     font-weight: bold;

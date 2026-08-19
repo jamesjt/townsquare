@@ -273,15 +273,63 @@ $face-disc-foot-dy: 14px;
   @include face-disc-plate;
 }
 
+// ── THE LIGHT DIAL: one material, one alpha that answers to the dial ────────
+//
+// FOURTH PASS — the glass-clear pass, 2026-08-19. The plate's tint is now a
+// VARIABLE, and it is the only thing about the material that moves. Blur, saturation, brightness, the bevel
+// and the rim are one set of numbers for all four surfaces; what changes is how
+// much veil sits in front of a dial that is either lit or dark.
+//
+// WHY IT HAS TO. The four discs do not stand on the same backdrop, and the
+// difference is measured, not asserted (rig:
+// claude_temp_test/2026-08-19-glassclear-day2.mjs, ground luminance under the
+// plate with the disc's own content hidden, 1920x1080):
+//
+//                                   median ground   99th pct   white text @99
+//   night checklist (dark dial)         0.029        0.072          8.6 : 1
+//   entry panel     (LIT dial)          0.098        0.155          5.1 : 1
+//
+// Same material, same everything — a three-and-a-half-fold difference in the
+// ground its own text has to sit on, because one dial is under the night
+// backdrop and the other is in full light. One alpha cannot serve both: the
+// value that keeps the entry panel's own type legible re-frosts the checklist,
+// and the value that makes the checklist glass washes the entry panel out to
+// bright bronze with the CLOCKTOWER letters reading straight through it.
+//
+// SO THE ALPHA FOLLOWS THE LIGHT, which is the physically honest statement:
+// this is the same pane, and a pane over a dark thing shows less than a pane
+// over a lit one. `#app.night` is the app's own existing flag for it (App.vue
+// binds it off grimoire.isNight) — no new state, and it is exactly right by
+// construction: the checklist only ever exists at night, and the entry panels
+// only ever exist outside a session, where it is never night.
+//
+// Include `face-disc-tint` on #app (App.vue does) and every disc inherits it.
+$face-disc-tint-lit: 0.46;
+$face-disc-tint-dark: 0.22;
+
+@mixin face-disc-tint {
+  --fd-tint: #{$face-disc-tint-lit};
+  &.night {
+    --fd-tint: #{$face-disc-tint-dark};
+  }
+}
+
 // THE MATERIAL: a plate laid on the dial, not a hole cut in it. One material,
 // four callers, so the discs read as kin rather than as four circular
 // inventions.
 //
 // WHAT SHOWS THROUGH, AND WHAT MUST NOT. Under a disc sits the hub — and the
-// hub carries the town readout: the script name in display type, the alive and
-// vote counts, the edition mark. None of it may read through, and the rose
-// under it MUST, because the rose showing through is the point of laying a disc
-// on a dial rather than a panel over one.
+// hub used to carry the town readout: the script name in display type, the
+// alive and vote counts, the edition mark. The rose under it MUST show
+// through, because the rose showing through is the point of laying a disc on a
+// dial rather than a panel over one.
+//
+// THE READOUT IS NO LONGER THE MATERIAL'S PROBLEM (glass-clear pass). It
+// STANDS DOWN while a disc is standing — App.vue publishes `#app.face-disc-open` and
+// TownInfo fades out under it — so the plate is no longer paying blur and
+// alpha to hide a thing that is not there. That is what let this pass take the
+// tint from .78 to .22 on the surface the readout sat under. Every claim below
+// about what conceals what is about the DIAL now, not about the readout.
 //
 // THAT SENTENCE USED TO END "so the BLUR does the separating". It does not, and
 // the third pass measured it: blur spreads the readout's leak without removing
@@ -362,24 +410,72 @@ $face-disc-foot-dy: 14px;
 // was therefore a different material at every window size. 0.018r is ~3.6px at
 // 1280x800 and ~5px at 1920x1080 — one object, whatever the window.
 //
-// ── THE CONSTRAINT THAT IS STILL DISTORTING THIS ───────────────────────────
-// Everything above is the best material available WHILE THE TOWN READOUT SITS
-// LIT UNDERNEATH. It is not the best material available. With the readout
-// stood down while a disc is open, the tint can fall to ~.35, the contrast and
-// brightness knocks come off entirely, and the disc becomes properly clear
-// glass — photographed, both ways, in
-// claude_temp_test/2026-08-19-glass2-shots/CONTACT-FINAL-build-1920x1080.png
-// (A_clear) against the same frame here. That change belongs to TownInfo.vue
-// or App.vue, neither of which is this file's to touch; it is written up in
-// the FT report as the recommendation, and the numbers above are what it buys.
+// ── FOURTH PASS: THE READOUT STOOD DOWN, AND WHAT THAT BOUGHT ─────────────
+//
+// The third pass ended by naming the constraint it could not reach: everything
+// it settled on was the best material available WHILE THE TOWN READOUT SAT LIT
+// UNDERNEATH. That constraint is gone. TownInfo now fades out while a disc is
+// standing (`#app.face-disc-open`, App.vue), so the plate's alpha stopped
+// paying for concealment it no longer owes.
+//
+// WHAT WAS ACTUALLY UNDER EACH DISC, from the DOM rather than from reading the
+// components (rig: claude_temp_test/2026-08-19-glassclear-under.mjs — every
+// element painted behind the circle and overlapping it):
+//
+//   night checklist   ul.info — the whole town readout — and nothing else.
+//   build panel       NOTHING. TownInfo is not even mounted here: App's
+//                     centre slot is a v-if chain, and HostTools winning it
+//                     means TownInfo does not render at all.
+//   entry panels      the ten CLOCKTOWER letters (App.vue's own DOM, 98px of
+//                     near-black serif, all ten inside the circle) and the
+//                     "on the" lockup — plus the HANDED dial art, because
+//                     outside a game the background is
+//                     background-clocktower-centered.png and the hand is
+//                     PAINTED INTO IT. Nothing can stand that down.
+//
+// That last line is why the tint became a variable rather than a smaller
+// number: the entry panels' backdrop cannot be cleaned, so their alpha has to
+// do the calming, and the checklist's can, so its alpha does not.
+//
+// THE NUMBERS THIS PASS PICKED, and what each is measured against
+// (claude_temp_test/2026-08-19-glassclear-{sweep,day2,front}.mjs):
+//
+//   blur 0.014r    ~2.8px at 1280x800, ~3.9px at 1920x1080. Down from 0.018r,
+//                  and a SIXTH of the 22px frost the user rejected twice.
+//   saturate 2.05  unchanged in intent — colour is a glass cue, and the dial
+//                  is the colour.
+//   brightness .78 THE ADAPTIVE TERM, and the reason it is a multiply rather
+//                  than more alpha: a multiply takes the LIT dial down hard
+//                  and the dark one barely at all, which is what one material
+//                  over two very different grounds needs. The contrast(.72)
+//                  knock is gone entirely — it existed to flatten the
+//                  readout's white-on-black strokes, and there is no readout.
+//   tint .22 / .46 dark dial / lit dial (see the light block at the top).
+//
+//   Structure — the standard deviation of the ground under the plate, i.e. how
+//   much of the dial is actually READING THROUGH, which is the thing being
+//   bought:
+//                          shipped frost   this pass    x
+//     night checklist          0.0024        0.0141    5.9
+//     entry panel (lit)        0.0053        0.0246    4.6
+//
+//   Legibility — WCAG ratio of white row text against the 99th-percentile
+//   ground, i.e. the brightest place a letter can land. AA is 4.5:
+//     night checklist  8.6 : 1      entry panel  7.6 : 1
+//
+// WHAT DID NOT SURVIVE THE MEASUREMENT. The research's recommendation — tint
+// ~.34 with the brightness knock REMOVED (brightness 1.06) — was checked and
+// rejected: it holds up on the night checklist and fails on the entry panel,
+// where it lands white text at 4.07 : 1 against a lit bronze ground. Brightening
+// is the right sign over a dark backdrop and the wrong one over a lit backdrop,
+// and this file has to be both.
 //
 // ── HOW THE THREE LAYERS SPLIT THE WORK ────────────────────────────────────
-//   the element  ONE backdrop-filter: a LOW blur, saturation up hard, and the
-//                brightness/contrast knock that does the concealing the blur
-//                used to be blamed for.
+//   the element  ONE backdrop-filter: a LOW blur, saturation up hard, and a
+//                brightness multiply that answers to how lit the dial is.
 //   ::before     THE GROUND: the tint ramp, heaviest dead centre, gone by the
-//                rim. It carries most of the concealment now, and it is what
-//                keeps the edge lighter than the middle.
+//                rim. Its STRENGTH is `--fd-tint`, carried as the layer's own
+//                opacity so one number scales the whole ramp.
 //   ::after      THE EDGE: painted light on `screen`, masked to a THIN ring —
 //                85% out, not 46%. A rim, not a glare.
 @mixin face-disc-plate {
@@ -400,27 +496,31 @@ $face-disc-foot-dy: 14px;
   // so the lit edge cannot reach past the disc onto the dial.
   isolation: isolate;
 
-  // THE FILTER, and every term in it is doing a job the blur used to be
-  // credited with.
+  // THE FILTER. Three terms, and the file's earlier passes credited every one
+  // of them to concealing the town readout. The readout stands down now, so
+  // each is here for what it does to the DIAL.
   //
-  //   blur 0.018r  ~3.6px at 1280x800, ~5px at 1920x1080 — a FIFTH of the 22px
-  //                it replaces. A fraction of the radius rather than a pixel
-  //                count, because the type behind it scales with the face.
-  //   saturate 2.3 the selective lever. The readout is near-achromatic text;
-  //                the dial is colour. This lifts the dial and does nothing for
-  //                the text — signal up, noise flat. It is also what stops a
-  //                low-blur pane reading as smoked perspex.
-  //   contrast .72 compresses the readout's white-stroke-on-black-halo edge,
-  //                which is the thing that makes small text legible at all.
-  //   brightness .7 cuts the bright marks harder than the mid-toned dial.
+  //   blur 0.014r  ~2.8px at 1280x800, ~3.9px at 1920x1080 — a SIXTH of the
+  //                22px frost that was rejected twice. A fraction of the
+  //                radius rather than a pixel count, because everything behind
+  //                it scales with the face; a fixed pixel count would be a
+  //                different material at every window size.
+  //   saturate 2.05 colour is a glass cue and a wash is not. The dial is
+  //                mid-bronze COLOUR, so this is what stops a low-blur pane
+  //                reading as smoked perspex.
+  //   brightness   THE ADAPTIVE TERM. A multiply, so it takes the LIT dial
+  //     .78        (entry panels, a day build panel) down hard and the
+  //                night-dimmed one barely at all — which is exactly the
+  //                behaviour one material over two very different grounds
+  //                needs, and exactly what a flat alpha cannot do.
   //
-  // Measured leak against the frost this replaces (rig:
-  // claude_temp_test/2026-08-19-glass2-leak2.mjs): mean 1.38 vs 1.50. It
-  // conceals BETTER than the 22px did, on a fifth of the blur.
-  backdrop-filter: blur(calc(var(--fd-r) * 0.018)) saturate(2.3) contrast(0.72)
-    brightness(0.7);
-  -webkit-backdrop-filter: blur(calc(var(--fd-r) * 0.018)) saturate(2.3)
-    contrast(0.72) brightness(0.7);
+  // The contrast(0.72) knock that used to sit here is GONE. Its whole job was
+  // flattening the readout's white-stroke-on-black-halo edges, and there is no
+  // readout under a disc any more.
+  backdrop-filter: blur(calc(var(--fd-r) * 0.014)) saturate(2.05)
+    brightness(0.78);
+  -webkit-backdrop-filter: blur(calc(var(--fd-r) * 0.014)) saturate(2.05)
+    brightness(0.78);
 
   // THE THICKNESS. Two facing bevels, not a ring: a lit face up-and-left where
   // this file's light has always come from, a shadowed one down-and-right. Both
@@ -455,16 +555,23 @@ $face-disc-foot-dy: 14px;
   // The tint ramp: full strength dead centre, gone by the rim. No mask — the
   // gradient's own alpha does it, which is one moving part fewer.
   //
-  // THIS LAYER IS NOW THE CONCEALMENT, and that is the whole reframe of this
-  // pass. The measured frontier says tint removes the readout's leak and blur
-  // only spreads it, so the job moved here off the backdrop-filter — which is
-  // what let the blur come down by a factor of five. A tint is glass's own
-  // property (this is smoked glass, and smoked glass is glass); a smear is not.
+  // It is why the edge is lighter than the middle. The backdrop is equally lit
+  // all the way across; what changes is how much of this sits on top of it.
   //
-  // It is also why the edge is lighter than the middle. The backdrop is equally
-  // lit all the way across; what changes is how much of this sits on top of it.
+  // THE RAMP IS AUTHORED AT FULL STRENGTH AND SCALED BY `opacity`, and that is
+  // deliberate rather than incidental. The alpha the compositor ends up with is
+  // (the stop's own alpha) x (this layer's opacity), which is precisely the
+  // `T x [1, .95, .62, 0]` the three earlier passes wrote out by hand as three
+  // separate rgba() literals. One number now moves the whole ramp — so
+  // `--fd-tint` is a single readable dial rather than three that have to be
+  // kept in step, and it can be switched by a class (see the light block at the
+  // top of this file) without restating a gradient.
   //
-  // The colour is unchanged and deliberately so: rgba(26, 20, 33) is the
+  // The 260ms is the plate FOLLOWING THE PHASE rather than snapping with it:
+  // #app's night backdrop fades over a second, and a tint that changed
+  // instantly at the same moment read as a flicker on the plate.
+  //
+  // The colour is unchanged and deliberately so: rgb(26, 20, 33) is the
   // grimoire's cool purple-black, the ground RoleDrawer's own controls sit on.
   &::before {
     content: "";
@@ -473,11 +580,13 @@ $face-disc-foot-dy: 14px;
     z-index: -1;
     border-radius: 50%;
     pointer-events: none;
+    opacity: var(--fd-tint, #{$face-disc-tint-lit});
+    transition: opacity 260ms ease;
     background: radial-gradient(
       circle at 50% 46%,
-      rgba(26, 20, 33, 0.78) 0%,
-      rgba(26, 20, 33, 0.741) 55%,
-      rgba(26, 20, 33, 0.484) 80%,
+      rgb(26, 20, 33) 0%,
+      rgba(26, 20, 33, 0.95) 55%,
+      rgba(26, 20, 33, 0.62) 80%,
       rgba(17, 13, 23, 0) 100%
     );
   }

@@ -37,7 +37,10 @@
       // …and WHICH edge it came from, which only matters turned on its side:
       // there a drawer stays a drawer (a 375px-tall window has no room for a
       // sheet) and the square gives up the column it is standing in.
-      'sheet-left': modals.roleDrawer
+      'sheet-left': modals.roleDrawer,
+      // A FACE DISC IS STANDING OVER THE HUB — see the computed. The town
+      // readout answers to this and to nothing else (TownInfo.vue).
+      'face-disc-open': faceDiscOpen
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -620,6 +623,42 @@ export default {
         this.showNightSheet && this.night.mode !== "off" && this.grimoire.isNight
       );
     },
+    /**
+     * FT-912: A FACE DISC IS STANDING ON THE CLOCK FACE.
+     *
+     * One flag, published as `#app.face-disc-open`, and the thing that reads it
+     * is the town readout: TownInfo fades out while a disc is over it. That is
+     * what let the disc's material stop being frost — the plate was spending
+     * blur and a 78%-opaque wash to hide a readout that did not have to be
+     * there at all (src/faceDisc.scss, fourth pass).
+     *
+     * IT IS BUILT FROM SIGNALS THAT ALREADY EXIST rather than from new state:
+     * both terms are computeds this component already had. What is new is the
+     * NAME — "a disc is standing" is the condition the material depends on, and
+     * `checklist-up` (the phone-layout twin of the first term, just above) is
+     * not it: that class is about the square giving a docked sheet room, and
+     * tying a legibility guarantee to a layout flag would mean a later change
+     * to the phone layout silently changing the glass.
+     *
+     * WHY THERE IS NO TERM FOR THE ENTRY PANELS, though they are two of the
+     * four disc surfaces. They cannot coexist with the readout: App's centre
+     * slot is one v-if chain, so `<Intro>` winning it means `<TownInfo>` does
+     * not render at all. Same for the build panel, whose term IS here — kept
+     * because the flag should mean what its name says whatever renders under
+     * it, not because anything leaks there today. Checked in the DOM rather
+     * than deduced: claude_temp_test/2026-08-19-glassclear-under.mjs lists
+     * every element painted behind each of the four discs, and `ul.info`
+     * appears under the checklist alone.
+     *
+     * IT IS NOT GATED ON THE DISC'S MEDIA QUERY, and must not be: below that
+     * gate these menus are rectangles that do not cover the hub, and standing
+     * the readout down there would hide it for nothing. The gate belongs to the
+     * rule that reads this flag (TownInfo wraps it in `face-disc-gate`), so the
+     * flag stays a plain statement about what is showing.
+     */
+    faceDiscOpen() {
+      return this.showNightChecklist || this.showHostTools;
+    },
     // Golem fork: the building phase = hosting live, characters not yet dealt.
     // The deal moment is the DURABLE `dealAt` stash, not session
     // .isRolesDistributed — upstream sets that flag for two seconds and then
@@ -1066,6 +1105,11 @@ export default {
 
 <style lang="scss">
 @import "vars";
+// FT-912: the face disc's material reads `--fd-tint` off
+// #app — see
+// `face-disc-tint` below and the light block at the top of faceDisc.scss.
+// This import emits nothing on its own (that file is variables and mixins).
+@import "faceDisc";
 
 @font-face {
   font-family: "Papyrus";
@@ -1248,6 +1292,13 @@ ul {
 
 #app {
   height: 100%;
+
+  // FT-912: THE FACE DISC'S TINT, published here because it
+  // answers to a class that lives on this element — `#app.night`. The two values and the whole
+  // argument for why one alpha cannot serve both a lit dial and a dark one are
+  // in src/faceDisc.scss; this is only where they are hung, so that every disc
+  // inherits them and nothing has to be told which surface it is.
+  @include face-disc-tint;
 
   // THE PHONE SHEET'S HEIGHT — one number, three readers: the sheets
   // themselves (drawer.scss reads it as `var(--sheet-h)`), the session pill's
