@@ -576,6 +576,169 @@ export default {
     overflow: hidden;
   }
 
+  // ── THE DISC (FT-882, desktop only) ───────────────────────────────────
+  //
+  // The checklist stops being a rectangle floating over the dial and becomes
+  // a PLATE LAID ON IT: same centre, same radius, border-radius 50%.
+  //
+  // This is only buildable because the art was recentred (FT-anon,
+  // 2026-08-19): App.vue publishes --face-cx / --face-cy / --face-r, so the
+  // disc is placed and sized from the face's own published geometry and NOT
+  // from a hand-tuned offset. Those three are the single source of truth —
+  // if the disc ever sits off the dial, the numbers there are what to fix.
+  //
+  // THE SHAPE COSTS WIDTH, AND THE ROWS GET THE MIDDLE OF IT.
+  // A circle's usable line width changes row by row — nothing at the poles,
+  // everything at the equator — and this list is scanned under time pressure
+  // with a full sentence on every row. So the DISC IS THE FRAME and the rows
+  // live in the rectangle inscribed in it, dead centre. What the poles get
+  // instead is the two things short enough to want them: the progress count
+  // at the top, the End-night button at the bottom.
+  //
+  // THE BAND MATH, once, here:
+  //   cap  t  = --ns-cap × diameter, the height surrendered at EACH pole
+  //   half-height  b = r − t          (the list band is centred, so both
+  //                                    poles must give up the same t — the
+  //                                    NARROWER cap is what binds the width)
+  //   half-width   a = √(r² − b²) = √(2rt − t²)
+  // --ns-hw is a/r, kept in sync BY HAND against --ns-cap: CSS sqrt() is too
+  // new to lean on in a fork that has to run in whatever a storyteller has
+  // open. cap .18 → hw .768 | .21 → .8146 | .25 → .866 | .28 → .898.
+  //
+  // Widening the band (a bigger cap) buys line width and spends visible
+  // rows; .21 is the measured settlement — see the FT-882 report for the
+  // widths this lands at on each viewport.
+  //
+  // The floor: below ~1000×700 the face itself is small enough that the
+  // inscribed band stops being a readable column, so a small desktop window
+  // keeps the 640px rectangle above rather than getting an unreadable disc.
+  @media (pointer: fine) and (min-width: 1000px) and (min-height: 700px) {
+    &.has-list {
+      --ns-r: calc(var(--face-r, 238) * var(--fpx, 1px));
+      --ns-d: calc(2 * var(--ns-r));
+      --ns-cap: 0.21;
+      --ns-hw: 0.8146;
+      --ns-band: calc(2 * var(--ns-hw) * var(--ns-r));
+      --ns-caph: calc(var(--ns-cap) * var(--ns-d));
+
+      position: absolute;
+      left: var(--face-cx, 50%);
+      top: var(--face-cy, 50%);
+      transform: translate(-50%, -50%);
+      width: var(--ns-d);
+      height: var(--ns-d);
+      // THE DISC IS THE FACE. The window caps on the base rule would square
+      // this off into an oval the moment a viewport got tight — and an oval
+      // no longer registers to the dial, which is the whole point. A freak
+      // aspect ratio crops the face; the disc crops with it.
+      max-width: none;
+      max-height: none;
+      border-radius: 50%;
+      border: none;
+      padding: 0;
+      align-items: center;
+
+      // THE MATERIAL: a plate laid on the dial, not a hole cut in it. Dark
+      // (every colour on these rows — white text, blood-red ticks, the gold
+      // lie flag — is built for a dark ground), warm rather than the flat
+      // 0.95 black the rectangle wore, and thinnest at the middle so the
+      // rose still reads faintly under the list instead of being blotted
+      // out. The gold hairline is the bronze rim's own note, picked up.
+      background: radial-gradient(
+        circle at 50% 44%,
+        rgba(36, 25, 16, 0.78) 0%,
+        rgba(24, 16, 11, 0.88) 52%,
+        rgba(13, 9, 6, 0.95) 86%,
+        rgba(8, 5, 4, 0.97) 100%
+      );
+      box-shadow:
+        inset 0 0 0 1px rgba(216, 180, 90, 0.32),
+        inset 0 0 34px rgba(0, 0, 0, 0.8),
+        0 0 26px rgba(0, 0, 0, 0.75);
+
+      // ── the three bands, exact: cap + (d − 2cap) + cap = d ──────────────
+      // The list band MUST come out centred — an off-centre band is bound by
+      // whichever pole it sits closer to, and its far corners then poke out
+      // through the circle (where `overflow: hidden` quietly shears them).
+      // So every basis below is stated, and none of them flex.
+      > .phase {
+        flex: 0 0 var(--ns-caph);
+        width: var(--ns-band);
+        align-items: flex-end;
+        padding: 0 0 8px;
+      }
+
+      > .ns-rows {
+        flex: 0 0 calc(var(--ns-d) - 2 * var(--ns-caph));
+        width: var(--ns-band);
+        // the drip runs down the band's own inside edge (the directive
+        // reserves its 30px lane in the host's padding), so it lands well
+        // inside the circle rather than on the rim
+      }
+
+      // nobody wakes tonight: no header band to sit under, so this one
+      // centres itself in whatever the button leaves
+      > .ns-empty {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+      }
+
+      // the button rides the TOP of the bottom cap, where the circle is
+      // still wide — never full-bleed, which at this height would run it
+      // straight through the rim
+      > .phase-flip.bottom {
+        flex: 0 0 auto;
+        width: calc(1.2 * var(--ns-r));
+        margin: 10px 0 0;
+      }
+
+      // ── THE ROW, IN A NARROWER COLUMN ──────────────────────────────────
+      // The band is ~345–465px against the rectangle's 640, and the row's
+      // job does not change: TWO lines, identity+answer over the ability.
+      // Measured at 1280×800 (FT-882), the row on its rectangle settings
+      // broke its answer zone onto a second and third line on 8 of 9 rows
+      // and stood 103–139px tall — three lines of controls in a list you are
+      // meant to scan, and barely two rows visible at a time.
+      //
+      // What gives, in order of what costs least:
+      //   · the answer zone stops WRAPPING and starts SHRINKING. The pickers
+      //     carry `min-width: 0` already and ellipsize their name, so a
+      //     narrow one still shows seat + icon + as much name as there is
+      //     room for — where a wrapped one bought its full name by taking
+      //     another line off every row on screen.
+      //   · the identity column's floor drops 150 → 92px, and its gaps
+      //     tighten. It holds the role name, which ellipsizes; the answer
+      //     zone holds CONTROLS, which do not.
+      //   · the character icon drops 40 → 30px and the role name 17 →
+      //     15.5px. That is the only type on this sheet that moves, it is
+      //     the largest type on the row, and it stays above the reminder
+      //     line's own 13.5px. Nothing else is resized.
+      .ns-row {
+        grid-template-columns: 28px minmax(92px, 1fr) auto;
+        column-gap: 8px;
+        padding: 6px 2px 7px;
+
+        .ns-icon {
+          width: 30px;
+          height: 30px;
+        }
+        .ns-who b {
+          font-size: 15.5px;
+        }
+        .ns-answer {
+          flex-wrap: nowrap;
+          gap: 5px;
+        }
+        .ns-label {
+          font-size: 11.5px;
+        }
+      }
+    }
+  }
+
   // PHONE: the sheet is the bottom half of the screen, the way the build
   // panel is — full width regardless of the desktop cap above (higher
   // specificity here wins over the bare `.has-list` rule).

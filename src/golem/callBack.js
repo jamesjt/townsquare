@@ -44,11 +44,18 @@ import callBackSound from "../assets/call-back.mp3";
  */
 export const CALL_BACK_COOLDOWN = 5000;
 
-/** Live, and read by App.vue's template — see the note above about data(). */
-export const callBackState = {
-  // the browser refused a play and the player has not yet cleared it
-  blocked: false
-};
+/**
+ * Live, and read by App.vue's template — see the note above about data().
+ * `blocked` = the browser refused a play and the player has not cleared it.
+ */
+export const callBackState = { blocked: false };
+
+/**
+ * What counts as "the player is here". `keydown` earns its place because this
+ * app is driven by single-letter hotkeys — on a desktop that may genuinely be
+ * the first thing a player does.
+ */
+const GESTURES = ["pointerdown", "touchend", "keydown"];
 
 let el = null;
 let unlocked = false;
@@ -74,7 +81,7 @@ function unlock() {
   const wasMuted = a.muted;
   a.muted = true;
   const p = a.play();
-  const settle = ok => {
+  function settle(ok) {
     a.pause();
     a.currentTime = 0;
     a.muted = wasMuted;
@@ -82,7 +89,7 @@ function unlock() {
     unlocked = true;
     callBackState.blocked = false;
     stopListening();
-  };
+  }
   if (p && p.then) {
     p.then(() => settle(true)).catch(() => settle(false));
   } else {
@@ -100,9 +107,9 @@ function onGesture() {
 function stopListening() {
   if (!listening) return;
   listening = false;
-  ["pointerdown", "touchend", "keydown"].forEach(evt =>
-    window.removeEventListener(evt, onGesture, true)
-  );
+  for (const evt of GESTURES) {
+    window.removeEventListener(evt, onGesture, true);
+  }
 }
 
 /**
@@ -111,15 +118,14 @@ function stopListening() {
  * Capture phase, on window: a click that some component swallows with
  * stopPropagation is still a gesture as far as the browser is concerned, and
  * missing it would leave a player who HAS been clicking around marked as
- * blocked. `keydown` is in the list because this app is driven by single-letter
- * hotkeys — on a desktop that may genuinely be the first thing a player does.
+ * blocked.
  */
 export function armCallBackAudio() {
   if (listening || unlocked) return;
   listening = true;
-  ["pointerdown", "touchend", "keydown"].forEach(evt =>
-    window.addEventListener(evt, onGesture, true)
-  );
+  for (const evt of GESTURES) {
+    window.addEventListener(evt, onGesture, true);
+  }
 }
 
 /**

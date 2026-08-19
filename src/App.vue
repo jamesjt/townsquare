@@ -203,7 +203,10 @@
       @dismiss="armedAnchor = null"
     />
     <TownSquare></TownSquare>
-    <Menu ref="menu"></Menu>
+    <!-- The strip's records mark asks for the overlay App already owns, rather
+         than keeping a second flag of its own that could disagree with the
+         pill's door. -->
+    <Menu ref="menu" @records="statsOpen = true"></Menu>
     <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
          through the same vault path as a ?script= link. -->
     <EditionModal ref="edition" />
@@ -290,6 +293,10 @@
       >
         <font-awesome-icon icon="chart-bar" />
       </span>
+      <!-- FT-880: the town summons and the records door BOTH live in the top
+           strip (Menu.vue) rather than here — see the note on the strip. This
+           stats door stays as it was: it is the pill's own, and the strip's is
+           a second door to the same overlay, not a replacement. -->
       <!-- FT-850: once the host has dealt characters, the game can END here —
            pick the winner, the record lands on the golem server. Gated on the
            stashed deal moment (upstream's isRolesDistributed is a 2s pulse,
@@ -326,6 +333,38 @@
         <font-awesome-icon icon="door-open" />
         {{ leaveArmed ? "Sure?" : "Leave" }}
       </span>
+    </div>
+    <!-- FT-880: THE REFUSED PLAYER'S NOTICE.
+         A browser will not let a page make a noise until somebody has
+         interacted with it, and a tab left untouched through a long day of
+         private conversation may hold no interaction credit at all. When a
+         call-back is refused, the player gets total silence and no error
+         anybody is watching — the storyteller believes the town was called and
+         one player is simply never told.
+         So the refusal is said OUT LOUD, and it persists: this stays up until
+         it is tapped, because the whole problem is that nobody is looking at
+         the moment it happens. Tapping it IS the missing gesture, so the fix
+         and the explanation are the same action — and it plays the sound then
+         and there, so the player hears the thing they were told they could
+         not hear. -->
+    <!-- `pointerdown`, not `click`, and for a real reason: the same tap is ALSO
+         the gesture the module has been waiting for, and its silent unlock
+         clears `blocked` the moment that resolves — which can pull this
+         element out of the DOM between pointerup and click, swallowing the
+         confirming sound. Both handlers run inside the one pointerdown
+         dispatch, so binding here makes the confirmation certain instead of a
+         race the player would experience as "it just disappeared". -->
+    <div
+      class="callback-blocked"
+      v-if="session.sessionId && callBack.blocked"
+      @pointerdown="allowCallBackSound"
+      title="Tap to allow the call-back sound"
+    >
+      <font-awesome-icon icon="bell-slash" />
+      <span
+        >You won't hear the storyteller call the town back.
+        <b>Tap here once.</b></span
+      >
     </div>
     <!-- FT-850: game recording + town records (see the components). -->
     <EndGameOverlay
@@ -381,6 +420,13 @@ import GameStateModal from "@/components/modals/GameStateModal";
 import EndGameOverlay from "./components/EndGameOverlay";
 import StatsOverlay from "./components/StatsOverlay";
 import { markDealt, dealTimeFor } from "./golem/stats";
+// FT-880: the town summons. App owns only the two ends a player sees — the
+// gesture that buys autoplay credit, and the notice when it was not enough.
+import {
+  armCallBackAudio,
+  callBackState,
+  enableCallBackSound
+} from "./golem/callBack";
 // the FONT LAB: per-element lettering choices (title, on-the, the dial's
 // two words, the drop-caps)
 import {
@@ -546,6 +592,10 @@ export default {
     }
   },
   mounted() {
+    // FT-880: start watching for the first gesture, so the call-back's audio
+    // element has earned its autoplay credit long before there is a summons to
+    // play. Costs nothing until something is clicked; see golem/callBack.js.
+    armCallBackAudio();
     // (The legacy webkit blood scrollbar — the --sb-trail writer and its
     // droplet spawner — was KILLED 2026-08-17 by user order. The only blood
     // scrollbar is the v-blood-scroll overlay directive.)
@@ -597,6 +647,11 @@ export default {
       // FT-852: the pill Leave's two-click arm.
       leaveArmed: false,
       leaveTimer: null,
+      // FT-880: the audio module's live flag. Vue 2 makes an object reactive
+      // by walking it when it lands in data(), which is how the module stays a
+      // plain module and the notice above still repaints — the same trick
+      // fontState (below) uses.
+      callBack: callBackState,
       // the app-wide PNG-font state + the font lab panel
       fontState,
       fontDebugOpen: false,
@@ -718,6 +773,16 @@ export default {
     },
     dialStyle(d) {
       return glyphStyleFrom(this.wordKey(d), d.letter, 1);
+    },
+    /**
+     * FT-880: the notice's tap. This runs inside a real click handler, so the
+     * gesture the browser was holding out for is live in this very call stack
+     * and the play is allowed — which is why it plays for real rather than
+     * silently. The player asked why they heard nothing; the honest answer is
+     * to let them hear it.
+     */
+    allowCallBackSound() {
+      enableCallBackSound(this.grimoire.isMuted);
     },
     pillLeave() {
       if (!this.leaveArmed) {
@@ -1137,6 +1202,68 @@ ul {
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
   #app.sheet-up #session-pill {
     display: none;
+  }
+}
+
+// FT-880: the refused player's notice. Bottom-LEFT: the pill owns bottom-right
+// and the menu owns top-right, so this is the one free corner in a running
+// town — and it has to be somewhere permanent, because a notice that shares a
+// corner with something else is a notice that gets covered exactly when it
+// matters.
+//
+// It is styled as a thing to press, not as a warning to endure: the whole
+// message is the tap target, because the fix is one tap and burying it behind
+// a small × or a separate button would be the second silent failure.
+.callback-blocked {
+  position: fixed;
+  left: 10px;
+  bottom: 10px;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 300px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 2px solid #6b1414;
+  border-radius: 10px;
+  box-shadow: 0 0 10px black;
+  color: #e8ddd0;
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+
+  svg {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    color: #c33;
+  }
+  b {
+    color: #fff;
+    white-space: nowrap;
+  }
+  &:hover {
+    background: rgba(12, 6, 6, 0.95);
+    border-color: #a01414;
+  }
+  // Where there is no mouse the notice is the tap target, so it gets a real
+  // one — and a phone is exactly where a tab sits untouched long enough to
+  // lose its autoplay credit in the first place.
+  @media (pointer: coarse) {
+    min-height: 44px;
+    max-width: calc(100vw - 20px);
+  }
+}
+
+// …and it steps up onto a bottom sheet's top edge, the same as the pill does,
+// rather than hiding under it. Unlike the pill this NEVER stands down: the
+// pill's controls are all one tap away again by closing the drawer, and this
+// one is the only thing telling a player their sound is broken.
+@media (pointer: coarse) and (orientation: portrait) {
+  #app.sheet-up .callback-blocked {
+    bottom: calc(var(--sheet-h) + 8px);
   }
 }
 

@@ -26,10 +26,11 @@
       ></div>
     </div>
 
-    <ul class="circle" :class="['size-' + players.length]">
+    <ul class="circle" :class="['size-' + players.length]" ref="circle">
       <Player
         v-for="(player, index) in players"
         :key="index"
+        ref="players"
         :player="player"
         @trigger="handleTrigger(index, $event)"
         :class="{
@@ -41,13 +42,34 @@
       ></Player>
     </ul>
 
+    <!-- Golem fork (2026-08-19, user call twice): the demon's bluffs sit
+         next to the demon's OWN seat, not in a corner — they are that
+         seat's three characters, not the screen's edge. `bluffAnchor`
+         (measured off the demon's rendered coin — see `measureBluffAnchor`
+         below) drives `left`/`top`; it stays null — and this same element
+         falls back to the ORIGINAL corner position, untouched, above in
+         this file's <style> block — for the one case no seat can be found:
+         no demon dealt yet (an undealt town, or a script mid-build). One
+         element, never deleted; only where it docks changed.
+
+         `canSeeBluffs` (STORYTELLER ONLY, by construction — see below) is a
+         v-if, not a CSS rule: a player's DOM never contains the Tokens
+         inside, so there is no role name or icon to find even by
+         inspecting devtools, unlike the old `#townsquare.public > .bluffs`
+         CSS-only hide (still in the stylesheet, untouched, and still the
+         right belt for the host's own public/mirrored screen). -->
     <div
       class="bluffs"
-      v-if="players.length"
+      v-if="players.length && canSeeBluffs"
       ref="bluffs"
-      :class="{ closed: !isBluffsOpen }"
+      :class="{ closed: !isBluffsOpen, anchored: !!bluffAnchor }"
+      :style="bluffAnchorStyle"
     >
       <h3>
+        <!-- This div only ever renders for the storyteller now (see
+             canSeeBluffs), so the spectator title below can never be
+             reached — kept rather than deleted, the same never-delete
+             idiom Player.vue uses for showNightBadges/showSeatSplat. -->
         <span v-if="session.isSpectator">Other characters</span>
         <span v-else>Demon bluffs</span>
         <font-awesome-icon icon="times-circle" @click.stop="toggleBluffs" />
@@ -57,6 +79,7 @@
         <li
           v-for="index in bluffSize"
           :key="index"
+          :style="{ '--bi': index - 1 }"
           @click="openRoleModal(index * -1)"
         >
           <Token :role="bluffs[index - 1]"></Token>
@@ -245,6 +268,58 @@ export default {
         });
       });
       return stains;
+    },
+    /**
+     * Golem fork (2026-08-19): STORYTELLER ONLY, by construction — the exact
+     * guard Player.vue's `beliefChip` already established for "genuinely
+     * storyteller, in the grimoire" (`session.isSpectator` catches every
+     * non-host client, a seated player included — this app has no separate
+     * player/spectator flag; `grimoire.isPublic` catches the host's own
+     * screen while the grimoire is face-down, including a mirrored public
+     * display). HostTools.vue auto-flips isPublic false the moment the host
+     * deals a town (`rolesAssigned` watcher: "assigned role flips the
+     * grimoire face-up"), so this is reachable exactly when it needs to be
+     * and no more.
+     *
+     * A v-if downstream, not a CSS rule: the bluff Tokens simply never
+     * render for anyone this returns false for, so there is no role name
+     * or icon in that DOM to find — the leak the old CSS-only
+     * `#townsquare.public > .bluffs` hide left open (still in the
+     * stylesheet, untouched, and still correct belt-and-braces for the
+     * host's own mirrored screen).
+     */
+    canSeeBluffs() {
+      return !this.session.isSpectator && !this.grimoire.isPublic;
+    },
+    /**
+     * The seat this town's bluffs belong to: the first demon seated, or -1
+     * before any demon is dealt (an undealt town, or a script mid-build) —
+     * `bluffAnchor` stays null in that case and the panel falls back to the
+     * static corner position. A script with more than one demon (Legion)
+     * still anchors to the first found; it is never wrong, only plain.
+     */
+    demonIndex() {
+      return this.players.findIndex(
+        player => player.role && player.role.team === "demon"
+      );
+    },
+    /**
+     * `left`/`top` in px (see measureBluffAnchor) plus the demon seat's own
+     * measured width as `--seat-sz` — every anchored-state rule in this
+     * file's <style> block sizes off that ONE variable, so the cluster
+     * scales exactly how Player.vue's `zoom` already scaled that seat (a
+     * 6-seat town's big coins down to a 15-seat town's small ones) without
+     * this file re-deriving that formula. Null (no demon found yet) means
+     * no inline override — the static corner CSS applies untouched.
+     */
+    bluffAnchorStyle() {
+      if (!this.bluffAnchor) return null;
+      const { left, top, size } = this.bluffAnchor;
+      return {
+        left: `${left}px`,
+        top: `${top}px`,
+        "--seat-sz": `${size}px`
+      };
     }
   },
   data() {
@@ -275,10 +350,110 @@ export default {
       move: -1,
       nominate: -1,
       isBluffsOpen: !isPhone,
-      isFabledOpen: !isPhone
+      isFabledOpen: !isPhone,
+      // Golem fork (2026-08-19): where the bluffs cluster docks — null
+      // until measureBluffAnchor finds a demon seat, meaning "use the
+      // static corner CSS" (see bluffAnchorStyle / the .anchored rules).
+      bluffAnchor: null
     };
   },
+  watch: {
+    // A demon claimed or vacated the anchor seat.
+    demonIndex() {
+      this.$nextTick(this.measureBluffAnchor);
+    },
+    // Seats added/removed resize every coin (Player.vue's `zoom`).
+    "players.length"() {
+      this.$nextTick(this.measureBluffAnchor);
+    },
+    // The zoom slider resizes every coin without resizing #townsquare
+    // itself, so the ResizeObserver below never fires for it on its own.
+    "grimoire.zoom"() {
+      this.$nextTick(this.measureBluffAnchor);
+    },
+    // The grimoire just opened (or the panel just became visible) — get a
+    // fresh reading rather than trusting whatever was measured while
+    // hidden (a display:none/v-if'd subtree can read zero-size).
+    canSeeBluffs(val) {
+      if (val) this.$nextTick(this.measureBluffAnchor);
+    }
+  },
+  mounted() {
+    this.measureBluffAnchor();
+    window.addEventListener("resize", this.measureBluffAnchor);
+    window.addEventListener("orientationchange", this.measureBluffAnchor);
+    // Catches everything a resize event misses: #townsquare's own box
+    // changes size on its own (the building-tools/checklist-up/sheet-up
+    // height squeezes in this file's <style> block) without the WINDOW
+    // resizing at all.
+    if (typeof ResizeObserver !== "undefined") {
+      this._bluffRO = new ResizeObserver(() => this.measureBluffAnchor());
+      this._bluffRO.observe(this.$el);
+    }
+  },
+  beforeDestroy() {
+    window.removeEventListener("resize", this.measureBluffAnchor);
+    window.removeEventListener("orientationchange", this.measureBluffAnchor);
+    if (this._bluffRO) this._bluffRO.disconnect();
+  },
   methods: {
+    /**
+     * Golem fork (2026-08-19): measures the demon's own rendered coin and
+     * parks `bluffAnchor` just past its outer rim — the OUTWARD side, away
+     * from the ring's centre, in the slack `.circle`'s own `--seat-reserve`
+     * comment already documents (half a seat-width of overhang, provisioned
+     * for exactly this kind of thing). Reminders (Player.vue's
+     * `.reminder:not(.add)`) fan the OTHER way — `margin-top: 68%` of the
+     * seat's own width pulls them in-and-sideways, toward the hub — so the
+     * two never compete for the same band.
+     *
+     * A measured DOM position, not a re-derivation of the ring's own
+     * rotate()/vmin math: the ring's radius, each seat's width, and even
+     * which CSS is currently binding (portrait's max-height cap, a phone's
+     * building-tools height squeeze) are already Player.vue's / this
+     * file's own <style> block's concerns — reimplementing that geometry a
+     * second time here is exactly the parallel-build MEMORY-CORE rule 2
+     * warns against. Reading the box already laid out is the single source
+     * of truth; Player.vue's own `cardAnchor` (the role hover card) anchors
+     * off a measured DOM element the same way.
+     */
+    measureBluffAnchor() {
+      const idx = this.demonIndex;
+      const seatVm =
+        idx >= 0 && this.$refs.players ? this.$refs.players[idx] : null;
+      const seatEl =
+        seatVm && seatVm.$el && seatVm.$el.querySelector(".player .life");
+      const ringEl = this.$refs.circle;
+      const rootEl = this.$el;
+      if (!seatEl || !ringEl || !rootEl) {
+        this.bluffAnchor = null;
+        return;
+      }
+      const seatRect = seatEl.getBoundingClientRect();
+      const ringRect = ringEl.getBoundingClientRect();
+      const rootRect = rootEl.getBoundingClientRect();
+      if (!seatRect.width || !ringRect.width) {
+        this.bluffAnchor = null;
+        return;
+      }
+      const seatCx = seatRect.left + seatRect.width / 2;
+      const seatCy = seatRect.top + seatRect.height / 2;
+      const ringCx = ringRect.left + ringRect.width / 2;
+      const ringCy = ringRect.top + ringRect.height / 2;
+      let dx = seatCx - ringCx;
+      let dy = seatCy - ringCy;
+      const dist = Math.hypot(dx, dy) || 1;
+      dx /= dist;
+      dy /= dist;
+      // Tuned against claude_temp_test/2026-08-19-bluffs-seat.mjs — see its
+      // collision table for what a bigger/smaller value measured like.
+      const OUTWARD = 0.6;
+      this.bluffAnchor = {
+        left: seatCx - rootRect.left + dx * seatRect.width * OUTWARD,
+        top: seatCy - rootRect.top + dy * seatRect.width * OUTWARD,
+        size: seatRect.width
+      };
+    },
     toggleBluffs() {
       this.isBluffsOpen = !this.isBluffsOpen;
     },
@@ -848,6 +1023,61 @@ export default {
 #townsquare.public > .bluffs {
   opacity: 0;
   transform: scale(0.1);
+}
+
+/***** Demon bluffs — anchored to the demon's own seat (2026-08-19) *****
+   The corner rules above are UNTOUCHED and still fire whenever there is no
+   demon to anchor to (bluffAnchor stays null — see measureBluffAnchor in
+   the script block): an undealt town, or a script still being built. The
+   `.anchored` class only ever lands on top of a demon seat that was
+   actually measured, so the corner is the fallback, never a lost panel.
+
+   `left`/`top` come from that measurement (inline style, bluffAnchorStyle);
+   `--seat-sz` is the demon's own coin's measured width, so every size
+   below scales with the SAME number Player.vue's own `zoom` already sized
+   that coin with — a 6-seat town's big coins, a 15-seat town's small
+   ones — without this file re-deriving that formula. */
+#townsquare > .bluffs.anchored {
+  bottom: auto;
+  left: 0;
+  transform-origin: center center;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.62);
+  border-radius: 999px;
+  padding: calc(var(--seat-sz, 15vmin) * 0.05)
+    calc(var(--seat-sz, 15vmin) * 0.1);
+  // the corner panel's own drop-shadow reads as a stray dark smear at this
+  // scale, right up against the coin it now sits beside
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+
+  h3 {
+    margin: 0 0 2px;
+    font-size: calc(var(--seat-sz, 15vmin) * 0.095);
+    white-space: nowrap;
+    span {
+      max-width: calc(var(--seat-sz, 15vmin) * 1.7);
+    }
+    svg {
+      width: calc(var(--seat-sz, 15vmin) * 0.15);
+      height: calc(var(--seat-sz, 15vmin) * 0.15);
+    }
+  }
+
+  // OPEN: a tight cascade, not a wide row. Three slots stay close to the
+  // footprint of ONE coin — a full-width row of three half-size coins
+  // measured wider than the ring's own outward slack at a 15-seat town on
+  // a phone (see the collision table in claude_temp_test/
+  // 2026-08-19-bluffs-seat.mjs). Fanning by --bi (this slot's 0-based
+  // index, set in the template) rather than growing sideways from centre
+  // keeps the whole cluster's bounding box close to a single coin's.
+  &:not(.closed) ul li {
+    width: calc(var(--seat-sz, 15vmin) * 0.44);
+    height: calc(var(--seat-sz, 15vmin) * 0.44);
+    margin: 0 0 0 calc(var(--seat-sz, 15vmin) * -0.12 * var(--bi, 0));
+    transform: translateY(
+      calc(var(--seat-sz, 15vmin) * 0.1 * var(--bi, 0))
+    );
+  }
 }
 
 .fabled ul li .token:before {

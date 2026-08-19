@@ -27,7 +27,12 @@ const state = () => ({
   voteHistory: [],
   markedPlayer: -1,
   isVoteHistoryAllowed: true,
-  isRolesDistributed: false
+  isRolesDistributed: false,
+  // FT-880: when the storyteller last called the town back (epoch ms, 0 = not
+  // this session). Local to whichever client pressed it — it is not synced and
+  // not persisted; it exists so the moment is a fact somewhere rather than only
+  // a side effect inside a click handler.
+  calledBackAt: 0
 });
 
 const getters = {};
@@ -96,6 +101,13 @@ const mutations = {
   },
   clearVoteHistory(state) {
     state.voteHistory = [];
+  },
+  /**
+   * FT-880: call the town back. The socket plugin listens for this and is the
+   * one place that decides whether it may go out (storyteller only).
+   */
+  callBack(state) {
+    state.calledBackAt = Date.now();
   },
   /**
    * Store a vote with and without syncing it to the live session.

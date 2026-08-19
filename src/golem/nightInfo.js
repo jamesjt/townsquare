@@ -119,16 +119,66 @@ export function renderableType(type) {
  *               `label` key at all, and an unlisted role falls through to no
  *               label the same way it falls through to a bare text box —
  *               never a guessed verb.
+ *   line        FT-886: THE INSTRUCTION LINE — see the section below.
+ *
+ * ── THE INSTRUCTION LINE (`line`, FT-886) ────────────────────────────────
+ *
+ * The shipped reminder text is written for a table with physical tokens: it
+ * says "points to a player", "show the character token", "show the 'You are'
+ * card", "replace it with a spare Imp token". None of that exists on a
+ * screen, where the storyteller has a seat picker and a character picker on
+ * the row itself. `line` is OUR sentence for the same action — one line,
+ * present tense, saying what the storyteller does HERE.
+ *
+ * What a line is for, in order:
+ *   TRUE first. Every condition the official text carries is kept ("if a
+ *     player was executed today", "if an Outsider died today") — the
+ *     condition is the part a tired storyteller forgets, so it is the last
+ *     thing compression may take. Where a rule would not survive the
+ *     shortening, the character keeps the official text instead (see LEFT
+ *     ALONE below).
+ *   ONE LINE. The row truncates at roughly 90 characters; every line here is
+ *     comfortably under that, so nothing needs a tooltip to be read.
+ *   SAYING WHAT THE LABEL CANNOT. The row already reads "Poisons: [seat]",
+ *     so the line never repeats the verb or the character's own name — it
+ *     carries the timing, the condition and the consequence.
+ *
+ * Shape: a STRING when both nights read the same, or `{ first, other }` when
+ * the action genuinely differs between them — the Godfather learns the
+ * Outsiders on night one and kills on later nights, and one sentence cannot
+ * be true of both. Resolved by `lineFor()`.
+ *
+ * FALLBACK, and it is deliberate: a character with no line shows the official
+ * reminder text exactly as before. Custom scripts carry characters nobody has
+ * written for, and a missing line is never a broken row.
+ *
+ * LEFT ALONE ON PURPOSE: the Lunatic, whose reminder is not an instruction
+ * but a whole scripted performance (arbitrary Minions, three bluff tokens,
+ * waking the real Demon afterwards to show it what was marked). There is no
+ * short sentence that is also true of it, and the long official one is the
+ * better row.
  *
  * COVERAGE (checked by hand against roles.json + the shipped reminder text,
- * 2026-08-18): every Trouble Brewing character that wakes at all, PLUS the
- * handful of Bad Moon Rising / Sects & Violets number-signal roles this fork
- * already had reminder text for on hand (Chambermaid, Clockmaker,
- * Mathematician, Oracle, Juggler). Nothing else from BMR or SNV is entered —
- * an unlisted id falls through to TEXT via fieldsFor()'s fallback, which is
- * safe (a plain text box, never a wrong yes/no) but under-specific. That
- * fallback is load-bearing: a custom script's own characters were never
- * going to be in this table at all.
+ * 2026-08-18; lines added 2026-08-19): every Trouble Brewing character that
+ * wakes at all, PLUS the handful of Bad Moon Rising / Sects & Violets
+ * number-signal roles this fork already had reminder text for on hand
+ * (Chambermaid, Clockmaker, Mathematician, Oracle, Juggler). An unlisted id
+ * falls through to TEXT via fieldsFor()'s fallback, which is safe (a plain
+ * text box, never a wrong yes/no) but under-specific. That fallback is
+ * load-bearing: a custom script's own characters were never going to be in
+ * this table at all.
+ *
+ * LINE-ONLY ENTRIES (FT-886). Writing a line for a character does NOT require
+ * designing its controls: an entry with no `fields` KEY AT ALL is a line-only
+ * entry, and `fieldsFor()` treats it exactly as it treats an unlisted role —
+ * one free-text box, `mayBeFalse: true`, `known: false`, no label. That is
+ * what every Bad Moon Rising / Sects & Violets character added below is: the
+ * prose is written, the field design is not, and the row renders tonight
+ * precisely as it rendered yesterday but with a sentence a storyteller can
+ * act on. A later pass fills in `fields` without touching a word of the line.
+ * (Note the distinction from `fields: []`, which is a real, deliberate answer
+ * — "this character records nothing" — and is what the day-ability and
+ * passive entries below carry.)
  */
 export const NIGHT_INFO = {
   // ── Trouble Brewing — Townsfolk ──────────────────────────────────────────
@@ -140,7 +190,8 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "A Townsfolk in play, and two players — one of them is it."
   },
   librarian: {
     wakes: ["first"],
@@ -150,7 +201,9 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    // the zero case is the whole reason this one differs from its neighbours
+    line: "An Outsider in play, and two players — one is it. Or zero, if none."
   },
   investigator: {
     wakes: ["first"],
@@ -160,19 +213,22 @@ export const NIGHT_INFO = {
       { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
     ],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "A Minion in play, and two players — one of them is it."
   },
   chef: {
     wakes: ["first"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 7 }],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "How many pairs of evil players sit side by side."
   },
   empath: {
     wakes: ["first", "other"],
     fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 2 }],
     mayBeFalse: true,
-    label: "Learns:"
+    label: "Learns:",
+    line: "How many of their two living neighbours are evil."
   },
   fortuneteller: {
     wakes: ["first", "other"],

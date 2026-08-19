@@ -220,6 +220,29 @@ wss.on("connection", function connection(ws, req) {
           }
         });
         break;
+      case '"callback"':
+        // FT-880: the town summons travels host -> players and NEVER the other
+        // way — the same one-way rule ping has above, for the same reason.
+        //
+        // Both clients already refuse it (the sender will not send one unless
+        // it is the host; a host's client will not act on one arriving), but
+        // neither of them can tell who a broadcast came FROM: the relay hands
+        // every client the same frame with no sender on it. Without this
+        // branch a hand-written ["callback",null] from any player's console
+        // would fall through to the default below and ring the entire town.
+        // The relay is the only participant that knows, so the last no is
+        // here.
+        if (ws.playerId !== "host") {
+          console.log(new Date(), ws.channel, ws.playerId, "callback refused");
+          break;
+        }
+        channels[ws.channel].forEach(function each(client) {
+          if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(data);
+            metrics.messages_outgoing.inc();
+          }
+        });
+        break;
       case '"direct"':
         // handle "direct" messages differently
         console.log(

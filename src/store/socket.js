@@ -2,6 +2,9 @@ import { sessionIdFromPath } from "../golem/towns";
 // FT-861: what a seat's player is TOLD they are. Every message that carries a
 // character TO a player reads this instead of player.role.
 import { beliefOf } from "../golem/belief";
+// FT-880: the town summons. The sound is bundled in every client, so the
+// message carries nothing and this is the only import it needs.
+import { playCallBack } from "../golem/callBack";
 
 class LiveSession {
   constructor(store) {
@@ -211,6 +214,20 @@ class LiveSession {
         break;
       case "bye":
         this._handleBye(params);
+        break;
+      case "callback":
+        // FT-880: THE RECEIVER'S REFUSAL. A call-back travels storyteller →
+        // town, so a storyteller's own client has no business acting on one
+        // arriving; the same shape as every ST-only broadcast above. The
+        // sender refuses too (callBack, below), and the relay refuses to
+        // forward a call-back that did not come from the host — three
+        // independent noes, so no future sender can ring the town by accident
+        // and no player can do it on purpose from a console.
+        if (!this._isSpectator) return;
+        // A player's OWN mute setting outranks the summons — see the note on
+        // playCallBack. Read here rather than in the module so the module
+        // never has to know there is a store.
+        playCallBack(this._store.state.grimoire.isMuted);
         break;
       case "playername":
         this._updatePlayerName(params);
@@ -835,6 +852,23 @@ class LiveSession {
   }
 
   /**
+   * FT-880: CALL THE TOWN BACK. ST only.
+   *
+   * The lightest message in the file: no payload at all. Every client already
+   * carries the sound in its own bundle, so "play it" is the entire contents —
+   * which also means there is nothing here for a future change to accidentally
+   * start leaking into.
+   *
+   * The storyteller's own client does NOT hear this come back (the relay never
+   * echoes a message to its sender), so the press plays locally as well — see
+   * App.callTownBack.
+   */
+  callBack() {
+    if (this._isSpectator) return;
+    this._send("callback");
+  }
+
+  /**
    * Clear the vote history for everyone. ST only
    */
   clearVoteHistory() {
@@ -977,6 +1011,12 @@ export default store => {
         break;
       case "session/clearVoteHistory":
         session.clearVoteHistory();
+        break;
+      // FT-880: the summons rides a mutation like every other ST broadcast, so
+      // any future surface that wants to call the town back commits this one
+      // thing and inherits the guard.
+      case "session/callBack":
+        session.callBack();
         break;
       case "session/setVoteHistoryAllowed":
         session.setVoteHistoryAllowed();

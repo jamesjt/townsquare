@@ -3,9 +3,7 @@
     <!-- FT-861: ONE grid, two questions. Without `forBelief` this is the seat's
          character, exactly as it has always been; with it, the same grid sets
          what that seat's player is TOLD they are. -->
-    <h3 v-if="forBelief">
-      What does {{ seatName }} think they are?
-    </h3>
+    <h3 v-if="forBelief">What does {{ seatName }} think they are?</h3>
     <h3 v-else>
       Choose a new character for
       {{
@@ -15,8 +13,8 @@
       }}
     </h3>
     <p class="belief-hint" v-if="forBelief">
-      They will be dealt this character and shown nothing else. Clear tells
-      them the truth again.
+      They will be dealt this character and shown nothing else. Clear tells them
+      the truth again.
     </p>
 
     <!-- Golem fork: travellers get their OWN tab instead of riding at the top
@@ -33,7 +31,11 @@
          — matches the old grid's CSS, which hid every traveller coin from a
          spectator's view (they can never assign one). -->
     <div class="rm-tabs" v-if="showTabs">
-      <span class="rm-seg" role="radiogroup" aria-label="Show characters or travellers">
+      <span
+        class="rm-seg"
+        role="radiogroup"
+        aria-label="Show characters or travellers"
+      >
         <button
           type="button"
           class="rm-opt"
@@ -41,7 +43,9 @@
           role="radio"
           :aria-checked="String(activeTab === 'characters')"
           @click="tab = 'characters'"
-        >Characters</button>
+        >
+          Characters
+        </button>
         <button
           type="button"
           class="rm-opt"
@@ -49,7 +53,9 @@
           role="radio"
           :aria-checked="String(activeTab === 'travelers')"
           @click="tab = 'travelers'"
-        >Travellers</button>
+        >
+          Travellers
+        </button>
       </span>
     </div>
 
@@ -61,12 +67,20 @@
       class="rm-clear"
       v-if="activeTab === 'characters'"
       @click="setRole({})"
-    >{{ clearLabel }}</button>
+    >
+      {{ clearLabel }}
+    </button>
 
-    <p class="rm-empty" v-if="activeTab === 'characters' && !characterRoles.length">
+    <p
+      class="rm-empty"
+      v-if="activeTab === 'characters' && !characterRoles.length"
+    >
       No characters in this script yet.
     </p>
-    <p class="rm-empty" v-if="activeTab === 'travelers' && !travelerRoles.length">
+    <p
+      class="rm-empty"
+      v-if="activeTab === 'travelers' && !travelerRoles.length"
+    >
       No travellers in this game.
     </p>
 
@@ -156,7 +170,7 @@ const TEAM_LABELS = {
   outsider: "Outsiders",
   minion: "Minions",
   demon: "Demons",
-  traveler: "Travellers"
+  traveler: "Travellers",
 };
 
 // The cursor has to rest on the ability control before its card appears —
@@ -169,7 +183,7 @@ export default {
   props: {
     playerIndex: {
       type: Number,
-      default: 0
+      default: 0,
     },
     /**
      * FT-861: set the seat's BELIEVED character instead of its real one — what
@@ -178,8 +192,8 @@ export default {
      */
     forBelief: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
   data() {
     return {
@@ -188,7 +202,7 @@ export default {
       // which role the ability card is describing, and the control it is
       // pinned to
       cardRole: null,
-      cardAnchor: null
+      cardAnchor: null,
     };
   },
   computed: {
@@ -207,11 +221,11 @@ export default {
      */
     characterRoles() {
       const list = [];
-      this.roles.forEach(role => {
+      this.roles.forEach((role) => {
         if (role.team === "traveler") return;
         if (
           this.playerIndex >= 0 ||
-          !this.players.some(player => player.role.id === role.id)
+          !this.players.some((player) => player.role.id === role.id)
         ) {
           list.push(role);
         }
@@ -228,10 +242,10 @@ export default {
     travelerRoles() {
       if (this.playerIndex < 0) return [];
       const list = [];
-      this.roles.forEach(role => {
+      this.roles.forEach((role) => {
         if (role.team === "traveler") list.push(role);
       });
-      this.otherTravelers.forEach(role => list.push(role));
+      this.otherTravelers.forEach((role) => list.push(role));
       return list;
     },
     /**
@@ -261,7 +275,7 @@ export default {
       // free to carry anything in its `team` field, so whatever that isn't
       // one of the four still gets a section instead of silently vanishing.
       const extra = Object.keys(this.groupedRoles)
-        .filter(t => !TEAM_ORDER.includes(t) && t !== "traveler")
+        .filter((t) => !TEAM_ORDER.includes(t) && t !== "traveler")
         .sort();
       return TEAM_ORDER.concat(extra);
     },
@@ -275,12 +289,12 @@ export default {
           ? this.travelerRoles
           : this.characterRoles;
       const g = {};
-      source.forEach(role => {
+      source.forEach((role) => {
         const t = role.team || "townsfolk";
         (g[t] = g[t] || []).push(role);
       });
-      Object.keys(g).forEach(t =>
-        g[t].sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+      Object.keys(g).forEach((t) =>
+        g[t].sort((a, b) => (a.name || "").localeCompare(b.name || "")),
       );
       return g;
     },
@@ -290,7 +304,7 @@ export default {
       return this.playerIndex < 0 ? "Clear this bluff" : "Clear this seat";
     },
     ...mapState(["modals", "roles", "session", "otherTravelers"]),
-    ...mapState("players", ["players"])
+    ...mapState("players", ["players"]),
   },
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
@@ -348,7 +362,7 @@ export default {
           this.$store.commit("players/update", {
             player,
             property: "believedRole",
-            value: role && role.id ? role : null
+            value: role && role.id ? role : null,
           });
         }
         this.tab = "characters";
@@ -359,7 +373,7 @@ export default {
         // assign to bluff slot (index < 0)
         this.$store.commit("players/setBluff", {
           index: this.playerIndex * -1 - 1,
-          role
+          role,
         });
       } else {
         if (this.session.isSpectator && role.team === "traveler") return;
@@ -368,7 +382,7 @@ export default {
         this.$store.commit("players/update", {
           player,
           property: "role",
-          value: role
+          value: role,
         });
       }
       this.tab = "characters";
@@ -379,8 +393,8 @@ export default {
       this.hideCard();
       this.toggleModal("role");
     },
-    ...mapMutations(["toggleModal"])
-  }
+    ...mapMutations(["toggleModal"]),
+  },
 };
 </script>
 
@@ -451,7 +465,9 @@ export default {
   border: 1px solid rgba(120, 105, 135, 0.4);
   border-radius: 5px;
   cursor: pointer;
-  transition: color 150ms, border-color 150ms;
+  transition:
+    color 150ms,
+    border-color 150ms;
   &:hover {
     color: #fff;
     border-color: rgba(150, 130, 175, 0.75);

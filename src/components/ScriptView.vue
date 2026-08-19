@@ -686,6 +686,20 @@ $team-colors: (
   }
   // The reference layout: a LARGE icon on the left, a small bold name, the
   // ability as the body. No team accent on the card — the group box says it.
+  // The card NAME wears its team colour (user call 2026-08-19). On a card the
+  // name is the thing you scan for, and the icon beside it is already large
+  // enough to carry its own team ring — so here the colour belongs on the
+  // lettering, which is the opposite of the night-order ROW above, where the
+  // name is small and the icon is the only mark with room to say it.
+  @each $team, $color in $team-colors {
+    section.team-#{$team} .wb-card-name {
+      color: $color;
+    }
+  }
+  section.team-demon .wb-card-name {
+    color: lighten(#ce0100, 14%);
+  }
+
   .wb-card {
     position: relative;
     display: grid;
@@ -714,7 +728,11 @@ $team-colors: (
     }
     .wb-card-ability {
       grid-column: 2;
-      font-size: 82%;
+      // 82 -> 76%: the ability is a reference line a storyteller SCANS, not
+      // prose they read, and the cards fit meaningfully more of the script on
+      // screen at the smaller size. Tightening the line-height with it would
+      // have saved as much again and cost more legibility, so that stays.
+      font-size: 76%;
       opacity: 0.85;
       line-height: 1.3;
     }
@@ -779,11 +797,19 @@ $team-colors: (
         opacity: 0.6;
         flex-shrink: 0;
       }
+      // The character art is NOT centred in its own file: measured across six
+      // icons, the glyph's visual middle sits at 41.5% of the file height,
+      // because the art is drawn to leave room for the name curving along the
+      // bottom of a coin. In a round chip with no name, `cover` therefore hangs
+      // the glyph high (user call 2026-08-19). Scaling past the box and lifting
+      // the window re-centres it and fills the chip, which the untouched art
+      // never did.
       .icon {
         width: 34px;
         height: 34px;
-        background-size: cover;
-        background-position: center;
+        background-size: 130%;
+        background-repeat: no-repeat;
+        background-position: center 13%;
         flex-shrink: 0;
       }
       .wb-row-name {

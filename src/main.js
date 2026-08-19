@@ -23,6 +23,10 @@ const faIcons = [
   "Copy",
   "Clipboard",
   "Bell",
+  // FT-880: the crossed bell is the refused-audio notice — a player who cannot
+  // hear the call-back. (There is no bell in the fork's own art set yet; when
+  // one is cut, both of these become an <img> the way the strip's marks are.)
+  "BellSlash",
   "Dice",
   "DoorOpen",
   "Dragon",

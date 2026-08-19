@@ -36,6 +36,65 @@
             title="What you learned at night"
             @click="toggleModal('nightDrawer')"
           />
+          <!-- TOWN RECORDS — the recorded-games ledger (StatsOverlay), which
+               until now had exactly one door: the session pill, bottom-right.
+               The pill is the wrong place to keep the only one — turned on its
+               side with a drawer out it hides itself entirely (App.vue's own
+               rule), and the records went with it.
+
+               The SAME overlay and the SAME piece of state: this asks App to
+               open the one it already owns rather than keeping a second flag
+               that could disagree with the pill's.
+
+               Open to everyone, matching the pill's door. What it shows is
+               finished games only — wins by team and by script, and each
+               player's games / wins / survivals. Nothing of the game being
+               played: no characters, no grimoire, no live state. There is
+               nothing in it a player may not see.
+
+               Font Awesome, deliberately: this fork has no ledger mark of its
+               own yet, and the two candidates in the art set (the town count's
+               mark, the grimoire cover) each already MEAN something else on
+               screen — the exact collision FT-863 was filed for. It wears the
+               same chart-bar the pill's records door wears, so the two doors
+               to one overlay look like each other. -->
+          <font-awesome-icon
+            icon="chart-bar"
+            title="Town records"
+            @click="$emit('records')"
+          />
+          <!-- FT-880: CALL THE TOWN BACK — every connected client makes a
+               noise at once. During the day the town scatters into private
+               conversations and the storyteller has no way to end them.
+
+               STORYTELLER ONLY, by `v-if`, so a player's component tree never
+               contains the control at all — there is no rule here for a
+               missing stylesheet to fail to apply. (The strip already varies
+               by viewer: the moon two lines up is a seated PLAYER's door and
+               a storyteller never gets it.)
+
+               Here rather than in the session pill, where the host's other
+               controls live, for the reason the records door moved: this is
+               wanted at exactly one moment — mid-day, nothing open — and the
+               strip is the one piece of chrome that is never hidden by a
+               drawer or a phone's orientation. A summons behind a closed
+               drawer is not a summons.
+
+               No confirm and no arm-then-press: unlike Leave there is nothing
+               to undo, and a summons that takes two clicks arrives after the
+               conversation it was meant to interrupt. -->
+          <font-awesome-icon
+            v-if="!session.isSpectator"
+            class="call-back"
+            :class="{ cooling: callBackCooling }"
+            icon="bell"
+            :title="
+              callBackCooling
+                ? 'Just called the town back'
+                : 'Call the town back — everyone hears a sound'
+            "
+            @click="callTownBack"
+          />
         </li>
 
         <template v-if="tab === 'grimoire'">
@@ -123,6 +182,9 @@ import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
 import uiVotes from "../assets/ui-votes.png";
 import uiNight from "../assets/ui-night.png";
+// FT-880: the town summons — the storyteller's press plays it here too, since
+// the relay never echoes a message back to whoever sent it.
+import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
 
 export default {
   computed: {
@@ -160,9 +222,17 @@ export default {
       uiScript,
       uiVotes,
       uiNight,
+      // FT-880: the nervous-double-press guard, held locally the same way the
+      // pill's Leave holds its two-click arm — it is about this one button's
+      // feel, not about the town's state, so it does not belong in the store.
+      callBackCooling: false,
+      callBackTimer: null,
       // Golem fork: null = collapsed to the bare toolbar (the default).
       tab: null
     };
+  },
+  beforeDestroy() {
+    clearTimeout(this.callBackTimer);
   },
   watch: {
     // The intro screen's "Menu" button flips the store flag the old gear used;
@@ -188,6 +258,29 @@ export default {
       }
       this.$store.commit("setScriptDrawerView", view);
       if (!this.modals.scriptDrawer) this.toggleModal("scriptDrawer");
+    },
+    /**
+     * FT-880: ring the town.
+     *
+     * Two things happen, and the second is not decoration: the mutation is
+     * what travels (the socket plugin owns the storyteller-only guard on it),
+     * and the local play is because the relay never sends a message back to
+     * the client that sent it — without it the storyteller presses a button
+     * and gets total silence, which is indistinguishable from a broken one.
+     *
+     * The guard here is a courtesy, not a defence: the real refusals are in
+     * socket.js and the relay. This one just keeps a twitchy double-tap from
+     * chopping the clip off at half a second and starting it again.
+     */
+    callTownBack() {
+      if (this.session.isSpectator) return;
+      if (this.callBackCooling) return;
+      this.callBackCooling = true;
+      this.callBackTimer = setTimeout(() => {
+        this.callBackCooling = false;
+      }, CALL_BACK_COOLDOWN);
+      this.$store.commit("session/callBack");
+      playCallBack(this.grimoire.isMuted);
     },
     setBackground() {
       const background = prompt("Enter custom background URL");
@@ -501,6 +594,37 @@ export default {
   cursor: pointer;
   filter: drop-shadow(0 1px 2px black);
 }
+/* THE STRIP IS ONE SET, not a row of PNGs with some icons after it.
+   Two of the marks are our engraved art and (now) two are Font Awesome, and
+   the glyphs arrive carrying the `.tabs svg` rules further up this file —
+   35px tall, black borders on two sides, 5px of vertical padding, which is
+   the OLD tab treatment and would have stood them a head above the art with
+   dividing lines between. These override it: same 26px box, same shadow, same
+   hover, so the eye reads four marks of one family. */
+.player-strip svg {
+  width: 26px;
+  height: 26px;
+  flex-grow: 0;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: #e8e2d4;
+  filter: drop-shadow(0 1px 2px black);
+  transition: color 200ms, filter 200ms;
+}
+.player-strip svg:hover {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px black) brightness(1.3);
+}
+/* Just-pressed: the bell steps back and stops taking clicks for the cooldown,
+   so a second press has something to say no with that the storyteller can
+   see. It does not vanish — a control that disappears under your finger reads
+   as a fault, not as a wait. */
+.player-strip svg.call-back.cooling {
+  color: #7a736a;
+  cursor: default;
+  pointer-events: none;
+}
 /* The scroll and the gallows are the only two doors a PLAYER has in a running
    game — the script and the vote history — and they were 26px marks with no
    box around them. The art keeps its size; the box a finger has to find grows
@@ -510,7 +634,8 @@ export default {
     gap: 4px;
     padding: 0 4px;
   }
-  .player-strip img {
+  .player-strip img,
+  .player-strip svg {
     box-sizing: content-box;
     padding: 8px;
   }
