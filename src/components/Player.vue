@@ -1350,4 +1350,14 @@ li.move:not(.from) .player .overlay svg.move {
   opacity: 0;
   pointer-events: none;
 }
+
+// Night order is STORYTELLER information — the numbers say who wakes and in
+// what order, and the badge text names the character outright ("The Imp
+// points to a player"). The public grimoire and any spectator's own view
+// must never carry it. (user report 2026-08-18: it was showing to players —
+// the fork hid .ability and .reminder here but never covered this.)
+#townsquare.public .night-order,
+#townsquare.spectator .night-order {
+  display: none;
+}
 </style>
