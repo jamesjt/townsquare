@@ -44,6 +44,10 @@ import { mapState } from "vuex";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
 import { EDITION_ICONS, edCustom } from "../golem/editionArt";
+// FT-887: when a character wakes is decided in ONE place, so the chip on this
+// card and the coin's moon and the workbench's night filter cannot disagree —
+// see golem/nightInfo's wakesOn().
+import { wakesOn } from "../golem/nightInfo";
 import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
 import moonFull from "../assets/moon-full.png";
@@ -175,17 +179,11 @@ export default {
         chip(EDITION_LABELS[r.edition], EDITION_ICONS[r.edition] || edCustom);
       else if (LUF_ROLES.has(r.id)) chip("Laissez un Faire", EDITION_ICONS.luf || edCustom);
       else if (OFFICIAL_IDS.has(r.id)) chip("Experimental", edCustom);
-      const first = r.firstNight > 0 || !!r.firstNightReminder;
-      const other = r.otherNight > 0 || !!r.otherNightReminder;
-      const knowsNights =
-        "firstNight" in r ||
-        "otherNight" in r ||
-        "firstNightReminder" in r ||
-        "otherNightReminder" in r;
+      const { first, other, known } = wakesOn(r);
       if (first && other) chip("Wakes every night", moonFull);
       else if (first) chip("Wakes first night", moonFirst);
       else if (other) chip("Wakes other nights", moonOther);
-      else if (knowsNights) chip("Never wakes");
+      else if (known) chip("Never wakes");
       if (r.setup) chip("Affects setup", setupGlyph);
       return out;
     }

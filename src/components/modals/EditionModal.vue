@@ -667,6 +667,9 @@ import outsiderGlyph from "../../assets/blood/outsider-glyph.png";
 // One definition of "the glyph for team X" (golem/glyphs), shared with
 // TownInfo, ScriptView and RoleDrawer.
 import { teamGlyph } from "../../golem/glyphs";
+// FT-887: the shelf's night filter labels read "Wakes first night" — the same
+// claim the hover card's chip makes, so it comes from the same function.
+import { wakesOn } from "../../golem/nightInfo";
 // The app-wide PNG-font choice — the Almanac's A wears the caps' font.
 import {
   fontState,
@@ -2052,10 +2055,15 @@ export default {
           tags.add("src:" + entry.edition);
         else if (LUF_ROLES.has(entry.id)) tags.add("src:luf");
         else tags.add("src:exp");
-        if (entry.firstNight > 0) tags.add("night:first");
-        if (entry.otherNight > 0) tags.add("night:other");
-        if (!(entry.firstNight > 0) && !(entry.otherNight > 0))
-          tags.add("night:never");
+        // FT-887: one definition of "wakes" (golem/nightInfo), so filtering
+        // the shelf by "Wakes first night" returns exactly the characters
+        // whose hover card carries that chip — Demons and Minions included,
+        // whose night-one wake is the group step and not their own number.
+        // Still exhaustive: every entry lands in exactly one of the three.
+        const wakes = wakesOn(entry);
+        if (wakes.first) tags.add("night:first");
+        if (wakes.other) tags.add("night:other");
+        if (!wakes.first && !wakes.other) tags.add("night:never");
         if (entry.setup) tags.add("flag:setup");
       }
       if (entry.inScript) tags.add("flag:inscript");

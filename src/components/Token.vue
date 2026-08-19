@@ -129,6 +129,9 @@ import RoleHoverCard from "./RoleHoverCard";
 import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
 import moonFull from "../assets/moon-full.png";
+// FT-887: the coin's moon and the hover card's chip make the SAME claim, so
+// they read the same function — see golem/nightInfo's wakesOn().
+import { wakesOn } from "../golem/nightInfo";
 
 // how long the cursor has to rest on a coin before its card appears —
 // enough that sweeping across the square does not strobe cards
@@ -227,8 +230,7 @@ export default {
      * call 2026-08-18 — it took the reminder studs' place at top centre.)
      */
     nightPhase: function() {
-      const first = !!(this.role.firstNight || this.role.firstNightReminder);
-      const other = !!(this.role.otherNight || this.role.otherNightReminder);
+      const { first, other } = wakesOn(this.role);
       if (first && other) return moonFull;
       if (first) return moonFirst;
       if (other) return moonOther;
@@ -260,14 +262,9 @@ export default {
       return `coin-curve-${this._uid}`;
     },
     hasMarks: function() {
-      return !!(
-        this.role.firstNight ||
-        this.role.firstNightReminder ||
-        this.role.otherNight ||
-        this.role.otherNightReminder ||
-        this.role.setup ||
-        this.reminderLeaves
-      );
+      // the moon is one of the marks, so this asks the same question it does
+      const { first, other } = wakesOn(this.role);
+      return !!(first || other || this.role.setup || this.reminderLeaves);
     },
     /** Acts on the first night — a waxing crescent at 9 o'clock. */
     firstNightMoon: function() {

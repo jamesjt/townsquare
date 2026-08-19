@@ -738,6 +738,69 @@ export const GROUP_INFO = {
 };
 
 /**
+ * FT-887 (2026-08-19): TEAMS WOKEN AS A GROUP ON THE FIRST NIGHT.
+ *
+ * Night one has two steps that belong to no single character: "Minion info"
+ * (every Minion is woken and shown who the Demon is) and "Demon info & bluffs"
+ * (the Demon is woken and shown its Minions and three characters not in play).
+ * NightOrderModal has always carried both as synthetic entries at positions 5
+ * and 8 — see GROUP WAKES in the file header.
+ *
+ * Because neither step is a property of any character's OWN roles.json row,
+ * twelve of the nineteen shipped Demons carry `firstNight: 0` — the Imp among
+ * them — and eight of the twenty-eight Minions do. Anything deriving "does
+ * this character wake on night one" from that number alone therefore said the
+ * Imp does not wake on the first night, which is how the hover card and the
+ * night order sheet came to disagree.
+ *
+ * So the rule is a fact about the TEAM, kept here beside everything else this
+ * file knows about a character's night, and read by `wakesOn()` below.
+ */
+export const FIRST_NIGHT_GROUP_TEAMS = ["minion", "demon"];
+
+/**
+ * FT-887: THE ONE ANSWER to "when does this character wake" — every surface
+ * that makes that claim reads it here, so no two can disagree.
+ *
+ *   { first, other, known }
+ *
+ * `first` / `other` are the claim itself. `known` is whether the role tells us
+ * anything about its nights AT ALL, and it exists so a surface can stay silent
+ * rather than guess: a custom character carrying no night fields gets NO chip,
+ * never a wrong "Never wakes".
+ *
+ * Three inputs, in order of authority:
+ *   · the team's group wake (above) — night one, whatever the number says;
+ *   · the character's own night order number;
+ *   · its reminder text, which a hand-authored character often has when the
+ *     number was never filled in.
+ *
+ * WHAT THIS IS NOT: the night ORDER. Whether a character earns its own ROW on
+ * an ordered night sheet is still `role.firstNight / otherNight`, and the
+ * group steps above are already separate rows there. The order-editing and
+ * roster surfaces read the numbers directly and are right to — see the file
+ * header. This function answers only "does the seat wake".
+ *
+ * Never throws; a null role answers no to everything, `known: false`.
+ */
+export function wakesOn(role) {
+  const r = role || {};
+  const group = FIRST_NIGHT_GROUP_TEAMS.includes(
+    String(r.team || "").toLowerCase()
+  );
+  const declares =
+    "firstNight" in r ||
+    "otherNight" in r ||
+    "firstNightReminder" in r ||
+    "otherNightReminder" in r;
+  return {
+    first: group || r.firstNight > 0 || !!r.firstNightReminder,
+    other: r.otherNight > 0 || !!r.otherNightReminder,
+    known: group || declares
+  };
+}
+
+/**
  * The field list for one character — and the SAFE FALLBACK for everything
  * this table has never heard of (a custom script's own characters, or a
  * shipped one this pass didn't reach). Never returns an empty result for an
