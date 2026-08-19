@@ -14,9 +14,37 @@
       :anchor="cardAnchor"
       @dismiss="hideCard"
     />
-    <div class="rt-icons" v-if="unseated.length" @scroll.passive="hideCard">
+    <!-- the same three build actions the grimoire drawer carries, as icons
+         with their own tooltips (user call 2026-08-18) -->
+    <div class="rt-acts">
+      <button
+        class="rt-act"
+        title="Deal the remaining valid roles out to the open seats"
+        @click="deal"
+      >
+        <img :src="dealGlyph" alt="Deal" />
+      </button>
+      <button
+        class="rt-act"
+        :disabled="seatedCount < 2"
+        title="Randomize the selected roles among the seats"
+        @click="shuffle"
+      >
+        <font-awesome-icon icon="random" />
+      </button>
+      <button
+        class="rt-act"
+        :class="{ on: allowDup }"
+        title="Let one role sit in more than one chair"
+        @click="allowDup = !allowDup"
+      >
+        <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
+      </button>
+    </div>
+    <div class="rt-rows" v-if="unseated.length" @scroll.passive="hideCard">
+      <div class="rt-row" v-for="row in unseatedByTeam" :key="row.team">
       <span
-        v-for="role in unseated"
+        v-for="role in row.roles"
         :key="role.id"
         class="rt-icon"
         :class="['team-' + role.team, { picked: isPicked(role) }]"
@@ -34,6 +62,7 @@
         @mouseenter="showCard(role, $event)"
         @mouseleave="hideCard"
       ></span>
+      </div>
     </div>
     <div class="rt-done" v-else-if="dropArmed">
       <font-awesome-icon icon="undo" />
@@ -50,6 +79,7 @@
 import { mapMutations, mapState } from "vuex";
 import RoleHoverCard from "./RoleHoverCard";
 import { roleIcon, startRoleDrag } from "../golem/roleDrag";
+import dealGlyph from "../assets/ui-deal.png";
 
 // the reading order of the tray: the composition top to bottom, so the rows
 // group themselves without any headings eating the panel's height
@@ -63,6 +93,7 @@ export default {
   components: { RoleHoverCard },
   data() {
     return {
+      dealGlyph,
       // which role the hover card is describing, and the tile it is pinned to
       cardRole: null,
       cardAnchor: null,
@@ -72,6 +103,24 @@ export default {
   },
   computed: {
     ...mapState(["roles", "session"]),
+    /** the tray reads as the composition does: one row per type */
+    unseatedByTeam() {
+      return TEAM_ORDER.map(team => ({
+        team,
+        roles: this.unseated.filter(r => r.team === team)
+      })).filter(row => row.roles.length);
+    },
+    seatedCount() {
+      return this.players.filter(p => p.role && p.role.id).length;
+    },
+    allowDup: {
+      get() {
+        return this.$store.state.allowDupRoles;
+      },
+      set(on) {
+        this.$store.commit("setAllowDupRoles", on);
+      }
+    },
     ...mapState("players", ["players"]),
     drawerPick() {
       return this.$store.state.drawerPick;
@@ -110,6 +159,24 @@ export default {
     clearTimeout(this.$options.cardTimer);
   },
   methods: {
+    /** Deal and Shuffle are the grimoire drawer's own actions — the tray asks
+     *  IT to run them, so there is one implementation of each. */
+    withDrawer(fn) {
+      let node = this.$root;
+      const find = c =>
+        c.$options.name === "RoleDrawer"
+          ? c
+          : c.$children.reduce((a, x) => a || find(x), null);
+      const drawer = find(node);
+      if (drawer) fn(drawer);
+      else this.$store.commit("toggleModal", "roleDrawer");
+    },
+    deal() {
+      this.withDrawer(d => d.assignRandomly());
+    },
+    shuffle() {
+      this.withDrawer(d => d.shuffleSeated());
+    },
     ...mapMutations(["setDrawerPick"]),
     icon(role) {
       return roleIcon(role);
@@ -232,6 +299,55 @@ $team-colors: (
     background: rgba(160, 20, 20, 0.12);
   }
 
+  .rt-acts {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .rt-act {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 24px;
+    padding: 0;
+    color: #d8cdb4;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    cursor: pointer;
+    img {
+      width: 15px;
+      height: 15px;
+      object-fit: contain;
+    }
+    &:hover:not(:disabled) {
+      color: #fff;
+      border-color: rgba(150, 130, 175, 0.75);
+    }
+    &.on {
+      color: #ffd9d9;
+      border-color: rgba(190, 90, 90, 0.8);
+    }
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+  .rt-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 132px;
+    overflow-y: auto;
+  }
+  .rt-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+  }
   .rt-icons {
     display: flex;
     flex-wrap: wrap;

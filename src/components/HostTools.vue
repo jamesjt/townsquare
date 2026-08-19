@@ -404,7 +404,8 @@ export default {
   z-index: 3;
   text-align: center;
   padding: 15px 25px;
-  background: rgba(0, 0, 0, 0.6);
+  // the dial behind it is busy — the panel needs to win (user call)
+  background: rgba(0, 0, 0, 0.8);
   border: 3px solid black;
   border-radius: 10px;
   box-shadow: 0 0 10px black;

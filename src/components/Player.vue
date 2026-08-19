@@ -263,7 +263,10 @@
     <div class="reminder add" @click="$emit('trigger', ['openReminderModal'])">
       <span class="icon"></span>
     </div>
-    <div class="reminderHoverTarget"></div>
+    <!-- (the reminder HOVER TARGET is retired — an invisible box in the
+         middle of the ring that swallowed drags and hovers meant for the
+         town centre. Reminders are reached from the seat itself; its styles
+         stay below, unused. user call 2026-08-18) -->
   </li>
 </template>
 
