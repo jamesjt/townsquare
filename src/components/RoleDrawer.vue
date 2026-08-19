@@ -423,7 +423,7 @@ $team-colors: (
     padding: 0 6px 0 10px;
     section {
       border: 1px solid #3d3d3d;
-      border-radius: 6px;
+      border-radius: 4px;
       margin-bottom: 8px;
       @each $team, $color in $team-colors {
         &.team-#{$team} {
