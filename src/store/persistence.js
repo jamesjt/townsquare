@@ -1,6 +1,10 @@
 // Golem fork: every session entry path (panel, hash link, toolbar) lands on
 // setSessionId — remembering the town HERE catches them all.
-const { rememberTown, sessionIdFromPath } = require("../golem/towns");
+const {
+  rememberTown,
+  sessionIdFromPath,
+  normalizeTownId
+} = require("../golem/towns");
 // FT-860: the night log is stashed PER TOWN (the same idiom golem/stats uses
 // for the deal moment); the visibility mode is a standing setting.
 const {
@@ -18,6 +22,29 @@ module.exports = store => {
     (document.title = `Blood on the Clocktower ${
       isPublic ? "Town Square" : "Grimoire"
     }`);
+
+  // FT-889: the town named by the URL — a clean /<town> path, or a legacy
+  // #<town> link. Empty means this url names no town at all.
+  const urlTown =
+    window.location.hash.substr(1) || sessionIdFromPath(window.location.pathname);
+
+  // FT-889: a bare url means you are not in a town. If the stash still names
+  // one, this browser LEFT it (typed "/", followed a bare link, arrived from
+  // anywhere that is not the town) — so the town's local mirror goes with it,
+  // exactly as the leave pill already does (Menu.leaveSession clears seats,
+  // bluffs and fabled on the way out). Without this the entry screen stays
+  // unreachable a second way: the session is gone but the last town's seats
+  // are restored, and seats alone render the sessionless square.
+  //
+  // The stash is the discriminator, so an IN-PERSON grimoire — one that was
+  // never in a town — has none of this run against it and keeps its seats.
+  // The towns shelf is untouched either way: it is what makes you the host
+  // again when you come back to /<town>.
+  if (localStorage.getItem("session") && !urlTown) {
+    ["session", "players", "bluffs", "fabled"].forEach(key =>
+      localStorage.removeItem(key)
+    );
+  }
 
   // initialize data
   if (localStorage.getItem("background")) {
@@ -83,14 +110,25 @@ module.exports = store => {
   if (localStorage.getItem("playerId")) {
     store.commit("session/setPlayerId", localStorage.getItem("playerId"));
   }
-  if (
-    localStorage.getItem("session") &&
-    !window.location.hash.substr(1) &&
-    !sessionIdFromPath(window.location.pathname)
-  ) {
-    const [spectator, sessionId] = JSON.parse(localStorage.getItem("session"));
-    store.commit("session/setSpectator", spectator);
-    store.commit("session/setSessionId", sessionId);
+  // FT-889: the URL is the one thing that says which town you are in, so this
+  // block no longer RESTORES a session. It used to put you back into your last
+  // town whenever the URL named none — which made the entry screen unreachable
+  // except by the leave pill. A bare URL is now the entry screen, always.
+  //
+  // Kept as a corroborating READ of the ROLE: when the URL already names the
+  // same town, the stash's spectator flag is seeded here so nothing flickers
+  // before socket.js's boot resolver runs. That resolver (golem/townRoute →
+  // resolveTownRole, reading the towns shelf) commits after this plugin and
+  // wins any disagreement — it is the authority on who this browser is.
+  if (localStorage.getItem("session")) {
+    try {
+      const [spectator, sessionId] = JSON.parse(localStorage.getItem("session"));
+      if (urlTown && normalizeTownId(urlTown) === normalizeTownId(sessionId)) {
+        store.commit("session/setSpectator", spectator);
+      }
+    } catch (e) {
+      // an unreadable stash says nothing; the shelf answers on its own
+    }
   }
 
   /**** FT-860: night sheet + log ****/

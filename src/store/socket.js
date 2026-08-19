@@ -1,4 +1,14 @@
-import { sessionIdFromPath } from "../golem/towns";
+import { normalizeTownId, sessionIdFromPath } from "../golem/towns";
+// FT-889: the URL is the one thing that says which town you are in. This is
+// where the address bar is written and read; the role always comes from the
+// shelf, never from the link.
+import {
+  enterTown,
+  isReplayingHistory,
+  leaveTown,
+  syncAddressBar,
+  withHistory
+} from "../golem/townRoute";
 // FT-861: what a seat's player is TOLD they are. Every message that carries a
 // character TO a player reads this instead of player.role.
 import { beliefOf } from "../golem/belief";
@@ -279,6 +289,14 @@ class LiveSession {
       if (this._isSpectator) {
         this._sendDirect("host", "bye", this._store.state.session.playerId);
       }
+      // FT-889: a close WE asked for must not report back as the session
+      // ending. The handler exists for a server-side 1000 close (it clears
+      // the session and shows the relay's reason); it fires late — after the
+      // socket finishes closing — so on a town→town hop (Back/Forward
+      // between two towns) the old socket's close would land after the new
+      // session id is set and wipe it. Detaching first leaves the
+      // server-initiated path untouched, since we did not initiate those.
+      this._socket.onclose = null;
       this._socket.close(1000);
       this._socket = null;
     }
@@ -1018,9 +1036,15 @@ export default store => {
         if (state.session.sessionId) {
           session.connect(state.session.sessionId);
         } else {
-          window.location.hash = "";
           session.disconnect();
         }
+        // FT-889: the ONE place the address bar is written. Every entry path
+        // funnels through this mutation — the intro's host/join, the menu's
+        // join-by-link, the boot parse, a Back/Forward hop — so the URL is
+        // kept true in exactly one place. (This replaces the old
+        // `location.hash = ""` on leave: the href built here carries no hash,
+        // so a legacy link is dropped by the same write.)
+        syncAddressBar(state.session.sessionId);
         break;
       case "session/claimSeat":
         session.claimSeat(payload);
@@ -1107,15 +1131,40 @@ export default store => {
   // check for a session id in the hash (legacy links) or a clean invite
   // path (/<town>, current links) — hash wins if somehow both are present.
   const hashSessionId = window.location.hash.substr(1);
-  const sessionId = hashSessionId || sessionIdFromPath(window.location.pathname);
+  const sessionId = normalizeTownId(
+    hashSessionId || sessionIdFromPath(window.location.pathname)
+  );
   if (sessionId) {
-    store.commit("session/setSpectator", true);
-    store.commit("session/setSessionId", sessionId);
-    store.commit("toggleGrimoire", false);
-    if (!hashSessionId) {
-      // clean invite path: drop it from the address bar once joined, same
-      // as the hash-clearing behaviour on leave (line above, setSessionId "").
-      window.history.replaceState(null, "", window.location.origin + window.location.search);
-    }
+    // FT-889: role comes from what THIS browser holds (edit key / hosting
+    // shelf entry), not from the link — a host who reloads their own town
+    // stays host, and the same link handed to someone else joins them as a
+    // player. "replace" mode canonicalises the address bar without pushing a
+    // history entry of its own: a legacy `/#town` is rewritten to `/town`,
+    // and a `/town` path is already true so nothing is written at all.
+    withHistory("replace", () => enterTown(store, sessionId));
   }
+
+  // FT-889: Back leaves the town, Forward re-enters it. The browser has
+  // already moved the address bar by the time this fires, so every commit
+  // made here runs "silent" — the subscriber above must not write history
+  // back over the entry the user just travelled to (which would also make
+  // this listener fight itself on the next hop). No confirm(): a Back press
+  // IS the intent, and a dialog here is auto-dismissed in driven contexts.
+  window.addEventListener("popstate", () => {
+    // Re-entrancy guard: a hop already being applied owns the address bar
+    // until its commits finish. (pushState/replaceState never raise popstate
+    // themselves, so this is a belt on top of braces — but it is the one
+    // place where the listener and the subscriber could otherwise interleave.)
+    if (isReplayingHistory()) return;
+    const pathId = normalizeTownId(sessionIdFromPath(window.location.pathname));
+    const live = store.state.session.sessionId;
+    if (pathId === live) return;
+    withHistory("silent", () => {
+      if (pathId) {
+        enterTown(store, pathId);
+      } else if (live) {
+        leaveTown(store);
+      }
+    });
+  });
 };
