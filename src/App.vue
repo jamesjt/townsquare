@@ -46,7 +46,7 @@
     </div>
     <!-- the COIN LAB (Co): swap the seats' coin art live (user call
          2026-08-18). The choice rides CSS variables, so it is a repaint. -->
-    <div id="coin-lab" :class="{ open: coinLabOpen }">
+    <div id="coin-lab" :class="{ open: coinLabOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Coin lab" @click="coinLabOpen = !coinLabOpen">
         Co
       </div>
