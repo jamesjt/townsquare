@@ -5,7 +5,50 @@
        the edition + roles modals, distributeRoles) — this panel is doors, not
        a second implementation. -->
   <div class="host-tools">
-    <h3>Build the town</h3>
+    <!-- By this point the host has always already named the town, one menu
+         back — restating "Build the town" here said nothing "Ravenswood" one
+         line below didn't already say, so the name IS the heading now. The
+         old Town row's rename affordance (the pencil, same startRename /
+         commitRename flow underneath) moves onto the heading with it, and
+         the row folds away.
+
+         `.ht-head` wraps h3 rather than leaving it bare so the games-played
+         line and the rename note can sit under the name without becoming a
+         FOURTH flex child of `.host-tools` on the disc — the geometry below
+         is measured for exactly three (cap / band / cap; see faceDisc.scss),
+         and a fourth would push the band off its centre. -->
+    <div class="ht-head">
+      <h3
+        v-if="!renaming"
+        :class="{ owned: ownedKey }"
+        @click="ownedKey && startRename()"
+        :title="headTitle"
+      >
+        {{ townName }}
+        <font-awesome-icon v-if="ownedKey" icon="pen" />
+      </h3>
+      <input
+        v-else
+        ref="rename"
+        v-model="renameDraft"
+        class="ht-rename-input"
+        spellcheck="false"
+        maxlength="200"
+        @keyup.enter="commitRename"
+        @keyup.esc="renaming = false"
+        @blur="commitRename"
+      />
+      <!-- how many games this town will have seen once this one ends — the
+           server's finished-game count plus the one being built right now.
+           Blank (not zero) while the count is unknown: a wrong number reads
+           worse than no number. -->
+      <small v-if="!renaming && gamesLine" class="ht-games" :title="gamesHint">{{
+        gamesLine
+      }}</small>
+      <small v-if="!renaming && renameNote" class="ht-rename-note">{{
+        renameNote
+      }}</small>
+    </div>
 
     <!-- FT-888: THE BAND. On the desktop disc this wrapper is the ring's
          middle third — the slice between the two caps, where the rows live,
@@ -19,32 +62,6 @@
          reason. A wrapper that only one layout can see costs the other three
          nothing. -->
     <div class="ht-body">
-    <!-- FT-847: an OWNED town (this browser holds its edit key) can be
-         renamed in place — the new name lands on the server and the shelf. -->
-    <div class="row" v-if="ownedKey">
-      <span class="label">Town</span>
-      <span
-        class="value"
-        v-if="!renaming"
-        @click="startRename"
-        title="Rename your town"
-      >
-        {{ townName }}
-        <font-awesome-icon icon="pen" />
-      </span>
-      <input
-        v-else
-        ref="rename"
-        v-model="renameDraft"
-        spellcheck="false"
-        maxlength="200"
-        @keyup.enter="commitRename"
-        @keyup.esc="renaming = false"
-        @blur="commitRename"
-      />
-      <small v-if="renameNote">{{ renameNote }}</small>
-    </div>
-
     <!-- the row carries the claimed count as a `title` as well as on the line,
          because the disc folds the visible copy away for room (see the styles)
          and the number must stay reachable there -->
@@ -167,6 +184,9 @@
 <script>
 import { mapMutations, mapState } from "vuex";
 import { listTowns, editKeyFor, updateTown } from "../golem/towns";
+// the heading's games-played line — the same per-town aggregate StatsOverlay
+// reads, not a new count.
+import { townStats } from "../golem/stats";
 import ScriptPicker from "./ScriptPicker";
 // FT-859: the unseated-role tray that lives under the Roles row.
 import RoleTray from "./RoleTray";
@@ -220,11 +240,17 @@ export default {
       renaming: false,
       renameDraft: "",
       townName: "",
-      renameNote: ""
+      renameNote: "",
+      // games this town will have seen once the one being built ends
+      // (finished games + this one). null while unknown — no server count
+      // yet, or the fetch failed — and the template's gate is on that null,
+      // not on 0: a wrong number reads worse than no number.
+      gamesCount: null
     };
   },
   created() {
     this.loadTownName();
+    this.loadGamesCount();
   },
   computed: {
     ...mapState(["edition", "session", "grimoire"]),
@@ -239,6 +265,33 @@ export default {
     },
     claimedCount() {
       return this.players.filter(p => p.id).length;
+    },
+    /** The heading's second line: finished games in this town plus the one
+     *  being built now. "" (not "0 games") while gamesCount is unknown, which
+     *  is the template's actual render gate. */
+    gamesLine() {
+      if (this.gamesCount === null) return "";
+      return this.gamesCount === 1
+        ? "Game 1 in this town"
+        : `Game ${this.gamesCount} in this town`;
+    },
+    /** Spells out the count on hover, the same way seatsHint/compHint do for
+     *  their own derived numbers. "" while gamesCount is unknown. */
+    gamesHint() {
+      if (this.gamesCount === null) return "";
+      const finished = this.gamesCount - 1;
+      return finished === 0
+        ? "The first game in this town."
+        : finished + (finished === 1 ? " game finished here before this one." : " games finished here before this one.");
+    },
+    /** The heading's own tooltip: rename affordance plus — because the disc
+     *  cap has no room for the games line as text (see the styles) — the
+     *  same explanation `.ht-games` carries when there IS room for it. */
+    headTitle() {
+      const parts = [];
+      if (this.ownedKey) parts.push("Rename your town");
+      if (this.gamesHint) parts.push(this.gamesHint);
+      return parts.length ? parts.join("\n") : null;
     },
     /** Travellers sit beyond the base count and outside distribution math. */
     coreSeats() {
@@ -349,7 +402,20 @@ export default {
       const entry = id && listTowns().find(t => t.id === id);
       this.townName = (entry && entry.name) || id || "";
     },
+    /** Best-effort, like every golem call here: an unreachable server just
+     *  leaves gamesCount null and the heading's second line stays blank. */
+    async loadGamesCount() {
+      const id = this.session.sessionId;
+      if (!id) return;
+      try {
+        const stats = await townStats(id);
+        this.gamesCount = (stats.games || 0) + 1;
+      } catch (e) {
+        // no line beats a wrong line
+      }
+    },
     startRename() {
+      if (!this.ownedKey) return;
       this.renameDraft = this.townName;
       this.renaming = true;
       this.renameNote = "";
@@ -606,7 +672,7 @@ export default {
       background: #0a0a0c;
       margin: 0 -12px;
     }
-    h3 {
+    .ht-head {
       margin-bottom: 4px;
     }
   }
@@ -634,8 +700,56 @@ export default {
     }
   }
 
-  h3 {
+  // the heading wrapper — see the template comment for why it exists at all.
+  .ht-head {
     margin-bottom: 8px;
+  }
+
+  h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: default;
+
+    // only an OWNED town can be renamed — the pencil and the pointer both
+    // say so, same affordance the old Town row's `.value` wore.
+    &.owned {
+      cursor: pointer;
+      &:hover {
+        color: red;
+      }
+    }
+  }
+
+  // the games-played line and the transient rename note — both plain small
+  // text under the name, matching `.row small`'s own opacity.
+  .ht-games,
+  .ht-rename-note {
+    display: block;
+    margin-top: 2px;
+    opacity: 0.6;
+    font-size: 80%;
+  }
+
+  // the rename box itself: `.row input`'s styling, centred instead of
+  // flex-grown since it now stands alone rather than beside a label.
+  .ht-rename-input {
+    width: 100%;
+    max-width: 260px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 2px solid black;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 90%;
+    outline: none;
+
+    &:focus {
+      border-color: #400;
+    }
   }
 
   .row {
@@ -796,23 +910,6 @@ export default {
     small {
       opacity: 0.6;
     }
-
-    // FT-847: the owned-town rename field.
-    input {
-      flex-grow: 1;
-      min-width: 0;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      border: 2px solid black;
-      border-radius: 6px;
-      padding: 4px 8px;
-      font-size: 90%;
-      outline: none;
-
-      &:focus {
-        border-color: #400;
-      }
-    }
   }
 
   .start {
@@ -875,7 +972,11 @@ export default {
     // the script picker's grid opens out over the rim — see above
     overflow: visible;
 
-    > h3 {
+    // `.ht-head`, not `h3` — see the template comment. The cap is a FIXED
+    // slice of the disc (`fd-caph`), not an intrinsic height, so it is the
+    // wrapper that takes the flex basis; growing content inside it does not
+    // grow the cap, it bleeds down into the band instead.
+    > .ht-head {
       @include face-disc-head;
       // the flex basis IS the cap; a margin would sit outside it and push the
       // band off centre, which is the one thing the arithmetic cannot take
@@ -883,6 +984,19 @@ export default {
       display: flex;
       align-items: flex-end;
       justify-content: center;
+
+      h3 {
+        margin: 0;
+      }
+
+      // THE GAMES LINE AND THE RENAME NOTE FOLD INTO THE HEADING'S OWN
+      // TOOLTIP HERE, the same move the reason line and the claimed count
+      // already make lower in this file: there is no room in a fixed cap for
+      // a second line of type, so it rides the `title` instead of the page.
+      .ht-games,
+      .ht-rename-note {
+        display: none;
+      }
     }
 
     > .ht-body {
