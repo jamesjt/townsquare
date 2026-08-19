@@ -203,6 +203,34 @@
         </div>
       </div>
 
+      <!-- FT-911 (fourth raising, fixed wrong twice — this is the disc that
+           opens `addReminder()`/`openReminderModal`, not the ability card
+           and not the role hover card, which is what the two failed
+           attempts moved instead): THE ADD-REMINDER DISC LIVES BESIDE THE
+           PLATE NOW, not on the coin. It moved from being `<li>`'s OWN
+           direct-child sibling (where the ring's `margin-top: 68%` parked
+           it on the coin's rim — see the CSS below for that history) to
+           HERE, a sibling of `.name` inside `.player`, because `.player`
+           already carries its own counter-rotation (the on-circle mixin's
+           `> * { rotate($rot * -1deg) }`) which composes with the seat's
+           own rotation to a PURE TRANSLATION for everything inside it — no
+           residual rotation, no residual scale. A plain measured
+           top/left/size therefore lands exactly where it reads on screen,
+           the same free ride `.name` itself already gets; done as `<li>`'s
+           own direct sibling, this disc would need to solve that a second
+           time for its own, different pivot. `addAnchor` (measured in
+           `measureAddAnchor`) carries the plate's own height and which side
+           of the plate this seat's outward vector puts it on; it stays
+           null — hiding the disc, same as the opacity-gated default already
+           did — for the one render before the first measurement lands. -->
+      <div
+        class="reminder add"
+        :style="addAnchorStyle"
+        @click="$emit('trigger', ['openReminderModal'])"
+      >
+        <span class="icon"></span>
+      </div>
+
       <transition name="fold">
         <ul class="menu" v-if="isMenuOpen">
           <!-- Golem fork (2026-08-18, user call): Pronouns, Rename and
@@ -319,15 +347,6 @@
         <span class="text">{{ reminder.name }}</span>
       </div>
     </template>
-    <!-- `--rn` so the add disc can sit one slot past the last placed
-         reminder (see the `.reminder.add` rule) -->
-    <div
-      class="reminder add"
-      :style="{ '--rn': player.reminders ? player.reminders.length : 0 }"
-      @click="$emit('trigger', ['openReminderModal'])"
-    >
-      <span class="icon"></span>
-    </div>
     <!-- (the reminder HOVER TARGET is retired — an invisible box in the
          middle of the ring that swallowed drags and hovers meant for the
          town centre. Reminders are reached from the seat itself; its styles
@@ -476,6 +495,28 @@ export default {
       } else {
         return { width: 10.5 + this.grimoire.zoom + unit };
       }
+    },
+    /** FT-911: the add-reminder disc's own inline style — null (no override,
+     *  the base CSS's opacity gate keeps it invisible either way) until
+     *  `measureAddAnchor` has something to report. */
+    addAnchorStyle() {
+      if (!this.addAnchor) return null;
+      const { size, top, left } = this.addAnchor;
+      return {
+        // border-box, not the base `.reminder` rule's content-box: `size` is
+        // `.name`'s own getBoundingClientRect().height, which (like every
+        // element under the app's global border-box reset) already includes
+        // its border — matching box-sizing here is what makes the disc's
+        // rendered height equal the plate's rendered height, border and all,
+        // rather than the plate's height plus this disc's own 2x3px border.
+        boxSizing: "border-box",
+        width: `${size}px`,
+        height: `${size}px`,
+        top: `${top}px`,
+        left: `${left}px`,
+        margin: 0,
+        padding: 0
+      };
     }
   },
   data() {
@@ -493,11 +534,32 @@ export default {
       isSwap: false,
       // FT-858: the coin the seat's hover card is pinned to; null when
       // nothing is showing
-      cardAnchor: null
+      cardAnchor: null,
+      // FT-911: the add-reminder disc's own dock — { side, size, top, left },
+      // all measured off the rendered name plate. Null until mounted (or
+      // if the plate can't be found), which the disc's CSS reads the same
+      // way cardAnchor's absence already does: nothing to show yet.
+      addAnchor: null
     };
+  },
+  mounted() {
+    this.measureAddAnchor();
+    window.addEventListener("resize", this.measureAddAnchor);
+    window.addEventListener("orientationchange", this.measureAddAnchor);
+    // Catches what a resize event misses: this seat's own box can change
+    // size without the WINDOW resizing (the zoom slider, a seat count
+    // change reflowing every coin — see TownSquare.vue's measureBluffAnchor,
+    // which documents the identical gap for the demon's bluffs).
+    if (typeof ResizeObserver !== "undefined") {
+      this._addRO = new ResizeObserver(() => this.measureAddAnchor());
+      this._addRO.observe(this.$el);
+    }
   },
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
+    window.removeEventListener("resize", this.measureAddAnchor);
+    window.removeEventListener("orientationchange", this.measureAddAnchor);
+    if (this._addRO) this._addRO.disconnect();
   },
   watch: {
     // Golem fork: the host confirming our claim sets player.id to our own id —
@@ -511,6 +573,16 @@ export default {
         });
         this.pendingName = null;
       }
+    },
+    // The zoom slider and a seat count change both resize every coin (and
+    // therefore, indirectly, nothing about the plate's OWN font-driven
+    // height — but a seat count change can also re-seat this <li> at a new
+    // clock position, which changes `side`).
+    "grimoire.zoom"() {
+      this.$nextTick(this.measureAddAnchor);
+    },
+    "players.length"() {
+      this.$nextTick(this.measureAddAnchor);
     }
   },
   methods: {
@@ -545,6 +617,74 @@ export default {
     hideCard() {
       clearTimeout(this.$options.cardTimer);
       this.cardAnchor = null;
+    },
+    /**
+     * FT-911: where the add-reminder disc docks — beside this seat's own
+     * name plate, not parked on the coin.
+     *
+     * SIDE is read off THIS seat's own <li> (`this.$el` — Player.vue's
+     * template root IS the seat's <li>), the same way TownSquare.vue's
+     * measureBluffAnchor answered the identical question for the demon's
+     * bluffs: the ring's on-circle mixin rotates each seat's <li> by CSS
+     * transform, so the li's OWN computed matrix is the ground truth for
+     * "which way is outward from this seat" — not a second derivation off
+     * bounding boxes, which gets several seats backwards (see
+     * measureBluffAnchor's own comment for the measured case).
+     * `matrix(a, b, c, d, e, f)` maps local "straight up" (0, -1) — outward,
+     * before rotation — to screen-space (-c, -d). `ox > 0.05` means this
+     * seat sits right-of-hub; at 12 and 6 o'clock ox≈0 and the threshold
+     * resolves that to left, which is exactly the "12 or 6 → left" rule
+     * with no separate case needed.
+     *
+     * SIZE is the plate's own rendered height, MEASURED rather than
+     * approximated in vmin/%: the plate's height comes from font metrics
+     * and padding, not the seat's own width, so no percentage of the seat
+     * tracks it.
+     *
+     * Both are read off `.name`'s real box, relative to `.player`'s: this
+     * disc is `.name`'s sibling inside `.player` now (see the template),
+     * not `<li>`'s own direct-child sibling, specifically so a plain
+     * top/left measured against `.player` lands correctly — `.player`'s own
+     * counter-rotation (the on-circle mixin's `> * { rotate($rot * -1deg) }`)
+     * composes with the seat's rotation to a pure translation for
+     * everything inside it, the same free ride `.name` itself already gets.
+     */
+    measureAddAnchor() {
+      const playerEl = this.$el.querySelector(".player");
+      // `:scope >` — a PLAIN `.name` descendant selector also matches
+      // Token.vue's `<svg class="name">` (the role's name arc, a grandchild
+      // of `.player` via `.token`), which sits earlier in the DOM than the
+      // seat's own plate and so wins a plain querySelector — measured
+      // wrong: the coin-sized SVG's own height, not the plate's. The plate
+      // is `.player`'s own direct child; the SVG is not.
+      const nameEl = playerEl && playerEl.querySelector(":scope > .name");
+      if (!playerEl || !nameEl) {
+        this.addAnchor = null;
+        return;
+      }
+      const nameRect = nameEl.getBoundingClientRect();
+      const playerRect = playerEl.getBoundingClientRect();
+      if (!nameRect.height) {
+        this.addAnchor = null;
+        return;
+      }
+      let ox = 0;
+      const matrix = /matrix\(([^)]+)\)/.exec(
+        getComputedStyle(this.$el).transform
+      );
+      if (matrix) {
+        const parts = matrix[1].split(",").map(Number);
+        ox = -parts[2]; // -c
+      }
+      const side = ox > 0.05 ? 1 : -1;
+      const size = nameRect.height;
+      const GAP = 6; // matches TownSquare.vue's own MARGIN_PX clearance
+      const top = nameRect.top - playerRect.top;
+      const left =
+        side > 0
+          ? nameRect.right - playerRect.left + GAP
+          : nameRect.left - playerRect.left - GAP - size;
+      this.addAnchor = { side, size, top, left };
     },
     changePronouns() {
       if (this.session.isSpectator && this.player.id !== this.session.playerId)
@@ -1576,8 +1716,11 @@ li.move:not(.from) .player .overlay svg.move {
   }
 
   &.add {
+    // FT-911: no default `top` here any more — the disc's actual position
+    // (beside the name plate) is measured per-seat in JS (measureAddAnchor)
+    // and applied as an inline style; opacity alone keeps it hidden until
+    // that lands and until a name-plate hover reveals it.
     opacity: 0;
-    top: 30px;
     &:after {
       display: none;
     }
@@ -1634,12 +1777,16 @@ li.move:not(.from) .player .overlay svg.move {
    answer from.
 
    Driven by a class rather than `:hover`, because the plate lives inside
-   `.player` while the disc is `.player`'s SIBLING — a hover selector cannot
-   reach across that, and `:has()` would leave the behaviour resting on a
-   selector this fork does not use anywhere else. */
+   `.player` while the disc, until FT-911, was `.player`'s SIBLING — a hover
+   selector could not reach across that, and `:has()` would leave the
+   behaviour resting on a selector this fork does not use anywhere else.
+   FT-911 moved the disc to be `.name`'s own sibling instead (see the
+   template and measureAddAnchor), but this stays class-driven rather than
+   switching to `:hover` — `.name`'s own hover already drives `nameHover`
+   for the ability card (showCard/hideCard) via JS, and a second, divergent
+   reveal mechanism for one sibling would be its own source of drift. */
 .circle li.name-hover .reminder.add {
   opacity: 1;
-  top: 0;
 }
 .circle li.name-hover .reminder.add:before {
   opacity: 1;
@@ -1663,19 +1810,17 @@ li.move:not(.from) .player .overlay svg.move {
     display: none;
   }
 
-  /* AND IT COMES WITH THEM. When placed reminders moved to the seat's outer
-     rim (below), the add disc was left on its old anchor — `top: 30px` down
-     the spoke — so it drifted away from the seat it belongs to and sat on its
-     own out in the ring. That is the "note button in the wrong place".
-     It takes the same radius as a placed reminder and lands one slot past the
-     last one, so it never covers a reminder and never moves the ones already
-     there (giving it a slot INSIDE the fan would re-centre the whole group
-     every time a hover revealed it). */
+  /* FT-911: BESIDE THE PLATE, not on the ring. The old anchor here —
+     `margin-top: 68%; margin-left: calc(...)` — drifted the disc down onto
+     the coin's own rim, the "note button in the wrong place" the user kept
+     re-raising (fourth time, two of the earlier fixes moved a different
+     element entirely). `position: absolute` is still needed here (the base
+     `.circle .reminder` rule doesn't set it), but top/left/width/height are
+     no longer percentage-of-seat math — they come from `measureAddAnchor`'s
+     inline style (see the template's `addAnchorStyle` binding), sized to
+     the plate's own rendered height and docked left or right of it by the
+     seat's own outward vector. */
   position: absolute;
-  top: 0;
-  left: 0;
-  margin-top: 68%;
-  margin-left: calc(-25% + (var(--rn, 0) - (var(--rn, 1) - 1) / 2) * 60%);
   z-index: 3;
 }
 
