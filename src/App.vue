@@ -42,7 +42,13 @@
     :style="{
       backgroundImage: grimoire.background
         ? `url('${grimoire.background}')`
-        : ''
+        : '',
+      // FT-881 follow-up: the clock face's art measures about 4px left of the
+      // window centre — inside the noise of a hand-painted rim, so it is dialled
+      // rather than re-trimmed. These shift the PAINT, not its scale: `cover`
+      // still covers, which a smaller background-size would not.
+      '--bg-off-x': bgOffX + 'px',
+      '--bg-off-y': bgOffY + 'px'
     }"
   >
     <video
@@ -111,6 +117,37 @@
           <span class="dr-val">{{ dripRef[d.key] }}</span>
         </div>
         <button class="dr-reset" @click="resetDrip">Reset</button>
+      </div>
+    </div>
+    <!-- THE FACE LAB (Fa): two scrubs that shift the background's paint so the
+         clock face can be dialled onto the window's centre line by eye.
+         TEMPORARY BY DESIGN — the measured residual is ~4px, which is inside
+         the noise of a hand-painted rim, so the right answer is whatever looks
+         right rather than whatever a rig computes. Once a value is settled it
+         gets baked into the stylesheet and this comes out.
+
+         Visible without `devLabs` on purpose: the other labs are hidden (user
+         call), and this one is only useful while someone is looking at it.
+
+         NOTE on the scrub: its type-in strips non-digits, so a NEGATIVE offset
+         can be dragged but not typed. Left as-is rather than forking the shared
+         control for a dev tool that is coming out again. -->
+    <div id="face-lab" :class="{ open: faceLabOpen }">
+      <div class="fd-toggle" title="Face lab" @click="faceLabOpen = !faceLabOpen">
+        Fa
+      </div>
+      <div class="fa-rows" v-if="faceLabOpen">
+        <div class="fa-row">
+          <span class="fa-label">X</span>
+          <NumberScrub :value="bgOffX" :min="-40" :max="40" @input="setBgOff('x', $event)" />
+        </div>
+        <div class="fa-row">
+          <span class="fa-label">Y</span>
+          <NumberScrub :value="bgOffY" :min="-40" :max="40" @input="setBgOff('y', $event)" />
+        </div>
+        <button class="fa-reset" @click="setBgOff('x', 0), setBgOff('y', 0)">
+          Reset
+        </button>
       </div>
     </div>
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
@@ -439,6 +476,7 @@ import VoteHistoryModal from "@/components/modals/VoteHistoryModal";
 import GameStateModal from "@/components/modals/GameStateModal";
 import EndGameOverlay from "./components/EndGameOverlay";
 import StatsOverlay from "./components/StatsOverlay";
+import NumberScrub from "./components/NumberScrub";
 // FT-880: the key list — the first surface in the app that says the hotkeys
 // exist. Its contents come from golem/hotkeys, the same table keyup reads.
 import HotkeyHelp from "./components/HotkeyHelp";
@@ -472,6 +510,7 @@ import ikRefEvil from "./assets/icons/imp.png";
 
 export default {
   components: {
+    NumberScrub,
     RoleHoverCard,
     EndGameOverlay,
     StatsOverlay,
@@ -686,6 +725,11 @@ export default {
       fontDebugOpen: false,
       // dev labs visibility (Aa + Ik) — hidden for now
       devLabs: false,
+      // FT-881 follow-up: the face-lab scrubs, persisted so a dialled value
+      // survives the reload it takes to look at it again.
+      faceLabOpen: false,
+      bgOffX: Number(localStorage.getItem("golem.bgOffX") || 0),
+      bgOffY: Number(localStorage.getItem("golem.bgOffY") || 0),
       grimoireClosed,
       grimoireOpen,
       tpiLogo,
@@ -731,6 +775,17 @@ export default {
     };
   },
   methods: {
+    /** Face lab: shift the background PAINT and remember it. */
+    setBgOff(axis, px) {
+      const v = Math.max(-40, Math.min(40, Number(px) || 0));
+      if (axis === "x") this.bgOffX = v;
+      else this.bgOffY = v;
+      try {
+        localStorage.setItem("golem.bgOff" + axis.toUpperCase(), String(v));
+      } catch (e) {
+        // storage off: the dial still works for this session
+      }
+    },
     /** the coin lab: swap every seat's coin art, and remember it */
     pickCoin(id) {
       applyCoin(id);
@@ -1148,7 +1203,11 @@ ul {
     opacity: 0 !important;
   }
 
-  background-position: center center;
+  // FT-881 follow-up: the paint is NUDGED by the face lab's two scrubs, not
+  // resized — `cover` still covers, which a smaller background-size would not.
+  // Both default to 0px, so an untouched app paints exactly as it did.
+  background-position: calc(50% + var(--bg-off-x, 0px))
+    calc(50% + var(--bg-off-y, 0px));
   background-size: cover;
   display: flex;
   align-items: center;
@@ -1496,6 +1555,49 @@ video#background {
   --face-r: 238;
 }
 // the DRIP LAB — top-left, the user's own scrollbar dials
+// The FACE LAB — same shell as the coin and drip labs, one notch below them,
+// so the three read as one column of dev doors rather than three inventions.
+#face-lab {
+  position: fixed;
+  top: 140px;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+
+  .fa-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    background: rgba(8, 6, 10, 0.92);
+    border: 1px solid rgba(120, 105, 135, 0.45);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+  }
+  .fa-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #d8cdb4;
+  }
+  .fa-label {
+    width: 12px;
+    opacity: 0.7;
+  }
+  .fa-reset {
+    font-family: inherit;
+    font-size: 11px;
+    color: #d8cdb4;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    padding: 2px 6px;
+    cursor: pointer;
+  }
+}
+
 #coin-lab {
   position: fixed;
   top: 96px;
