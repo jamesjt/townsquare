@@ -594,6 +594,12 @@ export default {
     distributeRoles() {
       if (this.session.isSpectator) return;
       this.$store.commit("session/distributeRoles", true);
+      // FT-999 (user call, 2026-08-20): a game STARTS with the grimoire
+      // revealed — dealing is the moment the storyteller starts running the
+      // town, and face-down coins on their own screen were one more G press
+      // every single game. Local to this client (isPublic is never synced),
+      // and only ever the host reaches this line (spectators bailed above).
+      this.$store.commit("toggleGrimoire", false);
       setTimeout(
         (() => {
           this.$store.commit("session/distributeRoles", false);
