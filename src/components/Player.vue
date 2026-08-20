@@ -188,6 +188,31 @@
       <div class="marked">
         <font-awesome-icon icon="skull" />
       </div>
+
+      <!-- FT-923: THE BRIDGE. The plate and the add-reminder disc below are a
+           real gap apart (`GAP` in measureAddAnchor) — a straight-line cursor
+           move from one to the other crosses that gap's dead ground, where
+           `nameHover` (set by `.name`'s own mouseenter/mouseleave) is false
+           and the disc's opacity gate has already dropped it, so the disc is
+           gone before the cursor arrives. This div is invisible and occupies
+           exactly that ground (`addBridgeStyle`, computed from the same
+           `addAnchor` the disc itself is placed from), so there is no dead
+           ground to cross — not a delay that papers over one. It renders
+           BEFORE `.name` and the disc in this file on purpose: same-z-index
+           siblings paint in DOM order, this has no z-index of its own to win
+           with, and the couple of pixels it overlaps into each neighbour
+           (guarding subpixel rounding between three independently-measured
+           boxes) must still belong to THEM for clicks and hover, not to a
+           blank bridge. `addAnchor` null (pre-first-measurement) hides it the
+           same way it already hides the disc. -->
+      <div
+        class="name-bridge"
+        v-if="addAnchor"
+        :style="addBridgeStyle"
+        @mouseenter="nameHover = true"
+        @mouseleave="nameHover = false"
+      ></div>
+
       <div
         class="name"
         @click="isMenuOpen = !isMenuOpen"
@@ -223,10 +248,19 @@
            of the plate this seat's outward vector puts it on; it stays
            null — hiding the disc, same as the opacity-gated default already
            did — for the one render before the first measurement lands. -->
+      <!-- FT-923: the disc also keeps `nameHover` alive on its own hover —
+           necessary once the cursor actually reaches it (the bridge above
+           only covers the ground BETWEEN the plate and here), but not
+           sufficient by itself, since it does nothing about the gap the
+           cursor crosses getting here. `mouseleave` still clears the flag,
+           so the disc still hides once the cursor leaves the whole plate +
+           bridge + disc region out the far side. -->
       <div
         class="reminder add"
         :style="addAnchorStyle"
         @click="$emit('trigger', ['openReminderModal'])"
+        @mouseenter="nameHover = true"
+        @mouseleave="nameHover = false"
       >
         <span class="icon"></span>
       </div>
@@ -517,6 +551,33 @@ export default {
         margin: 0,
         padding: 0
       };
+    },
+    /** FT-923: the bridge's own inline style — the strip of ground between
+     *  the plate's edge and the disc's near edge, at the plate's own height.
+     *  Rebuilt from `addAnchor` rather than re-measuring: `addAnchor.left`
+     *  already encodes which edge the disc's near side sits on (`left - gap`
+     *  when the disc docks right of the plate, `left + size` when it docks
+     *  left — see measureAddAnchor), so the plate's own edge is recovered by
+     *  undoing that arithmetic rather than re-reading the DOM a second time.
+     *  `OVERLAP` extends the strip 1px into both neighbours: three boxes
+     *  (the real plate, the real disc, this style-only bridge) are each laid
+     *  out from the same numbers but can each round to a different physical
+     *  pixel, and a 1px overlap is cheaper than chasing that rounding exactly. */
+    addBridgeStyle() {
+      if (!this.addAnchor) return null;
+      const { side, size, top, left, gap } = this.addAnchor;
+      const OVERLAP = 1;
+      const bridgeLeft = (side > 0 ? left - gap : left + size) - OVERLAP;
+      return {
+        position: "absolute",
+        boxSizing: "border-box",
+        width: `${gap + OVERLAP * 2}px`,
+        height: `${size + OVERLAP * 2}px`,
+        top: `${top - OVERLAP}px`,
+        left: `${bridgeLeft}px`,
+        margin: 0,
+        padding: 0
+      };
     }
   },
   data() {
@@ -684,7 +745,10 @@ export default {
         side > 0
           ? nameRect.right - playerRect.left + GAP
           : nameRect.left - playerRect.left - GAP - size;
-      this.addAnchor = { side, size, top, left };
+      // `gap` rides along on the anchor so `addBridgeStyle` (FT-923) can
+      // rebuild the plate-to-disc span without a second, driftable copy of
+      // this constant.
+      this.addAnchor = { side, size, top, left, gap: GAP };
     },
     changePronouns() {
       if (this.session.isSpectator && this.player.id !== this.session.playerId)
@@ -1822,6 +1886,18 @@ li.move:not(.from) .player .overlay svg.move {
      seat's own outward vector. */
   position: absolute;
   z-index: 3;
+}
+
+/* FT-923: the bridge is hidden wherever the disc it serves is hidden — a
+   coarse pointer never hovers anything, so there is no dead-ground bug to
+   bridge there, and it would otherwise sit as a dead, invisible tap target
+   in the gap the disc no longer occupies. (Its own `position: absolute` and
+   geometry come from `addBridgeStyle`, the same inline-style pattern the
+   disc above already uses — nothing else here needs setting.) */
+#townsquare .circle li .name-bridge {
+  @media (pointer: coarse) {
+    display: none;
+  }
 }
 
 /* ── PLACED REMINDERS FAN FROM THEIR OWN SEAT (FT-869) ──────────────────────
