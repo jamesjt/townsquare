@@ -4,7 +4,7 @@
       ref="player"
       class="player"
       @dragover.prevent
-      @drop="onRoleDrop"
+      @drop="onRoleDrop($event); onPlayerDrop($event)"
       :class="[
         {
           dead: player.isDead,
@@ -213,12 +213,22 @@
         @mouseleave="nameHover = false"
       ></div>
 
+      <!-- FT-966: THE PLATE DRAGS TOO — the seat-to-seat move/swap the menu's
+           two-step "Move player"/"Swap seats" rows already do, on a second
+           channel a pointer can reach in one gesture. Occupancy alone picks
+           the outcome, exactly the way dragging a CHARACTER onto a chair
+           already works (empty chair: placed; occupied chair: traded) —
+           see onPlayerDrop below and TownSquare's dragPlayer. Draggable only
+           for a claimed seat (an "Open" plate has no player to carry) and
+           never for a spectator, mirroring Token's own draggable gate. -->
       <div
         class="name"
         @click="isMenuOpen = !isMenuOpen"
         @mouseenter="showCard($event); nameHover = true"
         @mouseleave="hideCard(); nameHover = false"
         :class="{ active: isMenuOpen }"
+        :draggable="String(!!player.id && !session.isSpectator)"
+        @dragstart="onPlayerDragStart"
       >
         <!-- an unclaimed chair says so instead of a fake name (user call) -->
         <span>{{ player.id ? player.name : "Open" }}</span>
@@ -892,6 +902,21 @@ export default {
       e.dataTransfer.setData("golem/from", String(this.index));
       e.dataTransfer.effectAllowed = "move";
     },
+    /**
+     * FT-966: the name plate's own drag-start. A DISTINCT dataTransfer type
+     * (`golem/player-from`, never `golem/from`) is the whole safety property
+     * here — `golem/from` is what `golem/roleUnseat.js`'s document-level
+     * listener watches for to clear a chair's CHARACTER on a drop outside
+     * every seat. A player move dropped on empty ground must do nothing,
+     * not blank the origin chair's role, and the way that is guaranteed is
+     * that roleUnseat's `isSeatDrag` never sees this type in `types` at all
+     * — not a flag it has to check and skip.
+     */
+    onPlayerDragStart(e) {
+      if (this.session.isSpectator || !this.player.id) return;
+      e.dataTransfer.setData("golem/player-from", String(this.index));
+      e.dataTransfer.effectAllowed = "move";
+    },
     /** A drop on this seat: a drawer role assigns; another seat's role
      *  SWAPS chairs with ours. */
     /** Put a role in THIS chair. With duplicates off (the default) a role
@@ -931,6 +956,27 @@ export default {
       if (from !== "" && Number(from) !== this.index) {
         this.swapRolesWith(Number(from));
       }
+    },
+    /**
+     * FT-966: a name plate landed on THIS chair. `golem/player-from` is
+     * read only — never `golem/from`, which is the character drag's own
+     * type (see onPlayerDragStart) — so a role drop and a player drop can
+     * never be mistaken for each other even though they share this same
+     * `.player` div as a target.
+     *
+     * This only carries the origin index up to TownSquare: it does not
+     * decide move vs swap itself. `dragPlayer` (TownSquare.vue) does, off
+     * the same `players/swap` and `players/move` primitives — and the same
+     * nomination bookkeeping — the menu's "Move player"/"Swap seats" rows
+     * already land on, one call instead of the menu's arm-then-click pair.
+     */
+    onPlayerDrop(e) {
+      if (this.session.isSpectator) return;
+      const from = e.dataTransfer.getData("golem/player-from");
+      if (from === "") return;
+      const fromIndex = Number(from);
+      if (fromIndex === this.index) return;
+      this.$emit("trigger", ["dragPlayer", fromIndex]);
     },
     /**
      * Trade characters with another chair — ONE definition, used by the drag

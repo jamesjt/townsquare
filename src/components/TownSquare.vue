@@ -1062,31 +1062,57 @@ export default {
         this.$store.commit("players/remove", playerIndex);
       }
     },
+    /**
+     * FT-966: the swap itself, split out of swapPlayer's "target picked"
+     * branch so a drag can land here directly, with both indices already in
+     * hand, instead of going through the menu's arm-this-seat / click-that-
+     * seat two-step. Same store commit, same nomination bookkeeping, either
+     * way in.
+     */
+    doSwap(fromIndex, toIndex) {
+      if (this.session.nomination) {
+        // update nomination if one of the involved players is swapped
+        const updatedNomination = this.session.nomination.map((nom) => {
+          if (nom === fromIndex) return toIndex;
+          if (nom === toIndex) return fromIndex;
+          return nom;
+        });
+        if (
+          this.session.nomination[0] !== updatedNomination[0] ||
+          this.session.nomination[1] !== updatedNomination[1]
+        ) {
+          this.$store.commit("session/setNomination", updatedNomination);
+        }
+      }
+      this.$store.commit("players/swap", [fromIndex, toIndex]);
+    },
+    /** FT-966: movePlayer's own "target picked" branch, split out the same
+     *  way doSwap is — see doSwap for why. */
+    doMove(fromIndex, toIndex) {
+      if (this.session.nomination) {
+        // update nomination if it is affected by the move
+        const updatedNomination = this.session.nomination.map((nom) => {
+          if (nom === fromIndex) return toIndex;
+          if (nom > fromIndex && nom <= toIndex) return nom - 1;
+          if (nom < fromIndex && nom >= toIndex) return nom + 1;
+          return nom;
+        });
+        if (
+          this.session.nomination[0] !== updatedNomination[0] ||
+          this.session.nomination[1] !== updatedNomination[1]
+        ) {
+          this.$store.commit("session/setNomination", updatedNomination);
+        }
+      }
+      this.$store.commit("players/move", [fromIndex, toIndex]);
+    },
     swapPlayer(from, to) {
       if (this.session.isSpectator || this.session.lockedVote) return;
       if (to === undefined) {
         this.cancel();
         this.swap = from;
       } else {
-        if (this.session.nomination) {
-          // update nomination if one of the involved players is swapped
-          const swapTo = this.players.indexOf(to);
-          const updatedNomination = this.session.nomination.map((nom) => {
-            if (nom === this.swap) return swapTo;
-            if (nom === swapTo) return this.swap;
-            return nom;
-          });
-          if (
-            this.session.nomination[0] !== updatedNomination[0] ||
-            this.session.nomination[1] !== updatedNomination[1]
-          ) {
-            this.$store.commit("session/setNomination", updatedNomination);
-          }
-        }
-        this.$store.commit("players/swap", [
-          this.swap,
-          this.players.indexOf(to),
-        ]);
+        this.doSwap(this.swap, this.players.indexOf(to));
         this.cancel();
       }
     },
@@ -1096,27 +1122,25 @@ export default {
         this.cancel();
         this.move = from;
       } else {
-        if (this.session.nomination) {
-          // update nomination if it is affected by the move
-          const moveTo = this.players.indexOf(to);
-          const updatedNomination = this.session.nomination.map((nom) => {
-            if (nom === this.move) return moveTo;
-            if (nom > this.move && nom <= moveTo) return nom - 1;
-            if (nom < this.move && nom >= moveTo) return nom + 1;
-            return nom;
-          });
-          if (
-            this.session.nomination[0] !== updatedNomination[0] ||
-            this.session.nomination[1] !== updatedNomination[1]
-          ) {
-            this.$store.commit("session/setNomination", updatedNomination);
-          }
-        }
-        this.$store.commit("players/move", [
-          this.move,
-          this.players.indexOf(to),
-        ]);
+        this.doMove(this.move, this.players.indexOf(to));
         this.cancel();
+      }
+    },
+    /**
+     * FT-966: the name-plate drag's own landing — one call, both indices
+     * already known, occupancy alone deciding swap vs move. `toIndex` is
+     * this seat's own index (TownSquare bound it per-instance in the
+     * template below); `fromIndex` is what the plate carried in
+     * `golem/player-from`. Routes to the exact same doSwap/doMove the
+     * menu's two-step "Swap seats"/"Move player" rows land on above.
+     */
+    dragPlayer(toIndex, fromIndex) {
+      if (this.session.isSpectator || this.session.lockedVote) return;
+      if (fromIndex === toIndex || !this.players[fromIndex]) return;
+      if (this.players[toIndex] && this.players[toIndex].id) {
+        this.doSwap(fromIndex, toIndex);
+      } else {
+        this.doMove(fromIndex, toIndex);
       }
     },
     nominatePlayer(from, to) {
