@@ -447,15 +447,14 @@ export default {
     // asset is still resolved by the bundler in one place rather than named a
     // second time here.
     .count-icon-masked {
+      // `.count-icon` above already gives it the box, the margin and the
+      // baseline every other stat icon has — this only adds what a MASK
+      // needs, so the heart cannot drift out of line with its neighbours.
       display: inline-block;
-      width: 1em;
-      height: 1em;
-      vertical-align: -0.12em;
       background-color: #ff4a50; // the same red the digit beside it already
       // wears — one red, not a second one for the icon
       -webkit-mask: var(--count-mask) center / contain no-repeat;
       mask: var(--count-mask) center / contain no-repeat;
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
     }
 
     // FT-975 (correction pass): THE COUNTS' OWN GROUND. Measured against the

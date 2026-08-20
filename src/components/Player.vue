@@ -1894,9 +1894,10 @@ li.move:not(.from) .player .overlay svg.move {
 @include glow("minion", $minion);
 @include glow("traveler", $traveler);
 
-// the fallback for a seat with no team yet — same shape, same rounding
+// the fallback for a seat with no team yet. NO `border-radius` here either —
+// this is the rule that was still clipping the teeth after the mixin above
+// dropped its own.
 .player.you .token {
-  border-radius: 50%;
   animation: townsfolk-glow 5s ease-in-out infinite;
 }
 
