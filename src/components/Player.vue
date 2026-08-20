@@ -1517,89 +1517,46 @@ export default {
     transform-origin: top center;
     transition: transform 200ms ease-in-out;
     z-index: 2;
-    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.8));
 
-    // FT-974 (user call: "instead of the shroud thing we can add a cool ghost
-    // icon that is partially transparent instead?"). The carved cloth banner
-    // becomes OUR ghost — `ui-ghost.png`, a draped spirit whose translucency
-    // is baked into the art's own alpha (dense at the head, thinning to the
-    // hem) rather than dialled in here with a flat `opacity`, so it reads as a
-    // body of vapour instead of a decal turned down.
+    // FT-997 (user call: "we need a glassy silk looking veil that goes over
+    // a player token when they are dead. we already have a color change on
+    // the token that is significant, we don't also need to have a big ghost
+    // over their token. So it should be a cool additional add but it does
+    // not need to be the primary way to indicate someone is dead").
     //
-    // Upstream's `shroud.png` stays in the tree, unreferenced, the way
-    // `token.png` and the leaf art do.
+    // THE COWL GOES. FT-974/990/991 progressively refined a FIGURE painted
+    // over the coin — a sheet ghost, then a hooded cowl, then that cowl
+    // rendered as glass — each judged on the same "does it read as dead"
+    // glance metric. This call rejects the premise, not the execution: the
+    // coin already says dead on its own (the colour swap two rules above,
+    // and Token.vue's cold-metal swap), so this mark's job shrinks from
+    // "read as dead" to "read as an extra". `ui-ghost.png`, `ui-ghost-
+    // cowl.png` and `ui-ghost-cowl-rim.png` are not orphaned by this — the
+    // cowl PNGs still paint the ghost-VOTE mark (`.has-vote.ghost-vote`
+    // below) and the FT-991 glass lab's preview (`html.gg-glass`, further
+    // down this file) — this rule alone stops drawing a figure with them.
     //
-    // FT-990 — THE SHEET GHOST BECOMES A COWL (user call: "the ghost shroud is
-    // a bit cartoony can we get one that better fits our theme?").
+    // NO PNG for the veil itself, on purpose: a second silhouette here,
+    // glassy or not, is still a figure, and the ask was for fabric, not a
+    // shape. The drape is a soft `radial-gradient` MASK instead — one
+    // ellipse, feathered at the edge, so the veil has no hard outline to
+    // read as a cutout. `:before` is the pane (a cool, barely-there wash
+    // plus a sliver of real `backdrop-filter` blur, so the coin under it
+    // actually softens); `:after` is the sheen, a single diagonal highlight
+    // standing in for the fold of light silk always catches. Both share the
+    // mask below so they can never drift apart.
     //
-    // The diagnosis was silhouette, not palette: the old mark was, line for
-    // line, the Pac-Man ghost — one continuous dome from crown to shoulder,
-    // perfect bilateral symmetry, two round eyes on the centreline and three
-    // identical scallop lobes for a hem. Against a gothic cathedral it read as
-    // a sticker. `ui-ghost-cowl.png` is a HOODED, FACELESS figure instead: an
-    // off-centre leaning hood, a shaded hollow where a face would be (a
-    // gradient, deepest under the brow and lifting toward the chin, the way a
-    // real cowl shades) and a torn right-to-left hem. Absence, not a face.
+    // `.shroud`'s old `drop-shadow` goes with the cowl: it existed to hold
+    // an OPAQUE figure off the coin's pale rim, and an ancestor `filter` is
+    // a backdrop-filter killer (measured for the glass lab —
+    // claude_temp_test/2026-08-20-ft991b-backdrop-probe.mjs), so it was the
+    // one thing standing between this veil and real glass by default.
     //
-    // `ui-ghost.png` stays in the tree, unreferenced, the way `shroud.png`,
-    // `token.png` and the leaf art already do.
-    //
-    // JUDGED, NOT PREFERRED — four candidates that differ in KIND (this cowl, a
-    // grave-mist, a death's-head, an empty burial cloth) were baked and scored
-    // on the same 12x12 glance metric FT-974's ghost won on, on a real 12-seat
-    // ring with four dead, against the shipped ghost measured in the SAME run:
-    //
-    //                          sep @1280   sep @1920   coin covered
-    //   shipped sheet ghost ..... 22.6 ....... 17.9 ....... 22.7%
-    //   THIS COWL, 106/-6 ....... 24.1 ....... 18.8 ....... 22.2%
-    //   death's-head ............ 26.3 ....... 21.4 ....... 25.1%
-    //   empty cloth ............. 27.2 ....... 21.9 ....... 27.7%
-    //   grave-mist .............. 20.8 ....... 16.6 ....... 17.9%
-    //
-    // So this ghost reads dead HARDER than the one it replaces AND covers LESS
-    // of the role art — better on both axes at once, which is the only trade
-    // this element accepts (FT-974 refused a prettier-but-weaker ghost once
-    // already). The death's-head and the empty cloth both scored higher still,
-    // and both bought it with coverage past the 24.3% the original cloth
-    // shroud occupied, which is the regression line. The death's-head was also
-    // the brief's own trap: strong numbers, but at the real 96px seat its
-    // sockets and tooth band resolve into a Halloween grin — the most cartoony
-    // of the whole set. Numbers won, eyes lost; it was not taken.
-    //
-    // PALETTE stays FT-974's cold (198,214,228), and that is measured too: the
-    // identical drawing baked in warm bone scores 2.2 lower at 1280 and 1.9
-    // lower at 1920. The cold hue is doing real work against both the warm
-    // living coin and the neutral dead one.
-    //
-    // GEOMETRY, and why it is these two numbers: the shroud's box is a BANNER
-    // box — 100% wide by 45% of the seat, far wider than tall, which suits a
-    // hanging cloth and fights a portrait ghost. `top: -6%` with
-    // `height: 106%` spans exactly [-6%, +100%] of that box, so the HEM STAYS
-    // PINNED to the shroud's own bottom edge (where the sheet ghost's was at
-    // 118/-18) and the figure simply stands lower and smaller — that is what
-    // buys the coverage back. Only its hood rises above the seat. The click
-    // geometry is untouched in every version of this: `:before` is
-    // `pointer-events: none` and always was, so the death toggle is
-    // `.shroud`'s own 45% box regardless.
-    //
-    // At the old 118/-6 this same art scores higher (25.9 / 20.5) but occludes
-    // 25.2%, past the cloth's line; 112/-12 is the middle option (25.4 / 20.1
-    // at 23.7%) if the mark ever wants more presence at a real cost.
-    // ── FT-991: THE MARK IS TWO LAYERS NOW ─────────────────────────────────
-    // `:before` is the ghost (the painting, or the pane — see the
-    // `html.gg-glass` block below) and `:after` is its OUTLINE. They share one
-    // box and one arrival, so the geometry, the drop and the transition are
-    // written once here and only their opacity differs below.
-    //
-    // The outline ships at strength ZERO — the layer exists and paints nothing
-    // — because it is the answer to something only glass needs. `.shroud`'s
-    // `drop-shadow` is what holds the opaque cowl off a pale coin rim, and an
-    // ancestor `filter` forms a BACKDROP ROOT, under which a `backdrop-filter`
-    // paints nothing at all (measured: claude_temp_test/2026-08-20-ft991b-
-    // backdrop-probe.mjs — drop-shadow scores 0 delta, `filter: none` 96, and
-    // both a 2D and a perspective transform 96, so the ring's own rotations are
-    // harmless). Glass therefore has to give the shadow up, and this is what it
-    // gets back. It is dialable on the painting too, which costs nothing.
+    // GEOMETRY is UNCHANGED from the cowl's own box (`top`/`height` below,
+    // and the `.dead`/hover rules past the end of this block) — the click
+    // target, the resting position and the FT-991 lab all key off those
+    // same numbers, and none of them needed to move for a mask-shaped veil
+    // to read as draped over the coin's upper face.
     &:before,
     &:after {
       content: " ";
@@ -1608,99 +1565,117 @@ export default {
       width: 100%;
       height: 106%;
       left: 50%;
-      top: -46%;
+      top: -20%;
       opacity: 0;
-      transform: perspective(400px) scale(1.5);
+      transform: perspective(400px) scale(1.15);
       transform-origin: top center;
       transition: all 200ms;
       pointer-events: none;
+      // the drape's own silhouette — one soft ellipse, feathered out to
+      // nothing well inside the box edge, so it never reads as a hard
+      // rectangle laid over the coin
+      -webkit-mask: radial-gradient(
+        ellipse 62% 58% at 50% 46%,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0.7) 55%,
+        rgba(0, 0, 0, 0) 82%
+      );
+      mask: radial-gradient(
+        ellipse 62% 58% at 50% 46%,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0.7) 55%,
+        rgba(0, 0, 0, 0) 82%
+      );
     }
 
-    // THE GHOST — the painting. Its translucency is the art's own alpha.
+    // THE PANE — a cool, translucent wash (silk, not sheet-white) plus a
+    // sliver of real glass. CENTRED ON THE SAME POINT AS THE MASK ABOVE, and
+    // that centring is load-bearing, not cosmetic: a first cut used a
+    // diagonal `linear-gradient` here, whose brightest stops sat near the
+    // BOX's corners — exactly where the ellipse mask fades to nothing, so
+    // the one wash and its own mask were cancelling each other out (measured
+    // dead-on-screen at up to 2.5x the alpha below: claude_temp_test/2026-
+    // 08-20-ft997-tune.cjs). A radial wash sharing the mask's centre instead
+    // puts its own brightest ring INSIDE the visible ellipse. The blur stays
+    // tiny on purpose: at seat scale a strong blur would smear the role art
+    // into mush, so this only softens it, the way a fine weave would.
     &:before {
-      background: url("../assets/ui-ghost-cowl.png") center top no-repeat;
-      background-size: auto 100%;
+      background: radial-gradient(
+        ellipse 62% 58% at 50% 46%,
+        rgba(214, 224, 236, 0.42) 0%,
+        rgba(196, 208, 224, 0.22) 55%,
+        rgba(214, 224, 236, 0.1) 82%
+      );
+      backdrop-filter: blur(2px) saturate(92%);
+      -webkit-backdrop-filter: blur(2px) saturate(92%);
     }
 
-    // THE OUTLINE — `ui-ghost-cowl-rim.png` is the cowl's OWN edge, derived
-    // from the same alpha (claude_temp_test/2026-08-20-ft991b-rim-bake.mjs:
-    // threshold, blur, and read the blurred field as a signed distance), so the
-    // two can never drift. It is used as a MASK over a flat fill rather than
-    // drawn, which is TownInfo's `.count-icon-masked` idiom — that is the only
-    // way to put an exact colour ON a raster shape, and it means the rim takes
-    // the lab's tint colour rather than a second baked tone.
+    // THE SHEEN — one diagonal band of light, standing in for the fold silk
+    // always catches. `screen` lets it brighten whatever colour is under it
+    // instead of painting a flat white stripe over the coin. Its stops don't
+    // need the pane's re-centring: a diagonal line through the box's own
+    // middle (45%-53%) already crosses the mask's visible ellipse dead on.
     &:after {
-      background-color: rgba(var(--gg-tint-rgb, 198, 214, 228), 1);
-      -webkit-mask: url("../assets/ui-ghost-cowl-rim.png") center top / auto
-        100% no-repeat;
-      mask: url("../assets/ui-ghost-cowl-rim.png") center top / auto 100%
-        no-repeat;
+      background: linear-gradient(
+        118deg,
+        transparent 28%,
+        rgba(255, 255, 255, 0.3) 45%,
+        rgba(255, 255, 255, 0.07) 53%,
+        transparent 70%
+      );
+      mix-blend-mode: screen;
     }
 
     #townsquare.spectator & {
       pointer-events: none;
     }
 
-    // the ghost previews on hover — but NOT while the town is still being
+    // the veil previews on hover — but NOT while the town is still being
     // built (user call 2026-08-18): nothing can die yet, and the mark
-    // flashing over every seat while assigning roles reads as an error
-    //
-    // FT-991: the preview is HALF of whatever the resting mark is, rather than
-    // a flat 0.5 — so the Opacity dial moves the preview with the ghost instead
-    // of the two drifting apart. At the shipped 100 this computes to exactly
-    // 0.5, which is the number that was here.
+    // flashing over every seat while assigning roles reads as an error.
+    // The preview is HALF of whatever the resting veil is, so the FT-991
+    // lab's Opacity dial still moves the preview WITH the veil.
     #townsquare:not(.spectator):not(.building) &:hover:before {
       opacity: calc(var(--gg-opacity-adj, 100) / 100 * 0.5);
-      // FT-990: the cowl's resting top, matching the `.dead` rule below —
-      // these two are ONE number (where the mark comes to rest) and drift
-      // apart silently if only one is changed with the art.
+      // matches the `.dead` rule below — one number, where the veil settles
       top: -6%;
       transform: scale(1);
     }
     #townsquare:not(.spectator):not(.building) &:hover:after {
-      opacity: calc(
-        var(--gg-opacity-adj, 100) / 100 * var(--gg-rim-adj, 0) / 100 * 0.5
-      );
+      opacity: calc(var(--gg-opacity-adj, 100) / 100 * 0.5);
       top: -6%;
       transform: scale(1);
     }
   }
 
-  // The arrival is kept: the ghost drops from `top: -46%` to its resting
-  // `-6%` (FT-990 — was `-18%` when the mark was the taller sheet ghost) and
-  // settles out of `scale(1.5)` over the same 200ms the cloth was drawn down
-  // in. A ghost that simply appears is a weaker moment than one that arrives.
-  // The pre-drop `-46%` is deliberately NOT retuned with the art: it is only
-  // the height the mark falls FROM, so a slightly longer fall is all that
-  // changes, and it reads a touch better for it.
+  // The arrival is kept: the veil drops from `top: -20%` to its resting
+  // `-6%` and settles out of a slight `scale(1.15)` over the same 200ms the
+  // cowl (and the cloth before it) arrived in — cloth drifting down and
+  // cinching flat is more of a piece with silk than the old figure's
+  // bigger, further fall was.
   &.dead .shroud:before,
   &.dead .shroud:after {
     top: -6%;
     transform: perspective(400px) scale(1);
   }
-  // FT-991: `1` became `calc(100 / 100)` so the Opacity dial has somewhere to
-  // land. At the shipped value it computes to exactly 1, which is the number
-  // that was here — and with the lab absent the fallback IS that value, so the
-  // dial's existence changes nothing.
+  // the pane's own resting strength — still the Opacity dial's home, but the
+  // wash itself is what keeps this subtle now, not this number
   &.dead .shroud:before {
     opacity: calc(var(--gg-opacity-adj, 100) / 100);
   }
-  // The outline is the mark's opacity TIMES its own strength, so it fades in
-  // with the ghost rather than snapping on at full value part-way through the
-  // arrival. Shipped strength is 0, so this is `calc(1 * 0 / 100)` = nothing.
+  // FT-997: the sheen is no longer gated behind the old cowl-outline's Rim
+  // dial (that dial answered "how strong is the outline", and this mark no
+  // longer has one) — its strength lives in its own gradient stops now, so
+  // it takes the same Opacity dial as the pane and nothing else.
   &.dead .shroud:after {
-    opacity: calc(
-      var(--gg-opacity-adj, 100) / 100 * var(--gg-rim-adj, 0) / 100
-    );
+    opacity: calc(var(--gg-opacity-adj, 100) / 100);
   }
 
   #townsquare:not(.spectator) &.dead .shroud:hover:before {
     opacity: calc(var(--gg-opacity-adj, 100) / 100);
   }
   #townsquare:not(.spectator) &.dead .shroud:hover:after {
-    opacity: calc(
-      var(--gg-opacity-adj, 100) / 100 * var(--gg-rim-adj, 0) / 100
-    );
+    opacity: calc(var(--gg-opacity-adj, 100) / 100);
   }
 }
 
