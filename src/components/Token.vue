@@ -35,18 +35,17 @@
     @mouseleave="hideCard"
   >
     <span class="rim" :class="role.team"></span>
-    <span
-      class="icon"
-      v-if="role.id"
-      :style="{
-        backgroundImage: `url(${
-          role.image &&
-          (grimoire.isImageOptIn || role.image.startsWith('data:'))
-            ? role.image
-            : require('../assets/icons/' + (role.imageAlt || role.id) + '.png')
-        })`
-      }"
-    ></span>
+    <!-- FT-985: the art is wrapped so the COIN'S OWN WIDTH can be queried (see
+         `.icon-fit` in the styles). The wrapper is what carries the container,
+         never `.token` itself: containment would re-root the `position: fixed`
+         RoleHoverCard that the bluffs and both pickers render inside this same
+         root, and the card measures itself against the viewport. -->
+    <span class="icon-fit" v-if="role.id">
+      <span
+        class="icon"
+        :style="{ backgroundImage: `url(${roleIcon})` }"
+      ></span>
+    </span>
 
     <!-- night order, reminder count and setup, set into the wheel -->
     <svg viewBox="0 0 150 150" class="marks" v-if="hasMarks">
@@ -313,6 +312,28 @@ export default {
       return "M 25 81 C 25 147, 125 147, 125 81";
     },
     /**
+     * FT-985: the engraved art's own url. Lifted out of the template — where
+     * it was an inline conditional inside the style binding — when the art
+     * gained its `.icon-fit` wrapper, so the expression is not re-indented
+     * every time the markup around it moves. `beliefIcon` below already
+     * answers the same question this way for the chip.
+     *
+     * The choice it makes is unchanged: the role's OWN image when remote art
+     * is opted in (or when it is already inline data, which needs no opt-in
+     * because nothing is fetched), and the bundled icon otherwise.
+     */
+    roleIcon() {
+      const role = this.role;
+      if (!role || !role.id) return "";
+      if (
+        role.image &&
+        (this.grimoire.isImageOptIn || role.image.startsWith("data:"))
+      ) {
+        return role.image;
+      }
+      return require("../assets/icons/" + (role.imageAlt || role.id) + ".png");
+    },
+    /**
      * FT-861: the believed character's engraved art, for the chip. Bundled
      * icons only (a chip is 30px — a remote image would be a smudge and would
      * need the opt-in), falling back the way the night sheet's rows do.
@@ -464,9 +485,66 @@ $blood: #970000; // our red, for the one mark that must not be missed
     // y=81 of 150 and bottoms around y=130, so the icon cannot simply centre
     // at 50% without its lower edge crossing the lettering — 45% is the
     // furthest down it goes while the art still clears the name.
+    // FT-985: PINNED, not statically placed. `.token` is a centring flex box,
+    // and this layer used to get its horizontal placement from that centring
+    // alone (no `left`). Wrapped in `.icon-fit` it stopped being the flex
+    // box's own child and the static position resolved half a coin to the
+    // right — measured at 839.4px vs the wrapper's 898.4px on a 124px coin,
+    // which is the whole art shifted off the face. An explicit origin makes
+    // the placement the wrapper's, not the flex box's leftovers.
+    left: 0;
+    top: 0;
     background-size: 86%;
     background-repeat: no-repeat;
     background-position: center 45%;
+  }
+
+  // FT-985 — THE ENGRAVED ART IN A CROWDED TOWN.
+  //
+  // The role art is bright blue line work on a mid-tone gold face, and it
+  // carries no dark edge of its own. At a roomy seat that is fine; pack the
+  // ring and the strokes thin out until the whole coin reads as a pale blue
+  // smudge (user report: "a bit white and hard to identify at this size").
+  //
+  // MEASURED, at the real render size, not argued — seat 1's Washerwoman,
+  // 1280x800, over the parchment face only (the iron rim is high-contrast
+  // metal and would drown the thing being measured):
+  //
+  //                              value range (p95-p5)   edge energy
+  //   96px coin, as shipped ....... 117.8 ................ 111.8
+  //   + dark halo alone ........... 127.8 ................ 123.1
+  //   + contrast/saturation alone . 126.9 ................ 118.7
+  //   + both (shipped here) ....... 135.5 ................ 128.4   +15% / +15%
+  //
+  // A slight scale-up measured well too (+4% edge at 94%) and is NOT taken:
+  // the art already sits as low as it can go before crossing the name arc
+  // (see `.icon` above), and growing it spends that clearance for the
+  // smallest of the three gains.
+  //
+  // THE HALO IS THE LOAD-BEARING HALF, and it is the coin's own idiom — the
+  // moon, the cut name and the vote marks are all seated the same way, each
+  // against its own opposite. `$ink` is the dark this coin already uses.
+  //
+  // WHY A CONTAINER, AND WHY vmin: a fixed-pixel threshold would key off the
+  // monitor as much as the town — the same 15-seat ring is a 96px coin at
+  // 1280x800 and a 130px coin at 1920x1080, and it is the CROWD, not the
+  // display, that the user is complaining about. Every seat is sized as a
+  // fraction of the window's short side (Player.vue's `zoom`: 15.5 / 13.5 /
+  // 12 / 10.5 vmin as the town grows), so a vmin threshold cuts exactly
+  // between "a roomy ring" and "a crowded one" on every screen. 12.5vmin
+  // catches the 12vmin (11-15 seat) and 10.5vmin (16+ seat) rings and leaves
+  // the two roomier ones untouched — not softened, IDENTICAL: there is no
+  // rule for them to match.
+  .icon-fit {
+    container: coin / inline-size;
+
+    @container coin (max-width: 12.5vmin) {
+      .icon {
+        filter: drop-shadow(0 0 1.2px rgba($ink, 0.9))
+          drop-shadow(0 0 0.6px rgba($ink, 0.9))
+          drop-shadow(0 0 0.6px rgba($ink, 0.9)) contrast(1.18) saturate(1.18);
+      }
+    }
   }
 
   // `closest-side` makes the stops read as a fraction of the coin's radius,

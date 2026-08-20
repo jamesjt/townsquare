@@ -42,13 +42,14 @@
            the whole seat: with a character in hand this lands it here, and
            with nothing in hand it is the death toggle it has always been -->
       <div class="shroud" @click="onLifeClick"></div>
-      <div class="life" @click="onLifeClick">
-        <!-- the seat's Roman numeral rides the parchment until a role
-             lands on the chair (user call) -->
-        <span class="seat-numeral" v-if="!player.role || !player.role.id">{{
-          seatNumeral
-        }}</span>
-      </div>
+      <!-- FT-985: the seat's Roman numeral USED TO LIVE IN HERE, and that is
+           why it only ever appeared with the grimoire hidden. The life token
+           and the role coin are the two faces of one flip: `.life` is turned
+           away (`rotateY(180deg)` + `backface-visibility: hidden`) whenever
+           the grimoire is revealed, so everything inside it went with it.
+           The numeral is now `.player`'s own child, below the coin — see
+           `showSeatNumeral`. -->
+      <div class="life" @click="onLifeClick"></div>
 
       <!-- The seat's night-order badges are RETIRED (user call 2026-08-18):
            the storyteller's night checklist replaces them. Markup and styles
@@ -97,6 +98,14 @@
         prefer="right"
         @dismiss="hideCard"
       />
+
+      <!-- FT-985 — THE SEAT'S ROMAN NUMERAL (user call: "have them appear if
+           the grimoire is revealed and there is no role token on the seat").
+           It sits AFTER the coin on purpose: same-z-index siblings paint in
+           DOM order, and the numeral has to land on top of the coin that is
+           actually facing the viewer. Never inside `.life` again — that face
+           is turned away in exactly the state this mark is now for. -->
+      <span class="seat-numeral" v-if="showSeatNumeral">{{ seatNumeral }}</span>
 
       <!-- Overlay icons -->
       <div class="overlay">
@@ -553,6 +562,26 @@ export default {
       return (
         !!this.$store.state.drawerPick &&
         this.$store.state.drawerPickFrom === this.index
+      );
+    },
+    /**
+     * FT-985: WHEN THE CHAIR NUMBERS ITSELF — the storyteller's grimoire is
+     * revealed AND no character is sitting there.
+     *
+     * `grimoire.isPublic` is the app's "coins are face down" switch (see
+     * `#townsquare.public` below and the store's own note on it), so revealed
+     * is `!isPublic` — the state in which the role coin faces the viewer and
+     * an empty chair is a blank coin with nothing to say. That blank is what
+     * the numeral is for.
+     *
+     * It is therefore a STORYTELLER-SIDE mark now: a player's client is held
+     * at `isPublic: true`, so the ring a player sees carries no numerals at
+     * all. That is the ask, and it is the read the numeral was always giving
+     * the storyteller — it simply used to give it on the wrong face.
+     */
+    showSeatNumeral() {
+      return (
+        !this.grimoire.isPublic && !(this.player.role && this.player.role.id)
       );
     },
     seatNumeral() {
@@ -1477,6 +1506,11 @@ export default {
       padding-top: 100%;
     }
 
+    // FT-985: superseded by `.player > .seat-numeral` below — the numeral is
+    // no longer a child of the life token (this face is turned away in the
+    // one state the numeral is now for). The rule stays in the tree
+    // unreferenced, the way upstream's token.png and the retired `.ability`
+    // box do.
     .seat-numeral {
       position: absolute;
       left: 0;
@@ -1498,6 +1532,37 @@ export default {
       pointer-events: none;
       user-select: none;
     }
+  }
+
+  // FT-985 — THE SEAT'S ROMAN NUMERAL, on the face that is actually showing.
+  // `.player`'s own child now, not the life token's, so it rides whichever
+  // coin is turned toward the viewer instead of flipping away with one of
+  // them. `showSeatNumeral` is what decides it appears at all; the geometry
+  // is unchanged from the rule above — the same square box over the same
+  // coin, with the same 0.8% lift onto the art's true centre.
+  > .seat-numeral {
+    position: absolute;
+    left: 0;
+    top: -0.8%;
+    width: 100%;
+    // SQUARE, like the coin it sits on — NOT `height: 100%`. `.player` is
+    // taller than it is wide (the coin plus the name plate below it), so a
+    // full-height box centred the numeral on the whole SEAT and dropped it
+    // off the coin's face: measured 108x147 where the coin is 108x108. The
+    // life token and the role coin get their own square from a padding-top
+    // trick; this gets it from the aspect ratio directly.
+    aspect-ratio: 1;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-family: "PiratesBay", Georgia, serif;
+    font-size: 2.2em;
+    color: #14100a;
+    text-shadow: 0 1px 1px rgba(255, 250, 235, 0.45);
+    pointer-events: none;
+    user-select: none;
   }
 
   &.dead {
