@@ -1416,9 +1416,20 @@ export default {
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
   }
+  /* BONE, NOT RED (user call 2026-08-20: "we want that to be whiteish like
+     the gallows token"). Red on a chair nobody is sitting in was saying
+     something the app now means elsewhere — `control-lit` is blood, the demon
+     is blood, and the bluffs mask is blood. An empty chair is not lit, not
+     evil and not a warning; it is furniture waiting for someone.
+     `#d8cdb4` is the ink `control-icon-btn` already wears, which is the same
+     warm bone the top strip's own marks are baked to — so the invitation to
+     sit reads as part of the same set as the doors above it.
+     THE HOVER STILL ANSWERS: the overlay goes from invisible to visible,
+     which is a far louder acknowledgement than a colour change, and it was
+     always doing that work. The red was a second signal on top of it. */
   &:hover {
     opacity: 1;
-    color: red;
+    color: #d8cdb4;
   }
   /* While asking the name, the overlay must not fade away under the cursor. */
   &.asking {
@@ -1461,9 +1472,13 @@ export default {
   .player .claim-overlay {
     opacity: 1;
     background: rgba(0, 0, 0, 0.42);
+    /* the touch twin of the hover above — a press cannot use the reveal as
+       its feedback, because on a hoverless pointer the overlay is already
+       showing, so this one keeps a real change: the ground darkens and the
+       ink brightens toward white, staying inside the same bone family. */
     &:active {
       background: rgba(0, 0, 0, 0.6);
-      color: red;
+      color: #f6dfbd;
     }
   }
 }
