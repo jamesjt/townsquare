@@ -236,6 +236,13 @@ export default {
    `#0b0d12` plus the dial art — and is buried. The lesson generalises: on this
    element, negative z-index is not a "behind the furniture" slot, it is a hole.
 
+   ── TABLE ABOVE IS STALE-DATED (2026-08-20, FT-995) ─────────────────────────
+   Measured before the readout (`.info`) moved to z-index 2 (FT-975 era). Re-
+   measured on the current tree by the FT-993 lane: z:1 and z:2 now behave
+   IDENTICALLY to z:0 against the readout, and the hands only cross it at z:3+.
+   The chosen slot (0) is still correct; "1 paints over the readout" is no
+   longer the live threshold. The -1-is-a-hole finding is unaffected.
+
    ── WHY 0 AND NOT 1 ────────────────────────────────────────────────────────
    Those two rows differ by 3 261 pixels, and every one of them is a pixel where
    a blade would be drawn ON TOP OF THE TOWN READOUT — the script lockup, the
