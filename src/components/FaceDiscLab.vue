@@ -1,6 +1,6 @@
 <template>
   <!-- ── THE FACE-DISC LAB (Fd) — TEMPORARY, DELETE ME ──────────────────────
-       Fifteen scrubs and a four-way glass preset switch, all of which nudge
+       Fourteen scrubs and a four-way glass preset switch, all of which nudge
        every menu on the clock face at once — the
        night checklist, the Host and Join entry panels, the build panel. See
        `src/golem/faceDisc.js` for what each dial does and why its bounds are
@@ -12,6 +12,18 @@
        unlabelled scrubs in one column read as one list of ten rather than as
        two tools. The headings cost four lines and are the difference.
 
+       AND GEOMETRY NOW MEANS TWO PLATES (2026-08-19). The entry panels and the
+       town surfaces are different shapes, each with its own eight stored
+       values. The panel still shows EIGHT ROWS, not sixteen, and they drive
+       whichever plate is on screen — the heading names it and wears a plum
+       "now" mark.
+
+       WHY NOT SIXTEEN ROWS. A plate is placed one at a time, by eye, against the
+       thing it is sitting on. The other plate is not on screen to be judged, so
+       a second column of eight would be eight numbers whose effect nobody can
+       currently see — and the shape of the panel would be saying the two are
+       decided together, which is exactly what they are not.
+
        THE LABELS ARE WORDS. "We don't need to abbreviate things, just tell me
        what they are" (user, 2026-08-19) — so Bl/St/Br/Tn/Tl/Ed/Rm and the
        geometry initials are all spelled out, and the label column widened from
@@ -21,20 +33,17 @@
        runs at, so it still never covers the thing it is tuning.
 
        THE PRESET SWITCH heads the Glass group: four families, one click each,
-       seeding the seven material scrubs (never the geometry). It is a starting
+       seeding the glass scrubs (never the geometry). It is a starting
        point rather than a mode — the scrubs stay live, and the panel marks the
        pick "edited" the moment one leaves it.
 
-       THE TINT IS TWO DIALS, and the live one is marked. The glass carries two
-       tint values because the four discs do not stand on the same backdrop —
-       a dark night dial and a lit entry dial, measured three-and-a-half-fold
-       apart — so Night tint and Lit tint are separate scrubs against separate
-       bases.
-       Both are always on screen; the one currently in effect wears a "now"
-       mark, read off the same `isNight` App.vue binds the `night` class from.
-       One dial that silently edited whichever was live would make the same
-       scrub mean two different things depending on the phase, and would hide
-       from the user that they are choosing a PAIR.
+       THE TINT IS ONE DIAL (2026-08-19). It was two — a Night tint and a Lit
+       tint against separate bases, with the live one wearing a "now" mark —
+       because the four discs do not stand on the same backdrop and the two
+       grounds measured three-and-a-half-fold apart. "Remove the night tint
+       entirely, night should be the same as set up" (user) ended that: one
+       value, every surface, every phase, and the Glass heading's phase chip and
+       the tint row's mark both came out with it.
 
        THE FOURTH DOOR in App.vue's dev column (drip 8px, coin 96px, face
        140px, this 184px), wearing the same shell so they read as one toolkit
@@ -66,22 +75,36 @@
       Fd
     </button>
     <div class="fl-rows" v-if="fdLabOpen">
-      <div class="fl-head">Geometry</div>
+      <!-- THE GEOMETRY GROUP DRIVES ONE PLATE — the one on screen — and says
+           which, in the heading, with a plum mark. The two plates are different
+           shapes now, and a column of eight that did not say which it was
+           moving would be eight numbers meaning whichever thing the user
+           happened to be looking at. -->
+      <div class="fl-head">
+        Geometry
+        <span class="fl-phase">{{ fdSurfaceLabel }}</span>
+        <span
+          class="fl-live"
+          title="These eight dials move the plate on screen right now — the other plate keeps its own eight"
+          >now</span
+        >
+      </div>
       <div class="fl-row" v-for="d in fdDials" :key="d.key">
         <span class="fl-label" :title="d.hint">{{ d.label }}</span>
         <NumberScrub
-          :value="fdLab[d.key]"
+          :value="fdValue(d.key)"
           :min="d.min"
           :max="d.max"
           :title="d.hint"
           @input="setFdLab(d.key, $event)"
         />
       </div>
-      <div class="fl-head">
-        Glass
-        <span class="fl-phase">{{ fdIsNight ? "night dial" : "lit dial" }}</span>
-      </div>
-      <!-- THE FOUR FAMILIES. A click seeds the seven scrubs below and publishes
+      <!-- NO PHASE CHIP HERE ANY MORE. This heading used to say "night dial" or
+           "lit dial", because the tint was a PAIR and the panel had to say which
+           of the two the user was turning. One tint now, on every surface and in
+           every phase, so there is nothing for the chip to disambiguate. -->
+      <div class="fl-head">Glass</div>
+      <!-- THE FOUR FAMILIES. A click seeds the glass scrubs below and publishes
            that family's tint colour; nothing above the heading moves. The
            selected one stays marked after the scrubs are dragged — it is where
            this material STARTED, which is the honest thing for it to say — and
@@ -102,31 +125,23 @@
       <div class="fl-edited" v-if="fdPresetEdited">
         edited from {{ fdPresetLabel }}
       </div>
-      <div
-        class="fl-row"
-        v-for="d in fdMaterial"
-        :key="d.key"
-        :class="{ live: fdLive(d.key) }"
-      >
+      <!-- EVERY GLASS ROW IS ALWAYS LIVE. The tint pair used to make one of
+           these rows conditional — marked "now" while the other governed the
+           other phase — and with a single tint there is no such row left. -->
+      <div class="fl-row" v-for="d in fdMaterial" :key="d.key">
         <span class="fl-label" :title="d.hint">{{ d.label }}</span>
         <NumberScrub
-          :value="fdLab[d.key]"
+          :value="fdValue(d.key)"
           :min="d.min"
           :max="d.max"
           :title="d.hint"
           @input="setFdLab(d.key, $event)"
         />
-        <span
-          class="fl-live"
-          v-if="fdLive(d.key)"
-          title="This is the tint in effect right now — the other one governs the other phase"
-          >now</span
-        >
       </div>
       <button
         type="button"
         class="fl-reset"
-        title="Every scrub back to zero — geometry and glass — which is exactly the shipped disc"
+        title="Every scrub back to zero — BOTH plates' geometry and the shared glass — which is exactly the shipped discs"
         @click="resetFdLab"
       >
         Reset
@@ -144,23 +159,10 @@ export default {
   components: { NumberScrub },
   mixins: [faceDiscLab],
   computed: {
-    /** The name of the family the seven scrubs were last seeded from —
+    /** The name of the family the glass scrubs were last seeded from —
      *  presentation only; the mixin owns which one that is. */
     fdPresetLabel() {
       return faceDiscPreset(this.fdPreset).label;
-    }
-  },
-  methods: {
-    /**
-     * Is this row the tint currently in effect? Presentation only — the mixin
-     * owns `fdIsNight`; this is the panel deciding what to mark with it. Every
-     * non-tint row answers false, which is the honest answer: the other five
-     * glass dials are one value each and are always live.
-     */
-    fdLive(key) {
-      if (key === "tintDark") return this.fdIsNight;
-      if (key === "tintLit") return !this.fdIsNight;
-      return false;
     }
   }
 };
@@ -220,7 +222,7 @@ export default {
     border: 1px solid rgba(120, 105, 135, 0.45);
     border-left: none;
     border-radius: 0 8px 8px 0;
-    // fifteen rows, two headings and a four-way switch is taller than the
+    // fourteen rows, two headings and a four-way switch is taller than the
     // shortest window the disc runs at leaves below 184px, so the column
     // scrolls rather than running off the bottom of the screen
     max-height: calc(100vh - 200px);

@@ -1,6 +1,6 @@
 // Golem fork (FT-888): THE FACE-DISC LAB — TEMPORARY, DELETE ME.
 //
-// Fifteen scrubs — EIGHT GEOMETRY, SEVEN MATERIAL — plus a four-way GLASS
+// Fourteen scrubs — EIGHT GEOMETRY, SIX MATERIAL — plus a four-way GLASS
 // PRESET switch, all of which nudge EVERY menu on the
 // clock face at once: the night checklist, the Host and Join entry panels, the
 // build panel. A value can be found by EYE and then baked into
@@ -23,7 +23,7 @@
 // The disc is a thing this app HAS, so its lab belongs to the app.
 //
 // EVERY SCRUB IS AN OFFSET, never a replacement — zero is exactly what ships,
-// in all fifteen — so Reset is a real return and not an approximation of one.
+// in all fourteen — so Reset is a real return and not an approximation of one.
 // (ONE EXCEPTION, declared where it lives: `corner` publishes a RESOLVED
 // percentage rather than an offset, because `calc(50% + 0%)` is not the string
 // `50%` and an offset there would make "zero equals shipped" true in pixels and
@@ -32,15 +32,45 @@
 // the shipped bundle, so if a zero-scrub were even slightly not the shipped
 // material, the lab's mere PRESENCE would have re-tuned the glass for everyone.
 //
+// THE GEOMETRY EIGHT ARE NOW PER SURFACE (third bake, 2026-08-19). "The disc on
+// the entry screen and the disc inside a town are no longer the same shape"
+// (user) — so there are two plates, each with its own eight stored values, and
+// the panel shows ONE column that drives whichever plate is on screen, named at
+// the top of the group. The glass is unchanged in that respect: one material,
+// shared, because that is what was asked for.
+//
+// AND THE GLASS WENT THE OTHER WAY IN THE SAME ROUND. It carried a Night tint
+// and a Lit tint, switched by `#app.night`; "remove the night tint entirely,
+// night should be the same as set up" (user) collapsed the pair into a single
+// Tint. So the panel gained a per-surface geometry column and LOST a per-phase
+// material one, which is less symmetrical than it sounds: shape is a thing you
+// judge against the surface it sits on, and the material is now simply one
+// material.
+//
 // TWO ROUNDS HAVE NOW BEEN BAKED (both 2026-08-19):
 //   1st  X -12, Y -13, R -10, W 0, Hd -16, Ft +8 — folded into faceDisc.scss's
 //        base expressions, and the six storage keys below bumped to their "2"
 //        set in the same commit.
-//   2nd  a further X -1, Y -2 on top, so the SCSS now reads -13 / -15. NO key
+//   2nd  a further X -1, Y -2 on top, so the SCSS then read -13 / -15. NO key
 //        bump this time, and the reason is the first bake rather than luck:
 //        after a bake the lab reads ZERO at the shipped position, so what a
 //        browser holds under the fd*2 keys is "0", and folding another -1/-2
 //        into the base on top of a stored zero is still just that -1/-2.
+//   3rd  the two-geometry round, and the GLASS with it: entry X 2 / Y 3 / R 7 /
+//        W 17 / Hd 5, town X -3 / Y -4 / R 9 / W 18 / Hd 5, and one shared
+//        material dialled off the Glassmorphism preset (Blur -6, Sat -105,
+//        Bright -44, Rim -100, plus that preset's WHITE tint colour).
+//
+//        AND THE TINT PAIR COLLAPSED INTO ONE DIAL in the same round — "remove
+//        the night tint entirely, night should be the same as set up" (user) —
+//        so the value baked is the one SETUP wore, which is the Lit tint -46
+//        they dialled, and it resolves to NO TINT AT ALL.
+//
+//        EVERY KEY BUMPED — the geometry eight by changing name to their
+//        per-surface pair, the tint pair by becoming one renamed key, the rest
+//        of the material and the preset key by taking a "2" — because this bake
+//        begins from a browser holding the dialled set, which is exactly the
+//        state the rule below is about.
 //
 // SO THE RULE IS NOT "bump the keys every bake" — it is BUMP THEM WHENEVER A
 // NON-ZERO STORED VALUE WOULD SURVIVE INTO A CHANGED BASE. That is the state a
@@ -87,7 +117,7 @@
 // by clearing them and a cleanup pass that touches a user's localStorage is a
 // worse habit than a stale key.
 //
-// THE SEVEN MATERIAL KEYS BELOW ARE NEW, so they carry no suffix: there is no
+// THE MATERIAL KEYS BELOW ARE NEW, so they carry no suffix: there is no
 // browser anywhere holding a value under them and therefore nothing for a first
 // bake of the glass to apply twice. The bump rule above governs them from their
 // FIRST bake onward, exactly as written — a key bump is owed whenever a
@@ -97,27 +127,96 @@
 // and carry no suffix for the same reason the material seven did not: no browser
 // anywhere holds a value under them, so there is nothing for a first bake to
 // apply twice. The bump rule above governs them from their first bake onward.
-const STORAGE = {
-  x: "golem.fdX2",
-  y: "golem.fdY2",
-  r: "golem.fdR2",
-  width: "golem.fdWidth",
-  corner: "golem.fdCorner",
-  band: "golem.fdBand2",
-  head: "golem.fdHead2",
-  foot: "golem.fdFoot2",
-  blur: "golem.fdBlur",
-  sat: "golem.fdSat",
-  bright: "golem.fdBright",
-  tintDark: "golem.fdTintDark",
-  tintLit: "golem.fdTintLit",
-  edge: "golem.fdEdge",
-  rim: "golem.fdRim"
+//
+// ── THIRD BAKE, AND EVERY ONE OF THEM IS BUMPED ────────────────────────────
+// This is the round the rule was written for. The browser being baked FROM is
+// holding the user's DIALLED set — Horizontal 2, Radius 7, Lit tint -46, Rim
+// -100 and the rest — not zeros, so a non-zero stored value would survive into a
+// changed base on every single dial. Bake without bumping and the entry disc
+// lands another 2px right of where it was dialled, the tint dial reads -46
+// against a base that is already zero (clamped back to zero, so silently doing
+// nothing the user could see) and the rim does the same.
+//
+// THE GEOMETRY KEYS CHANGE NAME RATHER THAN GAINING A DIGIT, and that falls out
+// of the split rather than being a choice: the geometry dial is now PER SURFACE,
+// so `golem.fdX2` becomes `golem.fdEntryX` and `golem.fdTownX` — two keys where
+// there was one, neither of which any browser has ever written. A rename is the
+// strongest form of a bump.
+//
+// THE MATERIAL SEVEN AND THE PRESET KEY TAKE THE "2" SUFFIX, the same way the
+// geometry six did at the first bake. They are one set, not two: the glass is
+// shared between the plates, so there is nothing per-surface about them.
+const GEO_STORAGE = {
+  entry: {
+    x: "golem.fdEntryX",
+    y: "golem.fdEntryY",
+    r: "golem.fdEntryR",
+    width: "golem.fdEntryWidth",
+    corner: "golem.fdEntryCorner",
+    band: "golem.fdEntryBand",
+    head: "golem.fdEntryHead",
+    foot: "golem.fdEntryFoot"
+  },
+  town: {
+    x: "golem.fdTownX",
+    y: "golem.fdTownY",
+    r: "golem.fdTownR",
+    width: "golem.fdTownWidth",
+    corner: "golem.fdTownCorner",
+    band: "golem.fdTownBand",
+    head: "golem.fdTownHead",
+    foot: "golem.fdTownFoot"
+  }
+};
+
+// THE TINT PAIR IS ONE KEY NOW (user, 2026-08-19: "remove the night tint
+// entirely, night should be the same as set up"). `golem.fdTintDark` and
+// `golem.fdTintLit` are LEFT IN PLACE in storage and never read again — the same
+// treatment every superseded key in this file has had, because there is nothing
+// to gain by clearing them and a cleanup pass that touches a user's localStorage
+// is a worse habit than a stale key. `golem.fdTint2` has never been written by
+// any browser, so the rename is its own bump.
+const MAT_STORAGE = {
+  blur: "golem.fdBlur2",
+  sat: "golem.fdSat2",
+  bright: "golem.fdBright2",
+  tint: "golem.fdTint2",
+  edge: "golem.fdEdge2",
+  rim: "golem.fdRim2"
 };
 
 /** The glass preset the dials were last seeded from. Not a dial — see
- *  FACE_DISC_PRESETS. */
-const PRESET_STORAGE = "golem.fdPreset";
+ *  FACE_DISC_PRESETS. Bumped with the material seven: the "shipped" preset now
+ *  names a different material, so a browser holding "glassmorphism" under the
+ *  old key would be describing a pick it never made. */
+const PRESET_STORAGE = "golem.fdPreset2";
+
+/**
+ * THE TWO PLATES — the surfaces whose geometry is now separate.
+ *
+ * "The disc on the entry screen and the disc inside a town are no longer the
+ * same shape" (user, 2026-08-19). `faceDisc.scss` carries a geometry map per
+ * surface; this is the list the LAB drives them from.
+ *
+ * WHICH ONE IS ON SCREEN IS A STORE QUESTION, and it has an exact answer rather
+ * than a guess: App.vue's centre slot is one v-if chain, and `<Intro>` — the
+ * Host and Join panels — wins it only when there is no session AND no seats.
+ * The night checklist needs seats; the build panel needs a session. So the two
+ * families CANNOT coexist, which is what makes "the dials move whichever surface
+ * is on screen" a well-formed thing to ask for.
+ */
+export const FACE_DISC_SURFACES = [
+  {
+    id: "entry",
+    label: "entry panels",
+    hint: "The Host and Join panels on the front door — a lit dial, no session"
+  },
+  {
+    id: "town",
+    label: "in town",
+    hint: "The night checklist and the build panel — inside a session"
+  }
+];
 
 /**
  * THE EIGHT SCRUBS, and the reasoning behind every bound. All measured at
@@ -148,6 +247,21 @@ const PRESET_STORAGE = "golem.fdPreset";
  * THE LABELS ARE WORDS, not initials ("we don't need to abbreviate things, just
  * tell me what they are", user, 2026-08-19). The hints are unchanged; the label
  * column in FaceDiscLab.vue widened to hold them.
+ *
+ * ── EIGHT DIALS, TWO PLATES (2026-08-19) ────────────────────────────────────
+ * This is now ONE ROW PER DIAL that edits WHICHEVER SURFACE IS ON SCREEN, with
+ * its own stored value per surface — the same idea the tint pair has carried
+ * since the glass-clear pass, arranged the other way round. The tint shows both
+ * numbers at once and marks the live one, because a person choosing a tint is
+ * choosing a PAIR and needs to see both. A person placing a plate is placing
+ * THAT plate: the other one is not on screen to be judged against, so a second
+ * column of eight would be eight numbers nobody can currently see the effect of.
+ * So the panel shows one column and says, at the top, which plate it is moving.
+ *
+ * THE BOUNDS ARE UNCHANGED BY THE SPLIT, and unchanged by the bake, for the
+ * reason the first bake gave: each is a DISTANCE TO DRAG, not a position. What a
+ * bake moves is the origin they count from. (The material bounds below are a
+ * different case — there the bounds ARE the clamp — and those did have to move.)
  */
 export const FACE_DISC_DIALS = [
   {
@@ -321,7 +435,8 @@ export const FACE_DISC_DIALS = [
 ];
 
 /**
- * THE SEVEN MATERIAL SCRUBS — the glass, not the geometry.
+ * THE SIX MATERIAL SCRUBS — the glass, not the geometry. (Seven until the
+ * third bake collapsed the Night tint / Lit tint pair into one Tint.)
  *
  * WHY THESE SEVEN AND NOT EVERY NUMBER IN THE FILE. `faceDisc.scss`'s material
  * block holds three filter terms, two tint constants, six box-shadow layers,
@@ -343,6 +458,33 @@ export const FACE_DISC_DIALS = [
  * term and an opacity take a <number>, and the mask's two stops take a
  * percentage the SCSS builds itself (`calc(85% + var(--fd-edge-adj) * 1%)`).
  * That is what `unit` on each dial is for.
+ *
+ * ── AND THE BOUNDS MOVED WITH THE THIRD BAKE, WHICH THE GEOMETRY'S DID NOT ──
+ * The geometry bounds are distances to drag and survive a bake untouched. These
+ * are not: for five of the seven the bound IS THE CLAMP — an opacity outside
+ * 0..1, a negative blur, a saturation below its own floor — and the SCSS leans
+ * on that rather than clamping again. Bake a new base under an unchanged bound
+ * and the dial can publish an illegal value; a negative `blur()` does not dim
+ * the glass, it invalidates the whole `backdrop-filter` and deletes it.
+ *
+ * SO EVERY BOUND BELOW WAS RE-DERIVED TO KEEP ITS OWN ABSOLUTE RANGE. Same
+ * material reachable at each end as before the bake, counted from the new base:
+ *
+ *              base before -> after     range before        range after
+ *   blur          0.014      0.008      0.000 .. 0.104r     -8 .. +96
+ *   sat            2.05       1.00       1.00 .. 3.00        0 .. +200
+ *   bright         0.78       0.34       0.30 .. 1.50       -4 .. +116
+ *   tint           0.46*      0.00       0.00 .. 1.00        0 .. +100
+ *     * the pair's LIT constant. The NIGHT one (0.22) and its own dial are
+ *       gone entirely — one tint now, every surface, every phase.
+ *   edge            85%        85%         40% .. 93%      -45 .. +8  (unmoved)
+ *   rim            1.00       0.00       0.00 .. 1.00        0 .. +100
+ *
+ * TWO OF THEM NOW ONLY GO ONE WAY, and both are honest rather than crippled:
+ * the tint and the rim are baked AT ZERO, and there is nothing below zero for
+ * either to reach. Rim in particular has flipped direction — it ran downward
+ * from full strength for three passes because the search was "how much less
+ * painted light", and that search has now ended at none.
  */
 export const FACE_DISC_MATERIAL = [
   {
@@ -371,9 +513,12 @@ export const FACE_DISC_MATERIAL = [
     // something prettier would be the one thing this exercise must not do. A
     // dial that can only reach the materials we already like cannot show you
     // what the others are.
-    min: -14,
-    max: 90,
-    hint: "Blur, in thousandths of the disc radius (0 = the shipped 0.014r; -14 = perfectly clear)"
+    //
+    // RE-DERIVED AT THE THIRD BAKE: the base is 0.008r now, so -8 is the same
+    // perfectly-clear floor and +96 the same 0.104r Acrylic frost.
+    min: -8,
+    max: 96,
+    hint: "Blur, in thousandths of the disc radius (0 = the baked 0.008r; -8 = perfectly clear)"
   },
   {
     key: "sat",
@@ -387,9 +532,15 @@ export const FACE_DISC_MATERIAL = [
     // is DESATURATION, which is a different material (a grey pane over a bronze
     // dial) rather than a weaker version of this one.
     // UP to +95: saturate(3.0), where the dial's bronze goes frankly orange.
-    min: -105,
-    max: 95,
-    hint: "Saturation of what shows through, in hundredths (0 = the shipped 2.05)"
+    //
+    // RE-DERIVED AT THE THIRD BAKE, and this dial is now AT ITS OWN FLOOR: the
+    // user took it to -105, i.e. saturate(1.0), so the base IS the floor and the
+    // range only goes up. The colour lift three passes called the glass cue is
+    // no longer part of this material — what shows through is the dial's own
+    // bronze, undoctored.
+    min: 0,
+    max: 200,
+    hint: "Saturation of what shows through, in hundredths (0 = the baked 1.00 — no lift at all)"
   },
   {
     key: "bright",
@@ -412,51 +563,45 @@ export const FACE_DISC_MATERIAL = [
     // backdrop and the wrong one over a lit one, and it lands white row text at
     // 4.07 : 1 on the entry panel. Being able to SEE that failure is the point,
     // and the Liquid Glass preset is that failure at full strength.
-    min: -48,
-    max: 72,
-    hint: "Brightness multiply on what shows through, in hundredths (0 = the shipped 0.78)"
+    //
+    // RE-DERIVED AT THE THIRD BAKE: the base is 0.34 now, so -4 is the same
+    // near-black 0.30 floor and +116 the same Liquid Glass 1.50 ceiling. With
+    // the lit tint baked at zero this term is the ONLY thing calming the entry
+    // dial, so it is doing more work than it has in any previous pass.
+    min: -4,
+    max: 116,
+    hint: "Brightness multiply on what shows through, in hundredths (0 = the baked 0.34)"
   },
   {
-    key: "tintDark",
-    label: "Night tint",
+    key: "tint",
+    label: "Tint",
     unit: "",
-    // THE TINT OVER A DARK DIAL — the night checklist. HUNDREDTHS against a
-    // shipped 0.22.
+    // THE VEIL, in hundredths, on every surface and in every phase.
     //
-    // WHY THIS IS TWO DIALS AND NOT ONE. The tint is already two numbers in the
-    // SCSS ($face-disc-tint-dark / -lit, switched by `#app.night`) because the
-    // four discs do not stand on the same backdrop: measured ground luminance
-    // under the plate is 0.029 at night and 0.098 on the lit entry dial, a
-    // three-and-a-half-fold difference. One dial that silently edited "whichever
-    // is on screen" would make the SAME scrub mean two different things
-    // depending on the phase, and would give the user no way to see the pair
-    // they are actually choosing. Two dials, both always visible, with the LIVE
-    // one marked in the panel (FaceDiscLab.vue reads the same `isNight` the
-    // class does) — so the one being turned is never in doubt.
+    // ── IT WAS TWO DIALS UNTIL THE THIRD BAKE ────────────────────────────────
+    // "Remove the night tint entirely. Night should be the same as set up."
+    // (user, 2026-08-19.) There were a Night tint and a Lit tint, against two
+    // constants the SCSS switched between on `#app.night`, with the live one
+    // marked in the panel so the user could see which of the PAIR they were
+    // turning. All of that is gone: one constant, one dial, no mark.
     //
-    // The bounds ARE the clamp: --fd-tint is an opacity, so it must stay inside
-    // 0..1, and -22 / +78 is exactly 0.00 .. 1.00 from a base of 0.22.
-    min: -22,
-    max: 78,
-    hint: "NIGHT tint — the veil over a dark dial, in hundredths (0 = the shipped 0.22)"
-  },
-  {
-    key: "tintLit",
-    label: "Lit tint",
-    unit: "",
-    // THE TINT OVER A LIT DIAL — the entry panels and a daytime build panel.
-    // HUNDREDTHS against a shipped 0.46, and the bounds are again the clamp:
-    // -46 / +54 is 0.00 .. 1.00.
+    // THE ARGUMENT FOR THE PAIR WAS MEASURED AND IT WAS NOT WRONG, which is
+    // worth recording rather than quietly dropping — the four discs really do
+    // not stand on the same backdrop, and ground luminance under the plate runs
+    // 0.029 at night against 0.098 on the lit entry dial, a three-and-a-half-fold
+    // difference. It is simply no longer a difference this material answers.
     //
-    // THIS IS THE HARDER OF THE TWO and the reason it cannot simply follow the
-    // night value down. The entry panels' backdrop CANNOT be cleaned: the ten
-    // CLOCKTOWER letters are App.vue's own DOM and the dial's hand is PAINTED
-    // INTO the background art. The night checklist's backdrop can be — the town
-    // readout stands down under a disc (FT-912) — which is what let its tint
-    // fall to 0.22 while this one stayed at 0.46.
-    min: -46,
-    max: 54,
-    hint: "LIT tint — the veil over a lit dial (entry / day), in hundredths (0 = the shipped 0.46)"
+    // THE BAKED VALUE IS ZERO, which is what the user's Lit tint -46 resolved to
+    // against its 0.46 base — no veil at all, on any surface. So the bound only
+    // goes UP: 0 / +100 is exactly 0.00 .. 1.00, and the bound IS the clamp
+    // because --fd-tint is an opacity.
+    //
+    // WHAT ZERO COSTS was measured rather than argued (the leak rig, both
+    // plates) and reported instead of corrected: with the ramp off, the whole
+    // job of calming what shows through falls to `brightness(0.34)`.
+    min: 0,
+    max: 100,
+    hint: "Tint — the veil over the dial, in hundredths (0 = the baked 0.00, no veil at all)"
   },
   {
     key: "edge",
@@ -509,17 +654,26 @@ export const FACE_DISC_MATERIAL = [
     // streaks at once, as the ::after layer's own opacity, in hundredths
     // against a shipped 1.00.
     //
-    // IT ONLY GOES DOWN, and that is honest rather than a limitation: the six
+    // IT USED TO ONLY GO DOWN, from a base of 1.00, and that was honest: the six
     // rgba stops on that layer are AUTHORED at the peak the last pass chose, so
-    // "more" would mean re-authoring six literals, not turning a knob — and
-    // opacity clamps at 1 regardless. The search this dial is for runs
-    // downward: the last two passes were both rejected for painting TOO MUCH
-    // light, so the question in front of it is how much of the rim the material
-    // actually wants.
-    // DOWN to -100: the edge gone entirely — the plate as filter and tint alone.
-    min: -100,
-    max: 0,
-    hint: "Rim + specular strength, in hundredths (0 = the shipped full strength; -100 = no painted edge)"
+    // "more" would have meant re-authoring six literals — and opacity clamps at
+    // 1 regardless. The search ran downward because the last two passes were
+    // both rejected for painting TOO MUCH light.
+    //
+    // ── THAT SEARCH HAS ENDED, AT NONE (third bake, Rim -100) ───────────────
+    // The layer is baked at opacity 0 and the dial now runs UPWARD from it,
+    // 0 .. +100, reaching exactly the same full strength it always did. Zero is
+    // still what ships; what ships is simply the other end now.
+    //
+    // AND IT MAKES NO VISIBLE DIFFERENCE AT THE SHIPPED EDGE, which is measured
+    // rather than assumed — see the Edge dial above. At Edge 0 the mask does not
+    // open until 1.20r, outside the circle the border-radius clips to, so this
+    // layer was already painting nothing on the plate. Turning it off is exact.
+    // The pair is still the only way to reach a rim light at all: bring Edge in
+    // to about -24 AND raise this.
+    min: 0,
+    max: 100,
+    hint: "Rim + specular strength, in hundredths (0 = the baked none; +100 = full strength — needs Edge about -24 to be visible at all)"
   }
 ];
 
@@ -532,7 +686,7 @@ export const FACE_DISC_MATERIAL = [
  * mind/episteme/research/2026-08-19/css-glass-material.md. Our own shipped
  * material is the fourth, so the switch always contains a way home.
  *
- * PICKING ONE SEEDS THE SEVEN MATERIAL SCRUBS AND NOTHING ELSE — geometry is
+ * PICKING ONE SEEDS THE SIX MATERIAL SCRUBS AND NOTHING ELSE — geometry is
  * untouched — and every scrub stays live afterwards. That is what makes this a
  * starting point: a preset is where a search begins, and the panel marks the
  * pick as "edited" the moment a dial leaves it.
@@ -551,6 +705,22 @@ export const FACE_DISC_MATERIAL = [
  * `--fd-tint-rgb`, which `faceDisc.scss` reads with the shipped triplet as its
  * own fallback — so "shipped" and "lab absent" are the same three numbers.
  *
+ * ── EVERY DIAL VALUE BELOW WAS RE-DERIVED AT THE THIRD BAKE ────────────────
+ * A preset is a set of OFFSETS, so a bake moves what each one lands on. Left
+ * alone through this bake, Glassmorphism's `blur: 36` would have meant 0.044r
+ * instead of the 0.050r the family actually uses, and Liquid Glass's `rim: 0`
+ * would have meant no rim light at all — the one preset whose whole point is a
+ * rim. So each was recomputed as (the absolute value the family calls for) minus
+ * (the new base), and the material each button produces is unchanged from
+ * yesterday. That recomputation is owed at EVERY bake, and it is the second half
+ * of the rule the storage keys carry the first half of.
+ *
+ * "SHIPPED" IS THE NEW MATERIAL, obviously but worth saying: all seven zeros,
+ * and its tint colour is now WHITE, because the material this app ships was
+ * dialled from the Glassmorphism preset and a preset's colour is part of what
+ * was chosen. Two buttons therefore carry the same triplet and different alphas,
+ * which is what they are: Shipped is that family, tuned.
+ *
  * WHAT NO PRESET CAN CARRY, named rather than dropped: Acrylic's NOISE layer.
  * Microsoft's recipe is blur -> exclusion blend -> tint -> noise, and the seven
  * scrubs have no noise term. Acrylic below is therefore Acrylic's blur and
@@ -562,15 +732,15 @@ export const FACE_DISC_PRESETS = [
   {
     id: "shipped",
     label: "Shipped",
-    // the grimoire's cool purple-black — RoleDrawer's own ground
-    rgb: "26, 20, 33",
-    hint: "The material this app ships: blur 0.014r, saturate 2.05, brightness 0.78, dark tint 0.22 at night / 0.46 lit",
+    // WHITE now, off the third bake — see the block above. It was the grimoire's
+    // cool purple-black (26, 20, 33) for three passes.
+    rgb: "255, 255, 255",
+    hint: "The material this app ships: blur 0.008r, no saturation lift, brightness 0.34, WHITE tint at 0.86 at night / none on a lit dial, no painted rim",
     dials: {
       blur: 0,
       sat: 0,
       bright: 0,
-      tintDark: 0,
-      tintLit: 0,
+      tint: 0,
       edge: 0,
       rim: 0
     }
@@ -582,21 +752,23 @@ export const FACE_DISC_PRESETS = [
     rgb: "255, 255, 255",
     hint: "2020–2023: blur plus opacity and nothing else — frost by construction. blur 0.050r (~10px here), saturate 1.8, no brightness knock, white tint at 25%, no painted rim",
     dials: {
-      // 0.014 + 36/1000 = 0.050r — ~10px at 1280x800, which is where the
+      // 0.008 + 42/1000 = 0.050r — ~10px at 1280x800, which is where the
       // trend's own recipes sit
-      blur: 36,
+      blur: 42,
       // saturate(180%), the pairing every "frosted nav bar" recipe carries
-      sat: -25,
+      sat: 80,
       // no brightness term in the family at all: 1.00
-      bright: 22,
-      // one alpha, both phases — the family has no adaptive tint
-      tintDark: 3,
-      tintLit: -21,
+      bright: 66,
+      // rgba(255,255,255,0.25), the trend's canonical wash. The family never
+      // had an adaptive tint, so collapsing the pair cost this preset nothing —
+      // it carried 0.25 on both phases already.
+      tint: 25,
       // its edge is a 1px light border, which this material already carries in
-      // its box-shadow. So the PAINTED layer goes to nothing rather than being
-      // given a rim the family does not have.
+      // its box-shadow. So the PAINTED layer stays at nothing rather than being
+      // given a rim the family does not have — which is the baked state now, so
+      // both of these are zero.
       edge: 0,
-      rim: -100
+      rim: 0
     }
   },
   {
@@ -609,20 +781,22 @@ export const FACE_DISC_PRESETS = [
     dials: {
       // their blur(4px), read against this disc's radius at 1280x800
       // (4 / 201.5 = 0.020r) so it stays one material at every window size
-      blur: 6,
+      blur: 12,
       // LogRocket cranks saturation extremely hard but composites it into the
-      // RIM only, never across the pane. Across the pane, then: 1.00.
-      sat: -105,
+      // RIM only, never across the pane. Across the pane, then: 1.00 — which is
+      // the baked base, so this is zero now rather than -105.
+      sat: 0,
       // brightness(150%) — the sign flip that makes this family what it is
-      bright: 72,
-      // 15%, both phases
-      tintDark: -7,
-      tintLit: -31,
+      bright: 116,
+      // 15% — again the same on both phases before the pair collapsed
+      tint: 15,
       // THE RIM LIGHT, and the only preset that asks for one. -24 is measured:
       // it puts the mask's ramp at 0.87r -> 0.99r, i.e. actually on the plate
-      // (see the Edge dial's note — at 0 the ring sits at 1.20r, off it).
+      // (see the Edge dial's note — at 0 the ring sits at 1.20r, off it). The
+      // strength has to be asked for explicitly now that the painted layer is
+      // baked OFF: +100 is the full authored peak this family wants.
       edge: -24,
-      rim: 0
+      rim: 100
     }
   },
   {
@@ -630,25 +804,24 @@ export const FACE_DISC_PRESETS = [
     label: "Acrylic",
     // Windows' DARK acrylic tints dark; this app's dark is the grimoire's
     rgb: "26, 20, 33",
-    hint: "Windows: blur plus tint plus noise, which Microsoft's own docs call frosted glass. A scrim for transient surfaces. The noise is the one term these seven scrubs cannot carry",
+    hint: "Windows: blur plus tint plus noise, which Microsoft's own docs call frosted glass. A scrim for transient surfaces. The noise is the one term these scrubs cannot carry",
     dials: {
       // 0.104r — which at 1280x800 IS the 22px frost this app rejected twice.
       // That is not a mistake in the preset, it is what the family is: the
       // research pass used Acrylic as its control group precisely because
       // blur-plus-tint frost is a named, intentional material.
-      blur: 90,
-      // no saturation lift in the recipe
-      sat: -105,
+      blur: 96,
+      // no saturation lift in the recipe — the baked base, so zero
+      sat: 0,
       // no brightness multiply either: 1.00
-      bright: 22,
+      bright: 66,
       // a SCRIM. Microsoft scopes acrylic to transient, light-dismiss surfaces
       // and its exclusion-blend layer exists to guarantee legibility of the UI
-      // sitting on it — so the tint is heavy, 0.80 on both phases.
-      tintDark: 58,
-      tintLit: 34,
-      // no rim light in the family
+      // sitting on it — so the tint is heavy: 0.80.
+      tint: 80,
+      // no rim light in the family — which is the baked state, so zero
       edge: 0,
-      rim: -100
+      rim: 0
     }
   }
 ];
@@ -656,47 +829,86 @@ export const FACE_DISC_PRESETS = [
 /** Geometry then material, in the order they are published and reset. */
 export const FACE_DISC_ALL = FACE_DISC_DIALS.concat(FACE_DISC_MATERIAL);
 
-const CSS_VAR = {
-  x: "--fd-x-adj",
-  y: "--fd-y-adj",
-  r: "--fd-r-adj",
-  // THE TWO SHAPE VARS. `--fd-width-adj` is an offset like every other length;
-  // `--fd-radius` is the exception noted on the dial — it carries the resolved
-  // border-radius, so at rest it publishes the literal `50%` the stylesheet's
-  // own fallback already says.
-  width: "--fd-width-adj",
-  corner: "--fd-radius",
-  band: "--fd-band-adj",
-  head: "--fd-head-adj",
-  foot: "--fd-foot-adj",
+/**
+ * THE GEOMETRY VARS ARE NAMESPACED BY SURFACE, the material ones are not — which
+ * is the split, expressed in property names.
+ *
+ * `--fd-entry-x-adj` and `--fd-town-x-adj` are different properties, so BOTH SETS
+ * ARE PUBLISHED AT ALL TIMES and the two plates cannot reach each other. The
+ * alternative — one set of names, republished whenever the surface changes —
+ * would have made the stylesheet depend on the lab noticing a phase change, and
+ * a missed notice there is a disc silently wearing the other plate's numbers.
+ * Publishing both costs eight extra custom properties on <html>.
+ *
+ * The tail is the same for both: the eight names below, with `corner` the
+ * exception noted on its dial — it carries the RESOLVED border-radius, so at rest
+ * it publishes the literal `50%` the stylesheet's own fallback already says.
+ */
+const GEO_VAR = {
+  x: "x-adj",
+  y: "y-adj",
+  r: "r-adj",
+  width: "width-adj",
+  corner: "radius",
+  band: "band-adj",
+  head: "head-adj",
+  foot: "foot-adj"
+};
+
+/** `--fd-entry-x-adj`, `--fd-town-radius`, and so on. */
+export function faceDiscGeoVar(surface, key) {
+  return "--fd-" + surface + "-" + GEO_VAR[key];
+}
+
+const MAT_VAR = {
   blur: "--fd-blur-adj",
   sat: "--fd-sat-adj",
   bright: "--fd-bright-adj",
-  // THE TINT PAIR IS READ ON #app, NOT ON A DISC — it is the one material value
-  // whose base answers to a class (`#app.night`), so `face-disc-tint` in
-  // faceDisc.scss composes these two into the single `--fd-tint` every disc
-  // inherits. Published on <html> like all the others; #app is a descendant, so
-  // it sees them.
-  tintDark: "--fd-tint-dark-adj",
-  tintLit: "--fd-tint-lit-adj",
+  // THE TINT IS READ ON #app, NOT ON A DISC. It used to be the one material
+  // value whose base answered to a class (`#app.night`), which is why
+  // `face-disc-tint` composes it into a single `--fd-tint` every disc inherits
+  // rather than each disc reading this directly. The class is gone and the
+  // composition stays: one declaration, one place, every disc downstream of it.
+  // Published on <html> like all the others; #app is a descendant, so it sees
+  // it.
+  tint: "--fd-tint-adj",
   edge: "--fd-edge-adj",
   rim: "--fd-rim-adj"
 };
 
-/** Read the persisted offsets. Anything unreadable reads as zero, which is what
- *  ships — a broken storage entry must never be able to bend the app. */
+const clamp = (dial, v) =>
+  Math.max(dial.min, Math.min(dial.max, Number(v) || 0));
+
+/**
+ * Read the persisted offsets. Anything unreadable reads as zero, which is what
+ * ships — a broken storage entry must never be able to bend the app.
+ *
+ * THE SHAPE IS `{ geo: { entry, town }, mat }`, because that is what the storage
+ * is: eight dials twice over for the two plates, seven once for the glass they
+ * share.
+ */
 export function readFaceDiscLab() {
-  const out = {};
-  FACE_DISC_ALL.forEach(d => {
+  const read = (dial, storageKey) => {
     let v = 0;
     try {
-      v = Number(localStorage.getItem(STORAGE[d.key]) || 0) || 0;
+      v = Number(localStorage.getItem(storageKey) || 0) || 0;
     } catch (e) {
       v = 0;
     }
-    out[d.key] = Math.max(d.min, Math.min(d.max, v));
+    return clamp(dial, v);
+  };
+  const geo = {};
+  FACE_DISC_SURFACES.forEach(s => {
+    geo[s.id] = {};
+    FACE_DISC_DIALS.forEach(d => {
+      geo[s.id][d.key] = read(d, GEO_STORAGE[s.id][d.key]);
+    });
   });
-  return out;
+  const mat = {};
+  FACE_DISC_MATERIAL.forEach(d => {
+    mat[d.key] = read(d, MAT_STORAGE[d.key]);
+  });
+  return { geo, mat };
 }
 
 /** The persisted preset id. Anything unrecognised reads as "shipped", which is
@@ -720,8 +932,9 @@ export function faceDiscPreset(id) {
 /**
  * The TINT COLOUR, which is a preset's and not a scrub's — see
  * FACE_DISC_PRESETS. Published on <html> beside the dials; `faceDisc.scss`
- * reads it as `var(--fd-tint-rgb, 26, 20, 33)`, so the shipped preset and the
- * lab being absent are the same three numbers.
+ * reads it as `var(--fd-tint-rgb, 255, 255, 255)`, so the shipped preset and the
+ * lab being absent are the same three numbers. (That fallback was the grimoire's
+ * 26, 20, 33 until the third bake took the material to a white tint.)
  */
 export function publishFaceDiscPreset(id) {
   document.documentElement.style.setProperty(
@@ -745,12 +958,22 @@ export function publishFaceDiscPreset(id) {
  * percentage-point offset are all <number> at the point the SCSS reads them.
  * A dial carrying its own `publish` writes a RESOLVED value instead — one does
  * (`corner`), for the reason written beside it.
+ *
+ * BOTH GEOMETRY SETS GO OUT EVERY TIME, not just the live surface's — see
+ * GEO_VAR. The plate that is off screen reads its own properties and is
+ * unaffected by the one being dialled.
  */
 export function publishFaceDiscLab(state) {
   const root = document.documentElement.style;
-  FACE_DISC_ALL.forEach(d => {
-    const v = state[d.key] || 0;
-    root.setProperty(CSS_VAR[d.key], d.publish ? d.publish(v) : v + d.unit);
+  const write = (name, dial, v) =>
+    root.setProperty(name, dial.publish ? dial.publish(v) : v + dial.unit);
+  FACE_DISC_SURFACES.forEach(s => {
+    FACE_DISC_DIALS.forEach(d => {
+      write(faceDiscGeoVar(s.id, d.key), d, (state.geo[s.id] || {})[d.key] || 0);
+    });
+  });
+  FACE_DISC_MATERIAL.forEach(d => {
+    write(MAT_VAR[d.key], d, state.mat[d.key] || 0);
   });
 }
 
@@ -773,29 +996,46 @@ export default {
   },
   computed: {
     /**
-     * WHICH TINT IS LIVE RIGHT NOW. The two tint dials are both always on
-     * screen, so the panel marks the one currently in effect rather than
-     * leaving the user to work out which of the pair they just turned. Read off
-     * the SAME store flag App.vue binds the `night` class from, so the mark
-     * cannot disagree with the class the SCSS switches on.
+     * WHICH PLATE IS ON SCREEN RIGHT NOW — the reason the eight geometry dials
+     * can be one column instead of two.
+     *
+     * THERE WAS AN `fdIsNight` BESIDE THIS until the third bake, answering the
+     * same shape of question for the tint pair: which of the two veils is in
+     * effect, so the panel could mark it. There is one tint now and no phase in
+     * the material, so the mark had nothing left to say and both came out.
+     *
+     * IT IS THE SAME CONDITION APP.VUE'S OWN v-if CHAIN USES, read off the store
+     * rather than off the DOM: `<Intro>` — the Host and Join panels — wins the
+     * centre slot only when there is no session AND no seats. The checklist
+     * needs seats and the build panel needs a session, so the two families
+     * cannot both be standing, and this cannot be ambiguous.
+     *
+     * A missing store answers "town", which is the default the SCSS mixin takes
+     * — the panel and the stylesheet agree about which one is the default even
+     * when there is nothing to ask.
      */
-    fdIsNight() {
-      return !!(
-        this.$store &&
-        this.$store.state.grimoire &&
-        this.$store.state.grimoire.isNight
-      );
+    fdSurface() {
+      const s = this.$store && this.$store.state;
+      if (!s) return "town";
+      const sessionless = !(s.session && s.session.sessionId);
+      const seatless = !(s.players && s.players.players.length);
+      return sessionless && seatless ? "entry" : "town";
+    },
+    /** That surface's own record, for the panel's heading. */
+    fdSurfaceLabel() {
+      const s = FACE_DISC_SURFACES.find(x => x.id === this.fdSurface);
+      return s ? s.label : "";
     },
     /**
      * HAS THE PICK BEEN DIALLED AWAY FROM? A preset is a starting point, so the
-     * seven scrubs stay live after one is chosen — which means the button that
+     * six scrubs stay live after one is chosen — which means the button that
      * looks selected can stop describing what is on screen. This is the panel's
      * way of saying so without un-selecting anything.
      */
     fdPresetEdited() {
       const p = faceDiscPreset(this.fdPreset);
       return FACE_DISC_MATERIAL.some(
-        d => (this.fdLab[d.key] || 0) !== (p.dials[d.key] || 0)
+        d => (this.fdLab.mat[d.key] || 0) !== (p.dials[d.key] || 0)
       );
     }
   },
@@ -805,26 +1045,49 @@ export default {
     publishFaceDiscPreset(this.fdPreset);
   },
   methods: {
+    /** Is this a geometry dial (per surface) or a material one (shared)? */
+    fdIsGeo(key) {
+      return FACE_DISC_DIALS.some(d => d.key === key);
+    },
+    /**
+     * THE VALUE THE PANEL SHOWS FOR A DIAL. A geometry dial answers for the
+     * plate currently on screen, which is what makes one column of eight able to
+     * drive two plates; a material dial has one value and answers with it.
+     */
+    fdValue(key, surface) {
+      return this.fdIsGeo(key)
+        ? this.fdLab.geo[surface || this.fdSurface][key] || 0
+        : this.fdLab.mat[key] || 0;
+    },
     /**
      * Clamped against each dial's OWN declared bounds rather than a second copy
      * of the numbers, so the range documented beside a scrub is the range
      * actually enforced. NumberScrub clamps its own emissions too; two
      * independently-written clamps are two things that can disagree.
+     *
+     * A GEOMETRY DIAL WRITES TO THE LIVE SURFACE unless one is named. `surface`
+     * is there for Reset, which has to zero the plate that is NOT on screen too.
      */
-    setFdLab(key, n) {
+    setFdLab(key, n, surface) {
       const dial = FACE_DISC_ALL.find(d => d.key === key);
       if (!dial) return;
       const v = Math.max(dial.min, Math.min(dial.max, Number(n) || 0));
-      this.$set(this.fdLab, key, v);
+      const geo = this.fdIsGeo(key);
+      const surf = geo ? surface || this.fdSurface : null;
+      if (geo) this.$set(this.fdLab.geo[surf], key, v);
+      else this.$set(this.fdLab.mat, key, v);
       publishFaceDiscLab(this.fdLab);
       try {
-        localStorage.setItem(STORAGE[key], String(v));
+        localStorage.setItem(
+          geo ? GEO_STORAGE[surf][key] : MAT_STORAGE[key],
+          String(v)
+        );
       } catch (e) {
         // storage off: the dial still works for this session
       }
     },
     /**
-     * SEED THE SEVEN MATERIAL SCRUBS FROM A FAMILY, and publish that family's
+     * SEED THE SIX MATERIAL SCRUBS FROM A FAMILY, and publish that family's
      * tint colour. Geometry is not touched — the two questions are separate,
      * and a person hunting a material has usually just finished placing the
      * plate.
@@ -846,8 +1109,17 @@ export default {
       publishFaceDiscPreset(p.id);
       FACE_DISC_MATERIAL.forEach(d => this.setFdLab(d.key, p.dials[d.key] || 0));
     },
+    /**
+     * BOTH PLATES, not just the one on screen. Reset means "back to what
+     * ships", and half a return is worse than none: leave the other surface's
+     * eight sitting on a dialled value and the next time it comes up it is
+     * wearing numbers nobody chose in this session.
+     */
     resetFdLab() {
-      FACE_DISC_ALL.forEach(d => this.setFdLab(d.key, 0));
+      FACE_DISC_SURFACES.forEach(s =>
+        FACE_DISC_DIALS.forEach(d => this.setFdLab(d.key, 0, s.id))
+      );
+      FACE_DISC_MATERIAL.forEach(d => this.setFdLab(d.key, 0));
       this.applyFdPreset("shipped");
     }
   }

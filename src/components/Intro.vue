@@ -1740,8 +1740,15 @@ export default {
     // sized to hold ordinary content and a popup is left free to sit over
     // the rim the way it already sits over the rectangle's edge today —
     // asked for explicitly, and checked in the proof rig.
+    // THE ENTRY PLATE, not the town one (2026-08-19). The disc's geometry is
+    // now two sets and this is the only file that asks for the second: the
+    // Host and Join panels sit on a lit dial, are read while the app is idle,
+    // and the user dialled them to their own position, radius and width.
+    // `face-disc-frame`'s default is the TOWN set (the checklist and the build
+    // panel), so those two files are untouched and this one names its variant.
+    // Every number in it lives in `$face-disc-geo-entry`, in src/faceDisc.scss.
     @include face-disc-gate {
-      @include face-disc-frame;
+      @include face-disc-frame($face-disc-geo-entry);
       overflow: visible;
 
       .panel-head {
@@ -1773,13 +1780,18 @@ export default {
         }
       }
 
-      // THE FOOT SITS 10px LOWER HERE, not the disc's own +6px default.
-      // The checklist's +6 was measured against a 42px button; this one is
-      // 48px and its own sweep landed here. Passed as an argument rather
-      // than pushed into the shared default, which the checklist would
-      // then have to override back.
+      // THE FOOT SITS 10px LOWER HERE, not the town plate's 14px. The
+      // checklist's was measured against a 42px button; this one is 48px and
+      // its own sweep landed here.
+      //
+      // THAT 10px USED TO BE PASSED FROM THIS LINE and now lives in
+      // `$face-disc-geo-entry` beside the rest of this plate's numbers, which
+      // is why the argument is gone: with the geometry split per surface,
+      // holding half of the entry plate's description here and half in the map
+      // is exactly the drift `src/faceDisc.scss` exists to end. The mixin still
+      // takes an override for a surface that needs one.
       .acts {
-        @include face-disc-foot(10px);
+        @include face-disc-foot;
 
         // "Open the town" wrapped to two lines at the rectangle's 120%/
         // 8px-22px sizing — measured against a 0.95r box (the same bound
