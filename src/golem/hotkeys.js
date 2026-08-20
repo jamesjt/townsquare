@@ -12,6 +12,7 @@
  * key that is changed is changed everywhere it is shown.
  */
 import bloodMetrics from "../assets/blood/metrics.json";
+import { resolvedCapKey, glyphFrom, glyphCapStyleFrom } from "./titleFonts";
 
 const bakedCaps = {
   A: require("../assets/blood/blood-A.png"),
@@ -37,15 +38,14 @@ const bakedCaps = {
 const CAP_EM = 1.09 / 360;
 
 /**
- * The blood drop-cap for a letter, or null when none has been cut yet.
- *
- * Ten letters are baked (the set the entry doors and the old key table
- * needed). A letter without art is NOT a failure and must not be a gap: the
- * caller renders it as text inside the very same `.key` span, which already
- * carries the treatment — Bloody, blood red, black outline. It reads as the
- * same family, just without the drips.
+ * The blood drop-cap for a letter, or null when none has been cut yet — the
+ * FALLBACK tier of capFor below, kept working because it's the tier a
+ * letter lands on when the picker's active family doesn't carry it. Ten
+ * letters are baked (the set the entry doors used to need); a letter
+ * without art here falls to capFor's third tier (plain text) instead of a
+ * gap.
  */
-export function capFor(letter) {
+function bloodCapFor(letter) {
   const L = String(letter).toUpperCase();
   const src = bakedCaps[L];
   const m = bloodMetrics[L];
@@ -58,6 +58,46 @@ export function capFor(letter) {
       verticalAlign: -(m.below * CAP_EM).toFixed(3) + "em",
     },
   };
+}
+
+/**
+ * The drop-cap for a hotkey letter (FT-948). THREE tiers, in order:
+ *
+ *   1. The picker's active family — `resolvedCapKey()`, the exact function
+ *      the entry doors resolve their own caps through (Intro.vue's
+ *      capKeyNow). This is the fix: before FT-948 this function ignored the
+ *      picker entirely and always rendered the baked blood alphabet, so the
+ *      Keys panel and the doors could show two different fonts depending on
+ *      what the user had picked. Now they always read the same family and
+ *      move together when the picker cycles. Sized through
+ *      `glyphCapStyleFrom`, the same lone-drop-cap normalization the doors
+ *      use, so a shared letter (S is on both) renders pixel-identical.
+ *   2. The baked blood alphabet (bloodCapFor) — for a letter the active
+ *      family doesn't carry. It has its own pixel-tuned art, so a gap still
+ *      reads as the same family instead of falling out of it. In practice
+ *      this tier is defensive: every letter HOTKEYS binds is now bundled in
+ *      all three families (see titleFonts.js's G/F/V comment), so this only
+ *      fires for a future hotkey letter nobody's bundled yet.
+ *   3. Nothing (null) — the caller (KeyCap) renders the raw letter as text
+ *      inside the same `.key` span, which already carries the treatment —
+ *      Bloody, blood red, black outline. It reads as the same family, just
+ *      without the drips. This is also the deliberate landing spot for
+ *      "Esc": a multi-character key was never a single glyph to begin with,
+ *      so it skips both art tiers on purpose rather than looking up "E" and
+ *      silently dropping the "sc".
+ */
+export function capFor(letter) {
+  if (!letter || String(letter).length !== 1) return null;
+  const L = String(letter).toUpperCase();
+
+  const family = resolvedCapKey();
+  const g = glyphFrom(family, L);
+  if (g) {
+    const style = glyphCapStyleFrom(family, L);
+    if (style) return { src: g.src, style };
+  }
+
+  return bloodCapFor(L);
 }
 
 /**

@@ -371,8 +371,8 @@ import {
   glyphStyle,
   glyphFrom,
   glyphStyleFrom,
-  resolvedCapKey,
-  CAP_SHRINK
+  glyphCapStyleFrom,
+  resolvedCapKey
 } from "../golem/titleFonts";
 
 // Golem fork (FT-846): the door initials are pre-rendered blood letters
@@ -983,40 +983,20 @@ export default {
     },
     /**
      * FT-anon (2026-08-19, user report — "the J is falling out of its box";
-     * follow-up — "same with the H"): glyphStyleFrom (titleFonts.js)
-     * normalizes every letter against the SET's reference letter (B) — the
-     * right job when it's matching cap-height ACROSS families, the wrong
-     * one WITHIN a family, where it silently assumes every capital crops to
-     * the same baseline B does. Measured against red-97/metrics.json: most
-     * capitals sit within a couple of px of B's baseline (173) — H at 174 is
-     * close enough to pass unnoticed — but J crops to 182, a real ~5%
-     * taller box, not an artifact (its hook genuinely extends the crop).
-     * Scaled by B's ratio instead of its own, J rendered taller AND its
-     * descender (computed the same wrong-reference way) rode 5% low too —
-     * enough, together, to clear the door's fixed height. So this was never
-     * one letter's exception: no two capitals in the set actually shared a
-     * cap-height, J was just the one far enough off to be seen first.
-     *
-     * Fixed HERE (Intro.vue's own door/button caps only — glyphStyleFrom
-     * and its title-word/"on the" callers are untouched) by normalizing
-     * each letter against ITS OWN baseline rather than the set's reference
-     * letter. That makes every letter's cap-top-to-baseline distance
-     * exactly `scale*CAP_SHRINK` em — identical across H/J/S/A/O — while
-     * width and the descender (h − baseline) scale at that same per-letter
-     * rate, so aspect ratio and the glyph's actual baked descent are both
-     * preserved exactly as trimmed.
+     * follow-up — "same with the H"): a lone drop-cap needs each letter
+     * normalized against ITS OWN baseline, not the set's reference letter
+     * (B) — B's baseline assumes every capital crops to the same height,
+     * and it doesn't (J crops ~5% taller in red-97 and fell out of its
+     * box). The fix (was inline here) is now `glyphCapStyleFrom` in
+     * titleFonts.js — promoted FT-948 so the Keys panel, the app's other
+     * lone-drop-cap surface, shares it instead of re-deriving its own.
+     * Full reasoning lives on that export; glyphStyleFrom and its
+     * title-word/"on the" callers are untouched, they need the opposite
+     * (shared-B) behaviour.
      */
     capStyle(letter, scale = 1.09) {
       if (this.capIsBaked()) return null;
-      const g = glyphFrom(this.capKeyNow(), letter);
-      if (!g || !g.baseline) return null;
-      const emPerPx = (scale * CAP_SHRINK) / g.baseline;
-      const em = px => (px * emPerPx).toFixed(3) + "em";
-      return {
-        width: em(g.w),
-        height: em(g.h),
-        verticalAlign: "-" + em(Math.max(0, g.h - g.baseline))
-      };
+      return glyphCapStyleFrom(this.capKeyNow(), letter, scale);
     },
     /** Golem fork: the Create door opens the script editor straight to its
      *  Custom Script surface — same access pattern as the "Custom / vault…"

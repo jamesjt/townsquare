@@ -9,13 +9,17 @@
 import Vue from "vue";
 
 // require.context with a tight regex bundles ONLY the matched files —
-// the display letters (title, doors, Almanac A, the dial's CLOCKTOWER).
+// the display letters (title, doors, Almanac A, the dial's CLOCKTOWER) PLUS
+// G/F/V (FT-948): the Keys panel binds hotkeys the title/dial never needed
+// a letter for, and it now reads its caps from these same sets (see
+// glyphCapStyleFrom + golem/hotkeys.js) — every letter HOTKEYS binds has to
+// resolve here or it falls out of the picker's family entirely.
 // Trimmed 2026-08-17 (user call): the option list is Red 970000,
 // Gold D7A25F and the carved Clocktower caps — the earlier families stay
 // on disk (assets + design sources) but are no longer bundled or cycled.
-const red97Ctx = require.context("../assets/red/970000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
-const tanCtx = require.context("../assets/gold/d7a25f", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
-const ctCtx = require.context("../assets/gold/clocktower", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S)\.png$/);
+const red97Ctx = require.context("../assets/red/970000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const tanCtx = require.context("../assets/gold/d7a25f", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
+const ctCtx = require.context("../assets/gold/clocktower", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V)\.png$/);
 
 import red97Metrics from "../assets/red/970000/metrics.json";
 import tanMetrics from "../assets/gold/d7a25f/metrics.json";
@@ -209,4 +213,36 @@ export function glyphStyleFrom(key, letter, scale = 1) {
 
 export function glyphStyle(letter, scale = 1) {
   return glyphStyleFrom(fontState.key, letter, scale);
+}
+
+/** A single stand-alone drop-cap (a door's "H", a hotkey chip's "S") — NOT
+ *  a word. glyphStyleFrom above normalizes every letter against the SET's
+ *  reference letter (B), which is right for a WORD (every letter needs to
+ *  share one baseline so the word reads as one font) but wrong for a lone
+ *  cap: it silently assumes every capital crops to B's baseline, and it
+ *  doesn't — J crops ~5% taller in red-97 and fell out of its box (FT-anon,
+ *  2026-08-19). Moved here from Intro.vue's capStyle (FT-948) so the entry
+ *  doors and the Keys panel — the app's other lone-drop-cap surface — share
+ *  ONE normalization instead of each re-deriving it. glyphStyleFrom and its
+ *  WORD callers (titleGlyphs, ontheGlyphs, the dial letters) are untouched;
+ *  they depend on the shared-B-reference behaviour and would misalign if
+ *  switched to this.
+ *
+ *  Sized at `scale*CAP_SHRINK` em of the glyph's OWN cap-height (top to its
+ *  own baseline) — identical across every letter in a set — with width and
+ *  descender (h − baseline) scaling at that same per-letter rate, so aspect
+ *  ratio and each glyph's actual baked descent are preserved exactly as
+ *  trimmed. `scale` defaults to 1.09, the door caps' size against their key
+ *  font (see golem/hotkeys.js's CAP_EM comment for where that number is
+ *  from). */
+export function glyphCapStyleFrom(key, letter, scale = 1.09) {
+  const g = glyphFrom(key, letter);
+  if (!g || !g.baseline) return null;
+  const emPerPx = (scale * CAP_SHRINK) / g.baseline;
+  const em = px => (px * emPerPx).toFixed(3) + "em";
+  return {
+    width: em(g.w),
+    height: em(g.h),
+    verticalAlign: "-" + em(Math.max(0, g.h - g.baseline))
+  };
 }
