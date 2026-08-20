@@ -488,16 +488,17 @@ export default {
       ].join("::");
     },
     /**
-     * The splat itself, from the FROZEN seed (faceSplatSeed, a data field --
-     * see created() below for how it gets set and stays set for the rest of
-     * the game). Frozen rather than reading faceSplatLive live because
-     * night.day changes every night -- a splat that re-rolled with it would
-     * look like a bug ("why did the mark change") instead of the one-time
-     * "the game began" mark the ask was for.
+     * The splat itself, from the FROZEN seed (grimoire.faceSplatSeed -- a
+     * STORE field since FT-991, not local data; see created() below for how
+     * it gets set and store/index.js for why it moved). Frozen rather than
+     * reading faceSplatLive live because night.day changes every night -- a
+     * splat that re-rolled with it would look like a bug ("why did the mark
+     * change") instead of the one-time "the game began" mark the ask was
+     * for.
      */
     faceSplat() {
-      if (!this.townLive || !this.faceSplatSeed) return null;
-      return pickFaceSplat(this.faceSplatSeed);
+      if (!this.townLive || !this.grimoire.faceSplatSeed) return null;
+      return pickFaceSplat(this.grimoire.faceSplatSeed);
     },
     faceSplatStyle() {
       if (!this.faceSplat) return null;
@@ -543,10 +544,6 @@ export default {
       // FT-958: the show/hide mask's own art — moved here from Menu.vue's
       // toolbar strip, riding the cluster it controls.
       uiBluffs,
-      // Golem fork (FT-936): the centre-face splat's FROZEN seed for this
-      // client's view of the current game — null until created() or the
-      // subscribe below sets it. See faceSplat/faceSplatLive above.
-      faceSplatSeed: null,
     };
   },
   watch: {
@@ -571,10 +568,24 @@ export default {
     },
   },
   /**
-   * Golem fork (FT-936): freezes faceSplatSeed the moment THIS client
-   * learns the game is live, and re-freezes it on every later deal — so the
-   * splat is stable within a game (see faceSplat's own comment) but still
-   * rolls fresh for a second game in the same town, in the same tab.
+   * Golem fork (FT-936, freeze moved to the store FT-991): freezes
+   * grimoire.faceSplatSeed the moment THIS client learns the game is live,
+   * and re-freezes it on every later deal — so the splat is stable within a
+   * game (see faceSplat's own comment) but still rolls fresh for a second
+   * game in the same town, in the same tab.
+   *
+   * The freeze COMMITS to the store rather than setting local data, because
+   * TownInfo.vue reads it too now (FT-991: its `.info` background carries
+   * the splat, replacing the demon-head knocker at that element's own
+   * z-index, in front of the clock face and behind the badge/counts/phase
+   * button it always sat behind). TownSquare is the right component to own
+   * the ONE subscriber that does the freezing — it is ALWAYS mounted for
+   * the whole session (line ~313, no v-if), unlike TownInfo, which
+   * unmounts and remounts around every nomination (App.vue swaps it for
+   * Vote.vue). A subscriber living on TownInfo would miss every mutation
+   * that fires while a vote has it unmounted, and would re-run its
+   * best-effort "already live" fallback on every remount, re-rolling the
+   * mark after each vote — visibly wrong ("why did the mark change").
    *
    * Vuex's store.subscribe fires on every COMMIT, unconditionally — unlike
    * a Vue `watch`, which only fires when the resulting VALUE changes and is
@@ -622,7 +633,10 @@ export default {
     this._faceSplatGen = 0;
     const freeze = () => {
       this._faceSplatGen++;
-      this.faceSplatSeed = this.faceSplatLive + "::" + this._faceSplatGen;
+      this.$store.commit(
+        "setFaceSplatSeed",
+        this.faceSplatLive + "::" + this._faceSplatGen,
+      );
     };
     this._faceSplatUnsub = this.$store.subscribe(({ type, payload }) => {
       if (type === "session/distributeRoles" && payload) {
@@ -1337,21 +1351,35 @@ export default {
   animation: none;
 }
 
-/***** The centre-face splat (FT-936) *****
-   A SEPARATE element from .blood-dial above, and a separate (negative)
-   z-index, on purpose: TownInfo (the town readout) is a SIBLING of
-   #townsquare under #app, not a descendant of it, and #townsquare itself
-   sets no z-index -- so a positive or zero z-index here stacks only among
-   #townsquare's OWN children (behind the seats, as .blood-dial wants) and
-   still paints on top of TownInfo, because #townsquare comes later in the
-   template than TownInfo (App.vue) and z-index:auto/0 elements paint in
-   document order. #app DOES establish a stacking context (container-type:
-   size, App.vue), and neither #townsquare nor TownInfo's own .info sets a
-   z-index or any other stacking-context trigger — so a NEGATIVE z-index
-   here escapes #townsquare's own local order and is compared directly
-   against TownInfo inside #app's single stacking context instead, landing
-   behind it. Verified against the built app, not just reasoned about — see
-   claude_temp_test/2026-08-19-splat-proof/screens/.
+/***** The centre-face splat (FT-936; superseded as the VISIBLE mark FT-991) *****
+   FT-991 first pass raised this to z-index 2 to paint over TownInfo's
+   `.info` -- WRONG, per the user's own correction: `.info`'s z-index is a
+   box that also holds the edition badge, the counts row and the phase
+   button, and painting a sibling element on top of that whole box paints
+   over ITS CONTENTS too, not just its background -- the after-shot showed
+   the splat sitting across the dead count and the composition line, undoing
+   the dark-plate contrast pass those numbers got a few hours earlier.
+
+   THE ACTUAL FIX lives in TownInfo.vue now: `.info`'s own
+   background-image swaps from demon-head.png to this same splat art
+   (golem/faceSplat.js's pickFaceSplat, fed grimoire.faceSplatSeed -- see
+   this file's created() below for where that seed is frozen). A CSS
+   background paints behind an element's own content by construction, so
+   the splat inherits the knocker's exact stacking there for free: behind
+   the badge/counts/phase button, in front of the clock face art beneath
+   it -- "replace the knocker, same index" without a second element
+   competing for the same box.
+
+   THIS element is back to its ORIGINAL FT-936 shape: negative z-index (see
+   the escape-hatch note in the block comment two rules up -- .blood-dial's
+   -- for why a negative index here lands behind TownInfo's whole hub
+   rather than merely behind #townsquare's own children), same seed, same
+   pure function, so it always resolves to the identical file+spin
+   TownInfo's background shows -- just invisible, exactly as FT-936 first
+   shipped it and before FT-991's first pass touched the number. Left
+   in place rather than removed (MEMORY-CORE rule 1: no deletion without
+   explicit permission) now that TownInfo carries the visible copy; flagged
+   as redundant in the FT-991 report for a deliberate call on removing it.
    left/top read --face-cx/--face-cy (App.vue) rather than plain 50%/50%
    (unlike .stain above) — the file's own comment on those variables asks
    anything centred on the dial to read them, and this mark is large enough

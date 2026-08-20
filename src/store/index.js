@@ -124,7 +124,20 @@ export default new Vuex.Store({
       isMuted: false,
       isImageOptIn: false,
       zoom: 0,
-      background: ""
+      background: "",
+      // Golem fork (FT-936, moved to the store FT-991): the centre-face
+      // splat's FROZEN seed for THIS client's view of the current game —
+      // null until TownSquare.vue's created()/subscribe sets it (see that
+      // file's own comment for what freezes it and why). In the store
+      // rather than component-local data because TownInfo.vue reads it too
+      // now (its `.info` background carries the splat, replacing the old
+      // demon-head knocker) and TownInfo, unlike TownSquare, is NOT always
+      // mounted — it unmounts and remounts around every nomination (App.vue
+      // swaps it for Vote.vue) — so a component-local field would forget
+      // the frozen mark on the very next vote. Never stashed to
+      // localStorage (no persistence.js entry, deliberately) — per-tab,
+      // per-load, same as it was as local data before this move.
+      faceSplatSeed: null
     },
     modals: {
       edition: false,
@@ -277,6 +290,9 @@ export default new Vuex.Store({
   mutations: {
     setZoom: set("zoom"),
     setBackground: set("background"),
+    // FT-991: committed once per freeze by TownSquare.vue's own
+    // created()/subscribe — see that file and grimoire.faceSplatSeed above.
+    setFaceSplatSeed: set("faceSplatSeed"),
     toggleMuted: toggle("isMuted"),
     toggleMenu: toggle("isMenuOpen"),
     /** Golem fork (2026-08-19): show/hide the demon's bluffs cluster. */

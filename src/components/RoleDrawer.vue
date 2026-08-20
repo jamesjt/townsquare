@@ -24,11 +24,21 @@
       />
       <!-- the how-to rides the title as a tooltip; the actions sit at the top
            where they are reachable without scrolling (user call 2026-08-18) -->
+      <!-- FT-991 (user call): "use the proper G in that grimoire text to
+           show the hotkey." KeyCap is the app's one drop-cap component
+           (src/components/KeyCap.vue) -- the same one the Keys panel's own
+           G row renders (HotkeyHelp.vue), resolved through the SAME
+           capFor("G") call, so this and that G are pixel-identical and move
+           together if the font picker ever changes families. It replaces
+           the word's own first letter -- "G" + "rimoire" is one word split
+           across two nodes, flush together, not a badge beside the title
+           -- the entry doors' idiom (Intro.vue's ul.doors) and the
+           "O"+"pen the town" button already follow the same pattern. -->
       <h3
         class="rd-title"
         title="Drag a role onto a seat — or click one, then click a seat. Drag a seated role back here to unassign it."
       >
-        Grimoire
+        <span class="rd-cap"><KeyCap letter="G" /></span>rimoire
       </h3>
       <!-- The `title` above is the ONLY place the click-then-click path is
            written down, and a touch screen has no way to raise a tooltip. It
@@ -210,6 +220,9 @@ import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
 // the seats in the square.
 import RoleHoverCard from "./RoleHoverCard";
 import CloseX from "./CloseX";
+// FT-991: the title's drop-cap — the same component the Keys panel renders
+// its own G through (KeyCap.vue), so the two G's are pixel-identical.
+import KeyCap from "./KeyCap";
 // THE coin — the same component the clock face's own bluff cluster renders in
 // each of its three slots (TownSquare's `<Token :role="bluffs[i]">`). An empty
 // slot is that coin with no role: blank parchment, which is what the face
@@ -233,7 +246,7 @@ const HOVER_DELAY = 170;
 
 export default {
   name: "RoleDrawer",
-  components: { RoleHoverCard, Token, CloseX },
+  components: { RoleHoverCard, Token, CloseX, KeyCap },
   mixins: [bottomSheet],
   data() {
     return {
@@ -716,6 +729,14 @@ $team-colors: (
     font-family: PiratesBay, sans-serif;
     font-weight: normal;
     text-align: center;
+
+    // FT-991: the same 2px optical nudge the entry doors give their own
+    // drop-cap (Intro.vue's `.doors .key`) and nothing more — KeyCap's own
+    // `.key` already carries the Bloody face, the red, the outline and the
+    // per-letter baseline; this only keeps "rimoire" from crowding it.
+    .rd-cap {
+      margin-right: 2px;
+    }
   }
   // shown only where the drag is unavailable and the tooltip unreachable
   .rd-hint {

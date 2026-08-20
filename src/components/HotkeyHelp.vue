@@ -10,7 +10,13 @@
        controls. -->
   <div class="hotkey-help" @click="$emit('close')">
     <div class="panel" @click.stop>
-      <h3>Keys</h3>
+      <!-- FT-991 (user call): "lets replace that with just text that says
+           Hotkeys — no red and blue marks on the left and right." Was
+           "Keys" on a linear-gradient plate running $townsfolk blue into
+           $demon red (below) — plain text now, no team colours; the
+           font-family/letter-spacing/centering below still mark it as a
+           heading. -->
+      <h3>Hotkeys</h3>
       <ul>
         <li v-for="k in keys" :key="k.key">
           <!-- the index page's own key treatment, through the one component
@@ -75,19 +81,16 @@ export default {
   color: #e8ddd0;
 }
 
+// FT-991: plain heading — no team-coloured gradient plate. Kept as a
+// heading by type alone: PiratesBay, letter-spacing, centered, same as
+// every other panel title in this fork (RoleDrawer's .rd-title, TownInfo's
+// li.meta) rather than a plate.
 h3 {
   margin: 0 0 10px;
   font-family: PiratesBay, sans-serif;
   letter-spacing: 1px;
   text-align: center;
-  background: linear-gradient(
-    to right,
-    $townsfolk 0%,
-    rgba(0, 0, 0, 0.5) 20%,
-    rgba(0, 0, 0, 0.5) 80%,
-    $demon 100%
-  );
-  border-radius: 6px;
+  color: #e8ddd0;
 }
 
 ul {
