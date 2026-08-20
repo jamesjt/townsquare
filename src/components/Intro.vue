@@ -897,8 +897,20 @@ export default {
       this.$store.commit("session/setSpectator", false);
       this.$store.commit("session/setSessionId", id);
       this.copyShare();
-      // "Custom / vault…" hands off to the script picker once the town is up.
-      if (this.scriptId === "__custom") {
+      // "Custom / vault…" hands off to the script picker once the town is up —
+      // but ONLY when the host actually chose it (user call 2026-08-19).
+      //
+      // `__custom` is also what `openHost` falls back to whenever the current
+      // edition is not one of the built-ins, which is the state of an untouched
+      // picker reading "Choose a script…". So opening a town without picking
+      // anything used to drop the whole script workbench on top of the town
+      // that had just opened. `scriptTouched` already distinguishes the two:
+      // false means the picker was never used this visit.
+      //
+      // Nothing is lost by staying quiet — the build panel's own Script row is
+      // right there, and picking from it is the same flow without a modal
+      // covering the town first.
+      if (this.scriptId === "__custom" && this.scriptTouched) {
         this.$store.commit("toggleModal", "edition");
       } else if (this.scriptId === "__attached" && this.attachedScriptId) {
         // FT-847: an owned town carries its script — load it through the same
