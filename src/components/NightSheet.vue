@@ -547,6 +547,11 @@ export default {
      * the title (flipHint below), which cost nothing to keep.
      */
     flipLabel() {
+      // FT-1002 (user call): while required rows still block the flip, the
+      // button says what actually finishes the night — the CHECKS — instead
+      // of naming an end it will refuse. The label becomes "End night" the
+      // moment the last required row is ticked.
+      if (this.isNight && !this.canFlip) return "Finish night checks";
       return this.isNight ? "End night" : "End day";
     },
     /** The phase the flip is heading INTO — what the sun/moon mark shows,
