@@ -41,10 +41,22 @@ $control-edge: black;
 $control-edge-width: 2px;
 $control-radius: 6px;
 
-// THE EDGE ON HOVER is the picker's `#400` — a very dark blood, which is what
-// this fork uses everywhere a black edge has to acknowledge the pointer
-// (`.trigger:hover`, `.start.ready`, `.ht-rename-input:focus`).
-$control-edge-hover: #400;
+// THE POINTER ACKNOWLEDGEMENT IS PURPLE (user call 2026-08-19: "let's make
+// those purple on hover like they are in the grimoire").
+//
+// It used to be the picker's `#400`, a very dark blood — but blood in this
+// fork already means something else on a control: it is `control-lit`, the ON
+// state. An edge that reddens under the pointer was quietly speaking the
+// language of "chosen" at a control that had not been chosen.
+//
+// Purple has no such job here — it is the storyteller's own colour throughout
+// the app — and the grimoire drawer's buttons have worn exactly these values
+// all along, hand-rolled, because this partial's hover was too thin to borrow.
+// Lifting them up here is what makes the drawer and the build panel agree.
+// (RoleDrawer's own copy is left in place and now simply matches; removing it
+// is a separate change.)
+$control-edge-hover: rgba(150, 130, 175, 0.75);
+$control-bg-hover: rgba(32, 24, 38, 0.95);
 
 // ── THE LIT STATE ───────────────────────────────────────────────────────────
 // A control that is ON. These three are not invented here either: they are the
@@ -77,7 +89,18 @@ $control-focus: #a01414;
 // The pointer acknowledgement. Split from the plate so a caller can hang it on
 // whatever selector it actually needs (`&:hover`, `&:hover:not(:disabled)`,
 // `&.open`) instead of this file guessing.
+// GROUND AND EDGE, not the edge alone — a control that changes only its
+// outline under the pointer is doing the least a control can do and still be
+// said to respond.
+//
+// INK STAYS WITH THE CALLER, deliberately. `control-icon-btn` already lifts
+// its own to #fff, which is the drawer's third value; the night row lifts its
+// to a red (`#ff8a8a`) that it means, and it includes this mixin AFTER
+// setting it — so a colour declared in here would silently overwrite a
+// caller's considered one. Ground and edge are the plate's; ink is the
+// control's.
 @mixin control-plate-hover {
+  background: $control-bg-hover;
   border-color: $control-edge-hover;
 }
 
