@@ -112,13 +112,15 @@ export function enterTown(store, id) {
 }
 
 /**
- * Leave the current town for the entry screen.
+ * Leave the current town for the entry screen. THE one way out — the leave
+ * pill, a Back press, and a relay that closed the session all call here.
  *
- * The commit sequence mirrors Menu.vue's leaveSession (minus its confirm):
- * leaving takes the town off the screen, so the local mirror — seats, bluffs,
- * fabled, any live nomination — goes with it, or the "entry screen" is really
- * the last game's sessionless in-person square. Menu.vue still owns its own
- * copy of this sequence; it should call here once its lane is clear.
+ * Leaving takes the town off the screen, so the local mirror — seats, bluffs,
+ * fabled, any live nomination — goes with it. Clearing the session id ALONE is
+ * not leaving: seats on their own render the sessionless in-person square, so
+ * a half-leave strands you in the last game's town with no way out. That was a
+ * live bug on the relay's own close path, which cleared the id and nothing
+ * else (FT-890 collapsed the duplicated sequences here to close it).
  */
 export function leaveTown(store) {
   store.commit("session/setSpectator", false);

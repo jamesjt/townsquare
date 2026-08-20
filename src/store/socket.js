@@ -15,6 +15,9 @@ import { beliefOf } from "../golem/belief";
 // FT-880: the town summons. The sound is bundled in every client, so the
 // message carries nothing and this is the only import it needs.
 import { playCallBack } from "../golem/callBack";
+// FT-890: the app's own transient notice — the relay's reason is said here,
+// never in a browser dialog.
+import { flashHint } from "../golem/hint";
 
 class LiveSession {
   constructor(store) {
@@ -67,8 +70,19 @@ class LiveSession {
           3 * 1000
         );
       } else {
-        this._store.commit("session/setSessionId", "");
-        if (err.reason) alert(err.reason);
+        // FT-890: the relay ended the session (a refused duplicate host, a
+        // spam disconnect). That is LEAVING, and leaving is one call: clearing
+        // the session id alone left seats, roles and bluffs on the table, and
+        // seats alone render the sessionless in-person square — so the app sat
+        // in a town it was no longer connected to, with no way back to the
+        // entry screen.
+        leaveTown(this._store);
+        // ...and the reason is said IN the app. alert() was doubly wrong here:
+        // a browser dialog is silently auto-dismissed in some contexts (the
+        // trap Menu.leaveSession and the script editor's save path each hit
+        // before this), and it blocks the page at the exact moment the app is
+        // trying to put itself back together.
+        if (err.reason) flashHint(err.reason);
       }
     };
   }
