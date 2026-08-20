@@ -248,6 +248,68 @@ $team-colors: (
 $rt-tile: 42px;
 $rt-art-lift: $rt-tile * 0.08;
 
+// FT-955 ("make that a little taller, it is cutting it off before Start"):
+// THE DISC'S OWN, SMALLER TILE — CONDITIONAL, not a blanket disc-wide swap.
+// The first pass shrank every disc viewport to 35px and was corrected: that
+// costs legibility (35px is one pixel above this file's own recorded "smudge
+// at arm's length" line at 34px) at BOTH disc viewports, but only pays off at
+// one of them. A tray that closes does not need the same medicine as one that
+// cannot.
+//
+// TWO OTHER LEVERS WERE MEASURED FIRST AND BOTH CAME BACK EMPTY (unchanged
+// from the first pass, re-confirmed, not re-litigated):
+//   Start narrower: already AT its label floor at the disc's own floor
+//     viewport (1642x780) — 143px holds "Start game" on one line, shipped is
+//     150px. Buys 0.82px of clearance, worth under 1px of tray height.
+//   Tray wider: 13 townsfolk need a ~582px column to drop from two lines to
+//     one; the band's chord is 401-479px across the whole disc range. A width
+//     lever only reshuffles the 8/5 split, never the row COUNT.
+//
+// SO THE TILE IS THE ONLY LEVER WITH ANYTHING IN IT, because the tray's
+// content height is exactly 5 x tile + 4 x 3px gaps (2 townsfolk lines +
+// outsider + minion + demon) at every width in range — shrinking the tile is
+// the only thing that shrinks that constant.
+//
+// WHERE IT ACTUALLY CLOSES — measured, not assumed, because the coordinator
+// asked "height is the likelier axis, but measure": the tray's own box
+// (`.rt-rows` clientHeight, independent of tile size) was swept across the
+// disc-build-gate's practical range (rig:
+// claude_temp_test/2026-08-19-ft955-threshold{,2,3}.mjs). It tracks VIEWPORT
+// HEIGHT almost exactly and is close to width-independent from 1440px to
+// 1920px wide:
+//
+//   height   900   980  1000  1020  1040  1060  1075  1078  1080
+//   box      138   163   169   175   181   187   192   193   194
+//
+// Content at 36px tiles is 5*36+12 = 192px — the EXACT box value at 1075px of
+// viewport height, holding from 1440 to 1920 wide. 1920x1080 (194px of box)
+// clears it by 2px; 1642x780 (the disc's own floor, 138px of box) is 54px
+// short and no tile size in a legible range reaches that far (34px — already
+// on record elsewhere in this file as a smudge — only needs 182px of content,
+// still 44px more than the floor's box).
+//
+// THE GATE IS `min-height: 1080px`, 5px above the measured 1075px crossover.
+// That margin is spent on the GATE'S OWN correctness (real browser chrome,
+// sub-pixel layout, the next reader's viewport not landing on the exact
+// measured pixel) — not on tile legibility, which is the coordinator's actual
+// point: every pixel of TILE margin costs sharpness for nothing, but a pixel
+// of GATE margin costs nothing at all, because the branch it protects against
+// (a viewport one px below the true crossover) would only be one clipped
+// corner on one tile, not a redrawn button. 1080 is also the recognisable,
+// universal round number for "a viewport this tall" — easier for the next
+// reader to reason about than 1075.
+//
+// VERIFIED AGAINST A REAL BUILD, not inferred from the box sweep alone (the
+// coordinator's ask): claude_temp_test/2026-08-19-ft955-shots/after2-*.json
+// confirms 1920x1080 actually renders all 22 at 36px, not just that the sums
+// allow it.
+$rt-tile-disc: 36px;
+$rt-tile-disc-lift: $rt-tile-disc * 0.08;
+// The viewport height above which the tile shrink actually closes the tray —
+// named so the two rules that read it (the tile swap and the fade cancel,
+// both below) cannot drift apart into two different numbers.
+$rt-disc-closes-gate: "(min-height: 1080px)";
+
 // FT-888: THE TRAY IS THE BUILD PANEL'S SHOCK ABSORBER on the clock-face disc.
 //
 // The disc's band is a fixed slice of the circle — the four rows above this
@@ -287,6 +349,69 @@ $rt-art-lift: $rt-tile * 0.08;
         flex: 1 1 auto;
         min-height: 0;
         max-height: none;
+
+        // FT-955: THE EDGE FADE — the honest answer below the closes-gate
+        // (see the variable block above), where the tray keeps the legible
+        // 42px tile and genuinely cannot show a full script without
+        // scrolling. A hard clip at the box's edge reads as "the end of the
+        // list"; a fade reads as "there is more" — the coordinator's own
+        // words for what the flat cut was missing.
+        //
+        // PURE CSS, NO OVERFLOW CHECK NEEDED: every viewport in this branch
+        // (below the closes-gate) overflows by construction — content is
+        // 222px at 42px tiles, and the box never exceeds ~193px down here
+        // (see the sweep table above) — so the fade never has to ask whether
+        // there is more, only draw it.
+        //
+        // A MASK, not a background wash: the material behind this tray is
+        // the disc's own translucent glass over the dial art, not a flat
+        // colour, so a background gradient would paint a rectangle that does
+        // not match whatever happens to be behind it. Fading the CONTENT to
+        // transparent instead lets the real backdrop show through, whatever
+        // it is.
+        //
+        // 32px, MEASURED BY EYE AGAINST THE REAL MATERIAL, not assumed: a
+        // first pass at 20px only reached the bottom THIRD of the tray's
+        // last visible row (13.6px of a 42px tile, most of it still at
+        // 70%+ opacity) and read as nothing at a glance — confirmed by
+        // screenshot, not just by the math. 32px softens that whole row
+        // visibly (checked against 45px and 60px too: those read as the
+        // row disappearing rather than trailing off — more than the cue
+        // needs). A MASK costs no layout at all: it is painted on the box
+        // that already exists, so nothing here moves a row or changes
+        // `clientHeight`.
+        mask-image: linear-gradient(
+          to bottom,
+          #000 calc(100% - 32px),
+          transparent 100%
+        );
+        -webkit-mask-image: linear-gradient(
+          to bottom,
+          #000 calc(100% - 32px),
+          transparent 100%
+        );
+
+        @media #{$rt-disc-closes-gate} {
+          // THE TRAY FITS HERE (see the tile swap below) — nothing is cut
+          // off, so a fade would be lying about content that is not there.
+          mask-image: none;
+          -webkit-mask-image: none;
+        }
+      }
+
+      // FT-955: THE DISC'S OWN TILE SIZE, ONLY WHERE IT ACTUALLY CLOSES THE
+      // GAP — see the variable block above for the measured crossover. Below
+      // `$rt-disc-closes-gate` the tray keeps the rectangle's own 42px tile
+      // (`.rt-icon`'s base rule, unaffected) and the fade above carries the
+      // honesty instead. `.host-tools .role-tray .rt-icon` (three classes)
+      // is still more specific than the base rule's two, so this wins
+      // regardless of source order once the media query is satisfied.
+      @media #{$rt-disc-closes-gate} {
+        .rt-icon {
+          width: $rt-tile-disc;
+          height: $rt-tile-disc;
+          background-position: center $rt-tile-disc-lift;
+        }
       }
     }
   }
