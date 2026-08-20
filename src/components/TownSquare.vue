@@ -92,11 +92,12 @@
       :style="bluffAnchorStyle"
     >
       <!-- THE HEADING IS THE CORNER FALLBACK'S ONLY (2026-08-19, user call).
-           The anchored cluster's "Demon bluffs ✕" pill is retired: its ✕ is a
-           mark in the menu strip now, and a wide floating label beside three
-           coins was the one part of the cluster that needed a search of its
-           own to place. The no-demon corner panel is a real panel and keeps
-           its real heading — hence v-if, not a deletion.
+           The anchored cluster's "Demon bluffs ✕" pill is retired: its ✕
+           lived in the menu strip from 2026-08-19 to FT-958, and now rides
+           the cluster itself (`.bluffs-toggle` below, outside this v-if so
+           it survives `isBluffsOpen` going false — see that element's own
+           comment for why). The no-demon corner panel is a real panel and
+           keeps its real heading — hence v-if, not a deletion.
 
            The spectator title has a reader again: a demon or a Lunatic on
            their own client IS `session.isSpectator`, and "Other characters"
@@ -118,6 +119,32 @@
         </li>
       </ul>
     </div>
+
+    <!-- THE BLUFFS SHOW/HIDE MASK (FT-958) — moved off the toolbar strip
+         (Menu.vue's `uiBluffs`, 2026-08-19 to FT-958) onto the cluster it
+         belongs to: same x as the column, one step above the top coin
+         (`bluffAnchor.toggle`, computed alongside the three coins in
+         measureBluffAnchor). Same door, same switch: `toggleBluffs` below
+         is the unchanged `toggleBluffsOpen` commit Menu.vue's mark used to
+         drive — moving its home does not re-implement it.
+
+         DELIBERATELY A SIBLING of `.bluffs` above, not a child of it: that
+         div's own v-if includes `isBluffsOpen`, so nesting the mask inside
+         would make it vanish exactly when its job is to reopen the cluster.
+         Its own v-if drops only `isBluffsOpen` from that same condition —
+         present for anyone who can see the cluster at all, open or shut,
+         matching Menu.vue's retired `canSeeBluffs` computed exactly. -->
+    <img
+      v-if="players.length && canSeeBluffs && demonIndex > -1"
+      class="bluffs-toggle"
+      :class="{ anchored: !!bluffAnchor, off: !isBluffsOpen }"
+      :src="uiBluffs"
+      :style="bluffToggleStyle"
+      :title="
+        isBluffsOpen ? 'Hide the demon\'s bluffs' : 'Show the demon\'s bluffs'
+      "
+      @click.stop="toggleBluffs"
+    />
 
     <div class="fabled" :class="{ closed: !isFabledOpen }" v-if="fabled.length">
       <h3>
@@ -169,9 +196,27 @@ import Token from "./Token";
 import ReminderModal from "./modals/ReminderModal";
 import RoleModal from "./modals/RoleModal";
 // Golem fork (2026-08-19): who holds the demon's bluffs — the storyteller, the
-// demon, and the Lunatic. One rule, shared with the menu's toggle and the
-// socket's sender so the three can never disagree.
+// demon, and the Lunatic. One rule, shared with the socket's sender (and, up
+// to FT-958, the menu strip's own toggle — that mark now lives here, see
+// `.bluffs-toggle` below) so nobody can disagree about who sees what.
 import { canSeeBluffs, demonSeatIndex } from "../golem/bluffs";
+// FT-958: the show/hide mask itself — moved out of Menu.vue's toolbar strip
+// onto the cluster it controls, and baked in the demon's own red (user call):
+// this control belongs to the demon's cluster, and every other team-coloured
+// mark in the app takes its colour from `$demon` (#ce0100 — src/vars.scss,
+// confirmed unanimous with Gradients.vue/RoleDrawer.vue/RoleHoverCard.vue/
+// RoleTray.vue/ScriptView.vue/TownInfo.vue's own `.stat.demon`, no
+// disagreement to resolve). ui-bluffs-demon.png is a MULTIPLY-BLEND bake of
+// the original grey/stone ui-bluffs.png against solid #ce0100 (preserves the
+// stone grain/shading — a flat CSS hue-rotate on a near-zero-saturation grey
+// measured muddy: [239,108,115] vs the target, see claude_temp_test/
+// 2026-08-20-ft958-recolor-test.mjs), then a brightness(1.65) pass to
+// restore the source's own luminance level. Measured mean opaque RGB
+// [205,1,0] against the target [206,1,0] — within 1 unit (claude_temp_test/
+// 2026-08-20-ft958-bake-red.mjs). ui-bluffs.png (the grey original) stays in
+// the tree, unreferenced — same "bake stays, original untouched" idiom as
+// ui-records.png/life.png elsewhere in this fork.
+import uiBluffs from "../assets/ui-bluffs-demon.png";
 // Golem fork (FT-936): the centre-face splat -- the game-start mark, its
 // per-file size table, and the hash/RNG both it and this file's own
 // stainOrder() share (moved here from a local copy -- MEMORY-CORE rule 2).
@@ -371,8 +416,22 @@ export default {
       const { left, top } = this.bluffAnchor.title;
       return { left: `${left}px`, top: `${top}px` };
     },
-    /** The show/hide state, held in the store so the menu strip's mark and
-     *  this cluster are the same switch, and so it survives a reload. */
+    /**
+     * FT-958: the show/hide mask's own pixel centre, riding the column at
+     * `bluffAnchor.toggle` (see measureBluffAnchor). Null when unanchored —
+     * the mask's own CSS carries a static fallback position for that case
+     * (`.bluffs-toggle`'s un-classed rule below), the same "static corner,
+     * measured position once anchored" split every other piece of this
+     * cluster already uses.
+     */
+    bluffToggleStyle() {
+      if (!this.bluffAnchor || !this.bluffAnchor.toggle) return null;
+      const { left, top } = this.bluffAnchor.toggle;
+      return { left: `${left}px`, top: `${top}px` };
+    },
+    /** The show/hide state, held in the store so the mask (now riding the
+     *  cluster itself, not the menu strip — FT-958) and this cluster are the
+     *  same switch, and so it survives a reload. */
     isBluffsOpen() {
       return this.grimoire.isBluffsOpen;
     },
@@ -472,6 +531,9 @@ export default {
       // until measureBluffAnchor finds a demon seat, meaning "use the
       // static corner CSS" (see bluffAnchorStyle / the .anchored rules).
       bluffAnchor: null,
+      // FT-958: the show/hide mask's own art — moved here from Menu.vue's
+      // toolbar strip, riding the cluster it controls.
+      uiBluffs,
       // Golem fork (FT-936): the centre-face splat's FROZEN seed for this
       // client's view of the current game — null until created() or the
       // subscribe below sets it. See faceSplat/faceSplatLive above.
@@ -719,13 +781,30 @@ export default {
         box[3] <= window.innerHeight - EDGE_PAD;
       /**
        * Every box this cluster must clear, in screen pixels: every seat's own
-       * name plate (the demon's own included), every OTHER seat's life coin
-       * (the demon's own is exempt — the cluster is allowed to sit on it), and
-       * every reminder on the board. Measured rather than assumed, the same
-       * "read the box already laid out" idiom the rest of this method uses.
+       * name plate (the demon's own EXEMPT — FT-958, see below), every OTHER
+       * seat's life coin (the demon's own is exempt — the cluster is allowed
+       * to sit on it), and every reminder on the board. Measured rather than
+       * assumed, the same "read the box already laid out" idiom the rest of
+       * this method uses.
        */
       const collisionRects = [];
+      /**
+       * FT-958: the demon's OWN name plate is exempt, same reasoning as its
+       * own coin two loops down — the cluster belongs to that seat. Measured
+       * (claude_temp_test/2026-08-20-ft958-collision-probe.mjs): the plate is
+       * WIDER than the coin above it (a name can run longer than a coin is
+       * wide) and sits directly below-left of it, so the bottom bluff's ideal
+       * box (dxOut 0, the intended ~TOUCH gap) clipped the plate's corner by
+       * under 3px — enough to fail `clears()` and rigid-push the WHOLE column
+       * outward by two more nudge steps, reading as a visible gutter instead
+       * of "nearly touching" (the bug this fixes). Un-exempted, this is the
+       * one collision box guaranteed to sit close to the column at every
+       * clock position, because it is anchored to the same seat the column
+       * is — every other seat's plate is exactly one seat-spacing further
+       * away and was never the trigger.
+       */
       rootEl.querySelectorAll(".player > .name").forEach((el) => {
+        if (el.closest("li") === seatLi) return;
         const r = el.getBoundingClientRect();
         if (r.width) collisionRects.push(r);
       });
@@ -834,10 +913,55 @@ export default {
         left: (b[0] + b[2]) / 2 - rootLeft,
         top: (b[1] + b[3]) / 2 - rootTop,
       }));
+      /**
+       * FT-958: the show/hide mask's own anchor point — same x as the
+       * column, sat just above the ALREADY-RESOLVED top coin (`boxes[0]`),
+       * so it inherits whatever rigid dxOut/dy push and edge clamp the
+       * column ended up with for free, without being fed into `clears()`
+       * itself. Deliberately NOT part of the collision search: a search that
+       * also had to dodge the mask's own box could shove the three coins
+       * sideways to make room for a control that isn't one of them (the
+       * thing the coordinator's brief called out to avoid). The mask riding
+       * a fixed offset off the coin, rather than searching independently,
+       * is what keeps the column's own placement untouched by its presence.
+       *
+       * FIXED PIXELS, not `--seat-sz`-scaled (unlike the coins): measured
+       * across four viewport heights (claude_temp_test/
+       * 2026-08-20-ft958-headroom-check.mjs — 800/900/1080/1400px tall, all
+       * 8 seats), the top seat's own headroom above the viewport's top edge
+       * is a FLAT 20px regardless of how big the coin itself renders (108px
+       * to 146px across that range) — a fixed layout reserve, not a
+       * proportional one. A `--seat-sz`-scaled icon shrinks that same 20px
+       * budget further as the town's coins grow, so it can never be made to
+       * fit for every town size; a small flat icon (matching the 26px flat
+       * size the toolbar mark itself used before FT-958) is sized against
+       * the budget that is actually fixed.
+       *
+       * Its OWN small viewport clamp (mirroring the column's uniform fix
+       * just above, but independent of it): even at this flat size, a
+       * 12-o'clock seat leaves only ~18px of usable headroom (20px minus
+       * EDGE_PAD) — enough for this icon's half-height plus a small gap,
+       * but with little to spare. Clamping the mask's OWN box to the
+       * viewport (never the column's) keeps it visible rather than clipped
+       * off-screen if that margin is ever negative.
+       */
+      const TOGGLE_HALF = 12; // 24px square, matching the toolbar mark's old flat scale
+      const TOGGLE_GAP = 3;
+      let toggleCx = (boxes[0][0] + boxes[0][2]) / 2;
+      let toggleCy = boxes[0][1] - TOGGLE_GAP - TOGGLE_HALF;
+      if (toggleCy - TOGGLE_HALF < EDGE_PAD) toggleCy = EDGE_PAD + TOGGLE_HALF;
+      if (toggleCx - TOGGLE_HALF < EDGE_PAD) toggleCx = EDGE_PAD + TOGGLE_HALF;
+      if (toggleCx + TOGGLE_HALF > window.innerWidth - EDGE_PAD)
+        toggleCx = window.innerWidth - EDGE_PAD - TOGGLE_HALF;
+      const toggle = {
+        left: toggleCx - rootLeft,
+        top: toggleCy - rootTop,
+      };
       this.bluffAnchor = {
         size,
         title: null,
         coins,
+        toggle,
       };
     },
     /** This bluff slot's own computed centre (see measureBluffAnchor) — null
@@ -1559,6 +1683,58 @@ export default {
   &:not(.closed) ul li {
     width: calc(var(--seat-sz, 15vmin) * 0.4);
     height: calc(var(--seat-sz, 15vmin) * 0.4);
+  }
+}
+
+/***** The bluffs show/hide mask (FT-958) *****
+   Off the toolbar strip, onto the cluster it controls. Two positions, same
+   split as `.bluffs` itself above: a STATIC fallback (no demon to anchor
+   to — bluffAnchor null, matching the corner panel's own untouched fallback)
+   and an ANCHORED one riding the column via inline left/top from
+   `bluffToggleStyle` (bluffAnchor.toggle, computed in measureBluffAnchor —
+   same x as the coins, one column-step above the top one). The mask itself
+   never enters the coins' own collision search — see that computation's own
+   comment for why. */
+#townsquare > .bluffs-toggle {
+  position: absolute;
+  z-index: 51;
+  // static fallback: near the corner panel's own top edge (that panel sits
+  // `bottom: 10px; left: 10px` above), so the switch sits where its own
+  // panel appears rather than a spot unrelated to it.
+  bottom: 168px;
+  left: 14px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px black);
+  transition:
+    opacity 200ms ease-in-out,
+    filter 200ms ease-in-out;
+
+  &:hover {
+    filter: drop-shadow(0 1px 2px black) brightness(1.15);
+  }
+
+  // SWITCH, not an opener — the same dim-and-desaturate step-back the
+  // toolbar's own marks use for "set to off" (Menu.vue's retired
+  // `.player-strip img.off`, carried over unchanged) so a tap never reads
+  // as the mask itself vanishing.
+  &.off {
+    opacity: 0.34;
+    filter: drop-shadow(0 1px 2px black) grayscale(0.75) brightness(0.85);
+    &:hover {
+      opacity: 0.75;
+    }
+  }
+
+  // FIXED 24px, not `--seat-sz`-scaled — matches TOGGLE_HALF (12px) in
+  // measureBluffAnchor; see that constant's own comment for why a flat size
+  // rather than one that grows with the coin.
+  &.anchored {
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
   }
 }
 

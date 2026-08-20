@@ -36,43 +36,11 @@
             title="What you learned at night"
             @click="toggleModal('nightDrawer')"
           />
-          <!-- THE DEMON'S BLUFFS (2026-08-19, user call): show or hide the
-               three coins that sit against the demon's own seat. It replaces
-               the cluster's old "Demon bluffs ✕" pill — a floating label beside
-               three coins that already read as coins, and the one part of the
-               cluster wide enough to need placing on its own.
-
-               HERE, beside the moon, because both are PRIVATE-INFORMATION
-               doors: the moon is a seated player's own night notes, this is a
-               seated demon's own bluffs. The ledger marks (records, chronicle)
-               come after; the bell and the keys stay last.
-
-               Same viewer test as the cluster itself, AND the same "is there a
-               demon dealt" test (both from golem/bluffs), so the mark is
-               present for exactly the people who have something to show or
-               hide — the storyteller, the demon, and the Lunatic, once a demon
-               is on the board — and is absent from an ordinary player's
-               component tree entirely. Without the second half, a storyteller
-               mid-build got a switch with nothing behind it.
-               A LUNATIC SEES IT because their own client holds a demon in its
-               seat; there is no branch here that could tell them apart.
-
-               A mask, baked to the strip's measured stone (128px, silhouette
-               only, no outline, mean rgb 154,146,133, luminance 115-180,
-               coverage 24%). Judged at 26px against its neighbours — a fan of
-               three coins was the other candidate and read as an ellipsis at
-               that size, and the app is already full of coins. -->
-          <img
-            v-if="canSeeBluffs"
-            :src="uiBluffs"
-            :title="
-              grimoire.isBluffsOpen
-                ? 'Hide the demon\'s bluffs'
-                : 'Show the demon\'s bluffs'
-            "
-            :class="{ off: !grimoire.isBluffsOpen }"
-            @click="toggleBluffsOpen"
-          />
+          <!-- THE DEMON'S BLUFFS mark lived here (2026-08-19 to FT-958) and now
+               rides the bluffs cluster itself, above its top coin — TownSquare.vue's
+               `.bluffs-toggle`, driving the SAME `toggleBluffsOpen` commit this
+               strip used to. Taken out of the toolbar entirely (user call,
+               FT-958): one door to the switch, not two. -->
           <!-- TOWN RECORDS — the recorded-games ledger (StatsOverlay). Same
                door, same overlay, same store flag as before; only the mark
                changed (user call 2026-08-19): the quill that used to sit on
@@ -351,12 +319,6 @@ import uiChat from "../assets/ui-chat.png";
 // a quill in an inkwell, is now the Town records door's mark. ui-records.png
 // (the hourglass this replaced) is unused but stays in the tree.
 import uiQuill from "../assets/ui-chronicle.png";
-// 2026-08-19: the demon's-bluffs door — a masquerade mask, baked to the same
-// stone as the rest of the strip.
-import uiBluffs from "../assets/ui-bluffs.png";
-// ...and the one rule that says who may look at them, shared with the clock
-// face and the socket's sender.
-import { canSeeBluffs, demonSeatIndex } from "../golem/bluffs";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
 import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
@@ -396,18 +358,6 @@ export default {
         this.players.some((p) => p.id && p.id === this.session.playerId)
       );
     },
-    /**
-     * 2026-08-19: is there a bluffs cluster for this viewer to show or hide?
-     * The storyteller, the demon, and the Lunatic — the same single rule the
-     * clock face's own `canSeeBluffs` and the socket's sender read, so the
-     * mark can never appear for someone with nothing behind it, nor go missing
-     * for someone who has.
-     */
-    canSeeBluffs() {
-      return (
-        canSeeBluffs(this.$store.state) && demonSeatIndex(this.players) > -1
-      );
-    },
     // the player strip is IN-GAME chrome — on the intro there is no script,
     // no votes and no night to look at (user call, 2026-08-18)
     inGame() {
@@ -421,7 +371,6 @@ export default {
       uiNight,
       uiChat,
       uiQuill,
-      uiBluffs,
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's
       // feel, not about the town's state, so it does not belong in the store.
@@ -776,7 +725,6 @@ export default {
     },
     ...mapMutations([
       "toggleGrimoire",
-      "toggleBluffsOpen",
       "toggleMenu",
       "toggleImageOptIn",
       "toggleMuted",
@@ -964,18 +912,6 @@ export default {
   height: 26px;
   cursor: pointer;
   filter: drop-shadow(0 1px 2px black);
-}
-/* TOGGLED OFF (2026-08-19): the bluffs mark is the strip's one door that is a
-   SWITCH rather than an opener, so it has to say which way it is set without
-   changing shape or leaving the row. It dims and desaturates, the same
-   step-back the bell takes while it is cooling — a mark that vanished under
-   the finger that pressed it would read as a fault, not as "hidden". */
-.player-strip img.off {
-  opacity: 0.34;
-  filter: drop-shadow(0 1px 2px black) grayscale(0.75) brightness(0.85);
-}
-.player-strip img.off:hover {
-  opacity: 0.75;
 }
 /* THE STRIP IS ONE SET, not a row of PNGs with some icons after it.
    Two of the marks are our engraved art and two are Font Awesome, and the
