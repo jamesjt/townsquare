@@ -55,6 +55,9 @@ const VL_STORAGE = {
   refract: "golem.vlRefract",
   aber: "golem.vlAber",
   band: "golem.vlBand",
+  shiftX: "golem.vlShiftX",
+  shiftY: "golem.vlShiftY",
+  size: "golem.vlSize",
   opacity: "golem.vlOpacity",
 };
 
@@ -129,16 +132,60 @@ export const VEIL_DIALS = [
     max: 60,
     hint: "Width of the bending rim in the displacement map, in pixels (the interior stays optically flat; does nothing while Refraction is 0)",
   },
+  // ── POSITION AND SIZE (FT-1004b, user: "we need a transparency and
+  // position options on the dev control for the veil") ──────────────────────
+  // The veil's geometry speaks PERCENT OF THE SHROUD BOX (`left: 50%`,
+  // `top: -6%`, `height: 106%` in Player.vue), not the face lab's --fpx — so
+  // these dials are hundredths of that box: one unit is 1% of the veil box's
+  // own dimension, and the veil holds its seat at every window size the same
+  // way the shipped numbers do. NEGATIVE RANGES are the disc lab's precedent
+  // (faceDisc.js): drag and arrow keys reach them; the type-in strips a
+  // minus, a known family limitation.
+  {
+    key: "shiftX",
+    label: "Shift across",
+    ship: 0,
+    min: -50,
+    max: 50,
+    hint: "Slide the veil sideways, in hundredths of the veil box (0 = shipped; positive is right)",
+  },
+  {
+    key: "shiftY",
+    label: "Shift down",
+    ship: 0,
+    // Applied to the arrival's start AND its resting -6% together, so the
+    // 200ms drop always glides the same distance wherever the veil settles.
+    min: -50,
+    max: 50,
+    hint: "Slide the veil down the coin, in hundredths of the veil box (0 = shipped; positive is down — the arrival still drops the same distance)",
+  },
+  {
+    key: "size",
+    label: "Size",
+    ship: 100,
+    // A transform scale about `top center` (the veil's own transform-origin),
+    // so growing seats the silk deeper onto the coin instead of lifting it.
+    // It scales art and mask TOGETHER — they are the same image, and the
+    // glass stays confined to the silhouette at every size. The two silks
+    // need it: they were baked to the same height but not the same width
+    // (480 vs 577), so they sit differently at 100.
+    min: 50,
+    max: 200,
+    hint: "Scale of the whole veil about its top centre, in hundredths (100 = shipped; art and mask scale together, so the glass keeps its silhouette)",
+  },
   {
     key: "opacity",
-    label: "Opacity",
+    label: "Transparency",
     ship: 100,
     // The whole veil's resting strength, in hundredths, multiplying the
     // states the veil already has — the hover preview stays half of whatever
-    // this is (Player.vue's `calc(... * 0.5)`).
+    // this is (Player.vue's `calc(... * 0.5)`). Labelled "Transparency"
+    // because that is the word the user asks for it by (FT-1004b); the key,
+    // storage entry and custom property keep their original names so a
+    // stored value survives the relabel.
     min: 0,
     max: 100,
-    hint: "The veil's resting strength, in hundredths (100 = as it ships; the hover preview stays half of whatever this is)",
+    hint: "How strongly the veil shows at rest, in hundredths (100 = as it ships, 0 = gone; the hover preview stays half of whatever this is)",
   },
 ];
 
@@ -161,6 +208,9 @@ export const VEIL_SILKS = [
  *  lab family's convention. */
 const VL_VAR = {
   frost: "--vl-frost-adj",
+  shiftX: "--vl-shift-x-adj",
+  shiftY: "--vl-shift-y-adj",
+  size: "--vl-size-adj",
   opacity: "--vl-opacity-adj",
 };
 

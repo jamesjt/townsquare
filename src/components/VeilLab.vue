@@ -29,7 +29,7 @@
     <button
       type="button"
       class="vl-toggle"
-      title="Veil lab — the dead seat's silk: pick of the two veil paintings, then Frost, Refraction, Aberration, Edge band and Opacity (the glass bench's dials)"
+      title="Veil lab — the dead seat's silk: pick of the two veil paintings, then Frost, Refraction, Aberration, Edge band (the glass bench's dials), Shift across, Shift down, Size and Transparency"
       :aria-expanded="String(vlLabOpen)"
       @click="vlLabOpen = !vlLabOpen"
     >
