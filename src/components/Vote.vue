@@ -4,96 +4,169 @@
       <span class="nominee" :style="nomineeStyle"></span>
       <span class="nominator" :style="nominatorStyle"></span>
     </div>
+    <!-- Golem fork (FT-976): THE NOMINATION OVERLAY, in the app's own chrome.
+         Three things were wrong with the old one, and only one of them was
+         cosmetic.
+
+         1. THE FINISH CONTROL LIED. It read "Close" in `demon` red, and in
+            this fork red means LIT — `control-lit`, a control that is ON. So
+            the one button that COMMITS the nomination to the vote log was
+            dressed as the one that throws it away. See `finishLabel` below:
+            it now says which of the two things it is about to do, because it
+            genuinely does both depending on state.
+         2. THE COUNT WAS THE HARDEST THING ON SCREEN TO READ. White and
+            saturated blue type sat straight on the painted rose window at
+            1.14:1 measured contrast — a mid-tone ochre behind a mid-luminance
+            blue. The black text-shadow it wore does nothing against a ground
+            that is already dark-ish. It now has a ground of its own and is
+            the headline it always should have been.
+         3. FOUR CONTROLS WERE TWO. "Mark for execution" + "Clear mark" is one
+            piece of state, and so is Hand DOWN / Hand UP. This app already
+            has the shapes for both — `control-toggle` and the
+            plate+`control-cell` segment — and `NumberScrub` for the timing.
+
+         THE GROUND IS A SCRIM, NOT THE FACE DISC (explicit user call) and not
+         a bordered plate either: the town square is a circle, and a hard
+         rectangle dropped in the middle of it reads as a dialog sitting on
+         the art rather than part of it. The scrim is the plate's own ground
+         colour taken to near-opaque at the centre and faded to nothing at the
+         rim, so the type gets its contrast and the composition keeps its
+         shape. -->
     <div class="overlay">
       <audio src="../assets/sounds/countdown.mp3" preload="auto"></audio>
-      <em class="blue">{{ nominator.name }}</em> nominated
-      <em>{{ nominee.name }}</em
-      >!
-      <br />
-      <em class="blue">
-        {{ voters.length }} vote{{ voters.length !== 1 ? "s" : "" }}
-      </em>
-      in favor
-      <em v-if="nominee.role.team !== 'traveler'">
-        (majority is {{ Math.ceil(alive / 2) }})
-      </em>
-      <em v-else>(majority is {{ Math.ceil(players.length / 2) }})</em>
+
+      <p class="vo-nomination">
+        <em class="blue">{{ nominator.name }}</em> nominated
+        <em>{{ nominee.name }}</em>
+      </p>
+
+      <!-- THE HEADLINE. The running count against the majority is the live
+           state of the nomination and the thing the whole room is watching,
+           so it is the biggest thing here rather than one more line of body
+           text. `is-majority` lights it with `control-lit`'s own colours the
+           moment the count reaches the bar — the same "this is ON" language
+           every other lit control in the app speaks. -->
+      <div class="vo-tally" :class="{ 'is-majority': hasMajority }">
+        <div class="vo-count" data-tally>
+          <span class="vo-now">{{ voters.length }}</span>
+          <span class="vo-slash">/</span>
+          <span class="vo-need">{{ majority }}</span>
+        </div>
+        <div class="vo-caption">
+          {{ voters.length === 1 ? "vote" : "votes" }} in favor &middot;
+          majority is {{ majority }}
+        </div>
+      </div>
 
       <template v-if="!session.isSpectator">
-        <div v-if="!session.isVoteInProgress && session.lockedVote < 1">
-          Time per player:
-          <font-awesome-icon
-            @mousedown.prevent="setVotingSpeed(-500)"
-            icon="minus-circle"
+        <div
+          class="vo-row"
+          v-if="!session.isVoteInProgress && session.lockedVote < 1"
+        >
+          <span class="vo-label">Time per player</span>
+          <!-- The app's own number control, the one the seat count and the
+               night sheet's numbers already use — same gesture (drag
+               sideways, or click to type) in one implementation instead of a
+               second pair of +/- steppers. It hands back WHOLE SECONDS and
+               `setVotingSeconds` turns that into the delta the original
+               stepper fed `setVotingSpeed`, so the store keeps its
+               milliseconds and the sweep reads exactly what it always did. -->
+          <NumberScrub
+            class="vo-scrub"
+            :value="votingSeconds"
+            :min="1"
+            :max="30"
+            title="Drag sideways to scrub — click to type"
+            @input="setVotingSeconds"
           />
-          {{ session.votingSpeed / 1000 }}s
-          <font-awesome-icon
-            @mousedown.prevent="setVotingSpeed(500)"
-            icon="plus-circle"
-          />
+          <span class="vo-label">seconds</span>
         </div>
-        <div class="button-group">
-          <div
-            class="button townsfolk"
+
+        <div class="vo-controls">
+          <button
+            class="vo-btn"
             v-if="!session.isVoteInProgress"
             @click="countdown"
           >
             Countdown
-          </div>
-          <div class="button" v-if="!session.isVoteInProgress" @click="start">
+          </button>
+          <button class="vo-btn" v-if="!session.isVoteInProgress" @click="start">
             {{ session.lockedVote ? "Restart" : "Start" }}
-          </div>
+          </button>
           <template v-else>
-            <div
-              class="button townsfolk"
+            <button
+              class="vo-btn"
               :class="{ disabled: !session.lockedVote }"
               @click="pause"
             >
               {{ voteTimer ? "Pause" : "Resume" }}
-            </div>
-            <div class="button" @click="stop">Reset</div>
+            </button>
+            <button class="vo-btn" @click="stop">Reset</button>
           </template>
-          <div class="button demon" @click="finish">Close</div>
         </div>
-        <div class="button-group mark" v-if="nominee.role.team !== 'traveler'">
-          <div
-            class="button"
-            :class="{
-              disabled: session.nomination[1] === session.markedPlayer
-            }"
-            @click="setMarked"
+
+        <!-- ONE control for one piece of state. `control-toggle` is this
+             app's shape for a control that HOLDS a position (the build
+             panel's Duplicates wears it) — hollow and full-contrast when
+             off, lit when on, sunken in both so the shape alone says
+             "toggle" before the colour does. -->
+        <div class="vo-controls" v-if="!isExile">
+          <button
+            class="vo-btn vo-mark"
+            :class="{ on: isMarked }"
+            :aria-pressed="String(isMarked)"
+            @click="toggleMarked"
           >
             Mark for execution
-          </div>
-          <div class="button" @click="removeMarked">
-            Clear mark
-          </div>
+          </button>
+        </div>
+
+        <div class="vo-controls">
+          <button
+            class="vo-btn vo-finish"
+            :class="{ 'is-primary': willRecord }"
+            :title="finishTitle"
+            @click="finish"
+          >
+            {{ finishLabel }}
+          </button>
         </div>
       </template>
+
       <template v-else-if="canVote">
-        <div v-if="!session.isVoteInProgress">
-          {{ session.votingSpeed / 1000 }} seconds between votes
+        <div class="vo-row" v-if="!session.isVoteInProgress">
+          <span class="vo-label"
+            >{{ session.votingSpeed / 1000 }} seconds between votes</span
+          >
         </div>
-        <div class="button-group">
-          <div
-            class="button townsfolk"
+        <!-- My own hand is ONE piece of state with two positions, so it is one
+             segmented control — the plate on the group, `control-cell` on the
+             cells, lit on the one that is true — exactly the night-mode
+             switch's shape. Two separate pills, one of them greyed, made the
+             greyed one look broken rather than unselected. -->
+        <div class="vo-hands" role="group" aria-label="Your vote">
+          <button
+            class="vo-hand"
+            :class="{ on: !currentVote }"
+            :aria-pressed="String(!currentVote)"
             @click="vote(false)"
-            :class="{ disabled: !currentVote }"
           >
             Hand DOWN
-          </div>
-          <div
-            class="button demon"
+          </button>
+          <button
+            class="vo-hand"
+            :class="{ on: !!currentVote }"
+            :aria-pressed="String(!!currentVote)"
             @click="vote(true)"
-            :class="{ disabled: currentVote }"
           >
             Hand UP
-          </div>
+          </button>
         </div>
       </template>
-      <div v-else-if="!player">
+
+      <p class="vo-hint" v-else-if="!player">
         Please claim a seat to vote.
-      </div>
+      </p>
     </div>
     <transition name="blur">
       <div
@@ -116,12 +189,69 @@
 
 <script>
 import { mapGetters, mapState } from "vuex";
+import NumberScrub from "./NumberScrub";
 
 export default {
+  components: { NumberScrub },
   computed: {
     ...mapState("players", ["players"]),
     ...mapState(["session", "grimoire"]),
     ...mapGetters({ alive: "players/alive" }),
+    /** A traveler is EXILED, not executed — no execution mark, and the
+     *  majority is counted off the whole table rather than the living. Both
+     *  rules were already here, inline and stated twice; this names them
+     *  once. */
+    isExile: function() {
+      return this.nominee.role.team === "traveler";
+    },
+    /** The bar this nomination has to clear. Same arithmetic the vote log
+     *  itself uses when it records the result (session/addHistory), so the
+     *  number on screen and the number in the history can never disagree. */
+    majority: function() {
+      return Math.ceil((this.isExile ? this.players.length : this.alive) / 2);
+    },
+    hasMajority: function() {
+      return this.voters.length >= this.majority;
+    },
+    /**
+     * WHAT THE FINISH CONTROL IS ABOUT TO DO — and it is genuinely two
+     * different things, which is why the old single word for it was unsafe in
+     * both directions.
+     *
+     * `finish()` always clears the nomination, but the history entry is
+     * written by `session/addHistory`, which returns early unless the sweep
+     * ran all the way round:
+     *
+     *     if (!state.nomination || state.lockedVote <= players.length) return;
+     *
+     * So on a COMPLETED vote the control records the result; on an unstarted
+     * or half-swept one it silently discards the nomination and records
+     * nothing. "Close" could be read either way, and was wrong either way —
+     * a storyteller expecting a discard got a permanent log entry, and one
+     * expecting a record got nothing. The label follows the state instead.
+     */
+    willRecord: function() {
+      return this.session.lockedVote > this.players.length;
+    },
+    finishLabel: function() {
+      return this.willRecord ? "Record vote" : "Cancel nomination";
+    },
+    finishTitle: function() {
+      return this.willRecord
+        ? "Write this result to the vote history and end the nomination"
+        : "End the nomination without recording it — the vote did not finish";
+    },
+    isMarked: function() {
+      return this.session.markedPlayer === this.session.nomination[1];
+    },
+    /** The scrub's unit is whole seconds; the store's is milliseconds and
+     *  stays that way (the sweep's own setInterval reads it directly). A
+     *  value inherited from elsewhere that is not a whole second still shows
+     *  itself truthfully here rather than being rounded behind the
+     *  storyteller's back. */
+    votingSeconds: function() {
+      return this.session.votingSpeed / 1000;
+    },
     nominator: function() {
       return this.players[this.session.nomination[0]];
     },
@@ -264,11 +394,27 @@ export default {
         this.$store.commit("session/setVotingSpeed", speed);
       }
     },
+    /** The scrub hands back whole seconds; this turns that into the DELTA the
+     *  original +/- stepper fed `setVotingSpeed`, so the store still receives
+     *  milliseconds through the identical `speed > 0` guard rather than a
+     *  second, parallel bounds check that could drift from it. */
+    setVotingSeconds(seconds) {
+      this.setVotingSpeed(seconds * 1000 - this.session.votingSpeed);
+    },
     setMarked() {
       this.$store.commit("session/setMarkedPlayer", this.session.nomination[1]);
     },
     removeMarked() {
       this.$store.commit("session/setMarkedPlayer", -1);
+    },
+    /** One control, one piece of state — it calls the same two mutations the
+     *  two buttons called, so nothing downstream can tell the difference. */
+    toggleMarked() {
+      if (this.isMarked) {
+        this.removeMarked();
+      } else {
+        this.setMarked();
+      }
     }
   }
 };
@@ -276,6 +422,7 @@ export default {
 
 <style lang="scss" scoped>
 @import "../vars.scss";
+@import "../controls.scss";
 
 #vote {
   position: absolute;
@@ -288,13 +435,6 @@ export default {
   background: url("../assets/demon-head.png") center center no-repeat;
   background-size: auto 75%;
   text-align: center;
-  text-shadow: 0 1px 2px #000000, 0 -1px 2px #000000, 1px 0 2px #000000,
-    -1px 0 2px #000000;
-
-  .mark .button {
-    font-size: 75%;
-    margin: 0;
-  }
 
   &:after {
     content: " ";
@@ -311,6 +451,24 @@ export default {
     }
   }
 
+  // ── NO LONGER REACHED, AND LEFT IN PLACE ──────────────────────────────────
+  // Both of these styled markup this component no longer renders, and neither
+  // is deleted here: the two rules below are the last description anyone wrote
+  // of how those controls were meant to size, and they cost nothing sitting
+  // here inert. Whoever removes them should do it deliberately.
+  //
+  //   `.mark .button` sized the "Mark for execution" / "Clear mark" PAIR. That
+  //   pair is now the single `.vo-mark` toggle.
+  //
+  //   `svg` styled the font-awesome minus-circle/plus-circle that stepped the
+  //   voting speed, including the coarse-pointer padding that stopped them
+  //   drawing at 10x10px on a phone. That stepper is now NumberScrub, whose
+  //   own touch target comes with it.
+  .mark .button {
+    font-size: 75%;
+    margin: 0;
+  }
+
   svg {
     cursor: pointer;
     &:hover path {
@@ -318,13 +476,244 @@ export default {
       stroke-width: 30px;
       stroke: white;
     }
-    // the − / + that set seconds-per-player drew at 10x10px on a phone
     @media (pointer: coarse) {
       box-sizing: content-box;
       padding: 13px;
       margin: -11px -4px;
     }
   }
+}
+
+// ── THE OVERLAY, AND ITS GROUND ─────────────────────────────────────────────
+// The scrim. A radial fade rather than a bordered box, for the reason in the
+// template comment: this sits in the middle of a circle. It is the plate's own
+// ground colour ($control-bg is rgba(0,0,0,.7)) pushed to near-opaque where
+// the type actually is, then let go entirely by the rim, so there is no edge
+// anywhere for the eye to catch on.
+//
+// THE SCRIM MUST OUTRANK THE CLOCK HANDS. `.arrows` are absolutely positioned
+// siblings at z-index auto, and they run at 150% height — the tips point out
+// at the nominator's and nominee's seats, which is the whole job, but the
+// SHAFTS cross the middle of the overlay, and a scarlet hand drawn straight
+// through the count is exactly as unreadable as the ochre was. So `.overlay`
+// takes a stacking context of its own ABOVE them (`z-index: 1`), and the
+// scrim's `z-index: -1` is then scoped inside that context: it paints under
+// every glyph here but over both hands. The hands stay untouched everywhere
+// outside the scrim's reach, which is where they do their pointing.
+.overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45em;
+  padding: 1em 1.6em 1.15em;
+  // wide enough that the nomination line and the widest control do not force
+  // the scrim into a letterbox; the ring is 20% of the viewport and the
+  // overlay has always been allowed to overhang it.
+  width: 15em;
+
+  &:before {
+    content: "";
+    position: absolute;
+    // A CONSTANT halo, not a proportional one. As a percentage this shrank
+    // with the box, and a player's overlay is barely half the height of the
+    // storyteller's — the fade reached the type before it reached zero.
+    inset: -1.7em -2.6em;
+    z-index: -1;
+    background: radial-gradient(
+      ellipse at 50% 50%,
+      rgba(0, 0, 0, 0.94) 0%,
+      rgba(0, 0, 0, 0.92) 40%,
+      rgba(0, 0, 0, 0.82) 60%,
+      rgba(0, 0, 0, 0.5) 78%,
+      rgba(0, 0, 0, 0) 100%
+    );
+    pointer-events: none;
+  }
+}
+
+// WHO NOMINATED WHOM — secondary now. It was the same weight as the count.
+.vo-nomination {
+  margin: 0;
+  font-size: 0.62em;
+  line-height: 1.35;
+  color: #e7dfcd;
+  // the names keep their team colours, which are mid-luminance hues that were
+  // unreadable on ochre and are fine on the scrim
+  text-shadow: 0 1px 2px #000;
+}
+
+// ── THE HEADLINE ────────────────────────────────────────────────────────────
+.vo-tally {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+
+  .vo-count {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.1em;
+    font-weight: bold;
+  }
+  .vo-now {
+    font-size: 2.1em;
+    color: #f7f0e1;
+  }
+  .vo-slash {
+    font-size: 1.1em;
+    color: rgba(216, 205, 180, 0.45);
+  }
+  .vo-need {
+    font-size: 1.25em;
+    color: #d8cdb4;
+  }
+  .vo-caption {
+    margin-top: 0.35em;
+    font-size: 0.5em;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #c8bda6;
+  }
+
+  // MAJORITY REACHED. `control-lit`'s own colours — the same blood this app
+  // lights every chosen control with — so the moment the bar is cleared
+  // speaks the language the rest of the UI already speaks.
+  //
+  // THE NUMBERS LIGHT; THE CAPTION DOES NOT. `$control-on-edge` is a mid
+  // rose that measures about 4:1 on this scrim, under the 4.5:1 that type
+  // this small wants, and the caption is a fixed label rather than a piece
+  // of state — lighting it dimmed the one line that has to stay readable in
+  // order to explain the one that just changed.
+  &.is-majority {
+    .vo-now {
+      color: $control-on-color;
+      text-shadow: 0 0 18px rgba(190, 90, 90, 0.55);
+    }
+    .vo-need {
+      color: $control-on-edge;
+    }
+  }
+}
+
+// ── ROWS AND CONTROLS ───────────────────────────────────────────────────────
+.vo-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  font-size: 0.62em;
+  color: #cfc4ad;
+}
+.vo-label {
+  white-space: nowrap;
+}
+// NumberScrub's resting label is a bare bold digit in both presets; "seat" is
+// the one that inherits its size, which is what an em-scaled overlay wants.
+.vo-scrub {
+  color: #f7f0e1;
+  &:hover {
+    color: #fff;
+  }
+}
+
+.vo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  flex-wrap: wrap;
+}
+
+// A PLATED TEXT BUTTON — the ground, edge, radius and purple pointer
+// acknowledgement every other control in this app wears (src/controls.scss).
+// The pill with its radial gradients and its red hover was the last of the
+// upstream chrome on this surface.
+.vo-btn {
+  @include control-plate;
+  font-family: inherit;
+  font-size: 0.6em;
+  font-weight: bold;
+  padding: 0.5em 1em;
+  color: #d8cdb4;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms, border-color 150ms, background 150ms;
+
+  &:hover:not(.disabled) {
+    color: #fff;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &.disabled {
+    @include control-disabled;
+  }
+  @media (pointer: coarse) {
+    min-height: 40px;
+    padding: 0.5em 1.1em;
+  }
+}
+
+// The execution mark — one control holding one position.
+.vo-mark {
+  @include control-toggle;
+}
+
+// THE FINISH CONTROL. Emphatic when it will WRITE the result, plain when it
+// will only discard the nomination — and never blood, because blood is
+// `control-lit` here and this control is not a thing that is switched on. The
+// emphasis is the plate's own parchment ink promoted to the edge, so it is the
+// brightest object on the surface without introducing a colour.
+.vo-finish.is-primary {
+  background: rgba(60, 50, 32, 0.88);
+  border-color: rgba(216, 205, 180, 0.8);
+  color: #fdf6e6;
+  box-shadow: 0 0 14px rgba(216, 205, 180, 0.16);
+
+  &:hover:not(.disabled) {
+    background: rgba(84, 70, 43, 0.94);
+    border-color: #efe3c6;
+    color: #fff;
+  }
+}
+
+// ── A PLAYER'S OWN HAND ─────────────────────────────────────────────────────
+// One state, two positions: the plate on the group, cells inside it, lit on
+// whichever is true. Same shape as the night-mode switch.
+.vo-hands {
+  @include control-plate;
+  display: inline-flex;
+  overflow: hidden;
+}
+.vo-hand {
+  @include control-cell;
+  font-size: 0.6em;
+  font-weight: bold;
+  padding: 0.5em 1.1em;
+  white-space: nowrap;
+  transition: color 150ms, background 150ms;
+
+  &:hover:not(.on) {
+    background: $control-bg-hover;
+    color: #fff;
+  }
+  &.on {
+    background: $control-on-bg;
+    color: $control-on-color;
+  }
+  @media (pointer: coarse) {
+    min-height: 40px;
+  }
+}
+
+.vo-hint {
+  margin: 0;
+  font-size: 0.6em;
+  color: #cfc4ad;
 }
 
 @keyframes arrow-cw {
