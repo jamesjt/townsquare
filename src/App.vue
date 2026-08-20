@@ -412,11 +412,13 @@
     <!-- FT-860: a player's OWN night information — the third right-hand
          drawer, mounted only while the town's night setting is "Everyone". -->
     <NightInfoDrawer v-if="night.mode === 'everyone'" />
-    <!-- FT-886: the CHRONICLE — this game's timeline, the fourth drawer on the
-         right-hand rail. Mounted for everyone: what it shows differs by viewer
-         and that difference is made in the store (night/visibleEntries), not
-         by whether the component exists. -->
-    <ChronicleDrawer />
+    <!-- FT-1010: CHRONICLES — the town's whole story: talk, whispers and game
+         events in one stream, chaptered per game, with the town records as
+         its summary band. Mounted for everyone; what differs by viewer is
+         which rows the store let in (chatIngest + canSee), never the
+         component. It replaced the ChronicleDrawer that stood here and the
+         ChatDrawer Menu mounted on the body — retired by unmounting. -->
+    <ChroniclesDrawer />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -648,8 +650,13 @@ import VoteDrawer from "./components/VoteDrawer";
 // FT-860: the storyteller's night checklist, and a player's own night notes.
 import NightSheet from "./components/NightSheet";
 import NightInfoDrawer from "./components/NightInfoDrawer";
-// FT-886: the chronicle — this game's own timeline
-import ChronicleDrawer from "./components/ChronicleDrawer";
+// FT-1010: CHRONICLES — the town's whole story as one surface (chat + game
+// events + records merged; user decision 2026-08-20). It replaced the
+// ChronicleDrawer mounted here and the ChatDrawer Menu used to stand on the
+// body — both RETIRED BY UNMOUNTING; their files stay in the tree.
+import ChroniclesDrawer from "./components/ChroniclesDrawer";
+// FT-1010: the game-end event the winner pick writes into the town's log.
+import { encodeEvent } from "./golem/chronicles";
 // FT-888: the face-disc lab — TEMPORARY, and it comes out with src/faceDisc.scss's
 // four `--fd-*-adj` reads and src/golem/faceDisc.js.
 import FaceDiscLab from "./components/FaceDiscLab";
@@ -742,7 +749,7 @@ export default {
     VoteDrawer,
     NightSheet,
     NightInfoDrawer,
-    ChronicleDrawer,
+    ChroniclesDrawer,
     FaceDiscLab,
     FaceHands,
     FaceHandsLab,
@@ -840,7 +847,12 @@ export default {
         this.modals.scriptDrawer ||
         this.modals.voteDrawer ||
         this.modals.nightDrawer ||
-        this.modals.chronicleDrawer
+        // FT-1010: chronicles took the chronicle drawer's place on the rail
+        // (the old flag stays in the store, unrouted). Listing it here is
+        // also what finally lets the pill step aside for the composer — the
+        // dodge ChatDrawer could never have because its lane was barred from
+        // this file (see its old pill-reserve note).
+        this.modals.chroniclesDrawer
       );
     },
     /**
@@ -1332,6 +1344,28 @@ export default {
      */
     onGameRecorded(winningTeam) {
       this.dealAt = null;
+      // FT-1010: THE END IS THE TOWN'S OWN NEWS, written into the town's log
+      // BEFORE the endGame commit below. Order matters: that commit's resync
+      // re-derives the live game id — null now, the deal stash was cleared
+      // when the record landed — and this row must land INSIDE the game it
+      // ends, so it is sent while chat.gameId still names it. Authored here,
+      // not in the mutation subscriber, because `endGame` is also committed
+      // on boot-restore of an ended town and on every spectator's receipt of
+      // the resync; THIS handler runs only on the host's actual winner pick.
+      const winner = winningTeam === "evil" ? "evil" : "good";
+      this.$store.commit("chatSay", {
+        kind: "system",
+        gameId: this.$store.state.chat.gameId,
+        senderKey: "system",
+        senderKind: "system",
+        body: encodeEvent({
+          t: "end",
+          winner,
+          text: `The game ends — ${winner === "good" ? "Good" : "Evil"} wins.`,
+        }),
+        phase: this.$store.state.grimoire.isNight ? "night" : "day",
+        dayNumber: this.$store.state.night.day,
+      });
       this.$store.commit("endGame", winningTeam);
     },
     /**

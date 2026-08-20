@@ -177,6 +177,12 @@ export default new Vuex.Store({
       // live in `chat` below rather than being reassembled per render, because
       // unlike the chronicle it is fed by the wire and cannot be derived.
       chatDrawer: false,
+      // FT-1010: CHRONICLES — the town's whole story as one surface: the
+      // chat log, the game events and the town records merged (user decision,
+      // 2026-08-20). This is the drawer the strip's quill opens now. The two
+      // flags above stay in place, unrouted — their components are retired by
+      // unmounting, never deleted.
+      chroniclesDrawer: false,
     },
     /**
      * FT-965: THE TOWN'S ONE PERMANENT ROOM.
@@ -460,7 +466,10 @@ export default new Vuex.Store({
           row &&
           typeof row.seq === "number" &&
           row.townId === town &&
-          canSee(row, viewer),
+          // FT-1010: the live game's id rides along — a whisper from a
+          // FINISHED game is public (see canSee), and "finished" can only be
+          // judged against the game being played right now.
+          canSee(row, viewer, state.chat.gameId),
       );
       state.chat.log = mergeLog(state.chat.log, allowed);
     },

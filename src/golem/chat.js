@@ -56,10 +56,10 @@
 
 import { dealTimeFor } from "./stats";
 
-const API =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3939/api/botc"
-    : "/api/botc";
+// Same-origin in BOTH modes (FT-1010): production serves the app behind the
+// platform, and the dev server now proxies /api there (vue.config.js) — the
+// old absolute dev base was cross-origin and the platform speaks no CORS.
+const API = "/api/botc";
 
 /** The store's own LOG_LIMIT_DEFAULT. A short page means "drained". */
 const PAGE_LIMIT = 200;
@@ -237,10 +237,24 @@ export function seatOf(state) {
  * application state, one template edit away from being visible.
  *
  * A storyteller sees every whisper, content included. That is a user call.
+ *
+ * FT-1010, FINISHED GAMES ARE FULLY PUBLIC (user decision, 2026-08-20, and it
+ * explicitly overruled a saw-it-live-only rule): once a game is over, its
+ * whole story — whispers included — is every viewer's to read. A game is
+ * "over" precisely when it is not the game being played right now, which is
+ * what `liveGameId` says. Two slices deliberately KEEP the party-only rule:
+ * the live game (whisper privacy during play is unchanged — the relay still
+ * routes those to exactly three sockets) and between-games whispers (no
+ * finished game ever owns them, so no finish ever publishes them).
+ *
+ * `chatSetGameId`'s subscriber re-reads the whole log when the live game
+ * changes, so rows dropped here while a game was live are re-offered the
+ * moment it is over.
  */
-export function canSee(row, viewer) {
+export function canSee(row, viewer, liveGameId) {
   if (!row) return false;
   if (row.kind !== "whisper") return true;
+  if (row.gameId && row.gameId !== (liveGameId || null)) return true;
   if (viewer.isStoryteller) return true;
   if (!viewer.key) return false;
   return row.senderKey === viewer.key || row.recipientKey === viewer.key;

@@ -14,10 +14,9 @@
  * a durable flag, so it cannot gate the End-game affordance.
  */
 
-const API =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3939/api/botc"
-    : "/api/botc";
+// Same-origin in both modes — the dev server proxies /api (vue.config.js,
+// FT-1010); the old absolute dev base was CORS-blocked in every browser.
+const API = "/api/botc";
 
 const DEAL_KEY = "golem.dealTime";
 

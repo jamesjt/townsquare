@@ -41,53 +41,23 @@
                `.bluffs-toggle`, driving the SAME `toggleBluffsOpen` commit this
                strip used to. Taken out of the toolbar entirely (user call,
                FT-958): one door to the switch, not two. -->
-          <!-- TOWN RECORDS — the recorded-games ledger (StatsOverlay). Same
-               door, same overlay, same store flag as before; only the mark
-               changed (user call 2026-08-19): the quill that used to sit on
-               the chronicle moved here — a quill and inkwell reads as the
-               written ledger, which is what finished games are. Baked to the
-               strip's measured stone (128px, silhouette only, no outline,
-               mean rgb 154,146,133, luminance wandering 110-176). The
-               hourglass this mark replaced is unused now; ui-records.png
-               stays in the tree. -->
-          <img :src="uiQuill" title="Town records" @click="$emit('records')" />
-          <!-- FT-886: THE CHRONICLE — what has happened in the game being
-               played right now, which until now had no door at all — it was
-               scattered across the night log, the vote history and the
-               shrouds on the seats.
-
-               Open to everyone. What each viewer gets differs, and the
-               difference is enforced in the store rather than here: the drawer
-               reads night/visibleEntries, which hands a storyteller the whole
-               log and a player either nothing or only their own rows with the
-               storyteller's marks stripped off. Nominations, executions and
-               the dead are public at the table and public here.
-
-               A CHAT BUBBLE now (user call 2026-08-19): the chronicle is the
-               live, conversational log of the game in progress, so it wears
-               the mark for that rather than the quill, which moved to Town
-               records. Same baked stone as the rest of the strip (128px,
-               silhouette only, no outline, mean rgb 154,146,133, luminance
-               wandering 110-176).
-
-               FT-965: …and the bubble has moved ON, to the thing it was always
-               drawing. There is REAL CHAT in the town now (ChatDrawer), and a
-               speech bubble that opens anything else is a mark lying about its
-               door. The chronicle keeps its own, one place to the right: a
-               book with a skull, which is what a Blood on the Clocktower
-               game's record of nominations, executions and the dead actually
-               is — and which collides with nothing else in the strip (the
-               quill+inkwell next door is Town records). -->
+          <!-- FT-1010: CHRONICLES — ONE door onto the town's whole story
+               (user decision, 2026-08-20): the chat log, the game events and
+               the town records, merged into one surface behind the quill and
+               inkwell — the written ledger's own mark. Three doors became
+               this one: the records door (this same quill, which used to
+               raise StatsOverlay), the chat bubble and the chronicle's
+               book-with-a-skull are gone from the strip; their components
+               are retired by unmounting and their files stay in the tree.
+               The records aggregates live on as the surface's summary band. -->
           <img
-            :src="uiChat"
-            title="Town chat — one room, the whole town, always"
-            @click="toggleModal('chatDrawer')"
+            :src="uiQuill"
+            title="Chronicles — the town's whole story"
+            @click="toggleModal('chroniclesDrawer')"
           />
-          <font-awesome-icon
-            icon="book-dead"
-            title="Chronicle — what has happened this game"
-            @click="toggleModal('chronicleDrawer')"
-          />
+          <!-- (FT-1010: the chat bubble and the chronicle's book-with-a-skull
+               stood here, FT-965/FT-886 — both merged into the Chronicles
+               quill above. ui-chat.png stays in the tree.) -->
           <!-- FT-880: CALL THE TOWN BACK — every connected client makes a
                noise at once. During the day the town scatters into private
                conversations and the storyteller has no way to end them.
@@ -319,24 +289,22 @@
       </div>
     </div>
 
-    <!-- FT-965: the town chat's drawer is NOT here. It is mounted onto its own
-         element on the body — see `mounted` below for why it cannot live in
-         this tree. Its door is the chat bubble in the strip above. -->
+    <!-- (FT-1010: the town chat's drawer used to be mounted from here onto
+         its own body element, because this lane's predecessor was barred from
+         App.vue. Chronicles is mounted by App.vue beside the other drawers,
+         so that workaround is retired with the ChatDrawer it carried.) -->
   </div>
 </template>
 
 <script>
-import Vue from "vue";
 import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
 import uiVotes from "../assets/ui-votes.png";
 import uiNight from "../assets/ui-night.png";
-// FT-886: the chronicle's chat bubble — this game's live, running timeline
-import uiChat from "../assets/ui-chat.png";
-// the town-records quill — moved here from the chronicle 2026-08-19; the file
-// is still named for its old home (ui-chronicle.png) but the drawing on it,
-// a quill in an inkwell, is now the Town records door's mark. ui-records.png
-// (the hourglass this replaced) is unused but stays in the tree.
+// the Chronicles quill — the file is still named for its first home
+// (ui-chronicle.png) but the drawing on it, a quill in an inkwell, is the one
+// door onto the town's whole story now (FT-1010). ui-chat.png and
+// ui-records.png are unused but stay in the tree.
 import uiQuill from "../assets/ui-chronicle.png";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
@@ -350,10 +318,6 @@ import { flashHint } from "../golem/hint";
 // FT-880: the index page's key lettering, shared so the menu's badges and the
 // key list print a key the same way.
 import KeyCap from "./KeyCap";
-// FT-965: the town's one permanent chat room — see the mount point above for
-// why the drawer hangs off the strip rather than off App.
-import ChatDrawer from "./ChatDrawer";
-
 export default {
   components: { KeyCap },
   computed: {
@@ -391,7 +355,6 @@ export default {
       uiScript,
       uiVotes,
       uiNight,
-      uiChat,
       uiQuill,
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's
@@ -412,43 +375,13 @@ export default {
       tab: null,
     };
   },
-  /**
-   * FT-965: STAND THE TOWN CHAT UP, on the body, beside the other drawers.
-   *
-   * The strip owns chat's door, so this component is where the drawer belongs
-   * by responsibility — but it cannot belong here in the DOM. `#controls` (this
-   * component's own root) is `z-index: 75`, which makes it a STACKING CONTEXT:
-   * anything rendered inside it paints at the strip's level, so a drawer there
-   * would cover the very mark that opens it, and would sit above chrome that
-   * should cover IT.
-   *
-   * Moving the element to the body after render does not hold — Vue re-inserts
-   * it at its rendered position on this component's next re-render, and Menu
-   * re-renders on any modal change, which is exactly what opening the drawer
-   * is. So the drawer gets its own root instead: one element on the body, one
-   * small Vue instance on it, sharing THIS store. Vue then owns a tree whose
-   * parent really is the body, and nothing puts it back.
-   *
-   * The other four drawers are mounted by App.vue; this lane does not edit that
-   * file. The result is the same rail, the same z-index, the same behaviour.
-   */
-  mounted() {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    this.chatRoot = new Vue({
-      store: this.$store,
-      render: (h) => h(ChatDrawer),
-    }).$mount(host);
-  },
+  // (FT-1010: FT-965's body-mounted ChatDrawer stood itself up here — a
+  // workaround for that lane being barred from App.vue, where the other
+  // drawers mount. Chronicles mounts from App.vue like the rest, so the
+  // workaround retired with the drawer it carried.)
   beforeDestroy() {
     clearTimeout(this.callBackTimer);
     clearTimeout(this.clearTimer);
-    if (this.chatRoot) {
-      const el = this.chatRoot.$el;
-      this.chatRoot.$destroy();
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-      this.chatRoot = null;
-    }
   },
   watch: {
     // The intro screen's "Menu" button flips the store flag the old gear used;

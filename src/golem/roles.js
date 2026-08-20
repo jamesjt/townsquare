@@ -14,7 +14,7 @@
 
 const API =
   process.env.NODE_ENV === "development"
-    ? "http://localhost:3939/api/botc/roles"
+    ? "/api/botc/roles" // the dev server proxies /api (vue.config.js, FT-1010)
     : "/api/botc/roles";
 
 const SHELF_KEY = "golem.roles";

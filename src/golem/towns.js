@@ -12,7 +12,7 @@
 
 const API =
   process.env.NODE_ENV === "development"
-    ? "http://localhost:3939/api/botc/towns"
+    ? "/api/botc/towns" // the dev server proxies /api (vue.config.js, FT-1010)
     : "/api/botc/towns";
 
 const KEY = "golem.towns";

@@ -31,6 +31,8 @@ import { flashHint } from "../golem/hint";
 // voice; `gameIdFor` derives the game a line belongs to from the deal moment
 // the host already stashes (golem/stats), so no new per-game identity is minted.
 import { chatErrorText, gameIdFor } from "../golem/chat";
+// FT-1010: the event envelope — a game event riding a system row's body.
+import { encodeEvent } from "../golem/chronicles";
 
 class LiveSession {
   constructor(store) {
@@ -1343,8 +1345,16 @@ class LiveSession {
    * starting. Storyteller-only, matching the relay's own refusal of a system
    * message from anyone else; a player's client calling this is a no-op rather
    * than a frame the relay throws away.
+   *
+   * FT-1010: the line can now carry a MACHINE HALF — `event`, an object from
+   * golem/chronicles' vocabulary (minus `text`, which is the first argument).
+   * It rides INSIDE the body as the EV1 envelope, so the relay (untouched,
+   * hand-deployed) and the store (untouched) carry it as the plain system row
+   * it still is, and the chronicles surface decodes it back into a typed
+   * event. Host-only authorship is the relay's own rule for `kind: "system"`,
+   * which is exactly why events ride this kind: one writer, no duplicates.
    */
-  systemMessage(body) {
+  systemMessage(text, event) {
     if (this._isSpectator) return;
     const { session, grimoire, chat, night } = this._store.state;
     if (!session.sessionId) return;
@@ -1353,7 +1363,7 @@ class LiveSession {
       gameId: chat.gameId,
       senderKey: "system",
       senderKind: "system",
-      body,
+      body: event ? encodeEvent({ ...event, text }) : text,
       phase: grimoire.isNight ? "night" : "day",
       dayNumber: night.day,
     });
@@ -1425,6 +1435,13 @@ export default (store) => {
   // setup
   const session = new LiveSession(store);
 
+  // FT-1010: the live game id as last seen, for spotting the moment it
+  // CHANGES. `chatSetGameId` is committed on every gamestate sync, almost
+  // always with the value it already had — only an actual change means the
+  // finished/live boundary moved and the log must be re-read (see the case
+  // below).
+  let lastLiveGameId = null;
+
   // listen to mutations
   store.subscribe(({ type, payload }, state) => {
     switch (type) {
@@ -1465,7 +1482,10 @@ export default (store) => {
           // and it carries the new id to everyone connected in one shot.
           setTimeout(() => {
             session.sendGamestate();
-            session.systemMessage("A game begins.");
+            // FT-1010: typed, so the chronicles surface can anchor a game
+            // section on it. The gamestate sync one line up is what stamps
+            // chat.gameId, so the row lands inside the game it begins.
+            session.systemMessage("A game begins.", { t: "start" });
           }, 0);
         }
         break;
@@ -1476,6 +1496,54 @@ export default (store) => {
       case "chatSay":
         session.sendChat(payload);
         break;
+      // FT-1010: THE LIVE GAME CHANGED — a game ended (id → null), a new one
+      // was dealt (null → id), or a reload learned which game is on. The set
+      // of whispers this viewer may hold changes with it (a finished game's
+      // whispers are public, a live game's are party-only — golem/chat's
+      // canSee), and rows dropped at ingest under the old answer sit BELOW a
+      // cursor that has moved past them. So the log is thrown away and
+      // re-read under the boundary now in force — the same move the viewer-
+      // identity watcher makes, for the same reason.
+      case "chatSetGameId":
+        if (state.chat.gameId !== lastLiveGameId) {
+          lastLiveGameId = state.chat.gameId;
+          store.commit("chatReset");
+          store.dispatch("chatCatchUp");
+        }
+        break;
+      // FT-1010: a CONCLUDED VOTE is a chronicle event, written by the host
+      // into the town's own log. The mutation's guards decide whether a
+      // record was actually pushed (its early returns leave the ledger
+      // unchanged); this mirrors them, then reads the row it just wrote.
+      // A spectator commits this same mutation on receipt and is refused
+      // here AND by systemMessage — one writer, no duplicate rows.
+      case "session/addHistory": {
+        if (
+          state.session.isSpectator ||
+          !state.session.nomination ||
+          state.session.lockedVote <= state.players.players.length
+        ) {
+          break;
+        }
+        const rec =
+          state.session.voteHistory[state.session.voteHistory.length - 1];
+        if (!rec) break;
+        const carried = rec.majority > 0 && rec.votes.length >= rec.majority;
+        session.systemMessage(
+          `${rec.nominator} nominated ${rec.nominee} — ${rec.votes.length} of ` +
+            `${rec.majority} needed${carried ? ", majority reached" : ""}.`,
+          {
+            t: "nomination",
+            nominator: rec.nominator,
+            nominee: rec.nominee,
+            type: rec.type,
+            votes: rec.votes.length,
+            majority: rec.majority,
+            carried,
+          },
+        );
+        break;
+      }
       case "session/nomination":
       case "session/setNomination":
         session.nomination(payload);
@@ -1537,6 +1605,9 @@ export default (store) => {
           state.grimoire.isNight
             ? `Night ${state.night.day} falls.`
             : `Day ${state.night.day} breaks.`,
+          // FT-1010: typed — the phase turning is a chapter mark in the
+          // chronicles stream, not just a sentence.
+          { t: "phase", night: state.grimoire.isNight, day: state.night.day },
         );
         break;
       // FT-931: THE TOWN ENDS / PLAY AGAIN. Both mutations live at the root
@@ -1574,9 +1645,24 @@ export default (store) => {
       case "players/setBluff":
         session.sendBluffs();
         break;
-      case "session/setMarkedPlayer":
+      case "session/setMarkedPlayer": {
         session.setMarked(payload);
+        // FT-1010: MARKED FOR EXECUTION — the closest thing to an execution
+        // the app actually records. "Marked", never "executed": the
+        // storyteller decides what a mark means, and the log must not invent
+        // an outcome (golem/chronicle.js's own honesty rule). -1 is the mark
+        // being cleared, which is housekeeping, not news.
+        if (typeof payload === "number" && payload >= 0) {
+          const marked = state.players.players[payload];
+          const name = (marked && marked.name) || `Seat ${payload + 1}`;
+          session.systemMessage(`${name} is marked for execution.`, {
+            t: "execution",
+            name,
+            seat: payload,
+          });
+        }
         break;
+      }
       case "players/swap":
         session.swapPlayer(payload);
         break;
@@ -1600,6 +1686,26 @@ export default (store) => {
           session.sendPlayerName(payload);
         } else {
           session.sendPlayer(payload);
+        }
+        // FT-1010: A SHROUD PLACED OR LIFTED is the town's own news. Only
+        // the shroud — the app records THAT a seat died, never why (night
+        // kill, execution, storyteller's ruling), and the row says no more
+        // than the record supports. Host-only twice over: `isDead` only ever
+        // originates on the storyteller's client, and systemMessage refuses
+        // a spectator anyway.
+        if (payload.property === "isDead") {
+          const seat = state.players.players.indexOf(payload.player);
+          const name =
+            (payload.player && payload.player.name) ||
+            (seat >= 0 ? `Seat ${seat + 1}` : "A player");
+          session.systemMessage(
+            payload.value ? `${name} dies.` : `${name} returns to life.`,
+            {
+              t: payload.value ? "death" : "revive",
+              name,
+              seat: seat >= 0 ? seat : null,
+            },
+          );
         }
         break;
     }
