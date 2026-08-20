@@ -200,12 +200,16 @@ $face-disc-foot-dy: 14px;
 // they are read PLAIN here. Never restate that term: an earlier pass of the
 // entry panels added the +7px by hand and applied it twice.
 //
-// THE SIX `--fd-*-adj` READS BELONG TO THE LAB — TEMPORARY, and they come out
-// with it (see `src/golem/faceDisc.js`). Each is a `+ var(--x, 0px)` on the end
+// EVERY `--fd-*-adj` READ IN THIS FILE BELONGS TO THE LAB — TEMPORARY, and they
+// come out with it (see `src/golem/faceDisc.js`). SIX GEOMETRY ones here, and
+// SEVEN MATERIAL ones further down (three in the backdrop-filter, two in the
+// tint mixin at the top, two on the edge layer). Each is an offset on the end
 // of an expression that was already correct, so with the lab gone — or every
 // scrub at zero — these lines compute exactly what they computed before it
-// existed. They live INSIDE the gate, because a phone's rectangle has no disc,
-// no caps and no band and must not follow any of this.
+// existed. The geometry six live INSIDE the gate, because a phone's rectangle
+// has no disc, no caps and no band and must not follow any of this; the
+// material seven live inside `face-disc-plate`, which is only ever included
+// from `face-disc-frame`, which is itself only ever inside the gate.
 //
 // THE BAKE (FT-888). Three of the six dialled values are folded into the
 // expressions below — X -12, Y -13, R -10 — and the `var(--fd-*-adj)` reads
@@ -307,10 +311,22 @@ $face-disc-foot-dy: 14px;
 $face-disc-tint-lit: 0.46;
 $face-disc-tint-dark: 0.22;
 
+//
+// THE TWO `--fd-tint-*-adj` READS BELONG TO THE LAB, like every other `-adj` in
+// this file, and they come out with it. Each is a hundredths offset on its OWN
+// base, so zero on both is exactly what ships: `calc(0.46 + 0 / 100)` computes
+// to 0.46, and with the lab absent the `var()` fallback makes it the same
+// expression. The lab publishes on <html>; #app is a descendant of <html>, so
+// it inherits them before this mixin's own declarations are resolved.
+//
+// TWO DIALS RATHER THAN ONE, and the reasoning is in `src/golem/faceDisc.js`
+// beside the Tn scrub: this is already two numbers because the backdrops differ
+// three-and-a-half-fold, and a single dial that edited "whichever is live"
+// would mean two different things depending on the phase.
 @mixin face-disc-tint {
-  --fd-tint: #{$face-disc-tint-lit};
+  --fd-tint: calc(#{$face-disc-tint-lit} + var(--fd-tint-lit-adj, 0) / 100);
   &.night {
-    --fd-tint: #{$face-disc-tint-dark};
+    --fd-tint: calc(#{$face-disc-tint-dark} + var(--fd-tint-dark-adj, 0) / 100);
   }
 }
 
@@ -517,10 +533,34 @@ $face-disc-tint-dark: 0.22;
   // The contrast(0.72) knock that used to sit here is GONE. Its whole job was
   // flattening the readout's white-stroke-on-black-halo edges, and there is no
   // readout under a disc any more.
-  backdrop-filter: blur(calc(var(--fd-r) * 0.014)) saturate(2.05)
-    brightness(0.78);
-  -webkit-backdrop-filter: blur(calc(var(--fd-r) * 0.014)) saturate(2.05)
-    brightness(0.78);
+  //
+  // THE THREE `-adj` TERMS BELONG TO THE LAB and come out with it. Each is an
+  // integer offset on its own scale — thousandths of r for the blur, hundredths
+  // for the other two — because NumberScrub is an integer control. Zero is the
+  // shipped material: `0.014 + 0 / 1000` IS 0.014, so with every scrub at rest
+  // (or the lab gone, via the `var()` fallback) these compute exactly what the
+  // three literals computed before the lab existed.
+  //
+  // THE BLUR STAYS A FRACTION OF THE RADIUS through the dial, which is the
+  // whole reason the term is written this way: one setting is one material at
+  // every window size. The `max(0px, …)` is belt-and-braces at the dial's own
+  // floor (-14, i.e. exactly 0.000r) — a negative length makes `blur()` invalid
+  // and an invalid filter term drops the WHOLE backdrop-filter, so a float
+  // hair below zero would not dim the glass, it would delete it.
+  //
+  // They are named as three intermediates rather than inlined because the
+  // -webkit- twin below has to repeat them, and two copies of a calc chain is
+  // two things that can drift.
+  --fd-blur: max(
+    0px,
+    calc(var(--fd-r) * (0.014 + var(--fd-blur-adj, 0) / 1000))
+  );
+  --fd-sat: calc(2.05 + var(--fd-sat-adj, 0) / 100);
+  --fd-bright: calc(0.78 + var(--fd-bright-adj, 0) / 100);
+  backdrop-filter: blur(var(--fd-blur)) saturate(var(--fd-sat))
+    brightness(var(--fd-bright));
+  -webkit-backdrop-filter: blur(var(--fd-blur)) saturate(var(--fd-sat))
+    brightness(var(--fd-bright));
 
   // THE THICKNESS. Two facing bevels, not a ring: a lit face up-and-left where
   // this file's light has always come from, a shadowed one down-and-right. Both
@@ -616,6 +656,18 @@ $face-disc-tint-dark: 0.22;
   // reading as a ring painted on and makes it read as a round solid thing. Both
   // are dimmer than the last pass (0.72 -> 0.44 at the peak): with the mask
   // this tight they no longer have to shout to be seen.
+  //
+  // THE LAB'S TWO EDGE SCRUBS. `--fd-rim-adj` scales the whole painted layer by
+  // its own opacity — one number for the refraction band and both specular
+  // streaks together, which is the only single value that governs "how much
+  // painted light" without re-authoring six rgba literals. It runs DOWNWARD
+  // only (the stops are authored at their peak and opacity clamps at 1), and
+  // that is the direction the search actually goes: two passes were rejected
+  // for painting too much.
+  //
+  // `--fd-edge-adj` slides where the mask OPENS, in percentage points, moving
+  // both stops together so the ramp keeps its thickness and only its position
+  // changes. At zero both compute the literals they replaced.
   &::after {
     content: "";
     position: absolute;
@@ -624,6 +676,7 @@ $face-disc-tint-dark: 0.22;
     border-radius: 50%;
     pointer-events: none;
     mix-blend-mode: screen;
+    opacity: calc(1 + var(--fd-rim-adj, 0) / 100);
     background:
       conic-gradient(
           from 292deg at 50% 50%,
@@ -647,17 +700,17 @@ $face-disc-tint-dark: 0.22;
       );
     // 85% is the number to reach for first if this is ever re-tuned: it is the
     // boundary between "a rim" and "a glare", and the two rejected passes both
-    // sat inside it.
+    // sat inside it. Which is exactly why it is the one the lab gives a scrub.
     -webkit-mask-image: radial-gradient(
       circle at 50% 50%,
-      transparent 85%,
-      #000 93.5%,
+      transparent calc(85% + var(--fd-edge-adj, 0) * 1%),
+      #000 calc(93.5% + var(--fd-edge-adj, 0) * 1%),
       #000 100%
     );
     mask-image: radial-gradient(
       circle at 50% 50%,
-      transparent 85%,
-      #000 93.5%,
+      transparent calc(85% + var(--fd-edge-adj, 0) * 1%),
+      #000 calc(93.5% + var(--fd-edge-adj, 0) * 1%),
       #000 100%
     );
   }

@@ -1,10 +1,25 @@
 <template>
   <!-- ── THE FACE-DISC LAB (Fd) — TEMPORARY, DELETE ME ──────────────────────
-       Six scrubs that nudge the geometry of every menu on the clock face at
-       once — the night checklist, the Host and Join entry panels, the build
-       panel. See `src/golem/faceDisc.js` for what each dial does and why its
-       bounds are where they are, and `src/faceDisc.scss` for the values they
-       offset. All three come out together.
+       Thirteen scrubs that nudge every menu on the clock face at once — the
+       night checklist, the Host and Join entry panels, the build panel. See
+       `src/golem/faceDisc.js` for what each dial does and why its bounds are
+       where they are, and `src/faceDisc.scss` for the values they offset. All
+       three come out together.
+
+       TWO GROUPS, LABELLED. Geometry (where the plate sits and how big it is)
+       and Glass (what the plate is made of) are different questions, and ten
+       unlabelled scrubs in one column read as one list of ten rather than as
+       two tools. The headings cost four lines and are the difference.
+
+       THE TINT IS TWO DIALS, and the live one is marked. The glass carries two
+       tint values because the four discs do not stand on the same backdrop —
+       a dark night dial and a lit entry dial, measured three-and-a-half-fold
+       apart — so `Tn` and `Tl` are separate scrubs against separate bases.
+       Both are always on screen; the one currently in effect wears a "now"
+       mark, read off the same `isNight` App.vue binds the `night` class from.
+       One dial that silently edited whichever was live would make the same
+       scrub mean two different things depending on the phase, and would hide
+       from the user that they are choosing a PAIR.
 
        THE FOURTH DOOR in App.vue's dev column (drip 8px, coin 96px, face
        140px, this 184px), wearing the same shell so they read as one toolkit
@@ -29,13 +44,14 @@
     <button
       type="button"
       class="fd-toggle"
-      title="Face disc lab — position, disc size, band width, header and button offsets (every menu on the clock face)"
+      title="Face disc lab — geometry (position, size, band, header, button) and glass (blur, saturation, brightness, tint, edge) for every menu on the clock face"
       :aria-expanded="String(fdLabOpen)"
       @click="fdLabOpen = !fdLabOpen"
     >
       Fd
     </button>
     <div class="fl-rows" v-if="fdLabOpen">
+      <div class="fl-head">Geometry</div>
       <div class="fl-row" v-for="d in fdDials" :key="d.key">
         <span class="fl-label" :title="d.hint">{{ d.label }}</span>
         <NumberScrub
@@ -46,7 +62,39 @@
           @input="setFdLab(d.key, $event)"
         />
       </div>
-      <button type="button" class="fl-reset" @click="resetFdLab">Reset</button>
+      <div class="fl-head">
+        Glass
+        <span class="fl-phase">{{ fdIsNight ? "night dial" : "lit dial" }}</span>
+      </div>
+      <div
+        class="fl-row"
+        v-for="d in fdMaterial"
+        :key="d.key"
+        :class="{ live: fdLive(d.key) }"
+      >
+        <span class="fl-label" :title="d.hint">{{ d.label }}</span>
+        <NumberScrub
+          :value="fdLab[d.key]"
+          :min="d.min"
+          :max="d.max"
+          :title="d.hint"
+          @input="setFdLab(d.key, $event)"
+        />
+        <span
+          class="fl-live"
+          v-if="fdLive(d.key)"
+          title="This is the tint in effect right now — the other one governs the other phase"
+          >now</span
+        >
+      </div>
+      <button
+        type="button"
+        class="fl-reset"
+        title="Every scrub back to zero — geometry and glass — which is exactly the shipped disc"
+        @click="resetFdLab"
+      >
+        Reset
+      </button>
     </div>
   </div>
 </template>
@@ -58,7 +106,20 @@ import NumberScrub from "./NumberScrub";
 export default {
   name: "FaceDiscLab",
   components: { NumberScrub },
-  mixins: [faceDiscLab]
+  mixins: [faceDiscLab],
+  methods: {
+    /**
+     * Is this row the tint currently in effect? Presentation only — the mixin
+     * owns `fdIsNight`; this is the panel deciding what to mark with it. Every
+     * non-tint row answers false, which is the honest answer: the other five
+     * glass dials are one value each and are always live.
+     */
+    fdLive(key) {
+      if (key === "tintDark") return this.fdIsNight;
+      if (key === "tintLit") return !this.fdIsNight;
+      return false;
+    }
+  }
 };
 </script>
 
@@ -116,6 +177,36 @@ export default {
     border: 1px solid rgba(120, 105, 135, 0.45);
     border-left: none;
     border-radius: 0 8px 8px 0;
+    // thirteen rows and two headings is taller than the shortest window the
+    // disc runs at leaves below 184px, so the column scrolls rather than
+    // running off the bottom of the screen
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+  // the group headings — Geometry / Glass. Small, quiet, and ruled, so they
+  // read as dividers rather than as two more controls.
+  .fl-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #b6a8c8;
+    opacity: 0.85;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(120, 105, 135, 0.28);
+    &:not(:first-child) {
+      margin-top: 4px;
+    }
+  }
+  // which phase the app is in, beside the Glass heading — the tint pair's
+  // context, so "now" below has something to mean
+  .fl-phase {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: #8f82a6;
   }
   .fl-row {
     display: flex;
@@ -127,6 +218,22 @@ export default {
   .fl-label {
     width: 18px;
     opacity: 0.7;
+    cursor: help;
+  }
+  // the live tint's row: the label comes up out of its resting dimness, and a
+  // small mark says which of the pair is the one on screen
+  .fl-row.live .fl-label {
+    opacity: 1;
+    color: #e6dcff;
+  }
+  .fl-live {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #0d0a12;
+    background: #b9a6e0;
+    border-radius: 3px;
+    padding: 1px 4px;
     cursor: help;
   }
   .fl-reset {
