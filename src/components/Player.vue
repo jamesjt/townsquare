@@ -1571,21 +1571,10 @@ export default {
       transform-origin: top center;
       transition: all 200ms;
       pointer-events: none;
-      // the drape's own silhouette — one soft ellipse, feathered out to
-      // nothing well inside the box edge, so it never reads as a hard
-      // rectangle laid over the coin
-      -webkit-mask: radial-gradient(
-        ellipse 62% 58% at 50% 46%,
-        rgba(0, 0, 0, 1) 0%,
-        rgba(0, 0, 0, 0.7) 55%,
-        rgba(0, 0, 0, 0) 82%
-      );
-      mask: radial-gradient(
-        ellipse 62% 58% at 50% 46%,
-        rgba(0, 0, 0, 1) 0%,
-        rgba(0, 0, 0, 0.7) 55%,
-        rgba(0, 0, 0, 0) 82%
-      );
+      // FT-997b (user call: "the shroud doesn't read right — try the png
+      // called veil in the botc folder"): the gradient drape's ellipse mask
+      // is gone — the veil is ART now (design/viel.png, baked to
+      // ui-veil.png), and its own alpha is the silhouette.
     }
 
     // THE PANE — a cool, translucent wash (silk, not sheet-white) plus a
@@ -1600,14 +1589,16 @@ export default {
     // tiny on purpose: at seat scale a strong blur would smear the role art
     // into mush, so this only softens it, the way a fine weave would.
     &:before {
-      background: radial-gradient(
-        ellipse 62% 58% at 50% 46%,
-        rgba(214, 224, 236, 0.42) 0%,
-        rgba(196, 208, 224, 0.22) 55%,
-        rgba(214, 224, 236, 0.1) 82%
-      );
-      backdrop-filter: blur(2px) saturate(92%);
-      -webkit-backdrop-filter: blur(2px) saturate(92%);
+      // the silk itself — the user's art. The SAME image is also the mask,
+      // which does two jobs: it confines the backdrop blur to the veil's
+      // silhouette (a bare backdrop-filter fills the whole box), and the
+      // alpha-on-alpha multiply densifies the sheer fabric just enough to
+      // read over a bright coin without any added wash.
+      background: url("../assets/ui-veil.png") center top / contain no-repeat;
+      -webkit-mask: url("../assets/ui-veil.png") center top / contain no-repeat;
+      mask: url("../assets/ui-veil.png") center top / contain no-repeat;
+      backdrop-filter: blur(1.5px) saturate(94%);
+      -webkit-backdrop-filter: blur(1.5px) saturate(94%);
     }
 
     // THE SHEEN — one diagonal band of light, standing in for the fold silk
@@ -1616,14 +1607,10 @@ export default {
     // need the pane's re-centring: a diagonal line through the box's own
     // middle (45%-53%) already crosses the mask's visible ellipse dead on.
     &:after {
-      background: linear-gradient(
-        118deg,
-        transparent 28%,
-        rgba(255, 255, 255, 0.3) 45%,
-        rgba(255, 255, 255, 0.07) 53%,
-        transparent 70%
-      );
-      mix-blend-mode: screen;
+      // FT-997b: the painted sheen retired with the gradient veil — the art
+      // carries its own folds and light. The pseudo stays (the .dead/hover
+      // rules below still address it) but paints nothing.
+      content: none;
     }
 
     #townsquare.spectator & {
