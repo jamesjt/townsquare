@@ -602,6 +602,36 @@
         </div>
       </div>
 
+      <!-- ASK FOR A LINK HERE, never prompt(). Same reason the fork panel
+           above gives, and the same shape: a browser dialog is silently
+           auto-dismissed in dialog-less contexts, so the caller read an empty
+           string and did nothing at all.
+           Its two callers (promptVaultLoad / promptURL) have no door in the
+           workbench today — the vault shelf and the upload button replaced
+           them — so this panel adds no control that was not already there. -->
+      <div class="role-form fork-form" v-if="askForm">
+        <h3>{{ askForm.title }}</h3>
+        <label>{{ askForm.label }}</label>
+        <input
+          ref="askInput"
+          class="fk-name"
+          v-model="askForm.value"
+          :placeholder="askForm.placeholder"
+          spellcheck="false"
+          @keyup.enter="confirmAsk"
+          @keyup.esc="cancelAsk"
+        />
+        <div class="role-error" v-if="askError">{{ askError }}</div>
+        <div class="fk-acts">
+          <div class="button" @click="cancelAsk">
+            <font-awesome-icon icon="times" /> Cancel
+          </div>
+          <div class="button fk-go" @click="confirmAsk">
+            <font-awesome-icon icon="check" /> {{ askForm.okText }}
+          </div>
+        </div>
+      </div>
+
       <!-- the shelf's hover card: icon + bold name + ability (the almanac
            read), replacing the native title tooltip. FT-858: it IS
            RoleHoverCard now — the same component the seats and the grimoire
@@ -843,6 +873,10 @@ export default {
       forkError: "",
       // a free name offered next to a clash, one click to take it
       forkSuggestion: "",
+      // the workbench's own inline ask — { title, label, placeholder, value,
+      // okText, onOk }; null when nothing is being asked.
+      askForm: null,
+      askError: "",
       // the forge's paste-to-fill box
       roleJsonText: "",
       // FT-856 slice B: the icon tabs — official borrow vs the new-icon
@@ -1337,11 +1371,52 @@ export default {
         .then(town => flashHint(`Script saved to ${town.name || town.id}`))
         .catch(() => {});
     },
+    /** Open the workbench's inline ask (see its markup for why it exists). */
+    openAsk(opts) {
+      this.askError = "";
+      this.askForm = { placeholder: "", value: "", okText: "OK", ...opts };
+      this.$nextTick(() => {
+        const el = this.$refs.askInput;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      });
+    },
+    cancelAsk() {
+      this.askForm = null;
+      this.askError = "";
+    },
+    confirmAsk() {
+      const f = this.askForm;
+      if (!f) return;
+      const value = (f.value || "").trim();
+      if (!value) {
+        this.askError = "Paste it in first, or cancel.";
+        return;
+      }
+      // The handler may keep the panel open to show its own complaint — it
+      // gets the last word by returning a string.
+      const problem = f.onOk(value);
+      if (problem) {
+        this.askError = problem;
+        return;
+      }
+      this.askForm = null;
+      this.askError = "";
+    },
     promptVaultLoad() {
-      const ref = prompt("Paste a script link (or its id)");
-      const id = vault.parseScriptRef(ref);
-      if (id) this.loadFromVault(id);
-      else if (ref) alert("That does not look like a script link.");
+      this.openAsk({
+        title: "Load a script",
+        label: "Script link or id",
+        placeholder: "https://… or an id",
+        okText: "Load",
+        onOk: (ref) => {
+          const id = vault.parseScriptRef(ref);
+          if (!id) return "That does not look like a script link.";
+          this.loadFromVault(id);
+        },
+      });
     },
     /**
      * The dirty control's Save. An update in place goes straight through on
@@ -2299,10 +2374,15 @@ export default {
       }
     },
     promptURL() {
-      const url = prompt("Enter URL to a custom-script.json file");
-      if (url) {
-        this.handleURL(url);
-      }
+      this.openAsk({
+        title: "Load a script from the web",
+        label: "URL to a custom-script.json file",
+        placeholder: "https://…/custom-script.json",
+        okText: "Load",
+        onOk: (url) => {
+          this.handleURL(url);
+        },
+      });
     },
     async handleURL(url) {
       const res = await fetch(url);

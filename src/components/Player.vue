@@ -267,6 +267,41 @@
 
       <transition name="fold">
         <ul class="menu" v-if="isMenuOpen">
+          <!-- THE SEAT'S OWN EDIT FIELD, never prompt(). A browser dialog is
+               silently auto-dismissed in dialog-less contexts (driven panes,
+               embeds) and returns empty, which made every dialog-backed
+               control in this app read as dead (FT-852 on Leave, the script
+               editor's save, the custom reminder note). The claim overlay a
+               few marks up already asks in place for exactly this reason;
+               this is the same answer for a seat already taken.
+
+               It renders ONLY while an edit is open, and the two callers
+               (changeName / changePronouns) have no row in this menu today —
+               so nothing here appears that did not appear before. If either
+               row comes back, it works instead of doing nothing. -->
+          <li class="seat-edit" v-if="edit" @click.stop>
+            <input
+              ref="editInput"
+              v-model="edit.value"
+              :placeholder="edit.field === 'name' ? 'Player name' : 'Pronouns'"
+              spellcheck="false"
+              maxlength="60"
+              @keyup.enter.stop="commitEdit"
+              @keyup.esc.stop="cancelEdit"
+            />
+            <font-awesome-icon
+              icon="check"
+              class="se-go"
+              title="Save"
+              @click="commitEdit"
+            />
+            <font-awesome-icon
+              icon="times"
+              class="se-no"
+              title="Cancel"
+              @click="cancelEdit"
+            />
+          </li>
           <!-- Golem fork (2026-08-18, user call): Pronouns, Rename and
                Remove left the menu — players name themselves on claiming,
                the seat scrub removes chairs. Methods kept. -->
@@ -592,6 +627,9 @@ export default {
       // Golem fork: first claim on this browser asks the name in place.
       askName: false,
       claimName: "",
+      // The seat menu's in-place edit: null, or { field, value }. Opened by
+      // changeName / changePronouns, which used to open a browser dialog.
+      edit: null,
       isSwap: false,
       // FT-858: the coin the seat's hover card is pinned to; null when
       // nothing is showing
@@ -623,6 +661,12 @@ export default {
     if (this._addRO) this._addRO.disconnect();
   },
   watch: {
+    // Closing the seat menu — by tapping the plate again, or by any row that
+    // closes it — abandons a half-typed edit rather than leaving it armed to
+    // reappear on the next open.
+    isMenuOpen(open) {
+      if (!open) this.edit = null;
+    },
     // Golem fork: the host confirming our claim sets player.id to our own id —
     // that is the moment the pending name becomes this seat's name.
     "player.id"(id) {
@@ -753,11 +797,42 @@ export default {
     changePronouns() {
       if (this.session.isSpectator && this.player.id !== this.session.playerId)
         return;
-      const pronouns = prompt("Player pronouns", this.player.pronouns);
-      //Only update pronouns if not null (prompt was not cancelled)
-      if (pronouns !== null) {
-        this.updatePlayer("pronouns", pronouns, true);
+      this.openEdit("pronouns", this.player.pronouns);
+    },
+    /**
+     * Open the seat menu's own field on one of the seat's text properties.
+     * The menu is the seat's panel already, so the edit happens where the
+     * control that asked for it lives — no dialog, and nothing to be
+     * auto-dismissed.
+     */
+    openEdit(field, value) {
+      this.edit = { field, value: value || "" };
+      this.isMenuOpen = true;
+      this.$nextTick(() => {
+        const el = this.$refs.editInput;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      });
+    },
+    /** Cancel changes nothing — the seat keeps what it had. */
+    cancelEdit() {
+      this.edit = null;
+    },
+    commitEdit() {
+      if (!this.edit) return;
+      const { field } = this.edit;
+      const value = this.edit.value.trim();
+      this.edit = null;
+      // A blank NAME keeps the old one (an unnamed chair is unreadable);
+      // blank PRONOUNS are a real answer and clear the field — the same two
+      // behaviours the dialogs had.
+      if (field === "name" && !value) {
+        this.isMenuOpen = false;
+        return;
       }
+      this.updatePlayer(field, value, true);
     },
     // ── FT-854: the role drawer's seat-side wiring ───────────────────────
     /**
@@ -904,8 +979,7 @@ export default {
     },
     changeName() {
       if (this.session.isSpectator) return;
-      const name = prompt("Player name", this.player.name) || this.player.name;
-      this.updatePlayer("name", name, true);
+      this.openEdit("name", this.player.name);
     },
     removeReminder(reminder) {
       const reminders = [...this.player.reminders];
@@ -1648,6 +1722,45 @@ li.move:not(.from) .player .overlay svg.move {
     display: none;
     @media (pointer: coarse) {
       display: flex;
+    }
+  }
+
+  /* the in-place edit row — the field this seat's rename/pronouns ask in,
+     in place of the browser dialog they used to open */
+  li.seat-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    &:hover {
+      color: white;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      width: 7em;
+      color: white;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid #3d3d3d;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: inherit;
+      font-family: inherit;
+      &:focus {
+        outline: none;
+        border-color: #a01414;
+      }
+    }
+
+    .se-go,
+    .se-no {
+      cursor: pointer;
+      opacity: 0.75;
+      &:hover {
+        opacity: 1;
+        color: red;
+      }
     }
   }
 

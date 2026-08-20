@@ -286,6 +286,56 @@
         </template>
       </ul>
     </div>
+
+    <!-- THE MENU'S ONE ASK — an inline panel, never prompt()/confirm().
+         Every dialog in this file was silently auto-dismissed in dialog-less
+         contexts (driven browser panes, embeds, some webviews): a prompt came
+         back empty and a confirm came back false, so the caller's own guard
+         returned and the control did nothing, with nothing said. That is what
+         killed Leave (FT-852), the script editor's save, and the custom
+         reminder note.
+
+         WHY A PANEL AND NOT THE PILL'S TWO-CLICK ARM: an arm needs a control
+         standing on screen to click a second time. Every door left in this
+         file is opened by a KEY (A adds a player, J leaves a town) or is not
+         rendered at all — there is nothing to click twice. The arm stays where
+         it belongs, on the strip's own door out (`clearTable`, above) and on
+         the pill's Leave.
+
+         The destructive ones still ASK: `confirm` mode names what is about to
+         happen and takes a second, deliberate press. Cancel is always there,
+         and Escape closes it. -->
+    <div class="ask-panel" v-if="ask" @click.stop>
+      <h3>{{ ask.title }}</h3>
+      <p class="ask-note" v-if="ask.note">{{ ask.note }}</p>
+      <template v-if="ask.mode === 'input'">
+        <label>{{ ask.label }}</label>
+        <input
+          ref="askInput"
+          v-model="ask.value"
+          :placeholder="ask.placeholder"
+          spellcheck="false"
+          @keyup.enter="askOk"
+          @keyup.esc="askCancel"
+        />
+      </template>
+      <div class="ask-error" v-if="askError">{{ askError }}</div>
+      <div class="ask-acts">
+        <div class="button" @click="askCancel">
+          <font-awesome-icon icon="times" /> Cancel
+        </div>
+        <div
+          class="button ask-go"
+          :class="{ danger: ask.danger }"
+          @click="askOk"
+        >
+          <font-awesome-icon
+            :icon="ask.danger ? 'exclamation-triangle' : 'check'"
+          />
+          {{ ask.okText }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -382,6 +432,11 @@ export default {
       // button's feel, not about the town's state.
       clearArmed: false,
       clearTimer: null,
+      // The inline ask panel (see its markup for why it exists): null, or
+      // { mode, title, note, label, value, placeholder, okText, danger,
+      //   allowEmpty, onOk }.
+      ask: null,
+      askError: "",
       // Golem fork: null = collapsed to the bare toolbar (the default).
       tab: null,
     };
@@ -438,24 +493,87 @@ export default {
       this.$store.commit("session/callBack");
       playCallBack(this.grimoire.isMuted);
     },
-    setBackground() {
-      const background = prompt("Enter custom background URL");
-      if (background || background === "") {
-        this.$store.commit("setBackground", background);
+    // ── the inline ask ───────────────────────────────────────────────────
+    /**
+     * Open the panel. `onOk` receives the trimmed text in "input" mode and
+     * nothing in "confirm" mode; Cancel and Escape both close without calling
+     * it, so cancelling is always possible and always visible.
+     */
+    openAsk(opts) {
+      this.askError = "";
+      this.ask = {
+        mode: "input",
+        title: "",
+        note: "",
+        label: "",
+        value: "",
+        placeholder: "",
+        okText: "OK",
+        danger: false,
+        allowEmpty: false,
+        onOk: () => {},
+        ...opts,
+      };
+      if (this.ask.mode !== "input") return;
+      this.$nextTick(() => {
+        const el = this.$refs.askInput;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      });
+    },
+    askCancel() {
+      this.ask = null;
+      this.askError = "";
+    },
+    askOk() {
+      const a = this.ask;
+      if (!a) return;
+      if (a.mode === "input") {
+        const value = (a.value || "").trim();
+        // Empty is a no-op for most asks, and a REAL ANSWER for the ones that
+        // clear a setting (the background). Saying so beats closing silently —
+        // a silent close is the failure this panel replaces.
+        if (!value && !a.allowEmpty) {
+          this.askError = "Type something first, or cancel.";
+          return;
+        }
+        this.ask = null;
+        this.askError = "";
+        a.onOk(value);
+        return;
       }
+      this.ask = null;
+      this.askError = "";
+      a.onOk();
+    },
+    setBackground() {
+      this.openAsk({
+        title: "Custom background",
+        note: "Leave it empty to go back to the default background.",
+        label: "Image URL",
+        value: this.grimoire.background || "",
+        placeholder: "https://…",
+        okText: "Apply",
+        allowEmpty: true,
+        onOk: (background) => this.$store.commit("setBackground", background),
+      });
     },
     hostSession() {
       if (this.session.sessionId) return;
-      const sessionId = prompt(
-        "Enter a channel number / name for your session",
-        Math.round(Math.random() * 10000),
-      );
-      if (sessionId) {
-        this.$store.commit("session/clearVoteHistory");
-        this.$store.commit("session/setSpectator", false);
-        this.$store.commit("session/setSessionId", sessionId);
-        this.copySessionUrl();
-      }
+      this.openAsk({
+        title: "Open a town",
+        label: "Channel number / name",
+        value: String(Math.round(Math.random() * 10000)),
+        okText: "Open",
+        onOk: (sessionId) => {
+          this.$store.commit("session/clearVoteHistory");
+          this.$store.commit("session/setSpectator", false);
+          this.$store.commit("session/setSessionId", sessionId);
+          this.copySessionUrl();
+        },
+      });
     },
     copySessionUrl() {
       const link = window.location.origin + "/" + this.session.sessionId;
@@ -479,17 +597,35 @@ export default {
       );
     },
     imageOptIn() {
-      const popup =
-        "Are you sure you want to allow custom images? A malicious script file author might track your IP address this way.";
-      if (this.grimoire.isImageOptIn || confirm(popup)) {
-        this.toggleImageOptIn();
-      }
+      // Turning it OFF is not a risk and never asked; turning it ON still
+      // asks, because the warning is the whole point of the question.
+      if (this.grimoire.isImageOptIn) return this.toggleImageOptIn();
+      this.openAsk({
+        mode: "confirm",
+        title: "Allow custom images?",
+        note: "A malicious script file author might track your IP address this way.",
+        okText: "Allow images",
+        danger: true,
+        onOk: () => this.toggleImageOptIn(),
+      });
     },
     joinSession() {
       if (this.session.sessionId) return this.leaveSession();
-      let sessionId = prompt(
-        "Enter the channel number / name of the session you want to join",
-      );
+      this.openAsk({
+        title: "Join a town",
+        label: "Channel number / name",
+        placeholder: "a name, a number, or an invite link",
+        okText: "Join",
+        onOk: (entered) => this.enterSession(entered),
+      });
+    },
+    /**
+     * The join itself, given what was typed. Split out of joinSession so the
+     * asking and the entering are separable — the panel hands this the text
+     * once the second press lands.
+     */
+    enterSession(typed) {
+      let sessionId = typed;
       if (sessionId.match(/^https?:\/\//i)) {
         const hashAt = sessionId.indexOf("#");
         sessionId =
@@ -519,37 +655,50 @@ export default {
         });
       }
     },
-    // FT-852: `confirmed === true` (the pill's own two-click arm) skips the
-    // native confirm() — browser dialogs are silently auto-dismissed in
-    // dialog-less contexts (driven browser panes, embeds), which returned
-    // false and deadened the caller.
+    // FT-852: `confirmed === true` (the pill's own two-click arm) leaves
+    // straight away — the arm WAS the asking. Every other caller gets the
+    // inline panel; there is no native confirm() left here, because a driven
+    // or embedded context auto-dismissed it and deadened the caller.
     leaveSession(confirmed) {
-      if (
-        confirmed === true ||
-        confirm("Are you sure you want to leave the active live game?")
-      ) {
-        // Golem fork: ONE way out of a town, shared with a Back press and
-        // with a relay-initiated close — leaveTown owns what leaving has to
-        // take with it (seats, bluffs, fabled, any live nomination), because
-        // clearing the session id alone leaves the sessionless in-person
-        // square standing. An owned town re-loads its saved script when
-        // re-hosted.
-        leaveTown(this.$store);
-      }
+      if (confirmed === true) return this.doLeaveTown();
+      this.openAsk({
+        mode: "confirm",
+        title: "Leave the active live game?",
+        note: "The town keeps running. You can come back to it by name.",
+        okText: "Leave",
+        danger: true,
+        onOk: () => this.doLeaveTown(),
+      });
+    },
+    doLeaveTown() {
+      // Golem fork: ONE way out of a town, shared with a Back press and
+      // with a relay-initiated close — leaveTown owns what leaving has to
+      // take with it (seats, bluffs, fabled, any live nomination), because
+      // clearing the session id alone leaves the sessionless in-person
+      // square standing. An owned town re-loads its saved script when
+      // re-hosted.
+      leaveTown(this.$store);
     },
     addPlayer() {
       if (this.session.isSpectator) return;
       if (this.players.length >= 20) return;
-      const name = prompt("Player name");
-      if (name) {
-        this.$store.commit("players/add", name);
-      }
+      this.openAsk({
+        title: "Add a player",
+        label: "Player name",
+        okText: "Add",
+        onOk: (name) => this.$store.commit("players/add", name),
+      });
     },
     randomizeSeatings() {
       if (this.session.isSpectator) return;
-      if (confirm("Are you sure you want to randomize seatings?")) {
-        this.$store.dispatch("players/randomize");
-      }
+      this.openAsk({
+        mode: "confirm",
+        title: "Randomize the seating?",
+        note: "Everyone at the table moves to a new chair.",
+        okText: "Randomize",
+        danger: true,
+        onOk: () => this.$store.dispatch("players/randomize"),
+      });
     },
     /**
      * THE TOWNLESS TABLE'S DOOR — arm on the first click, clear on the second.
@@ -582,28 +731,42 @@ export default {
       this.clearArmed = false;
       leaveTown(this.$store);
     },
-    // `confirmed === true` skips the native dialog, exactly as leaveSession
-    // above does and for the same reason — a driven or embedded context
-    // auto-dismisses it, which returns false and deadens the caller. Any
-    // control wired to this must pass it. (Unreachable from the UI today: the
-    // menu section it belonged to has no tab left to open it.)
+    // `confirmed === true` skips the asking, exactly as leaveSession above
+    // does and for the same reason — a caller that has already armed (the
+    // pill's two-click door) has asked once and must not ask twice. Anything
+    // else gets the inline panel. (Unreachable from the UI today: the menu
+    // section it belonged to has no tab left to open it.)
     clearPlayers(confirmed) {
       if (this.session.isSpectator) return;
-      if (
-        confirmed === true ||
-        confirm("Are you sure you want to remove all players?")
-      ) {
-        // abort vote if in progress
-        if (this.session.nomination) {
-          this.$store.commit("session/nomination");
-        }
-        this.$store.commit("players/clear");
-      }
+      if (confirmed === true) return this.doClearPlayers();
+      this.openAsk({
+        mode: "confirm",
+        title: "Remove all players?",
+        note: "Every chair is emptied. This cannot be undone.",
+        okText: "Remove all",
+        danger: true,
+        onOk: () => this.doClearPlayers(),
+      });
     },
-    clearRoles() {
-      if (confirm("Are you sure you want to remove all player roles?")) {
-        this.$store.dispatch("players/clearRoles");
+    doClearPlayers() {
+      // abort vote if in progress
+      if (this.session.nomination) {
+        this.$store.commit("session/nomination");
       }
+      this.$store.commit("players/clear");
+    },
+    clearRoles(confirmed) {
+      if (confirmed === true) {
+        return this.$store.dispatch("players/clearRoles");
+      }
+      this.openAsk({
+        mode: "confirm",
+        title: "Remove all player roles?",
+        note: "The chairs stay; every character on them is taken off.",
+        okText: "Remove roles",
+        danger: true,
+        onOk: () => this.$store.dispatch("players/clearRoles"),
+      });
     },
     toggleNight() {
       this.$store.commit("toggleNight");
@@ -879,5 +1042,105 @@ export default {
 }
 .player-strip img:hover {
   filter: drop-shadow(0 1px 2px black) brightness(1.3);
+}
+
+/* THE INLINE ASK. It is a child of the strip in the DOM but it belongs to the
+   middle of the screen, where the browser dialog it replaces used to stand —
+   the strip is pinned to a 3px corner and anything laid out inside it would
+   read as a tooltip on a toolbar rather than as a question. Above the modal
+   layer (z-index 100), since a question can be asked from inside one. */
+.ask-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 120;
+  width: min(420px, 92vw);
+  text-align: left;
+  background: rgba(0, 0, 0, 0.92);
+  border: 3px solid #000;
+  border-radius: 10px;
+  box-shadow: 0 0 20px 2px #000;
+  padding: 16px 20px;
+  font-size: 16px;
+  cursor: default;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 22px;
+  }
+
+  .ask-note {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 0.7;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+
+  input {
+    width: 100%;
+    font-size: 17px;
+    padding: 7px 12px;
+    margin: 0;
+    color: white;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #3d3d3d;
+    border-radius: 5px;
+    &:focus {
+      outline: none;
+      border-color: #a01414;
+    }
+  }
+
+  .ask-error {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #ff7070;
+  }
+
+  .ask-acts {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+
+    /* Our buttons, not upstream's shiny pills: small, flat, dark, hairline. */
+    .button {
+      margin: 0;
+      padding: 2px 9px;
+      border: 1px solid #3d3d3d;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.65);
+      box-shadow: none;
+      font-weight: normal;
+      font-size: 13px;
+      line-height: 1.6;
+      cursor: pointer;
+      &:hover {
+        border-color: #a01414;
+        color: #ff7070;
+      }
+    }
+
+    /* the irreversible ones wear the blood before they are pressed, not
+       after — the same signal the pill's armed Leave gives */
+    .ask-go.danger {
+      border-color: #a01414;
+      color: #ff9a9a;
+      &:hover {
+        background: rgba(160, 20, 20, 0.4);
+        color: white;
+      }
+    }
+  }
 }
 </style>

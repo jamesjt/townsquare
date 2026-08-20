@@ -3,30 +3,64 @@
     v-if="modals.reminder && availableReminders.length && players[playerIndex]"
     @close="toggleModal('reminder')"
   >
-    <h3>Choose a reminder token:</h3>
-    <ul class="reminders">
-      <li
-        v-for="reminder in availableReminders"
-        class="reminder"
-        :class="[reminder.role]"
-        :key="reminder.role + ' ' + reminder.name"
-        @click="addReminder(reminder)"
-      >
-        <span
-          class="icon"
-          :style="{
-            backgroundImage: `url(${
-              reminder.image && grimoire.isImageOptIn
-                ? reminder.image
-                : require('../../assets/icons/' +
-                    (reminder.imageAlt || reminder.role) +
-                    '.png')
-            })`
-          }"
-        ></span>
-        <span class="text">{{ reminder.name }}</span>
-      </li>
-    </ul>
+    <!-- WRITE THE NOTE HERE, never prompt(). A browser dialog is silently
+         auto-dismissed in dialog-less contexts (driven panes, embeds, some
+         webviews) and comes back empty — so the old `if (!name) return`
+         swallowed every custom note and the token simply never appeared.
+         The same trap took the Leave door (FT-852) and the script editor's
+         save (which is why EditionModal's fork panel exists); this is the
+         same answer in the same shape.
+
+         It REPLACES the token list rather than sitting under it: the choice
+         has already been made by the time this shows, and Cancel puts the
+         list back with nothing added. -->
+    <div class="custom-note" v-if="note !== null">
+      <h3>Add a custom note</h3>
+      <label>Note</label>
+      <input
+        ref="noteInput"
+        class="cn-name"
+        v-model="note"
+        maxlength="60"
+        @keyup.enter="commitNote"
+        @keyup.esc="cancelNote"
+      />
+      <div class="cn-error" v-if="noteError">{{ noteError }}</div>
+      <div class="cn-acts">
+        <div class="button" @click="cancelNote">
+          <font-awesome-icon icon="times" /> Cancel
+        </div>
+        <div class="button cn-go" @click="commitNote">
+          <font-awesome-icon icon="check" /> Add note
+        </div>
+      </div>
+    </div>
+    <template v-else>
+      <h3>Choose a reminder token:</h3>
+      <ul class="reminders">
+        <li
+          v-for="reminder in availableReminders"
+          class="reminder"
+          :class="[reminder.role]"
+          :key="reminder.role + ' ' + reminder.name"
+          @click="addReminder(reminder)"
+        >
+          <span
+            class="icon"
+            :style="{
+              backgroundImage: `url(${
+                reminder.image && grimoire.isImageOptIn
+                  ? reminder.image
+                  : require('../../assets/icons/' +
+                      (reminder.imageAlt || reminder.role) +
+                      '.png')
+              })`
+            }"
+          ></span>
+          <span class="text">{{ reminder.name }}</span>
+        </li>
+      </ul>
+    </template>
   </Modal>
 </template>
 
@@ -49,6 +83,23 @@ const mapReminder = ({ id, image, imageAlt }) => name => ({
 export default {
   components: { Modal },
   props: ["playerIndex"],
+  data() {
+    return {
+      // null = the token list is showing; a string = the note field is open.
+      // "" is a legal open state, which is why this is null-vs-string and not
+      // a truthiness test.
+      note: null,
+      noteError: "",
+    };
+  },
+  watch: {
+    // The modal can be closed from outside this panel (the shell's ×, the
+    // backdrop, a hotkey). Whatever was half-typed goes with it, so the next
+    // open starts on the token list rather than on a stale field.
+    "modals.reminder"(open) {
+      if (!open) this.closeNote();
+    },
+  },
   computed: {
     availableReminders() {
       let reminders = [];
@@ -92,19 +143,44 @@ export default {
   },
   methods: {
     addReminder(reminder) {
-      const player = this.$store.state.players.players[this.playerIndex];
-      let value;
-      if (reminder.role === "custom") {
-        const name = prompt("Add a custom reminder note");
-        if (!name) return;
-        value = [...player.reminders, { role: "custom", name }];
-      } else {
-        value = [...player.reminders, reminder];
+      // The custom token doesn't add anything yet — it asks first.
+      if (reminder.role === "custom") return this.openNote();
+      this.commitReminder(reminder);
+    },
+    openNote() {
+      this.note = "";
+      this.noteError = "";
+      this.$nextTick(() => {
+        const el = this.$refs.noteInput;
+        if (el) el.focus();
+      });
+    },
+    /** Cancel adds NOTHING and puts the token list back. */
+    cancelNote() {
+      this.closeNote();
+    },
+    closeNote() {
+      this.note = null;
+      this.noteError = "";
+    },
+    commitNote() {
+      const name = (this.note || "").trim();
+      // An empty note would land a blank token nobody can read. Say so where
+      // the typing is happening rather than closing on a silent no-op — the
+      // silent no-op is the bug this panel replaces.
+      if (!name) {
+        this.noteError = "Type the note first, or cancel.";
+        return;
       }
+      this.closeNote();
+      this.commitReminder({ role: "custom", name });
+    },
+    commitReminder(reminder) {
+      const player = this.$store.state.players.players[this.playerIndex];
       this.$store.commit("players/update", {
         player,
         property: "reminders",
-        value
+        value: [...player.reminders, reminder]
       });
       this.$store.commit("toggleModal", "reminder");
     },
@@ -114,6 +190,83 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// The note field, wearing the workbench's fork-panel shape (its own comment
+// explains why that panel is a panel and not a prompt).
+.custom-note {
+  width: min(420px, 92%);
+  text-align: left;
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 22px;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    opacity: 0.6;
+    margin-bottom: 4px;
+  }
+
+  .cn-name {
+    width: 100%;
+    font-size: 17px;
+    padding: 7px 12px;
+    margin: 0;
+    color: white;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #3d3d3d;
+    border-radius: 5px;
+    &:focus {
+      outline: none;
+      border-color: #a01414;
+    }
+  }
+
+  .cn-error {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #ff7070;
+  }
+
+  .cn-acts {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+
+    // Our buttons, not upstream's shiny pills: small, flat, dark, hairline —
+    // the same treatment the workbench's own panels use.
+    .button {
+      margin: 0;
+      padding: 2px 9px;
+      border: 1px solid #3d3d3d;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.65);
+      box-shadow: none;
+      font-weight: normal;
+      font-size: 13px;
+      line-height: 1.6;
+      cursor: pointer;
+      &:before,
+      &:after {
+        content: none;
+      }
+      &:hover {
+        border-color: #a01414;
+        color: #ff7070;
+      }
+    }
+
+    .cn-go:hover {
+      background: rgba(160, 20, 20, 0.35);
+      color: white;
+    }
+  }
+}
+
 ul.reminders .reminder {
   background: url("../../assets/reminder-golem.png") center center;
   background-size: 100%;
