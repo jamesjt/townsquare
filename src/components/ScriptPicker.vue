@@ -148,18 +148,21 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// The shared control plate. This trigger IS the plate's reference — the three
+// values below came off this rule — so nothing here changes shape; it now
+// READS the numbers instead of owning the only copy of them.
+@import "../controls.scss";
+
 .script-pick {
   position: relative;
   flex-grow: 1;
   min-width: 0;
 
   .trigger {
+    @include control-plate;
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(0, 0, 0, 0.7);
-    border: 2px solid black;
-    border-radius: 6px;
     padding: 4px 10px;
     font-size: 90%;
     cursor: pointer;
@@ -184,7 +187,7 @@ export default {
     }
     &:hover,
     &.open {
-      border-color: #400;
+      @include control-plate-hover;
     }
     &.open .caret {
       transform: rotate(180deg);

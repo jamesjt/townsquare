@@ -92,6 +92,18 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// THE SHARED CONTROL PLATE (2026-08-19, user call: "standardize the look
+// between the choose-a-script selector and those other buttons").
+//
+// These three used to wear a plate of their own invention — a purple-black
+// ground behind a light-lilac hairline at 5px — which was close to the script
+// picker's black-edged plate one row above without being it. Same family now:
+// same ground, same 2px black edge, same 6px radius, from src/controls.scss.
+// The 34x30 box and the coarse-pointer bump travel WITH the plate now (the
+// `control-icon-btn` mixin), because the Seats row's shuffle is the same object
+// and the two sizes were going to drift apart otherwise.
+@import "../controls.scss";
+
 .role-acts {
   display: inline-flex;
   align-items: center;
@@ -99,45 +111,22 @@ export default {
   margin-left: 10px;
 
   .ra-act {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 30px;
-    padding: 0;
     // Deal, Shuffle and Dupes are three of the most consequential controls in
-    // the build, and at 34x30 they are well under a fingertip. A coarse
-    // pointer gets a proper plate; the glyphs inside are unchanged, so the row
-    // still reads as three small marks.
+    // the build, and at 34x30 they are well under a fingertip — the mixin's
+    // coarse-pointer bump takes them to 42x40. The glyphs inside are
+    // unchanged, so the row still reads as three small marks.
     //
-    // The mobile pass wrote this rule against the tray's `.rt-act`; the
+    // The mobile pass wrote that rule against the tray's `.rt-act`; the
     // buttons then moved into this row (FT-859) and the rule did not travel
     // with them — the tray's copy is still there, styling nothing.
-    @media (pointer: coarse) {
-      width: 42px;
-      height: 40px;
-    }
-    color: #d8cdb4;
-    background: rgba(20, 16, 22, 0.9);
-    border: 1px solid rgba(120, 105, 135, 0.4);
-    border-radius: 5px;
-    cursor: pointer;
+    @include control-icon-btn;
     img {
       width: 16px;
       height: 16px;
       object-fit: contain;
     }
-    &:hover:not(:disabled) {
-      color: #fff;
-      border-color: rgba(150, 130, 175, 0.75);
-    }
     &.on {
-      color: #ffd9d9;
-      border-color: rgba(190, 90, 90, 0.8);
-    }
-    &:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
+      @include control-lit;
     }
   }
 

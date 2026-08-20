@@ -118,13 +118,27 @@
            ALWAYS rendered — appearing icons shove the row (user call);
            unusable states grey out instead. -->
       <!-- (trash retired — scrub the count to 0 instead; user call) -->
+      <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
+           control plate (2026-08-19, user call: "and this shuffle button?").
+           It was a bare <svg> with no box at all — the only control on the
+           panel with nothing under it — which is why it read as loose
+           furniture beside the plated buttons one row down. Same 34x30 plate
+           as RoleActions' three now, from the one `control-icon-btn` mixin.
+
+           `:disabled` rather than a `.disabled` class: the plate's own
+           disabled state comes with the mixin, the button stops taking
+           clicks by itself, and it drops out of the tab order — which the
+           old opacity-plus-pointer-events pair never did. -->
       <span class="tools">
-        <font-awesome-icon
-          icon="random"
-          :class="{ disabled: players.length <= 2 }"
+        <button
+          class="tool-btn"
+          type="button"
+          :disabled="players.length <= 2"
           @click="randomizeSeatings"
           title="Shuffle seat order"
-        />
+        >
+          <font-awesome-icon icon="random" />
+        </button>
       </span>
     </div>
 
@@ -540,6 +554,10 @@ export default {
 // FT-888: the clock face's disc — geometry, gate and material, shared with the
 // night checklist and the two entry panels.
 @import "../faceDisc.scss";
+// 2026-08-19: the panel's ONE control plate — the ground, edge and radius the
+// script picker has always worn, now worn by every control on the panel. See
+// src/controls.scss for the six near-miss treatments it replaced.
+@import "../controls.scss";
 
 .host-tools {
   position: absolute;
@@ -733,21 +751,22 @@ export default {
   }
 
   // the rename box itself: `.row input`'s styling, centred instead of
-  // flex-grown since it now stands alone rather than beside a label.
+  // flex-grown since it now stands alone rather than beside a label. It was
+  // already the shared plate to the pixel — one of the two places that proved
+  // the plate was the panel's house style rather than a new look — so it reads
+  // the mixin now and nothing about it moves.
   .ht-rename-input {
+    @include control-plate;
     width: 100%;
     max-width: 260px;
     text-align: center;
-    background: rgba(0, 0, 0, 0.7);
     color: white;
-    border: 2px solid black;
-    border-radius: 6px;
     padding: 4px 8px;
     font-size: 90%;
     outline: none;
 
     &:focus {
-      border-color: #400;
+      @include control-plate-hover;
     }
   }
 
@@ -867,29 +886,17 @@ export default {
       }
     }
 
+    // SHUFFLE SEAT ORDER, on the panel's shared plate. Everything this rule
+    // used to do by hand — an opacity for "off", a 15px/-9px padding trick to
+    // fake a fingertip target on a phone — the `control-icon-btn` mixin does
+    // for every icon button on the panel at once, so this and RoleActions'
+    // three cannot drift apart again.
     .tools {
       display: flex;
       align-items: center;
       gap: 10px;
-      svg {
-        cursor: pointer;
-        opacity: 0.7;
-        &:hover {
-          color: red;
-          opacity: 1;
-        }
-        &.disabled {
-          opacity: 0.3;
-          pointer-events: none;
-        }
-        // Shuffle seat order drew at 10x10px on a phone — an icon scaled by
-        // the row's font size, with nothing else to give it a box. Padding
-        // grows the target without touching the mark.
-        @media (pointer: coarse) {
-          box-sizing: content-box;
-          padding: 15px;
-          margin: -9px;
-        }
+      .tool-btn {
+        @include control-icon-btn;
       }
     }
     .value {
@@ -1000,6 +1007,56 @@ export default {
 
     > .ht-body {
       @include face-disc-band;
+      // THE BAND TAKES BACK THE ROOM THE BUTTON GAVE UP (2026-08-19, user
+      // call: "make that button less wide and move it down, so that there is
+      // more vertical room for the role selection").
+      //
+      // THE TWO HALVES OF THAT SENTENCE ARE ONE MOVE, and this line is it.
+      // Extending the band downward pushes `.start-dock` — the next flex item
+      // — down by exactly the same amount, so the button moves without a
+      // second offset and `$face-disc-foot-dy` (a baked user-dialled value,
+      // shared with three other surfaces) is not touched at all.
+      //
+      // A TRANSFORM WOULD HAVE MOVED THE BUTTON AND FREED NOTHING. The dy in
+      // faceDisc.scss is a translate, and a translate takes no part in layout
+      // — the band's slice is fixed at `d - 2*caph` and would have stayed
+      // exactly as tall with the button sitting 20px lower. The room has to
+      // come out of the flex basis or it does not exist.
+      //
+      // WHY 22px, AND WHY IT IS THE CEILING. The binding constraint is the
+      // Start button's BOTTOM CORNERS against the arc, and the disc's floor —
+      // 1642x780, where the radius is 228 — is where it binds. Measured with
+      // the rim and the button's box DRAWN into the page rather than eyeballed
+      // off the dial art, positive = inside the rim (rigs:
+      // claude_temp_test/2026-08-19-plate-{measure,rimcheck}.mjs):
+      //
+      //                        1642x780   1920x1080
+      //   as this lane found it   -1.6       +10.9   ← already outside at the
+      //   band +22, narrow Start  +0.8       +18.9      floor before this lane
+      //                                                 touched anything; and
+      //                                                 faceDisc's own table
+      //                                                 reads -1.6 at 1440x900,
+      //                                                 which is the same 228r.
+      //
+      // Past +22 the button goes back outside at the floor. So the number is
+      // the largest drop the narrower button pays for, and it is spent on the
+      // tray rather than banked.
+      //
+      // WHAT IT BOUGHT, tray full, same seat count:
+      //   1642x780   tray 68.9 -> 86.9px, characters showing  7 -> 13 of 22
+      //   1920x1080  tray 157.1 -> 179.1px, characters showing 17 -> 21 of 22
+      //
+      // 10 OF THOSE 22 ARE THE DOCK'S OWN TOP MARGIN, given up below — see
+      // `.start-dock`. That margin sat BETWEEN the band and the button doing
+      // the job the mixin's translate already does, so taking it lets the band
+      // grow 10px further without the button moving 10px further down.
+      //
+      // THE TRAY'S OWN BOTTOM ROW WAS THE OTHER CANDIDATE for the binding
+      // constraint and turned out not to be. Role tiles are CIRCLES in a 42px
+      // box, so the ink at the corner of a full row is transparent; measured
+      // against the tile's own ink, the widest row still clears the rim by
+      // 29.6px at the floor and 59.1px at 1920x1080.
+      flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) + 22px);
       display: flex;
       flex-direction: column;
       // without this the band's automatic minimum is its content's height and
@@ -1053,6 +1110,30 @@ export default {
 
     > .start-dock {
       @include face-disc-foot;
+      // NARROWER THAN THE MIXIN'S 0.95r (2026-08-19, user call). The dock IS
+      // the button's width — `.start` is a block inside it — and 0.95r drew a
+      // 262px slab under a two-word label at 1920x1080.
+      //
+      // IT IS ALSO WHAT PAYS FOR THE DROP. The binding measure on this button
+      // has always been its BOTTOM CORNERS against the arc, and a narrower box
+      // brings those corners in toward the vertical axis, where the circle is
+      // deepest. That is the whole reason both halves of the user's sentence
+      // ("less wide AND further down") can be true at once: at the disc's own
+      // floor the button was already 1.6px OUTSIDE the rim before this lane
+      // touched it, and it now sits 12px lower and 0.8px inside.
+      //
+      // THE FLOOR IS THE LABEL, not the radius: 150px holds "Start game" at
+      // 100% in PiratesBay with its 14px padding and 3px border on one line.
+      // Below it the label wraps, which is the one thing a primary button must
+      // not do — so the width is a `max()`, not a bare fraction, and at the
+      // smallest disc it is the floor that answers.
+      width: max(150px, 0.62 * var(--fd-r));
+
+      // NO TOP MARGIN HERE (the mixin's `margin: 10px 0 0`, overridden). It
+      // was a gap between the band and the button, and the mixin's own
+      // translate already opens one — so the 10px was being paid twice and the
+      // band was the one paying. Given back, it is 10px of character tray.
+      margin-top: 0;
 
       // START, AT THE DISC'S OWN BUTTON SIZE. On the rectangle this is 120%
       // type in 8px/20px padding inside a 3px border — 60.7px tall, against

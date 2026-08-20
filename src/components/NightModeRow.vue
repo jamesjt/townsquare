@@ -114,6 +114,11 @@ export default {
 
 <style scoped lang="scss">
 @import "../faceDisc.scss";
+// THE SHARED CONTROL PLATE (2026-08-19, user call). The switch used to wear a
+// 1px #3d3d3d edge with its cells carrying their own rgba(0,0,0,.55) ground,
+// and the chip a third variant of the same idea. Both read off src/controls.scss
+// now — see the two blocks below for what each kept.
+@import "../controls.scss";
 
 .night-mode {
   // FT-888: THE EXPLANATION FOLDS INSIDE THE BUILD PANEL'S DISC.
@@ -147,6 +152,17 @@ export default {
     justify-content: space-between;
     gap: 10px;
     min-height: 34px;
+
+    // ON THE DISC THE PANEL'S ROWS ALL CLOSE UP TO 8px (HostTools' own
+    // `> .row { gap: 4px 8px }`) and this row did not, because it is a child
+    // component and that rule cannot reach inside it. 10px against 8px is not
+    // a look, it is a row out of step with the three above it — and here it
+    // also bought the two pixels the plates cost.
+    @include face-disc-build-gate {
+      .host-tools & {
+        gap: 4px 8px;
+      }
+    }
   }
 
   // WIDTH IS THE WHOLE STORY ON THIS ROW, so the measurements are written
@@ -199,40 +215,41 @@ export default {
     min-width: 0;
   }
 
+  // THE SWITCH IS ONE CONTROL WITH THREE POSITIONS, and that is the whole
+  // reason the plate goes HERE and not on the cells. Off / Storyteller /
+  // Everyone must read as a single object a finger slides along; three plated
+  // buttons sitting 0px apart read as three buttons.
+  //
+  // This rule already half-said that — it owned the border and the radius —
+  // while `.nm-opt` below carried its own rgba(0,0,0,.55) ground, so the group
+  // was an outline drawn around three separate grounds. The plate is the
+  // group's now; the cells inside it are transparent, and `overflow: hidden`
+  // is what crops their square corners to the plate's 6px.
   .nm-seg {
+    @include control-plate;
     display: inline-flex;
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
     overflow: hidden;
     flex: 0 0 auto;
   }
 
+  // A CELL, not a button: a seam on its right, a lit state, no box. The seam
+  // stays #3d3d3d rather than taking the plate's black — a black hairline
+  // inside a black-edged group reads as a gap between two plates rather than
+  // as a division inside one.
   .nm-opt {
-    font-family: inherit;
+    @include control-cell;
     font-size: 80%;
-    color: white;
     // 9px → 4px, which is the 30px that lets the switch and the chip share
     // the disc's band on one line (see the width note above). Pure padding:
     // no word on the switch got shorter, nothing else on the panel is
     // measured against this cell, and the coarse-pointer rule at the foot of
     // this block replaces the padding outright on a phone.
     padding: 3px 4px;
-    background: rgba(0, 0, 0, 0.55);
-    border: 0;
-    border-right: 1px solid #3d3d3d;
-    cursor: pointer;
-    &:last-child {
-      border-right: 0;
-    }
     &:hover {
       color: #ff8a8a;
     }
-    &:focus-visible {
-      outline: 1px solid #a01414;
-      outline-offset: -1px;
-    }
     &.on {
-      background: rgba(160, 20, 20, 0.32);
+      background: $control-on-bg;
       font-weight: bold;
     }
     // the three words are a 22px-tall target on a phone
@@ -252,31 +269,44 @@ export default {
     opacity: 0.55;
     font-size: 70%;
     line-height: 1.25;
-    // tracks the label column above it
-    padding-left: 96px;
+    // FLUSH WITH THE PANEL'S TEXT COLUMN (2026-08-19). This used to be
+    // `padding-left: 96px`, commented "tracks the label column above it" — and
+    // it tracked nothing: the panel's label column is 55px wide (HostTools'
+    // `.row .label`), this row's own label paints 136px, and 96 is neither. It
+    // is the last surviving reference to the 96px label box that came off this
+    // component in the FT-888 pass (see the `.label` note above, which records
+    // that box as a fiction). At 0 the sentence starts on the same left edge as
+    // every label on the panel, which is the column it was always meant to sit
+    // in.
+    padding-left: 0;
     margin-top: -2px;
   }
 
   // THE ENFORCEMENT CHIP — Optional / Warn / Required, cycled by tapping.
   //
-  // Deliberately NOT the segment's shape: the two controls sit 8px apart on
-  // one row, and a second bordered three-cell strip beside the first would
-  // read as one six-way switch. A chip is a single rounded token wearing one
-  // word, which is what it is.
+  // IT TAKES THE PLATE AND KEEPS ITS COLOUR, and the split is the point. The
+  // BOX is now the panel's one box: same ground, same 2px edge, same 6px
+  // radius as the switch beside it and the picker two rows up. What tells it
+  // apart is the thing that was always doing the telling — its colour, and the
+  // single word it wears.
   //
-  // Its three states are told apart by COLOUR as well as by the word, and the
-  // colours are the ones this fork already assigns those meanings: muted
+  // THE PILL RADIUS CAME OFF (2026-08-19). It was chosen so this would not
+  // read as a second three-cell switch beside the first, and it is no longer
+  // what does that job: the switch now wears a plate with three cells visibly
+  // seamed inside it, and this is one plate with one word on it — the two
+  // cannot be confused by shape any more, and a lone 999px token was the only
+  // radius on the panel.
+  //
+  // The colours are the ones this fork already assigns those meanings: muted
   // parchment for "nothing is being asked", the sheet's own gold (#d8b45a,
   // the sun mark on the phase bar) for a warning, blood red — the switch's
-  // own `.on` accent, three lines up — for a hard stop.
+  // own `.on` accent, via `control-lit` — for a hard stop.
   .nm-chip {
+    @include control-plate;
     font-family: inherit;
     font-size: 80%;
     padding: 3px 7px;
-    border-radius: 999px;
     flex: 0 0 auto;
-    border: 1px solid #3d3d3d;
-    background: rgba(0, 0, 0, 0.55);
     color: rgba(255, 255, 255, 0.55);
     cursor: pointer;
     white-space: nowrap;
@@ -287,13 +317,13 @@ export default {
 
     &:hover {
       color: #ff8a8a;
+      @include control-plate-hover;
     }
     &:focus-visible {
-      outline: 1px solid #a01414;
-      outline-offset: -1px;
+      @include control-focus-ring;
     }
 
-    // OPTIONAL: dim, unbordered-looking, the resting "this is off" state
+    // OPTIONAL: the bare plate, dimmed — the resting "this is off" state
     &.chk-off {
       opacity: 0.7;
     }
@@ -305,9 +335,7 @@ export default {
     }
     // REQUIRED: the blood accent the mode switch's own selected cell wears
     &.chk-required {
-      color: #ffd9d9;
-      border-color: rgba(190, 90, 90, 0.8);
-      background: rgba(160, 20, 20, 0.32);
+      @include control-lit;
       font-weight: bold;
     }
 

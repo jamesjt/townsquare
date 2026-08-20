@@ -18,7 +18,18 @@
          with their own tooltips (user call 2026-08-18) -->
     <!-- (the three build actions moved INLINE into the Roles row —
          RoleActions.vue — so the tray carries only characters.) -->
-    <div class="rt-rows" v-if="unseated.length" @scroll.passive="hideCard">
+    <!-- THE TRAY'S SCROLLBAR IS THE APP'S OWN (2026-08-19, user call: "if it
+         does have a scroll bar, use our blood drip one"). `v-blood-scroll` is
+         the fork's overlay scrollbar directive — registered globally in
+         main.js, already worn by the grimoire drawer, the night checklist, the
+         chronicle, the workbench and five more. Nothing is reimplemented here;
+         the tray simply joins the list. -->
+    <div
+      class="rt-rows"
+      v-if="unseated.length"
+      v-blood-scroll
+      @scroll.passive="hideCard"
+    >
       <div class="rt-row" v-for="row in unseatedByTeam" :key="row.team">
       <span
         v-for="role in row.roles"
@@ -309,6 +320,19 @@ $team-colors: (
       min-height: 0;
       display: flex;
       flex-direction: column;
+      // NO SIDE PADDING ON THE DISC (2026-08-19). The blood-drip scrollbar
+      // reserves a 30px lane inside `.rt-rows`, and a tile is 42px on a 45px
+      // pitch — so at 1920x1080 the lane cost the widest row its ninth tile by
+      // FIVE pixels (row 402px, content column 397px). These 8px of padding
+      // are the cheapest 8px on the panel: nothing sits in them, the armed
+      // state's dashed border is drawn on the tray's own edge either way, and
+      // handing them back puts the ninth tile in every row.
+      //
+      //   1920x1080  8 tiles a row -> 9, and the row still clears the rim by
+      //              59.1px (the tile is a circle, so the measure is its own
+      //              ink — the corner of its square box is transparent).
+      padding-left: 0;
+      padding-right: 0;
 
       .rt-rows {
         flex: 1 1 auto;
@@ -389,6 +413,18 @@ $team-colors: (
     @media (pointer: coarse) and (orientation: portrait) {
       max-height: none;
       overflow-y: visible;
+
+      // AND THE DRIP'S LANE COMES BACK OFF HERE, because there is no drip.
+      // `v-blood-scroll` reserves a 30px gutter on every host it binds to, as
+      // an inline style — which is right everywhere the bar can draw, and pure
+      // loss on the one surface where this scroller is switched off. These
+      // rows are CENTRED, so an unused right gutter does not read as a margin;
+      // it reads as the whole tray sitting 15px off-centre.
+      //
+      // `!important` is the tool because the directive writes a plain inline
+      // `padding-right`, and a plain inline declaration outranks every normal
+      // rule in the sheet. Nothing else in this file needs it.
+      padding-right: 0 !important;
     }
   }
   .rt-row {

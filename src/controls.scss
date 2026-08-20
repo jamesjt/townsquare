@@ -1,0 +1,160 @@
+// Golem fork (2026-08-19): THE CONTROL PLATE — one ground, one edge, one
+// radius, for every control on the build panel.
+//
+// WHY THIS FILE EXISTS. The build panel carried FOUR near-miss treatments of
+// the same idea, and near-miss is worse than different: the eye reads them as
+// one family that somebody got slightly wrong, rather than as distinct things.
+// Measured off the files, before this partial:
+//
+//   script picker `.trigger`   rgba(0,0,0,.7)     2px solid black          6px
+//   segment group `.nm-seg`    —                  1px solid #3d3d3d        6px
+//   segment cell  `.nm-opt`    rgba(0,0,0,.55)    0 + a 1px #3d3d3d divider  0
+//   enforcement chip `.nm-chip` rgba(0,0,0,.55)   1px solid #3d3d3d      999px
+//   icon buttons  `.ra-act`    rgba(20,16,22,.9)  1px rgba(120,105,135,.4) 5px
+//   seat shuffle  `.tools svg` — no plate at all —
+//
+// Four backgrounds, four edges, three radii, and one control with no box.
+//
+// THE PICKER IS THE REFERENCE, not an average of the six. It is the largest and
+// most deliberate control on the panel, and its plate is ALREADY the fork's
+// house style in two other places in the same component — HostTools' own
+// `.ht-rename-input` and its `.start` button both wear rgba(0,0,0,.7) behind a
+// black border. So this is not a new look; it is the look the panel already had
+// in its biggest controls, finally said once.
+//
+// WHY HERE and not in `faceDisc.scss`. That file is the DISC — geometry, gate,
+// material — and a control's edge is none of those. The fork's shared style
+// partials all sit at the top of `src/` (`vars.scss`, `media.scss`,
+// `drawer.scss`, `faceDisc.scss`), and `drawer.scss` is the exact precedent:
+// one chrome, several callers, written once so the copies cannot drift.
+//
+// WHAT A CALLER MUST STILL DO. This partial owns the PLATE — ground, edge,
+// radius, and the three states that plate can be in. It does not own layout:
+// padding, width and type stay with the control, because a picker trigger, a
+// three-cell segment and a 34px icon button are not the same shape and should
+// not pretend to be.
+
+// ── THE PLATE ───────────────────────────────────────────────────────────────
+// The picker's own three values, lifted verbatim.
+$control-bg: rgba(0, 0, 0, 0.7);
+$control-edge: black;
+$control-edge-width: 2px;
+$control-radius: 6px;
+
+// THE EDGE ON HOVER is the picker's `#400` — a very dark blood, which is what
+// this fork uses everywhere a black edge has to acknowledge the pointer
+// (`.trigger:hover`, `.start.ready`, `.ht-rename-input:focus`).
+$control-edge-hover: #400;
+
+// ── THE LIT STATE ───────────────────────────────────────────────────────────
+// A control that is ON. These three are not invented here either: they are the
+// blood accent the segment's selected cell, RoleActions' duplicates toggle and
+// RoleDrawer's own toggle already wear, so a plated control lighting up looks
+// like the same event it always did.
+$control-on-bg: rgba(160, 20, 20, 0.32);
+$control-on-edge: rgba(190, 90, 90, 0.8);
+$control-on-color: #ffd9d9;
+
+// The hairline BETWEEN cells of a grouped control. It is deliberately not the
+// plate's own edge: a black divider inside a black-edged group would read as a
+// gap between two plates rather than a seam inside one.
+$control-divider: #3d3d3d;
+
+// The focus ring, once — every plated control answers the keyboard the same
+// way (the segment's own existing `:focus-visible`).
+$control-focus: #a01414;
+
+// The plate itself. `box-sizing: border-box` travels with it deliberately: the
+// edge went from 1px to 2px on three of these controls, and a fixed-size icon
+// button whose border grows OUTSIDE its box is a button that changed size.
+@mixin control-plate {
+  box-sizing: border-box;
+  background: $control-bg;
+  border: $control-edge-width solid $control-edge;
+  border-radius: $control-radius;
+}
+
+// The pointer acknowledgement. Split from the plate so a caller can hang it on
+// whatever selector it actually needs (`&:hover`, `&:hover:not(:disabled)`,
+// `&.open`) instead of this file guessing.
+@mixin control-plate-hover {
+  border-color: $control-edge-hover;
+}
+
+// ON. Ground, edge and ink together — a lit control that only changed its edge
+// reads as hovered, not as chosen.
+@mixin control-lit {
+  background: $control-on-bg;
+  border-color: $control-on-edge;
+  color: $control-on-color;
+}
+
+@mixin control-focus-ring {
+  outline: 1px solid $control-focus;
+  outline-offset: -1px;
+}
+
+// OFF, and unavailable. Two different things, so two mixins: a toggle that is
+// merely off is still pressable and stays at full contrast on its ink; a
+// disabled control is dimmed whole.
+@mixin control-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+// ── A CELL INSIDE A GROUPED CONTROL ─────────────────────────────────────────
+// Off / Storyteller / Everyone is ONE control with three positions, so the
+// plate goes on the GROUP and the cells inside it carry no box of their own —
+// just a seam and a lit state. A cell that wore its own plate would turn a
+// switch into three buttons that happen to touch.
+@mixin control-cell {
+  font-family: inherit;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid $control-divider;
+  color: white;
+  cursor: pointer;
+  &:last-child {
+    border-right: 0;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+}
+
+// ── AN ICON BUTTON ──────────────────────────────────────────────────────────
+// The plate plus the box: RoleActions' three build actions and the Seats row's
+// shuffle are the same object and must stay the same size, so the size lives
+// here with the plate rather than being restated per caller.
+//
+// The coarse-pointer bump comes along with it. Both callers had a version of
+// it — RoleActions grew to 42x40, the seat shuffle faked a box with 15px of
+// padding and a -9px margin — and one of them was going to drift.
+@mixin control-icon-btn($w: 34px, $h: 30px, $touch-w: 42px, $touch-h: 40px) {
+  @include control-plate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $w;
+  height: $h;
+  padding: 0;
+  color: #d8cdb4;
+  cursor: pointer;
+  transition: color 150ms, border-color 150ms, background 150ms;
+
+  @media (pointer: coarse) {
+    width: $touch-w;
+    height: $touch-h;
+  }
+
+  &:hover:not(:disabled) {
+    color: #fff;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &:disabled {
+    @include control-disabled;
+  }
+}
