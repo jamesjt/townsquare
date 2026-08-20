@@ -106,7 +106,7 @@
         <span class="label">
           <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
         </span>
-        <span class="ht-seat-readout">
+        <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
           <!-- the number is a SCRUBBER: drag it sideways to set the count
                (user call — the +/- pair retired). FT-874: extracted into
                NumberScrub so the night sheet's own number fields run the SAME
@@ -191,6 +191,34 @@
         </span>
       </span>
     </div>
+    <!-- FT-895 (user call: "a script should carry a minimum and maximum number
+         of players... and the seat number should respect that", then — on how
+         hard — "the seat control probably shouldn't enforce the number but
+         warn when it is outside of that range").
+
+         IT WARNS, IT NEVER BLOCKS. The scrub above keeps its full 0-20 and
+         still sets whatever it is dragged to; this line only says what is
+         wrong with the count. That is deliberate and it is the user's call:
+         a storyteller mid-setup knows things the table does not.
+
+         WHY A LINE AND NOT A CHIP. The night row's Optional/Warn/Required
+         segment is a SETTING — three states you pick between — so borrowing
+         its shape here would read as another control to operate rather than
+         something the panel is telling you. What is borrowed instead is its
+         INK: warn gold, the colour this app already means "look at this, but
+         nothing is stopping" with. The shape comes from `.hint`, the Start
+         footer's own line for "here is why this looks the way it does",
+         which is exactly this job one row down.
+
+         IT NAMES THE SHORTFALL. "Too many players" would be useless; the
+         setup table knows what 13 seats requires and the script's own pool
+         knows what it holds, so the line says which team is short and by how
+         much. The derivation is golem/seatRange — shared, so no second
+         surface can disagree about what this script plays. -->
+    <small class="hint seat-warn" v-if="seatWarn">
+      {{ seatWarn.reason }}
+      <span class="plays" v-if="seatWarn.plays">{{ seatWarn.plays }}</span>
+    </small>
 
     <!-- the SHARED script picker (user call): pick right here, with the
          script's OWN art on the trigger; the Almanac card opens the forge -->
@@ -313,6 +341,11 @@ import { flashHint } from "../golem/hint";
 import gameJSON from "../game";
 import { teamGlyph } from "../golem/glyphs";
 import { TEAM_LABELS } from "../golem/composition";
+// FT-895: what THIS script can actually seat, derived from its own character
+// pool. Shared with the workbench meter's "Plays 5-15" line through
+// golem/composition's `servableFor`, which both of them read — the seat row
+// and the meter cannot disagree about a script's range.
+import { seatWarning } from "../golem/seatRange";
 
 // The four teams the setup table names, in the order every other surface in
 // this app states them (the reading order of a composition, best to worst).
@@ -432,12 +465,22 @@ export default {
     /** The whole Seats row on hover — the claimed count included, because the
      *  disc folds the visible copy of it away for room (see the styles). */
     seatsHint() {
-      return (
+      const base =
         this.claimedCount +
         " of " +
         this.players.length +
         (this.players.length === 1 ? " seat" : " seats") +
-        " claimed. Drag the number to change how many there are."
+        " claimed. Drag the number to change how many there are.";
+      // FT-895: the range warning rides the row's tooltip as well as the line
+      // under it — the same FOLD `.claimed` already makes on the disc, where
+      // the band is too tight for every line to show at once. Two places, one
+      // string, and the tooltip is the one that survives any layout.
+      if (!this.seatWarn) return base;
+      return (
+        base +
+        "\n\n" +
+        this.seatWarn.reason +
+        (this.seatWarn.plays ? " " + this.seatWarn.plays : "")
       );
     },
     /** The readout says what it IS on hover, because "5 2 3 1" beside a seat
@@ -450,6 +493,29 @@ export default {
         " seats makes — the script's composition at this size. " +
         "Roles actually assigned are on the Roles row."
       );
+    },
+    /**
+     * FT-895: the loaded script as a LIST (state.roles is a Map, replaced
+     * wholesale on every script change). Same two lines ScriptDrawer already
+     * uses to read the same Map — not a new accessor.
+     */
+    scriptRoles() {
+      const list = [];
+      this.$store.state.roles.forEach((role) => list.push(role));
+      return list;
+    },
+    /**
+     * FT-895: the seat row's warning, or null when the count is fine.
+     *
+     * COUNTED ON `coreSeats`, NOT `players.length`, for two separate reasons.
+     * Travellers sit outside the composition, so fifteen players plus five
+     * travellers is twenty chairs and nothing is wrong with it. And the
+     * `nonTravelers` getter — which the composition readout above uses — caps
+     * itself at 15 by design, so it literally cannot report the overage this
+     * line exists to name. `coreSeats` is the uncapped truth.
+     */
+    seatWarn() {
+      return seatWarning(this.coreSeats.length, this.scriptRoles);
     },
     canRemoveSeat() {
       // The spinner never evicts: only an EMPTY seat can go.
@@ -1225,6 +1291,49 @@ export default {
     margin-top: 6px;
     opacity: 0.6;
     font-size: 70%;
+  }
+
+  // ── THE SEAT-RANGE WARNING (FT-895) ───────────────────────────────────
+  //
+  // WARN GOLD, #ffd98a, IS NOT A NEW COLOUR. It is the exact ink
+  // NightModeRow's enforcement segment paints its selected "Warn" cell in —
+  // this app's one existing word for "look at this, but nothing is stopping
+  // you", which is precisely the contract this line has. It is written as a
+  // literal here for the same reason it is a literal there: controls.scss
+  // carries plate/edge/on tokens and has no warn token to reuse. A shared
+  // `$control-warn` is the right home for it now that a second surface wants
+  // it — flagged, not taken, because that file is not this lane's to edit.
+  //
+  // BRIGHTER THAN `.hint`'s 0.6 (0.85). The Start footer's hint explains a
+  // button you can see is greyed out; this one is the only sign that
+  // anything is off at all, and a warning at 60% opacity in 70% type is a
+  // warning nobody reads.
+  .hint.seat-warn {
+    color: #ffd98a;
+    opacity: 0.85;
+    max-width: 320px;
+    line-height: 1.3;
+    // FLUSH LEFT, in the panel's own text column — the same place and the
+    // same reasoning as `.nm-hint`, the night row's hint one row down, which
+    // is the nearest precedent for "a sentence explaining the row above it".
+    // The Start footer's `.hint` inherits the panel's centring instead, and
+    // that is right for THAT one: it sits under a centred button in a centred
+    // dock. This one sits under a left-aligned row.
+    text-align: left;
+    // the range sits on its own line: the shortfall is what to act on, what
+    // the script DOES play is the follow-up, and running them together made
+    // one long sentence with two jobs.
+    .plays {
+      display: block;
+      opacity: 0.75;
+    }
+  }
+  // THE NUMBER THAT CAUSED IT gets the same gold on its plate's edge, so the
+  // eye lands on the control the line is about rather than hunting the row.
+  // Edge only — the scrub's own digits stay legible, and the plate keeps the
+  // `control-plate` material every other control on this panel wears.
+  .ht-seat-readout.warn {
+    border-color: rgba(255, 217, 138, 0.55);
   }
 
   // ── THE DISC (FT-888, desktop only) ───────────────────────────────────

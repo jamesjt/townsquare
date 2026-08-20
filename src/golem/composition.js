@@ -7,20 +7,25 @@
  * shares and plays. Nothing in here gates anything.
  */
 
-/** The official setup table — players: [townsfolk, outsiders, minions, demons]. */
-export const SETUP_TABLE = {
-  5: [3, 0, 1, 1],
-  6: [3, 1, 1, 1],
-  7: [5, 0, 1, 1],
-  8: [5, 1, 1, 1],
-  9: [5, 2, 1, 1],
-  10: [7, 0, 2, 1],
-  11: [7, 1, 2, 1],
-  12: [7, 2, 2, 1],
-  13: [9, 0, 3, 1],
-  14: [9, 1, 3, 1],
-  15: [9, 2, 3, 1]
-};
+/**
+ * The official setup table — players: [townsfolk, outsiders, minions, demons].
+ *
+ * READ OFF game.json, not typed out (FT-895). This was a literal copy of that
+ * file's eleven rows, which meant the same eleven numbers lived in two places
+ * and only one of them was the source: game.json is what TownInfo and the
+ * build panel's own composition readout already index directly, so a change
+ * there would have moved those two readouts and left this table — and every
+ * "Plays 5-15" line reading it — quietly stating the old shape.
+ *
+ * game.json's first row is the FIVE-player game, so its index is `n - 5`;
+ * inverting that is the whole of the transform below.
+ */
+import gameJSON from "../game";
+
+export const SETUP_TABLE = gameJSON.reduce((table, row, i) => {
+  table[i + 5] = [row.townsfolk, row.outsider, row.minion, row.demon];
+  return table;
+}, {});
 
 export const TEAM_LABELS = {
   townsfolk: "Townsfolk",
