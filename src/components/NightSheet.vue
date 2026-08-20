@@ -14,7 +14,17 @@
        the town readout above the clock face (another lane), because every
        player is meant to see it. What stays here, storyteller-only: the
        progress count, and the single Day-breaks/Night-falls button. -->
-  <div class="night-sheet" :class="{ 'is-night': isNight, 'has-list': showList }">
+  <div
+    class="night-sheet"
+    :class="{
+      'is-night': isNight,
+      'has-list': showList,
+      // FT-986: THE NIGHT SELECTORS' OWN COLOUR — see viewerAlignment below.
+      // Computed key rather than three literal booleans so a fourth state
+      // never has to touch this line again.
+      ['viewer-' + viewerAlignment]: !!viewerAlignment
+    }"
+  >
     <!-- FT-975 (2026-08-20): OFF/DAYTIME PILL RETIRED. The sun/moon + day
          count readout above the clock face (TownInfo.vue's `.info-phase`)
          IS this button now — for the storyteller it is a live control
@@ -408,6 +418,9 @@
 import { mapState, mapGetters } from "vuex";
 import { entryId } from "../golem/nightLog";
 import { extraFields, renderableType, labelFor } from "../golem/nightInfo";
+// FT-986: the seat pickers' own colour reads WHAT THE VIEWER IS TOLD, never
+// what they are — see believedAlignment's own header for why.
+import { believedAlignment } from "../golem/belief";
 import SeatPicker from "./SeatPicker";
 import CharacterPicker from "./CharacterPicker";
 // FT-874: the shared drag-scrub / click-to-type number control (also used by
@@ -477,6 +490,50 @@ export default {
      */
     isStoryteller() {
       return !this.session.isSpectator;
+    },
+    /**
+     * FT-986: THIS CLIENT'S OWN SEAT, when the viewer is a player rather
+     * than the storyteller — the same `players.find(p => p.id ===
+     * session.playerId)` lookup Vote.vue/Player.vue/TownSquare.vue already
+     * use to find "me" among the ring. Null for the storyteller, who has
+     * no seat of their own.
+     */
+    viewerPlayer() {
+      if (this.isStoryteller) return null;
+      return this.players.find(p => p.id === this.session.playerId) || null;
+    },
+    /**
+     * FT-986: THE NIGHT SELECTORS' COLOUR SOURCE — 'storyteller' | 'good' |
+     * 'evil' | null, from WHO IS LOOKING at THIS client, never a fixed
+     * palette. Drives the `.viewer-*` root class below, which the style
+     * block turns into a CSS custom property the seat pickers' border and
+     * highlight read (see `::v-deep .sp-*`).
+     *
+     * THE LEAK RULE (FT-868 / golem/belief.js): a player's own colour comes
+     * from `believedAlignment()`, which reads `believedRole` before `role`
+     * — the Drunk, the Lunatic, anyone poisoned into a false belief gets
+     * the colour OF THE LIE, never the truth. A selector that answered with
+     * the true team would out the deception through the chrome itself,
+     * which is the same class of bug as a whisper reaching a fourth
+     * socket. NULL is a real answer, not a bug — an open seat or an
+     * undistributed game has no belief to read, and a neutral (unstyled)
+     * selector is correct there rather than a guess.
+     *
+     * PER-VIEWER BY CONSTRUCTION: this reads only THIS client's own Vuex
+     * store (`session`/`players`, both local to the tab), so the
+     * storyteller's screen and a player's screen can never influence one
+     * another's colour.
+     *
+     * IN PRACTICE this only ever returns 'storyteller' today — this
+     * component mounts for the storyteller alone (App.vue's `!isSpectator`
+     * gate; see the file header), so a real player never reaches this
+     * template to exercise the good/evil branches against. They are
+     * written anyway: the derivation has to be correct BEFORE a selector
+     * like this is ever put in front of a player, not after.
+     */
+    viewerAlignment() {
+      if (this.isStoryteller) return "storyteller";
+      return believedAlignment(this.viewerPlayer);
     },
     /** The script's characters, for CharacterPicker's option list (a public
      *  fact — every player already knows the script from the Almanac). */
@@ -814,6 +871,12 @@ export default {
 // FT-888: the clock face's disc — geometry, gate and material, shared with the
 // entry panels and the build panel.
 @import "../faceDisc.scss";
+// FT-986: $grimoire-plum (the checks/border deepening below) and
+// $control-edge-hover (the storyteller's own purple — see the
+// .viewer-storyteller rule) both live here. Read-only: this partial carries
+// no bare selectors of its own, only variables and mixins, the same way six
+// other components already import it.
+@import "../controls.scss";
 
 // ROW CONTROL HEIGHT CONTRACT: 30px desktop / 44px coarse-pointer — matched
 // by hand in SeatPicker.vue and CharacterPicker.vue's own styles. A change
@@ -843,6 +906,20 @@ $ns-team-colors: (
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 20px);
 
+  // FT-986: THE NIGHT SELECTORS' OWN COLOUR lives in a SECOND, UNSCOPED
+  // `<style>` block at the bottom of this file, not here. THE REASON IS A
+  // REAL DOM FACT, found by measuring rather than assumed: SeatPicker's own
+  // popup (`.sp-list`) is hoisted to `document.body` the moment it opens
+  // (`golem/floatingPicker.js`'s `positionPopup()` — a different lane's
+  // file, needed so the popup can escape this sheet's own scrolling list).
+  // Once open it is no longer a DOM descendant of `.night-sheet` at all —
+  // not visually, ACTUALLY, in the tree — so neither a `::v-deep` descendant
+  // selector nor an inherited custom property declared here could ever
+  // reach it (confirmed the hard way: a first pass that declared
+  // `--ns-viewer-color` on `&.viewer-*` right here coloured the TRIGGER
+  // correctly and left the OPEN POPUP's border and picked-row highlight
+  // exactly as blood-red as before — see the bottom of the file for the fix
+  // and the "why unscoped" note that goes with it).
   // DAY, or the sheet switched off: just the flip-into-night pill, clear of
   // the town-centre plate.
   //
@@ -1432,16 +1509,42 @@ $ns-team-colors: (
     // The dimming moved OFF this element and ONTO the glyph: an opacity on
     // the span would take the outline down with it, and the outline's whole
     // job is to be visible while the glyph is not.
-    border: 1px solid rgba(120, 105, 135, 0.3);
+    // FT-986 (user call): DEEPER — $grimoire-plum on the BORDER only. THE
+    // GLYPH ITSELF DOES NOT MOVE, and that is a measured call, not a
+    // half-finished one — see claude_temp_test/2026-08-20-ft986-proof.mjs.
+    //
+    // A checkbox is a harder case than FT-981's plus buttons: "check-square"
+    // is a thin outline plus a diagonal stroke, not a thick 15px fill, and
+    // this sheet's ground runs near-black (measured ~rgb(10,8,8) behind this
+    // exact control, both in the rectangle form and under the desktop
+    // disc's tinted glass). Sampling the RENDERED ink (not the CSS literal —
+    // the glyph sits at svg opacity .95, so what a reader sees is already a
+    // composite over that ground):
+    //
+    //   rgb(120,105,135) [shipped, unmoved]   -> 3.62 : 1
+    //   $grimoire-plum #4b3565 [tried first]  -> 1.80 : 1
+    //
+    // Full plum roughly HALVES the tick's own contrast and lands well under
+    // the 3:1 WCAG guideline for a graphical object — the outcome the brief
+    // asked to watch for and split on rather than ship. So the split: the
+    // BORDER (below, and on `.checked` further down) goes to full plum,
+    // because it is a 1px outline that has never been the only thing saying
+    // "checked" — the icon SHAPE already does (empty square vs filled
+    // check-square), independent of colour — and its own contrast was low
+    // before this pass too (1.91:1 unchanged to 1.3:1, both already under
+    // 3:1, both already secondary to the shape). The TICK stays the shipped
+    // tone, because it is the one channel with a real contrast budget to
+    // protect.
+    border: 1px solid rgba($grimoire-plum, 0.3);
     border-radius: 4px;
     svg {
       opacity: 0.34;
     }
     &:hover,
     &:focus-visible {
-      border-color: rgba(150, 130, 175, 0.75);
-      background: rgba(120, 105, 135, 0.12);
-      color: rgb(150, 130, 175);
+      border-color: $control-edge-hover;
+      background: rgba($grimoire-plum, 0.12);
+      color: $control-edge-hover;
       outline: none;
       svg {
         opacity: 1;
@@ -1449,7 +1552,7 @@ $ns-team-colors: (
     }
     &.checked {
       color: rgb(120, 105, 135);
-      border-color: rgba(120, 105, 135, 0.55);
+      border-color: rgba($grimoire-plum, 0.55);
       svg {
         opacity: 0.95;
       }
@@ -1457,7 +1560,7 @@ $ns-team-colors: (
       // than reading as a different control
       &:hover,
       &:focus-visible {
-        color: rgb(150, 130, 175);
+        color: $control-edge-hover;
       }
     }
   }
@@ -1825,6 +1928,103 @@ $ns-team-colors: (
   25%,
   65% {
     background: rgba(160, 20, 20, 0.35);
+  }
+}
+</style>
+
+<!--
+  FT-986: THE NIGHT SELECTORS' OWN COLOUR — deliberately UNSCOPED, and the
+  whole rest of this comment is why.
+
+  golem/floatingPicker.js's positionPopup() (a different lane's file, unread
+  further than this) hoists SeatPicker's own popup (`.sp-list`) to
+  `document.body` the instant it opens, so it can escape this sheet's own
+  scrolling `.ns-rows` list. From that moment it is not a DOM descendant of
+  `.night-sheet` — genuinely, in the tree, not just visually — so no amount
+  of `::v-deep` in the SCOPED block above could ever reach it, and neither
+  could a custom property declared there: inheritance follows the real DOM
+  parent chain, and `.night-sheet` is no longer in it. (Found the hard way —
+  see the note left in its place above.) The TRIGGER button is not hoisted
+  and is styled from the scoped block same as any other child; only the
+  OPEN POPUP needed this.
+
+  `:root:has(...)` is what lets a genuinely global block still answer
+  "who is looking" correctly: it reads the SAME `.viewer-storyteller` /
+  `.viewer-good` / `.viewer-evil` class the template already puts on
+  `.night-sheet` off `viewerAlignment` (see the component's computed) — so
+  there is exactly ONE place that decides the colour; this block only
+  relays it to `:root` so a hoisted child can inherit it too. Where
+  `:has()` goes unsupported, the selector simply never matches and every
+  `var()` below falls back to SeatPicker's ORIGINAL blood-red — the same
+  neutral-on-unknown behaviour a null `viewerAlignment` already gets, never
+  a broken render.
+
+  `.sp-list` / `.sp-row` are SeatPicker's own class names and are not used
+  anywhere else in this app (checked), so reaching them globally here
+  carries no real collision risk.
+-->
+<style lang="scss">
+@import "../vars.scss";
+@import "../controls.scss";
+
+// $control-edge-hover, not $grimoire-plum, for the storyteller: that is the
+// token controls.scss itself names "the storyteller's own colour throughout
+// the app" — $grimoire-plum is this file's OTHER purple (see .ns-check in
+// the scoped block above), and using it here too would make one sheet speak
+// two purples for two different jobs. $townsfolk/$demon are the same reds
+// and blues every team colour on this sheet already reads off vars.scss's
+// $ns-team-colors map, so a good or evil viewer's own colour agrees with
+// the colour their OWN character's name would wear in this same list.
+//
+// rgba(<token>, a) on a token that already carries its own alpha
+// ($control-edge-hover is rgba(150,130,175,.75)) REPLACES that alpha rather
+// than compounding it — Sass's own rgba() behaviour — so the wash tones are
+// derived from the same three tokens, never a fourth literal.
+:root:has(.night-sheet.viewer-storyteller) {
+  --ns-viewer-color: #{$control-edge-hover};
+  --ns-viewer-wash: #{rgba($control-edge-hover, 0.22)};
+  --ns-viewer-hover-wash: #{rgba($control-edge-hover, 0.12)};
+}
+:root:has(.night-sheet.viewer-good) {
+  --ns-viewer-color: #{$townsfolk};
+  --ns-viewer-wash: #{rgba($townsfolk, 0.22)};
+  --ns-viewer-hover-wash: #{rgba($townsfolk, 0.12)};
+}
+:root:has(.night-sheet.viewer-evil) {
+  --ns-viewer-color: #{$demon};
+  --ns-viewer-wash: #{rgba($demon, 0.22)};
+  --ns-viewer-hover-wash: #{rgba($demon, 0.12)};
+}
+
+// `:root` PREFIXED, AND THE CLASS DOUBLED, ON EVERY RULE BELOW — a plain
+// `.sp-trigger { border-color: var(...) }` LOST outright to SeatPicker's own
+// scoped `.sp-trigger[data-v-xxxxx]{border:1px solid #3d3d3d}` (found the
+// same way as the hoisting bug: measured, not assumed — a run where
+// `--ns-viewer-color` was proven set correctly on `:root` and the trigger's
+// own border still came back `#400`). A component's own `[data-v-xxxxx]`
+// attribute selector is worth one specificity point; `:root` plus a doubled
+// class buys three, which wins outright rather than gambling on which of
+// two build outputs happens to be emitted later in the bundle.
+:root .sp-trigger.sp-trigger {
+  border-color: var(--ns-viewer-color, #3d3d3d);
+  &:hover,
+  &.open {
+    border-color: var(--ns-viewer-color, #400);
+  }
+}
+
+// THE OPEN POPUP — the reason this whole block exists.
+:root .sp-list.sp-list {
+  border-color: var(--ns-viewer-color, #400);
+  .sp-row {
+    &:hover,
+    &:focus {
+      background: var(--ns-viewer-hover-wash, rgba(255, 0, 0, 0.1));
+    }
+    &.picked {
+      background: var(--ns-viewer-wash, rgba(160, 20, 20, 0.22));
+      box-shadow: inset 0 0 0 1px var(--ns-viewer-color, #a01414);
+    }
   }
 }
 </style>

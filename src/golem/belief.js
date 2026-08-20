@@ -58,3 +58,29 @@ export function isBelieving(player) {
   const truth = player.role || {};
   return !!(believed && believed.id && believed.id !== truth.id);
 }
+
+/**
+ * FT-986: THE ALIGNMENT A PLAYER CURRENTLY BELIEVES THEY HOLD — 'good' or
+ * 'evil' — for any surface that wants to colour itself by "which side is
+ * this seat's player on" WITHOUT asking the seat's true role. Built off
+ * `beliefOf()`, so it inherits the same rule: a Lunatic (true team
+ * outsider/good, believed role a Demon) reads back 'evil' here, because
+ * that is the side its player has been shown, and a border or highlight
+ * that answered with the truth would out the deception through the
+ * interface instead of the storyteller's mouth.
+ *
+ * The good/evil split itself is not invented for this: it mirrors
+ * EndGameOverlay.vue's own derivation (minion/demon → evil, everything
+ * else → good — travelers and fabled are not modelled as an alignment
+ * there either, and this follows suit rather than making a second call).
+ *
+ * @param player a seated player, or null/undefined for "no seat"
+ * @returns {"good"|"evil"|null} null when there is no role to read yet —
+ *   an open chair, or a game that has not distributed roles. A caller
+ *   should treat null as "say nothing", never guess a colour.
+ */
+export function believedAlignment(player) {
+  const role = beliefOf(player);
+  if (!role || !role.id) return null;
+  return role.team === "minion" || role.team === "demon" ? "evil" : "good";
+}
