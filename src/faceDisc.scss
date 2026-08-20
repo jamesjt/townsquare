@@ -80,6 +80,38 @@ $face-disc-build-gate:
 $face-disc-cap: 0.21;
 $face-disc-hw: 0.8146;
 
+// ── AND THE SAME MATHS WHEN THE DISC IS NOT A CIRCLE (FT-888 width pass) ─────
+// "Can we make the circle not exactly a circle as one of the options so I can
+// better match it to the art, so we probably need a width control and a border
+// radius control?" (user, 2026-08-19). The lab now carries a Width scrub, so the
+// plate can be an ELLIPSE with a horizontal radius rx and a vertical one ry —
+// and the inscribed rectangle of an ellipse is not the inscribed rectangle of a
+// circle. Getting that wrong is how the band, the header and the button end up
+// crossing a rim the table further down still claims they clear.
+//
+// SO IT IS DERIVED, not clamped-and-warned. The general form is
+//
+//   (a / rx)^2 + (b / ry)^2 = 1     ->     a = rx * sqrt(1 - (b / ry)^2)
+//
+// and the constant above SURVIVES INTACT, which is worth stating because it
+// looks like luck and is not. The cap is a fraction of the VERTICAL diameter
+// (t = cap x 2ry), so the band's half-height over the vertical radius is
+//
+//   b / ry = (ry - t) / ry = 1 - 2 x cap = 0.58
+//
+// — a pure number, the same at every width. Substituting:
+//
+//   a = rx * sqrt(1 - 0.58^2) = 0.8146 * rx
+//
+// So $face-disc-hw is not "a/r" but "a/rx", it never needed the radius to be
+// one number, and the whole band expression generalises by swapping r for the
+// HORIZONTAL radius and nothing else. The same substitution carries the
+// header's 1.3r and the button's 0.95r: both are horizontal extents at a fixed
+// height, both are multiples of the chord at that height, and every chord scales
+// linearly with rx. Clearance is therefore multiplied by rx/ry — proportionally
+// identical at Width 0, proportionally roomier above it, tighter below.
+// (Measured across the sweep: claude_temp_test/2026-08-19-glass3-clearance.mjs.)
+
 // THE BAND HAS A FLOOR, and the floor is why `--fd-band` is a `max()` and not a
 // plain sum. The lab's R and W scrubs are two dials against ONE quantity, so
 // their clamps COMPOUND: bounding each on its own still let R-40 and W-80 meet
@@ -102,6 +134,15 @@ $face-disc-hw: 0.8146;
 // its own minimum in the smallest window the disc runs at — a lab state, watched
 // by the person dragging, which is exactly what that dial's range is for.
 // Nothing that ships goes near it.
+//
+// AND THE WIDTH SCRUB IS NOW A THIRD DIAL AGAINST THE SAME QUANTITY, which
+// widens that exception rather than changing its character: the band is
+// 2 x hw x rx, so a negative Width narrows the chord exactly as a negative
+// Radius does. Measured at 1280x800 (r = 201.5), the chord meets the floor at
+// about Width -37 on its own, and Width -40 with Radius -40 together leave a
+// 189.5px chord against a 265px floor. Both are lab states at the ends of two
+// dials, both are watched by the person dragging, and neither is reachable by
+// anything that ships.
 $face-disc-band-floor: 265px;
 
 // WHERE THE CAP FURNITURE SITS. Both are the USER'S DIALLED VALUES, baked out
@@ -200,16 +241,24 @@ $face-disc-foot-dy: 14px;
 // they are read PLAIN here. Never restate that term: an earlier pass of the
 // entry panels added the +7px by hand and applied it twice.
 //
-// EVERY `--fd-*-adj` READ IN THIS FILE BELONGS TO THE LAB — TEMPORARY, and they
-// come out with it (see `src/golem/faceDisc.js`). SIX GEOMETRY ones here, and
+// EVERY `--fd-*` LAB READ IN THIS FILE IS TEMPORARY and they come out together
+// (see `src/golem/faceDisc.js`). EIGHT GEOMETRY ones here, and
 // SEVEN MATERIAL ones further down (three in the backdrop-filter, two in the
-// tint mixin at the top, two on the edge layer). Each is an offset on the end
+// tint mixin at the top, two on the edge layer), plus the preset's tint colour.
+// Each is an offset on the end
 // of an expression that was already correct, so with the lab gone — or every
 // scrub at zero — these lines compute exactly what they computed before it
-// existed. The geometry six live INSIDE the gate, because a phone's rectangle
+// existed. The geometry eight live INSIDE the gate, because a phone's rectangle
 // has no disc, no caps and no band and must not follow any of this; the
 // material seven live inside `face-disc-plate`, which is only ever included
 // from `face-disc-frame`, which is itself only ever inside the gate.
+//
+// TWO OF THE FIFTEEN DO NOT END IN `-adj`, and both are declared where they are
+// read: `--fd-radius` carries a RESOLVED border-radius (an offset there cannot
+// be reported as the string `50%`), and `--fd-tint-rgb` carries a preset's tint
+// COLOUR, which is not a scrub at all. Both name the shipped value as their own
+// `var()` fallback, so the lab being absent and the lab at rest are the same
+// declaration.
 //
 // THE BAKE (FT-888). Three of the six dialled values are folded into the
 // expressions below — X -12, Y -13, R -10 — and the `var(--fd-*-adj)` reads
@@ -220,16 +269,30 @@ $face-disc-foot-dy: 14px;
 // `src/golem/faceDisc.js`): a browser still holding the dialled values against
 // the OLD keys would otherwise apply all six a second time on top of the bake.
 @mixin face-disc-frame {
+  // --fd-r AND --fd-d KEEP THEIR MEANINGS: the VERTICAL radius and the VERTICAL
+  // diameter. They are read outside this file (HostTools' own body height is
+  // `calc(var(--fd-d) - 2 * var(--fd-caph) + 22px)`), and both of those reads
+  // are vertical quantities, so widening the disc must not move them.
   --fd-r: calc(
     var(--face-r, 238) * var(--fpx, 1px) - 10px + var(--fd-r-adj, 0px)
   );
   --fd-d: calc(2 * var(--fd-r));
+  // THE HORIZONTAL PAIR, and the only thing the Width scrub touches. At rest
+  // --fd-rx IS --fd-r and --fd-dx IS --fd-d, which is what makes Width 0 a
+  // circle by construction rather than by measurement.
+  --fd-rx: calc(var(--fd-r) + var(--fd-width-adj, 0px));
+  --fd-dx: calc(2 * var(--fd-rx));
   --fd-cap: #{$face-disc-cap};
   --fd-hw: #{$face-disc-hw};
   --fd-band-floor: #{$face-disc-band-floor};
+  // THE BAND IS THE CHORD OF WHATEVER SHAPE THIS IS. See the band-maths block
+  // at the top: the cap is a fraction of the vertical diameter, so the band's
+  // half-height over the vertical radius is a constant 0.58 and the half-chord
+  // comes out as hw x the HORIZONTAL radius, exactly. One substitution, and the
+  // geometry is honest at every width.
   --fd-band: max(
     var(--fd-band-floor),
-    calc(2 * var(--fd-hw) * var(--fd-r) + var(--fd-band-adj, 0px))
+    calc(2 * var(--fd-hw) * var(--fd-rx) + var(--fd-band-adj, 0px))
   );
   --fd-caph: calc(var(--fd-cap) * var(--fd-d));
 
@@ -258,7 +321,7 @@ $face-disc-foot-dy: 14px;
   left: calc(var(--face-cx, 50%) - 13px + var(--fd-x-adj, 0px));
   top: calc(var(--face-cy, 50%) - 15px + var(--fd-y-adj, 0px));
   transform: translate(-50%, -50%);
-  width: var(--fd-d);
+  width: var(--fd-dx);
   height: var(--fd-d);
   // THE DISC IS THE FACE. Every one of these surfaces carries a window cap on
   // its rectangle rule (92vw, 420px, calc(100vh - 20px)…), and any of them
@@ -268,7 +331,13 @@ $face-disc-foot-dy: 14px;
   max-width: none;
   max-height: none;
   border: none;
-  border-radius: 50%;
+  // 50% IS THE FULL ELLIPSE — on a square box it is the circle this always was,
+  // and on a widened one it is the ellipse Width asks for, because a percentage
+  // radius resolves against each axis separately. The lab's Corner scrub takes
+  // it DOWN from there toward a rounded rectangle, and it publishes the resolved
+  // percentage rather than an offset (see the dial): at rest the property it
+  // sets is the literal `50%`, identical to this fallback.
+  border-radius: var(--fd-radius, 50%);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -310,6 +379,23 @@ $face-disc-foot-dy: 14px;
 // Include `face-disc-tint` on #app (App.vue does) and every disc inherits it.
 $face-disc-tint-lit: 0.46;
 $face-disc-tint-dark: 0.22;
+
+// ── AND THE TINT'S COLOUR, which the lab's PRESET switch owns ───────────────
+// The alpha is two scrubs; the COLOUR is not a scrub at all, because the three
+// glass families the preset switch offers do not disagree about it by degree —
+// glassmorphism and Liquid Glass tint LIGHT (white at 25% and 15%), this app and
+// Windows' dark Acrylic tint DARK. A dial that could only move the alpha would
+// reproduce neither.
+//
+// So it is one custom property, read below with the shipped triplet as its own
+// fallback: rgb(26, 20, 33) is the grimoire's cool purple-black, the ground
+// RoleDrawer's own controls sit on. With the lab absent the fallback IS the
+// literal these stops always carried, so nothing about the shipped ramp moves.
+//
+// It is a Sass string rather than a colour on purpose: interpolating it inside
+// `rgba(...)` makes the whole call a plain CSS function that Sass emits
+// verbatim, which is the only way a `var()` can stand where three channels go.
+$face-disc-tint-rgb: "var(--fd-tint-rgb, 26, 20, 33)";
 
 //
 // THE TWO `--fd-tint-*-adj` READS BELONG TO THE LAB, like every other `-adj` in
@@ -611,22 +697,37 @@ $face-disc-tint-dark: 0.22;
   // #app's night backdrop fades over a second, and a tint that changed
   // instantly at the same moment read as a flicker on the plate.
   //
-  // The colour is unchanged and deliberately so: rgb(26, 20, 33) is the
-  // grimoire's cool purple-black, the ground RoleDrawer's own controls sit on.
+  // THE COLOUR IS THE PRESET'S NOW — `--fd-tint-rgb`, defaulting to the
+  // grimoire's cool purple-black, rgb(26, 20, 33), which is the ground
+  // RoleDrawer's own controls sit on and the literal these three stops always
+  // carried. The fourth stop keeps its own darker literal, and that is not an
+  // oversight: gradients interpolate in PREMULTIPLIED alpha, so a fully
+  // transparent stop's channels take no part in the ramp — it cannot disturb a
+  // light tint, and leaving it alone keeps the shipped declaration byte-exact.
+  //
+  // THIS ONE RAMP DOES NOT FOLLOW A WIDENED DISC, and it is the only thing in
+  // the file that does not. Its ending shape is a CIRCLE at 50% 46% — off
+  // centre, so `circle` and `ellipse` are not the same shape here even on a
+  // square box, and swapping the keyword would move the shipped ramp. It is a
+  // soft ground with no boundary anywhere in it, so what a wide disc costs is
+  // slightly more tint left at the left and right rim than at the top and
+  // bottom — visible in a measurement, not in a look. The two layers that DO
+  // have edges (the rim ramp and its mask, below) are centred, so they take the
+  // swap exactly.
   &::before {
     content: "";
     position: absolute;
     inset: 0;
     z-index: -1;
-    border-radius: 50%;
+    border-radius: var(--fd-radius, 50%);
     pointer-events: none;
     opacity: var(--fd-tint, #{$face-disc-tint-lit});
     transition: opacity 260ms ease;
     background: radial-gradient(
       circle at 50% 46%,
-      rgb(26, 20, 33) 0%,
-      rgba(26, 20, 33, 0.95) 55%,
-      rgba(26, 20, 33, 0.62) 80%,
+      rgba(#{$face-disc-tint-rgb}, 1) 0%,
+      rgba(#{$face-disc-tint-rgb}, 0.95) 55%,
+      rgba(#{$face-disc-tint-rgb}, 0.62) 80%,
       rgba(17, 13, 23, 0) 100%
     );
   }
@@ -668,12 +769,35 @@ $face-disc-tint-dark: 0.22;
   // `--fd-edge-adj` slides where the mask OPENS, in percentage points, moving
   // both stops together so the ramp keeps its thickness and only its position
   // changes. At zero both compute the literals they replaced.
+  //
+  // ── AND NOW THE MEASUREMENT THAT CORRECTS EVERY PARAGRAPH ABOVE ────────────
+  //
+  // AT THE SHIPPED VALUES THIS LAYER PAINTS NOTHING. "85%" is not 85% of the
+  // radius: a radial gradient's colour-stop percentages are fractions of the
+  // gradient RAY, whose default ending shape is `farthest-corner` — 1.414r on a
+  // square box. So the mask is transparent out to 1.202r and only fully opaque
+  // at 1.322r, and the whole ring sits outside the circle `border-radius` clips
+  // to. The refraction band's own 89%..100% stops are outside it for the same
+  // reason.
+  //
+  // MEASURED, not deduced — the same mask on a plain white square over black,
+  // read as a radial profile (claude_temp_test/2026-08-19-glass3-mask-probe.mjs
+  // at 456px): 0.0 out to 1.19r, first light 1.20r, full white by 1.34r.
+  //
+  // NOTHING HERE WAS CHANGED TO FIX IT, deliberately. Correcting the geometry
+  // would alter the material this app ships, and the lab's own load-bearing
+  // invariant is that its presence changes nothing. The Edge scrub already
+  // reaches the fix: about -24 puts the ramp at 0.87r -> 0.99r, on the plate,
+  // which is exactly what the Liquid Glass preset uses. What this note buys is
+  // that the next reader does not spend a pass tuning a layer that is off the
+  // disc — the file used to say "85% is the number to reach for first", and it
+  // is, but not for the reason it gave.
   &::after {
     content: "";
     position: absolute;
     inset: 0;
     z-index: -1;
-    border-radius: 50%;
+    border-radius: var(--fd-radius, 50%);
     pointer-events: none;
     mix-blend-mode: screen;
     opacity: calc(1 + var(--fd-rim-adj, 0) / 100);
@@ -691,7 +815,7 @@ $face-disc-tint-dark: 0.22;
           rgba(238, 232, 255, 0) 360deg
         ),
       radial-gradient(
-        circle at 50% 50%,
+        ellipse at 50% 50%,
         rgba(140, 104, 196, 0) 89%,
         rgba(168, 130, 224, 0.3) 95.5%,
         rgba(214, 192, 250, 0.62) 98.7%,
@@ -701,14 +825,23 @@ $face-disc-tint-dark: 0.22;
     // 85% is the number to reach for first if this is ever re-tuned: it is the
     // boundary between "a rim" and "a glare", and the two rejected passes both
     // sat inside it. Which is exactly why it is the one the lab gives a scrub.
+    // (And read the block above first: at 0 it is off the plate entirely.)
+    //
+    // `ellipse` RATHER THAN `circle`, on both the band above and the two masks
+    // below, and it changes nothing at rest. Both are centred at 50% 50%, and a
+    // centred farthest-corner ellipse on a SQUARE box has the same aspect and
+    // the same corner as the circle — rx = ry = 1.414r, the identical shape. On
+    // a widened disc the circle would stop following the rim (the ring would
+    // leave the top and bottom and misplace itself at the sides); the ellipse
+    // tracks it. One keyword, and the edge treatment is honest at every width.
     -webkit-mask-image: radial-gradient(
-      circle at 50% 50%,
+      ellipse at 50% 50%,
       transparent calc(85% + var(--fd-edge-adj, 0) * 1%),
       #000 calc(93.5% + var(--fd-edge-adj, 0) * 1%),
       #000 100%
     );
     mask-image: radial-gradient(
-      circle at 50% 50%,
+      ellipse at 50% 50%,
       transparent calc(85% + var(--fd-edge-adj, 0) * 1%),
       #000 calc(93.5% + var(--fd-edge-adj, 0) * 1%),
       #000 100%
@@ -736,9 +869,16 @@ $face-disc-tint-dark: 0.22;
 // it with margins instead and the band slides off centre, at which point it is
 // bound by whichever pole it now sits nearer and its far corners are sheared by
 // the rim — the exact failure the band math exists to avoid.
+//
+// AND IT IS 1.3 OF THE HORIZONTAL RADIUS, not of the vertical one. The header's
+// width is an extent across a chord, and every chord of this shape is
+// (something) x rx — see the band-maths block. So at Width 0 this is the
+// literal 1.3r it always was, and at any other width it keeps the SAME
+// proportion of the arc it was measured against, which is what makes the
+// clearance table below scale rather than lie.
 @mixin face-disc-head($dy: $face-disc-head-dy) {
   flex: 0 0 var(--fd-caph);
-  width: calc(1.3 * var(--fd-r));
+  width: calc(1.3 * var(--fd-rx));
   transform: translateY(calc(#{$dy} + var(--fd-head-adj, 0px)));
 }
 
@@ -760,10 +900,18 @@ $face-disc-tint-dark: 0.22;
 // width would run the bottom corners straight through the rim, where
 // `overflow: hidden` shears them off. 0.95r is measured to clear the arc at the
 // button's BOTTOM edge — the binding one — at every cap in the swept range,
-// with room for a longer label.
+// with room for a longer label. It reads the HORIZONTAL radius, for the reason
+// written above the header.
+//
+// ONE WIDTH IN THE APP DOES NOT FOLLOW THIS, and it is named here rather than
+// left to be found: the build panel's Start button overrides this mixin's width
+// with its own `max(150px, 0.62 * var(--fd-r))` (HostTools.vue, a file this pass
+// does not own). At Width 0 it is identical; on a widened disc it stays sized to
+// the VERTICAL radius while everything around it grows. If the Width scrub is
+// ever baked, that one read wants `--fd-rx` too.
 @mixin face-disc-foot($dy: $face-disc-foot-dy) {
   flex: 0 0 auto;
-  width: calc(0.95 * var(--fd-r));
+  width: calc(0.95 * var(--fd-rx));
   margin: 10px 0 0;
   transform: translateY(calc(#{$dy} + var(--fd-foot-adj, 0px)));
 }

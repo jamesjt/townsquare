@@ -1,6 +1,7 @@
 // Golem fork (FT-888): THE FACE-DISC LAB — TEMPORARY, DELETE ME.
 //
-// Thirteen scrubs — SIX GEOMETRY, SEVEN MATERIAL — that nudge EVERY menu on the
+// Fifteen scrubs — EIGHT GEOMETRY, SEVEN MATERIAL — plus a four-way GLASS
+// PRESET switch, all of which nudge EVERY menu on the
 // clock face at once: the night checklist, the Host and Join entry panels, the
 // build panel. A value can be found by EYE and then baked into
 // `src/faceDisc.scss`, at which point this file,
@@ -22,7 +23,11 @@
 // The disc is a thing this app HAS, so its lab belongs to the app.
 //
 // EVERY SCRUB IS AN OFFSET, never a replacement — zero is exactly what ships,
-// in all thirteen — so Reset is a real return and not an approximation of one.
+// in all fifteen — so Reset is a real return and not an approximation of one.
+// (ONE EXCEPTION, declared where it lives: `corner` publishes a RESOLVED
+// percentage rather than an offset, because `calc(50% + 0%)` is not the string
+// `50%` and an offset there would make "zero equals shipped" true in pixels and
+// false in the computed value an acceptance rig reads. See the dial.)
 // For the material half that invariant is the load-bearing one: the lab sits in
 // the shipped bundle, so if a zero-scrub were even slightly not the shipped
 // material, the lab's mere PRESENCE would have re-tuned the glass for everyone.
@@ -87,10 +92,17 @@
 // bake of the glass to apply twice. The bump rule above governs them from their
 // FIRST bake onward, exactly as written — a key bump is owed whenever a
 // non-zero stored value would survive into a changed base.
+//
+// THE TWO SHAPE KEYS AND THE PRESET KEY BELOW ARE NEW (FT-888 width/corner pass)
+// and carry no suffix for the same reason the material seven did not: no browser
+// anywhere holds a value under them, so there is nothing for a first bake to
+// apply twice. The bump rule above governs them from their first bake onward.
 const STORAGE = {
   x: "golem.fdX2",
   y: "golem.fdY2",
   r: "golem.fdR2",
+  width: "golem.fdWidth",
+  corner: "golem.fdCorner",
   band: "golem.fdBand2",
   head: "golem.fdHead2",
   foot: "golem.fdFoot2",
@@ -103,8 +115,12 @@ const STORAGE = {
   rim: "golem.fdRim"
 };
 
+/** The glass preset the dials were last seeded from. Not a dial — see
+ *  FACE_DISC_PRESETS. */
+const PRESET_STORAGE = "golem.fdPreset";
+
 /**
- * THE SIX SCRUBS, and the reasoning behind every bound. All measured at
+ * THE EIGHT SCRUBS, and the reasoning behind every bound. All measured at
  * 1280x800 — the TIGHTEST viewport the disc runs at, since its gate floors at
  * 1000x780 — so a bound that holds there holds everywhere the disc appears.
  *
@@ -117,21 +133,26 @@ const STORAGE = {
  * and that origin is now the user's dialled set rather than the pre-lab one.
  *
  * THE CAPS ARE WHAT BUY THE BAND ITS WIDTH, so the band width is the thing that
- * must not be strangled, and it is guarded in TWO places, because R and W are
- * two scrubs against one quantity and their bounds compound:
- *   · here, per scrub, so neither alone does anything silly;
+ * must not be strangled, and it is guarded in TWO places, because Radius, Width
+ * and Text band are now THREE scrubs against one quantity and their bounds
+ * compound:
+ *   · here, per scrub, so none alone does anything silly;
  *   · and in faceDisc.scss, as a `max()` FLOOR on the computed band
  *     ($face-disc-band-floor, 265px) — the only bound that holds whatever the
- *     two do BETWEEN them.
+ *     three do BETWEEN them.
  *
- * Hd and Ft cannot touch the band at all — they are transforms, and a transform
- * takes no part in layout — so those two are bounded by the RIM instead, at
- * values read off the sweep rather than reasoned about.
+ * Header and Footer cannot touch the band at all — they are transforms, and a
+ * transform takes no part in layout — so those two are bounded by the RIM
+ * instead, at values read off the sweep rather than reasoned about.
+ *
+ * THE LABELS ARE WORDS, not initials ("we don't need to abbreviate things, just
+ * tell me what they are", user, 2026-08-19). The hints are unchanged; the label
+ * column in FaceDiscLab.vue widened to hold them.
  */
 export const FACE_DISC_DIALS = [
   {
     key: "x",
-    label: "X",
+    label: "Horizontal",
     // a length, published as px (see publishFaceDiscLab)
     unit: "px",
     // WHERE THE DISC SITS, not how big it is — the first two dials, in the same
@@ -152,7 +173,7 @@ export const FACE_DISC_DIALS = [
   },
   {
     key: "y",
-    label: "Y",
+    label: "Vertical",
     // a length, published as px (see publishFaceDiscLab)
     unit: "px",
     min: -60,
@@ -161,7 +182,7 @@ export const FACE_DISC_DIALS = [
   },
   {
     key: "r",
-    label: "R",
+    label: "Radius",
     // a length, published as px (see publishFaceDiscLab)
     unit: "px",
     // DOWN to -40: r = 172, band 280px — still a readable column, and about
@@ -176,8 +197,67 @@ export const FACE_DISC_DIALS = [
     hint: "Disc radius, offset from the clock face (0 = the face itself)"
   },
   {
+    key: "width",
+    label: "Width",
+    // a length, published as px (see publishFaceDiscLab)
+    unit: "px",
+    // THE DISC NEED NOT BE A CIRCLE. "Can we make the circle not exactly a
+    // circle as one of the options so I can better match it to the art" (user,
+    // 2026-08-19). This is the SECOND RADIUS: it offsets the HORIZONTAL one
+    // only, so the plate becomes an ellipse (or, with Corner, a rounded
+    // rectangle) while Radius keeps governing the vertical.
+    //
+    // IT IS A HALF-WIDTH, per side, not a total. Every other length in this
+    // file is a radius (0.95r for the button, 1.3r for the header, hw x r for
+    // the band), so a dial that meant "total width" would be the only one
+    // counting doubles. +20 makes the disc 40px wider and keeps it centred.
+    //
+    // ITS BOUNDS ARE RADIUS'S BOUNDS, and deliberately: it acts on the band
+    // through the SAME expression (the band is 2 x hw x the horizontal radius),
+    // so the value at which it strangles a readable column is the value at
+    // which Radius does. -40 / +60.
+    //
+    // WHAT IT COSTS, measured rather than reasoned (rig:
+    // claude_temp_test/2026-08-19-glass3-clearance.mjs). Because the caps are a
+    // fraction of the VERTICAL diameter, the band's half-height over the
+    // vertical radius is a constant 0.58 whatever this dial does — so the
+    // half-chord is exactly hw x (horizontal radius) and every piece of
+    // furniture in the disc is a multiple of that same horizontal radius.
+    // Clearance therefore scales LINEARLY with it: at Width +40 the header and
+    // the button have proportionally more room than at 0, at -40 proportionally
+    // less, and nothing crosses the rim that did not already.
+    min: -40,
+    max: 60,
+    hint: "Disc half-width, offset from the radius (0 = exactly a circle; +20 = 40px wider)"
+  },
+  {
+    key: "corner",
+    label: "Corner",
+    // a percentage, and this dial publishes a RESOLVED VALUE rather than an
+    // offset — the one exception to this file's own rule, declared here.
+    unit: "%",
+    // WHY AN EXCEPTION. Every other scrub lands as `calc(<shipped> + <adj>)`,
+    // and at zero that computes what the literal computed. `border-radius` is
+    // the one place that is not enough: a browser reports `calc(50% + 0%)` as
+    // exactly that string, not as `50%`, so an offset here would make "zero
+    // equals shipped" true in pixels and FALSE in the computed value — and the
+    // computed value is what the acceptance rig reads. Publishing the resolved
+    // percentage keeps both true: at 0 the lab publishes the literal `50%`,
+    // which is the string the stylesheet's own fallback carries.
+    //
+    // IT ONLY GOES DOWN, and that is honest rather than a limitation: 50% IS
+    // the full ellipse, and a browser clamps any radius pair that would overlap,
+    // so there is nothing above it to reach. -50 is a hard rectangle, -25 a
+    // rounded one.
+    min: -50,
+    max: 0,
+    hint: "Corner rounding, in points off 50% (0 = the full ellipse; -50 = a hard rectangle)",
+    // The published value, not the offset. 0 -> "50%".
+    publish: v => 50 + v + "%"
+  },
+  {
     key: "band",
-    label: "W",
+    label: "Text band",
     // a length, published as px (see publishFaceDiscLab)
     unit: "px",
     // The band is ALREADY the maximal chord the circle allows at cap 0.21:
@@ -195,7 +275,7 @@ export const FACE_DISC_DIALS = [
   },
   {
     key: "head",
-    label: "Hd",
+    label: "Header",
     // a length, published as px (see publishFaceDiscLab)
     unit: "px",
     // NEGATIVE IS UP. The header rides the bottom of the top cap and moves by
@@ -220,7 +300,7 @@ export const FACE_DISC_DIALS = [
   },
   {
     key: "foot",
-    label: "Ft",
+    label: "Footer",
     // a length, published as px (see publishFaceDiscLab)
     unit: "px",
     // POSITIVE IS DOWN, toward the bottom pole, where the arc closes on a button
@@ -267,7 +347,7 @@ export const FACE_DISC_DIALS = [
 export const FACE_DISC_MATERIAL = [
   {
     key: "blur",
-    label: "Bl",
+    label: "Blur",
     unit: "",
     // THOUSANDTHS OF THE RADIUS, and it stays a fraction of the radius — that
     // is the whole point of the term. Everything behind the plate scales with
@@ -279,17 +359,25 @@ export const FACE_DISC_MATERIAL = [
     // real target rather than an absurd bound: the user rejected the material
     // twice with the word "frost", and frost IS blur, so the dial has to be
     // able to reach the far end of that argument.
-    // UP to +31: 0.045r, just past the 0.044r the third pass swept to. The 22px
-    // frost that was rejected twice was ~0.104r at 1280x800 — deliberately out
-    // of range, because this dial is for finding a material, not for going back
-    // to one that has already been called wrong three times.
+    // UP to +90: 0.104r, which is exactly the 22px frost that was rejected
+    // twice at 1280x800.
+    //
+    // THAT CEILING USED TO BE +31 (0.045r) AND IT MOVED, for a reason that is
+    // not a softening. The old bound existed so that nobody could DRAG their way
+    // back into a material this app has already called wrong three times. The
+    // preset switch below changes the question: Acrylic IS that frost — the
+    // research pass's own control group, the material Microsoft's docs call
+    // frosted glass — and a preset that silently clamped its own recipe to
+    // something prettier would be the one thing this exercise must not do. A
+    // dial that can only reach the materials we already like cannot show you
+    // what the others are.
     min: -14,
-    max: 31,
+    max: 90,
     hint: "Blur, in thousandths of the disc radius (0 = the shipped 0.014r; -14 = perfectly clear)"
   },
   {
     key: "sat",
-    label: "St",
+    label: "Saturate",
     unit: "",
     // HUNDREDTHS, against a shipped 2.05. Saturation is the glass cue this
     // material runs on: the dial under the plate is mid-bronze COLOUR, and
@@ -305,25 +393,32 @@ export const FACE_DISC_MATERIAL = [
   },
   {
     key: "bright",
-    label: "Br",
+    label: "Brightness",
     unit: "",
     // HUNDREDTHS, against a shipped 0.78. THE ADAPTIVE TERM: a multiply takes
     // the LIT dial (entry panels, a day build panel) down hard and the
     // night-dimmed one barely at all, which is what one material over two very
     // different grounds needs and what a flat alpha cannot do.
     // DOWN to -48: 0.30, near-black — the far end of "calm it down".
-    // UP to +52: 1.30. Above 1 is BRIGHTENING, and the range has to reach there
+    // UP to +72: 1.50, which is Liquid Glass's own `brightness(150%)` (the
+    // LogRocket build's number, the only completely specified one on the open
+    // web). It used to stop at +52 (1.30); the preset switch below is what moved
+    // it, on the same principle as the blur ceiling — a preset must be allowed
+    // to be the material it names.
+    //
+    // Above 1 is BRIGHTENING, and the range has to reach there
     // because the research pass recommended exactly that (1.06) and the
     // measurement rejected it: brightening is the right sign over a dark
     // backdrop and the wrong one over a lit one, and it lands white row text at
-    // 4.07 : 1 on the entry panel. Being able to SEE that failure is the point.
+    // 4.07 : 1 on the entry panel. Being able to SEE that failure is the point,
+    // and the Liquid Glass preset is that failure at full strength.
     min: -48,
-    max: 52,
+    max: 72,
     hint: "Brightness multiply on what shows through, in hundredths (0 = the shipped 0.78)"
   },
   {
     key: "tintDark",
-    label: "Tn",
+    label: "Night tint",
     unit: "",
     // THE TINT OVER A DARK DIAL — the night checklist. HUNDREDTHS against a
     // shipped 0.22.
@@ -347,7 +442,7 @@ export const FACE_DISC_MATERIAL = [
   },
   {
     key: "tintLit",
-    label: "Tl",
+    label: "Lit tint",
     unit: "",
     // THE TINT OVER A LIT DIAL — the entry panels and a daytime build panel.
     // HUNDREDTHS against a shipped 0.46, and the bounds are again the clamp:
@@ -365,9 +460,29 @@ export const FACE_DISC_MATERIAL = [
   },
   {
     key: "edge",
-    label: "Ed",
+    label: "Edge",
     unit: "",
     // WHERE THE EDGE MASK OPENS, in percentage points, against a shipped 85%.
+    //
+    // ── A MEASURED CORRECTION, AND IT IS A BIG ONE ────────────────────────────
+    // "85%" IS NOT 85% OF THE RADIUS. A radial gradient's colour-stop
+    // percentages are fractions of the gradient RAY, and the default ending
+    // shape is `farthest-corner` — on a square box that is 1.414r. So the
+    // shipped mask opens at 1.202r and is fully opaque at 1.322r: the ENTIRE
+    // painted-edge layer sits outside the circle the border-radius clips to, and
+    // on the shipped disc it paints nothing at all.
+    //
+    // Measured directly rather than argued (rig:
+    // claude_temp_test/2026-08-19-glass3-mask-probe.mjs — the same mask on a
+    // plain white square over black, read as a radial profile): fully masked out
+    // to 1.19r, first light at 1.20r, fully open by 1.34r.
+    //
+    // NOTHING WAS CHANGED ABOUT IT HERE, and that is deliberate: fixing the
+    // geometry would alter the shipped material, which is the one thing this lab
+    // may never do. It is written down so the next reader does not spend a pass
+    // tuning a layer that is off the plate. The number that brings the ring INTO
+    // the disc is about -24 on this dial (ramp 0.87r -> 0.99r), which is what
+    // the Liquid Glass preset uses to get the rim light its recipe calls for.
     // The SCSS names this one itself: "85% is the number to reach for first if
     // this is ever re-tuned: it is the boundary between 'a rim' and 'a glare',
     // and the two rejected passes both sat inside it." So it earns a dial.
@@ -384,11 +499,11 @@ export const FACE_DISC_MATERIAL = [
     // rim and there is no ring left to see.
     min: -45,
     max: 8,
-    hint: "Where the rim light starts, in percent of the radius (0 = the shipped 85%; negative = a glare)"
+    hint: "Where the rim light starts, in points off the shipped 85% — which is 85% of the corner ray, i.e. 1.20r, off the plate (negative brings it in; about -24 lands it on the rim)"
   },
   {
     key: "rim",
-    label: "Rm",
+    label: "Rim",
     unit: "",
     // HOW STRONG THE PAINTED EDGE IS — the refraction band and both specular
     // streaks at once, as the ::after layer's own opacity, in hundredths
@@ -408,6 +523,136 @@ export const FACE_DISC_MATERIAL = [
   }
 ];
 
+/**
+ * THE FOUR GLASSES — a starting point, not a mode.
+ *
+ * "There were 3 types of glass in the glass bench html, let me swap between
+ * them" (user, 2026-08-19). The three are real families with real, differing
+ * recipes, and they are written up in
+ * mind/episteme/research/2026-08-19/css-glass-material.md. Our own shipped
+ * material is the fourth, so the switch always contains a way home.
+ *
+ * PICKING ONE SEEDS THE SEVEN MATERIAL SCRUBS AND NOTHING ELSE — geometry is
+ * untouched — and every scrub stays live afterwards. That is what makes this a
+ * starting point: a preset is where a search begins, and the panel marks the
+ * pick as "edited" the moment a dial leaves it.
+ *
+ * THEY ARE BUILT HONESTLY, INCLUDING THE ONES THAT LOOK WRONG HERE. The
+ * research's central finding is that the light-tint-and-brighten recipe is the
+ * right sign over a DARK backdrop and the wrong one over a LIT one — so Liquid
+ * Glass over the entry panels is expected to look bad, and it does. That is the
+ * information the switch exists to carry. Quietly correcting a preset to
+ * flatter it would delete the only thing it has to say.
+ *
+ * THE TINT COLOUR IS PART OF A PRESET, and it is the one thing here that is not
+ * a scrub. It has to be: glassmorphism and Liquid Glass are LIGHT tints (white
+ * at 25% and 15%) and this app's is a dark grimoire purple-black, so a preset
+ * that could only move the alpha would be reproducing neither. It publishes as
+ * `--fd-tint-rgb`, which `faceDisc.scss` reads with the shipped triplet as its
+ * own fallback — so "shipped" and "lab absent" are the same three numbers.
+ *
+ * WHAT NO PRESET CAN CARRY, named rather than dropped: Acrylic's NOISE layer.
+ * Microsoft's recipe is blur -> exclusion blend -> tint -> noise, and the seven
+ * scrubs have no noise term. Acrylic below is therefore Acrylic's blur and
+ * Acrylic's tint without its grain. Liquid Glass's REFRACTION is missing for a
+ * harder reason, measured in the research: `backdrop-filter: url(#svg)` is
+ * Chromium-only and cannot be reached from a stylesheet at all.
+ */
+export const FACE_DISC_PRESETS = [
+  {
+    id: "shipped",
+    label: "Shipped",
+    // the grimoire's cool purple-black — RoleDrawer's own ground
+    rgb: "26, 20, 33",
+    hint: "The material this app ships: blur 0.014r, saturate 2.05, brightness 0.78, dark tint 0.22 at night / 0.46 lit",
+    dials: {
+      blur: 0,
+      sat: 0,
+      bright: 0,
+      tintDark: 0,
+      tintLit: 0,
+      edge: 0,
+      rim: 0
+    }
+  },
+  {
+    id: "glassmorphism",
+    label: "Glassmorphism",
+    // the trend's canonical tint is white — rgba(255,255,255,0.25)
+    rgb: "255, 255, 255",
+    hint: "2020–2023: blur plus opacity and nothing else — frost by construction. blur 0.050r (~10px here), saturate 1.8, no brightness knock, white tint at 25%, no painted rim",
+    dials: {
+      // 0.014 + 36/1000 = 0.050r — ~10px at 1280x800, which is where the
+      // trend's own recipes sit
+      blur: 36,
+      // saturate(180%), the pairing every "frosted nav bar" recipe carries
+      sat: -25,
+      // no brightness term in the family at all: 1.00
+      bright: 22,
+      // one alpha, both phases — the family has no adaptive tint
+      tintDark: 3,
+      tintLit: -21,
+      // its edge is a 1px light border, which this material already carries in
+      // its box-shadow. So the PAINTED layer goes to nothing rather than being
+      // given a rim the family does not have.
+      edge: 0,
+      rim: -100
+    }
+  },
+  {
+    id: "liquid",
+    label: "Liquid Glass",
+    // Apple's is an adaptive LIGHT tint; LogRocket's build states it as
+    // hsl(0 100% 100% / 15%)
+    rgb: "255, 255, 255",
+    hint: "Apple, 2025: low blur, a BRIGHTENED backdrop and a light 15% tint — character from refraction, not scatter. Expected to look wrong over the lit entry dial, which is the point",
+    dials: {
+      // their blur(4px), read against this disc's radius at 1280x800
+      // (4 / 201.5 = 0.020r) so it stays one material at every window size
+      blur: 6,
+      // LogRocket cranks saturation extremely hard but composites it into the
+      // RIM only, never across the pane. Across the pane, then: 1.00.
+      sat: -105,
+      // brightness(150%) — the sign flip that makes this family what it is
+      bright: 72,
+      // 15%, both phases
+      tintDark: -7,
+      tintLit: -31,
+      // THE RIM LIGHT, and the only preset that asks for one. -24 is measured:
+      // it puts the mask's ramp at 0.87r -> 0.99r, i.e. actually on the plate
+      // (see the Edge dial's note — at 0 the ring sits at 1.20r, off it).
+      edge: -24,
+      rim: 0
+    }
+  },
+  {
+    id: "acrylic",
+    label: "Acrylic",
+    // Windows' DARK acrylic tints dark; this app's dark is the grimoire's
+    rgb: "26, 20, 33",
+    hint: "Windows: blur plus tint plus noise, which Microsoft's own docs call frosted glass. A scrim for transient surfaces. The noise is the one term these seven scrubs cannot carry",
+    dials: {
+      // 0.104r — which at 1280x800 IS the 22px frost this app rejected twice.
+      // That is not a mistake in the preset, it is what the family is: the
+      // research pass used Acrylic as its control group precisely because
+      // blur-plus-tint frost is a named, intentional material.
+      blur: 90,
+      // no saturation lift in the recipe
+      sat: -105,
+      // no brightness multiply either: 1.00
+      bright: 22,
+      // a SCRIM. Microsoft scopes acrylic to transient, light-dismiss surfaces
+      // and its exclusion-blend layer exists to guarantee legibility of the UI
+      // sitting on it — so the tint is heavy, 0.80 on both phases.
+      tintDark: 58,
+      tintLit: 34,
+      // no rim light in the family
+      edge: 0,
+      rim: -100
+    }
+  }
+];
+
 /** Geometry then material, in the order they are published and reset. */
 export const FACE_DISC_ALL = FACE_DISC_DIALS.concat(FACE_DISC_MATERIAL);
 
@@ -415,6 +660,12 @@ const CSS_VAR = {
   x: "--fd-x-adj",
   y: "--fd-y-adj",
   r: "--fd-r-adj",
+  // THE TWO SHAPE VARS. `--fd-width-adj` is an offset like every other length;
+  // `--fd-radius` is the exception noted on the dial — it carries the resolved
+  // border-radius, so at rest it publishes the literal `50%` the stylesheet's
+  // own fallback already says.
+  width: "--fd-width-adj",
+  corner: "--fd-radius",
   band: "--fd-band-adj",
   head: "--fd-head-adj",
   foot: "--fd-foot-adj",
@@ -448,6 +699,37 @@ export function readFaceDiscLab() {
   return out;
 }
 
+/** The persisted preset id. Anything unrecognised reads as "shipped", which is
+ *  the same rule the dials follow: a broken storage entry must never be able to
+ *  bend the app. */
+export function readFaceDiscPreset() {
+  let id = "";
+  try {
+    id = localStorage.getItem(PRESET_STORAGE) || "";
+  } catch (e) {
+    id = "";
+  }
+  return FACE_DISC_PRESETS.some(p => p.id === id) ? id : "shipped";
+}
+
+/** The preset's own record, always concrete. */
+export function faceDiscPreset(id) {
+  return FACE_DISC_PRESETS.find(p => p.id === id) || FACE_DISC_PRESETS[0];
+}
+
+/**
+ * The TINT COLOUR, which is a preset's and not a scrub's — see
+ * FACE_DISC_PRESETS. Published on <html> beside the dials; `faceDisc.scss`
+ * reads it as `var(--fd-tint-rgb, 26, 20, 33)`, so the shipped preset and the
+ * lab being absent are the same three numbers.
+ */
+export function publishFaceDiscPreset(id) {
+  document.documentElement.style.setProperty(
+    "--fd-tint-rgb",
+    faceDiscPreset(id).rgb
+  );
+}
+
 /**
  * Publish the whole set onto <html>, where all four discs — and #app, which
  * carries the tint pair — inherit it.
@@ -461,11 +743,14 @@ export function readFaceDiscLab() {
  * The `unit` comes off the dial: geometry publishes lengths ("12px"), material
  * publishes bare numbers ("12"), because a filter term, an opacity and a
  * percentage-point offset are all <number> at the point the SCSS reads them.
+ * A dial carrying its own `publish` writes a RESOLVED value instead — one does
+ * (`corner`), for the reason written beside it.
  */
 export function publishFaceDiscLab(state) {
   const root = document.documentElement.style;
   FACE_DISC_ALL.forEach(d => {
-    root.setProperty(CSS_VAR[d.key], (state[d.key] || 0) + d.unit);
+    const v = state[d.key] || 0;
+    root.setProperty(CSS_VAR[d.key], d.publish ? d.publish(v) : v + d.unit);
   });
 }
 
@@ -480,8 +765,10 @@ export default {
       // persisted, because a dialled value has to survive the reload it takes to
       // go and look at it again — the face lab's own lesson
       fdLab: readFaceDiscLab(),
+      fdPreset: readFaceDiscPreset(),
       fdDials: FACE_DISC_DIALS,
-      fdMaterial: FACE_DISC_MATERIAL
+      fdMaterial: FACE_DISC_MATERIAL,
+      fdPresets: FACE_DISC_PRESETS
     };
   },
   computed: {
@@ -498,11 +785,24 @@ export default {
         this.$store.state.grimoire &&
         this.$store.state.grimoire.isNight
       );
+    },
+    /**
+     * HAS THE PICK BEEN DIALLED AWAY FROM? A preset is a starting point, so the
+     * seven scrubs stay live after one is chosen — which means the button that
+     * looks selected can stop describing what is on screen. This is the panel's
+     * way of saying so without un-selecting anything.
+     */
+    fdPresetEdited() {
+      const p = faceDiscPreset(this.fdPreset);
+      return FACE_DISC_MATERIAL.some(
+        d => (this.fdLab[d.key] || 0) !== (p.dials[d.key] || 0)
+      );
     }
   },
   mounted() {
     // A stored value has to reach the discs on load, not on first drag.
     publishFaceDiscLab(this.fdLab);
+    publishFaceDiscPreset(this.fdPreset);
   },
   methods: {
     /**
@@ -523,8 +823,32 @@ export default {
         // storage off: the dial still works for this session
       }
     },
+    /**
+     * SEED THE SEVEN MATERIAL SCRUBS FROM A FAMILY, and publish that family's
+     * tint colour. Geometry is not touched — the two questions are separate,
+     * and a person hunting a material has usually just finished placing the
+     * plate.
+     *
+     * It goes through setFdLab like a drag would, so every value takes the same
+     * clamp and the same persistence path. Nothing here can produce a value a
+     * hand could not: the two ceilings that a preset needed (blur, brightness)
+     * were RAISED on the dials rather than bypassed here, so the panel never
+     * shows a number outside its own range.
+     */
+    applyFdPreset(id) {
+      const p = faceDiscPreset(id);
+      this.fdPreset = p.id;
+      try {
+        localStorage.setItem(PRESET_STORAGE, p.id);
+      } catch (e) {
+        // storage off: the pick still works for this session
+      }
+      publishFaceDiscPreset(p.id);
+      FACE_DISC_MATERIAL.forEach(d => this.setFdLab(d.key, p.dials[d.key] || 0));
+    },
     resetFdLab() {
       FACE_DISC_ALL.forEach(d => this.setFdLab(d.key, 0));
+      this.applyFdPreset("shipped");
     }
   }
 };

@@ -1,6 +1,7 @@
 <template>
   <!-- ── THE FACE-DISC LAB (Fd) — TEMPORARY, DELETE ME ──────────────────────
-       Thirteen scrubs that nudge every menu on the clock face at once — the
+       Fifteen scrubs and a four-way glass preset switch, all of which nudge
+       every menu on the clock face at once — the
        night checklist, the Host and Join entry panels, the build panel. See
        `src/golem/faceDisc.js` for what each dial does and why its bounds are
        where they are, and `src/faceDisc.scss` for the values they offset. All
@@ -11,10 +12,24 @@
        unlabelled scrubs in one column read as one list of ten rather than as
        two tools. The headings cost four lines and are the difference.
 
+       THE LABELS ARE WORDS. "We don't need to abbreviate things, just tell me
+       what they are" (user, 2026-08-19) — so Bl/St/Br/Tn/Tl/Ed/Rm and the
+       geometry initials are all spelled out, and the label column widened from
+       18px to hold them. The hover hints are unchanged: a word says WHICH dial,
+       the hint still says what it costs. The panel is 172px wide with the words
+       in, against a disc whose left rim is 425px in at the tightest viewport it
+       runs at, so it still never covers the thing it is tuning.
+
+       THE PRESET SWITCH heads the Glass group: four families, one click each,
+       seeding the seven material scrubs (never the geometry). It is a starting
+       point rather than a mode — the scrubs stay live, and the panel marks the
+       pick "edited" the moment one leaves it.
+
        THE TINT IS TWO DIALS, and the live one is marked. The glass carries two
        tint values because the four discs do not stand on the same backdrop —
        a dark night dial and a lit entry dial, measured three-and-a-half-fold
-       apart — so `Tn` and `Tl` are separate scrubs against separate bases.
+       apart — so Night tint and Lit tint are separate scrubs against separate
+       bases.
        Both are always on screen; the one currently in effect wears a "now"
        mark, read off the same `isNight` App.vue binds the `night` class from.
        One dial that silently edited whichever was live would make the same
@@ -44,7 +59,7 @@
     <button
       type="button"
       class="fd-toggle"
-      title="Face disc lab — geometry (position, size, band, header, button) and glass (blur, saturation, brightness, tint, edge) for every menu on the clock face"
+      title="Face disc lab — geometry (position, size, width, corner, band, header, footer) and glass (four presets, then blur, saturation, brightness, tint, edge, rim) for every menu on the clock face"
       :aria-expanded="String(fdLabOpen)"
       @click="fdLabOpen = !fdLabOpen"
     >
@@ -65,6 +80,27 @@
       <div class="fl-head">
         Glass
         <span class="fl-phase">{{ fdIsNight ? "night dial" : "lit dial" }}</span>
+      </div>
+      <!-- THE FOUR FAMILIES. A click seeds the seven scrubs below and publishes
+           that family's tint colour; nothing above the heading moves. The
+           selected one stays marked after the scrubs are dragged — it is where
+           this material STARTED, which is the honest thing for it to say — and
+           picks up an "edited" mark so the mark cannot lie. -->
+      <div class="fl-presets">
+        <button
+          type="button"
+          v-for="p in fdPresets"
+          :key="p.id"
+          class="fl-preset"
+          :class="{ on: fdPreset === p.id }"
+          :title="p.hint"
+          @click="applyFdPreset(p.id)"
+        >
+          {{ p.label }}
+        </button>
+      </div>
+      <div class="fl-edited" v-if="fdPresetEdited">
+        edited from {{ fdPresetLabel }}
       </div>
       <div
         class="fl-row"
@@ -100,13 +136,20 @@
 </template>
 
 <script>
-import faceDiscLab from "../golem/faceDisc";
+import faceDiscLab, { faceDiscPreset } from "../golem/faceDisc";
 import NumberScrub from "./NumberScrub";
 
 export default {
   name: "FaceDiscLab",
   components: { NumberScrub },
   mixins: [faceDiscLab],
+  computed: {
+    /** The name of the family the seven scrubs were last seeded from —
+     *  presentation only; the mixin owns which one that is. */
+    fdPresetLabel() {
+      return faceDiscPreset(this.fdPreset).label;
+    }
+  },
   methods: {
     /**
      * Is this row the tint currently in effect? Presentation only — the mixin
@@ -177,9 +220,9 @@ export default {
     border: 1px solid rgba(120, 105, 135, 0.45);
     border-left: none;
     border-radius: 0 8px 8px 0;
-    // thirteen rows and two headings is taller than the shortest window the
-    // disc runs at leaves below 184px, so the column scrolls rather than
-    // running off the bottom of the screen
+    // fifteen rows, two headings and a four-way switch is taller than the
+    // shortest window the disc runs at leaves below 184px, so the column
+    // scrolls rather than running off the bottom of the screen
     max-height: calc(100vh - 200px);
     overflow-y: auto;
   }
@@ -215,10 +258,58 @@ export default {
     font-size: 12px;
     color: #d8cdb4;
   }
+  // THE LABEL COLUMN HOLDS WORDS NOW, not initials — 18px was exactly two
+  // characters. 78px is the widest of them ("Brightness") with a little air,
+  // measured rather than guessed, and it is a FIXED width so the scrubs stay in
+  // one vertical line: a ragged column of drag handles is harder to hit than a
+  // straight one. `nowrap` because a wrapped label would take its row's height
+  // with it and break that line a second way.
   .fl-label {
-    width: 18px;
+    width: 78px;
+    white-space: nowrap;
     opacity: 0.7;
     cursor: help;
+  }
+  // ── THE FOUR GLASS FAMILIES ─────────────────────────────────────────────
+  // One column, not a 2x2 grid: "Glassmorphism" is thirteen characters and the
+  // whole point of this pass is that things are spelled out. Four rows of 15px
+  // is a cheaper price than an abbreviation.
+  .fl-presets {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .fl-preset {
+    font-family: inherit;
+    font-size: 11px;
+    text-align: left;
+    color: #cdc2e2;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    padding: 2px 6px;
+    cursor: pointer;
+    &:hover,
+    &:focus-visible {
+      border-color: rgba(150, 130, 175, 0.75);
+      outline: none;
+    }
+    // the pick reads as pressed, in the same plum the live-tint mark uses, so
+    // the panel has one accent colour rather than two
+    &.on {
+      color: #0d0a12;
+      background: #b9a6e0;
+      border-color: #b9a6e0;
+    }
+  }
+  // A PRESET IS A STARTING POINT, so the selected button keeps saying where the
+  // material came FROM even once a scrub has moved. This line is what stops
+  // that from reading as a lie.
+  .fl-edited {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    color: #8f82a6;
+    margin-top: -2px;
   }
   // the live tint's row: the label comes up out of its resting dimness, and a
   // small mark says which of the pair is the one on screen
