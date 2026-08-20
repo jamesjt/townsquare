@@ -158,3 +158,42 @@ $control-focus: #a01414;
     @include control-disabled;
   }
 }
+
+// ── A TOGGLE ─────────────────────────────────────────────────────────────
+// State that PERSISTS after the press, not an action that fires once.
+// RoleActions' Duplicates sits in a row with Deal and Shuffle (both actions,
+// both `control-icon-btn` alone) and used to wear the exact same box — a
+// modifier, not a third plate, so the family stays one file.
+//
+// A caller still applies `control-icon-btn` for the size and the base plate;
+// this layers on top and only changes what a toggle must say that an action
+// does not. Two cues, both present in EITHER state, because a toggle is a
+// toggle before it is on or off:
+//
+//   1. OFF READS AS AVAILABLE, NOT DISABLED. The old off-state was the
+//      plate's own ink at .62 opacity — indistinguishable at a glance from
+//      `control-disabled`'s .4 (the seat shuffle, one row over, actually IS
+//      disabled under 3 seats, and used the same fade). Off now keeps
+//      full-contrast ink on an EMPTY ground: outlined, not faded. Dim still
+//      means disabled and only that.
+//   2. SUNKEN, NOT FLAT. Deal and Shuffle keep the plate's flat box: press,
+//      something happens, nothing left to show for it. The toggle sits one
+//      level recessed — an inset shadow biting into the plate's own black
+//      edge — so the shape alone says "this one holds a position," legible
+//      even to an eye that never lands on the colour.
+//
+// ON is `control-lit`, unchanged, with the well kept underneath it — the
+// fill says which way, the recess still says toggle.
+$control-toggle-well: inset 0 2px 5px rgba(0, 0, 0, 0.75),
+  inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+
+@mixin control-toggle {
+  background: transparent;
+  box-shadow: $control-toggle-well;
+  color: #d8cdb4;
+
+  &.on {
+    @include control-lit;
+    box-shadow: $control-toggle-well;
+  }
+}

@@ -29,16 +29,24 @@
          registered for it; `clone` (the other candidate) is not, and
          registering it would mean editing a file this lane does not hold.
 
-         The STATE is the button's own lit/dim, not a tick inside the mark:
-         `.on` is the accent RoleTray's and RoleDrawer's own toggles already
-         wear (#ffd9d9 on a red edge), and off is the muted plate the two
-         action buttons beside it wear at rest, taken down a further step
-         because those two have no off-state to be confused with. -->
+         DUPLICATES IS A TOGGLE; DEAL AND SHUFFLE ARE ACTIONS (2026-08-19,
+         user call: "that isn't an action button, it is a toggle state
+         button"). The old off-state dimmed the icon the same way a
+         `:disabled` control dims — which is exactly the confusion: dim reads
+         as "you can't press this," not "this is off and you can." `.on` is
+         still `control-lit`, the accent RoleTray's and RoleDrawer's own
+         toggles already wear; `control-toggle` (src/controls.scss) is what
+         now separates the two families — a hollow, full-contrast plate off,
+         filled on, both sunken against Deal and Shuffle's flat boxes.
+
+         The tooltip names the state and what pressing does, per the
+         enforcement chip's own model (NightModeRow's `.nm-chip`), not just
+         what the setting means. -->
     <button
       class="ra-act ra-dup"
       :class="{ on: allowDup }"
       :aria-pressed="String(allowDup)"
-      title="Let one role sit in more than one chair"
+      :title="dupTitle"
       @click.stop="allowDup = !allowDup"
     >
       <font-awesome-icon icon="copy" />
@@ -67,6 +75,13 @@ export default {
       set(on) {
         this.$store.commit("setAllowDupRoles", on);
       }
+    },
+    /** Names the state, then what pressing does — the enforcement chip's own
+     *  tooltip model, not a description of what the setting is for. */
+    dupTitle() {
+      return this.allowDup
+        ? "Duplicates on — a role can sit in more than one chair. Click to limit each role to one."
+        : "Duplicates off — each role fills one chair. Click to allow a role in more than one.";
     }
   },
   methods: {
@@ -130,15 +145,15 @@ export default {
     }
   }
 
-  // Dupes is the only TOGGLE in this row, so its off state has to look off —
-  // Deal and Shuffle have no off to be mistaken for. The dim is RoleDrawer's
-  // own `.rd-dup` resting tone (rgba(216,205,180,.75) — the same control,
-  // in the drawer), not a new treatment: lit is `.on` above, unchanged.
-  .ra-act.ra-dup:not(.on) {
-    color: rgba(216, 205, 180, 0.62);
-    &:hover {
-      color: #fff;
-    }
+  // Dupes is the only TOGGLE in this row — Deal and Shuffle have no off to be
+  // mistaken for. `control-toggle` (src/controls.scss) carries both cues: a
+  // hollow, full-contrast plate off instead of a dimmed one (dim used to
+  // read as `:disabled`, which the seat shuffle one row over actually is
+  // under 3 seats), and a sunken box in both states against Deal and
+  // Shuffle's flat ones. Declared after `control-icon-btn` above so its
+  // transparent background and inset well win over the plate's own.
+  .ra-act.ra-dup {
+    @include control-toggle;
   }
 }
 </style>
