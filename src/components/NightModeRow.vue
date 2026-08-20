@@ -48,30 +48,41 @@
           </button>
         </span>
 
-        <!-- FT-874, tri-state 2026-08-19 (user call): HOW HARD THE CHECKLIST
-             IS ENFORCED — Optional / Warn / Required. It was a labelled
-             checkbox on a line of its own beneath the hint; folding it onto
-             this row as a one-word chip takes a whole line out of the
-             densest panel in the app, which matters most on the disc, where
-             the band is tight and every line comes out of the character
-             tray.
+        <!-- FT-874 tri-state (2026-08-19), FT-959 segmented (2026-08-20, user
+             call: "turn the optional/required/warn option into a 3 part
+             toggle like the off storyteller and everyone"). HOW HARD THE
+             CHECKLIST IS ENFORCED — Optional / Warn / Required — now reads
+             the SAME idiom as the mode switch to its left: one plate, three
+             cells, the chosen one lit. It replaces the single word that used
+             to cycle through the three on repeated clicks — every state is
+             reachable in one press now, the same as the switch beside it.
 
-             A CHIP THAT CYCLES rather than a second three-button segment:
-             two segments side by side on one row would read as one six-way
-             control, and this setting has an obvious resting order (ask
-             nothing → say something → refuse) that a single tap can walk.
-             Its own word IS its state, so nothing else on the row has to
-             carry a label for it. -->
-        <button
-          type="button"
-          class="nm-chip"
-          :class="'chk-' + requireChecks"
-          :title="checkTitles[requireChecks]"
-          :aria-label="'Checklist enforcement: ' + checkLabels[requireChecks]"
-          @click="cycleChecks"
+             THE STATE STILL LIVES IN THE INK, not the box (2026-08-19 call,
+             carried over): the plate the cell sits in is the group's shared
+             one, same as every `.nm-opt` in this row; Warn's gold and
+             Required's red are the word's own colour, layered on top of the
+             ordinary "chosen" tint every segment in this app already wears —
+             see the style block below for why that stays true even now that
+             three options are visible at once instead of one. -->
+        <span
+          class="nm-seg nm-seg-checks"
+          role="radiogroup"
+          aria-label="Night checklist enforcement"
         >
-          {{ checkLabels[requireChecks] }}
-        </button>
+          <button
+            v-for="c in checkModes"
+            :key="c"
+            type="button"
+            class="nm-opt"
+            :class="['chk-' + c, { on: requireChecks === c }]"
+            role="radio"
+            :aria-checked="String(requireChecks === c)"
+            :title="checkTitles[c]"
+            @click="pickCheck(c)"
+          >
+            {{ checkLabels[c] }}
+          </button>
+        </span>
       </span>
     </div>
     <small class="nm-hint">{{ hints[mode] }}</small>
@@ -101,6 +112,10 @@ export default {
       labels: MODE_LABELS,
       hints: MODE_HINTS,
       titles: MODE_TITLES,
+      // FT-959: the enforcement segment's own three positions — CHECK_MODES
+      // is unchanged, only the CONTROL reading it changed shape (a segment
+      // now, a cycling chip before).
+      checkModes: CHECK_MODES,
       checkLabels: CHECK_LABELS,
       checkTitles: CHECK_TITLES,
       uiNightcheck
@@ -113,15 +128,13 @@ export default {
     pick(mode) {
       this.$store.commit("night/setMode", mode);
     },
-    /** Walk the chip: Optional → Warn → Required → Optional. Wraps, because
-     *  a three-state control a tap can only walk forwards is one the user
-     *  can always get back to — there is no dead end to undo. */
-    cycleChecks() {
-      const i = CHECK_MODES.indexOf(this.requireChecks);
-      this.$store.commit(
-        "night/setRequireChecks",
-        CHECK_MODES[(i + 1) % CHECK_MODES.length]
-      );
+    /** FT-959: the enforcement segment's own click handler — direct
+     *  selection, the same shape `pick` above already gives the mode switch.
+     *  Replaces `cycleChecks` (Optional → Warn → Required → Optional on
+     *  repeated taps), which the chip needed and a segment does not: every
+     *  state is one press away now. */
+    pickCheck(mode) {
+      this.$store.commit("night/setRequireChecks", mode);
     }
   }
 };
@@ -182,24 +195,34 @@ export default {
 
   // WIDTH IS THE WHOLE STORY ON THIS ROW, so the measurements are written
   // down. The build panel is capped at 420px (HostTools' own `max-width`),
-  // which leaves this row 364px; the disc's band gives it 359px at the
-  // smallest size the disc gate allows (1642x900), 437px at 1920x1080 and
-  // 592px at 2560x1440. The content: the label paints 136px, the switch
-  // 191px, and the chip 80px at its longest word ("Required").
+  // which leaves this row 364px; the disc's band gives it 403px at its own
+  // floor (1642x780) and 481px at 1920x1080 (mark-era numbers, measured —
+  // `claude_temp_test/2026-08-19-ft936-measure.mjs`/`2026-08-20-ft959-
+  // measure.mjs`). The content: the mark 22px, the mode switch 193px, and —
+  // FT-959 — the enforcement SEGMENT 192px (it replaced an 82px cycling
+  // chip; the width this row has to find room for roughly doubled).
   //
-  //   disc 1920+   136 + 10 + 191 + 8 + 80 = 425 ≤ 437   ONE LINE
-  //   disc 1642    slack after the switch is 22px         chip wraps
-  //   rect 1280    slack after the switch is 27px         chip wraps
+  //   disc 1920+  22 + 8 + 193 + 8 + 192 = 423 ≤ 481   ONE LINE (unchanged)
+  //   disc 1642   423 > 403                             enforcement wraps
+  //   rect 1280   22 + 10 + 193 + 8 + 192 = 425 > 364    enforcement wraps
   //
-  // So the chip rides the row wherever there is room and drops onto a second,
-  // right-aligned line where there is not. The wrap is the point, not a
-  // fallback: at 420px this row genuinely cannot hold a fifteen-character
-  // label, a three-word switch and a word chip at once, and the alternative
-  // to wrapping is the label painting straight through the switch — which is
-  // exactly what it did before this rule went in (shot:
-  // chip-required-1280x800-rect-panel, first run).
+  // SAME MECHANISM AS THE CHIP'S OWN FALLBACK, not a new one: `.nm-controls`
+  // already had `flex-wrap: wrap`, so the enforcement segment simply drops to
+  // its own right-aligned second line at the two sizes where it does not fit
+  // beside the switch — exactly what the 82px chip already did at those same
+  // two sizes (see the row's own height double from 34px to 71px in
+  // isolation; the row NEVER exceeds the panel's own right edge at any of the
+  // three required widths — measured, not assumed:
+  // `claude_temp_test/2026-08-20-ft959-interact.mjs`, every
+  // `seg*OverflowsPanel` reading negative). A fallback to the OLD single
+  // cycling chip at the narrowest widths was the other option on the table
+  // (see the lane's report) and was not needed: wrapped alone, "Optional /
+  // Warn / Required" is still 192px sitting inside a 364-403px row — never
+  // cramped, never clipped, just on its own line under the switch, the same
+  // shape both screenshotted sizes already show clearly.
   //
-  // What the change is worth, measured before/after at the same seat count:
+  // What the FT-936 mark pass was worth, measured before/after at the same
+  // seat count (unchanged by this lane, restated for context):
   //   1920x1080 disc   night block 74.3 → 34.0px, character tray +40.2px
   //   2560x1440 disc   night block 74.3 → 34.0px, character tray +40.3px
   //   1642x900 disc    night block 74.3 → 67.0px, character tray  +7.2px
@@ -234,9 +257,9 @@ export default {
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
 
-  // The switch and its enforcement chip, as ONE right-hand group — so the
-  // row's space-between still pins the label left and the controls right,
-  // rather than stranding the switch in the middle of the row.
+  // The mode switch and the enforcement segment, as ONE right-hand group —
+  // so the row's space-between still pins the label left and the controls
+  // right, rather than stranding either switch in the middle of the row.
   .nm-controls {
     display: flex;
     flex-wrap: wrap;
@@ -313,92 +336,36 @@ export default {
     margin-top: -2px;
   }
 
-  // THE ENFORCEMENT CHIP — Optional / Warn / Required, cycled by tapping.
+  // THE ENFORCEMENT SEGMENT (FT-959, 2026-08-20, user call: "turn the
+  // optional/required/warn option into a 3 part toggle like the off
+  // storyteller and everyone"). Optional / Warn / Required, in the SAME
+  // shape as the mode switch to its left: `.nm-seg` gives it the identical
+  // plate, `.nm-opt` gives every cell the identical seam and the identical
+  // red-tinted `.on` for "this is the chosen one" — nothing below
+  // reimplements either. `.nm-seg-checks` only exists to scope what follows.
   //
-  // THE PLATE IS THE PANEL'S, UNMODIFIED, AND THE STATE IS IN THE INK
-  // (2026-08-19, user call: "that doesn't match in styling ie needs to").
-  //
-  // It used to keep a coloured BOX — a gold-tinted ground behind a gold edge
-  // for Warn, `control-lit`'s red ground and red edge for Required — while
-  // every other control on the panel wore rgba(0,0,0,.7) behind 2px of black.
-  // That is the one difference the eye reads first: sitting in a row of
-  // matched plates, a tinted plate does not read as "this control is set to
-  // Required", it reads as a control made of a different material. Three
-  // meanings still have to be told apart at a glance, so the colour did not go
-  // — it MOVED, off the box and onto the word, where it says the same thing
-  // without breaking the family.
-  //
-  // WHAT CARRIES THE DISTINCTION NOW, in the order the eye takes it:
-  //   1. THE WORD ITSELF. Optional / Warn / Required is the whole state, in
-  //      language, at the same size as the switch's own cells.
-  //   2. THE INK. Parchment-grey for "nothing is being asked", the sheet's own
-  //      gold (#d8b45a family, the sun mark on the phase bar) for a warning,
-  //      the fork's blood red for a hard stop. Both coloured states are taken
-  //      UP in brightness from their old values (#f0d9a0 -> #ffd98a,
-  //      #ffd9d9 -> #ff6b6b) because ink on a near-black plate has to work
-  //      harder than ink on a tinted one, and because gold and red sitting on
-  //      the same ground need more hue separation than they did when the
-  //      grounds were also doing the telling.
-  //   3. WEIGHT AND AN INSET RULE. Type weight alone was too close between the
-  //      two lit states at 80% (checked side by side at 1280x800 and
-  //      1920x1080), so the two enforcing states also carry a 2px bar down
-  //      their leading edge in their own colour — an INSET shadow, so it sits
-  //      inside the plate's black border rather than replacing it, and the box
-  //      measured from outside is byte-for-byte the switch's.
-  //
-  // THE EDGE STAYS BLACK IN ALL THREE STATES. That is the whole point of the
-  // change, and it is also why the accent had to be an inset rather than a
-  // border-colour: `border-color` is the one property that would put this
-  // control back outside the family.
-  .nm-chip {
-    @include control-plate;
-    font-family: inherit;
-    font-size: 80%;
-    padding: 3px 7px;
-    flex: 0 0 auto;
-    color: rgba(255, 255, 255, 0.55);
-    cursor: pointer;
-    white-space: nowrap;
-    transition:
-      color 150ms,
-      border-color 150ms,
-      box-shadow 150ms;
-
-    &:hover {
-      color: #ff8a8a;
-      @include control-plate-hover;
-    }
-    &:focus-visible {
-      @include control-focus-ring;
-    }
-
-    // OPTIONAL: the bare plate. THE DIM IS ON THE INK, not on the box — this
-    // was `opacity: .7`, which faded the plate's own black edge and ground
-    // along with the word and left the chip a visibly lighter box than the
-    // switch touching it. The tone is the resting parchment RoleActions'
-    // duplicates toggle already wears when it is off, so "off" looks the same
-    // on both controls in the panel.
-    &.chk-off {
-      color: rgba(216, 205, 180, 0.62);
-    }
-    // WARN: the sheet's gold, in the ink and in the leading bar
-    &.chk-warn {
+  // THE STATE IS STILL IN THE INK, not a second box (2026-08-19 call,
+  // CARRIED OVER rather than dropped when the cycling chip became a
+  // segment): Warn's gold and Required's red are the SELECTED cell's own
+  // text colour, layered on top of the ordinary `.on` tint every segment in
+  // this app already wears when one of its options is chosen. That is a
+  // change from the chip's own version of this idea — the chip had only ONE
+  // word visible at a time and used the colour to say what THAT word was;
+  // a segment shows all three words always, so the colour's job narrows to
+  // "which one is picked", the same job `.nm-opt.on` already does for the
+  // mode switch one row up. Off/Optional needed no colour of its own for
+  // exactly that reason: unlike the chip (which dimmed its ink to read as
+  // "nothing is happening" against three OTHER possible words all sharing
+  // one slot), a segment's un-selected cells already say "not chosen" by not
+  // being lit — Optional selected is not an alarming state, so it takes the
+  // segment family's plain "on" look and nothing more, same as Off/
+  // Storyteller/Everyone do one row up.
+  .nm-seg-checks .nm-opt {
+    &.chk-warn.on {
       color: #ffd98a;
-      box-shadow: inset 2px 0 0 rgba(216, 180, 90, 0.9);
     }
-    // REQUIRED: the fork's blood red, and the only state that also takes
-    // weight — three signals for the state that refuses to let the night move
-    // on, one for the state that only grumbles.
-    &.chk-required {
+    &.chk-required.on {
       color: #ff6b6b;
-      box-shadow: inset 2px 0 0 rgba(190, 40, 40, 0.95);
-      font-weight: bold;
-    }
-
-    // one word is a 22px-tall target on a phone — matched to .nm-opt beside it
-    @media (pointer: coarse) {
-      min-height: 40px;
-      padding: 0 14px;
     }
   }
 }

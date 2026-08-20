@@ -25,6 +25,22 @@
            own renaming. -->
       <h3 v-if="!renaming" :title="headTitle">
         {{ townName }}
+        <!-- FT-959 (user call): copy the town's own link, right beside its
+             name. The session pill (App.vue's copyPillLink) already does
+             this EXACT job — same URL, same copied-tick feedback — so this
+             calls the same `copySessionUrl` on Menu.vue through the same
+             $parent.$refs.menu route `start()`/`pickScript()` already use
+             below, rather than a second copy routine. Only the copied-flash
+             TIMER is a local echo of App.vue's own (each button owns its own
+             tick, same as the pill owns its). -->
+        <button
+          type="button"
+          class="ht-copy-link"
+          @click="copyTownLink"
+          :title="linkCopied ? 'Copied!' : 'Copy the town link'"
+        >
+          <font-awesome-icon :icon="linkCopied ? 'check' : 'link'" />
+        </button>
       </h3>
       <input
         v-else
@@ -65,82 +81,114 @@
          because the disc folds the visible copy away for room (see the styles)
          and the number must stay reachable there -->
     <div class="row" :title="seatsHint">
-      <span class="label">
-        <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
-      </span>
-      <!-- the number is a SCRUBBER: drag it sideways to set the count
-           (user call — the +/- pair retired). FT-874: extracted into
-           NumberScrub so the night sheet's own number fields run the SAME
-           gesture code — see that component for the full history. -->
-      <span class="stepper">
-        <NumberScrub
-          class="seat-scrub-ctl"
-          :value="players.length"
-          :min="0"
-          :max="20"
-          @input="setSeatCount"
-        />
-      </span>
-      <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition the
-           seat count implies, right of the number that decides it. Drag the
-           scrub and the four counts move with it, which is the whole reason it
-           belongs on this row and not on another one.
+      <!-- FT-959 (user call): "make it more clear that the chain is tied to
+           the 7". `.ht-seat-lead` groups the mark, the scrub and its implied
+           counts on the row's LEFT; `.ht-seat-trail` groups the claimed count
+           and the shuffle on the RIGHT. Two clusters instead of five loose
+           items means the row's own `space-between` now spends its slack in
+           ONE gap, between the clusters, instead of splitting it five ways —
+           which is the "excess space" the row used to read as (see the style
+           block below for the measured before/after).
 
-           It is the SAME OBJECT the town readout above the clock face already
-           renders (TownInfo's second line): the same `gameJSON[nonTravelers-5]`
-           table, the same golem/glyphs team art, the same "tint the digit in
-           the team's own colour" idiom. Not a second implementation of a
-           readout this app already has.
+           THE PLATE (`.ht-seat-readout`) is what ties the number to its
+           counts specifically, inside the lead cluster — not the mark, which
+           stays a separate small icon the way every other row's mark does.
+           A shared `control-plate` is this app's OWN vocabulary for "these
+           read as one object" (see controls.scss's own reasoning on
+           `.nm-seg`: "three plated buttons... read as three buttons" without
+           one shared plate around them) — so wrapping the scrub and the
+           composition readout in the panel's one shared plate is reusing the
+           app's existing idiom, not inventing a new one. A connective glyph
+           or bracket was the other option on the table; the plate was picked
+           because it is already how every other "this is one control" claim
+           on this panel is made. -->
+      <span class="ht-seat-lead">
+        <span class="label">
+          <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
+        </span>
+        <span class="ht-seat-readout">
+          <!-- the number is a SCRUBBER: drag it sideways to set the count
+               (user call — the +/- pair retired). FT-874: extracted into
+               NumberScrub so the night sheet's own number fields run the SAME
+               gesture code — see that component for the full history. -->
+          <span class="stepper">
+            <NumberScrub
+              class="seat-scrub-ctl"
+              :value="players.length"
+              :min="0"
+              :max="20"
+              @input="setSeatCount"
+            />
+          </span>
+          <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition
+               the seat count implies, right of the number that decides it.
+               Drag the scrub and the four counts move with it, which is the
+               whole reason it belongs on this row and not on another one.
 
-           THESE ARE IMPLIED COUNTS, NOT ASSIGNED ONES, and the distinction is
-           deliberate: this row is where the seat count is set, so the useful
-           answer here is "and that means 5/0/1/1". What has actually been dealt
-           is the Roles row's job, one line down. Two rows disagreeing about
-           what "2 outsiders" means would be worse than not showing it.
+               It is the SAME OBJECT the town readout above the clock face
+               already renders (TownInfo's second line): the same
+               `gameJSON[nonTravelers-5]` table, the same golem/glyphs team
+               art, the same "tint the digit in the team's own colour" idiom.
+               Not a second implementation of a readout this app already has.
 
-           Below five non-travellers there is no official composition to state,
-           so nothing is stated — same gate TownInfo uses. -->
-      <span class="ht-comp" v-if="composition" :title="compHint">
-        <span
-          v-for="t in COMP_TEAMS"
-          :key="t"
-          class="stat"
-          :class="t"
-          :title="TEAM_LABELS[t] + ': ' + composition[t]"
-        >
-          {{ composition[t] }}
-          <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+               THESE ARE IMPLIED COUNTS, NOT ASSIGNED ONES, and the
+               distinction is deliberate: this row is where the seat count is
+               set, so the useful answer here is "and that means 5/0/1/1".
+               What has actually been dealt is the Roles row's job, one line
+               down. Two rows disagreeing about what "2 outsiders" means would
+               be worse than not showing it. THE SHARED PLATE does not blur
+               this: it ties the counts to the NUMBER that implies them, on
+               THIS row only, and says nothing about assignment — the Roles
+               row's own value keeps its own separate look below.
+
+               Below five non-travellers there is no official composition to
+               state, so nothing is stated — same gate TownInfo uses. -->
+          <span class="ht-comp" v-if="composition" :title="compHint">
+            <span
+              v-for="t in COMP_TEAMS"
+              :key="t"
+              class="stat"
+              :class="t"
+              :title="TEAM_LABELS[t] + ': ' + composition[t]"
+            >
+              {{ composition[t] }}
+              <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+            </span>
+          </span>
         </span>
       </span>
-      <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
-           shift-clicking START does the filling now, so there is one dev
-           gesture instead of two. devFillSeats itself is kept below.) -->
-      <small class="claimed">{{ claimedCount }} claimed</small>
-      <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
-           ALWAYS rendered — appearing icons shove the row (user call);
-           unusable states grey out instead. -->
-      <!-- (trash retired — scrub the count to 0 instead; user call) -->
-      <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
-           control plate (2026-08-19, user call: "and this shuffle button?").
-           It was a bare <svg> with no box at all — the only control on the
-           panel with nothing under it — which is why it read as loose
-           furniture beside the plated buttons one row down. Same 34x30 plate
-           as RoleActions' three now, from the one `control-icon-btn` mixin.
+      <span class="ht-seat-trail">
+        <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
+             shift-clicking START does the filling now, so there is one dev
+             gesture instead of two. devFillSeats itself is kept below.) -->
+        <small class="claimed">{{ claimedCount }} claimed</small>
+        <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
+             ALWAYS rendered — appearing icons shove the row (user call);
+             unusable states grey out instead. -->
+        <!-- (trash retired — scrub the count to 0 instead; user call) -->
+        <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
+             control plate (2026-08-19, user call: "and this shuffle
+             button?"). It was a bare <svg> with no box at all — the only
+             control on the panel with nothing under it — which is why it
+             read as loose furniture beside the plated buttons one row down.
+             Same 34x30 plate as RoleActions' three now, from the one
+             `control-icon-btn` mixin.
 
-           `:disabled` rather than a `.disabled` class: the plate's own
-           disabled state comes with the mixin, the button stops taking
-           clicks by itself, and it drops out of the tab order — which the
-           old opacity-plus-pointer-events pair never did. -->
-      <span class="tools">
-        <button
-          class="tool-btn"
-          type="button"
-          :disabled="players.length <= 2"
-          @click="randomizeSeatings"
-          title="Shuffle seat order"
-        >
-          <font-awesome-icon icon="random" />
-        </button>
+             `:disabled` rather than a `.disabled` class: the plate's own
+             disabled state comes with the mixin, the button stops taking
+             clicks by itself, and it drops out of the tab order — which the
+             old opacity-plus-pointer-events pair never did. -->
+        <span class="tools">
+          <button
+            class="tool-btn"
+            type="button"
+            :disabled="players.length <= 2"
+            @click="randomizeSeatings"
+            title="Shuffle seat order"
+          >
+            <font-awesome-icon icon="random" />
+          </button>
+        </span>
       </span>
     </div>
 
@@ -173,12 +221,24 @@
     </div>
 
     <!-- FT-854: the role DRAWER replaced the overlay -->
+    <!-- FT-959 (user call): "the '0/7 assigned' value should sit with its
+         mark rather than adrift." Same fix as the Seats row above: the mark
+         and the value become ONE cluster (`.ht-role-lead`), so the row's
+         `space-between` has exactly two things to split — this cluster and
+         RoleActions' own `.role-acts` group — instead of stranding the value
+         in the middle of the row's full slack. RoleActions is HELD (its
+         internal Deal/Shuffle/Duplicates/Retract grouping is untouched); it
+         already reads as one family via its own shared plate and 6px gap —
+         what it lacked was room of its own to read as a group IN, which
+         merging the leading pair now gives it. -->
     <div class="row">
-      <span class="label">
-        <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
-      </span>
-      <span class="value" @click="toggleModal('roleDrawer')">
-        {{ rolesAssigned }} / {{ players.length }} assigned
+      <span class="ht-role-lead">
+        <span class="label">
+          <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
+        </span>
+        <span class="value" @click="toggleModal('roleDrawer')">
+          {{ rolesAssigned }} / {{ players.length }} assigned
+        </span>
       </span>
       <!-- Deal / Shuffle / Dupes sit INLINE with the count on every width
            (user call 2026-08-18) — the tray below carries only characters -->
@@ -292,6 +352,9 @@ export default {
       renameDraft: "",
       townName: "",
       renameNote: "",
+      // FT-959: the heading's own copy-link tick, local to this button —
+      // the pill (App.vue's pillCopied) owns its own the same way.
+      linkCopied: false,
       // games this town will have seen once the one being built ends
       // (finished games + this one). null while unknown — no server count
       // yet, or the fetch failed — and the template's gate is on that null,
@@ -464,6 +527,17 @@ export default {
       } catch (e) {
         // no line beats a wrong line
       }
+    },
+    /** FT-959: copy the town link, next to its name — the pill's own
+     *  copyPillLink (App.vue), reached the same way `start()`/`pickScript()`
+     *  already reach Menu.vue below. Not a second copy routine: the URL is
+     *  built once, in Menu's own `copySessionUrl`. */
+    copyTownLink() {
+      this.$parent.$refs.menu.copySessionUrl();
+      this.linkCopied = true;
+      setTimeout(() => {
+        this.linkCopied = false;
+      }, 1500);
     },
     startRename() {
       if (!this.ownedKey) return;
@@ -812,6 +886,54 @@ export default {
     }
   }
 
+  // FT-959: COPY THE TOWN LINK, next to its name. Styled BARE — no
+  // `control-icon-btn` plate — because the pill (App.vue) already does this
+  // exact job as a plain icon with `cursor: pointer` and a red hover, no box
+  // of its own (see `.copylink` there), and this is the same control in a
+  // second place: matching its look is what makes the two read as "the same
+  // button" rather than as two different affordances that happen to copy the
+  // same thing. A plate here would also fight the heading — a heavy 34x30 box
+  // beside a serif town name reads as chrome bolted onto a title, not as
+  // part of it.
+  .ht-copy-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font-size: 55%;
+    opacity: 0.65;
+    cursor: pointer;
+    transition: color 150ms, opacity 150ms;
+
+    &:hover {
+      color: red;
+      opacity: 1;
+    }
+    &:focus-visible {
+      @include control-focus-ring;
+    }
+
+    // a fingertip needs more than a bare 12px glyph — an invisible pad
+    // centred on it, the same trick NumberScrub's own "seat" preset uses for
+    // its drag handle on a phone, rather than growing the visible glyph.
+    @media (pointer: coarse) {
+      position: relative;
+      &::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+      }
+    }
+  }
+
   // the games-played line and the transient rename note — both plain small
   // text under the name, matching `.row small`'s own opacity.
   .ht-games,
@@ -853,6 +975,53 @@ export default {
     flex-wrap: wrap;
     gap: 14px;
     min-height: 34px;
+
+    // FT-959: THE TWO CLUSTERS (Seats and Roles rows both use this shape —
+    // see the template comments by each). `.row` keeps `space-between` from
+    // above, but now splits it between exactly two flex children instead of
+    // five/three, so all the freed width from the FT-936 mark shrink lands as
+    // ONE gap between the clusters instead of being spread thin across every
+    // pair of items. Measured, 7 seats (rig: `claude_temp_test/
+    // 2026-08-20-ft959-measure.mjs`, before/after JSON alongside it):
+    //
+    //   scrub → composition gap (Seats)   50.8 / 35.7 / 61.6px -> 10px flat
+    //   mark → value gap (Roles)          28.4 / 48.1 / 86.9px ->  8px flat
+    //     (1280x800 rect / 1642x780 disc floor / 1920x1080 disc, in order)
+    //
+    // Both clusters stay flush to the row's own edges (space-between's own
+    // job, unchanged) — what moved is how the MIDDLE reads: two tight objects
+    // and a deliberate gap between them (now the row's ONE remaining slack,
+    // e.g. Roles' mark+value-to-actions gap grew to 42.7 / 82.2 / 159.7px),
+    // not five items adrift at whatever spacing the row's leftover width
+    // happened to produce.
+    .ht-seat-lead,
+    .ht-role-lead {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .ht-seat-trail {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    // THE SHARED PLATE — see the template comment on `.ht-seat-readout` for
+    // why a plate (this app's own "these read as one control" vocabulary,
+    // `controls.scss`) rather than a connective glyph. Padding is a shade
+    // tighter than the picker/rename-input's own 4px/8px: this plate holds a
+    // single bold digit and a row of small stats, not a full-width control.
+    .ht-seat-readout {
+      @include control-plate;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 10px;
+    }
+    // Roles' own value keeps its EXISTING look (no plate) — see the template
+    // note on why the two rows differ here: the Seats plate ties a number to
+    // a DERIVED readout; "0 / 7 assigned" is one fact, not two, and already
+    // reads fine as plain text beside its mark, unchanged.
 
     // FT-936: A MARK, NOT A WORD (user call: icons instead of text labels).
     // 55px was sized for the word "Seats"/"Script"/"Roles"; a 22px mark needs
