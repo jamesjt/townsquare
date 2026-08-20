@@ -213,6 +213,11 @@ import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
+// DEV shift-Start (2026-08-19): the same transient hint EditionModal, Menu and
+// EndGameOverlay use to say something when a click can't do what it looks
+// like it should — used below so a shift-click that genuinely can't proceed
+// says why instead of just doing nothing.
+import { flashHint } from "../golem/hint";
 // FT-888: the composition readout on the Seats row. Both of these are the
 // sources TownInfo's own composition line reads — the official setup table and
 // the fork's team art — so the two readouts stay one object in two places.
@@ -492,6 +497,19 @@ export default {
         }
       });
     },
+    /** DEV shift-Start's own route to the dealer — the identical tree-walk
+     *  RoleActions' own `withDrawer` uses (found by component name from
+     *  `$root`, since the drawer is always mounted whether its sheet is open
+     *  or not — see App.vue). Reusing the WALK rather than reimplementing
+     *  Deal: the only dealer is `RoleDrawer.assignRandomly`. */
+    withDrawer(fn) {
+      const find = c =>
+        c.$options.name === "RoleDrawer"
+          ? c
+          : c.$children.reduce((a, x) => a || find(x), null);
+      const drawer = find(this.$root);
+      if (drawer) fn(drawer);
+    },
     /** Apply a pick in place — no modal unless the Almanac card is chosen. */
     pickScript(card) {
       if (card.id === "__almanac") {
@@ -525,17 +543,38 @@ export default {
       }
     },
     start(e) {
-      // DEV (user call 2026-08-18): shift-click START is now the ONE dev
-      // gesture — it fills every empty chair with a fake player and then
-      // starts. Roles must still be assigned; only the claim gate is waived,
-      // and only because the fill has just satisfied it.
-      const devForce =
-        e &&
-        e.shiftKey &&
-        this.players.length > 0 &&
-        this.rolesAssigned >= this.players.length;
-      if (devForce) this.devFillSeats();
-      if (!this.canStart && !devForce) {
+      // DEV (user call 2026-08-18, extended 2026-08-19): shift-click START is
+      // the ONE dev gesture — from an untouched town it now does the whole
+      // run: fill every empty chair (devFillSeats, below), deal the script
+      // into them (RoleDrawer's own assignRandomly, reached the same way
+      // RoleActions reaches it — see withDrawer above; there is no second
+      // dealer), then start. It used to require roles already dealt before
+      // it would so much as fill a seat, which is why it looked dead from a
+      // fresh town — the shift bypass was only ever waiving the CLAIM gate,
+      // never the deal itself.
+      //
+      // Fill before deal: dealing hands roles to the chairs that exist.
+      if (e && e.shiftKey) {
+        if (!this.players.length) {
+          flashHint("No seats to fill.");
+          return;
+        }
+        this.devFillSeats();
+        if (this.rolesAssigned < this.players.length) {
+          this.withDrawer(d => d.assignRandomly());
+        }
+        if (this.rolesAssigned < this.players.length) {
+          // The script can't cast every seat — too few characters on a team,
+          // or (above 15 non-traveler seats) more chairs than the composition
+          // table even has a row for. Say so instead of a Start that looks
+          // like it did nothing.
+          flashHint("The script can't cast every seat — add characters or remove seats.");
+          return;
+        }
+        this.$parent.$refs.menu.distributeRoles();
+        return;
+      }
+      if (!this.canStart) {
         // The button explains itself instead of doing nothing.
         if (this.rolesAssigned < this.players.length && this.coreSeats.every(p => p.id)) {
           this.toggleModal("roles");
