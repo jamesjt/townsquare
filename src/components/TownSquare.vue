@@ -122,10 +122,12 @@
 
     <!-- THE BLUFFS SHOW/HIDE MASK (FT-958) — moved off the toolbar strip
          (Menu.vue's `uiBluffs`, 2026-08-19 to FT-958) onto the cluster it
-         belongs to: same x as the column, one step above the top coin
-         (`bluffAnchor.toggle`, computed alongside the three coins in
-         measureBluffAnchor). Same door, same switch: `toggleBluffs` below
-         is the unchanged `toggleBluffsOpen` commit Menu.vue's mark used to
+         belongs to: a BRIDGE overlapping the demon's own coin rim, at the
+         seat's own vertical centre, on the column's side — not a label
+         riding above it (`bluffAnchor.toggle`, computed alongside the three
+         coins in measureBluffAnchor — see that method's own comment for the
+         geometry). Same door, same switch: `toggleBluffs` below is the
+         unchanged `toggleBluffsOpen` commit Menu.vue's mark used to
          drive — moving its home does not re-implement it.
 
          DELIBERATELY A SIBLING of `.bluffs` above, not a child of it: that
@@ -417,17 +419,24 @@ export default {
       return { left: `${left}px`, top: `${top}px` };
     },
     /**
-     * FT-958: the show/hide mask's own pixel centre, riding the column at
-     * `bluffAnchor.toggle` (see measureBluffAnchor). Null when unanchored —
-     * the mask's own CSS carries a static fallback position for that case
-     * (`.bluffs-toggle`'s un-classed rule below), the same "static corner,
-     * measured position once anchored" split every other piece of this
-     * cluster already uses.
+     * FT-958: the show/hide mask's own pixel centre, bridging the demon's
+     * coin rim at `bluffAnchor.toggle` (see measureBluffAnchor). Null when
+     * unanchored — the mask's own CSS carries a static fallback position for
+     * that case (`.bluffs-toggle`'s un-classed rule below), the same
+     * "static corner, measured position once anchored" split every other
+     * piece of this cluster already uses. `--seat-sz` sizes the mask
+     * against the SAME coin it now sits on (this element is a sibling of
+     * `.bluffs`, not a descendant, so it needs its own copy of the variable
+     * rather than inheriting `.bluffs`'s).
      */
     bluffToggleStyle() {
       if (!this.bluffAnchor || !this.bluffAnchor.toggle) return null;
       const { left, top } = this.bluffAnchor.toggle;
-      return { left: `${left}px`, top: `${top}px` };
+      return {
+        left: `${left}px`,
+        top: `${top}px`,
+        "--seat-sz": `${this.bluffAnchor.size}px`,
+      };
     },
     /** The show/hide state, held in the store so the mask (now riding the
      *  cluster itself, not the menu strip — FT-958) and this cluster are the
@@ -914,44 +923,50 @@ export default {
         top: (b[1] + b[3]) / 2 - rootTop,
       }));
       /**
-       * FT-958: the show/hide mask's own anchor point — same x as the
-       * column, sat just above the ALREADY-RESOLVED top coin (`boxes[0]`),
-       * so it inherits whatever rigid dxOut/dy push and edge clamp the
-       * column ended up with for free, without being fed into `clears()`
-       * itself. Deliberately NOT part of the collision search: a search that
-       * also had to dodge the mask's own box could shove the three coins
-       * sideways to make room for a control that isn't one of them (the
-       * thing the coordinator's brief called out to avoid). The mask riding
-       * a fixed offset off the coin, rather than searching independently,
-       * is what keeps the column's own placement untouched by its presence.
+       * FT-958 REPOSITION (coordinator ask, same session): no longer a label
+       * riding above the column — a BRIDGE, overlapping the demon's own
+       * coin RIM at the seat's own vertical centre (`seatCy`, the same
+       * centre `rowYs` is spaced around), on the `side` the column is on.
        *
-       * FIXED PIXELS, not `--seat-sz`-scaled (unlike the coins): measured
-       * across four viewport heights (claude_temp_test/
-       * 2026-08-20-ft958-headroom-check.mjs — 800/900/1080/1400px tall, all
-       * 8 seats), the top seat's own headroom above the viewport's top edge
-       * is a FLAT 20px regardless of how big the coin itself renders (108px
-       * to 146px across that range) — a fixed layout reserve, not a
-       * proportional one. A `--seat-sz`-scaled icon shrinks that same 20px
-       * budget further as the town's coins grow, so it can never be made to
-       * fit for every town size; a small flat icon (matching the 26px flat
-       * size the toolbar mark itself used before FT-958) is sized against
-       * the budget that is actually fixed.
+       * Anchored off the RAW seat geometry (`seatCx`/`seatCy`/
+       * `seatRadiusPx`, computed at the top of this method, well before the
+       * collision search) rather than the post-search `boxes` — same
+       * reasoning as the earlier placement: kept OUT of `clears()`, so
+       * nothing about the mask can move a coin, and the coin's own true
+       * centre never shifts regardless of what the search does to the
+       * column, so anchoring off it (not off the search's output) is the
+       * more stable reference for a mark whose whole job is to sit ON that
+       * coin.
        *
-       * Its OWN small viewport clamp (mirroring the column's uniform fix
-       * just above, but independent of it): even at this flat size, a
-       * 12-o'clock seat leaves only ~18px of usable headroom (20px minus
-       * EDGE_PAD) — enough for this icon's half-height plus a small gap,
-       * but with little to spare. Clamping the mask's OWN box to the
-       * viewport (never the column's) keeps it visible rather than clipped
-       * off-screen if that margin is ever negative.
+       * `rimX`: exactly on the coin's own rim, along the column's axis —
+       * the ask was "far enough toward the coin that it overlaps the rim
+       * rather than floating in the gap", and the rim is that boundary.
+       * Centring the mask there puts most of its own footprint ON the coin
+       * (its half-width reaches further inward, over the coin's face, than
+       * outward past the rim), with just enough reach past the rim to lap
+       * onto the column's near coin — TOUCH (5% of a seat-width, the gap
+       * the earlier fix closed) is smaller than the mask's own half-width,
+       * so it always bridges the gap rather than floating inside it.
+       *
+       * `--seat-sz`-SCALED again (not the flat 24px the above-the-column
+       * placement used): that flat size was sized against a fixed ~20px
+       * top-of-viewport reserve that only bound the 12-o'clock case: at the
+       * seat's own vertical centre the mask is nowhere near a viewport edge
+       * for any clock position (measured — see the screenshots this pass
+       * produced), so the constraint that justified a flat size is gone.
+       * Scaling with the coin it now sits on is what makes it read as
+       * PART of that coin rather than a stray badge that happens to be
+       * nearby.
        */
-      const TOGGLE_HALF = 12; // 24px square, matching the toolbar mark's old flat scale
-      const TOGGLE_GAP = 3;
-      let toggleCx = (boxes[0][0] + boxes[0][2]) / 2;
-      let toggleCy = boxes[0][1] - TOGGLE_GAP - TOGGLE_HALF;
+      const TOGGLE_HALF = size * 0.11;
+      const rimX = seatCx + side * seatRadiusPx;
+      let toggleCx = rimX;
+      let toggleCy = seatCy;
       if (toggleCy - TOGGLE_HALF < EDGE_PAD) toggleCy = EDGE_PAD + TOGGLE_HALF;
+      else if (toggleCy + TOGGLE_HALF > window.innerHeight - EDGE_PAD)
+        toggleCy = window.innerHeight - EDGE_PAD - TOGGLE_HALF;
       if (toggleCx - TOGGLE_HALF < EDGE_PAD) toggleCx = EDGE_PAD + TOGGLE_HALF;
-      if (toggleCx + TOGGLE_HALF > window.innerWidth - EDGE_PAD)
+      else if (toggleCx + TOGGLE_HALF > window.innerWidth - EDGE_PAD)
         toggleCx = window.innerWidth - EDGE_PAD - TOGGLE_HALF;
       const toggle = {
         left: toggleCx - rootLeft,
@@ -1710,15 +1725,16 @@ export default {
   }
 }
 
-/***** The bluffs show/hide mask (FT-958) *****
+/***** The bluffs show/hide mask (FT-958, repositioned same session) *****
    Off the toolbar strip, onto the cluster it controls. Two positions, same
    split as `.bluffs` itself above: a STATIC fallback (no demon to anchor
    to — bluffAnchor null, matching the corner panel's own untouched fallback)
-   and an ANCHORED one riding the column via inline left/top from
-   `bluffToggleStyle` (bluffAnchor.toggle, computed in measureBluffAnchor —
-   same x as the coins, one column-step above the top one). The mask itself
-   never enters the coins' own collision search — see that computation's own
-   comment for why. */
+   and an ANCHORED one riding the demon's own coin rim via inline left/top
+   from `bluffToggleStyle` (bluffAnchor.toggle, computed in
+   measureBluffAnchor — the seat's own vertical centre, on the column's
+   side, overlapping the coin's rim rather than floating above the column).
+   The mask itself never enters the coins' own collision search — see that
+   computation's own comment for why. */
 #townsquare > .bluffs-toggle {
   position: absolute;
   z-index: 51;
@@ -1730,13 +1746,21 @@ export default {
   width: 26px;
   height: 26px;
   cursor: pointer;
-  filter: drop-shadow(0 1px 2px black);
+  // A drop-shadow ALONE (the mask's original treatment, sized for sitting on
+  // the dark background between seats) measured fine on the stone rim but
+  // thin against the coin's own busy gold/bronze face once this mark moved
+  // onto it — a soft dark halo (an extra drop-shadow pass, larger blur, no
+  // offset) reads as an outline around the mask's own silhouette without
+  // squaring it off the way a CSS `border` would. See the comment on
+  // `&.anchored` below for the measurement that motivated this.
+  filter: drop-shadow(0 1px 2px black) drop-shadow(0 0 3px rgba(0, 0, 0, 0.9));
   transition:
     opacity 200ms ease-in-out,
     filter 200ms ease-in-out;
 
   &:hover {
-    filter: drop-shadow(0 1px 2px black) brightness(1.15);
+    filter: drop-shadow(0 1px 2px black) drop-shadow(0 0 3px rgba(0, 0, 0, 0.9))
+      brightness(1.15);
   }
 
   // SWITCH, not an opener — the same dim-and-desaturate step-back the
@@ -1745,20 +1769,27 @@ export default {
   // as the mask itself vanishing.
   &.off {
     opacity: 0.34;
-    filter: drop-shadow(0 1px 2px black) grayscale(0.75) brightness(0.85);
+    filter: drop-shadow(0 1px 2px black) drop-shadow(0 0 3px rgba(0, 0, 0, 0.9))
+      grayscale(0.75) brightness(0.85);
     &:hover {
       opacity: 0.75;
     }
   }
 
-  // FIXED 24px, not `--seat-sz`-scaled — matches TOGGLE_HALF (12px) in
-  // measureBluffAnchor; see that constant's own comment for why a flat size
-  // rather than one that grows with the coin.
+  // `--seat-sz`-SCALED again (the flat 24px the above-the-column placement
+  // used was sized against a fixed top-of-viewport reserve that no longer
+  // applies at the seat's own vertical centre — see measureBluffAnchor's
+  // own comment). Measured on the coin's gold/bronze face at a 121.5px
+  // coin (claude_temp_test/2026-08-20-ft958-shots/ — the reposition pass):
+  // the red silhouette's own mean opaque RGB is unchanged by what is
+  // UNDER it (a PNG's own pixels don't pick up the background), so the
+  // question was legibility, not colour drift, and the halo above answers
+  // that at the size the coin's own detail competes with it.
   &.anchored {
     bottom: auto;
     transform: translate(-50%, -50%);
-    width: 24px;
-    height: 24px;
+    width: calc(var(--seat-sz, 15vmin) * 0.22);
+    height: calc(var(--seat-sz, 15vmin) * 0.22);
   }
 }
 
