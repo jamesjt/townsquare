@@ -65,6 +65,30 @@
       autoplay
       loop
     ></video>
+    <!-- Golem fork (FT-973): THE MOVING HANDS on the town's dial.
+
+         ONLY IN A TOWN, and that is the whole reason for the `v-if`. The two
+         plates are different art: the entry screen wears
+         `background-clocktower-centered.png`, which has HANDS PAINTED INTO IT,
+         while `#app.in-game` swaps to the blank plate that has none. So these
+         belong to exactly the half of the app the painted ones are absent from
+         — mount them on the entry screen too and there would be two sets of
+         hands on one dial.
+
+         It is the mirror image of the letters below, which run `v-if="!inGame"`
+         for the same reason from the other side.
+
+         IT STANDS BEFORE THE BACKDROP, AND THAT POSITION IS LOAD-BEARING.
+         `.backdrop` is the veil that dims the whole dial at night, and it sits
+         at the same stack level as this layer — so DOM ORDER is the only thing
+         that decides which of the two is on top. Before it, the hands darken
+         WITH the art they lie on, exactly as the entry screen's PAINTED hands
+         do. After it, they would keep their daylight value over a dimmed face
+         and read as a bright object floating off the dial.
+
+         The z-index itself, and the measurement behind it, are in the
+         component's own stylesheet. -->
+    <FaceHands v-if="inGame" />
     <div class="backdrop"></div>
     <!-- Golem fork (FT-852): the dial's CLOCKTOWER letters are static DOM
          now, not baked into the art — positions are plain numbers in
@@ -180,6 +204,16 @@
          Behind `devLabs` with the font lab, not deleted: the dials are how the
          next disc gets set by eye. -->
     <FaceDiscLab v-if="devLabs" />
+    <!-- THE CLOCK-HANDS LAB (Fh) — one notch below the disc lab, same column,
+         same shell. Style and colourway, each blade's length and width, the
+         centre boss, opacity, and an angle scrub that spins the whole assembly
+         so the art can be judged at rest instead of waited for.
+
+         BEHIND `devLabs` FROM THE START. The disc lab above was hidden on the
+         user's call because a visible dev toggle was landing on top of real
+         controls; a new one shipping visible would be that same mistake made
+         again on purpose. -->
+    <FaceHandsLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
@@ -237,6 +271,7 @@
       ></Intro>
       <TownInfo
         v-else-if="!session.nomination"
+        @end-phase="endPhase"
       ></TownInfo>
       <Vote v-if="session.nomination"></Vote>
     </transition>
@@ -501,6 +536,11 @@ import ChronicleDrawer from "./components/ChronicleDrawer";
 // FT-888: the face-disc lab — TEMPORARY, and it comes out with src/faceDisc.scss's
 // four `--fd-*-adj` reads and src/golem/faceDisc.js.
 import FaceDiscLab from "./components/FaceDiscLab";
+// FT-973: the moving hands on the town's blank dial, and the lab that tunes
+// them. The layer ships; the lab is behind `devLabs` with the rest of the
+// column. See src/golem/faceHands.js for what drives the hands.
+import FaceHands from "./components/FaceHands";
+import FaceHandsLab from "./components/FaceHandsLab";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -581,6 +621,8 @@ export default {
     NightInfoDrawer,
     ChronicleDrawer,
     FaceDiscLab,
+    FaceHands,
+    FaceHandsLab,
     Gradients
   },
   computed: {
@@ -1113,6 +1155,26 @@ export default {
       }
     },
     /**
+     * FT-975: END THE PHASE — the one dispatch path, whether it fires from
+     * a keypress or from a click. TownInfo's merged phase readout/button
+     * emits `end-phase` on a click (only the storyteller's live copy ever
+     * does — see TownInfo's isPhaseLive); the `e` hotkey below calls this
+     * same method. Both funnel through the identical ref path this app has
+     * always used — this.$refs.nightSheet.flipPhase() — so flipPhase's own
+     * gating (the checklist requirement, the warn bookkeeping) is asked
+     * exactly once per press, never duplicated into a second copy.
+     *
+     * The isEnded/isSpectator guards mirror the `e` case's own (isHost,
+     * !isEnded) — kept here too, not only in TownInfo's isPhaseLive, so a
+     * stray click during a state transition can't slip through.
+     */
+    endPhase() {
+      if (!this.session.sessionId || this.session.isSpectator) return;
+      if (this.session.isEnded) return;
+      if (this.$refs.nightSheet) this.$refs.nightSheet.flipPhase();
+      else if (this.$refs.menu) this.$refs.menu.toggleNight();
+    },
+    /**
      * FT-880: THE KEY TABLE — remapped whole (user's map). The letters and
      * what they mean are published in golem/hotkeys.js, which is what the help
      * panel prints, so the map cannot be changed here without the app's own
@@ -1153,21 +1215,16 @@ export default {
           this.$store.commit("toggleGrimoire");
           break;
         case "e":
-          // END THE DAY / END THE NIGHT. Deliberately routed through the night
-          // sheet's own button method, never the phase mutation directly —
-          // see the ref on <NightSheet>. When the sheet is not standing (a
-          // nomination owns the centre, or the town has no seats) there is no
-          // checklist to answer to, and this falls back to the plain flip the
-          // menu has always used.
-          if (!isHost) return;
-          // FT-931: THE PHASE CONTROLS GO once the town has ended. Guarded
-          // here too, not only by showNightSheet hiding the ref — without
-          // this an ended town with no ref would silently fall through to
-          // the menu's plain toggleNight and flip day/night with nothing on
-          // screen to show it happened.
-          if (this.session.isEnded) return;
-          if (this.$refs.nightSheet) this.$refs.nightSheet.flipPhase();
-          else this.$refs.menu.toggleNight();
+          // END THE DAY / END THE NIGHT — see endPhase() above, which this
+          // and TownInfo's own merged readout/button (FT-975) both call.
+          // Deliberately routed through the night sheet's own button
+          // method, never the phase mutation directly — see the ref on
+          // <NightSheet>. When the sheet is not standing (a nomination owns
+          // the centre, or the town has no seats) there is no checklist to
+          // answer to, and endPhase() falls back to the plain flip the menu
+          // has always used. FT-931: the phase controls go once the town
+          // has ended — endPhase() guards that itself.
+          this.endPhase();
           break;
         case "s":
           // THE SCRIPT, in whichever sense applies to you: a storyteller (or

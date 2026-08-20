@@ -15,21 +15,33 @@
        player is meant to see it. What stays here, storyteller-only: the
        progress count, and the single Day-breaks/Night-falls button. -->
   <div class="night-sheet" :class="{ 'is-night': isNight, 'has-list': showList }">
-    <!-- OFF / DAYTIME: no checklist to show, so the sheet is just the one
-         control that gets the storyteller INTO a night — nothing else
-         belongs in a bar with one button in it. -->
-    <div class="phase pill" v-if="!showList">
-      <!-- FT-882 (user call): the flanking sun/moon marks came OFF this
-           button. The sun and the moon belong to the phase readout above the
-           clock face, which every player sees; a second pair down here was
-           the control competing with the readout for the same job. The
-           title still carries the atmosphere the marks were carrying, at no
-           cost — see flipHint. -->
+    <!-- FT-975 (2026-08-20): OFF/DAYTIME PILL RETIRED. The sun/moon + day
+         count readout above the clock face (TownInfo.vue's `.info-phase`)
+         IS this button now — for the storyteller it is a live control
+         wired to THIS component's own flipPhase() (App.vue's endPhase()
+         calls it through the same $refs.nightSheet path the E hotkey has
+         always used); for anyone else it stays the plain label it already
+         was. FT-882's flanking sun/moon marks came off this button for
+         exactly the reason they are back on TownInfo's copy: one pair, one
+         place, not two competing for the same job.
+
+         LEFT MOUNTED, MERELY INVISIBLE — not torn out (see `.retired`
+         below). `.ns-warned` just below is position:absolute against THIS
+         box (`top: 100%`); `.ns-warned` itself is also position:absolute,
+         so it never contributes to `.night-sheet`'s own size — this pill,
+         unchanged, is what has always given `.night-sheet` its box during
+         the day. Dropping the v-if instead of hiding it would collapse
+         that box to nothing and pull the warning banner's anchor out from
+         under it. flipLabel/canFlip/flipPhase are all still exercised
+         here, untouched — nothing about ending a phase moved out of this
+         component, only where the button is drawn. -->
+    <div class="phase pill retired" v-if="!showList">
       <button
         type="button"
         class="phase-flip"
         :class="{ blocked: !canFlip }"
         :title="flipHint"
+        tabindex="-1"
         @click="flipPhase"
       >
         {{ flipLabel }}
@@ -832,9 +844,23 @@ $ns-team-colors: (
   max-height: calc(100vh - 20px);
 
   // DAY, or the sheet switched off: just the flip-into-night pill, clear of
-  // the town-centre plate
+  // the town-centre plate.
+  //
+  // FT-975: `pointer-events: none` ADDED here. The pill inside is retired
+  // (visibility:hidden, its own pointer-events:none — see `.phase.pill
+  // .retired` below) and `.ns-warned` was ALREADY pointer-events:none by
+  // design (it's read-only furniture). So nothing in this state still
+  // needs to receive the pointer — but `.night-sheet` itself is z-index 19,
+  // stacked above TownInfo's `.info` (z-index 2), and its OWN box sits
+  // exactly where the retired pill used to (same size, same centring) —
+  // without this, that empty-but-still-hit-testable box silently ate every
+  // click meant for TownInfo's relocated button underneath it (found via
+  // elementFromPoint(): a real click at the button's own on-screen centre
+  // resolved to `.night-sheet`, not the button — the pill's own visibility
+  // :hidden/pointer-events:none fix was necessary but not sufficient).
   &:not(.has-list) {
     transform: translateY(105px);
+    pointer-events: none;
   }
 
   // THE WARN STATE'S OWN LINE — "Night 2 ended with 3 rows unticked."
@@ -1129,6 +1155,18 @@ $ns-team-colors: (
     border-radius: 10px;
     box-shadow: 0 0 10px black;
     padding: 4px 10px;
+
+    // FT-975: retired — see the template comment above `.phase.pill`.
+    // Invisible, not gone: keeping the box (rather than display:none or
+    // dropping the v-if) is what keeps `.ns-warned`'s position:absolute
+    // anchor exactly where it has always been. visibility:hidden also
+    // takes it out of the tab order and off screen readers on its own —
+    // tabindex="-1" in the template is belt-and-suspenders documentation
+    // of that, not load-bearing.
+    &.retired {
+      visibility: hidden;
+      pointer-events: none;
+    }
   }
 
   .phase-progress {

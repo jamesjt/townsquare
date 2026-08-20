@@ -11,23 +11,61 @@
         })`
       }"
     ></li>
-    <!-- FT-862: the PUBLIC phase readout — everyone at the table sees which
-         day or night it is; that is not a secret. It is a label, not a
-         control: nothing here advances the phase (compare NightSheet's
-         "End night"/"End day" button — renamed FT-874, same button — which
-         stays storyteller-only where it was).
-         Sits above the counts, at the top of the in-flow stack — the
-         edition badge above it floats independently (position: absolute). -->
+    <!-- FT-862/FT-975: the PUBLIC phase readout — everyone at the table sees
+         which day or night it is; that was never a secret. FT-975 folded
+         NightSheet's "End night"/"End day" button INTO this element rather
+         than leaving two objects that only looked like one (see NightSheet
+         .vue's retired day pill for the other half of that move) — and a
+         correction pass the same day moved it again: the merge takes the
+         BUTTON's own position, size and plate (see the .info-phase CSS
+         below), not the old readout LINE's — the label that used to sit
+         under the edition badge is gone; this IS that slot now, just
+         relocated to where the button always rendered, and it is not a
+         separate line any more.
+
+         - Storyteller, checklist not up (isPhaseLive true): a real
+           <button> — "End day 3" / "End night 3" — wired to the SAME
+           flipPhase() the E hotkey has always called, via App.vue's
+           endPhase() (one dispatch path, never duplicated here).
+         - Everyone else, and the storyteller too once the checklist card
+           IS up (it already carries its own gated "End night" button —
+           this steps back rather than doubling that control): a plain
+           <span>, same size, shape, plate and marks as the button, but no
+           role and not focusable — it reads to a mouse, a keyboard and a
+           screen reader as text, not as a dead control. A greyed-out
+           disabled BUTTON was rejected on purpose: a control-sized element
+           that refuses a click is worse than a small one that never
+           pretended to take one, and it invites a click that can never
+           work. -->
     <li class="info-phase" v-if="!session.isEnded">
-      <span class="phase-now">
+      <component
+        :is="isPhaseLive ? 'button' : 'span'"
+        :type="isPhaseLive ? 'button' : null"
+        class="phase-now"
+        :class="{ 'is-live': isPhaseLive }"
+        :title="
+          isPhaseLive
+            ? grimoire.isNight
+              ? 'End the night'
+              : 'End the day'
+            : null
+        "
+        @click="onPhaseClick"
+      >
         <font-awesome-icon
           v-if="!grimoire.isNight"
           icon="sun"
           class="phase-sun"
         />
         <img v-else class="phase-mark" :src="moonMark" alt="" />
-        {{ phaseLabel }}
-      </span>
+        {{ isPhaseLive ? phaseActionLabel : phaseLabel }}
+        <font-awesome-icon
+          v-if="!grimoire.isNight"
+          icon="sun"
+          class="phase-sun"
+        />
+        <img v-else class="phase-mark" :src="moonMark" alt="" />
+      </component>
     </li>
     <!-- FT-931: THE RESULT. Once the town has ended there is no next phase
          to read — this is what every seat sees in its place, host and
@@ -44,7 +82,7 @@
     <li v-if="players.length - teams.traveler < 5">
       Please add more players!
     </li>
-    <li>
+    <li class="counts-row">
       <span class="meta" v-if="!edition.isOfficial">
         {{ edition.name }}
         {{ edition.author ? "by " + edition.author : "" }}
@@ -72,7 +110,21 @@
       </span>
       <span class="stat alive" tabindex="0" :aria-label="'Alive: ' + teams.alive">
         {{ teams.alive }}
-        <img class="count-icon" :src="countIcons.alive" alt="" />
+        <!-- FT-975 (correction pass, user call): THE HEART READS RED NOW.
+             countIcons.alive (ui-alive.png) is the shared "bone tone, one
+             light origin, film grain" family (golem/glyphs.js) — an <img>
+             can only ever show that native beige, a CSS `filter` glow
+             around it (below) was never the shape itself. `.count-icon
+             -mask` swaps the paint source: the <img> stays for layout
+             (hidden, not removed — the box it reserves is what `.alive
+             ::before` fills), and a masked ::before shows the SAME PNG's
+             alpha as a stencil over a flat #ff4a50 fill — the digit's own
+             red, already authored and reviewed here, not $demon (#ce0100):
+             that exact hex is the DEMON team's own colour three rows below
+             in this same panel, and reusing it on "alive" would read as
+             "this is about the demon" the instant both are on screen
+             together. -->
+        <img class="count-icon count-icon-masked" :src="countIcons.alive" alt="" />
         <span class="tip" role="tooltip">Alive</span>
       </span>
       <span class="stat dead" tabindex="0" :aria-label="'Dead: ' + teams.dead">
@@ -195,6 +247,33 @@ export default {
         Math.max(this.night.day, 1)
       );
     },
+    /**
+     * FT-975: is this element ALSO the live end-phase control right now?
+     * Storyteller-only, and only when NightSheet's own checklist card
+     * isn't the one standing — this mirrors NightSheet.showList exactly
+     * (night.mode !== "off" && grimoire.isNight). When the checklist IS
+     * up it already carries its own gated "End night" button with the
+     * ready/warn states this one-line readout has no room for, so this
+     * element steps back to a label instead of doubling that control.
+     */
+    isPhaseLive() {
+      return (
+        !this.session.isSpectator &&
+        !(this.night.mode !== "off" && this.grimoire.isNight)
+      );
+    },
+    /**
+     * FT-975: the live button's own label — the ACTION ("End night 3" /
+     * "End day 3"), the same wording NightSheet's retired pill used
+     * (its flipLabel), with the count riding alongside exactly where it
+     * always sat next to phaseLabel's "Night 3" / "Day 3".
+     */
+    phaseActionLabel() {
+      return (
+        (this.grimoire.isNight ? "End night " : "End day ") +
+        Math.max(this.night.day, 1)
+      );
+    },
     moonMark() {
       return this.isFirstNight ? moonFirst : moonOther;
     },
@@ -210,7 +289,22 @@ export default {
     ...mapGetters("night", ["isFirstNight"])
   },
   methods: {
-    teamGlyph
+    teamGlyph,
+    /**
+     * FT-975: the merged element's click. Routed UP to App.vue via
+     * `end-phase` — never dispatched here — because App.vue is what holds
+     * the $refs.nightSheet ref the E hotkey already calls flipPhase()
+     * through (see App.vue's endPhase()). One call site, whether the press
+     * comes from a key or a click.
+     *
+     * A player's copy (isPhaseLive false) is a <span>, not a <button>, so
+     * this only ever fires from a real click on the storyteller's live
+     * copy — the isPhaseLive guard here is a second, cheap backstop, not
+     * the thing doing the work.
+     */
+    onPhaseClick() {
+      if (this.isPhaseLive) this.$emit("end-phase");
+    }
   }
 };
 </script>
@@ -224,6 +318,22 @@ export default {
 
 .info {
   position: absolute;
+  // FT-975: TownSquare's seat ring (`.square > ul.circle`) is ALSO
+  // `position` + `z-index: auto`, and it comes later in the DOM — so with
+  // both auto, stacking falls back to DOM order and the ring's own
+  // (empty, at the centre) hit box wins every point under this element,
+  // including here. That never mattered while everything in here was
+  // inert text; it does now that `.info-phase` can be a live <button> —
+  // measured via elementFromPoint(): without this, a real click at the
+  // button's own on-screen centre resolved to `ul.circle`, not the
+  // button, though a synthetic dispatchEvent (which skips hit-testing)
+  // reached it fine and masked the bug. A small explicit z-index is
+  // enough to move this whole element into the "positive z-index" paint
+  // group, ahead of the ring's "auto" one, without touching TownSquare.vue
+  // (held) or fighting the disc menus above it (.night-sheet is 19; this
+  // stays well under that, and the face-disc-gate rule just below already
+  // drops this to pointer-events:none whenever one of those is open).
+  z-index: 2;
   display: flex;
   width: 20%;
   height: 20%;
@@ -311,6 +421,59 @@ export default {
       // the counts sit on the lit clock face, so pale art needs its own
       // edge — the li's shadow alone leaves thin work (the gallows) faint
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+    }
+
+    // FT-975 (correction pass): THE MASKED HEART. The <img> stays in the
+    // DOM (still `alt=""`, still what reserves the box other stats' icons
+    // size against) but paints nothing — `::before` reads the same source
+    // PNG's alpha as a stencil over a flat fill, which is the only way to
+    // put an exact colour ON a raster icon rather than glowing a colour
+    // NEAR it (a `filter` cannot recolour a bitmap's own pixels). One rule,
+    // reusable by name (`.count-icon-masked`) if another count ever wants
+    // its own icon recoloured the same way — only `.alive` calls it today.
+    .count-icon-masked {
+      visibility: hidden;
+      position: relative;
+    }
+    .alive .count-icon-masked::before {
+      content: "";
+      visibility: visible;
+      position: absolute;
+      inset: 0;
+      background-color: #ff4a50; // the same red the digit beside it already
+      // wears (kept as authored, see the colour block below) — one red,
+      // not a second one for the icon
+      -webkit-mask: url("../assets/ui-alive.png") center / contain no-repeat;
+      mask: url("../assets/ui-alive.png") center / contain no-repeat;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+    }
+
+    // FT-975 (correction pass): THE COUNTS' OWN GROUND. Measured against the
+    // real art, not a flat assumption (claude_temp_test/2026-08-20-ft975-
+    // evidence/): these rows sit on a gold-and-bronze rose window whose OWN
+    // brightness varies by seat — some stats landed on a lit fold (WCAG
+    // ~1.1-3.3 against their current ink), others on a darker one. A
+    // per-glyph pale halo — the reminder tiles' own recipe, checked first
+    // (ReminderModal.vue's `.text`, `#f6dfbd`) — only rescues the DARK
+    // spots; against the LIT gold, pale ink on a pale halo still blends
+    // (measured 1.2-2.6:1 fill-vs-halo for exactly the stats sitting there).
+    // One dark plate under the whole row is what a scattered set of halos
+    // cannot do: every stat measured 3.5:1-12.7:1 against it, uniformly,
+    // regardless of which fold of the window it happens to sit on.
+    //
+    // TEAM COLOURS ARE UNTOUCHED — this rule sets no `color:` on
+    // `.townsfolk`/`.outsider`/`.minion`/`.demon`/`.traveler`, only what
+    // sits BEHIND them (below). `.tip`'s own dark plate a few dozen lines
+    // down (rgba(10,4,4,.97), #400 edge) is the source, not a new colour —
+    // this is the same ground at a lighter alpha (.86) so the window still
+    // shows through faintly, the way NightSheet's own pill plate (.7-.9)
+    // does rather than going fully opaque.
+    &.counts-row {
+      background: rgba(10, 4, 4, 0.86);
+      border: 1px solid rgba(64, 0, 0, 0.55);
+      border-radius: 8px;
+      padding: 4px 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
     }
 
     // FT-863: each stat gets ONE colour, worn by both its digit and a glow
@@ -478,32 +641,80 @@ export default {
   // no longer shifts where that stack's own vertical centering lands —
   // restoring the stats block to its pre-FT-862 position, which already
   // cleared the badge.
+  // FT-975 (correction pass): THIS BOX IS NOW THE OLD BUTTON'S BOX, not the
+  // old readout's. Measured off the pristine app at 1280x800 before any of
+  // this landed (claude_temp_test/2026-08-20-ft975-evidence): `.info` (this
+  // element's own parent) sits centred on #app's own centre at every size
+  // (its 20%/20% box, static-positioned by the flex-centred layout #app
+  // gives every un-inset absolute child) — and NightSheet's day pill, ALSO
+  // un-inset and static-positioned the same way, sat on that exact same
+  // centre before its own `transform: translateY(105px)` moved it down.
+  // `top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 105px))`
+  // reproduces that precisely: centre on `.info`'s own centre (== the
+  // button's pre-transform centre, by construction), then the identical
+  // 105px. The label line that used to live under the edition badge
+  // (`top: calc(-25% + min(200px,100%))`) is gone — that was the readout's
+  // slot, and the readout is not a separate line any more, it IS this.
   .info-phase {
     position: absolute;
-    left: 0;
-    width: 100%;
-    top: calc(-25% + min(200px, 100%));
-    padding-top: 8px; // a small fixed cosmetic gap below the badge — not a
-    // clearance number; clearance itself is entirely the calc() above.
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, calc(-50% + 105px));
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
 
+    // FT-975 (correction pass): THE BUTTON'S OWN PLATE, SIZE AND WEIGHT —
+    // not the readout's. Lifted verbatim from NightSheet's own (now-
+    // retired) .phase-flip: same ground, edge, radius, padding and type
+    // size (measured 21.888px there; 22px here, its own ambient font-size
+    // chain not being worth reproducing for a fraction of a pixel). Applied
+    // to BOTH the button and the label — a player's copy is the same
+    // control-sized shape, per the user: a big control-shaped thing that
+    // refuses clicks is worse than a small one, so the size difference
+    // between roles is exactly zero; only `cursor`/`:hover`/`:focus-visible`
+    // (a real target, gated by isPhaseLive/is-live) differ.
     .phase-now {
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      font: inherit;
+      font-size: 22px;
+      color: #d8cdb4;
+      letter-spacing: inherit;
+      text-shadow: inherit;
+      border: 1px solid rgba(120, 105, 135, 0.4);
+      border-radius: 6px;
+      background: rgba(20, 16, 22, 0.9);
+      padding: 5px 16px;
+      cursor: default;
+      transition: background 150ms, border-color 150ms, color 150ms;
+
+      // the only thing isPhaseLive actually changes on the plate: a pointer
+      // and the hover/focus purple this app's controls answer the pointer
+      // with everywhere (controls.scss $control-edge-hover), rather than
+      // the OFF-state a player's non-interactive copy just sits at.
+      &.is-live {
+        cursor: pointer;
+        &:hover,
+        &:focus-visible {
+          background: rgba(32, 24, 38, 0.95);
+          border-color: rgba(150, 130, 175, 0.75);
+          color: #fff;
+          outline: none;
+        }
+      }
     }
     .phase-mark {
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
       object-fit: contain;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
     }
     // the same gold NightSheet's own sun wears (.phase-sun there) — one
     // phase mark, one colour, wherever it renders
     .phase-sun {
-      width: 16px;
-      height: 16px;
+      width: 20px;
+      height: 20px;
       color: #d8b45a;
     }
   }
