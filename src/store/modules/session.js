@@ -41,7 +41,22 @@ const state = () => ({
   // reaches into a submodule" shape already used in this app.
   isEnded: false,
   // 'good' | 'evil' | null — who won, set alongside isEnded and cleared with it.
-  winningTeam: null
+  winningTeam: null,
+  // FT-1003: THE GRANTED GRIMOIRE, both halves of it.
+  //
+  // `grimoireGrants` is the HOST's ledger — playerId → { pinned } for every
+  // seat currently shown the grimoire (the Spy's night row's control writes
+  // it). Host-local, not synced, not persisted: a grant is transient session
+  // state like `calledBackAt` above, not game state — no prevX snapshot,
+  // because "undo" here IS the revoke, and the revoke rebuilds the normal
+  // view rather than restoring a stash.
+  //
+  // `isGrimoireGranted` is the PLAYER's flag — this client is currently shown
+  // the grimoire. Written only by the root grantGrimoire/revokeGrimoire
+  // mutations (store/index.js), which also touch grimoire.isPublic — the same
+  // "root mutation reaches into a submodule" shape isEnded documents above.
+  grimoireGrants: {},
+  isGrimoireGranted: false
 });
 
 const getters = {};
@@ -117,6 +132,23 @@ const mutations = {
    */
   callBack(state) {
     state.calledBackAt = Date.now();
+  },
+  /**
+   * FT-1003: grant, revoke, or re-pin one seat's grimoire window. Host only
+   * in practice (the night sheet is the only writer); the socket plugin
+   * listens for this mutation and is what actually delivers the change to
+   * that one seat. The map is REPLACED rather than mutated so Vue 2 sees the
+   * key appear/disappear without a Vue.set import.
+   */
+  setGrimoireGrant(state, { playerId, granted, pinned }) {
+    if (!playerId) return;
+    const grants = { ...state.grimoireGrants };
+    if (granted) {
+      grants[playerId] = { pinned: !!pinned };
+    } else {
+      delete grants[playerId];
+    }
+    state.grimoireGrants = grants;
   },
   /**
    * Store a vote with and without syncing it to the live session.

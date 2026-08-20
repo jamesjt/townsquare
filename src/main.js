@@ -32,6 +32,8 @@ const faIcons = [
   "Dragon",
   "ExchangeAlt",
   "ExclamationTriangle",
+  // FT-1003: the night sheet's granted-grimoire Show control.
+  "Eye",
   "FeatherAlt",
   "Fire",
   "FileCode",
@@ -62,6 +64,8 @@ const faIcons = [
   // for day (there is no sun in our own asset set).
   "Sun",
   "TheaterMasks",
+  // FT-1003: the granted grimoire's keep-shown pin.
+  "Thumbtack",
   "Times",
   "TimesCircle",
   "TrashAlt",

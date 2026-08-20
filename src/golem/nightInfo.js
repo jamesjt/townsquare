@@ -57,7 +57,14 @@ export const FIELD_TYPES = {
   NUMBER: "number", // an integer in [min, max]
   BOOLEAN: "boolean", // yes / no
   ALIGNMENT: "alignment", // good / evil
-  TEXT: "text" // free-form — also the universal fallback for an unknown type
+  TEXT: "text", // free-form — also the universal fallback for an unknown type
+  // FT-1003: the information IS the whole grimoire — the Spy's and the
+  // Widow's night action is not a value the storyteller records but a view
+  // they OPEN (and later close) on one seat's client. The night sheet
+  // renders this field as the show/keep-shown control; the rows that get it
+  // are exactly the rows whose entry carries this field, never a role-name
+  // list at a call site.
+  GRIMOIRE: "grimoire"
 };
 
 /** Who fills a field: a player's own choice, or the storyteller's own information. */
@@ -87,7 +94,8 @@ export const RENDERED_FIELD_TYPES = [
   FIELD_TYPES.CHARACTER,
   FIELD_TYPES.NUMBER,
   FIELD_TYPES.BOOLEAN,
-  FIELD_TYPES.TEXT
+  FIELD_TYPES.TEXT,
+  FIELD_TYPES.GRIMOIRE
 ];
 
 /** A field's type, degraded to TEXT if nothing renders it yet. Never throws, never renders nothing. */
@@ -420,9 +428,14 @@ export const NIGHT_INFO = {
   },
   spy: {
     wakes: ["first", "other"],
-    // sees the WHOLE grimoire — nothing structured to set; TEXT is the
-    // honest choice here, not a placeholder for a control that's missing
-    fields: [{ type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }],
+    // FT-1003: sees the WHOLE grimoire — the GRIMOIRE field renders the
+    // show/keep-shown control that opens the reveal on that one seat's
+    // client. The TEXT field stays: it is the row's note, exactly what the
+    // free box recorded before the control existed.
+    fields: [
+      { type: FIELD_TYPES.GRIMOIRE, by: FIELD_OWNERS.STORYTELLER },
+      { type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }
+    ],
     mayBeFalse: false,
     label: "Sees:",
     line: "The whole grimoire, for as long as they want."
@@ -586,6 +599,24 @@ export const NIGHT_INFO = {
   apprentice: {
     wakes: ["first"],
     line: "A Townsfolk ability if good, a Minion's if evil."
+  },
+
+  // FT-1003: the other "sees the grimoire" character. New entry rather than
+  // line-only so the GRIMOIRE control reaches its row; the PLAYER field is
+  // the poison pick (already a SeatPicker via nightLog's phrasing-derived
+  // count — see extraFields), and the TEXT field keeps the free note the
+  // fallback used to render. mayBeFalse stays true, matching the fallback
+  // this entry replaces: the "a Widow is in play" tell can be corrupted.
+  widow: {
+    wakes: ["first"],
+    fields: [
+      { type: FIELD_TYPES.GRIMOIRE, by: FIELD_OWNERS.STORYTELLER },
+      { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
+      { type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }
+    ],
+    mayBeFalse: true,
+    label: "Poisons:",
+    line: "They see the grimoire; one good player learns."
   },
 
   // ── Sects & Violets — line-only (FT-886) ─────────────────────────────────

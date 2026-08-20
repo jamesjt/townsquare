@@ -304,6 +304,41 @@
                   @pick="c => setCharacter(row, c.id, c.name)"
                 />
 
+                <!-- FT-1003: the granted grimoire — the row whose information
+                     IS the whole town (the Spy, the Widow; golem/nightInfo's
+                     GRIMOIRE field, never a role-name list here). Show opens
+                     the reveal on that ONE seat's client; the pin keeps it
+                     open past the night's end and across their reconnect.
+                     Disabled while the seat is unclaimed — there is no client
+                     to show it to. -->
+                <span
+                  v-else-if="kindOf(field) === 'grimoire'"
+                  :key="'f' + fi"
+                  class="ns-grim"
+                >
+                  <button
+                    type="button"
+                    class="ns-grim-show"
+                    :class="{ on: !!grantFor(row) }"
+                    :disabled="!row.player.id"
+                    :title="grimHint(row)"
+                    @click="toggleGrimoireShown(row)"
+                  >
+                    <font-awesome-icon icon="eye" />
+                    {{ grantFor(row) ? "Shown" : "Show" }}
+                  </button>
+                  <button
+                    v-if="grantFor(row)"
+                    type="button"
+                    class="ns-grim-pin"
+                    :class="{ on: grantFor(row).pinned }"
+                    :title="pinHint(row)"
+                    @click="pinGrimoireShown(row)"
+                  >
+                    <font-awesome-icon icon="thumbtack" />
+                  </button>
+                </span>
+
                 <input
                   v-else
                   :key="'f' + fi"
@@ -814,6 +849,56 @@ export default {
     },
     kindOf(field) {
       return renderableType(field.type);
+    },
+    /**
+     * FT-1003: the ledger entry for this row's seat — { pinned } while their
+     * grimoire window is open, undefined otherwise. Keyed by the seat's
+     * connection playerId (the routing key the direct channel splits on),
+     * so the grant follows the player, not the chair.
+     */
+    grantFor(row) {
+      const id = row.player.id;
+      return id ? this.session.grimoireGrants[id] : undefined;
+    },
+    /** FT-1003: open / close this seat's grimoire window. The commit is the
+     *  ledger write; the socket plugin observes it and delivers. */
+    toggleGrimoireShown(row) {
+      const id = row.player.id;
+      if (!id) return;
+      this.$store.commit("session/setGrimoireGrant", {
+        playerId: id,
+        granted: !this.grantFor(row),
+        pinned: false
+      });
+    },
+    /** FT-1003: keep the window open past night's end + their reconnect. */
+    pinGrimoireShown(row) {
+      const id = row.player.id;
+      const grant = this.grantFor(row);
+      if (!id || !grant) return;
+      this.$store.commit("session/setGrimoireGrant", {
+        playerId: id,
+        granted: true,
+        pinned: !grant.pinned
+      });
+    },
+    grimHint(row) {
+      if (!row.player.id) {
+        return "No one is seated here — there is no client to show the grimoire to";
+      }
+      const grant = this.grantFor(row);
+      if (!grant) {
+        return "Show this player the grimoire — every seat's true character, on their screen only";
+      }
+      return grant.pinned
+        ? "They see the grimoire (kept open). Click to take it away."
+        : "They see the grimoire. Click to take it away — or it closes when the night ends.";
+    },
+    pinHint(row) {
+      const grant = this.grantFor(row);
+      return grant && grant.pinned
+        ? "Kept open — survives the night's end and their reconnect. Click to unpin."
+        : "Keep it open past the night's end (the Spy sees it for as long as they want)";
     },
     /**
      * Swap the phase. The day counter moves inside the root toggleNight
@@ -1734,6 +1819,76 @@ $ns-team-colors: (
     }
     &.none {
       opacity: 0.55;
+    }
+  }
+
+  // FT-1003: the granted-grimoire pair — Show wears .ns-told's box (it is a
+  // pressable control like every other in the answer zone); lit state goes
+  // gold, because an open window on the truth is the same KIND of statement
+  // as the mask (data, not chrome — see .ns-lie's colour note below). The
+  // pin only exists while the window is open and borrows .ns-lie's square.
+  .ns-grim {
+    display: inline-flex;
+    gap: 4px;
+    flex-shrink: 0;
+    .ns-grim-show {
+      height: 30px;
+      font-family: inherit;
+      font-size: 12.5px;
+      color: white;
+      padding: 0 8px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid #3d3d3d;
+      border-radius: 5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      &:focus-visible {
+        outline: none;
+        border-color: #a01414;
+      }
+      &:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      &.on {
+        color: #e0b45f;
+        border-color: #8a6f2e;
+        background: rgba(184, 137, 47, 0.16);
+        box-shadow: 0 0 7px rgba(184, 137, 47, 0.4);
+      }
+    }
+    .ns-grim-pin {
+      height: 30px;
+      width: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #d8cdb4;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(120, 105, 135, 0.3);
+      border-radius: 5px;
+      svg {
+        opacity: 0.42;
+      }
+      &:hover,
+      &:focus-visible {
+        border-color: rgba(150, 130, 175, 0.75);
+        outline: none;
+        svg {
+          opacity: 0.92;
+        }
+      }
+      &.on {
+        color: #e0b45f;
+        border-color: #8a6f2e;
+        background: rgba(184, 137, 47, 0.16);
+        svg {
+          opacity: 1;
+        }
+      }
     }
   }
 

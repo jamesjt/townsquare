@@ -112,7 +112,13 @@ export default new Vuex.Store({
     grimoire: {
       isNight: false,
       isNightOrder: true,
-      isPublic: true,
+      // FT-999b (2026-08-20, user call): a game starts with the grimoire
+      // REVEALED. FT-999 already reveals on deal, but isPublic was not
+      // restored across a reload, so every host refresh reset to face-down
+      // until the next deal or a G press. Revealed is the resting state now;
+      // the streaming hide stays one G away. Players are unaffected — their
+      // join path commits toggleGrimoire(false) anyway (golem/townRoute).
+      isPublic: false,
       isMenuOpen: false,
       // Golem fork (2026-08-19): the demon's bluffs cluster, shown or hidden.
       // In the store rather than on TownSquare because the switch is a mark in
@@ -335,6 +341,10 @@ export default new Vuex.Store({
       state.session.isEnded = true;
       state.session.winningTeam = winningTeam === "evil" ? "evil" : "good";
       state.grimoire.isPublic = false;
+      // FT-1003: the end reveal shows everyone everything — a per-seat
+      // grimoire grant has nothing left to grant, on either side of the wire.
+      state.session.grimoireGrants = {};
+      state.session.isGrimoireGranted = false;
     },
     /**
      * FT-931: PLAY AGAIN. Only the result and the reveal are this
@@ -346,6 +356,11 @@ export default new Vuex.Store({
       state.session.isEnded = false;
       state.session.winningTeam = null;
       state.grimoire.isPublic = true;
+      // FT-1003: a new game starts with no grimoire windows open anywhere —
+      // the roles a grant delivered go through players/clearRoles alongside
+      // this, exactly as the end reveal's do.
+      state.session.grimoireGrants = {};
+      state.session.isGrimoireGranted = false;
     },
     /**
      * FT-931: the R hotkey's mutation (and Menu's Hide/Show), guarded so the
@@ -358,6 +373,49 @@ export default new Vuex.Store({
     toggleGrimoire(state, val) {
       if (state.session.isEnded) return;
       toggle("isPublic")(state, val);
+    },
+    /**
+     * FT-1003: THE GRANTED GRIMOIRE ARRIVES — one seat's client is shown the
+     * whole town face-up. `seats` is [{index, role}] with roles already
+     * resolved by the socket layer (never this client's own seat: the sender
+     * skips it, so a seat whose belief differs from its truth can never learn
+     * the difference from its own grant). The render path is FT-931's end
+     * reveal verbatim — true roles present + isPublic off — scoped to the
+     * live `isGrimoireGranted` flag instead of isEnded.
+     */
+    grantGrimoire(state, seats) {
+      (seats || []).forEach(({ index, role }) => {
+        const player = state.players.players[index];
+        if (player) player.role = role;
+      });
+      state.session.isGrimoireGranted = true;
+      state.grimoire.isPublic = false;
+    },
+    /**
+     * FT-1003: the window closes. Clears every role the grant delivered —
+     * everything except this client's own seat (their dealt view, which the
+     * grant never touched) and travelers (public knowledge). Idempotent, so
+     * a revoke frame arriving at a client that was never granted (a joiner's
+     * self-healing sync) is a no-op.
+     *
+     * isPublic is deliberately NOT touched here: a player's normal state IS
+     * isPublic=false (their join path commits toggleGrimoire(false) —
+     * golem/townRoute), so the granted view and the normal view differ only
+     * in which roles this client holds. Clearing the roles is the whole
+     * revoke; writing isPublic=true would have flipped the seat into the
+     * face-down streaming view no player ever sits in.
+     */
+    revokeGrimoire(state) {
+      if (!state.session.isGrimoireGranted) return;
+      const own = state.players.players.findIndex(
+        p => p.id === state.session.playerId
+      );
+      state.players.players.forEach((player, index) => {
+        if (index === own) return;
+        if (player.role && player.role.team === "traveler") return;
+        player.role = {};
+      });
+      state.session.isGrimoireGranted = false;
     },
     toggleImageOptIn: toggle("isImageOptIn"),
     setAllowDupRoles(state, on) {

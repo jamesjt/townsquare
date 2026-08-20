@@ -283,6 +283,12 @@ class LiveSession {
       case "bluffs":
         this._updateBluffs(params);
         break;
+      // FT-1003: the granted grimoire opening or closing on THIS client —
+      // always a direct frame to one seat, never a broadcast (see
+      // sendGrimoire for why that shape cannot exist).
+      case "grimoire":
+        this._updateGrimoireGrant(params);
+        break;
       case "playername":
         this._updatePlayerName(params);
         break;
@@ -436,6 +442,12 @@ class LiveSession {
       // its own channel, never inside the gamestate blob — that blob goes to
       // everyone, and this must not.
       this.sendBluffs(playerId);
+      // FT-1003: ...and where a granted grimoire is settled for an arriving
+      // client — a PINNED grant is re-delivered, an unpinned one is revoked
+      // (it does not survive its holder's reconnect), and everyone else gets
+      // the self-healing no-op revoke. Skipped on a broadcast sync: grants
+      // are per-seat by construction.
+      this._syncGrimoireGrant(playerId);
     }
   }
 
@@ -685,6 +697,10 @@ class LiveSession {
       // seat that is unchanged by construction (the belief did not move), so
       // editing the Drunk's true character tells them nothing.
       this._sendBelief(player, index);
+      // FT-1003: any open grimoire window shows the town as it IS — a role
+      // edit mid-grant refreshes every granted seat's copy, so their window
+      // never goes stale against the storyteller's own grimoire.
+      this._refreshGrimoire();
     } else {
       this._send("player", { index, property, value });
       // 2026-08-19: a chair that just changed hands may be the demon's. The
@@ -1035,6 +1051,103 @@ class LiveSession {
         {};
       this._store.commit("players/setBluff", { index, role });
     }
+  }
+
+  /**
+   * FT-1003: DELIVER ONE SEAT'S GRIMOIRE WINDOW — open or shut, whichever the
+   * host's ledger (session.grimoireGrants) currently says for that playerId.
+   *
+   * NEVER A BROADCAST, structurally — the same rule sendBluffs states above:
+   * this only ever calls `_sendDirect` with a concrete playerId, so the
+   * broadcast-on-empty branch is unreachable. A grant payload is the list of
+   * every OTHER seat's true role — the recipient's own seat is skipped, so a
+   * seat whose belief differs from its truth (a Lunatic granted by mistake)
+   * cannot learn what it really is from its own grant.
+   *
+   * A REVOKE IS SENT WHEN THE LEDGER HOLDS NOTHING, deliberately: the client
+   * side is idempotent (revokeGrimoire no-ops when nothing is granted), so a
+   * revoke frame doubles as the self-healing answer for a joiner and for a
+   * host that reloaded and lost its ledger — a stale window always closes on
+   * the holder's next full sync.
+   *
+   * @param playerId REQUIRED — the one seat this frame is for.
+   */
+  sendGrimoire(playerId) {
+    if (this._isSpectator) return;
+    if (!playerId) return;
+    if (!this._store.state.session.isRolesDistributed) return;
+    const grant = (this._store.state.session.grimoireGrants || {})[playerId];
+    if (!grant) {
+      this._sendDirect(playerId, "grimoire", false);
+      return;
+    }
+    const seats = [];
+    this._store.state.players.players.forEach((player, index) => {
+      if (player.id === playerId) return;
+      if (player.role && player.role.id) {
+        seats.push({ index, roleId: player.role.id });
+      }
+    });
+    this._sendDirect(playerId, "grimoire", seats);
+  }
+
+  /**
+   * FT-1003: settle an arriving client's grimoire window (called from the
+   * full-sync path). A pinned grant survives its holder's reconnect and is
+   * re-delivered; an unpinned one dies — revoked through the ledger so the
+   * night sheet's control shows the truth; no ledger entry sends the
+   * self-healing revoke via sendGrimoire's own empty branch.
+   */
+  _syncGrimoireGrant(playerId) {
+    if (this._isSpectator || !playerId) return;
+    if (!this._store.state.session.isRolesDistributed) return;
+    const grant = (this._store.state.session.grimoireGrants || {})[playerId];
+    if (grant && !grant.pinned) {
+      // the commit's subscriber sends the revoke frame
+      this._store.commit("session/setGrimoireGrant", {
+        playerId,
+        granted: false,
+      });
+      return;
+    }
+    this.sendGrimoire(playerId);
+  }
+
+  /**
+   * FT-1003: re-deliver every open grimoire window (a role changed mid-grant).
+   * Almost always an empty loop — the ledger holds a key only while a window
+   * is open.
+   */
+  _refreshGrimoire() {
+    if (this._isSpectator) return;
+    const grants = this._store.state.session.grimoireGrants || {};
+    Object.keys(grants).forEach((playerId) => this.sendGrimoire(playerId));
+  }
+
+  /**
+   * FT-1003: the grimoire window opening (an array of {index, roleId}) or
+   * closing (anything else) on this client. Player only — the storyteller's
+   * own grimoire is the authority and is never written from the wire.
+   * Roles resolve here, the same session-then-global lookup _updateGamestate
+   * uses; an id this client cannot resolve is skipped rather than rendered
+   * as a blank coin.
+   * @private
+   */
+  _updateGrimoireGrant(seats) {
+    if (!this._isSpectator) return;
+    if (!Array.isArray(seats)) {
+      this._store.commit("revokeGrimoire");
+      return;
+    }
+    const resolved = [];
+    seats.forEach((seat) => {
+      if (!seat || typeof seat.index !== "number") return;
+      const role =
+        this._store.state.roles.get(seat.roleId) ||
+        this._store.getters.rolesJSONbyId.get(seat.roleId);
+      if (role) resolved.push({ index: seat.index, role });
+    });
+    this._store.commit("grantGrimoire", resolved);
   }
 
   /**
@@ -1391,8 +1504,30 @@ export default (store) => {
       case "session/setVoteHistoryAllowed":
         session.setVoteHistoryAllowed();
         break;
+      // FT-1003: the night sheet's Show-grimoire control. The mutation is the
+      // host's ledger write; delivery to that one seat happens here, so any
+      // later surface that grants a window commits the same thing and
+      // inherits the routing.
+      case "session/setGrimoireGrant":
+        session.sendGrimoire(payload.playerId);
+        break;
       case "toggleNight":
         session.setIsNight();
+        // FT-1003: the night ending closes every UNPINNED grimoire window —
+        // host only (a spectator's ledger is empty by construction, but the
+        // guard keeps the rule visible). Each commit re-enters this
+        // subscriber, whose case above sends that seat its revoke.
+        if (!state.session.isSpectator && !state.grimoire.isNight) {
+          const grants = state.session.grimoireGrants || {};
+          Object.keys(grants).forEach((playerId) => {
+            if (!grants[playerId].pinned) {
+              store.commit("session/setGrimoireGrant", {
+                playerId,
+                granted: false,
+              });
+            }
+          });
+        }
         // FT-965: the phase turning is the town's own news, so it goes in the
         // town's own log beside what people said about it. Storyteller-only
         // (systemMessage refuses otherwise), which matches the relay's refusal
