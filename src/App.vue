@@ -365,19 +365,15 @@
       >
         <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
       </span>
-      <!-- FT-850: TOWN RECORDS — the pill's stats door, open to anyone in
-           the session. -->
-      <span
-        class="stats"
-        @click="statsOpen = true"
-        title="Town records"
-      >
-        <font-awesome-icon icon="chart-bar" />
-      </span>
-      <!-- FT-880: the town summons and the records door BOTH live in the top
-           strip (Menu.vue) rather than here — see the note on the strip. This
-           stats door stays as it was: it is the pill's own, and the strip's is
-           a second door to the same overlay, not a replacement. -->
+      <!-- TOWN RECORDS is reached from the top strip's own door (Menu.vue),
+           and only from there. The pill used to carry a second door to the
+           same overlay — retired 2026-08-19 (user: "we can remove that button
+           it is redundant now"). The strip's note records why the door moved
+           there in the first place, and it is the same reason this one had to
+           go rather than the other: the pill hides itself when a drawer is out
+           or on a phone in landscape, so a door here is conditionally
+           invisible. `statsOpen` stays — the strip's @records still raises
+           it. -->
       <!-- FT-850: once the host has dealt characters, the game can END here —
            pick the winner, the record lands on the golem server. Gated on the
            stashed deal moment (upstream's isRolesDistributed is a 2s pulse,
