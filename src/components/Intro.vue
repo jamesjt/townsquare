@@ -1691,6 +1691,22 @@ export default {
         flex: 0 0 auto;
       }
 
+      // …and the button itself still crossed the rim at the tightest size once
+      // the mark stopped dragging it: measured 1.028 of the plate's ellipse at
+      // 1280x800 against 0.952 at 1920x1080, so it is a width problem at the
+      // small end only. `min-width: 60%` of the plate is simply too wide down
+      // there, because the button rides the bottom cap where the arc has
+      // already closed in.
+      //
+      // Capped rather than re-positioned, and that is the same physics the
+      // Start button's own note records: a narrower box brings its bottom
+      // CORNERS toward the vertical axis, which is where the circle is
+      // deepest. Moving it up would buy the same room and cost the placement
+      // the user chose.
+      button.confirm {
+        max-width: min(60%, 190px);
+      }
+
       .back {
         cursor: pointer;
         opacity: 0.7;

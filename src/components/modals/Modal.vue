@@ -13,7 +13,14 @@
              modals that need room size themselves by design. The close is
              OURS (user call): a blood ×, not upstream's icon button. -->
         <div class="top-right-buttons">
-          <span class="close-x" title="Close" @click="close">×</span>
+          <!-- the blood alphabet's own X (user call 2026-08-19), the same
+               painted letter the drop-caps wear, rather than a typed × tinted
+               red. It arrives with its drips, which is why it is nudged up:
+               the drawn crossing sits ABOVE the file's centre, so centring the
+               file would hang the letter low and float the drips. -->
+          <span class="close-x" title="Close" @click="close">
+            <img :src="bloodX" alt="Close" />
+          </span>
         </div>
         <div class="slot">
           <slot></slot>
@@ -24,9 +31,12 @@
 </template>
 
 <script>
+import bloodX from "../../assets/blood/alphabet/X.png";
+
 export default {
   data: function() {
     return {
+      bloodX,
       isMaximized: false
     };
   },
@@ -111,15 +121,22 @@ export default {
     // brightens and bleeds a soft glow on hover.
     > .close-x {
       cursor: pointer;
-      font-size: 30px;
       line-height: 1;
-      font-weight: bold;
-      color: #8a1010;
-      text-shadow: 0 0 1px #000;
-      transition: color 150ms, text-shadow 150ms;
-      &:hover {
-        color: #d42020;
-        text-shadow: 0 0 8px rgba(210, 40, 40, 0.7);
+      display: block;
+      transition: filter 150ms;
+      // the painted letter, at the size the typed one occupied
+      img {
+        display: block;
+        width: 30px;
+        height: auto;
+        // the crossing sits above the file's centre because the drips hang
+        // below it — lift it so the X reads centred rather than the artwork
+        margin-top: -4px;
+        filter: drop-shadow(0 0 1px #000);
+        transition: filter 150ms;
+      }
+      &:hover img {
+        filter: drop-shadow(0 0 8px rgba(210, 40, 40, 0.7)) brightness(1.25);
       }
     }
   }
