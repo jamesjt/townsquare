@@ -1,0 +1,21 @@
+<!-- FT-998: source for ui-noose.png — the "votes to execute" count icon in
+     TownInfo.vue. One silhouette, sized to survive ~19px: a rope from above,
+     the hangman's coil (three chunky wraps whose hairline gaps read as coil
+     shading at 128px and vanish cleanly at count size), and the open loop cut
+     as negative space (fill-rule evenodd), the same trick the skull's eyes
+     use. Baked to PNG by claude_temp_test/2026-08-20-ft998-noose-bake.mjs
+     with the identical bone-tone / upper-left light / film-grain chrome the
+     2026-08-18 count-icon bake gave ui-town/ui-alive/ui-dead — regenerate the
+     PNG through that script if this shape ever changes. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g fill="#cfc4ae">
+    <!-- the rope down from the beam -->
+    <rect x="230" y="10" width="52" height="132" rx="20"/>
+    <!-- the hangman's coil: three wraps, one mass at count size -->
+    <rect x="194" y="128" width="124" height="38" rx="18"/>
+    <rect x="194" y="170" width="124" height="38" rx="18"/>
+    <rect x="194" y="212" width="124" height="38" rx="18"/>
+    <!-- the loop, its hole cut as negative space -->
+    <path fill-rule="evenodd" d="M106 352 a150 150 0 1 0 300 0 a150 150 0 1 0 -300 0 M168 352 a88 88 0 1 1 176 0 a88 88 0 1 1 -176 0"/>
+  </g>
+</svg>

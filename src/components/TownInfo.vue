@@ -151,10 +151,17 @@
         ></span>
         <span class="tip" role="tooltip">Alive</span>
       </span>
-      <span class="stat dead" tabindex="0" :aria-label="'Dead: ' + teams.dead">
-        {{ teams.dead }}
-        <img class="count-icon" :src="countIcons.dead" alt="" />
-        <span class="tip" role="tooltip">Dead</span>
+      <!-- FT-998 (user call): the DEAD count is gone — it said nothing "in the
+           town" and "alive" didn't already say between them. Its slot counts
+           GHOST VOTES LEFT instead: dead players whose one ghost vote is still
+           unspent (isDead && !isVoteless — the same pair of flags Vote.vue
+           locks a dead hand with and the seat's own ghost-vote mark reads).
+           The icon is the cowl, which has meant "unspent ghost vote" app-wide
+           since the seat mark started wearing it (254a674). -->
+      <span class="stat ghost" tabindex="0" :aria-label="'Ghost votes left: ' + teams.ghostVotes">
+        {{ teams.ghostVotes }}
+        <img class="count-icon" :src="ghostCowl" alt="" />
+        <span class="tip" role="tooltip">Ghost votes left</span>
       </span>
       <!-- FT-863: "votes" is not "in town" or "alive" restated — it is ALIVE
            PLUS every dead player still holding a vote token, so on a fresh,
@@ -179,13 +186,22 @@
            the strip. This number is how many HANDS can still be raised, so it
            wears the hand the seats themselves vote with — already in the app
            (Player.vue's vote overlay) and unmistakable at 17px. -->
-      <span class="stat votes" tabindex="0" :aria-label="'Votes available: ' + teams.votes">
-        {{ teams.votes }}
-        <font-awesome-icon class="count-icon votes-hand" icon="hand-paper" />
-        <span class="tip" role="tooltip">Votes available</span>
+      <!-- FT-998 (user call, superseding the hand above the same way the hand
+           superseded the gallows): "votes available" is out — the number that
+           matters at a glance is VOTES TO EXECUTE, the majority a nomination
+           has to clear. Same arithmetic as Vote.vue's `majority` (non-exile
+           branch: ceil of the living / 2, off the same isDead filter its
+           players/alive getter uses) — mirrored, never a second rule. The
+           icon is the fork's own baked noose (ui-noose.png; source SVG sits
+           next to it), and the digit dropped its gold: the gold hand measured
+           1.06:1 against the face art on FT-993. -->
+      <span class="stat execute" tabindex="0" :aria-label="'Votes to execute: ' + teams.execute">
+        {{ teams.execute }}
+        <img class="count-icon" :src="nooseIcon" alt="" />
+        <span class="tip" role="tooltip">Votes to execute</span>
       </span>
     </li>
-    <li v-if="players.length - teams.traveler >= 5">
+    <li class="teams-row" v-if="players.length - teams.traveler >= 5">
       <!-- the composition, in the same team art the drawer and the script
            workbench wear (golem/glyphs) — and the same "tint the digit in
            the team's own colour" idiom ScriptView's composition meter
@@ -235,6 +251,13 @@ import { COUNT_ICONS, teamGlyph } from "../golem/glyphs";
 // here too without a second import to keep in sync.
 import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
+// FT-998: the two count marks this readout wears that COUNT_ICONS doesn't
+// carry — the cowl (the app-wide "unspent ghost vote" mark the seats already
+// wear, 254a674) and the fork's own baked noose (votes-to-execute; its source
+// SVG sits beside the PNG). Imported here rather than added to golem/glyphs
+// because this readout is their only count-row consumer today.
+import ghostCowl from "../assets/ui-ghost-cowl.png";
+import nooseIcon from "../assets/ui-noose.png";
 // FT-993: this panel no longer picks or draws the splat itself -- that
 // moved to App.vue with the visible layer. It only needs to know whether
 // one exists, to clear its own knocker background out of that layer's way
@@ -242,7 +265,7 @@ import moonOther from "../assets/moon-other.png";
 
 export default {
   data() {
-    return { countIcons: COUNT_ICONS };
+    return { countIcons: COUNT_ICONS, ghostCowl, nooseIcon };
   },
   computed: {
     teams: function() {
@@ -253,12 +276,18 @@ export default {
         ...gameJSON[nonTravelers - 5],
         traveler: players.length - nonTravelers,
         alive,
-        dead: players.length - alive,
-        votes:
-          alive +
-          players.filter(
-            player => player.isDead === true && player.isVoteless !== true
-          ).length
+        // FT-998: `dead` and `votes` (alive + unspent ghost votes) retired
+        // with their stats — the two numbers this row reads now:
+        // ghost votes still unspent — the same isDead/isVoteless pair the
+        // old `votes` sum counted, minus the living it folded in
+        ghostVotes: players.filter(
+          player => player.isDead === true && player.isVoteless !== true
+        ).length,
+        // the majority a nomination must clear — Vote.vue's `majority`
+        // (non-exile branch), mirrored exactly: ceil of the living / 2,
+        // where "living" is the same isDead filter `alive` above and the
+        // store's players/alive getter both apply
+        execute: Math.ceil(alive / 2)
       };
     },
     // FT-862: PUBLIC phase readout, split off NightSheet's storyteller-only
@@ -521,6 +550,16 @@ export default {
     // measure low against it; that is reported, not fixed here, per the
     // user's own call — a measured number is not standing permission to add
     // something back.
+    //
+    // FT-998 (user clarification of that correction): "we wanted to remove
+    // the BIGGER black box, not that one... it can be fainter than it was
+    // and even maybe black glass." So the stat rows get a GROUND back —
+    // but black glass, not the plate: a low-opacity dark pill whose edges
+    // the blur dissolves (no border, no hard rectangle, much fainter than
+    // FT-975's 'rgba(0,0,0,.5) + border + box-shadow' plate was). It rides
+    // a ::before at z-index -1 — the li's own drop-shadow filter makes the
+    // li a stacking context, so -1 lands behind the type but still in
+    // front of the clock art.
 
     // FT-863: each stat gets ONE colour, worn by both its digit and a glow
     // behind its icon — so "which number goes with which glyph" reads at a
@@ -550,22 +589,24 @@ export default {
           drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
       }
     }
-    .dead {
-      color: #9b9b9b; // the one cool, drained note against a line that is
-      // otherwise all warm reds and golds — dead is what has the colour
-      // taken out of it
+    // FT-998: `.dead`'s slot and its drained grey pass to the ghost-vote
+    // count — a ghost vote is exactly the dead's leftover agency, so the
+    // "colour taken out of it" note carries over whole
+    .ghost {
+      color: #9b9b9b;
       .count-icon {
         filter: drop-shadow(0 0 4px rgba(155, 155, 155, 0.85))
           drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
       }
     }
-    .votes {
-      color: #e0b45f; // gold, matching this fork's vote-token art
-      // (assets/vote-golem.png) — ties the number to "a token", the actual
-      // thing being counted, and reads as its OWN mark next to a neutral
-      // town count, a red alive count and a grey dead count
+    // FT-998: the gold went with the hand (it measured 1.06:1 against the
+    // face art on FT-993). The execution threshold wears pale bone — the
+    // same ink family as the count icons themselves and the brightest note
+    // on the row, distinct from `.players`' darker parchment beside it
+    .execute {
+      color: #f0e6d8;
       .count-icon {
-        filter: drop-shadow(0 0 4px rgba(224, 180, 95, 0.9))
+        filter: drop-shadow(0 0 4px rgba(240, 230, 216, 0.85))
           drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
       }
     }
@@ -585,8 +626,16 @@ export default {
     }
     .minion {
       color: $minion;
+      // FT-998: the same two layers as its neighbours PLUS an omni dark
+      // halo. The shared recipe's only dark note is the 0/1px contact
+      // shadow, and on the minion it never reads: $minion's orange glow
+      // sits in the face art's own warm range, so glyph, glow and ground
+      // melt together where blue/red/purple separate for free (the user's
+      // screenshot: flat against the art). The extra 3px black pass is the
+      // dark seat the others get optically, made explicit here.
       .team-glyph {
         filter: drop-shadow(0 0 4px rgba($minion, 0.8))
+          drop-shadow(0 0 3px rgba(0, 0, 0, 0.9))
           drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
       }
     }
@@ -649,6 +698,25 @@ export default {
       opacity: 1;
       visibility: visible;
       transform: translate(-50%, -10px);
+    }
+  }
+
+  // FT-998: the black-glass ground itself — see the comment block above for
+  // the history (plate added FT-975, removed FT-993, faint ground reinstated
+  // here on the user's clarification). One pill per stat row; the two sit
+  // close enough that their blurred edges read as one piece of glass.
+  li.counts-row,
+  li.teams-row {
+    position: relative;
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -4px -14px;
+      z-index: -1;
+      border-radius: 999px;
+      background: rgba(10, 5, 7, 0.4);
+      filter: blur(6px);
+      pointer-events: none;
     }
   }
 
