@@ -26,19 +26,17 @@
       ></div>
     </div>
 
-    <!-- Golem fork (FT-936): the CENTRE-FACE SPLAT -- one mark for the game
-         itself, dealt when roles go out. Negative z-index (own rule below,
-         not .blood-dial's) so it sits behind TownInfo's whole hub (a
-         SIBLING component, not a descendant -- see the file header on
-         faceSplat below for why plain z-index:0 was not enough) as well as
-         under every seat. Decoration only: aria-hidden, no pointer-events. -->
-    <div
-      class="face-splat"
-      aria-hidden="true"
-      v-if="faceSplat"
-      :key="faceSplat.file"
-      :style="faceSplatStyle"
-    ></div>
+    <!-- FT-993 (user correction): the centre-face splat used to render HERE,
+         but no integer z-index can put a descendant of #townsquare behind
+         #face-hands while #townsquare itself must stay above it (the ring
+         and readout have to sit over the hands) -- and the splat's own
+         negative slot was a proven hole (buried under #app's own opaque
+         background, 0px painted, measured the same way FaceHands.vue
+         measures its own). The element, its CSS and its computed pair moved
+         to App.vue, mounted immediately before <FaceHands>, so DOM order
+         (not a losing z-index tie) puts the hands on top of the blood. See
+         App.vue for the live version; townLive/faceSplatLive below still
+         live here -- created()'s freeze subscription still needs them. -->
 
     <ul class="circle" :class="['size-' + players.length]">
       <Player
@@ -219,10 +217,11 @@ import { canSeeBluffs, demonSeatIndex } from "../golem/bluffs";
 // the tree, unreferenced — same "bake stays, original untouched" idiom as
 // ui-records.png/life.png elsewhere in this fork.
 import uiBluffs from "../assets/ui-bluffs-demon.png";
-// Golem fork (FT-936): the centre-face splat -- the game-start mark, its
-// per-file size table, and the hash/RNG both it and this file's own
-// stainOrder() share (moved here from a local copy -- MEMORY-CORE rule 2).
-import { hashString, seededRandoms, pickFaceSplat } from "../golem/faceSplat";
+// Golem fork (FT-936): the hash/RNG this file's own stainOrder() shares with
+// the centre-face splat picker (moved here from a local copy -- MEMORY-CORE
+// rule 2). `pickFaceSplat` itself moved out with the splat's rendering --
+// FT-993, App.vue now owns picking and drawing the mark.
+import { hashString, seededRandoms } from "../golem/faceSplat";
 
 // Golem fork (FT-848): the re-baked dried-blood stains, bundled once for the
 // whole dial. (The older per-seat splats in ../assets/blood/splats are now
@@ -487,29 +486,10 @@ export default {
         this.night.day,
       ].join("::");
     },
-    /**
-     * The splat itself, from the FROZEN seed (grimoire.faceSplatSeed -- a
-     * STORE field since FT-991, not local data; see created() below for how
-     * it gets set and store/index.js for why it moved). Frozen rather than
-     * reading faceSplatLive live because night.day changes every night -- a
-     * splat that re-rolled with it would look like a bug ("why did the mark
-     * change") instead of the one-time "the game began" mark the ask was
-     * for.
-     */
-    faceSplat() {
-      if (!this.townLive || !this.grimoire.faceSplatSeed) return null;
-      return pickFaceSplat(this.grimoire.faceSplatSeed);
-    },
-    faceSplatStyle() {
-      if (!this.faceSplat) return null;
-      const { url, boxPx, spin } = this.faceSplat;
-      return {
-        backgroundImage: `url(${url})`,
-        width: `calc(${boxPx} * var(--fpx))`,
-        height: `calc(${boxPx} * var(--fpx))`,
-        transform: `translate(-50%, -50%) rotate(${spin}deg)`,
-      };
-    },
+    // faceSplat / faceSplatStyle (the FROZEN-seed pick and its render style)
+    // moved to App.vue with the element itself -- FT-993. This computed
+    // block used to be their only reader; townLive/faceSplatLive above are
+    // still read by created()'s freeze subscription below and stay put.
   },
   data() {
     // FT-870: FABLED DEFAULTS CLOSED ON A PHONE. Open, that panel is a stacked
@@ -1351,57 +1331,16 @@ export default {
   animation: none;
 }
 
-/***** The centre-face splat (FT-936; superseded as the VISIBLE mark FT-991) *****
-   FT-991 first pass raised this to z-index 2 to paint over TownInfo's
-   `.info` -- WRONG, per the user's own correction: `.info`'s z-index is a
-   box that also holds the edition badge, the counts row and the phase
-   button, and painting a sibling element on top of that whole box paints
-   over ITS CONTENTS too, not just its background -- the after-shot showed
-   the splat sitting across the dead count and the composition line, undoing
-   the dark-plate contrast pass those numbers got a few hours earlier.
-
-   THE ACTUAL FIX lives in TownInfo.vue now: `.info`'s own
-   background-image swaps from demon-head.png to this same splat art
-   (golem/faceSplat.js's pickFaceSplat, fed grimoire.faceSplatSeed -- see
-   this file's created() below for where that seed is frozen). A CSS
-   background paints behind an element's own content by construction, so
-   the splat inherits the knocker's exact stacking there for free: behind
-   the badge/counts/phase button, in front of the clock face art beneath
-   it -- "replace the knocker, same index" without a second element
-   competing for the same box.
-
-   THIS element is back to its ORIGINAL FT-936 shape: negative z-index (see
-   the escape-hatch note in the block comment two rules up -- .blood-dial's
-   -- for why a negative index here lands behind TownInfo's whole hub
-   rather than merely behind #townsquare's own children), same seed, same
-   pure function, so it always resolves to the identical file+spin
-   TownInfo's background shows -- just invisible, exactly as FT-936 first
-   shipped it and before FT-991's first pass touched the number. Left
-   in place rather than removed (MEMORY-CORE rule 1: no deletion without
-   explicit permission) now that TownInfo carries the visible copy; flagged
-   as redundant in the FT-991 report for a deliberate call on removing it.
-   left/top read --face-cx/--face-cy (App.vue) rather than plain 50%/50%
-   (unlike .stain above) — the file's own comment on those variables asks
-   anything centred on the dial to read them, and this mark is large enough
-   for the ~7px bake to be worth the precision. */
-.face-splat {
-  position: absolute;
-  left: var(--face-cx);
-  top: var(--face-cy);
-  z-index: -1;
-  pointer-events: none;
-  background: center / contain no-repeat;
-  transform-origin: center center;
-  /* matches stain-in's own end state (0.88) exactly -- fill-mode is none,
-     so once the animation ends this base value takes back over, and a
-     mismatched number here would show as a one-frame opacity "pop". */
-  opacity: 0.88;
-  animation: stain-in 420ms ease-out;
-}
-
-#app.static .face-splat {
-  animation: none;
-}
+/* The centre-face splat (FT-936; visible mark FT-991; relocated FT-993).
+   `.face-splat`'s markup, computed pair and CSS rule now live in App.vue,
+   mounted directly before <FaceHands> -- neither #townsquare nor #app forms
+   its own stacking context, so nothing nested in here can out-z-index
+   #face-hands without either falling into the negative-z hole (measured
+   0px painted, same hole FaceHands.vue's own probe found) or winning a
+   DOM-order tie it should lose (measured: at equal z-index the splat, being
+   later in the document, painted OVER the hand it crossed). Moving the
+   element earlier in the document, not tuning its z-index, is what actually
+   fixes that -- see App.vue for the current version and its own comment. */
 
 .circle {
   padding: 0;

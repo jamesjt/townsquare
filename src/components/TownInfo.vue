@@ -1,17 +1,19 @@
 <template>
-  <!-- FT-991 (user correction on the first pass): the centre decoration
-       BEHIND this panel's own contents is the game's blood splat once one
-       is dealt, replacing demon-head.png -- not a sibling element painted
-       ON TOP, which would (and briefly did) cover the badge/counts/phase
-       button this box holds. A `:style` override on the same shorthand
-       `background-*` properties the CSS rule below sets is what makes this
-       a REPLACEMENT rather than a layer: inline style wins the cascade for
-       each longhand it sets, so faceSplatStyle below (null before a game is
-       live) simply lets demon-head.png's own rule show through unchanged
-       until there is something to swap it for. See faceSplatStyle's own
-       comment for what freezes the seed and why the rotation ("spin")
-       pickFaceSplat also returns is dropped here. -->
-  <ul class="info" :style="faceSplatStyle">
+  <!-- FT-993 (user correction, second pass): the blood splat no longer
+       paints as THIS element's own background -- it is its own layer now,
+       in App.vue, stacked between the dial art and the clock hands (see
+       App.vue's <FaceHands> comment for why: nothing nested inside
+       TownSquare could sit behind the hands while `.info` itself, right
+       here at z-index 2, has to stay above them).
+
+       This panel's only remaining job re: the splat is to STAND ASIDE once
+       one exists. `.info`'s CSS background is demon-head.png again,
+       unconditionally (the rule below) -- but left painted it would sit ON
+       TOP of and hide the real layer underneath, since both are centred on
+       the same dial point. `splat-live` (hasFaceSplat below) clears it,
+       letting the layer beneath show through this box's own transparent
+       gaps once the mark exists. -->
+  <ul class="info" :class="{ 'splat-live': hasFaceSplat }">
     <li
       class="edition"
       :class="['edition-' + edition.id]"
@@ -233,10 +235,10 @@ import { COUNT_ICONS, teamGlyph } from "../golem/glyphs";
 // here too without a second import to keep in sync.
 import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
-// FT-991: this panel's own centre decoration once a game is live -- see
-// faceSplatStyle below. The pure pick function is TownSquare.vue's own
-// import too (golem/faceSplat.js); reused here rather than re-derived.
-import { pickFaceSplat } from "../golem/faceSplat";
+// FT-993: this panel no longer picks or draws the splat itself -- that
+// moved to App.vue with the visible layer. It only needs to know whether
+// one exists, to clear its own knocker background out of that layer's way
+// -- see hasFaceSplat below.
 
 export default {
   data() {
@@ -311,80 +313,25 @@ export default {
       );
     },
     /**
-     * FT-991: the game-start blood splat (golem/faceSplat.js), picked from
-     * the SAME frozen seed TownSquare.vue's own (now-hidden) copy reads --
-     * grimoire.faceSplatSeed, a STORE field precisely because this panel is
-     * not always mounted (App.vue swaps it out for Vote.vue on every
-     * nomination, back again after) while TownSquare is. Reading the seed
-     * back out of the store rather than tracking it locally is what keeps
-     * this panel showing the identical mark across its own repeated
-     * mounts, instead of re-rolling on every vote.
+     * FT-993: does a splat exist right now? `grimoire.faceSplatSeed` is the
+     * same frozen STORE field App.vue's own visible copy reads (frozen once,
+     * by TownSquare's created(), on session/distributeRoles or this
+     * client's own seat receiving a role) -- this panel just needs to know
+     * ONE exists, not which file or what rotation, since it no longer draws
+     * the mark itself. Read fresh off the store rather than tracked locally
+     * for the same reason it always was: this panel is not always mounted
+     * (App.vue swaps it out for Vote.vue on every nomination, back again
+     * after), so a local flag would forget across a remount.
      *
-     * Null before the seed is frozen (before Start) and null returns null
-     * from faceSplatStyle below, which is what lets the CSS `background`
-     * rule (demon-head.png) show through unchanged during setup.
+     * THE WASH IS GONE (this same correction pass). It existed only to
+     * rescue `.minion`'s contrast against the raw splat art once this panel
+     * started painting it as its own background (measured regression:
+     * claude_temp_test/2026-08-20-ft991-pass2-shots/pass2-contrast-
+     * results.json) -- now that the splat is a separate layer this panel
+     * doesn't paint at all, there is nothing here for a wash to rescue.
      */
-    faceSplat() {
-      if (!this.grimoire.faceSplatSeed) return null;
-      return pickFaceSplat(this.grimoire.faceSplatSeed);
-    },
-    /**
-     * The inline override for `.info`'s CSS background further down --
-     * null leaves that rule (and the knocker's own asset) fully in place
-     * and unedited, per MEMORY-CORE rule 1. Once a splat exists, setting
-     * the same background-* longhands the CSS rule sets is a full
-     * REPLACEMENT (inline style wins the cascade per-longhand, regardless
-     * of the class rule using shorthand) rather than a second layer painted
-     * over the first -- there is exactly one `background-image` on this
-     * box at any time, so it inherits the knocker's own stacking (behind
-     * the badge/counts/phase button, in front of the clock face) for free.
-     *
-     * `spin` (pickFaceSplat's per-game rotation, so a repeated file still
-     * reads as a different mark) is dropped here on purpose: CSS
-     * `background-*` has no independent rotation, and `transform`-ing
-     * `.info` itself would rotate its real children -- the badge, the
-     * counts, the phase button -- which is wrong. TownSquare.vue's own
-     * (invisible, z-index -1) copy still carries the spin faithfully; only
-     * this VISIBLE surface loses it, a considered simplification, not a
-     * silent drop.
-     *
-     * THE WASH (correction pass): the raw splat art alone regressed one
-     * count's contrast below 3:1 -- `.townsfolk`/`.demon` already measured
-     * under 3:1 against the ORIGINAL demon-head.png in this same spot
-     * (pre-existing, both builds, out of scope here), but `.minion` measured
-     * 3.82 against demon-head.png and dropped to 2.51 against the bare
-     * splat -- a real regression (claude_temp_test/2026-08-20-ft991-pass2-
-     * shots/pass2-contrast-results.json vs orig-contrast-results.json,
-     * pixel-sampled with claude_temp_test/2026-08-20-ft991-contrast-
-     * measure.mjs). This row carries no plate of its own (unlike
-     * `.counts-row` below, whose 86%-opaque ground barely moved: every one
-     * of its four counts still measures 5.7-12.7:1, splat or not) --
-     * legibility here rides entirely on contrast against whatever paints
-     * behind it, so the splat is the thing that has to give.
-     *
-     * A flat rgba(10, 4, 4, X) wash -- the SAME dark ground `.counts-row`
-     * and `.tip` already use elsewhere in this file, not a new colour --
-     * layered OVER the splat image (first in the list; CSS paints
-     * background-image layers front-to-back in list order) darkens it
-     * without touching `.info`'s real children at all: the badge, the
-     * counts and the phase button are separate DOM elements, layered by
-     * normal stacking, never by a background trick on their parent. 0.4
-     * alpha was solved from the measured regression (targeting the
-     * pre-splat pixel brightness at .minion's own sample point) and then
-     * verified against the real render, not just the arithmetic -- see
-     * pass3-contrast-results.json for the after-wash numbers.
-     */
-    faceSplatStyle() {
-      if (!this.faceSplat) return null;
-      const { url, boxPx } = this.faceSplat;
-      const side = `calc(${boxPx} * var(--fpx))`;
-      const WASH = "rgba(10, 4, 4, 0.4)";
-      return {
-        backgroundImage: `linear-gradient(${WASH}, ${WASH}), url(${url})`,
-        backgroundSize: `100% 100%, ${side} ${side}`,
-        backgroundPosition: "center center, center center",
-        backgroundRepeat: "no-repeat, no-repeat",
-      };
+    hasFaceSplat() {
+      return !!this.grimoire.faceSplatSeed;
     },
     ...mapState(["edition", "grimoire", "night", "session"]),
     ...mapState("players", ["players"]),
@@ -444,17 +391,24 @@ export default {
   align-content: center;
   justify-content: center;
   flex-wrap: wrap;
-  // THE KNOCKER, and its DEFAULT: shown whenever no game has dealt a splat
-  // yet (the template's `:style="faceSplatStyle"` binding is null then, so
-  // nothing here is overridden) -- during setup, on the index page's own
-  // preview of this panel if any, and for a spectator who has not yet
-  // learned a game is live. Never deleted or conditionally compiled out
-  // (MEMORY-CORE rule 1) -- FT-991 only outranks these two declarations
-  // with an inline style once grimoire.faceSplatSeed exists; the asset and
-  // the rule stay exactly as authored, the same way this fork leaves
-  // shroud.png and upstream's token.png in place unused elsewhere.
+  // THE KNOCKER, unconditional again (FT-993): shown whenever no game has
+  // dealt a splat yet -- during setup, on the index page's own preview of
+  // this panel if any, and for a spectator who has not yet learned a game
+  // is live. Never deleted or conditionally compiled out (MEMORY-CORE rule
+  // 1) -- the asset and the rule stay exactly as originally authored.
   background: url("../assets/demon-head.png") center center no-repeat;
   background-size: auto 100%;
+
+  // FT-993: once a splat exists, the real mark now lives in its OWN layer
+  // in App.vue, behind the clock hands and in front of the dial art -- and
+  // this panel sits at z-index 2, well above both. Left painted, the
+  // knocker above would sit on top of and hide that lower layer, since
+  // both are centred on the same dial point. Clearing it here (not
+  // swapping in the splat image, as an earlier pass did) is what lets the
+  // real layer show through this box's own transparent gaps instead.
+  &.splat-live {
+    background: none;
+  }
 
   // ── FT-912: THE READOUT STANDS DOWN UNDER A DISC ──────
   //
@@ -558,33 +512,15 @@ export default {
       mask: var(--count-mask) center / contain no-repeat;
     }
 
-    // FT-975 (correction pass): THE COUNTS' OWN GROUND. Measured against the
-    // real art, not a flat assumption (claude_temp_test/2026-08-20-ft975-
-    // evidence/): these rows sit on a gold-and-bronze rose window whose OWN
-    // brightness varies by seat — some stats landed on a lit fold (WCAG
-    // ~1.1-3.3 against their current ink), others on a darker one. A
-    // per-glyph pale halo — the reminder tiles' own recipe, checked first
-    // (ReminderModal.vue's `.text`, `#f6dfbd`) — only rescues the DARK
-    // spots; against the LIT gold, pale ink on a pale halo still blends
-    // (measured 1.2-2.6:1 fill-vs-halo for exactly the stats sitting there).
-    // One dark plate under the whole row is what a scattered set of halos
-    // cannot do: every stat measured 3.5:1-12.7:1 against it, uniformly,
-    // regardless of which fold of the window it happens to sit on.
-    //
-    // TEAM COLOURS ARE UNTOUCHED — this rule sets no `color:` on
-    // `.townsfolk`/`.outsider`/`.minion`/`.demon`/`.traveler`, only what
-    // sits BEHIND them (below). `.tip`'s own dark plate a few dozen lines
-    // down (rgba(10,4,4,.97), #400 edge) is the source, not a new colour —
-    // this is the same ground at a lighter alpha (.86) so the window still
-    // shows through faintly, the way NightSheet's own pill plate (.7-.9)
-    // does rather than going fully opaque.
-    &.counts-row {
-      background: rgba(10, 4, 4, 0.86);
-      border: 1px solid rgba(64, 0, 0, 0.55);
-      border-radius: 8px;
-      padding: 4px 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-    }
+    // FT-993 (user correction, pointing at the clock face: "you added a
+    // black background to this.. remove it, it is bad"): the FT-975 plate
+    // that used to be here (background/border/radius/box-shadow, sized to
+    // this row) is gone, not softened — no scrim, no per-glyph halo, no
+    // replacement ground of any kind. The type sits directly on the art
+    // again, the way it did before FT-975 added the plate. Several counts
+    // measure low against it; that is reported, not fixed here, per the
+    // user's own call — a measured number is not standing permission to add
+    // something back.
 
     // FT-863: each stat gets ONE colour, worn by both its digit and a glow
     // behind its icon — so "which number goes with which glyph" reads at a

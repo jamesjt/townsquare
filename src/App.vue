@@ -88,6 +88,30 @@
 
          The z-index itself, and the measurement behind it, are in the
          component's own stylesheet. -->
+    <!-- FT-993 (user correction): the centre-face splat, relocated here from
+         TownSquare.vue. It MUST render before <FaceHands> in the document --
+         neither #app nor #townsquare forms a stacking context (measured,
+         see FaceHands.vue's own z-probe comment), so a splat nested inside
+         #townsquare can never sit behind these hands: #townsquare itself has
+         to stay above the hands (the ring and readout do), and a negative
+         z-index here is a hole, not a slot (0px painted, same measurement).
+         Mounted earlier at the SAME z-index (0, its stylesheet below) is what
+         makes the hands win the paint order without an integer contest --
+         first in the document loses ties, and that is the point.
+
+         `faceSplat`/`faceSplatStyle` below are the same seed-read TownInfo.vue
+         and TownSquare.vue already do (grimoire.faceSplatSeed, frozen once by
+         TownSquare's created() on session/distributeRoles or this client's own
+         seat receiving a role) -- reading it fresh here rather than passing it
+         down keeps this working the same way across App.vue's own lifetime,
+         no prop plumbing needed. -->
+    <div
+      class="face-splat"
+      aria-hidden="true"
+      v-if="faceSplat"
+      :key="faceSplat.file"
+      :style="faceSplatStyle"
+    ></div>
     <FaceHands v-if="inGame" />
     <div class="backdrop"></div>
     <!-- Golem fork (FT-852): the dial's CLOCKTOWER letters are static DOM
@@ -527,6 +551,9 @@
 <script>
 import { mapState } from "vuex";
 import { version } from "../package.json";
+// FT-993: the centre-face splat's own picker, moved here with the element --
+// see the template's own comment on <FaceHands> for why.
+import { pickFaceSplat } from "./golem/faceSplat";
 import TownSquare from "./components/TownSquare";
 import TownInfo from "./components/TownInfo";
 import HostTools from "./components/HostTools";
@@ -650,6 +677,33 @@ export default {
     // and the handless clock art takes the wall (user call 2026-08-18)
     inGame() {
       return !!this.session.sessionId || this.players.length > 0;
+    },
+    /**
+     * FT-993: the centre-face splat, relocated from TownSquare.vue -- see
+     * this file's own template comment on <FaceHands> for the stacking
+     * reason. Reads the FROZEN seed only (grimoire.faceSplatSeed), the same
+     * check TownInfo.vue already ships with -- TownSquare.vue's own retired
+     * copy additionally gated on `townLive` (some seat holding a role), which
+     * is redundant here: the seed is never set except by the freeze in
+     * TownSquare's created(), which itself only fires once a role has gone
+     * out. One condition, not two, for the same result.
+     */
+    faceSplat() {
+      if (!this.grimoire.faceSplatSeed) return null;
+      return pickFaceSplat(this.grimoire.faceSplatSeed);
+    },
+    /** Same recipe TownSquare.vue's retired copy used: a square box sized in
+     *  face-pixels, centred and spun on itself. See golem/faceSplat.js for
+     *  what `spin` and `boxPx` are. */
+    faceSplatStyle() {
+      if (!this.faceSplat) return null;
+      const { url, boxPx, spin } = this.faceSplat;
+      return {
+        backgroundImage: `url(${url})`,
+        width: `calc(${boxPx} * var(--fpx))`,
+        height: `calc(${boxPx} * var(--fpx))`,
+        transform: `translate(-50%, -50%) rotate(${spin}deg)`,
+      };
     },
     // FT-858: ANY right-hand drawer being open is what the session pill
     // dodges — it follows `--sd-width`, which whichever drawer is showing
@@ -1910,6 +1964,51 @@ video#background {
   --face-cx: calc(50% + 7px + var(--bg-off-x, 0px));
   --face-cy: calc(50% + var(--bg-off-y, 0px));
   --face-r: 238;
+}
+
+/* The centre-face splat (FT-936; visible mark FT-991; relocated here FT-993
+   from TownSquare.vue -- see the template's own comment on <FaceHands>).
+
+   z-index 0, NOT -1. Negative is a hole here for the identical reason it is
+   one for #face-hands (FaceHands.vue's own comment, measured the same way):
+   #app takes `container-type: size` but does not actually form a stacking
+   context, so a negative-z descendant escapes past it, past body, past html,
+   and is buried under their own opaque backgrounds -- 0px painted, measured
+   with this element the same way that file measured its own.
+
+   0 is also not a coin-flip against #face-hands (also z:0): stacking ties at
+   equal z-index resolve by DOCUMENT ORDER, later wins, and this element is
+   mounted immediately BEFORE <FaceHands> for exactly that reason -- measured
+   directly (claude_temp_test/2026-08-20-ft993-diag2.mjs, pixel-diffing a
+   frozen hand pose against the splat's own footprint): at the old in-
+   TownSquare position, later in the document than the hands, the splat won
+   every pixel where the two geometrically overlapped. Moved here, earlier,
+   the hands win instead -- the blood stays on the dial, the hands sweep
+   across it.
+
+   left/top read --face-cx/--face-cy just above, same as when this lived in
+   TownSquare.vue -- both #app and the old #townsquare parent share the same
+   box at every measured viewport (0,0 origin, full width/height), so the
+   move carries no positional shift; verified against #face-hands's own
+   dial-centred parts rather than assumed. */
+.face-splat {
+  position: absolute;
+  left: var(--face-cx);
+  top: var(--face-cy);
+  z-index: 0;
+  pointer-events: none;
+  background: center / contain no-repeat;
+  transform-origin: center center;
+  /* matches stain-in's own end state (0.88) exactly -- fill-mode is none, so
+     once the animation ends this base value takes back over, and a
+     mismatched number here would show as a one-frame opacity "pop". The
+     keyframe itself is TownSquare.vue's own (unscoped, so still global). */
+  opacity: 0.88;
+  animation: stain-in 420ms ease-out;
+}
+
+#app.static .face-splat {
+  animation: none;
 }
 // the DRIP LAB — top-left, the user's own scrollbar dials
 // The FACE LAB — same shell as the coin and drip labs, one notch below them,
