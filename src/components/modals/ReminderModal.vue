@@ -314,6 +314,18 @@ ul.reminders .reminder {
     top: 28%;
     width: 80%;
     line-height: 1;
+    // (user call 2026-08-20: "the text on the reminders needs the white glow
+    // for readability") — the SAME four-way pale halo the seats' own reminders
+    // wear (Player.vue's `.circle .reminder .text`). Black type on the coin's
+    // parchment was legible on the old flat ground and stopped being so the
+    // moment these tiles took the real coin art, which is textured and darkens
+    // toward its rim. Four offsets rather than a blur: a blur spreads and
+    // greys at this size, where the offsets keep the letterform's own edge.
+    text-shadow:
+      0 1px 1px #f6dfbd,
+      0 -1px 1px #f6dfbd,
+      1px 0 1px #f6dfbd,
+      -1px 0 1px #f6dfbd;
   }
 
   &:hover {

@@ -1102,14 +1102,30 @@ export default {
       this.$store.commit("players/swap", [fromIndex, toIndex]);
     },
     /** FT-966: movePlayer's own "target picked" branch, split out the same
-     *  way doSwap is — see doSwap for why. */
+     *  way doSwap is — see doSwap for why.
+     *
+     *  IT EXCHANGES THE TWO SEATS; it does not reorder the table (user call
+     *  2026-08-20: "just exchange the two seats"). `players/move` is a SPLICE
+     *  — move someone to a non-adjacent empty seat and every seat in between
+     *  shifts by one, which is what a seating chart does and NOT what this
+     *  gesture looks like it does. The drag made that visible: a two-step menu
+     *  was rare enough to hide it, a drag is not.
+     *
+     *  The call site changed rather than the mutation. `players/move` is
+     *  relayed over the socket and persisted, so it is a named primitive whose
+     *  meaning other code reads — and it keeps that meaning, unused here.
+     *  Because the menu's own "Move player" row shares this method, both
+     *  surfaces changed together, which is the point.
+     *
+     *  The nomination bookkeeping below is the SPLICE's — indices between the
+     *  two seats shifted, so nominations pointing at them had to follow. An
+     *  exchange moves exactly two seats, so only those two need remapping,
+     *  which is what doSwap already does. */
     doMove(fromIndex, toIndex) {
       if (this.session.nomination) {
-        // update nomination if it is affected by the move
         const updatedNomination = this.session.nomination.map((nom) => {
           if (nom === fromIndex) return toIndex;
-          if (nom > fromIndex && nom <= toIndex) return nom - 1;
-          if (nom < fromIndex && nom >= toIndex) return nom + 1;
+          if (nom === toIndex) return fromIndex;
           return nom;
         });
         if (
@@ -1119,7 +1135,7 @@ export default {
           this.$store.commit("session/setNomination", updatedNomination);
         }
       }
-      this.$store.commit("players/move", [fromIndex, toIndex]);
+      this.$store.commit("players/swap", [fromIndex, toIndex]);
     },
     swapPlayer(from, to) {
       if (this.session.isSpectator || this.session.lockedVote) return;

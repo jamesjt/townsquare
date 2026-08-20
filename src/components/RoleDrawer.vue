@@ -163,12 +163,14 @@
         <h4
           title="Drag a character into a slot — or tap a character, then tap a slot. Drag a bluff back into the list to clear it."
         >
-          <img
-            v-if="teamGlyph('demon')"
-            class="team-glyph"
-            :src="teamGlyph('demon')"
-            alt=""
-          />
+          <!-- THE MASK, not the demon team glyph (user call 2026-08-20: "use
+               the mask icon for demon bluffs in the grimoire as well"). The
+               same mark now rides the bluff cluster on the clock face, so the
+               drawer's section and the thing it edits wear one face. The team
+               glyph said "demon" — true, but every OTHER section header in
+               this drawer says its team, so it read as one more team row
+               rather than as the bluffs. -->
+          <img class="team-glyph" :src="bluffsMark" alt="" />
           Demon bluffs
           <small>{{ bluffsSet }} / {{ bluffSize }}</small>
         </h4>
@@ -196,6 +198,10 @@
 <script>
 import gameJSON from "../game";
 import dealGlyph from "../assets/ui-deal.png";
+// The bluffs mask — the SAME file the clock face's own bluff cluster wears
+// (TownSquare's `.bluffs-toggle`), so the drawer section and the cluster it
+// edits cannot drift apart.
+import bluffsMark from "../assets/ui-bluffs-demon.png";
 import { mapMutations, mapState } from "vuex";
 // One definition of "the glyph for team X" (golem/glyphs), shared with
 // TownInfo, ScriptView and EditionModal — it used to be a copy per surface.
@@ -231,6 +237,7 @@ export default {
   mixins: [bottomSheet],
   data() {
     return {
+      bluffsMark,
       // which role the hover card is describing, and the row it is pinned to
       cardRole: null,
       cardAnchor: null,
