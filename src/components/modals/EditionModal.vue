@@ -147,7 +147,7 @@
               <input
                 v-model="roleQuery"
                 class="wb-search"
-                placeholder="Search every role…"
+                placeholder="Search name or ability…"
                 @click.stop
                 @input="onSearchInput"
                 @keyup.enter="searchRoles"
@@ -160,11 +160,13 @@
               />
             </div>
             <div class="fb-body" v-if="filterOpen" v-blood-scroll>
+              <!-- FT-981: no v-show. A live search used to hide every group
+                   whose LABEL did not match the role query, which put the
+                   filters out of reach exactly when they were most wanted. -->
               <div
                 class="facet-group"
                 v-for="facet in facetList"
                 :key="facet.key"
-                v-show="!searchActive || facetTagsFiltered(facet).length"
               >
                 <h5
                   class="facet-head"
@@ -244,6 +246,44 @@
                 <span class="wb-in" v-if="entry.inScript">✓</span>
               </li>
             </template>
+            <!-- FT-981: NOTHING MATCHED SAYS SO. The rail used to go silently
+                 blank — the meter read "0 of 139" in small text off to the
+                 side and the list itself was an empty box, which reads as a
+                 component that broke rather than a search that found nothing.
+                 It also names the way OUT, and the way out differs: a query
+                 you can clear, filters you can drop, or both at once. -->
+            <li class="wb-none" v-if="!sidebarGroups.length" :key="'none'">
+              <p class="wn-lead">
+                No character matches<template v-if="searchActive">
+                  “{{ roleQuery.trim() }}”</template
+                ><template v-if="searchActive && filtersActive"> with</template
+                ><template v-if="filtersActive">
+                  the filters you have set</template
+                >.
+              </p>
+              <div class="wn-outs">
+                <button
+                  type="button"
+                  class="wn-out"
+                  v-if="searchActive"
+                  @click="clearSearch"
+                >
+                  Clear the search
+                </button>
+                <button
+                  type="button"
+                  class="wn-out"
+                  v-if="filtersActive"
+                  @click="clearFilters"
+                >
+                  Clear the filters
+                </button>
+              </div>
+              <p class="wn-aside" v-if="browseDown">
+                The shared role library is not answering, so this searched the
+                official characters and your own shelf only.
+              </p>
+            </li>
           </ul>
         </aside>
 
@@ -841,6 +881,41 @@ const TEAM_LABELS = {
 const normTeam = t => (t || "").replace("traveller", "traveler");
 
 /**
+ * FT-981: ONE spelling of a searchable string, for the query and for the text
+ * it is matched against.
+ *
+ * The bench used to compare the raw query to the raw name with `includes`, and
+ * that failed on the two things every real character name carries: an
+ * apostrophe and a hyphen. Measured on the shipped build — `devils advocate`
+ * returned NOTHING while `devil's advocate` returned the Devil's Advocate, and
+ * `pit hag` returned nothing while `pit-hag` returned the Pit-Hag. Nobody types
+ * the punctuation, so the two best-known Minions in the game were unreachable
+ * by the search box.
+ *
+ * THE APOSTROPHE AND THE HYPHEN FOLD DIFFERENTLY, and the difference is the
+ * whole point. The first pass folded both to a space and the probe caught it
+ * STILL failing on the name it was written to fix:
+ *
+ *   - An APOSTROPHE drops to NOTHING, so `Devil's` becomes `devils` — which
+ *     is what a person types. Folding it to a space yields the tokens `devil`
+ *     and `s`, and the query `devils` matches neither.
+ *   - EVERY OTHER separator folds to a SPACE, so `Pit-Hag` becomes `pit` plus
+ *     `hag`, reachable from `pit hag`, `pit-hag` or `hag pit`.
+ *
+ * Diacritics fold too — the library is author-supplied and will carry them.
+ * The curly apostrophe is listed beside the straight one because that is the
+ * one roles.json actually uses.
+ */
+const normalizeSearch = (s) =>
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['\u2019]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/**
  * WHEN THE WORKBENCH STEPS ASIDE.
  *
  * Measured against the real layout, not guessed (sweep, 2026-08-18): the body
@@ -891,6 +966,10 @@ export default {
       roleResults: [],
       roleShelf: roleLib.getRecents(),
       roleError: "",
+      // FT-981: the last library browse failed. Not an error banner (see
+      // searchRoles) — just enough for the empty state to say why the
+      // haystack is smaller than the author expects.
+      browseDown: false,
       // Golem fork (FT-854): the workbench — active view, sidebar team filter,
       // the import-role paste row, and the non-conforming marks by script id
       // (derived from the setup table; informational only, never a gate).
@@ -1195,16 +1274,22 @@ export default {
         minion: "mask",
         demon: "" // bespoke horned-head SVG (DEMON_PATH)
       };
+      // FT-981: ONE pass, tallying by team — this was four passes over every
+      // entry, one per team button, each re-running the same two matchers on
+      // the same rows. Same numbers, a quarter of the work, on a computed that
+      // re-runs on every keystroke.
+      const counts = { townsfolk: 0, outsider: 0, minion: 0, demon: 0 };
+      this.allShelfEntries.forEach((e) => {
+        if (counts[e.team] === undefined) return;
+        if (!this.matchesSearch(e)) return;
+        if (!this.matchesPills(e, null)) return;
+        counts[e.team]++;
+      });
       return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
         team,
         label: TEAM_LABELS[team],
         icon: icons[team],
-        count: this.allShelfEntries.filter(
-          e =>
-            e.team === team &&
-            this.matchesSearch(e) &&
-            this.matchesPills(e, null)
-        ).length
+        count: counts[team],
       }));
     },
     facetList() {
@@ -1215,6 +1300,52 @@ export default {
     },
     searchActive() {
       return !!this.roleQuery.trim();
+    },
+    /** FT-981: the query, normalized and split, ONCE per change — not once
+     *  per entry per matcher call. */
+    searchTokens() {
+      const q = normalizeSearch(this.roleQuery);
+      return q ? q.split(" ") : [];
+    },
+    /**
+     * FT-981: EVERY facet value's live count, tallied in one pass per FACET
+     * instead of one pass per VALUE.
+     *
+     * `countFor` used to walk all 139 entries for each value on screen, and
+     * with twelve values open that is twelve full passes running the same
+     * three matchers over the same rows on every keystroke. Only the
+     * `matchesPills` exclusion differs between values of the same facet — and
+     * that is constant WITHIN a facet — so one pass per facet gives identical
+     * numbers.
+     *
+     * Standard faceted counting is preserved exactly: a facet's own pills are
+     * excluded from its own counts, so choosing one value never zeroes its
+     * siblings.
+     */
+    facetCounts() {
+      const out = {};
+      TAG_GROUPS.forEach((group) => {
+        if (group.key === "team") return;
+        this.allShelfEntries.forEach((e) => {
+          if (!this.matchesSearch(e)) return;
+          if (!this.matchesTeams(e)) return;
+          if (!this.matchesPills(e, group.key)) return;
+          const tags = this.entryTags(e);
+          group.tags.forEach((t) => {
+            if (tags.has(t.id)) out[t.id] = (out[t.id] || 0) + 1;
+          });
+        });
+      });
+      return out;
+    },
+    /** FT-981: is anything OTHER than the search narrowing the rail? The
+     *  empty state needs to name the right way out, and "clear the search"
+     *  is useless advice when it was a team toggle that emptied the list. */
+    filtersActive() {
+      return (
+        !!this.pills.length ||
+        Object.keys(this.teamState).some((t) => this.teamState[t])
+      );
     },
     totalCount() {
       return this.allShelfEntries.length;
@@ -1253,6 +1384,12 @@ export default {
           libId: entry.id,
           name: entry.name,
           team: normTeam(entry.role),
+          // The recents shelf stores {id, name, editKey, role, lastSeen} and
+          // no ability text, so a library role the author has only VIEWED is
+          // reachable by name alone. Browse rows below do carry it. Passed
+          // through rather than assumed absent, so a shelf entry that grows an
+          // ability later starts matching without another change here.
+          ability: entry.ability || "",
           isLib: true,
           mine: !!entry.editKey,
           inScript: inScriptLibIds.has(entry.id)
@@ -1266,10 +1403,25 @@ export default {
           libId: row.id,
           name: row.name,
           team: normTeam(row.roleType),
+          ability: row.ability || "",
           isLib: true,
           mine: false,
           inScript: inScriptLibIds.has(row.id)
         });
+      });
+      // FT-981: the searchable text and the tag set, built ONCE per entry here
+      // rather than per keystroke in the matchers.
+      //
+      // Measured on the shipped build: one keystroke ran `matchesSearch` 278
+      // times — every one of them re-lowercasing the same query and the same
+      // name — and `countFor` rebuilt an entry's tag Set once per facet value
+      // on screen. Both are pure functions of the entry, so they belong with
+      // the entry. `entryTags` stays the single definition of the tag
+      // vocabulary and simply reads this cache when it is present.
+      entries.forEach((e) => {
+        e.searchName = normalizeSearch(e.name);
+        e.search = e.searchName + " " + normalizeSearch(e.ability || "");
+        e.tags = this.entryTags(e);
       });
       return entries;
     },
@@ -1290,6 +1442,13 @@ export default {
         .sort(
           (a, b) =>
             teamRank(a.team) - teamRank(b.team) ||
+            // FT-981: THE THING YOU NAMED COMES FIRST. Now that a search reads
+            // ability text, an alphabetical list buries the obvious answer:
+            // searching "poison" put the Boffin above the POISONER, because B
+            // sorts before P and the Boffin's ability happens to say poison.
+            // A name hit outranks an ability-only hit inside each team group;
+            // with no query both sides are 0 and the order is unchanged.
+            this.nameHitRank(b) - this.nameHitRank(a) ||
             (a.name || "").localeCompare(b.name || "")
         );
     },
@@ -1974,8 +2133,22 @@ export default {
         });
         const shelfIds = new Set(this.roleShelf.map(e => e.id));
         this.roleResults = rows.filter(r => !shelfIds.has(r.id));
+        this.browseDown = false;
       } catch (e) {
-        this.roleError = "Browse failed: " + e.message;
+        // FT-981: a failed library browse is NOT an error banner.
+        //
+        // This runs on a 400ms debounce behind every keystroke, and it used to
+        // set `roleError` — which paints large red text across the script
+        // view. So with the library unreachable, typing anything at all
+        // stamped "Browse failed" over the author's script, once per pause,
+        // while the local search underneath was working perfectly.
+        //
+        // The browse SUPPLEMENTS a search over the official roles and the
+        // local shelf; losing it narrows the haystack, it does not break the
+        // box. Recorded quietly so the empty state can mention it if the
+        // author ends up with nothing, and left out of the way otherwise.
+        this.browseDown = true;
+        this.roleResults = [];
       }
     },
     /**
@@ -2256,8 +2429,11 @@ export default {
       this.ensureOpen();
     },
     // ── FT-854: the tri-state tag filter ─────────────────────────────────
-    /** Everything provable about a shelf entry, as tag ids. */
+    /** Everything provable about a shelf entry, as tag ids.
+     *  FT-981: `allShelfEntries` calls this once per entry and keeps the
+     *  result on `entry.tags`; every later caller reads that cache. */
     entryTags(entry) {
+      if (entry.tags) return entry.tags;
       const tags = new Set(["team:" + entry.team]);
       if (entry.isLib) {
         tags.add(entry.mine ? "src:mine" : "src:lib");
@@ -2281,9 +2457,36 @@ export default {
       return tags;
     },
     // ── FT-855: matchers ─────────────────────────────────────────────────
+    /**
+     * FT-981: NAME **AND** ABILITY, every token, in any order.
+     *
+     * It used to be `name.includes(query)` — one raw substring against one
+     * field — and that is not how an author looks for a character. They think
+     * in EFFECTS: "who poisons?", "who dies tonight?", "what nominates?".
+     * Measured on the shipped build, `poison` returned the Poisoner and
+     * nothing else — not Pukka, not the Vigormortis — `drunk` returned only
+     * the Drunk, and `nominate` and `dies tonight` returned nothing at all.
+     *
+     * Tokens are ANDed, so word order stops mattering (`advocate devil` finds
+     * the Devil's Advocate) and a two-word query can straddle the two fields
+     * (`demon poison` finds the ability that does both). Both sides run
+     * through `normalizeSearch`, which is what makes `devils advocate` and
+     * `pit hag` findable.
+     */
     matchesSearch(entry) {
-      const q = this.roleQuery.trim().toLowerCase();
-      return !q || (entry.name || "").toLowerCase().includes(q);
+      const tokens = this.searchTokens;
+      if (!tokens.length) return true;
+      const hay = entry.search || normalizeSearch(entry.name);
+      return tokens.every((t) => hay.includes(t));
+    },
+    /** FT-981: 1 when every query token is in the NAME, 0 otherwise — the
+     *  sort's "you probably meant this one" tier. 0 for everything when no
+     *  query is set, which leaves the resting order alphabetical. */
+    nameHitRank(entry) {
+      const tokens = this.searchTokens;
+      if (!tokens.length) return 0;
+      const name = entry.searchName || normalizeSearch(entry.name);
+      return tokens.every((t) => name.includes(t)) ? 1 : 0;
     },
     matchesTeams(entry) {
       if (this.teamState[entry.team] === -1) return false;
@@ -2328,27 +2531,55 @@ export default {
             : " — click to show only")
       );
     },
-    /** Typing opens the filter box, narrows its facet values, and (debounced)
-     *  asks the community library too — the Browse button retired. */
+    /**
+     * Typing (debounced) asks the community library too — the Browse button
+     * retired.
+     *
+     * FT-981: it no longer forces the filter box OPEN. That made sense only
+     * while typing also narrowed the facet values; now that the groups all
+     * stay put, auto-opening would shove the role list down the rail on the
+     * first keystroke of every search — the results being pushed off screen by
+     * a panel the author did not ask for.
+     */
     onSearchInput() {
-      if (this.roleQuery.trim()) this.filterOpen = true;
       clearTimeout(this.__searchDebounce);
       this.__searchDebounce = setTimeout(() => {
         if (this.roleQuery.trim()) this.searchRoles();
         else this.roleResults = [];
       }, 400);
     },
+    /**
+     * FT-981: THE SEARCH BOX SEARCHES ROLES, NOT FILTER LABELS.
+     *
+     * This used to narrow a facet's values by the same query that narrows the
+     * role list, and the template hid any group left with nothing — which is
+     * how the two controls clobbered each other. Measured on the shipped
+     * build: with `poison` typed and the filter box open, all three facet
+     * groups were in the DOM and NONE of them was visible, because "poison" is
+     * not a Source, a Night or a Flag label. So the moment you searched, every
+     * filter you had not already set became unreachable — including the one
+     * that answers "which of these are already in my script".
+     *
+     * One input, one job. The facet values are a short fixed vocabulary the
+     * author reads down, not something to search through.
+     */
     facetTagsFiltered(facet) {
-      const q = this.roleQuery.trim().toLowerCase();
-      if (!q) return facet.tags;
-      return facet.tags.filter(t => t.label.toLowerCase().includes(q));
+      return facet.tags;
     },
-    /** A group shows its values when opened — or while a search matches. */
+    /** FT-981: the empty state's two ways out, each undoing only its own
+     *  half — clearing a search must not silently drop the author's filters. */
+    clearSearch() {
+      this.roleQuery = "";
+      this.roleResults = [];
+      clearTimeout(this.__searchDebounce);
+    },
+    clearFilters() {
+      this.pills = [];
+      this.teamState = {};
+    },
+    /** A group shows its values when the author opens it. */
     facetShowing(facet) {
-      return (
-        this.facetOpen[facet.key] ||
-        (this.searchActive && this.facetTagsFiltered(facet).length > 0)
-      );
+      return !!this.facetOpen[facet.key];
     },
     pillFor(id) {
       return this.pills.find(p => p.id === id) || null;
@@ -2389,18 +2620,9 @@ export default {
         for (const t of g.tags) if (t.id === pill.id) return t.label;
       return pill.id;
     },
-    /** Live count for a facet value: everything EXCEPT its own facet's pills
-     *  applies (standard faceted counting — your own picks never zero your
-     *  siblings). */
+    /** Live count for a facet value — read from the single-pass tally. */
     countFor(tag) {
-      const facet = this.facetKeyOf(tag.id);
-      return this.allShelfEntries.filter(
-        e =>
-          this.matchesSearch(e) &&
-          this.matchesTeams(e) &&
-          this.matchesPills(e, facet) &&
-          this.entryTags(e).has(tag.id)
-      ).length;
+      return this.facetCounts[tag.id] || 0;
     },
     /** A script logo: official role id, uploaded data URL, or the gold mark. */
     scriptLogoSrc(logo) {
@@ -2579,6 +2801,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-981: the shared control tokens, for $grimoire-plum — the grimoire cover's
+// own darkest purple, worn here by the bench's two + buttons. Variables and
+// mixins only, so importing it adds no rules to this sheet.
+@import "../../controls.scss";
 // Golem fork: the title's blood drop-cap — em sizes baked from the asset
 // metrics, same conversion as the Intro doors.
 .almanac-title {
@@ -2940,17 +3166,30 @@ $team-colors: (
   // specificity the later rule won — which is why the plus kept flashing red
   // on hover whatever its own rule said. Three classes beats two.
   .button.wb-plus {
-    // FT-882's pair, not a new tone: red is the blood, purple is the book,
-    // and the script bench IS the book. rgb(120, 105, 135) resting and
-    // rgb(150, 130, 175) lit — the exact two RoleDrawer's own controls use,
-    // recorded on NightSheet's .ns-check. (Was a red plus; user call.)
+    // FT-981 (user call): THE GRIMOIRE'S DARKEST PLUM, glyph and edge both.
+    //
+    // It rested on rgb(120, 105, 135) — RoleDrawer's lighter control purple —
+    // over the shared button's grey #3d3d3d edge, which read as a grey box
+    // with a lavender plus in it rather than as one purple control. Taking
+    // $grimoire-plum for BOTH is what makes it one object, and it is the exact
+    // value the grimoire drawer's cover edge wears.
+    //
+    // Measured at the size it actually renders (26x26, 15px glyph) on the
+    // near-black this bench composites, rgb(1,1,1): the plum ink is 1.98:1,
+    // under WCAG's 3:1 for a graphical object. Kept anyway, with eyes open —
+    // see $grimoire-plum's own note. The plus is a thick, unmistakable shape,
+    // the matching edge doubles the cue, and hover goes to 6.07:1, so the
+    // control announces itself the moment it is approached. In the team row it
+    // sits beside four grey-edged toggles and is the only purple thing there,
+    // which is the reading that matters: the one ACTION among the filters.
     padding: 0 !important;
     width: 26px;
     height: 26px;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    color: rgb(120, 105, 135);
+    color: $grimoire-plum;
+    border-color: $grimoire-plum;
     svg {
       width: 15px;
       height: 15px;
@@ -3504,6 +3743,55 @@ $team-colors: (
       overflow-y: auto;
       display: block;
       min-height: 0;
+      // FT-981: the nothing-matched panel. Written BEFORE the generic `li`
+      // below so the row rules that follow (flex, pointer, the team stripe)
+      // still win where they should — this one opts out of all three: it is
+      // not a role, not clickable, and belongs to no team.
+      li.wb-none {
+        display: block;
+        cursor: default;
+        border-left: none;
+        border-radius: 0;
+        padding: 14px 10px;
+        text-align: center;
+        &:hover {
+          background: none;
+        }
+        .wn-lead {
+          margin: 0;
+          font-size: 13px;
+          line-height: 1.45;
+          opacity: 0.75;
+        }
+        .wn-outs {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 10px;
+        }
+        .wn-out {
+          font-family: inherit;
+          font-size: 12px;
+          padding: 3px 10px;
+          color: #d8cdb4;
+          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid $grimoire-plum;
+          border-radius: 4px;
+          cursor: pointer;
+          &:hover {
+            color: #fff;
+            border-color: $control-edge-hover;
+            background: $control-bg-hover;
+          }
+        }
+        .wn-aside {
+          margin: 10px 0 0;
+          font-size: 11px;
+          line-height: 1.4;
+          opacity: 0.5;
+        }
+      }
       li.wb-shelf-head {
         position: sticky;
         top: 0;

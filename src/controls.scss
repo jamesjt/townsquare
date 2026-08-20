@@ -58,6 +58,30 @@ $control-radius: 6px;
 $control-edge-hover: rgba(150, 130, 175, 0.75);
 $control-bg-hover: rgba(32, 24, 38, 0.95);
 
+// THE GRIMOIRE'S OWN PLUM — the darkest purple in the fork, and the one that
+// already means "this is the book". It is the colour of the drawer's cover
+// edge (`RoleDrawer`'s `border-right`, commented there as "the drawer IS the
+// grimoire — plum, matching its cover").
+//
+// It is named HERE, in the shared control file, on its SECOND use rather than
+// its third: FT-981 put it on the Almanac bench's two + buttons (New script,
+// New role), and a value living in two hand-typed copies is a value that
+// drifts. The drawer's own copy is deliberately left alone — that file is not
+// this change's to edit — so it currently matches by agreement rather than by
+// reference, and pointing it at this token is a one-line follow-up.
+//
+// CONTRAST, MEASURED (FT-981), against the near-black the bench composites
+// behind these controls, rgb(1,1,1):
+//   #4b3565 ink               1.98:1   — below WCAG's 3:1 for a graphical
+//                                        object, and a deliberate call: the
+//                                        glyph is a thick 15px plus, the
+//                                        border repeats the colour so the
+//                                        whole control reads plum, and hover
+//                                        lifts it to 6.07:1.
+// Use it for an EDGE freely; think before using it as the only cue for
+// something small, thin, or read-once.
+$grimoire-plum: #4b3565;
+
 // ── THE LIT STATE ───────────────────────────────────────────────────────────
 // A control that is ON. These three are not invented here either: they are the
 // blood accent the segment's selected cell, RoleActions' duplicates toggle and
