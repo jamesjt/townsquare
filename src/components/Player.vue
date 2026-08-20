@@ -1840,8 +1840,15 @@ li.move:not(.from) .player .overlay svg.move {
 
 /***** Reminder token *****/
 .circle .reminder {
-  // Golem fork: our parchment reminder disc (upstream reminder.png untouched)
-  background: url("../assets/reminder-golem.png") center center;
+  // FT-940 (user call: "for these can we use the player coin as the
+  // background as well?"): the reminder wears the SAME ground the character
+  // coin wears — Token.vue's `.token` reads `var(--coin, url(token-golem.png))`,
+  // painted onto the document root by golem/coinArt.js's applyCoin() (so
+  // picking a different coin in the debug picker repaints every reminder
+  // too, not just the seats); this is that property, not a second file that
+  // merely looks similar. reminder-golem.png stays in the tree, unreferenced,
+  // the same way every retired coin asset already does.
+  background: var(--coin, url("../assets/token-golem.png")) center center;
   background-size: 100%;
   width: 50%;
   height: 0;
@@ -2078,7 +2085,16 @@ li.move:not(.from) .player .overlay svg.move {
   }
 }
 
-#townsquare.public .reminder {
+// FT-944: scoped to `.circle` — the seat ring — not every `.reminder`
+// anywhere under #townsquare. This file's style block is unscoped, and
+// ReminderModal's own tiles (`ul.reminders > li.reminder`) render as
+// TownSquare's sibling, inside #townsquare but outside `.circle` — so the
+// bare selector this replaced also caught the picker itself, making the
+// whole token list (custom note included) invisible and unclickable
+// whenever the grimoire went public. The seat reminders this rule is FOR —
+// placed tokens and the add-disc — are `.circle .reminder` already (see the
+// FT-869/FT-911 rules above), so this narrowing changes nothing for them.
+#townsquare.public .circle .reminder {
   opacity: 0;
   pointer-events: none;
 }
