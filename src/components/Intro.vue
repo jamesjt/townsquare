@@ -1719,8 +1719,20 @@ export default {
       // CORNERS toward the vertical axis, which is where the circle is
       // deepest. Moving it up would buy the same room and cost the placement
       // the user chose.
+      // …and the button itself has to be able to HOLD its label. Measured on
+      // this build: "Open the town" needs 148px of lettering and the box was
+      // 129px, so the drop-cap hung 24.6px outside its own left border at
+      // 1280x800 (3.5px at 1920x1080 — the same fault, just small enough to
+      // read as a tight fit rather than a bug). The earlier cap was measured
+      // on the JOIN panel, whose label is a single mark and never came close.
+      //
+      // So: size to the LABEL, with the 60% floor kept for the short one and
+      // a ceiling that is the disc's, not a guess. 180px is where the bottom
+      // corners reach the arc at the tightest plate — 0.98 of the ellipse at
+      // 180, 1.00 at 190 — and 84% covers the plates between.
       button.confirm {
-        max-width: min(60%, 190px);
+        width: max-content;
+        max-width: min(84%, 180px);
       }
 
       .back {
