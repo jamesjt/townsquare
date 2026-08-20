@@ -148,6 +148,51 @@
             title="Keys"
             @click="$emit('hotkeys')"
           />
+          <!-- THE DOOR OUT OF A TOWNLESS TABLE (2026-08-19, user stranded
+               twice).
+
+               A table can hold seats with NO session behind them — the roster
+               persists to this browser independently of the town, so a bare URL
+               boots the square with everybody still sitting in it. FT-889 made
+               a bare URL mean the entry screen; it does not, while a roster
+               survives, because the entry screen's own test also demands an
+               empty table (App.vue's `Intro` v-else-if).
+
+               In that state there was no way back at all: the session pill —
+               which carries the app's Leave door — renders only `v-if
+               ="session.sessionId"`, and the entry screen will not take the
+               centre while seats exist. Menu's own clearPlayers() has been
+               unreachable since the tab row retired (nothing calls setTab, so
+               no section ever renders).
+
+               HERE, in the strip, for the reason the summons two marks up gives
+               and this needs even more: it is the one piece of chrome that is
+               never hidden by a drawer or a phone's orientation. A door out
+               behind a closed drawer is not a door out.
+
+               SESSIONLESS ONLY. Inside a real town the pill's Leave is the
+               door and this would be a second one saying the same thing.
+
+               TWO-CLICK ARM, no confirm(). This is the control that unsticks a
+               stuck user, and a native dialog is silently auto-dismissed in
+               driven and embedded contexts — which is what made Leave read as
+               dead (FT-852), what would have swallowed the deal (2026-08-18),
+               and the worst thing that could happen to this button. The arm is
+               the pill's, and it says what the second click does out loud
+               through the app's own transient hint, since a lone mark in an
+               icon strip has no room to wear "Sure?". -->
+          <font-awesome-icon
+            v-if="!session.sessionId && players.length"
+            class="clear-table"
+            :class="{ armed: clearArmed }"
+            icon="door-open"
+            :title="
+              clearArmed
+                ? 'Click again to clear the table'
+                : 'Clear the table and go back'
+            "
+            @click="clearTable"
+          />
         </li>
 
         <template v-if="tab === 'grimoire'">
@@ -332,12 +377,18 @@ export default {
       // feel, not about the town's state, so it does not belong in the store.
       callBackCooling: false,
       callBackTimer: null,
+      // ...and the same shape for the townless table's door out — held here
+      // rather than in the store for the same reason: it is about this one
+      // button's feel, not about the town's state.
+      clearArmed: false,
+      clearTimer: null,
       // Golem fork: null = collapsed to the bare toolbar (the default).
       tab: null,
     };
   },
   beforeDestroy() {
     clearTimeout(this.callBackTimer);
+    clearTimeout(this.clearTimer);
   },
   watch: {
     // The intro screen's "Menu" button flips the store flag the old gear used;
@@ -500,9 +551,48 @@ export default {
         this.$store.dispatch("players/randomize");
       }
     },
-    clearPlayers() {
+    /**
+     * THE TOWNLESS TABLE'S DOOR — arm on the first click, clear on the second.
+     * See the strip's own note for why it is there and why there is no dialog
+     * in it.
+     *
+     * It calls leaveTown, not players/clear, because a table standing with no
+     * town behind it is a HALF-LEFT town, and leaving is what has to finish:
+     * the bluffs, the fabled and any live nomination are the same local mirror
+     * the seats are, and clearing the roster alone would leave them standing on
+     * the entry screen. leaveTown is the app's one way out and already owns
+     * that list — the pill's Leave, a Back press and a relay-initiated close
+     * all end there too (golem/townRoute).
+     *
+     * NO SPECTATOR GUARD, deliberately, unlike clearPlayers below. With no
+     * session there is no storyteller and no player, only a browser holding
+     * seats — and a stale spectator flag turning the one unsticking control
+     * into a no-op is precisely the failure this exists to end.
+     */
+    clearTable() {
+      if (!this.clearArmed) {
+        this.clearArmed = true;
+        flashHint("Click the door again to clear the table and go back.");
+        this.clearTimer = setTimeout(() => {
+          this.clearArmed = false;
+        }, 3000);
+        return;
+      }
+      clearTimeout(this.clearTimer);
+      this.clearArmed = false;
+      leaveTown(this.$store);
+    },
+    // `confirmed === true` skips the native dialog, exactly as leaveSession
+    // above does and for the same reason — a driven or embedded context
+    // auto-dismisses it, which returns false and deadens the caller. Any
+    // control wired to this must pass it. (Unreachable from the UI today: the
+    // menu section it belonged to has no tab left to open it.)
+    clearPlayers(confirmed) {
       if (this.session.isSpectator) return;
-      if (confirm("Are you sure you want to remove all players?")) {
+      if (
+        confirmed === true ||
+        confirm("Are you sure you want to remove all players?")
+      ) {
         // abort vote if in progress
         if (this.session.nomination) {
           this.$store.commit("session/nomination");
@@ -762,6 +852,15 @@ export default {
   color: #7a736a;
   cursor: default;
   pointer-events: none;
+}
+/* ARMED — the townless table's door, waiting for its second click. It goes the
+   pill Leave's red rather than dimming like the cooling bell: the bell is
+   saying "not yet", this is saying "again and it happens", and those must not
+   look alike. Same box, same row — only the colour moves, so the strip still
+   reads as one set. */
+.menu ul li.tabs.player-strip svg.clear-table.armed {
+  color: #d33;
+  filter: drop-shadow(0 1px 2px black) brightness(1.25);
 }
 /* The scroll and the gallows are the only two doors a PLAYER has in a running
    game — the script and the vote history — and they were 26px marks with no
