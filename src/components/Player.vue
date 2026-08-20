@@ -41,7 +41,16 @@
       <!-- the shroud covers the coin's top half, so "tap a seat" has to mean
            the whole seat: with a character in hand this lands it here, and
            with nothing in hand it is the death toggle it has always been -->
-      <div class="shroud" @click="onLifeClick"></div>
+      <!-- FT-990: and because it covers the coin's top half, it is also one of
+           the three boxes that have to carry the coin's hover — see showCard's
+           own note. The ghost's art is `pointer-events: none`, so hovering the
+           GHOST is hovering this div. -->
+      <div
+        class="shroud"
+        @click="onLifeClick"
+        @mouseenter="showCard"
+        @mouseleave="hideCardSoon"
+      ></div>
       <!-- FT-985: the seat's Roman numeral USED TO LIVE IN HERE, and that is
            why it only ever appeared with the grimoire hidden. The life token
            and the role coin are the two faces of one flip: `.life` is turned
@@ -49,7 +58,17 @@
            the grimoire is revealed, so everything inside it went with it.
            The numeral is now `.player`'s own child, below the coin — see
            `showSeatNumeral`. -->
-      <div class="life" @click="onLifeClick"></div>
+      <!-- FT-990: the second of the coin's three boxes. In the storyteller's
+           grimoire this face is turned away and takes no pointer at all; in
+           the PUBLIC view it is the coin the room is looking at, and it is
+           what a traveler's card has to be raised from. showCard's public-view
+           guard is what keeps every other seat silent there. -->
+      <div
+        class="life"
+        @click="onLifeClick"
+        @mouseenter="showCard"
+        @mouseleave="hideCardSoon"
+      ></div>
 
       <!-- The seat's night-order badges are RETIRED (user call 2026-08-18):
            the storyteller's night checklist replaces them. Markup and styles
@@ -76,26 +95,41 @@
 
       <!-- FT-854: a seated role DRAGS — to another chair (swap) or into
            the drawer (unassign) -->
+      <!-- FT-990: `hover-card` STAYS FALSE. The coin component has its own
+           working hover card, and turning it on here would have been the
+           one-word version of this change — but that card carries no
+           public-view guard (Token.vue has no reason to know about
+           `grimoire.isPublic`), so a player's own client would raise a card
+           for every seat in the room. The seat keeps ONE card, with one
+           guard and one anchor; the coin just becomes a third way to ask
+           for it. -->
       <Token
         :role="player.role"
         :hover-card="false"
         :belief="beliefChip"
         :draggable="String(!!player.role.id && !session.isSpectator)"
         @dragstart.native="onRoleDragStart"
+        @mouseenter.native="showCard"
+        @mouseleave.native="hideCardSoon"
         @set-role="$emit('trigger', ['openRoleModal'])"
         @set-belief="$emit('trigger', ['openBeliefModal'])"
       />
 
       <!-- FT-858: the seat's read is THE role hover card — the same component
            the Almanac workbench's shelf and the grimoire drawer use
-           (user-directed: one component, every surface). The seat owns the
-           hover rather than the coin, because the shroud and the life token
-           sit over the coin's top half and would swallow it there. -->
+           (user-directed: one component, every surface).
+           FT-990 amends the old note here, which said the seat owned the hover
+           "rather than the coin, because the shroud and the life token sit over
+           the coin's top half and would swallow it there". That is still TRUE
+           and is no longer a REASON: the three boxes that cover the coin now
+           each carry the hover themselves, so being swallowed by one of them is
+           the same as being caught by the coin. What the plate keeps is the
+           card's preferred SIDE — see cardPrefer. -->
       <RoleHoverCard
         v-if="cardAnchor"
         :role="player.role"
         :anchor="cardAnchor"
-        prefer="right"
+        :prefer="cardPrefer"
         @dismiss="hideCard"
       />
 
@@ -274,7 +308,7 @@
         class="name"
         @click="isMenuOpen = !isMenuOpen"
         @mouseenter="showCard($event); nameHover = true"
-        @mouseleave="hideCard(); nameHover = false"
+        @mouseleave="hideCardSoon(); nameHover = false"
         :class="{ active: isMenuOpen }"
         :draggable="String(!!player.id && !session.isSpectator)"
         @dragstart="onPlayerDragStart"
@@ -494,6 +528,12 @@ import { mapGetters, mapState } from "vuex";
 // how long the cursor has to rest on a seat before its card appears — enough
 // that sweeping across the square does not strobe cards
 const HOVER_DELAY = 170;
+// FT-990: how long a card survives after the cursor leaves a target. The seat
+// has three of them (coin, shroud, plate) with real ground between the coin and
+// the plate, and a straight move across that ground must not drop the card and
+// raise it again. Deliberately shorter than HOVER_DELAY: a real exit is still
+// gone before any other seat could acquire, so two cards can never overlap.
+const HOVER_GRACE = 120;
 
 // Golem fork (FT-848): the cut blood decals, bundled once for all seats.
 const splatCtx = require.context("../assets/blood/splats", false, /\.png$/);
@@ -734,6 +774,10 @@ export default {
       // FT-858: the coin the seat's hover card is pinned to; null when
       // nothing is showing
       cardAnchor: null,
+      // FT-990: which side the card tries first — "right" when the name plate
+      // raised it, "auto" (lean outward, away from the ring's middle) when the
+      // coin did. See showCard.
+      cardPrefer: "right",
       // FT-911: the add-reminder disc's own dock — { side, size, top, left },
       // all measured off the rendered name plate. Null until mounted (or
       // if the plate can't be found), which the disc's CSS reads the same
@@ -756,6 +800,7 @@ export default {
   },
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
+    clearTimeout(this.$options.hideTimer);
     window.removeEventListener("resize", this.measureAddAnchor);
     window.removeEventListener("orientationchange", this.measureAddAnchor);
     if (this._addRO) this._addRO.disconnect();
@@ -793,34 +838,115 @@ export default {
   methods: {
     /**
      * FT-858: rest on a seat and it tells you what its character does.
+     * FT-990: THE COIN ASKS TOO (user call: "at some point we lost the hover on
+     * a player coin to see the role info box — bring it back").
      *
-     * The whole seat is the target, not just the coin — the shroud covers the
-     * coin's top half and the life token covers all of it, and a card you can
-     * only raise from the lower half of a chair is worse than none.
+     * WHAT ACTUALLY COVERS THE COIN, which is what decides where these
+     * handlers have to live. Measured, not assumed — the seat paints four
+     * boxes over the same square and only some of them take a pointer:
      *
-     * It reads what the SQUARE already shows: in the player-facing view the
-     * coins are turned away, so nothing but a traveler (whose character is
-     * public knowledge) has a card to raise.
+     *   .shroud   the coin's top 45% of the SEAT (~61% of the coin), z-index 2,
+     *             a live click target (the death toggle). The ghost's art is
+     *             this div's `:before` and is `pointer-events: none`, so
+     *             hovering the ghost IS hovering this div.
+     *   .life     the whole coin square. Turned away (`rotateY(180deg)` +
+     *             `backface-visibility: hidden`) in the storyteller's grimoire,
+     *             which takes it out of hit-testing entirely; face-on and
+     *             frontmost in the public view.
+     *   .token    the coin itself. Frontmost in the grimoire below the shroud —
+     *             so on its own it would have answered for the coin's bottom
+     *             third and nothing else.
+     *   .overlay / .marked / .seat-numeral   all `pointer-events: none`.
+     *
+     * So the coin is not ONE box, and binding to `<Token>` alone would have
+     * given a hover that works on the bottom of a coin and dies on the top —
+     * which is the shape of the original complaint, not its fix. All three
+     * boxes carry it; together they are the coin, whichever face is showing.
+     *
+     * The two refusals below are kept exactly as they were. The public-view one
+     * is a LEAK GUARD, not a nicety: a player's own client renders every seat,
+     * and the coins being turned away is the only thing standing between them
+     * and the whole grimoire. A traveler is the one character whose role is
+     * public knowledge, so it is the one exception.
      */
     showCard(e) {
       const role = this.player.role;
       if (!role || !role.id) return;
       if (this.grimoire.isPublic && role.team !== "traveler") return;
       if (!window.matchMedia("(hover: hover)").matches) return;
-      // THE NAME PLATE RAISES THE CARD, not the coin (user call 2026-08-19).
-      // The coin is what a storyteller DOES things to — drags onto, clicks,
-      // shrouds — and a card appearing under the cursor there was in the way
-      // of all of it. The plate is the part of a seat you only ever read, so
-      // reading is what it answers, and the card lands beside it at the same
-      // height rather than floating off the coin.
-      const plate = e.currentTarget;
+      const fromPlate =
+        !!e.currentTarget && e.currentTarget.classList.contains("name");
+      // WHERE THE CARD PARKS, and why the two sides differ.
+      //
+      // The PLATE keeps what FT-858 gave it (user call 2026-08-19): it sits
+      // below the ring with no neighbour to lie across, so a fixed side reads
+      // better than one that flips with the seat's clock position.
+      //
+      // The COIN asks to lean OUTWARD instead — it is IN the ring, and a fixed
+      // side would lay the card across the seats next door.
+      //
+      // MEASURED, and it does not currently change anything: the card is up to
+      // 460px wide and the ring's outer edge is close to the window edge, so
+      // "outward" does not FIT at either 1280x800 or 1920x1080 and the card's
+      // own placement falls back to whichever side has room — inward, both
+      // sides of the ring, for either preference. It is kept because it is the
+      // correct request for a coin in a ring (it is what RoleHoverCard's own
+      // note recommends for one), and it starts mattering the moment the card
+      // is narrower or the window wider. It is not doing work today.
+      //
+      // Either way the card is anchored to the COIN element rather than to
+      // whichever of the three boxes caught the pointer: the shroud is a squat
+      // 45% banner and a card centred on it rides high off its own seat.
+      const anchor = fromPlate
+        ? e.currentTarget
+        : this.$el.querySelector(".token") || e.currentTarget;
+      const prefer = fromPlate ? "right" : "auto";
+      // a pending hide is abandoned — this is what makes the gap between the
+      // coin and the plate crossable (see hideCardSoon)
+      clearTimeout(this.$options.hideTimer);
       clearTimeout(this.$options.cardTimer);
+      // ALREADY UP: re-anchor now, with no second wait. The delay exists to
+      // stop a sweep across the square strobing cards ON; once this seat's card
+      // is showing, moving between its own coin and its own plate is one
+      // continuous read and a re-acquisition delay there would show as the card
+      // blinking out and back.
+      if (this.cardAnchor) {
+        this.cardAnchor = anchor;
+        this.cardPrefer = prefer;
+        return;
+      }
       this.$options.cardTimer = setTimeout(() => {
-        this.cardAnchor = plate;
+        this.cardAnchor = anchor;
+        this.cardPrefer = prefer;
       }, HOVER_DELAY);
     },
+    /**
+     * FT-990: leaving a hover target only ARMS the hide.
+     *
+     * The coin and the plate are separate boxes with real ground between them
+     * (the plate is nudged down 5px), so a straight cursor move from one to the
+     * other leaves both — and an immediate hide there drops the card and the
+     * next handler raises it again, which is the flicker. The grace is shorter
+     * than the acquire delay, so it never keeps a card alive across a genuine
+     * exit; `showCard` cancels it, so it costs nothing on a real crossing.
+     *
+     * This is the same problem FT-923 solved for the add-reminder disc with an
+     * invisible bridge element. A timer is the right answer HERE because there
+     * are three separate targets on two different faces of the seat, so the
+     * ground to be bridged is not one measurable strip.
+     */
+    hideCardSoon() {
+      clearTimeout(this.$options.cardTimer);
+      clearTimeout(this.$options.hideTimer);
+      this.$options.hideTimer = setTimeout(() => {
+        this.cardAnchor = null;
+      }, HOVER_GRACE);
+    },
+    /** Immediate — the card's own `dismiss` (a scroll, a resize, a DRAG
+     *  starting) wants to be out of the way this frame, not in 120ms. */
     hideCard() {
       clearTimeout(this.$options.cardTimer);
+      clearTimeout(this.$options.hideTimer);
       this.cardAnchor = null;
     },
     /**
@@ -1383,28 +1509,70 @@ export default {
     // Upstream's `shroud.png` stays in the tree, unreferenced, the way
     // `token.png` and the leaf art do.
     //
+    // FT-990 — THE SHEET GHOST BECOMES A COWL (user call: "the ghost shroud is
+    // a bit cartoony can we get one that better fits our theme?").
+    //
+    // The diagnosis was silhouette, not palette: the old mark was, line for
+    // line, the Pac-Man ghost — one continuous dome from crown to shoulder,
+    // perfect bilateral symmetry, two round eyes on the centreline and three
+    // identical scallop lobes for a hem. Against a gothic cathedral it read as
+    // a sticker. `ui-ghost-cowl.png` is a HOODED, FACELESS figure instead: an
+    // off-centre leaning hood, a shaded hollow where a face would be (a
+    // gradient, deepest under the brow and lifting toward the chin, the way a
+    // real cowl shades) and a torn right-to-left hem. Absence, not a face.
+    //
+    // `ui-ghost.png` stays in the tree, unreferenced, the way `shroud.png`,
+    // `token.png` and the leaf art already do.
+    //
+    // JUDGED, NOT PREFERRED — four candidates that differ in KIND (this cowl, a
+    // grave-mist, a death's-head, an empty burial cloth) were baked and scored
+    // on the same 12x12 glance metric FT-974's ghost won on, on a real 12-seat
+    // ring with four dead, against the shipped ghost measured in the SAME run:
+    //
+    //                          sep @1280   sep @1920   coin covered
+    //   shipped sheet ghost ..... 22.6 ....... 17.9 ....... 22.7%
+    //   THIS COWL, 106/-6 ....... 24.1 ....... 18.8 ....... 22.2%
+    //   death's-head ............ 26.3 ....... 21.4 ....... 25.1%
+    //   empty cloth ............. 27.2 ....... 21.9 ....... 27.7%
+    //   grave-mist .............. 20.8 ....... 16.6 ....... 17.9%
+    //
+    // So this ghost reads dead HARDER than the one it replaces AND covers LESS
+    // of the role art — better on both axes at once, which is the only trade
+    // this element accepts (FT-974 refused a prettier-but-weaker ghost once
+    // already). The death's-head and the empty cloth both scored higher still,
+    // and both bought it with coverage past the 24.3% the original cloth
+    // shroud occupied, which is the regression line. The death's-head was also
+    // the brief's own trap: strong numbers, but at the real 96px seat its
+    // sockets and tooth band resolve into a Halloween grin — the most cartoony
+    // of the whole set. Numbers won, eyes lost; it was not taken.
+    //
+    // PALETTE stays FT-974's cold (198,214,228), and that is measured too: the
+    // identical drawing baked in warm bone scores 2.2 lower at 1280 and 1.9
+    // lower at 1920. The cold hue is doing real work against both the warm
+    // living coin and the neutral dead one.
+    //
     // GEOMETRY, and why it is these two numbers: the shroud's box is a BANNER
     // box — 100% wide by 45% of the seat, far wider than tall, which suits a
-    // hanging cloth and fights a portrait ghost. `top: -18%` with
-    // `height: 118%` spans exactly [-18%, +100%] of that box, so the ghost's
-    // hem lands precisely on the shroud's own bottom edge and only its head
-    // rises above the seat. That keeps the click geometry byte-identical to
-    // the cloth's (the old art also drew above its box, from `top: -30%`) —
-    // this `:before` is `pointer-events: none` and always was, so the death
-    // toggle is `.shroud`'s own 45% box in both designs.
+    // hanging cloth and fights a portrait ghost. `top: -6%` with
+    // `height: 106%` spans exactly [-6%, +100%] of that box, so the HEM STAYS
+    // PINNED to the shroud's own bottom edge (where the sheet ghost's was at
+    // 118/-18) and the figure simply stands lower and smaller — that is what
+    // buys the coverage back. Only its hood rises above the seat. The click
+    // geometry is untouched in every version of this: `:before` is
+    // `pointer-events: none` and always was, so the death toggle is
+    // `.shroud`'s own 45% box regardless.
     //
-    // MEASURED, not assumed: at this size the ghost covers 22.8% of the role
-    // coin's disc against the cloth's 24.3%, so the storyteller reads roles
-    // through a slightly CLEARER seat than before, and the ring still reads
-    // dead-at-a-glance harder than it used to (see `.dead .token` below).
+    // At the old 118/-6 this same art scores higher (25.9 / 20.5) but occludes
+    // 25.2%, past the cloth's line; 112/-12 is the middle option (25.4 / 20.1
+    // at 23.7%) if the mark ever wants more presence at a real cost.
     &:before {
       content: " ";
-      background: url("../assets/ui-ghost.png") center top no-repeat;
+      background: url("../assets/ui-ghost-cowl.png") center top no-repeat;
       background-size: auto 100%;
       position: absolute;
       margin-left: -50%;
       width: 100%;
-      height: 118%;
+      height: 106%;
       left: 50%;
       top: -46%;
       opacity: 0;
@@ -1423,18 +1591,24 @@ export default {
     // flashing over every seat while assigning roles reads as an error
     #townsquare:not(.spectator):not(.building) &:hover:before {
       opacity: 0.5;
-      top: -18%;
+      // FT-990: the cowl's resting top, matching the `.dead` rule below —
+      // these two are ONE number (where the mark comes to rest) and drift
+      // apart silently if only one is changed with the art.
+      top: -6%;
       transform: scale(1);
     }
   }
 
   // The arrival is kept: the ghost drops from `top: -46%` to its resting
-  // `-18%` and settles out of `scale(1.5)` over the same 200ms the cloth was
-  // drawn down in. A ghost that simply appears is a weaker moment than one
-  // that arrives.
+  // `-6%` (FT-990 — was `-18%` when the mark was the taller sheet ghost) and
+  // settles out of `scale(1.5)` over the same 200ms the cloth was drawn down
+  // in. A ghost that simply appears is a weaker moment than one that arrives.
+  // The pre-drop `-46%` is deliberately NOT retuned with the art: it is only
+  // the height the mark falls FROM, so a slightly longer fall is all that
+  // changes, and it reads a touch better for it.
   &.dead .shroud:before {
     opacity: 1;
-    top: -18%;
+    top: -6%;
     transform: perspective(400px) scale(1);
   }
 
