@@ -173,9 +173,13 @@
          inside any one of them: it used to live in NightSheet, where it moved
          one disc of four and could not be found during the day at all.
 
-         Visible without `devLabs`, exactly as the night-sheet lab it replaces
-         was: it is only useful while someone is looking at a disc. -->
-    <FaceDiscLab />
+         HIDDEN 2026-08-20 (user call: "we can hide that for now"). It rode
+         `devLabs`-free on the reasoning that it is only useful while someone is
+         looking at a disc — but the discs are baked now (FT-935), so the lab has
+         done its job and its toggle was landing on top of the grimoire's list.
+         Behind `devLabs` with the font lab, not deleted: the dials are how the
+         next disc gets set by eye. -->
+    <FaceDiscLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">

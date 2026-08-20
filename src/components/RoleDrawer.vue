@@ -636,7 +636,18 @@ $team-colors: (
   top: 0;
   bottom: 0;
   width: 250px;
-  z-index: 20;
+  // THE GRIMOIRE SITS ABOVE THE TOWN (user call 2026-08-20: "the grimoire
+  // should sit above everything else in order"). It shared the drawer family's
+  // z-index of 20 and was therefore UNDER most of the square's own furniture —
+  // seats and coins at 25, the script picker at 30, the bluff cluster at 50/51,
+  // the top strip at 75 — so things kept landing on top of the storyteller's
+  // own book while it was open.
+  //
+  // 80 clears every one of those and stops short of the two layers that must
+  // stay above it: the hotkey panel at 90 and the modal shell at 100. A modal
+  // opening BEHIND the grimoire would be the same defect in the other
+  // direction, so "everything else" means the town, not the dialogs.
+  z-index: 80;
   display: flex;
   flex-direction: column;
   background: rgba(8, 8, 10, 0.96);
