@@ -42,8 +42,15 @@
   <meta name="language" content="English">
   <meta name="author" content="Golem Studios">
   <meta property="og:site_name" content="Golem"/>
+  <!-- the clocktower itself, cut to the 1200x630 every chat client renders at
+       (see claude_temp_test/2026-08-19-og-card.mjs). 129KB on purpose: a card
+       image is fetched by a crawler on someone else's timeout, and the 2.3MB
+       source is a preview that sometimes simply does not appear. -->
   <meta property="og:image"
-        content="https://botc.golem-studios.com/static/apple-icon-180x180.png"/>
+        content="https://botc.golem-studios.com/static/og-card.jpg"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta name="twitter:card" content="summary_large_image"/>
   <meta property="og:type" content="website"/>
   <meta property="og:description" content="A town square and grimoire for running games with friends online, as storyteller or as player."/>
   <meta property="og:title" content="The Clocktower — Golem"/>
