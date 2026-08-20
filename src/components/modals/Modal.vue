@@ -11,15 +11,14 @@
       >
         <!-- Golem fork: the maximize toggle is gone (user call 2026-08-17) —
              modals that need room size themselves by design. The close is
-             OURS (user call): a blood ×, not upstream's icon button. -->
+             OURS (user call): a painted ×, not upstream's icon button. -->
         <div class="top-right-buttons">
-          <!-- the blood alphabet's own X (user call 2026-08-19), the same
-               painted letter the drop-caps wear, rather than a typed × tinted
-               red. It arrives with its drips, which is why it is nudged up:
-               the drawn crossing sits ABOVE the file's centre, so centring the
-               file would hang the letter low and float the drips. -->
+          <!-- FT-951: THE close mark (CloseX) — the reminder token's own
+               hover-to-remove × (icons/x.png), the same mark every close
+               control in the app now wears. It replaces the blood alphabet's
+               drippy letter this modal used to show alone. -->
           <span class="close-x" title="Close" @click="close">
-            <img :src="bloodX" alt="Close" />
+            <CloseX />
           </span>
         </div>
         <div class="slot">
@@ -31,12 +30,12 @@
 </template>
 
 <script>
-import bloodX from "../../assets/blood/alphabet/X.png";
+import CloseX from "../CloseX.vue";
 
 export default {
+  components: { CloseX },
   data: function() {
     return {
-      bloodX,
       isMaximized: false
     };
   },
@@ -117,26 +116,27 @@ export default {
     z-index: 100;
     top: 10px;
     right: 16px;
-    // Golem fork: OUR close — a blood ×. Line-drawn, no button chrome;
-    // brightens and bleeds a soft glow on hover.
+    // Golem fork (FT-951): OUR close — the shared CloseX mark, at the size
+    // the old blood letter occupied. CloseX owns the art and the
+    // brighten-on-hover glow (src/components/CloseX.vue); this block only
+    // sizes and positions it for the modal's corner.
+    //
+    // NO vertical nudge here. The blood alphabet's X needed `margin-top:
+    // -4px` because its drawn crossing sits above the file's centre (the
+    // drips hang below it, pulling the visual weight down). icons/x.png is a
+    // different file with different geometry — measured, its alpha bounding
+    // box is centred within its own square canvas to within half a percent
+    // (bbox 86–446 of 539px tall; centre 266 vs canvas centre 269.5), so it
+    // needs no compensating offset. Carrying the old nudge over would have
+    // pushed this X off-centre for no reason.
     > .close-x {
       cursor: pointer;
       line-height: 1;
       display: block;
-      transition: filter 150ms;
-      // the painted letter, at the size the typed one occupied
-      img {
-        display: block;
+      // the painted mark, at the size the typed one occupied
+      .close-mark {
         width: 30px;
         height: auto;
-        // the crossing sits above the file's centre because the drips hang
-        // below it — lift it so the X reads centred rather than the artwork
-        margin-top: -4px;
-        filter: drop-shadow(0 0 1px #000);
-        transition: filter 150ms;
-      }
-      &:hover img {
-        filter: drop-shadow(0 0 8px rgba(210, 40, 40, 0.7)) brightness(1.25);
       }
     }
   }
@@ -206,7 +206,7 @@ export default {
 
 // A thumb cannot reliably hit a 30px glyph in a corner. Every modal's close
 // gets a real box on a coarse pointer; the glyph inside is unchanged, so the
-// corner still reads as one blood ×.
+// corner still reads as one ×.
 @media (pointer: coarse) {
   .modal > .top-right-buttons {
     top: 2px;

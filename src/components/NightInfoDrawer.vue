@@ -23,12 +23,15 @@
       <!-- PHONE ONLY: the sheet's grab handle (the × stays the reliable exit) -->
       <div class="gs-handle" @pointerdown="startSheetDrag"></div>
       <div class="sd-head">
-        <font-awesome-icon
-          icon="times"
+        <!-- FT-951: THE close mark, shared with every close control in the
+             app (src/components/CloseX.vue) — this rule keeps both
+             @pointerup and @click bound directly to it (the phone's
+             pointer-driven dismiss and the desktop click), same as before. -->
+        <CloseX
           class="sd-close"
           title="Close your night notes"
-          @pointerup="sheetDismiss"
-          @click="sheetDismiss"
+          @pointerup.native="sheetDismiss"
+          @click.native="sheetDismiss"
         />
         <h3 class="sd-title">
           <img class="sd-mark" :src="moon" alt="" />
@@ -67,6 +70,7 @@
 
 <script>
 import { mapGetters } from "vuex";
+import CloseX from "./CloseX";
 import rightDrawer from "../golem/rightDrawer";
 // the phone's drag-to-dismiss (the sheet form's gesture half)
 import bottomSheet from "../golem/bottomSheet";
@@ -74,6 +78,7 @@ import moon from "../assets/moon-other.png";
 
 export default {
   name: "NightInfoDrawer",
+  components: { CloseX },
   mixins: [
     bottomSheet,
     rightDrawer({

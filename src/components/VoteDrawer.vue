@@ -21,12 +21,15 @@
       <div class="gs-handle" @pointerdown="startSheetDrag"></div>
       <!-- close first, then the name — both top-LEFT, as the script drawer -->
       <div class="sd-head">
-        <font-awesome-icon
-          icon="times"
+        <!-- FT-951: THE close mark, shared with every close control in the
+             app (src/components/CloseX.vue) — this rule keeps both
+             @pointerup and @click bound directly to it (the phone's
+             pointer-driven dismiss and the desktop click), same as before. -->
+        <CloseX
           class="sd-close"
           title="Close the vote history"
-          @pointerup="sheetDismiss"
-          @click="sheetDismiss"
+          @pointerup.native="sheetDismiss"
+          @click.native="sheetDismiss"
         />
         <h3 class="sd-title">
           <img class="sd-mark" :src="gallows" alt="" />
@@ -40,6 +43,7 @@
 
 <script>
 import VoteHistoryView from "./VoteHistoryView";
+import CloseX from "./CloseX";
 import rightDrawer from "../golem/rightDrawer";
 // the phone's drag-to-dismiss (the sheet form's gesture half)
 import bottomSheet from "../golem/bottomSheet";
@@ -48,7 +52,7 @@ import gallows from "../assets/ui-votes.png";
 
 export default {
   name: "VoteDrawer",
-  components: { VoteHistoryView },
+  components: { VoteHistoryView, CloseX },
   mixins: [
     bottomSheet,
     rightDrawer({
