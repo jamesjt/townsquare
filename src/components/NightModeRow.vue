@@ -284,23 +284,41 @@ export default {
 
   // THE ENFORCEMENT CHIP — Optional / Warn / Required, cycled by tapping.
   //
-  // IT TAKES THE PLATE AND KEEPS ITS COLOUR, and the split is the point. The
-  // BOX is now the panel's one box: same ground, same 2px edge, same 6px
-  // radius as the switch beside it and the picker two rows up. What tells it
-  // apart is the thing that was always doing the telling — its colour, and the
-  // single word it wears.
+  // THE PLATE IS THE PANEL'S, UNMODIFIED, AND THE STATE IS IN THE INK
+  // (2026-08-19, user call: "that doesn't match in styling ie needs to").
   //
-  // THE PILL RADIUS CAME OFF (2026-08-19). It was chosen so this would not
-  // read as a second three-cell switch beside the first, and it is no longer
-  // what does that job: the switch now wears a plate with three cells visibly
-  // seamed inside it, and this is one plate with one word on it — the two
-  // cannot be confused by shape any more, and a lone 999px token was the only
-  // radius on the panel.
+  // It used to keep a coloured BOX — a gold-tinted ground behind a gold edge
+  // for Warn, `control-lit`'s red ground and red edge for Required — while
+  // every other control on the panel wore rgba(0,0,0,.7) behind 2px of black.
+  // That is the one difference the eye reads first: sitting in a row of
+  // matched plates, a tinted plate does not read as "this control is set to
+  // Required", it reads as a control made of a different material. Three
+  // meanings still have to be told apart at a glance, so the colour did not go
+  // — it MOVED, off the box and onto the word, where it says the same thing
+  // without breaking the family.
   //
-  // The colours are the ones this fork already assigns those meanings: muted
-  // parchment for "nothing is being asked", the sheet's own gold (#d8b45a,
-  // the sun mark on the phase bar) for a warning, blood red — the switch's
-  // own `.on` accent, via `control-lit` — for a hard stop.
+  // WHAT CARRIES THE DISTINCTION NOW, in the order the eye takes it:
+  //   1. THE WORD ITSELF. Optional / Warn / Required is the whole state, in
+  //      language, at the same size as the switch's own cells.
+  //   2. THE INK. Parchment-grey for "nothing is being asked", the sheet's own
+  //      gold (#d8b45a family, the sun mark on the phase bar) for a warning,
+  //      the fork's blood red for a hard stop. Both coloured states are taken
+  //      UP in brightness from their old values (#f0d9a0 -> #ffd98a,
+  //      #ffd9d9 -> #ff6b6b) because ink on a near-black plate has to work
+  //      harder than ink on a tinted one, and because gold and red sitting on
+  //      the same ground need more hue separation than they did when the
+  //      grounds were also doing the telling.
+  //   3. WEIGHT AND AN INSET RULE. Type weight alone was too close between the
+  //      two lit states at 80% (checked side by side at 1280x800 and
+  //      1920x1080), so the two enforcing states also carry a 2px bar down
+  //      their leading edge in their own colour — an INSET shadow, so it sits
+  //      inside the plate's black border rather than replacing it, and the box
+  //      measured from outside is byte-for-byte the switch's.
+  //
+  // THE EDGE STAYS BLACK IN ALL THREE STATES. That is the whole point of the
+  // change, and it is also why the accent had to be an inset rather than a
+  // border-colour: `border-color` is the one property that would put this
+  // control back outside the family.
   .nm-chip {
     @include control-plate;
     font-family: inherit;
@@ -313,7 +331,7 @@ export default {
     transition:
       color 150ms,
       border-color 150ms,
-      background 150ms;
+      box-shadow 150ms;
 
     &:hover {
       color: #ff8a8a;
@@ -323,19 +341,26 @@ export default {
       @include control-focus-ring;
     }
 
-    // OPTIONAL: the bare plate, dimmed — the resting "this is off" state
+    // OPTIONAL: the bare plate. THE DIM IS ON THE INK, not on the box — this
+    // was `opacity: .7`, which faded the plate's own black edge and ground
+    // along with the word and left the chip a visibly lighter box than the
+    // switch touching it. The tone is the resting parchment RoleActions'
+    // duplicates toggle already wears when it is off, so "off" looks the same
+    // on both controls in the panel.
     &.chk-off {
-      opacity: 0.7;
+      color: rgba(216, 205, 180, 0.62);
     }
-    // WARN: the sheet's gold
+    // WARN: the sheet's gold, in the ink and in the leading bar
     &.chk-warn {
-      color: #f0d9a0;
-      border-color: rgba(216, 180, 90, 0.75);
-      background: rgba(216, 180, 90, 0.16);
+      color: #ffd98a;
+      box-shadow: inset 2px 0 0 rgba(216, 180, 90, 0.9);
     }
-    // REQUIRED: the blood accent the mode switch's own selected cell wears
+    // REQUIRED: the fork's blood red, and the only state that also takes
+    // weight — three signals for the state that refuses to let the night move
+    // on, one for the state that only grumbles.
     &.chk-required {
-      @include control-lit;
+      color: #ff6b6b;
+      box-shadow: inset 2px 0 0 rgba(190, 40, 40, 0.95);
       font-weight: bold;
     }
 

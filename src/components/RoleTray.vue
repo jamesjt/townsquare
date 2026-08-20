@@ -299,6 +299,16 @@ $team-colors: (
   "demon": #ce0100
 );
 
+// THE TILE, AND THE LIFT THAT CENTRES THE ART IN IT (2026-08-19). The two are
+// written together because the second is a fraction of the first: the art is
+// painted at the tile's own size (`contain`, square file, square box), so the
+// only way to move it is a length, and that length has to be re-derived if the
+// tile ever changes size. See `.rt-icon` for the measurement behind 8%.
+//
+//   50% (the tile's middle) - 42% (the glyph's middle in the file) = 8%
+$rt-tile: 42px;
+$rt-art-lift: $rt-tile * 0.08;
+
 // FT-888: THE TRAY IS THE BUILD PANEL'S SHOCK ABSORBER on the clock-face disc.
 //
 // The disc's band is a fixed slice of the circle — the four rows above this
@@ -453,11 +463,30 @@ $team-colors: (
     // phone, where this is a primary drag/tap target (user call 2026-08-18).
     // A 13-townsfolk row costs the shrink-to-fit panel about 100px of width
     // for the change; on a phone the row wraps as it already did.
-    width: 42px;
-    height: 42px;
+    width: $rt-tile;
+    height: $rt-tile;
     flex: none;
     background-size: contain;
-    background-position: center;
+    // THE GLYPH, NOT THE FILE, IS WHAT GETS CENTRED (2026-08-19, user call —
+    // asked for a second time: "why are those icons still not in the middle of
+    // the circle?"). `center` centres the IMAGE, and the character art is not
+    // centred inside its own image: the official token art reserves the bottom
+    // of the file for the name curving round the coin, so the drawn glyph sits
+    // high in a square file. Measured off the alpha channel of all 180 icons in
+    // src/assets/icons (rig: claude_temp_test/2026-08-19-dealchip-art-measure
+    // .mjs), the glyph's bounding-box middle sits at a median 42.4% of the file
+    // height — 41.5% across the base-3 scripts alone — against 50.2% across,
+    // which is why this is a one-axis correction.
+    //
+    // A LENGTH, NOT A PERCENTAGE, and that is forced rather than chosen: under
+    // `contain` a square file in a square box paints at exactly the box's size,
+    // so the positioning slack is zero and EVERY percentage resolves to the
+    // same place. (This is why the workbench row — ScriptView's `.icon` — has
+    // to scale its art to 130% before `center 13%` can move anything. That
+    // route is wrong here: the widest glyph in the set spans 87.6% of its file,
+    // so scaling past ~114% starts shearing characters off the sides of a tile
+    // that is the thing you drag onto a chair.)
+    background-position: center $rt-art-lift;
     background-repeat: no-repeat;
     border: 1px solid transparent;
     border-radius: 50%;

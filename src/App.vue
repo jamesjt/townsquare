@@ -659,23 +659,38 @@ export default {
     faceDiscOpen() {
       return this.showNightChecklist || this.showHostTools;
     },
+    /** The town has chairs and every one of them holds a character. */
+    townCast() {
+      return (
+        this.players.length > 0 &&
+        this.players.every(p => p.role && p.role.id)
+      );
+    },
+    /** NO chair holds a character — the town has been emptied out. Stricter
+     *  than `!townCast` on purpose; see `building` below for why the two
+     *  conditions are not the same question. */
+    townUncast() {
+      return !this.players.some(p => p.role && p.role.id);
+    },
     // Golem fork: the building phase = hosting live, characters not yet dealt.
     // The deal moment is the DURABLE `dealAt` stash, not session
     // .isRolesDistributed — upstream sets that flag for two seconds and then
     // clears it, so gating on it brought the build panel back mid-game a
     // couple of seconds after Start (user report 2026-08-18).
+    //
+    // THE PANEL IS DISMISSED BY AN EVENT, NOT BY A CONDITION (2026-08-19, user
+    // report: "deal shouldn't auto start the game wtf"). This used to return
+    // `!dealAt || !townCast` — a live expression — and DEAL casts every open
+    // chair, so in a town carrying a `dealAt` from an earlier game the panel
+    // vanished the instant Deal ran. Nothing had started; the builder simply
+    // stopped rendering, which reads as the game beginning. Filling seats from
+    // inside the panel is not the same event as starting the game, so the
+    // answer is a latch (`building`, maintained just below) rather than a
+    // sharper condition: Start closes it, and nothing a build control does can.
     showHostTools() {
       if (!this.session.sessionId || this.session.isSpectator) return false;
       if (this.session.isRolesDistributed) return false;
-      // A town REMEMBERS having been dealt in (dealAt), which is what stops
-      // the panel returning two seconds after Start. But that marker outlives
-      // the game: re-hosting the same town later showed the live square with
-      // nobody in it and no way back to setup (user report 2026-08-18). A town
-      // whose chairs are not all cast is being BUILT, whatever it remembers.
-      const cast =
-        this.players.length > 0 &&
-        this.players.every(p => p.role && p.role.id);
-      return !this.dealAt || !cast;
+      return this.building;
     }
   },
   // Golem fork: THE BOOT GATE — the ordering the user asked for, literally:
@@ -714,14 +729,54 @@ export default {
         });
       }
     },
+    /**
+     * THE ONE LIVE WAY BACK INTO THE BUILDER, and it is deliberately the
+     * STRICT condition rather than the entry one.
+     *
+     * Entry asks "is every chair cast?" — a half-built town is being built.
+     * Once the panel is down, that question is the wrong one: a storyteller
+     * clearing ONE seat's character mid-game would answer it, and the builder
+     * would land back on top of a live town. "No chair holds a character at
+     * all" cannot be reached by editing a game in progress — only by emptying
+     * the town (scrub the seats to zero and back, or clear the roster), which
+     * IS the host saying they are starting over.
+     *
+     * Deal cannot trip it either, and not only because it ends with the chairs
+     * full: its re-deal path clears every seat first, and that clear and the
+     * fresh deal happen in one tick, so this computed is only ever read after
+     * both (Vue batches watcher callbacks to nextTick).
+     */
+    townUncast(uncast) {
+      if (uncast) this.building = true;
+    },
     "session.sessionId"(sessionId) {
       this.dealAt = dealTimeFor(sessionId);
+      // A DIFFERENT TOWN IS A FRESH JUDGEMENT. `dealAt` has just been re-read
+      // for this session, so the same test `created` runs applies again.
+      this.building = !this.dealAt || !this.townCast;
       this.endGameOpen = false;
       this.statsOpen = false;
       this.hotkeyHelpOpen = false;
       clearTimeout(this.leaveTimer);
       this.leaveArmed = false;
     }
+  },
+  /**
+   * IS THIS TOWN BEING BUILT? Asked ONCE, here, on the state the app boots
+   * with — persistence has already restored the session, the roster and the
+   * roles by the time a root component is created, which is the same
+   * assumption `data`'s own `dealAt` line makes.
+   *
+   * The test is the one this fork has always used, unchanged: a town that
+   * remembers no deal is being built, and so is a town whose chairs are not
+   * all cast, whatever it remembers (a re-hosted town used to show the live
+   * square with nobody in it and no way back to setup — FT-913's report).
+   * What changed in 2026-08-19 is only WHEN it is asked. As a live expression
+   * it also answered "the host just pressed Deal", and dismissed the builder
+   * for it.
+   */
+  created() {
+    this.building = !this.dealAt || !this.townCast;
   },
   mounted() {
     // the face lab's persisted dials, published to <html> — see applyBgOff
@@ -745,6 +800,11 @@ export default {
       ) {
         markDealt(this.session.sessionId);
         this.dealAt = dealTimeFor(this.session.sessionId);
+        // ...and THE ONE THING THAT CLOSES THE BUILDER. Start is the event;
+        // see `showHostTools`. It stays closed when upstream clears
+        // isRolesDistributed two seconds later, because this flag is what the
+        // panel reads now and nothing re-opens it on its own.
+        this.building = false;
       }
     });
     const bg = new Promise(resolve => {
@@ -780,6 +840,14 @@ export default {
       // FT-880: the key list's own flag (the strip's question mark opens it)
       hotkeyHelpOpen: false,
       dealAt: dealTimeFor(this.$store.state.session.sessionId),
+      // THE BUILD LATCH — is the build panel the thing in the middle of the
+      // town? Decided once on entry (`created`, and again on a session
+      // change), closed by Start, and re-opened only by the town being
+      // emptied out. It is data rather than a computed precisely so that
+      // casting chairs — which is what the panel is FOR — cannot dismiss it.
+      // Real value assigned in `created`; `false` here only so the flag
+      // exists before the guard in `showHostTools` can read it.
+      building: false,
       // FT-852: the pill Leave's two-click arm.
       leaveArmed: false,
       leaveTimer: null,
