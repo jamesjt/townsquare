@@ -88,6 +88,21 @@
 
          The z-index itself, and the measurement behind it, are in the
          component's own stylesheet. -->
+    <!-- FT-1000 (user layering call: "background, blood splatters, clock
+         hands, script image, game stats"): the per-seat dial stains, moved
+         from TownSquare.vue for exactly the FT-993 reason below -- inside
+         #townsquare they could only ever paint OVER the hands. Mounted
+         before the splat and the hands; anchored on the same dial-centre
+         vars the splat uses, stains keep their seat-spoke transforms
+         verbatim. -->
+    <div class="blood-dial" aria-hidden="true" v-if="deadStains.length">
+      <div
+        class="stain"
+        v-for="stain in deadStains"
+        :key="stain.key"
+        :style="stain.style"
+      ></div>
+    </div>
     <!-- FT-993 (user correction): the centre-face splat, relocated here from
          TownSquare.vue. It MUST render before <FaceHands> in the document --
          neither #app nor #townsquare forms a stacking context (measured,
@@ -553,7 +568,62 @@ import { mapState } from "vuex";
 import { version } from "../package.json";
 // FT-993: the centre-face splat's own picker, moved here with the element --
 // see the template's own comment on <FaceHands> for why.
-import { pickFaceSplat } from "./golem/faceSplat";
+import { pickFaceSplat, hashString, seededRandoms } from "./golem/faceSplat";
+// FT-1000: moved from TownSquare.vue with the .blood-dial element.
+// Golem fork (FT-848): the re-baked dried-blood stains, bundled once for the
+// whole dial. (The older per-seat splats in ../assets/blood/splats are now
+// the centre-face splat's own art -- see golem/faceSplat.js -- rather than
+// unreferenced.)
+const stainCtx = require.context("./assets/blood/stains", false, /\.png$/);
+const STAINS = stainCtx.keys().sort().map(stainCtx);
+
+// The dial, in the background art's own pixels (see --fpx in App.vue): both
+// clocktower backgrounds are trimmed to 1642x900 with the face centred
+// EXACTLY at the image centre (recentred FT-anon 2026-08-19 — the originals
+// were 1672x941 with the face at (851,450), +15,-20.5 off-centre, which
+// .blood-dial .stain used to carry as a baked-in offset). The rose runs out
+// to r~250 (see --face-r in App.vue for the measured rim radius).
+//
+// Stains ride the OUTER band of the face: the hub carries the town readout
+// (script name, alive/dead counts), so blood is kept off it and the wedges
+// still read as belonging to their seats.
+const STAIN_RADIUS = 185;
+// stain size = SPAN / sqrt(seats): the face's area split n ways, so a 5-seat
+// town gets big stains and a 20-seat town small ones, and either town ends up
+// properly drenched once everyone is dead. Capped so a small town's stains
+// stay on the face instead of washing over the stonework.
+const STAIN_SPAN = 470;
+const STAIN_MAX = 172;
+
+/**
+ * A SHUFFLE BAG of stain indices: all 16 are dealt before any of them repeats
+ * (user call 2026-08-18 — repeats were showing on the dial).
+ *
+ * Hashing a seat straight into the set, the way its size and lie are hashed,
+ * collides long before the set runs out: seven deaths drawing from 16 stains
+ * repeat more often than not. A permutation cannot.
+ *
+ * Deterministic on purpose, like everything else about a stain: the order is
+ * dealt from the town's OWN id, so every client derives the same bag from
+ * already-synced state and nothing new goes over the wire. Two towns stain
+ * differently; the same town stains identically in every browser watching it.
+ *
+ * Indexed by SEAT rather than by order of death, which matters: a seat's mark
+ * is then fixed for the whole game, instead of changing texture under the
+ * player's eyes when somebody else dies.
+ */
+const stainOrder = (seed) => {
+  const bag = STAINS.map((_, i) => i);
+  const next = seededRandoms(seed);
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    const swap = bag[i];
+    bag[i] = bag[j];
+    bag[j] = swap;
+  }
+  return bag;
+};
+
 import TownSquare from "./components/TownSquare";
 import TownInfo from "./components/TownInfo";
 import HostTools from "./components/HostTools";
@@ -677,6 +747,53 @@ export default {
     // and the handless clock art takes the wall (user call 2026-08-18)
     inGame() {
       return !!this.session.sessionId || this.players.length > 0;
+    },
+    /**
+     * Golem fork (FT-848): one stain per dead seat, laid on that seat's wedge
+     * of the clock face.
+     *
+     * A seat's angle is the ONLY thing that places its stain: seat i sits at
+     * (i+1) * 360/n clockwise from 12 o'clock, which is exactly the angle the
+     * on-circle mixin rotates that seat's spoke to. Both read the same
+     * players.length, so the stain stays under its seat at any town size and
+     * follows the ring when seats are added, removed, moved or swapped.
+     *
+     * Everything else about a stain — which of the 16 it is, how big, how far
+     * out, how it lies — is hashed from seat + name, so every client paints
+     * the same dial from the already-synced death state with no extra sync.
+     * Stains accumulate: five deaths put five separate marks on the face.
+     */
+    deadStains() {
+      const count = this.players.length;
+      if (!count) return [];
+      // dealt per town, so two towns do not stain alike
+      const bag = stainOrder(this.session.sessionId || "golem");
+      const stains = [];
+      this.players.forEach((player, i) => {
+        if (!player.isDead) return;
+        const angle = ((i + 1) * 360) / count;
+        const key = i + "·" + player.name;
+        const h = hashString(key);
+        const base = Math.min(STAIN_MAX, STAIN_SPAN / Math.sqrt(count));
+        const size = base * (0.88 + ((h >> 4) % 28) / 100);
+        const radius = STAIN_RADIUS + (((h >> 12) % 29) - 14);
+        const spin = ((h >> 18) % 51) - 25;
+        stains.push({
+          key,
+          style: {
+            backgroundImage: `url(${STAINS[bag[i % STAINS.length]]})`,
+            width: `calc(${size.toFixed(1)} * var(--fpx))`,
+            height: `calc(${size.toFixed(1)} * var(--fpx))`,
+            // centre on the dial, swing out along the seat's own angle, then
+            // let the splatter lie a little off-square
+            transform:
+              `translate(-50%, -50%) rotate(${angle.toFixed(2)}deg)` +
+              ` translateY(calc(${(-radius).toFixed(1)} * var(--fpx)))` +
+              ` rotate(${spin}deg)`,
+          },
+        });
+      });
+      return stains;
     },
     /**
      * FT-993: the centre-face splat, relocated from TownSquare.vue -- see
@@ -2008,6 +2125,33 @@ video#background {
 }
 
 #app.static .face-splat {
+  animation: none;
+}
+
+/* FT-1000: the dial stains, anchored on the same centre vars as the splat.
+   The container is a POINT at the dial centre; each stain sits at 0,0 and
+   its own translate(-50%,-50%) spoke transform (unchanged from TownSquare)
+   swings it out -- identical math, new stacking home. */
+.blood-dial {
+  position: absolute;
+  left: var(--face-cx);
+  top: var(--face-cy);
+  z-index: 0;
+  pointer-events: none;
+
+  .stain {
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: center / contain no-repeat;
+    /* the stone drinks it -- the dial filigree still reads underneath */
+    opacity: 0.88;
+    transform-origin: center center;
+    animation: stain-in 420ms ease-out;
+  }
+}
+
+#app.static .blood-dial .stain {
   animation: none;
 }
 // the DRIP LAB — top-left, the user's own scrollbar dials

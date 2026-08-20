@@ -711,11 +711,15 @@ export default {
     &::before {
       content: "";
       position: absolute;
-      inset: -4px -14px;
+      // FT-998b (user call: "this black shadow behind the stats shouldn't
+      // be wider than they are") — the pill hugged the row's box, not its
+      // content, and 14px of side reach plus a 6px blur read as a shadow
+      // hanging past the last icon. Tighter reach, tighter blur.
+      inset: -2px -6px;
       z-index: -1;
       border-radius: 999px;
       background: rgba(10, 5, 7, 0.4);
-      filter: blur(6px);
+      filter: blur(4px);
       pointer-events: none;
     }
   }

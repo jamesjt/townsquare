@@ -13,18 +13,11 @@
         !session.isRolesDistributed,
     }"
   >
-    <!-- Golem fork (FT-848): the tower's face keeps the count. Every death
-         stains the wedge of the dial that belongs to that seat, so a town
-         that has lost half its players shows a visibly bloodier clock.
-         Sits under the seats and their names; never takes a click. -->
-    <div class="blood-dial" aria-hidden="true" v-if="deadStains.length">
-      <div
-        class="stain"
-        v-for="stain in deadStains"
-        :key="stain.key"
-        :style="stain.style"
-      ></div>
-    </div>
+    <!-- FT-1000 (user layering call): the per-seat dial stains moved to
+         App.vue, joining the FT-993 centre splat before <FaceHands> -- blood
+         sits between the dial art and the hands, and nothing inside
+         #townsquare can paint behind #face-hands (measured; see the FT-993
+         comment below). -->
 
     <!-- FT-993 (user correction): the centre-face splat used to render HERE,
          but no integer z-index can put a descendant of #townsquare behind
@@ -221,61 +214,11 @@ import uiBluffs from "../assets/ui-bluffs-demon.png";
 // the centre-face splat picker (moved here from a local copy -- MEMORY-CORE
 // rule 2). `pickFaceSplat` itself moved out with the splat's rendering --
 // FT-993, App.vue now owns picking and drawing the mark.
-import { hashString, seededRandoms } from "../golem/faceSplat";
+// FT-1000: hashString/seededRandoms now imported by App.vue, where the
+// stain math lives.
 
-// Golem fork (FT-848): the re-baked dried-blood stains, bundled once for the
-// whole dial. (The older per-seat splats in ../assets/blood/splats are now
-// the centre-face splat's own art -- see golem/faceSplat.js -- rather than
-// unreferenced.)
-const stainCtx = require.context("../assets/blood/stains", false, /\.png$/);
-const STAINS = stainCtx.keys().sort().map(stainCtx);
-
-// The dial, in the background art's own pixels (see --fpx in App.vue): both
-// clocktower backgrounds are trimmed to 1642x900 with the face centred
-// EXACTLY at the image centre (recentred FT-anon 2026-08-19 — the originals
-// were 1672x941 with the face at (851,450), +15,-20.5 off-centre, which
-// .blood-dial .stain used to carry as a baked-in offset). The rose runs out
-// to r~250 (see --face-r in App.vue for the measured rim radius).
-//
-// Stains ride the OUTER band of the face: the hub carries the town readout
-// (script name, alive/dead counts), so blood is kept off it and the wedges
-// still read as belonging to their seats.
-const STAIN_RADIUS = 185;
-// stain size = SPAN / sqrt(seats): the face's area split n ways, so a 5-seat
-// town gets big stains and a 20-seat town small ones, and either town ends up
-// properly drenched once everyone is dead. Capped so a small town's stains
-// stay on the face instead of washing over the stonework.
-const STAIN_SPAN = 470;
-const STAIN_MAX = 172;
-
-/**
- * A SHUFFLE BAG of stain indices: all 16 are dealt before any of them repeats
- * (user call 2026-08-18 — repeats were showing on the dial).
- *
- * Hashing a seat straight into the set, the way its size and lie are hashed,
- * collides long before the set runs out: seven deaths drawing from 16 stains
- * repeat more often than not. A permutation cannot.
- *
- * Deterministic on purpose, like everything else about a stain: the order is
- * dealt from the town's OWN id, so every client derives the same bag from
- * already-synced state and nothing new goes over the wire. Two towns stain
- * differently; the same town stains identically in every browser watching it.
- *
- * Indexed by SEAT rather than by order of death, which matters: a seat's mark
- * is then fixed for the whole game, instead of changing texture under the
- * player's eyes when somebody else dies.
- */
-const stainOrder = (seed) => {
-  const bag = STAINS.map((_, i) => i);
-  const next = seededRandoms(seed);
-  for (let i = bag.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    const swap = bag[i];
-    bag[i] = bag[j];
-    bag[j] = swap;
-  }
-  return bag;
-};
+// FT-1000: the stains bundle, sizing constants and shuffle bag moved to
+// App.vue with the .blood-dial element itself.
 
 export default {
   components: {
@@ -291,53 +234,7 @@ export default {
     // alongside session/players this file already reads.
     ...mapState(["grimoire", "roles", "session", "edition", "night"]),
     ...mapState("players", ["players", "bluffs", "fabled"]),
-    /**
-     * Golem fork (FT-848): one stain per dead seat, laid on that seat's wedge
-     * of the clock face.
-     *
-     * A seat's angle is the ONLY thing that places its stain: seat i sits at
-     * (i+1) * 360/n clockwise from 12 o'clock, which is exactly the angle the
-     * on-circle mixin rotates that seat's spoke to. Both read the same
-     * players.length, so the stain stays under its seat at any town size and
-     * follows the ring when seats are added, removed, moved or swapped.
-     *
-     * Everything else about a stain — which of the 16 it is, how big, how far
-     * out, how it lies — is hashed from seat + name, so every client paints
-     * the same dial from the already-synced death state with no extra sync.
-     * Stains accumulate: five deaths put five separate marks on the face.
-     */
-    deadStains() {
-      const count = this.players.length;
-      if (!count) return [];
-      // dealt per town, so two towns do not stain alike
-      const bag = stainOrder(this.session.sessionId || "golem");
-      const stains = [];
-      this.players.forEach((player, i) => {
-        if (!player.isDead) return;
-        const angle = ((i + 1) * 360) / count;
-        const key = i + "·" + player.name;
-        const h = hashString(key);
-        const base = Math.min(STAIN_MAX, STAIN_SPAN / Math.sqrt(count));
-        const size = base * (0.88 + ((h >> 4) % 28) / 100);
-        const radius = STAIN_RADIUS + (((h >> 12) % 29) - 14);
-        const spin = ((h >> 18) % 51) - 25;
-        stains.push({
-          key,
-          style: {
-            backgroundImage: `url(${STAINS[bag[i % STAINS.length]]})`,
-            width: `calc(${size.toFixed(1)} * var(--fpx))`,
-            height: `calc(${size.toFixed(1)} * var(--fpx))`,
-            // centre on the dial, swing out along the seat's own angle, then
-            // let the splatter lie a little off-square
-            transform:
-              `translate(-50%, -50%) rotate(${angle.toFixed(2)}deg)` +
-              ` translateY(calc(${(-radius).toFixed(1)} * var(--fpx)))` +
-              ` rotate(${spin}deg)`,
-          },
-        });
-      });
-      return stains;
-    },
+    // FT-1000: deadStains moved to App.vue with its element.
     /**
      * Golem fork (2026-08-19): THE STORYTELLER, THE DEMON, AND THE LUNATIC —
      * and nobody else. The rule itself lives in golem/bluffs.js because the
@@ -1294,28 +1191,9 @@ export default {
 /* Under every seat (the circle's own li's carry z-index 1..n) and under the
    bluffs/fabled panels at z-index 50, so the tower stains without ever
    covering a token, a name or a click target. */
-.blood-dial {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-
-  .stain {
-    position: absolute;
-    /* the DIAL's centre — now the box's centre too (recentred art), so no
-       offset is needed */
-    left: 50%;
-    top: 50%;
-    background: center / contain no-repeat;
-    /* the stone drinks it — the dial's filigree still reads underneath */
-    opacity: 0.88;
-    transform-origin: center center;
-    animation: stain-in 420ms ease-out;
-  }
-}
+/* FT-1000: .blood-dial CSS moved to App.vue with its element. @keyframes
+   stain-in below STAYS -- it is unscoped and .face-splat (App.vue) and the
+   relocated stains both ride it. */
 
 @keyframes stain-in {
   from {
@@ -1327,9 +1205,6 @@ export default {
 }
 
 /* the app's animation kill-switch */
-#app.static .blood-dial .stain {
-  animation: none;
-}
 
 /* The centre-face splat (FT-936; visible mark FT-991; relocated FT-993).
    `.face-splat`'s markup, computed pair and CSS rule now live in App.vue,
