@@ -7,11 +7,15 @@ import {
   isReplayingHistory,
   leaveTown,
   syncAddressBar,
-  withHistory
+  withHistory,
 } from "../golem/townRoute";
 // FT-861: what a seat's player is TOLD they are. Every message that carries a
 // character TO a player reads this instead of player.role.
 import { beliefOf } from "../golem/belief";
+// 2026-08-19: the demon's three bluffs now cross the wire, to the demon's own
+// seat and the Lunatic's. `believesDemon` is the same test the clock face and
+// the menu strip use, so the sender cannot drift from the viewer.
+import { believesDemon, BLUFF_COUNT } from "../golem/bluffs";
 // FT-880: the town summons. The sound is bundled in every client, so the
 // message carries nothing and this is the only import it needs.
 import { playCallBack } from "../golem/callBack";
@@ -54,11 +58,11 @@ class LiveSession {
       this._wss +
         channel +
         "/" +
-        (this._isSpectator ? this._store.state.session.playerId : "host")
+        (this._isSpectator ? this._store.state.session.playerId : "host"),
     );
     this._socket.addEventListener("message", this._handleMessage.bind(this));
     this._socket.onopen = this._onOpen.bind(this);
-    this._socket.onclose = err => {
+    this._socket.onclose = (err) => {
       this._socket = null;
       clearInterval(this._pingTimer);
       this._pingTimer = null;
@@ -67,7 +71,7 @@ class LiveSession {
         this._store.commit("session/setReconnecting", true);
         this._reconnectTimer = setTimeout(
           () => this.connect(channel),
-          3 * 1000
+          3 * 1000,
         );
       } else {
         // FT-890: the relay ended the session (a refused duplicate host, a
@@ -124,7 +128,7 @@ class LiveSession {
       this._sendDirect(
         "host",
         "getGamestate",
-        this._store.state.session.playerId
+        this._store.state.session.playerId,
       );
     } else {
       this.sendGamestate();
@@ -142,7 +146,7 @@ class LiveSession {
       this._isSpectator
         ? this._store.state.session.playerId
         : Object.keys(this._players).length,
-      "latency"
+      "latency",
     ]);
     clearTimeout(this._pingTimer);
     this._pingTimer = setTimeout(this._ping.bind(this), this._pingInterval);
@@ -188,7 +192,7 @@ class LiveSession {
           // create vote history record
           this._store.commit(
             "session/addHistory",
-            this._store.state.players.players
+            this._store.state.players.players,
           );
         }
         this._store.commit("session/nomination", { nomination: params });
@@ -260,6 +264,9 @@ class LiveSession {
         // never has to know there is a store.
         playCallBack(this._store.state.grimoire.isMuted);
         break;
+      case "bluffs":
+        this._updateBluffs(params);
+        break;
       case "playername":
         this._updatePlayerName(params);
         break;
@@ -278,9 +285,7 @@ class LiveSession {
     if (!this._store.state.session.playerId) {
       this._store.commit(
         "session/setPlayerId",
-        Math.random()
-          .toString(36)
-          .substr(2)
+        Math.random().toString(36).substr(2),
       );
     }
     this._pings = {};
@@ -324,7 +329,7 @@ class LiveSession {
    */
   sendGamestate(playerId = "", isLightweight = false) {
     if (this._isSpectator) return;
-    this._gamestate = this._store.state.players.players.map(player => ({
+    this._gamestate = this._store.state.players.players.map((player) => ({
       name: player.name,
       id: player.id,
       isDead: player.isDead,
@@ -332,12 +337,12 @@ class LiveSession {
       pronouns: player.pronouns,
       ...(player.role && player.role.team === "traveler"
         ? { roleId: player.role.id }
-        : {})
+        : {}),
     }));
     if (isLightweight) {
       this._sendDirect(playerId, "gs", {
         gamestate: this._gamestate,
-        isLightweight
+        isLightweight,
       });
     } else {
       const { session, grimoire } = this._store.state;
@@ -358,9 +363,14 @@ class LiveSession {
         lockedVote: session.lockedVote,
         isVoteInProgress: session.isVoteInProgress,
         markedPlayer: session.markedPlayer,
-        fabled: fabled.map(f => (f.isCustom ? f : { id: f.id })),
-        ...(session.nomination ? { votes: session.votes } : {})
+        fabled: fabled.map((f) => (f.isCustom ? f : { id: f.id })),
+        ...(session.nomination ? { votes: session.votes } : {}),
       });
+      // 2026-08-19: a full sync is what a joining or RECONNECTING client gets,
+      // so it is where a demon who refreshed gets their bluffs back. Sent on
+      // its own channel, never inside the gamestate blob — that blob goes to
+      // everyone, and this must not.
+      this.sendBluffs(playerId);
     }
   }
 
@@ -385,7 +395,7 @@ class LiveSession {
       lockedVote,
       isVoteInProgress,
       markedPlayer,
-      fabled
+      fabled,
     } = data;
     const players = this._store.state.players.players;
     // adjust number of players
@@ -403,7 +413,7 @@ class LiveSession {
       const player = players[x];
       const { roleId } = state;
       // update relevant properties
-      ["name", "id", "isDead", "isVoteless", "pronouns"].forEach(property => {
+      ["name", "id", "isDead", "isVoteless", "pronouns"].forEach((property) => {
         const value = state[property];
         if (player[property] !== value) {
           this._store.commit("players/update", { player, property, value });
@@ -418,14 +428,14 @@ class LiveSession {
           this._store.commit("players/update", {
             player,
             property: "role",
-            value: role
+            value: role,
           });
         }
       } else if (!roleId && player.role.team === "traveler") {
         this._store.commit("players/update", {
           player,
           property: "role",
-          value: {}
+          value: {},
         });
       }
     });
@@ -446,11 +456,11 @@ class LiveSession {
         votes,
         votingSpeed,
         lockedVote,
-        isVoteInProgress
+        isVoteInProgress,
       });
       this._store.commit("session/setMarkedPlayer", markedPlayer);
       this._store.commit("players/setFabled", {
-        fabled: fabled.map(f => this._store.state.fabled.get(f.id) || f)
+        fabled: fabled.map((f) => this._store.state.fabled.get(f.id) || f),
       });
     }
   }
@@ -468,7 +478,7 @@ class LiveSession {
     }
     this._sendDirect(playerId, "edition", {
       edition: edition.isOfficial ? { id: edition.id } : edition,
-      ...(roles ? { roles } : {})
+      ...(roles ? { roles } : {}),
     });
   }
 
@@ -493,7 +503,7 @@ class LiveSession {
         alert(
           `This session contains custom characters that can't be found. ` +
             `Please load them before joining! ` +
-            `Missing roles: ${missing.join(", ")}`
+            `Missing roles: ${missing.join(", ")}`,
         );
         this.disconnect();
         this._store.commit("toggleModal", "edition");
@@ -509,7 +519,7 @@ class LiveSession {
     const { fabled } = this._store.state.players;
     this._send(
       "fabled",
-      fabled.map(f => (f.isCustom ? f : { id: f.id }))
+      fabled.map((f) => (f.isCustom ? f : { id: f.id })),
     );
   }
 
@@ -521,7 +531,7 @@ class LiveSession {
   _updateFabled(fabled) {
     if (!this._isSpectator) return;
     this._store.commit("players/setFabled", {
-      fabled: fabled.map(f => this._store.state.fabled.get(f.id) || f)
+      fabled: fabled.map((f) => this._store.state.fabled.get(f.id) || f),
     });
   }
 
@@ -560,7 +570,7 @@ class LiveSession {
         this._send("player", {
           index,
           property,
-          value: value.id
+          value: value.id,
         });
         return;
       }
@@ -576,6 +586,9 @@ class LiveSession {
       this._sendBelief(player, index);
     } else {
       this._send("player", { index, property, value });
+      // 2026-08-19: a chair that just changed hands may be the demon's. The
+      // new holder gets the three, or an empty set if it is any other seat.
+      if (property === "id" && value) this.sendBluffs(value);
     }
   }
 
@@ -601,7 +614,7 @@ class LiveSession {
         this._store.commit("players/update", {
           player,
           property: "role",
-          value: {}
+          value: {},
         });
       } else {
         // load role, first from session, the global, then fail gracefully
@@ -612,7 +625,7 @@ class LiveSession {
         this._store.commit("players/update", {
           player,
           property: "role",
-          value: role
+          value: role,
         });
       }
     } else {
@@ -650,7 +663,7 @@ class LiveSession {
       player,
       property: "name",
       value,
-      isFromSockets: true
+      isFromSockets: true,
     });
   }
 
@@ -679,7 +692,7 @@ class LiveSession {
       player,
       property: "pronouns",
       value,
-      isFromSockets: true
+      isFromSockets: true,
     });
   }
 
@@ -700,12 +713,12 @@ class LiveSession {
         }
       }
       // remove claimed seats from players that are no longer connected
-      this._store.state.players.players.forEach(player => {
+      this._store.state.players.players.forEach((player) => {
         if (player.id && !this._players[player.id]) {
           this._store.commit("players/update", {
             player,
             property: "id",
-            value: ""
+            value: "",
           });
         }
       });
@@ -719,7 +732,7 @@ class LiveSession {
           const pings = Object.values(this._pings);
           this._store.commit(
             "session/setPing",
-            Math.round(pings.reduce((a, b) => a + b, 0) / pings.length)
+            Math.round(pings.reduce((a, b) => a + b, 0) / pings.length),
           );
         }
       }
@@ -731,7 +744,7 @@ class LiveSession {
     if (!this._isSpectator || playerIdOrCount) {
       this._store.commit(
         "session/setPlayerCount",
-        this._isSpectator ? playerIdOrCount : Object.keys(this._players).length
+        this._isSpectator ? playerIdOrCount : Object.keys(this._players).length,
       );
     }
   }
@@ -746,7 +759,7 @@ class LiveSession {
     delete this._players[playerId];
     this._store.commit(
       "session/setPlayerCount",
-      Object.keys(this._players).length
+      Object.keys(this._players).length,
     );
   }
 
@@ -779,7 +792,7 @@ class LiveSession {
       this._store.commit("players/update", {
         player: players[oldIndex],
         property,
-        value: ""
+        value: "",
       });
     }
     // add playerId to new seat
@@ -809,13 +822,16 @@ class LiveSession {
           // The truth never enters this message at all — it is not sent and
           // hidden, it is absent, which is the only version of this that
           // survives a missing CSS rule.
-          { index, property: "role", value: beliefOf(player).id }
+          { index, property: "role", value: beliefOf(player).id },
         ];
       }
     });
     if (Object.keys(message).length) {
       this._send("direct", message);
     }
+    // 2026-08-19: the deal is also the moment the demon is told what they may
+    // claim. Same beat as the characters, so the two never arrive apart.
+    this.sendBluffs();
   }
 
   /**
@@ -838,8 +854,86 @@ class LiveSession {
     this._sendDirect(player.id, "player", {
       index,
       property: "role",
-      value: beliefOf(player).id || ""
+      value: beliefOf(player).id || "",
     });
+    // The seat's character just moved, which is the only thing that decides
+    // whether it holds bluffs. One chair, same message.
+    this.sendBluffs(player.id);
+  }
+
+  /**
+   * 2026-08-19: HAND THE DEMON THEIR OWN THREE BLUFFS — and the Lunatic the
+   * same three.
+   *
+   * NEVER A BROADCAST, structurally. There is no `_send("bluffs", …)` anywhere
+   * and no path through `_sendDirect`'s broadcast-on-empty branch: this always
+   * builds the `{playerId: [command, params]}` map the relay splits per
+   * recipient, exactly as `distributeRoles` does for characters. A broadcast
+   * here would hand every player the demon's bluffs, which is worse than not
+   * shipping the feature at all — so the shape that could do it does not
+   * exist rather than being guarded against.
+   *
+   * EVERY SEATED PLAYER GETS A MESSAGE, and that is deliberate: the ones who
+   * do not hold bluffs get an EMPTY list, which is how a client that stops
+   * being the demon (a Lunatic un-made, a character edited on the night) loses
+   * what it was holding. An empty list carries nothing, so the extra
+   * recipients learn nothing from being written to.
+   *
+   * SHARED WITH THE LUNATIC, not a second set. The Lunatic's whole job is to
+   * be indistinguishable from the demon, and identical data over an identical
+   * code path is the strongest form of that; a separate set needs a second
+   * authoring surface, and an unfilled one shows the Lunatic three blanks
+   * where the demon has three characters — a perfect tell, produced by the
+   * storyteller forgetting rather than by anything they decided. The transport
+   * is already per-seat, so a per-seat set later is a change to what goes in
+   * this map, not to how it travels.
+   *
+   * @param playerId optional — only that one seat (a joiner, a chair that just
+   *                 changed hands or character); omitted means every seat.
+   */
+  sendBluffs(playerId = "") {
+    if (this._isSpectator) return;
+    // Nothing is dealt yet: pushing characters at players mid-build is how the
+    // town learns the grimoire early (the same guard `_sendBelief` carries).
+    if (!this._store.state.session.isRolesDistributed) return;
+    const bluffs = this._store.state.players.bluffs || [];
+    const ids = [];
+    for (let i = 0; i < BLUFF_COUNT; i++) {
+      ids.push((bluffs[i] && bluffs[i].id) || "");
+    }
+    const message = {};
+    this._store.state.players.players.forEach((player) => {
+      if (!player.id) return;
+      if (playerId && player.id !== playerId) return;
+      message[player.id] = ["bluffs", believesDemon(player) ? ids : []];
+    });
+    if (Object.keys(message).length) {
+      this._send("direct", message);
+    }
+  }
+
+  /**
+   * The three bluffs arriving at the one client entitled to them. Player only
+   * — a storyteller's own copy is the authority and must never be written by
+   * something coming back off the wire.
+   * @param ids an array of role ids, or an empty array meaning "you hold none"
+   * @private
+   */
+  _updateBluffs(ids) {
+    if (!this._isSpectator) return;
+    const list = Array.isArray(ids) ? ids : [];
+    // Set every slot in order, 0 upward, including the empty ones: `setBluff`
+    // splices, and splicing index 2 of an empty array appends at 0 — so slots
+    // must be filled in sequence or the three arrive shuffled.
+    for (let index = 0; index < BLUFF_COUNT; index++) {
+      const id = list[index];
+      const role =
+        (id &&
+          (this._store.state.roles.get(id) ||
+            this._store.getters.rolesJSONbyId.get(id))) ||
+        {};
+      this._store.commit("players/setBluff", { index, role });
+    }
   }
 
   /**
@@ -896,7 +990,7 @@ class LiveSession {
     if (this._isSpectator) return;
     this._send(
       "isVoteHistoryAllowed",
-      this._store.state.session.isVoteHistoryAllowed
+      this._store.state.session.isVoteHistoryAllowed,
     );
   }
 
@@ -960,7 +1054,7 @@ class LiveSession {
       this._send("vote", [
         index,
         this._store.state.session.votes[index],
-        !this._isSpectator
+        !this._isSpectator,
       ]);
     }
   }
@@ -1039,7 +1133,7 @@ class LiveSession {
   }
 }
 
-export default store => {
+export default (store) => {
   // setup
   const session = new LiveSession(store);
 
@@ -1111,6 +1205,13 @@ export default store => {
       case "players/setFabled":
         session.sendFabled();
         break;
+      // 2026-08-19: the storyteller changed one of the three. It rides a
+      // mutation like every other broadcast in this table, so any later
+      // surface that sets a bluff (the grimoire drawer's own section, the
+      // clock face's coins) inherits the delivery for free.
+      case "players/setBluff":
+        session.sendBluffs();
+        break;
       case "session/setMarkedPlayer":
         session.setMarked(payload);
         break;
@@ -1146,7 +1247,7 @@ export default store => {
   // path (/<town>, current links) — hash wins if somehow both are present.
   const hashSessionId = window.location.hash.substr(1);
   const sessionId = normalizeTownId(
-    hashSessionId || sessionIdFromPath(window.location.pathname)
+    hashSessionId || sessionIdFromPath(window.location.pathname),
   );
   if (sessionId) {
     // FT-889: role comes from what THIS browser holds (edit key / hosting

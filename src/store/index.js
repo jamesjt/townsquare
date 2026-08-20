@@ -110,6 +110,12 @@ export default new Vuex.Store({
       isNightOrder: true,
       isPublic: true,
       isMenuOpen: false,
+      // Golem fork (2026-08-19): the demon's bluffs cluster, shown or hidden.
+      // In the store rather than on TownSquare because the switch is a mark in
+      // the MENU STRIP now (Menu.vue) and the cluster it drives is somewhere
+      // else entirely. Defaults SHOWN on every viewport (user call) and is
+      // stashed by persistence.js.
+      isBluffsOpen: true,
       isStatic: false,
       isMuted: false,
       isImageOptIn: false,
@@ -207,6 +213,8 @@ export default new Vuex.Store({
     setBackground: set("background"),
     toggleMuted: toggle("isMuted"),
     toggleMenu: toggle("isMenuOpen"),
+    /** Golem fork (2026-08-19): show/hide the demon's bluffs cluster. */
+    toggleBluffsOpen: toggle("isBluffsOpen"),
     toggleNightOrder: toggle("isNightOrder"),
     toggleStatic: toggle("isStatic"),
     /**

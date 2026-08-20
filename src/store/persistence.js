@@ -56,6 +56,12 @@ module.exports = store => {
   if (localStorage.getItem("static")) {
     store.commit("toggleStatic", true);
   }
+  // Golem fork (2026-08-19): the bluffs cluster defaults SHOWN, so the stash
+  // records only the HIDDEN state — an untouched browser, and every new one,
+  // gets the default without a key having to exist.
+  if (localStorage.getItem("bluffsHidden")) {
+    store.commit("toggleBluffsOpen", false);
+  }
   if (localStorage.getItem("imageOptIn")) {
     store.commit("toggleImageOptIn", true);
   }
@@ -167,6 +173,13 @@ module.exports = store => {
           localStorage.setItem("muted", 1);
         } else {
           localStorage.removeItem("muted");
+        }
+        break;
+      case "toggleBluffsOpen":
+        if (state.grimoire.isBluffsOpen) {
+          localStorage.removeItem("bluffsHidden");
+        } else {
+          localStorage.setItem("bluffsHidden", 1);
         }
         break;
       case "toggleStatic":

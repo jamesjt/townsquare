@@ -10,7 +10,7 @@
       building:
         !!session.sessionId &&
         !session.isSpectator &&
-        !session.isRolesDistributed
+        !session.isRolesDistributed,
     }"
   >
     <!-- Golem fork (FT-848): the tower's face keeps the count. Every death
@@ -37,7 +37,7 @@
           from: Math.max(swap, move, nominate) === index,
           swap: swap > -1,
           move: move > -1,
-          nominate: nominate > -1
+          nominate: nominate > -1,
         }"
       ></Player>
     </ul>
@@ -72,16 +72,22 @@
          gap before measureBluffAnchor's nextTick fires) still needs it. -->
     <div
       class="bluffs"
-      v-if="players.length && canSeeBluffs && demonIndex > -1"
+      v-if="players.length && canSeeBluffs && demonIndex > -1 && isBluffsOpen"
       ref="bluffs"
-      :class="{ closed: !isBluffsOpen, anchored: !!bluffAnchor }"
+      :class="{ anchored: !!bluffAnchor, own: isOwnBluffs }"
       :style="bluffAnchorStyle"
     >
-      <h3 :style="bluffTitleStyle">
-        <!-- This div only ever renders for the storyteller now (see
-             canSeeBluffs), so the spectator title below can never be
-             reached — kept rather than deleted, the same never-delete
-             idiom Player.vue uses for showNightBadges/showSeatSplat. -->
+      <!-- THE HEADING IS THE CORNER FALLBACK'S ONLY (2026-08-19, user call).
+           The anchored cluster's "Demon bluffs ✕" pill is retired: its ✕ is a
+           mark in the menu strip now, and a wide floating label beside three
+           coins was the one part of the cluster that needed a search of its
+           own to place. The no-demon corner panel is a real panel and keeps
+           its real heading — hence v-if, not a deletion.
+
+           The spectator title has a reader again: a demon or a Lunatic on
+           their own client IS `session.isSpectator`, and "Other characters"
+           is what those three are to them. -->
+      <h3 v-if="!bluffAnchor" :style="bluffTitleStyle">
         <span v-if="session.isSpectator">Other characters</span>
         <span v-else>Demon bluffs</span>
         <font-awesome-icon icon="times-circle" @click.stop="toggleBluffs" />
@@ -92,7 +98,7 @@
           v-for="index in bluffSize"
           :key="index"
           :style="bluffCoinStyle(index - 1)"
-          @click="openRoleModal(index * -1)"
+          @click="openBluffModal(index - 1)"
         >
           <Token :role="bluffs[index - 1]"></Token>
         </li>
@@ -148,15 +154,16 @@ import Player from "./Player";
 import Token from "./Token";
 import ReminderModal from "./modals/ReminderModal";
 import RoleModal from "./modals/RoleModal";
+// Golem fork (2026-08-19): who holds the demon's bluffs — the storyteller, the
+// demon, and the Lunatic. One rule, shared with the menu's toggle and the
+// socket's sender so the three can never disagree.
+import { canSeeBluffs, demonSeatIndex } from "../golem/bluffs";
 
 // Golem fork (FT-848): the re-baked dried-blood stains, bundled once for the
 // whole dial. (The older per-seat splats in ../assets/blood/splats stay in the
 // tree, unreferenced.)
 const stainCtx = require.context("../assets/blood/stains", false, /\.png$/);
-const STAINS = stainCtx
-  .keys()
-  .sort()
-  .map(stainCtx);
+const STAINS = stainCtx.keys().sort().map(stainCtx);
 
 // The dial, in the background art's own pixels (see --fpx in App.vue): both
 // clocktower backgrounds are trimmed to 1642x900 with the face centred
@@ -177,7 +184,7 @@ const STAIN_SPAN = 470;
 const STAIN_MAX = 172;
 
 /** FNV-1a over a string — the hash the stains already use for size and lie. */
-const hashString = str => {
+const hashString = (str) => {
   let h = 2166136261;
   for (let c = 0; c < str.length; c++) {
     h ^= str.charCodeAt(c);
@@ -203,7 +210,7 @@ const hashString = str => {
  * is then fixed for the whole game, instead of changing texture under the
  * player's eyes when somebody else dies.
  */
-const stainOrder = seed => {
+const stainOrder = (seed) => {
   const bag = STAINS.map((_, i) => i);
   let s = hashString(seed) || 1;
   const next = () => {
@@ -228,7 +235,7 @@ export default {
     Player,
     Token,
     RoleModal,
-    ReminderModal
+    ReminderModal,
   },
   computed: {
     ...mapGetters({ nightOrder: "players/nightOrder" }),
@@ -275,33 +282,36 @@ export default {
             transform:
               `translate(-50%, -50%) rotate(${angle.toFixed(2)}deg)` +
               ` translateY(calc(${(-radius).toFixed(1)} * var(--fpx)))` +
-              ` rotate(${spin}deg)`
-          }
+              ` rotate(${spin}deg)`,
+          },
         });
       });
       return stains;
     },
     /**
-     * Golem fork (2026-08-19): STORYTELLER ONLY, by construction — the exact
-     * guard Player.vue's `beliefChip` already established for "genuinely
-     * storyteller, in the grimoire" (`session.isSpectator` catches every
-     * non-host client, a seated player included — this app has no separate
-     * player/spectator flag; `grimoire.isPublic` catches the host's own
-     * screen while the grimoire is face-down, including a mirrored public
-     * display). HostTools.vue auto-flips isPublic false the moment the host
-     * deals a town (`rolesAssigned` watcher: "assigned role flips the
-     * grimoire face-up"), so this is reachable exactly when it needs to be
-     * and no more.
+     * Golem fork (2026-08-19): THE STORYTELLER, THE DEMON, AND THE LUNATIC —
+     * and nobody else. The rule itself lives in golem/bluffs.js because the
+     * menu's toggle icon and the socket's sender have to agree with this
+     * exactly; three copies of a privacy test is three places for them to
+     * drift apart.
      *
-     * A v-if downstream, not a CSS rule: the bluff Tokens simply never
-     * render for anyone this returns false for, so there is no role name
-     * or icon in that DOM to find — the leak the old CSS-only
-     * `#townsquare.public > .bluffs` hide left open (still in the
-     * stylesheet, untouched, and still correct belt-and-braces for the
-     * host's own mirrored screen).
+     * A v-if downstream, not a CSS rule: the bluff Tokens simply never render
+     * for anyone this returns false for, so an ordinary player's DOM contains
+     * no role name and no icon to find even in devtools — the leak the old
+     * CSS-only `#townsquare.public > .bluffs` hide left open.
      */
     canSeeBluffs() {
-      return !this.session.isSpectator && !this.grimoire.isPublic;
+      return canSeeBluffs(this.$store.state);
+    },
+    /**
+     * Is this client's cluster its OWN (the demon's / the Lunatic's) rather
+     * than the storyteller's? Only used to spare it the public-view hide
+     * below: `grimoire.isPublic` starts TRUE and only the HOST ever flips it,
+     * so a player's copy is true forever and the old rule would blank the one
+     * cluster that is supposed to be theirs.
+     */
+    isOwnBluffs() {
+      return this.session.isSpectator;
     },
     /**
      * The seat this town's bluffs belong to: the first demon seated, or -1
@@ -309,11 +319,12 @@ export default {
      * `bluffAnchor` stays null in that case and the panel falls back to the
      * static corner position. A script with more than one demon (Legion)
      * still anchors to the first found; it is never wrong, only plain.
+     *
+     * Shared with the menu strip's toggle (golem/bluffs) so the mark and the
+     * cluster appear and disappear together.
      */
     demonIndex() {
-      return this.players.findIndex(
-        player => player.role && player.role.team === "demon"
-      );
+      return demonSeatIndex(this.players);
     },
     /**
      * The demon seat's own measured width as `--seat-sz` (inherited by
@@ -341,29 +352,39 @@ export default {
       if (!this.bluffAnchor) return null;
       return { "--seat-sz": `${this.bluffAnchor.size}px` };
     },
-    /** The title pill's own centre point — a little further outward than
-     *  the coin row, so it reads as sitting ABOVE the fan rather than among
-     *  it. Null (no demon) leaves h3 in the static corner's normal flow. */
+    /**
+     * The title pill's own centre point. Always null in the anchored state
+     * since the pill was RETIRED (2026-08-19, user call): the show/hide
+     * control it carried is one mark in the menu strip now (Menu.vue's
+     * `uiBluffs`), and a floating "Demon bluffs ✕" label beside three coins
+     * that already read as coins was the only thing in the cluster wide
+     * enough to need a search of its own. The corner fallback — the no-demon
+     * case, which is a real panel with a real heading — keeps its h3 and gets
+     * null here, which is what it had before.
+     */
     bluffTitleStyle() {
-      if (!this.bluffAnchor) return null;
+      if (!this.bluffAnchor || !this.bluffAnchor.title) return null;
       const { left, top } = this.bluffAnchor.title;
       return { left: `${left}px`, top: `${top}px` };
-    }
+    },
+    /** The show/hide state, held in the store so the menu strip's mark and
+     *  this cluster are the same switch, and so it survives a reload. */
+    isBluffsOpen() {
+      return this.grimoire.isBluffsOpen;
+    },
   },
   data() {
-    // FT-870: BLUFFS/FABLED DEFAULT CLOSED ON A PHONE. Open, the panel is a
-    // stacked 3-coin column in portrait (~42vh) or a wide row in landscape —
-    // taller/wider than the room a phone ever has to give it, because the
-    // ring already gives up height to the checklist or a bottom sheet
-    // (`#app.checklist-up` / `.sheet-up`, TownSquare's own style block below).
-    // Measured 375x812: open by default, the panel rode up over three seats
-    // with the checklist out (FT-870).
+    // FT-870: FABLED DEFAULTS CLOSED ON A PHONE. Open, that panel is a stacked
+    // 3-coin column in portrait (~42vh) or a wide row in landscape — taller
+    // and wider than the room a phone ever has to give it, because the ring
+    // already gives up height to the checklist or a bottom sheet
+    // (`#app.checklist-up` / `.sheet-up`, this file's own style block below).
     //
-    // Collapsing costs nothing here — `#townsquare.public > .bluffs` is
-    // already invisible to everyone but the storyteller, so a phone-only
-    // default only has to serve the one person who ever sees it, and the
-    // existing toggle (the same +/- icon every viewport uses) reopens it in
-    // one tap.
+    // BLUFFS NO LONGER SHARE THAT DEFAULT (2026-08-19, user call): the anchored
+    // cluster is three 0.4-seat-width coins pinned against the demon's own
+    // coin, not a panel that can ride over three seats, so the reason for the
+    // phone default is gone. It defaults to SHOWN on every viewport and the
+    // state lives in the store (`grimoire.isBluffsOpen`, persisted).
     const isPhone =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(pointer: coarse)").matches;
@@ -377,12 +398,11 @@ export default {
       swap: -1,
       move: -1,
       nominate: -1,
-      isBluffsOpen: !isPhone,
       isFabledOpen: !isPhone,
       // Golem fork (2026-08-19): where the bluffs cluster docks — null
       // until measureBluffAnchor finds a demon seat, meaning "use the
       // static corner CSS" (see bluffAnchorStyle / the .anchored rules).
-      bluffAnchor: null
+      bluffAnchor: null,
     };
   },
   watch: {
@@ -404,7 +424,7 @@ export default {
     // hidden (a display:none/v-if'd subtree can read zero-size).
     canSeeBluffs(val) {
       if (val) this.$nextTick(this.measureBluffAnchor);
-    }
+    },
   },
   mounted() {
     this.measureBluffAnchor();
@@ -426,17 +446,17 @@ export default {
   },
   methods: {
     /**
-     * Golem fork (2026-08-19): measures the demon's own rendered coin and
-     * parks `bluffAnchor` beside it — a horizontal row held at the coin's
-     * own screen height, confined to ONE side (screen-left or screen-right,
-     * chosen by `side` below), never fanned symmetrically along the seat's
-     * outward spoke the way an earlier pass here did (that fan put half its
-     * coins on each side of the seat's own centreline, which is where the
-     * name plate sits — see `side`'s own comment for the measured bug).
-     * Reminders (Player.vue's `.reminder:not(.add)`) sit BELOW the coin now
-     * — `margin-top: 68%` of the seat's own width — so a same-height row
-     * clears them in the ordinary case; the clearance pass further down
-     * measures rather than assumes that.
+     * Golem fork (2026-08-19): measures the demon's own rendered coin and lays
+     * the three bluffs AGAINST it — the first coin's rim a few pixels clear of
+     * the demon's rim, the other two continuing along the same ray, confined
+     * to ONE side (screen-left or screen-right, chosen by `side` below).
+     *
+     * The acceptance for this is a RIM GAP IN PIXELS, not a distance bound: a
+     * bound of "within N seat-widths of the seat's centre" is satisfied by a
+     * cluster that reads as belonging to nothing, which is how two earlier
+     * passes shipped green and wrong. See the block on `bisect` below for the
+     * measured cause and claude_temp_test/2026-08-19-bluffs3-gap.mjs for the
+     * before/after tables.
      *
      * A measured DOM position, not a re-derivation of the ring's own
      * rotate()/vmin math: the ring's radius, each seat's width, and even
@@ -467,6 +487,7 @@ export default {
       }
       const seatCx = seatRect.left + seatRect.width / 2;
       const seatCy = seatRect.top + seatRect.height / 2;
+      const seatRadiusPx = Math.min(seatRect.width, seatRect.height) / 2;
       /**
        * The seat's own OUTWARD direction, read directly off its <li>'s
        * rotation — NOT re-derived from the ring's bounding box (an earlier
@@ -490,7 +511,9 @@ export default {
        */
       let ox = 0;
       let oy = -1;
-      const matrix = /matrix\(([^)]+)\)/.exec(getComputedStyle(seatLi).transform);
+      const matrix = /matrix\(([^)]+)\)/.exec(
+        getComputedStyle(seatLi).transform,
+      );
       if (matrix) {
         const parts = matrix[1].split(",").map(Number);
         ox = -parts[2]; // -c
@@ -526,255 +549,239 @@ export default {
       const rootLeft = rootRect.left;
       const rootTop = rootRect.top;
       /**
-       * Proof requirement #4: all three coins (and the title) stay inside
-       * the viewport. Defined early — ahead of the anchor below — because
-       * the anchor itself needs clamping, not just the final coin/title
-       * positions: an unclamped outward step can overshoot the viewport
-       * edge on its own (measured: a 12-seat desktop ring's top seat sits
-       * only 68px below the viewport top, and a 0.9-seat-width step up
-       * from there lands at y=-18, off-screen). Once that happens the row's
-       * height is permanently invalid, no amount of the SIDEWAYS push
-       * further down can fix a vertical problem, and the search exhausts
-       * its whole budget for nothing (measured: pushPx maxed at 4 seat-
-       * widths, coins ended up hundreds of px from the seat after the
-       * final clamp).
+       * THE ROW'S DIRECTION (2026-08-19, user call #3 — the third attempt at
+       * this, and the one that fixes the actual cause).
+       *
+       * WHAT WAS WRONG. The previous pass moved the row's base point 0.9
+       * seat-widths OUTWARD along the spoke and THEN stepped 0.7 seat-widths
+       * SIDEWAYS from there. Those two are perpendicular everywhere except 3
+       * and 9 o'clock, so they added in quadrature: the first coin landed
+       * ~1.14 seat-widths from the seat centre on a diagonal, when "touching"
+       * is 0.7 along a single ray. Measured on the shipped build: a desktop
+       * 6-seat town (124px coins) put the NEAREST bluff coin's rim 105px clear
+       * of the demon's own rim — most of a coin's width of empty space — while
+       * the sweep's "within 3 seat-widths of centre" bound read 2.21 and
+       * passed. The collision search never ran (pushPx was 0 in every one of
+       * those rows); the base geometry alone did it. A distance bound was the
+       * wrong acceptance, so the acceptance is now an ADJACENCY: the gap
+       * between the two rims, in pixels (see claude_temp_test/
+       * 2026-08-19-bluffs3-gap.mjs, before/after tables).
+       *
+       * WHAT IT IS NOW. One ray, from the demon's own coin centre. The first
+       * slot sits at `seatRadius + coinRadius + TOUCH`, so its rim clears the
+       * demon's rim by TOUCH and nothing else — touching distance by
+       * construction rather than by budget. The other two continue along the
+       * same ray.
+       *
+       * WHICH RAY. The bisector of two directions the seat already knows: the
+       * screen side the (unchanged, correct) side rule picked, and the seat's
+       * own outward spoke.
+       *
+       *   3 / 9 o'clock  outward IS the side, so the bisector is the side —
+       *                  a plain horizontal row, exactly as before.
+       *   12 / 6 o'clock outward is vertical and the side is horizontal, so
+       *                  the row leaves at 45° into the ring's own open
+       *                  exterior. This matters: a purely horizontal row at
+       *                  the top of a 15-seat ring runs ALONG the ring, and
+       *                  measured, its third coin lands inside the next seat's
+       *                  own coin — which is exactly what used to send the
+       *                  collision search walking, and walking is what
+       *                  detached the cluster.
+       *
+       * So the side rule is untouched and the crowded cases stop being
+       * crowded, without the standoff that caused the detachment.
        */
-      const EDGE_PAD = 2;
-      const inViewport = (left, top, right, bottom) =>
-        left >= EDGE_PAD &&
-        top >= EDGE_PAD &&
-        right <= window.innerWidth - EDGE_PAD &&
-        bottom <= window.innerHeight - EDGE_PAD;
-      const clampX = (cx, halfW) =>
-        Math.min(Math.max(cx, halfW + EDGE_PAD), window.innerWidth - halfW - EDGE_PAD);
-      const clampY = (cy, halfH) =>
-        Math.min(Math.max(cy, halfH + EDGE_PAD), window.innerHeight - halfH - EDGE_PAD);
-      // A bluff coin is 0.4 seat-widths square (see the CSS below) — half
-      // 0.2. This is now a plain axis-aligned box check (screen-x row,
-      // fixed screen-y), not the tangent/radial approximation the old fan
-      // used, so the true half-width is exact — no diagonal-corner pad
-      // needed the way the fan's scalar tangential-span check did.
+      const bisect = (sx, sy) => {
+        const bx = side + sx;
+        const by = sy;
+        const len = Math.hypot(bx, by);
+        // Degenerate only when the two directions oppose exactly (an inward
+        // bisector at 3/9 o'clock) — fall back to the pure side, which is
+        // where that case was heading anyway.
+        if (len < 1e-3) return { x: side, y: 0 };
+        return { x: bx / len, y: by / len };
+      };
+      const dirOut = bisect(ox, oy);
+      // A bluff coin is 0.4 seat-widths square (see the CSS below) — half 0.2.
       const COIN_HALF = 0.2;
       const coinHalfPx = size * COIN_HALF;
       /**
-       * (2026-08-19, coordinator correction — the sweep couldn't catch this
-       * because it never asserted proximity, only overlap): the row's own
-       * base point moves OUTWARD along the seat's true spoke (ox, oy)
-       * FIRST, before fanning sideways by `side`. Fanning straight from the
-       * seat's own centre, in pure screen-x, is only safe at 3/9 o'clock,
-       * where screen-x already points away from the ring. At 12/6 o'clock
-       * screen-x runs ALONG the ring, straight through every neighbouring
-       * seat — so the collision search correctly kept pushing until it
-       * cleared all of them, and landed in a viewport corner, hundreds of
-       * px from the demon (measured: desktop 12-seat, demon at 12 and 6
-       * o'clock, both screenshots). Stepping outward past the seat's own
-       * edge (0.5) by about one coin's width (0.4) first puts the anchor
-       * in open space outside the ring plane, so the SAME sideways fan and
-       * SAME collision search below rarely has anything left to clear —
-       * it terminates in one step instead of walking to the edge. At 3/9
-       * o'clock, outward and `side` are already the same axis, so this is
-       * a small added standoff, not a different behaviour.
-       *
-       * Clamped immediately (see the viewport comment above): the outward
-       * step is a further-out ask, not a guarantee there's room for it.
+       * The one number that says "against the coin, not near it": how much
+       * daylight is left between the demon's rim and the first bluff's rim.
+       * Proportional so it reads the same at a 6-seat town's 124px coins
+       * (~6px) and a 15-seat phone's 45px ones (~2px) — a fixed pixel value
+       * would be invisible on one and a gutter on the other.
        */
-      const ANCHOR_OUT = 0.9; // seat edge (0.5) + ~one coin's width (0.4)
-      const anchorCx = clampX(seatCx + ox * size * ANCHOR_OUT, coinHalfPx);
-      const anchorCy = clampY(seatCy + oy * size * ANCHOR_OUT, coinHalfPx);
-      // Slot 0's centre sits exactly at the demon's own coin's edge — the
-      // two half-widths sum to touching, not overlapping. This is a floor,
-      // not a requirement: proof requirement #1 allows a bluff coin to sit
-      // ON the demon's own seat coin, so the clearance pass below is free
-      // to push a slot in past this if nothing else needs the room.
-      const START = 0.5 + COIN_HALF;
+      const TOUCH = size * 0.05;
       const SPREAD = 0.34; // spacing between the 3 row slots, unchanged
-      // touching-but-not-overlapping slop: the title box is an ESTIMATE of
-      // the pill's rendered size (font metrics, padding, border aren't
-      // known until layout), so its own clearance check needs more room
-      // than the coins' exact 0.2-seat-width box does — 2px left a ~1px²
-      // sliver on a couple of phone/6-seat combinations (measured).
-      const MARGIN_PX = 6;
+      const offsets = [0, 1, 2].map(
+        (k) => seatRadiusPx + coinHalfPx + TOUCH + size * SPREAD * k,
+      );
+      const EDGE_PAD = 2;
+      const inViewport = (box) =>
+        box[0] >= EDGE_PAD &&
+        box[1] >= EDGE_PAD &&
+        box[2] <= window.innerWidth - EDGE_PAD &&
+        box[3] <= window.innerHeight - EDGE_PAD;
       /**
-       * Every box this cluster must clear, in screen pixels: every seat's
-       * own name plate (the demon's own included — that is the bug), every
-       * OTHER seat's life coin (the demon's own is exempt — proof
-       * requirement #1), and every reminder on the board. Reminders sit
-       * BELOW their seat's coin now (Player.vue's `margin-top: 68%`), so a
-       * row held at the seat's own centre height clears them in the common
-       * case already — but this MEASURES rather than assumes, the same
-       * "read the box already laid out" idiom the rest of this method
-       * uses, because a short or unusually laid-out town could still put
-       * one in the row's path.
+       * Every box this cluster must clear, in screen pixels: every seat's own
+       * name plate (the demon's own included), every OTHER seat's life coin
+       * (the demon's own is exempt — the cluster is allowed to sit on it), and
+       * every reminder on the board. Measured rather than assumed, the same
+       * "read the box already laid out" idiom the rest of this method uses.
        */
       const collisionRects = [];
-      rootEl.querySelectorAll(".player > .name").forEach(el => {
+      rootEl.querySelectorAll(".player > .name").forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.width) collisionRects.push(r);
       });
-      rootEl.querySelectorAll(".player .life").forEach(el => {
+      rootEl.querySelectorAll(".player .life").forEach((el) => {
         if (el === seatEl) return; // the demon's own coin — may be covered
         const r = el.getBoundingClientRect();
         if (r.width) collisionRects.push(r);
       });
-      rootEl.querySelectorAll(".reminder:not(.add)").forEach(el => {
+      rootEl.querySelectorAll(".reminder:not(.add)").forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.width) collisionRects.push(r);
       });
-      const clears = (left, top, right, bottom) =>
+      const MARGIN_PX = 3;
+      const clears = (box) =>
         collisionRects.every(
-          r =>
-            left >= r.right + MARGIN_PX ||
-            right <= r.left - MARGIN_PX ||
-            top >= r.bottom + MARGIN_PX ||
-            bottom <= r.top - MARGIN_PX
+          (r) =>
+            box[0] >= r.right + MARGIN_PX ||
+            box[2] <= r.left - MARGIN_PX ||
+            box[1] >= r.bottom + MARGIN_PX ||
+            box[3] <= r.top - MARGIN_PX,
         );
-      // (viewport clearance folded into `clears`+`inViewport` — both defined
-      // above, ahead of the anchor, which also needs them)
-      const rowTop = anchorCy - coinHalfPx;
-      const rowBottom = anchorCy + coinHalfPx;
-      const baseOffsets = [0, 1, 2].map(k => size * (START + SPREAD * k));
-      const rowClears = pushPx =>
-        baseOffsets.every(off => {
-          const cx = anchorCx + side * (off + pushPx);
-          const box = [cx - coinHalfPx, rowTop, cx + coinHalfPx, rowBottom];
-          return clears(...box) && inViewport(...box);
+      const rowBoxes = (dir, dx, dy) =>
+        offsets.map((off) => {
+          const cx = seatCx + dir.x * off + dx;
+          const cy = seatCy + dir.y * off + dy;
+          return [
+            cx - coinHalfPx,
+            cy - coinHalfPx,
+            cx + coinHalfPx,
+            cy + coinHalfPx,
+          ];
         });
-      // Push the WHOLE row further from the seat, together, until every
-      // slot clears every collision box AND stays on-screen — a uniform
-      // push (not a per-slot one) so the three coins keep reading as one
-      // row instead of a stagger. Bounded so a pathological layout can't
-      // spin this forever; the clamp below is then just a safety net for
-      // the (untested) case the bound is hit without finding a clear spot.
-      const STEP_PX = Math.max(2, size * 0.02);
-      const MAX_PUSH_PX = size * 4;
-      let pushPx = 0;
-      while (!rowClears(pushPx) && pushPx < MAX_PUSH_PX) {
-        pushPx += STEP_PX;
-      }
-      const coinScreenCx = baseOffsets.map(off =>
-        clampX(anchorCx + side * (off + pushPx), coinHalfPx)
-      );
-      const coinScreenCy = clampY(anchorCy, coinHalfPx);
-      const coins = coinScreenCx.map(cx => ({
-        left: cx - rootLeft,
-        top: coinScreenCy - rootTop
-      }));
       /**
-       * The title follows the row to the same side, offset off the seat's
-       * TRUE outward direction (`oy`'s sign — the ring's own exterior,
-       * where the `--seat-reserve` overhang comment says there is slack
-       * provisioned) as its FIRST try, rather than a hard-coded "up": a
-       * 12+-seat ring packs seats close enough together that "always up"
-       * from a seat near the BOTTOM of the ring walks the search straight
-       * through the crowded interior and out the far side, past several
-       * unrelated seats' plates, before finding clear space next to a seat
-       * nowhere near this cluster (measured — a 6-o'clock demon's title
-       * landed by the 10-o'clock seat). Outward heads for the ring's own
-       * open exterior margin instead, which is normally both closer and
-       * far less contested.
+       * THE SEARCH CANNOT DETACH THE CLUSTER. This is the second half of the
+       * fix, and it is a constraint rather than a heuristic.
        *
-       * "Normally" — a 6-o'clock seat's outward is DOWN, and on a short
-       * viewport (desktop 800px tall, a 6-seat ring) that seat can already
-       * sit close enough to the bottom edge that outward has no room left
-       * at all (measured: the search's own viewport bound rejected every
-       * `out` before it ever cleared the seat's own plate, so the
-       * best-effort fallback below landed ON that plate). Trying the
-       * OPPOSITE direction next, still bounded, catches exactly that case
-       * without giving up outward's better result everywhere else.
+       * The old search pushed the whole row along one axis until everything
+       * cleared, bounded at FOUR seat-widths — so "walk away until the problem
+       * is gone" was a legal answer, and in a crowded ring it was the answer it
+       * found. It cannot be reached from here. There are exactly two freedoms,
+       * and they are not equal:
+       *
+       *   (a) WHICH RAY the row leaves the coin on. This is FREE: every ray
+       *       starts the first slot at the same distance from the same centre,
+       *       so rotating the cluster around the demon's coin changes the rim
+       *       gap by exactly nothing. The rays are tried in order of how far
+       *       they have turned from the ideal (`dirOut`), and the sweep is
+       *       confined to the side the side rule picked — `v.x * side >= 0`, so
+       *       a left-hand demon's cluster can tip up, down, or anywhere
+       *       between, but can never cross to the right.
+       *   (b) A TRANSLATION perpendicular to the chosen ray. This one COSTS
+       *       adjacency, so it is only reached after every ray has failed, and
+       *       it is capped at MAX_NUDGE = 0.25 seat-widths (~31px at a 6-seat
+       *       town's 124px coins, ~11px at a 15-seat phone's 45px ones).
+       *
+       * The worst displacement this can produce is therefore a quarter of a
+       * coin, and it is tried smallest-first. If nothing clears even then, the
+       * row takes the ideal position and OVERLAPS whatever is in the way — the
+       * user's own instruction, and the right one: a cluster sitting on a name
+       * plate still reads as the demon's, and a cluster in the corner does not.
        */
-      const outwardDir = Math.abs(oy) > 0.3 ? Math.sign(oy) : -1;
-      const TITLE_UP_BASE = 0.5 + 0.46; // matches the row's own base offset idiom
-      /**
-       * Anchored off the coins' own ALREADY-CLAMPED screen x (coinScreenCx),
-       * not re-derived from the raw anchorCx + side*(offset+pushPx) the coins
-       * started from: when a collision pushes the row far enough that the
-       * clamp above pulls it back on-screen, that raw value can itself
-       * already sit past the viewport edge, and the title's own search only
-       * ever pushes FURTHER along `side` — never back — so it could never
-       * recover (measured: found `null` in both directions regardless of
-       * how large the push budget below was, because every candidate it
-       * tried inherited an already-off-screen starting x). Starting from
-       * where the coins actually ended up is always on-screen already.
-       */
-      const titleHalfW = size * 0.6; // approximates the pill's own max-width/2
-      /**
-       * Clamped to ITS OWN half-width right away, not just anchored to the
-       * coins' (narrower) clamp: the title pill is 3x a coin's half-width,
-       * so a coin sitting validly near the edge can still put
-       * `coinScreenCx[0] + a small nudge` close enough to the edge that
-       * the wider title box overflows anyway — and every candidate the
-       * search below tries only pushes `extraSide` FURTHER along `side`,
-       * never back, so an off-screen starting x can never self-correct
-       * (measured: `searchDir` returned null in both directions no matter
-       * the push budget, because every single candidate shared the same
-       * already-overflowing x). Starting pre-clamped means the search only
-       * ever has to solve the vertical/collision half of the problem.
-       */
-      const titleBaseX = clampX(coinScreenCx[0] + side * size * (SPREAD * 0.5), titleHalfW);
-      const titleHalfH = size * 0.17; // approximates the pill's own height/2
-      const titleClears = (dir, extraOut, extraSide) => {
-        const cx = titleBaseX + side * extraSide;
-        const cy = anchorCy + dir * (size * TITLE_UP_BASE + extraOut);
-        const box = [cx - titleHalfW, cy - titleHalfH, cx + titleHalfW, cy + titleHalfH];
-        return clears(...box) && inViewport(...box);
+      const MAX_NUDGE = size * 0.25;
+      const NUDGE_STEP = Math.max(2, size * 0.04);
+      // 24 steps of 3.75° to either side of the ideal ray = a quarter turn each
+      // way. Paired so the pair nearest the ideal is tried first, and within a
+      // pair the more OUTWARD of the two goes first — the ring's exterior is
+      // where the open space is, so an equal-cost tie is broken away from the
+      // crowd.
+      const RAY_STEPS = 24;
+      const RAY_STEP_RAD = Math.PI / 48;
+      const baseAngle = Math.atan2(dirOut.y, dirOut.x);
+      const rays = [];
+      const pushRay = (angle) => {
+        const v = { x: Math.cos(angle), y: Math.sin(angle) };
+        // never cross to the other side of the seat — the side rule is not
+        // something this search is allowed to trade away
+        if (v.x * side < -0.001) return;
+        rays.push(v);
       };
-      // A bounded 2D search per direction (further out, then further along
-      // the row's own side) — never further than a couple of seat-widths,
-      // so a crowded ring gets a nearby nudge, never a cross-ring teleport.
-      // 1.5 seat-widths left real cases unresolved on a packed 6/10-seat
-      // phone ring (measured: neither direction cleared within that budget,
-      // even with plenty of raw vertical room — the title pill is ~1.15
-      // seat-widths wide, wide enough that a short push doesn't reliably
-      // clear a neighbour's plate).
-      //
-      // `out` (further from the row, same x) is tried BEFORE `sidePush`
-      // (same distance, drifting sideways) — the opposite order regressed
-      // the proximity bound (2026-08-19 coordinator addendum): sidePush is
-      // exactly the axis that makes the title "read as belonging to
-      // nothing", since it walks away from the coin row's own x, while
-      // `out` stays stacked directly above/below it. Trying every `out` at
-      // sidePush=0 first found a clear spot in every swept case without
-      // ever needing to drift (measured — see the proximity columns in
-      // claude_temp_test/2026-08-19-bluffs-side-after.out). `sidePush`
-      // keeps a much smaller budget: it is the fallback for the (untested)
-      // case a whole vertical column is blocked, not the first resort.
-      const TITLE_MAX_PUSH = size * 3.5;
-      const TITLE_MAX_SIDE_PUSH = size * 1.2;
-      const searchDir = dir => {
-        for (let sidePush = 0; sidePush <= TITLE_MAX_SIDE_PUSH; sidePush += STEP_PX * 2) {
-          for (let out = 0; out <= TITLE_MAX_PUSH; out += STEP_PX * 2) {
-            if (titleClears(dir, out, sidePush)) return { out, sidePush };
+      pushRay(baseAngle);
+      for (let step = 1; step <= RAY_STEPS; step++) {
+        const delta = step * RAY_STEP_RAD;
+        const plus = { a: baseAngle + delta, out: 0 };
+        const minus = { a: baseAngle - delta, out: 0 };
+        plus.out = Math.cos(plus.a) * ox + Math.sin(plus.a) * oy;
+        minus.out = Math.cos(minus.a) * ox + Math.sin(minus.a) * oy;
+        const pair = plus.out >= minus.out ? [plus, minus] : [minus, plus];
+        pushRay(pair[0].a);
+        pushRay(pair[1].a);
+      }
+      let chosen = null;
+      let onscreenOnly = null;
+      for (let n = 0; n <= MAX_NUDGE + 0.001 && !chosen; n += NUDGE_STEP) {
+        for (let d = 0; d < rays.length && !chosen; d++) {
+          const dir = rays[d];
+          // the ray's own perpendicular — the only direction a nudge may move
+          const px = -dir.y;
+          const py = dir.x;
+          const signs = n === 0 ? [0] : [1, -1];
+          for (let s = 0; s < signs.length; s++) {
+            const dx = px * signs[s] * n;
+            const dy = py * signs[s] * n;
+            const boxes = rowBoxes(dir, dx, dy);
+            if (!boxes.every(inViewport)) continue;
+            if (!onscreenOnly) onscreenOnly = { dir, dx, dy };
+            if (boxes.every(clears)) {
+              chosen = { dir, dx, dy };
+              break;
+            }
           }
         }
-        return null;
-      };
-      let titleDir = outwardDir;
-      let found = searchDir(outwardDir);
-      if (!found) {
-        found = searchDir(-outwardDir);
-        if (found) titleDir = -outwardDir;
       }
-      if (!found) {
-        // Neither direction cleared within budget: fall back to whichever
-        // has more raw viewport room, at zero push — clamped on-screen
-        // below like every other slot, and the closest any candidate here
-        // got to actually clearing.
-        titleDir = window.innerHeight - anchorCy > anchorCy ? 1 : -1;
-        found = { out: 0, sidePush: 0 };
-      }
-      const titleExtraOut = found.out;
-      const titleExtraSide = found.sidePush;
-      const titleX = titleBaseX + side * titleExtraSide;
-      const titleYRaw = anchorCy + titleDir * (size * TITLE_UP_BASE + titleExtraOut);
-      const titleCx = clampX(titleX, titleHalfW);
-      const titleCy = clampY(titleYRaw, titleHalfH);
+      // Nothing cleared: prefer the closest candidate that at least fits the
+      // screen, and failing that the ideal ray, overlapping and all.
+      if (!chosen) chosen = onscreenOnly || { dir: dirOut, dx: 0, dy: 0 };
+      let boxes = rowBoxes(chosen.dir, chosen.dx, chosen.dy);
+      /**
+       * The last-resort on-screen fix is a UNIFORM translation of the whole
+       * row by the least amount that brings its bounding box inside the
+       * viewport — never a per-coin clamp, which would collapse the row into a
+       * stack against the edge and lose the one thing (its shape) that says
+       * these three belong together.
+       */
+      const bbox = boxes.reduce(
+        (a, b) => [
+          Math.min(a[0], b[0]),
+          Math.min(a[1], b[1]),
+          Math.max(a[2], b[2]),
+          Math.max(a[3], b[3]),
+        ],
+        [Infinity, Infinity, -Infinity, -Infinity],
+      );
+      let fixX = 0;
+      let fixY = 0;
+      if (bbox[0] < EDGE_PAD) fixX = EDGE_PAD - bbox[0];
+      else if (bbox[2] > window.innerWidth - EDGE_PAD)
+        fixX = window.innerWidth - EDGE_PAD - bbox[2];
+      if (bbox[1] < EDGE_PAD) fixY = EDGE_PAD - bbox[1];
+      else if (bbox[3] > window.innerHeight - EDGE_PAD)
+        fixY = window.innerHeight - EDGE_PAD - bbox[3];
+      if (fixX || fixY)
+        boxes = rowBoxes(chosen.dir, chosen.dx + fixX, chosen.dy + fixY);
+      const coins = boxes.map((b) => ({
+        left: (b[0] + b[2]) / 2 - rootLeft,
+        top: (b[1] + b[3]) / 2 - rootTop,
+      }));
       this.bluffAnchor = {
         size,
-        title: {
-          left: titleCx - rootLeft,
-          top: titleCy - rootTop
-        },
-        coins
+        title: null,
+        coins,
       };
     },
     /** This bluff slot's own computed centre (see measureBluffAnchor) — null
@@ -784,8 +791,21 @@ export default {
       const { left, top } = this.bluffAnchor.coins[i];
       return { left: `${left}px`, top: `${top}px` };
     },
+    /**
+     * Open the bluff picker — THE STORYTELLER'S ONLY. The demon and the
+     * Lunatic can now see these three coins, and a coin that opens a picker is
+     * a coin that looks settable; the modal's own bluff branch has no
+     * spectator guard on it (RoleModal, `playerIndex < 0`), so a tap there
+     * would rewrite the demon's own copy locally and then be silently
+     * overwritten by the next thing the storyteller sends. Refusing the open
+     * is the smaller, clearer no.
+     */
+    openBluffModal(slot) {
+      if (this.session.isSpectator) return;
+      this.openRoleModal((slot + 1) * -1);
+    },
     toggleBluffs() {
-      this.isBluffsOpen = !this.isBluffsOpen;
+      this.$store.commit("toggleBluffsOpen");
     },
     toggleFabled() {
       this.isFabledOpen = !this.isFabledOpen;
@@ -840,7 +860,7 @@ export default {
       if (this.session.isSpectator || this.session.lockedVote) return;
       if (
         confirm(
-          `Do you really want to remove ${this.players[playerIndex].name}?`
+          `Do you really want to remove ${this.players[playerIndex].name}?`,
         )
       ) {
         const { nomination } = this.session;
@@ -855,7 +875,7 @@ export default {
             // update nomination array if removed player has lower index
             this.$store.commit("session/setNomination", [
               nomination[0] > playerIndex ? nomination[0] - 1 : nomination[0],
-              nomination[1] > playerIndex ? nomination[1] - 1 : nomination[1]
+              nomination[1] > playerIndex ? nomination[1] - 1 : nomination[1],
             ]);
           }
         }
@@ -871,7 +891,7 @@ export default {
         if (this.session.nomination) {
           // update nomination if one of the involved players is swapped
           const swapTo = this.players.indexOf(to);
-          const updatedNomination = this.session.nomination.map(nom => {
+          const updatedNomination = this.session.nomination.map((nom) => {
             if (nom === this.swap) return swapTo;
             if (nom === swapTo) return this.swap;
             return nom;
@@ -885,7 +905,7 @@ export default {
         }
         this.$store.commit("players/swap", [
           this.swap,
-          this.players.indexOf(to)
+          this.players.indexOf(to),
         ]);
         this.cancel();
       }
@@ -899,7 +919,7 @@ export default {
         if (this.session.nomination) {
           // update nomination if it is affected by the move
           const moveTo = this.players.indexOf(to);
-          const updatedNomination = this.session.nomination.map(nom => {
+          const updatedNomination = this.session.nomination.map((nom) => {
             if (nom === this.move) return moveTo;
             if (nom > this.move && nom <= moveTo) return nom - 1;
             if (nom < this.move && nom >= moveTo) return nom + 1;
@@ -914,7 +934,7 @@ export default {
         }
         this.$store.commit("players/move", [
           this.move,
-          this.players.indexOf(to)
+          this.players.indexOf(to),
         ]);
         this.cancel();
       }
@@ -936,8 +956,8 @@ export default {
       this.move = -1;
       this.swap = -1;
       this.nominate = -1;
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -1221,8 +1241,10 @@ export default {
       // and the height cap in Player.vue's own short-window rule takes it
       // from there. Coarse pointers only: a desktop menu is 80px tall and has
       // never needed the flip.
-      @if $pos <= math.div($item-count, 4) or
-        $pos >= math.div($item-count * 3, 4)
+      @if $pos <=
+        math.div($item-count, 4) or
+        $pos >=
+        math.div($item-count * 3, 4)
       {
         @media (pointer: coarse) {
           .player > .menu {
@@ -1350,7 +1372,14 @@ export default {
   }
 }
 
-#townsquare.public > .bluffs {
+/* The host's own mirrored/face-down grimoire. `:not(.own)` (2026-08-19): a
+   demon's or Lunatic's own cluster carries `.own`, and their client's
+   `isPublic` is true FOREVER — it starts true and only the HOST ever flips it
+   (HostTools, on the deal) — so an unscoped rule blanked the one cluster that
+   is supposed to be theirs. The storyteller's own copy can never reach this
+   rule anyway now (canSeeBluffs already refuses while isPublic), which makes
+   this exactly what it was: belt on top of braces. */
+#townsquare.public > .bluffs:not(.own) {
   opacity: 0;
   transform: scale(0.1);
 }
