@@ -84,6 +84,11 @@
 import { mapMutations, mapState } from "vuex";
 import RoleHoverCard from "./RoleHoverCard";
 import { roleIcon, startRoleDrag } from "../golem/roleDrag";
+// FT-949: the drop-outside-to-unseat target itself now lives in App.vue (via
+// golem/roleUnseat) so it works for the whole session, not just while this
+// tray is mounted. The tray only reads whether it is armed, to keep its own
+// highlight.
+import { roleUnseatState } from "../golem/roleUnseat";
 import dealGlyph from "../assets/ui-deal.png";
 
 // the reading order of the tray: the composition top to bottom, so the rows
@@ -101,13 +106,17 @@ export default {
       dealGlyph,
       // which role the hover card is describing, and the tile it is pinned to
       cardRole: null,
-      cardAnchor: null,
-      // a role is being dragged OFF a seat right now — the tray says so
-      dropArmed: false
+      cardAnchor: null
     };
   },
   computed: {
-    ...mapState(["roles", "session"]),
+    ...mapState(["roles"]),
+    // FT-949: a role is being dragged OFF a seat right now — the tray says
+    // so, reading the state the always-mounted target (golem/roleUnseat)
+    // maintains rather than owning a drag listener of its own.
+    dropArmed() {
+      return roleUnseatState.armed;
+    },
     /** the tray reads as the composition does: one row per type */
     unseatedByTeam() {
       return TEAM_ORDER.map(team => ({
@@ -149,18 +158,7 @@ export default {
         .sort((a, b) => TEAM_ORDER.indexOf(a.team) - TEAM_ORDER.indexOf(b.team));
     }
   },
-  mounted() {
-    // The unassign target is the WHOLE PAGE minus the surfaces that own a drop
-    // of their own — and it exists only while this tray does, i.e. only while
-    // the host is building the town.
-    document.addEventListener("dragover", this.onDocDragOver);
-    document.addEventListener("drop", this.onDocDrop);
-    document.addEventListener("dragend", this.onDocDragEnd);
-  },
   beforeDestroy() {
-    document.removeEventListener("dragover", this.onDocDragOver);
-    document.removeEventListener("drop", this.onDocDrop);
-    document.removeEventListener("dragend", this.onDocDragEnd);
     clearTimeout(this.$options.cardTimer);
   },
   methods: {
@@ -226,65 +224,6 @@ export default {
     onDragStart(role, e) {
       this.hideCard();
       startRoleDrag(role, e);
-    },
-    // ── the drop-outside-to-unseat target ────────────────────────────────
-    /**
-     * Is this OUR drag — a role leaving a seat? `types` is the only part of
-     * the payload a drag is allowed to read before the drop, which is exactly
-     * what we need: a file drag, a text selection, the Almanac's row reorder
-     * (which sets nothing at all) and the tray's own `golem/role` drag all
-     * fail this test, so none of them can ever clear a chair.
-     */
-    isSeatDrag(e) {
-      const types = e.dataTransfer && e.dataTransfer.types;
-      if (!types) return false;
-      return Array.prototype.indexOf.call(types, "golem/from") >= 0;
-    },
-    /**
-     * A surface that already owns this drop: a seat (assign / swap) or the
-     * grimoire drawer (its own unassign). DOM ancestry, not coordinates — the
-     * seats sit inside rotated, clipped boxes where a rect test would lie.
-     */
-    ownsDrop(e) {
-      const el = e.target;
-      return !!(el && el.closest && el.closest(".player, .role-drawer"));
-    },
-    onDocDragOver(e) {
-      if (!this.isSeatDrag(e)) return;
-      // the tray lights up for the whole gesture, including over a seat —
-      // it is telling you where the role goes if you let go out here
-      this.dropArmed = true;
-      if (this.session.isSpectator || this.ownsDrop(e)) return;
-      // ONLY a drag we would actually accept makes the page a drop target
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-    },
-    /**
-     * The drop landed outside every seat: the chair gives its character back.
-     *
-     * A drag that never drops — Escape, or a release over browser chrome —
-     * fires `dragend` and no `drop` at all, so it changes nothing. That is
-     * why the unassign lives here and not in onDocDragEnd.
-     */
-    onDocDrop(e) {
-      this.dropArmed = false;
-      if (this.session.isSpectator) return;
-      if (!this.isSeatDrag(e) || this.ownsDrop(e)) return;
-      const from = e.dataTransfer.getData("golem/from");
-      if (from === "") return;
-      const player = this.players[Number(from)];
-      if (!player || !player.role || !player.role.id) return;
-      e.preventDefault();
-      this.$store.commit("players/update", {
-        player,
-        property: "role",
-        value: {}
-      });
-    },
-    /** Every drag ends here, dropped or cancelled — the highlight goes out
-     *  and nothing else happens. */
-    onDocDragEnd() {
-      this.dropArmed = false;
     }
   }
 };

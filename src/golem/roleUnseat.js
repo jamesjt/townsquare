@@ -1,0 +1,100 @@
+// Golem fork (FT-949): THE DROP-OUTSIDE-TO-UNSEAT TARGET, MOVED OFF THE TRAY.
+//
+// This used to live entirely inside RoleTray.vue's mounted()/beforeDestroy() —
+// which meant the listeners existed only while the build panel did. HostTools
+// (and RoleTray inside it) unmounts the moment the host presses Start
+// (App's `showHostTools` goes false), so a role dragged off a seat MID-GAME
+// had a `dragstart` and nothing to catch its `drop`: silent nothing-happens
+// (user report, twice).
+//
+// The fix is a change of OWNER, not a rewrite — every piece of the original
+// logic is load-bearing (see the comments carried over below, unchanged).
+// App.vue is mounted for the whole session, so it installs these document
+// listeners once and they never go away. RoleTray no longer owns the target;
+// it only reads whether it is armed, via `roleUnseatState`, so its own
+// highlight still lights up while the tray is on screen.
+import Vue from "vue";
+
+/** Live, read by RoleTray's template (Vue 2 reactivity via Vue.observable —
+ *  the same trick golem/coinArt.js and golem/bloodScrollbar.js use for their
+ *  own cross-component state). */
+export const roleUnseatState = Vue.observable({ armed: false });
+
+let installed = false;
+
+/**
+ * Is this OUR drag — a role leaving a seat? `types` is the only part of the
+ * payload a drag is allowed to read before the drop, which is exactly what we
+ * need: a file drag, a text selection, the Almanac's row reorder (which sets
+ * nothing at all) and the tray's own `golem/role` drag all fail this test, so
+ * none of them can ever clear a chair.
+ */
+function isSeatDrag(e) {
+  const types = e.dataTransfer && e.dataTransfer.types;
+  if (!types) return false;
+  return Array.prototype.indexOf.call(types, "golem/from") >= 0;
+}
+
+/**
+ * A surface that already owns this drop: a seat (assign / swap) or the
+ * grimoire drawer (its own unassign). DOM ancestry, not coordinates — the
+ * seats sit inside rotated, clipped boxes where a rect test would lie.
+ */
+function ownsDrop(e) {
+  const el = e.target;
+  return !!(el && el.closest && el.closest(".player, .role-drawer"));
+}
+
+/**
+ * Install the target once for the whole session. Called from App.mounted —
+ * never torn down, because App is the root component and outlives every
+ * game it hosts (there is no equivalent beforeDestroy to hang a removal on).
+ */
+export function installRoleUnseat(store) {
+  if (installed) return;
+  installed = true;
+
+  function onDocDragOver(e) {
+    if (!isSeatDrag(e)) return;
+    // the tray lights up for the whole gesture, including over a seat —
+    // it is telling you where the role goes if you let go out here
+    roleUnseatState.armed = true;
+    if (store.state.session.isSpectator || ownsDrop(e)) return;
+    // ONLY a drag we would actually accept makes the page a drop target
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  /**
+   * The drop landed outside every seat: the chair gives its character back.
+   *
+   * A drag that never drops — Escape, or a release over browser chrome —
+   * fires `dragend` and no `drop` at all, so it changes nothing. That is
+   * why the unassign lives here and not in onDocDragEnd.
+   */
+  function onDocDrop(e) {
+    roleUnseatState.armed = false;
+    if (store.state.session.isSpectator) return;
+    if (!isSeatDrag(e) || ownsDrop(e)) return;
+    const from = e.dataTransfer.getData("golem/from");
+    if (from === "") return;
+    const player = store.state.players.players[Number(from)];
+    if (!player || !player.role || !player.role.id) return;
+    e.preventDefault();
+    store.commit("players/update", {
+      player,
+      property: "role",
+      value: {},
+    });
+  }
+
+  /** Every drag ends here, dropped or cancelled — the highlight goes out
+   *  and nothing else happens. */
+  function onDocDragEnd() {
+    roleUnseatState.armed = false;
+  }
+
+  document.addEventListener("dragover", onDocDragOver);
+  document.addEventListener("drop", onDocDrop);
+  document.addEventListener("dragend", onDocDragEnd);
+}

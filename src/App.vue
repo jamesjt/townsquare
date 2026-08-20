@@ -494,6 +494,9 @@ import grimoireOpen from "./assets/grimoire-open.png";
 // to their store — their game, their branding, unaltered.
 import tpiLogo from "./assets/tpi-logo.png";
 import { COINS, coinChoice, applyCoin } from "./golem/coinArt";
+// FT-949: the drop-outside-to-unseat target, installed once here so it works
+// for the whole session — see the module for why it moved out of RoleTray.
+import { installRoleUnseat } from "./golem/roleUnseat";
 const coinThumbs = require.context("./assets/coins", false, /.png$/);
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
@@ -785,6 +788,9 @@ export default {
     // element has earned its autoplay credit long before there is a summons to
     // play. Costs nothing until something is clicked; see golem/callBack.js.
     armCallBackAudio();
+    // FT-949: the seat-unassign drop target — for the whole session, not just
+    // while the build panel is up. See golem/roleUnseat.js.
+    installRoleUnseat(this.$store);
     // (The legacy webkit blood scrollbar — the --sb-trail writer and its
     // droplet spawner — was KILLED 2026-08-17 by user order. The only blood
     // scrollbar is the v-blood-scroll overlay directive.)
