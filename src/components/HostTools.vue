@@ -65,7 +65,9 @@
          because the disc folds the visible copy away for room (see the styles)
          and the number must stay reachable there -->
     <div class="row" :title="seatsHint">
-      <span class="label">Seats</span>
+      <span class="label">
+        <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
+      </span>
       <!-- the number is a SCRUBBER: drag it sideways to set the count
            (user call — the +/- pair retired). FT-874: extracted into
            NumberScrub so the night sheet's own number fields run the SAME
@@ -145,7 +147,23 @@
     <!-- the SHARED script picker (user call): pick right here, with the
          script's OWN art on the trigger; the Almanac card opens the forge -->
     <div class="row">
-      <span class="label">Script</span>
+      <span class="label">
+        <!-- ui-script.png is the SAME file the top strip's own script door
+             wears (Menu.vue) — not a new asset. It bakes flat neutral grey
+             (mean rgb ~101,101,101) where seat/role/nightcheck bake warm
+             (~154,146,133), the recipe every other row mark in the app
+             converges on independently. ui-script.png is used elsewhere
+             (Menu.vue) so it is not re-baked; `.ht-script-mark`'s filter
+             warms THIS instance only, tuned against the live render to land
+             within ~2 units of the warm family's own mean RGB — see the
+             sampling rig, claude_temp_test/2026-08-19-ft936-sample/. -->
+        <img
+          class="row-mark ht-script-mark"
+          :src="uiScript"
+          alt="Script"
+          title="Script"
+        />
+      </span>
       <ScriptPicker
         class="ht-script-picker"
         :cards="scriptCards"
@@ -156,7 +174,9 @@
 
     <!-- FT-854: the role DRAWER replaced the overlay -->
     <div class="row">
-      <span class="label">Roles</span>
+      <span class="label">
+        <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
+      </span>
       <span class="value" @click="toggleModal('roleDrawer')">
         {{ rolesAssigned }} / {{ players.length }} assigned
       </span>
@@ -213,6 +233,15 @@ import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
 import grimoireClosed from "../assets/grimoire-cover.png";
+// FT-936: the row labels wear marks instead of words (user call: "lets use
+// icon for those, the chair icon for seats, Script icon for script... a
+// player coin is good for the roles"). uiScript is the SAME file Menu.vue's
+// top strip already wears for the script door — not a new asset; see the
+// template note on `.ht-script-mark` for why this one instance carries an
+// extra filter.
+import uiSeat from "../assets/ui-seat.png";
+import uiRole from "../assets/ui-role.png";
+import uiScript from "../assets/ui-script.png";
 // DEV shift-Start (2026-08-19): the same transient hint EditionModal, Menu and
 // EndGameOverlay use to say something when a click can't do what it looks
 // like it should — used below so a shift-click that genuinely can't proceed
@@ -254,6 +283,10 @@ export default {
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
+      // FT-936: the row-mark art
+      uiSeat,
+      uiRole,
+      uiScript,
       // FT-847: owned-town rename state.
       renaming: false,
       renameDraft: "",
@@ -821,10 +854,38 @@ export default {
     gap: 14px;
     min-height: 34px;
 
+    // FT-936: A MARK, NOT A WORD (user call: icons instead of text labels).
+    // 55px was sized for the word "Seats"/"Script"/"Roles"; a 22px mark needs
+    // far less, and the freed width is pure slack for the row (never a cost —
+    // every wrap threshold documented elsewhere in this file assumed the wider
+    // box). Left-aligned, same edge the text always sat on.
     .label {
       opacity: 0.7;
-      width: 55px;
-      text-align: left;
+      width: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    // THE MARK ITSELF. Sized and drop-shadowed like `.team-glyph` two rows
+    // down — the one image already living inline in a row in this file — so
+    // the new marks read as kin to it rather than inventing a second recipe.
+    .row-mark {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    }
+    // THE SCRIPT MARK IS THE ONE ASSET THAT DOES NOT BAKE WARM (see the
+    // template note by its <img>). ui-script.png is shared with Menu.vue's
+    // top strip, so it is not re-baked; this filter warms ONLY this instance,
+    // tuned against the live render (sepia/saturate/hue-rotate/contrast) to
+    // land its mean opaque RGB within ~2 units of the warm family's own
+    // (154, 146, 133) — close enough that the row reads as one set rather
+    // than three warm marks and one cool outlier.
+    .ht-script-mark {
+      filter: sepia(0.5) saturate(2.5) hue-rotate(-5deg) brightness(1.9)
+        contrast(0.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
     }
     .stepper {
       display: flex;
@@ -969,10 +1030,21 @@ export default {
     opacity: 0.4;
     cursor: not-allowed;
 
+    // FT-938 (user call: "let's make the border and text purple when it is
+    // active"). Was `border-color: #400` (blood) with the default white text
+    // — the button's only signal that it could be pressed was full opacity.
+    // PURPLE, reusing controls.scss's own tokens rather than inventing a
+    // third recipe: `$control-edge-hover` IS the grimoire's edge (this same
+    // file already reads it for every plated control's hover), and #f4ecff is
+    // the night checklist's own finish-button text — the app's other primary
+    // button that goes purple when it's the obvious next step
+    // (NightSheet.vue's `.bottom.ready`). Purple is the storyteller's chrome
+    // throughout; this is that chrome on the one button here that earns it.
     &.ready {
       opacity: 1;
       cursor: pointer;
-      border-color: #400;
+      border-color: $control-edge-hover;
+      color: #f4ecff;
       &:hover {
         color: red;
       }
@@ -1095,7 +1167,32 @@ export default {
       // box, so the ink at the corner of a full row is transparent; measured
       // against the tile's own ink, the widest row still clears the rim by
       // 29.6px at the floor and 59.1px at 1920x1080.
-      flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) + 22px);
+      //
+      // ── RE-MEASURED, 22px -> 26px (FT-938, user call: "a little taller… "
+      // and "move the start game button down a bit more to make room") ─────
+      // Re-measured against the CURRENT build rather than reusing the table
+      // above — Width is baked at 18px now (it was mid-bake when +22 was
+      // chosen) and the ellipse math the button's clearance actually wants is
+      // in the rig below, not the circle approximation the old table used.
+      //
+      // THE FLOOR IS STILL THE BINDING CASE, and it is thin: at 1642x780 the
+      // Start button's bottom corners clear the disc's ELLIPSE (not a circle
+      // — the plate is 510x474 there, not square) by +6.5px before this
+      // change. Every pixel this constant grows moves the button's bottom
+      // edge down by the same pixel (the mixin's own translate is untouched;
+      // the room comes out of the flex basis, same argument as the table
+      // above) and costs very close to a pixel of that clearance. +4px was
+      // the number that kept a real margin (+2.7px, in the same range the
+      // table above already shipped at other sizes) rather than shaving it to
+      // nothing:
+      //
+      //                    clearance (ellipse eq., +px = inside)
+      //   1642x780 floor     +6.5  ->  +2.7
+      //   1920x1080           — ample headroom there; not the binding case
+      //
+      // (Rig: claude_temp_test/2026-08-19-ft936-measure.mjs — run against a
+      // built dist, not dev-server, so the hash in the proof matches.)
+      flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) + 26px);
       display: flex;
       flex-direction: column;
       // without this the band's automatic minimum is its content's height and
@@ -1166,7 +1263,23 @@ export default {
       // Below it the label wraps, which is the one thing a primary button must
       // not do — so the width is a `max()`, not a bare fraction, and at the
       // smallest disc it is the floor that answers.
-      width: max(150px, 0.62 * var(--fd-r));
+      //
+      // FIXED (FT-938): this read `--fd-r`, the VERTICAL radius — faceDisc.scss
+      // names the bug itself, next to `face-disc-foot`: "the read wants
+      // `--fd-rx` whenever that button is next opened." It is now open.
+      //
+      // THE COEFFICIENT MOVED WITH IT, 0.62 -> 0.583, so the fix reads as a
+      // correction rather than a resize: solved from the live numbers so
+      // `0.62 * fd-r` and `0.583 * fd-rx` compute the SAME 176.4px at
+      // 1920x1080, the size this file's own tables already use as their
+      // benchmark. `fd-rx` is `fd-r` plus a flat 18px, not a multiple of it,
+      // so the two formulas only agree exactly at that one solved size — off
+      // it the delta is a few px (under 5 across the whole disc range,
+      // measured), which is a correction's rounding, not a second resize. At
+      // the floor the formula was never binding anyway (150px, the label's
+      // own floor, beats either expression there), so nothing moves at the
+      // one size this pass's clearance budget is tight.
+      width: max(150px, 0.583 * var(--fd-rx));
 
       // NO TOP MARGIN HERE (the mixin's `margin: 10px 0 0`, overridden). It
       // was a gap between the band and the button, and the mixin's own

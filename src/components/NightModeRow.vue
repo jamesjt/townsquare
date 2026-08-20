@@ -18,8 +18,19 @@
     <div class="nm-row">
       <!-- "Night" alone did not say what the switch DOES (user call
            2026-08-18). It names the thing it turns on — the checklist and its
-           log — rather than describing itself as a control. -->
-      <span class="label">Night checklist</span>
+           log — rather than describing itself as a control.
+           FT-936 (user call): a mark instead of the word — a full moon with
+           the check knocked out to transparency, baked to the same warm
+           recipe as the Seats/Roles marks (mean rgb ~154,146,133; see
+           HostTools.vue's `.row-mark` for the family this joins). -->
+      <span class="label">
+        <img
+          class="row-mark"
+          :src="uiNightcheck"
+          alt="Night checklist"
+          title="Night checklist"
+        />
+      </span>
       <span class="nm-controls">
         <span class="nm-seg" role="radiogroup" aria-label="Night sheet visibility">
           <button
@@ -78,6 +89,9 @@ import {
   CHECK_LABELS,
   CHECK_TITLES
 } from "../golem/nightLog";
+// FT-936: the row label's mark — a full moon, the check knocked out to
+// transparency.
+import uiNightcheck from "../assets/ui-nightcheck.png";
 
 export default {
   name: "NightModeRow",
@@ -88,7 +102,8 @@ export default {
       hints: MODE_HINTS,
       titles: MODE_TITLES,
       checkLabels: CHECK_LABELS,
-      checkTitles: CHECK_TITLES
+      checkTitles: CHECK_TITLES,
+      uiNightcheck
     };
   },
   computed: {
@@ -196,11 +211,27 @@ export default {
   // is a collision the moment anything sits next to the switch. Alignment is
   // unaffected: every label on the panel is left-aligned at the same edge,
   // and none of them depends on where its neighbour's text ends.
+  //
+  // FT-936: THE LABEL IS A MARK NOW, not the 136px-painting word this whole
+  // block above measures against. `flex: 0 0 auto` still holds — a 22px mark
+  // sizes to itself the same way the text did — and every number in the
+  // comment above is now a conservative OVER-estimate of what this row
+  // spends: less width in, more slack for the switch and the chip to share.
   .label {
     opacity: 0.7;
     text-align: left;
     white-space: nowrap;
     flex: 0 0 auto;
+  }
+  // THE MARK ITSELF — HostTools.vue's own `.row-mark` recipe, restated here
+  // because a parent's scoped styles reach a child's ROOT and nothing inside
+  // it (see the template note on why `.nm-row` is restated too).
+  .row-mark {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
 
   // The switch and its enforcement chip, as ONE right-hand group — so the
