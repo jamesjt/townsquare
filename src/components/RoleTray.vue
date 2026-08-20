@@ -351,14 +351,39 @@ $rt-art-lift: $rt-tile * 0.08;
     display: flex;
     flex-direction: column;
     gap: 3px;
-    max-height: 132px;
+    // FT-953 (user: "can we make that a little taller, it is cutting it off
+    // before Start when it could show all of the icons"). 132px was cutting a
+    // full 22-role script (13 townsfolk / 4 outsider / 4 minion / 1 demon —
+    // every official base script) off at 17 of 22, on the RECTANGLE layout
+    // only: the disc's own copy of this rule is overridden to `none` above
+    // (`.host-tools & .rt-rows`) and sized by HostTools' band instead, which
+    // is not this file's constraint to move — its own room is already spent
+    // down to a 2.7px clearance against the arc at its floor (1642x780; see
+    // HostTools.vue's `.ht-body` comment).
+    //
+    // THE RECTANGLE HAD ROOM THE 132px NEVER SPENT. Measured at 1280x800 with
+    // a full 22-role script loaded and nothing dealt (rig:
+    // claude_temp_test/2026-08-19-ft953-measure.mjs): the tray's own content
+    // needs 222px (5 tile-rows — townsfolk wraps to 2 at this width — plus
+    // gaps), while `.host-tools` itself sat at 528px of its own 780px cap
+    // (`calc(100vh - 20px)`) — 252px of slack it was never touching. 230px
+    // (a few px over the measured 222, for rounding) shows the whole standard
+    // script with zero scrolling and still leaves the panel at ~618px, well
+    // inside its own cap.
+    //
+    // A BIGGER CUSTOM SCRIPT STILL SCROLLS, on purpose: the cap is raised
+    // to fit the standard composition, not removed. A 25-role homebrew script
+    // still wraps into more rows than fit and scrolls here rather than
+    // growing the panel into a wall — the original reasoning below is
+    // otherwise unchanged.
+    max-height: 230px;
     overflow-y: auto;
 
-    // ONE scroll, not two. The 132px window is right on a desktop, where the
-    // build panel itself never scrolls. On a portrait phone the panel is a
-    // docked sheet that scrolls already, and a scroller inside a scroller just
-    // hides the demons behind a second gesture with nothing to announce it.
-    // The sheet is the scroller there.
+    // ONE scroll, not two. This window is right on a desktop, where the
+    // build panel itself does not need its own scroll at this height. On a
+    // portrait phone the panel is a docked sheet that scrolls already, and a
+    // scroller inside a scroller just hides the demons behind a second
+    // gesture with nothing to announce it. The sheet is the scroller there.
     @media (pointer: coarse) and (orientation: portrait) {
       max-height: none;
       overflow-y: visible;
