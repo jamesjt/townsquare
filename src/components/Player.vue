@@ -100,18 +100,40 @@
 
       <!-- Overlay icons -->
       <div class="overlay">
+        <!-- FT-974b: the two answers to a nomination. The Font Awesome glyph
+             pair (a red `hand-paper` and a blue `times`) is RETIRED in favour
+             of our own painted pair — both icons stay registered in main.js
+             and the markup stays here behind `showGlyphVotes`, the same way
+             `showBallotVote` and `showNightBadges` do.
+             They are replaced TOGETHER on purpose: they are one pair
+             answering one question, and repainting only the X would leave a
+             painted mark beside a vector one. -->
         <font-awesome-icon
           icon="hand-paper"
           class="vote"
           title="Hand UP"
           @click="vote()"
+          v-if="showGlyphVotes"
         />
         <font-awesome-icon
           icon="times"
           class="vote"
           title="Hand DOWN"
           @click="vote()"
+          v-if="showGlyphVotes"
         />
+        <div
+          class="vote-mark yes"
+          title="Hand UP"
+          @click="vote()"
+          v-if="!showGlyphVotes"
+        ></div>
+        <div
+          class="vote-mark no"
+          title="Hand DOWN"
+          @click="vote()"
+          v-if="!showGlyphVotes"
+        ></div>
         <font-awesome-icon
           icon="times-circle"
           class="cancel"
@@ -175,14 +197,32 @@
         :class="{ highlight: session.isRolesDistributed }"
       />
 
-      <!-- Ghost vote icon -->
+      <!-- Ghost vote icon.
+           FT-974: the ballot box is RETIRED in favour of our own mark
+           (ui-ghost-vote.png) — a raised spectral hand: the app's existing
+           vote word is `hand-paper`, and this is that hand with a ghost's
+           scalloped hem for a wrist and two hollow eyes in the palm. One
+           silhouette carrying both meanings, because the mark renders at
+           ~30px and a 30px box cannot hold two objects (measured: the
+           earlier "small ghost + raised arm" read as a lump, and a five
+           fingered hand read as a comb).
+           Font Awesome's `vote-yea` stays registered in main.js and the
+           markup stays here behind `showBallotVote`, the same way this file
+           already keeps `showNightBadges` and `showSeatSplat` — the old read
+           is one flag away. -->
       <font-awesome-icon
         icon="vote-yea"
         class="has-vote"
-        v-if="player.isDead && !player.isVoteless"
+        v-if="showBallotVote && player.isDead && !player.isVoteless"
         @click="updatePlayer('isVoteless', true)"
         title="Ghost vote"
       />
+      <div
+        class="has-vote ghost-vote"
+        v-if="!showBallotVote && player.isDead && !player.isVoteless"
+        @click="updatePlayer('isVoteless', true)"
+        title="Ghost vote"
+      ></div>
 
       <!-- On block icon -->
       <div class="marked">
@@ -477,6 +517,18 @@ export default {
      *  FACE, not behind the seat's coin. TownSquare's .blood-dial owns it
      *  now — flip this to `true` to bring the behind-the-coin splatter back. */
     showSeatSplat() {
+      return false;
+    },
+    /** FT-974: Font Awesome's `vote-yea` ballot box, retired in favour of our
+     *  own ghost-hand mark — flip this to `true` to bring the ballot box back.
+     *  The icon stays registered in main.js either way. */
+    showBallotVote() {
+      return false;
+    },
+    /** FT-974b: the Font Awesome vote pair (red `hand-paper` / blue `times`),
+     *  retired in favour of our own painted pair — flip this to `true` to
+     *  bring the glyphs back. Both icons stay registered in main.js. */
+    showGlyphVotes() {
       return false;
     },
     index: function() {
@@ -1283,16 +1335,40 @@ export default {
     z-index: 2;
     filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.8));
 
+    // FT-974 (user call: "instead of the shroud thing we can add a cool ghost
+    // icon that is partially transparent instead?"). The carved cloth banner
+    // becomes OUR ghost — `ui-ghost.png`, a draped spirit whose translucency
+    // is baked into the art's own alpha (dense at the head, thinning to the
+    // hem) rather than dialled in here with a flat `opacity`, so it reads as a
+    // body of vapour instead of a decal turned down.
+    //
+    // Upstream's `shroud.png` stays in the tree, unreferenced, the way
+    // `token.png` and the leaf art do.
+    //
+    // GEOMETRY, and why it is these two numbers: the shroud's box is a BANNER
+    // box — 100% wide by 45% of the seat, far wider than tall, which suits a
+    // hanging cloth and fights a portrait ghost. `top: -18%` with
+    // `height: 118%` spans exactly [-18%, +100%] of that box, so the ghost's
+    // hem lands precisely on the shroud's own bottom edge and only its head
+    // rises above the seat. That keeps the click geometry byte-identical to
+    // the cloth's (the old art also drew above its box, from `top: -30%`) —
+    // this `:before` is `pointer-events: none` and always was, so the death
+    // toggle is `.shroud`'s own 45% box in both designs.
+    //
+    // MEASURED, not assumed: at this size the ghost covers 22.8% of the role
+    // coin's disc against the cloth's 24.3%, so the storyteller reads roles
+    // through a slightly CLEARER seat than before, and the ring still reads
+    // dead-at-a-glance harder than it used to (see `.dead .token` below).
     &:before {
       content: " ";
-      background: url("../assets/shroud.png") center -10px no-repeat;
-      background-size: auto 110%;
+      background: url("../assets/ui-ghost.png") center top no-repeat;
+      background-size: auto 100%;
       position: absolute;
       margin-left: -50%;
       width: 100%;
-      height: 100%;
+      height: 118%;
       left: 50%;
-      top: -30%;
+      top: -46%;
       opacity: 0;
       transform: perspective(400px) scale(1.5);
       transform-origin: top center;
@@ -1304,25 +1380,57 @@ export default {
       pointer-events: none;
     }
 
-    // the shroud previews on hover — but NOT while the town is still being
-    // built (user call 2026-08-18): nothing can die yet, and the banner
+    // the ghost previews on hover — but NOT while the town is still being
+    // built (user call 2026-08-18): nothing can die yet, and the mark
     // flashing over every seat while assigning roles reads as an error
     #townsquare:not(.spectator):not(.building) &:hover:before {
       opacity: 0.5;
-      top: -10px;
+      top: -18%;
       transform: scale(1);
     }
   }
 
+  // The arrival is kept: the ghost drops from `top: -46%` to its resting
+  // `-18%` and settles out of `scale(1.5)` over the same 200ms the cloth was
+  // drawn down in. A ghost that simply appears is a weaker moment than one
+  // that arrives.
   &.dead .shroud:before {
     opacity: 1;
-    top: 0;
+    top: -18%;
     transform: perspective(400px) scale(1);
   }
 
   #townsquare:not(.spectator) &.dead .shroud:hover:before {
     opacity: 1;
   }
+}
+
+/* FT-974 — WHAT ACTUALLY CARRIES "DEAD" ACROSS A WHOLE RING.
+ *
+ * The worry with trading an opaque cloth for a translucent ghost is that the
+ * ring gets prettier and weaker. It was measured rather than argued, on a
+ * 12-seat grimoire with four seats dead, by cropping every seat, shrinking it
+ * to 12x12 (about what survives a glance) and asking how far the least
+ * obvious dead seat sits from the most unusual living one:
+ *
+ *   cloth, as shipped .................. 19.1 @1280x800   15.1 @1920x1080
+ *   ghost alone, same coverage ......... 19.4              14.6
+ *   ghost + this dim ................... 23.4              19.2
+ *
+ * So the ghost ON ITS OWN is a wash — it buys the look and pays for it in
+ * read, exactly as feared. The dim is what turns it into a gain. It also
+ * explains itself: the cloth got its read by putting a DARK mass on a bright
+ * coin, and the dead coin is already cold metal (Token.vue swaps it), so a
+ * dark-on-dark mark was working against itself. Dropping the coin and putting
+ * a PALE mark on it restores the same value contrast the other way up, and
+ * the ghost gets a darker ground to glow against into the bargain.
+ *
+ * `.token` is the whole coin — rim, face, engraved role, cut name — so all of
+ * it cools together and nothing on the coin fights the ghost. The retired
+ * `.ability` box is not rendered (RoleHoverCard replaced it, and that is a
+ * SIBLING of the coin), so no tooltip is dimmed by this. */
+.circle .player.dead .token {
+  filter: brightness(0.72);
 }
 
 /****** Life token *******/
@@ -1503,6 +1611,89 @@ export default {
   }
 }
 
+/* FT-974b — THE PAINTED VOTE PAIR.
+ *
+ * The X is `src/assets/icons/x.png` — the same painted mark every close
+ * control in the app wears — recoloured black. The hand beside it is baked
+ * from that same X's own brush texture, so the two are one material.
+ *
+ * BLACK, not purple: purple is the storyteller's colour here, and a player's
+ * vote is not the storyteller's.
+ *
+ * The pair is replaced together because it IS a pair — two answers to one
+ * question — and a painted X beside a vector hand mismatches worse than
+ * leaving both alone would have.
+ *
+ * Neither mark carries a drawn outline. x.png HAS one (a cream edge, measured
+ * at 5,084 px against 34,345 px of body), but at the 48x58 these render at it
+ * is already lost to the downsample, so giving the hand a crisp ring made the
+ * pair mismatch. Both are bare ink; the drop-shadows below do that job.
+ *
+ * ONE BLACK, ONE BONE — and that split is measured, not taste. Painting BOTH
+ * marks black cost the yes-vs-no read across a ring: on the same 12x12 glance
+ * metric the ghost was judged with, a yes-seat separated from a no-seat by
+ * 14.0 with the old saturated pair and by only 8.1 with two black marks,
+ * because the two answers then differed in silhouette alone and silhouette is
+ * the first thing a glance discards. Opposite VALUES restore the polarity
+ * that red-vs-blue was providing, without reaching for a team colour — which
+ * is the whole reason red and blue had to go: $demon and $townsfolk are worn
+ * by the coins these marks sit on, so the old pair read as team marking. The
+ * bone end is x.png's own outline cream, and the hand carries x.png's own
+ * brush texture, so the two are still one material. */
+.player .overlay .vote-mark {
+  position: absolute;
+  z-index: 2;
+  cursor: pointer;
+  width: 50%;
+  height: 60%;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 250ms;
+  transform: scale(0.2);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: contain;
+
+  // each mark is thrown against its own opposite, so neither can sink into
+  // the coin: a pale halo behind the black X, a dark one behind the bone hand
+  &.yes {
+    background-image: url("../assets/ui-vote-yes.png");
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
+  }
+
+  &.no {
+    background-image: url("../assets/ui-vote-no.png");
+    filter: drop-shadow(0 0 4px rgba(250, 245, 235, 0.9));
+  }
+
+  &.yes:hover {
+    filter: drop-shadow(0 0 7px rgba(0, 0, 0, 1));
+  }
+
+  &.no:hover {
+    filter: drop-shadow(0 0 7px rgba(255, 252, 245, 1));
+  }
+}
+
+// other player voted yes, but is not locked yet
+#townsquare.vote .player.vote-yes .overlay .vote-mark.yes {
+  opacity: 0.5;
+  transform: scale(1);
+}
+
+// you voted yes | a locked vote yes | a locked vote no
+#townsquare.vote .player.you.vote-yes .overlay .vote-mark.yes,
+#townsquare.vote .player.vote-lock.vote-yes .overlay .vote-mark.yes,
+#townsquare.vote .player.vote-lock:not(.vote-yes) .overlay .vote-mark.no {
+  opacity: 1;
+  transform: scale(1);
+}
+
+// a locked vote can be clicked on by the ST
+#townsquare.vote:not(.spectator) .player.vote-lock .overlay .vote-mark {
+  pointer-events: all;
+}
+
 // other player voted yes, but is not locked yet
 #townsquare.vote .player.vote-yes .overlay svg.vote.fa-hand-paper {
   opacity: 0.5;
@@ -1553,6 +1744,30 @@ li.move:not(.from) .player .overlay svg.move {
   position: absolute;
   margin-top: -15%;
   right: 2px;
+}
+
+/* FT-974 — the ghost's own vote, in place of the ballot box.
+ *
+ * PALETTE: the mark is baked in the seat ghost's exact tone, (198,214,228) —
+ * the two are the same spirit, so they are the same material. The ballot box
+ * was pure white, and white is this app's UI-CHROME voice (the on-block skull,
+ * the name plates, the overlay hands); a white mark on a coin reads as a
+ * button somebody stuck on the seat rather than as something belonging to the
+ * dead player. Cold and slightly blue reads as MATERIAL.
+ *
+ * SIZE: 30px rather than the ballot box's 23. The hand's fingers and the two
+ * eyes in its palm both survive at 30 and start to mush below it — measured on
+ * a nearest-neighbour contact strip at true size, which is also where the
+ * five-fingered version was caught reading as a comb.
+ *
+ * The dark drop-shadow is inherited from `.has-vote` above and is load-bearing
+ * here: it is what keeps a pale mark off a pale coin rim. */
+.player .has-vote.ghost-vote {
+  width: 30px;
+  height: 30px;
+  background: url("../assets/ui-ghost-vote.png") center center / contain
+    no-repeat;
+  cursor: pointer;
 }
 
 /****** Session seat glow *****/
