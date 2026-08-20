@@ -53,6 +53,55 @@ export function editKeyFor(id) {
   return entry && entry.editKey;
 }
 
+/**
+ * FORGET (FT-970) — drop a script from THIS BROWSER'S shelf. Purely local: the
+ * script stays on the server, the share link keeps working, and anyone else's
+ * shelf is untouched. This is the one that clears clutter, and it is available
+ * for every entry, including scripts this browser merely viewed.
+ *
+ * It is not free for a script you OWN: the edit key lives nowhere else, so
+ * forgetting one discards the only proof of ownership this browser holds. The
+ * script becomes read-only to you — saving it would fork instead. That is why
+ * the control asks twice, and why "Export my script links" writes the keys out.
+ */
+export function forget(id) {
+  localStorage.setItem(
+    SHELF_KEY,
+    JSON.stringify(getRecents().filter(e => e.id !== id))
+  );
+}
+
+/**
+ * DELETE FOR EVERYONE (FT-970) — destroy the script on the server. Needs the
+ * edit key, so it is only ever possible for a script this browser created; the
+ * server refuses the request outright without it.
+ *
+ * A 404 counts as success. The goal state is "this script is not on the
+ * server", and a shelf entry pointing at a row somebody already deleted has
+ * simply gone stale — reporting that as a failure would strand the entry on the
+ * shelf with no way to clear it.
+ *
+ * The shelf entry goes either way: keeping a key for a row that no longer
+ * exists serves nothing.
+ */
+export async function deleteScript(id) {
+  const key = editKeyFor(id);
+  if (!key) {
+    throw Object.assign(new Error("this script is not yours to delete"), {
+      code: "not-yours"
+    });
+  }
+  const res = await fetch(`${API}/${id}`, {
+    method: "DELETE",
+    headers: { "x-botc-edit-key": key }
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`delete failed (${res.status})`);
+  }
+  forget(id);
+  return { alreadyGone: res.status === 404 };
+}
+
 /** A plain-text dump of the shelf for "export my links" (clipboard-bound). */
 export function exportLinks() {
   return getRecents()

@@ -28,11 +28,16 @@
           </h3>
         </div>
         <div class="wb-row2">
+          <!-- `manage` (FT-970) turns on the per-card shelf-remove ×. Only the
+               bench asks for it: the host panel and the intro pass nothing and
+               get the picker exactly as it always was. -->
           <ScriptPicker
             class="wb-script-picker"
             :cards="wbScriptCards"
             :picked-id="wbPickedId"
+            manage
             @pick="onScriptPick"
+            @forget="forgetScript"
           />
           <!-- ONE plus (user call): everything script-creation lives in the
                New-script overlay it opens — name, icon, and a paste/upload
@@ -41,6 +46,22 @@
           <div class="wb-actions" v-if="!smallScreen">
             <div class="button wb-plus" title="New script" @click="newScript">
               <font-awesome-icon icon="plus" />
+            </div>
+            <!-- DELETE FOR EVERYONE (FT-970) lives HERE, off the card, on
+                 purpose. It acts on the ONE script currently loaded — the one
+                 whose contents are on screen to be looked at before it goes —
+                 and it appears only when this browser holds that script's edit
+                 key, because without the key the server refuses anyway.
+                 The card's × is the casual, local, reversible-by-relinking
+                 one; this is the one that reaches everybody you shared with,
+                 so it is a deliberate trip to the toolbar and a named panel. -->
+            <div
+              class="button wb-destroy"
+              v-if="canDestroyLoaded"
+              title="Delete this script for everyone"
+              @click="askDestroy"
+            >
+              <font-awesome-icon icon="trash-alt" />
             </div>
           </div>
         </div>
@@ -632,6 +653,38 @@
         </div>
       </div>
 
+      <!-- DELETE FOR EVERYONE — the confirm (FT-970). Same inline-panel shape
+           as the two above and for the same reason: a native confirm() comes
+           back false unseen in a driven pane or an embed, and a destructive
+           control that silently does nothing is worse than no control.
+
+           This one wears BLOOD where the fork panel wears purple. The fork
+           panel is constructive — it makes a thing. This ends one, for people
+           who are not in the room. The note names both halves of the cost:
+           the link dies for everyone, and the copy on this browser goes too.
+
+           Cancel abandons the delete, not the work; the script stays loaded
+           and unchanged either way. -->
+      <div class="role-form fork-form destroy-form" v-if="destroyForm">
+        <h3>Delete “{{ destroyForm.name }}” for everyone?</h3>
+        <p class="fk-note">
+          This removes the script from the server. The share link stops working
+          for everyone you sent it to, and it leaves this browser as well. It
+          cannot be undone. Copies anyone forked from it keep working — they
+          just stop crediting this one as their source.
+        </p>
+        <div class="role-error" v-if="destroyError">{{ destroyError }}</div>
+        <div class="fk-acts">
+          <div class="button" @click="cancelDestroy">
+            <font-awesome-icon icon="times" /> Cancel
+          </div>
+          <div class="button fk-go destroy-go" @click="confirmDestroy">
+            <font-awesome-icon icon="exclamation-triangle" />
+            Delete for everyone
+          </div>
+        </div>
+      </div>
+
       <!-- the shelf's hover card: icon + bold name + ability (the almanac
            read), replacing the native title tooltip. FT-858: it IS
            RoleHoverCard now — the same component the seats and the grimoire
@@ -877,6 +930,12 @@ export default {
       // okText, onOk }; null when nothing is being asked.
       askForm: null,
       askError: "",
+      // FT-970: the delete-for-everyone confirm — { id, name }, null when
+      // nothing is being asked. Separate from askForm on purpose: that one is
+      // an input panel with a purple go-button, this one is a blood-red
+      // question with no field to fill in.
+      destroyForm: null,
+      destroyError: "",
       // the forge's paste-to-fill box
       roleJsonText: "",
       // FT-856 slice B: the icon tabs — official borrow vs the new-icon
@@ -993,6 +1052,16 @@ export default {
     willFork() {
       return !!this.vaultSourceId && !vault.editKeyFor(this.vaultSourceId);
     },
+    /** FT-970: can the loaded script be destroyed for everyone? Only with its
+     *  edit key — without one the server refuses, so offering the button would
+     *  be offering a guaranteed error. `recents` is in the expression so the
+     *  button disappears the moment the key is forgotten. */
+    canDestroyLoaded() {
+      if (!this.vaultSourceId) return false;
+      return this.recents.some(
+        e => e.id === this.vaultSourceId && !!e.editKey
+      );
+    },
     /** The forge header's drop-cap N, in the caps' font (Almanac-style). */
     forgeCap() {
       const key = resolvedCapKey();
@@ -1054,7 +1123,15 @@ export default {
         blurb: this.ncMap[entry.id]
           ? "Outside the rules — still playable."
           : "",
-        source
+        source,
+        // FT-970: every SHELF card can be forgotten — that is a local edit and
+        // it is the answer to a grid full of test clutter. The officials above
+        // are not on the shelf and carry no flag, so they cannot be.
+        forgettable: true,
+        // ...and whether this browser holds the key, which is the whole
+        // difference between "you lose your copy of the link" and "you lose
+        // the only way you will ever edit this again".
+        owned: !!entry.editKey
       });
       this.myScripts.forEach(e => cards.push(vaultCard(e, "yours")));
       this.viewedScripts.forEach(e => cards.push(vaultCard(e, "viewed")));
@@ -1404,6 +1481,65 @@ export default {
       }
       this.askForm = null;
       this.askError = "";
+    },
+    // ── FT-970: the two removals ─────────────────────────────────────────
+    /**
+     * FORGET — the picker's card ×. Local only: the entry leaves this
+     * browser's shelf and the script stays on the server untouched, which is
+     * what clears a grid full of test clutter without reaching anybody else.
+     *
+     * The picker already made the user click twice, so there is no second ask
+     * here. The loaded script is deliberately NOT unloaded if it is the one
+     * forgotten — the work on the bench is not the shelf's to throw away. It
+     * does become fork-on-save, since the key went with the entry, and
+     * `willFork` already tells the save path exactly that.
+     */
+    forgetScript(card) {
+      vault.forget(card.id);
+      this.recents = vault.getRecents();
+    },
+    /** Open the delete-for-everyone confirm for the LOADED script. */
+    askDestroy() {
+      if (!this.canDestroyLoaded) return;
+      const entry = this.recents.find(e => e.id === this.vaultSourceId);
+      this.destroyError = "";
+      this.destroyForm = {
+        id: this.vaultSourceId,
+        name:
+          (entry && entry.name) ||
+          (this.$store.state.edition || {}).name ||
+          "this script"
+      };
+    },
+    cancelDestroy() {
+      this.destroyForm = null;
+      this.destroyError = "";
+    },
+    /**
+     * Destroy it. The server is the one that decides — this browser sends the
+     * key it holds and a 403 means the key is no longer good, which is worth
+     * saying rather than swallowing.
+     *
+     * On success the script is gone everywhere, so the bench stops claiming it
+     * came from the vault: `vaultSourceId` clears, and the next save creates a
+     * new script rather than trying to update a row that is not there.
+     */
+    async confirmDestroy() {
+      const f = this.destroyForm;
+      if (!f) return;
+      this.destroyError = "";
+      try {
+        await vault.deleteScript(f.id);
+      } catch (e) {
+        this.destroyError =
+          e && e.code === "not-yours"
+            ? "This browser no longer holds the key for that script."
+            : `Could not delete it — ${e.message}`;
+        return;
+      }
+      this.recents = vault.getRecents();
+      if (this.vaultSourceId === f.id) this.vaultSourceId = null;
+      this.destroyForm = null;
     },
     promptVaultLoad() {
       this.openAsk({
@@ -2827,6 +2963,31 @@ $team-colors: (
       border-color: rgba(150, 130, 175, 0.85);
     }
   }
+  // FT-970: delete-for-everyone, sitting beside the plus in the same 26px
+  // square. It is the ONE control on this bench that wears blood at rest:
+  // the plus makes a script, this ends one for everybody who has the link,
+  // and the pair must not read as two shades of the same act. Three classes
+  // for the same specificity reason the plus documents above.
+  .button.wb-destroy {
+    padding: 0 !important;
+    width: 26px;
+    height: 26px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    color: rgba(200, 70, 70, 0.75);
+    svg {
+      width: 14px;
+      height: 14px;
+      display: block;
+      margin: 0;
+    }
+    &:hover {
+      color: #ff7070;
+      border-color: #a01414;
+      background: rgba(160, 20, 20, 0.28);
+    }
+  }
   .ns-start {
     margin-bottom: 10px;
     label {
@@ -3512,7 +3673,27 @@ $team-colors: (
           color: white;
         }
       }
+      // ...and the delete wears the blood, overriding it (FT-970). The purple
+      // means "this makes something"; nothing on this bench should be able to
+      // destroy a script for other people while wearing the constructive
+      // colour. Same shape, opposite signal — Menu's own danger button is the
+      // reference, down to the #a01414 edge.
+      .fk-go.destroy-go {
+        border-color: #a01414;
+        background: rgba(160, 20, 20, 0.32);
+        color: #ff9a9a;
+        &:hover {
+          background: rgba(160, 20, 20, 0.55);
+          color: white;
+        }
+      }
     }
+  }
+
+  // FT-970: the delete confirm's own heading goes blood, so the panel is
+  // recognisable as the dangerous one before any of its words are read.
+  .destroy-form h3 {
+    color: #ff9a9a;
   }
 
   // FT-854 r9: the New-script overlay, rebuilt around the icon WELL.

@@ -29,6 +29,23 @@
       >
         <img class="icon" :src="c.icon" alt="" />
         <span class="cname">{{ c.name }}</span>
+        <!-- FORGET (FT-970) — the shelf-only remove, on the card because the
+             card IS where the clutter is. Two-click arm, the pill Leave's
+             idiom (App.vue): first click asks, second click does it, 3s and it
+             forgets it asked. Never a native confirm() — those come back false
+             unseen in a driven pane and the control reads as dead.
+             It does NOT touch the server; the destructive one lives off the
+             card entirely, so a slip here can never destroy anyone's script. -->
+        <span
+          v-if="manage && c.forgettable"
+          class="forget"
+          :class="{ armed: armedId === c.id }"
+          :title="forgetTitle(c)"
+          @click.stop="forget(c)"
+          @mouseleave="disarm"
+        >
+          <font-awesome-icon :icon="armedId === c.id ? 'question' : 'times'" />
+        </span>
       </div>
     </div>
     <div class="card-tip" ref="cardTip" v-if="tipCard" :style="tipStyle">
@@ -43,15 +60,24 @@ import { edCustom } from "../golem/editionArt";
 
 export default {
   props: {
-    // [{ id, name, icon, blurb, source }]
+    // [{ id, name, icon, blurb, source, forgettable?, owned? }]
     cards: { type: Array, required: true },
     pickedId: { type: String, default: "" },
     // What the closed trigger shows when pickedId matches no card.
-    placeholder: { type: String, default: "Choose a script…" }
+    placeholder: { type: String, default: "Choose a script…" },
+    // FT-970: opt-in per consumer. Off, this is exactly the picker it always
+    // was — the host panel and the intro pass nothing and gain no controls.
+    // On, cards flagged `forgettable` wear the shelf-remove ×.
+    manage: { type: Boolean, default: false }
   },
   data() {
     return {
       open: false,
+      // FT-970: which card's forget is armed for its second click, and the
+      // timer that gives up on it. Component-local like the pill's own arm —
+      // this is about one button's feel, not about anything shared.
+      armedId: null,
+      armTimer: null,
       // Hover/keyboard-focus tooltip. tipCardId is null when nothing is
       // showing; tipStyle is computed against the card's rect so the tip
       // never clips inside the grid's scroll container.
@@ -75,10 +101,38 @@ export default {
   },
   beforeDestroy() {
     this.close();
+    clearTimeout(this.armTimer);
   },
   methods: {
     toggle() {
       this.open ? this.close() : this.doOpen();
+    },
+    /** FT-970: says what the click will cost, which differs by card. Losing a
+     *  key you hold is the case worth naming — nothing else can recover it. */
+    forgetTitle(card) {
+      if (this.armedId === card.id) return "Click again to remove it";
+      return card.owned
+        ? "Remove from this browser — you would lose the edit key, and the script stays online for everyone else"
+        : "Remove from this browser — the script itself is untouched";
+    },
+    /** Two-click arm, then emit. The parent owns the shelf; the picker only
+     *  reports that the user asked twice. */
+    forget(card) {
+      if (this.armedId !== card.id) {
+        clearTimeout(this.armTimer);
+        this.armedId = card.id;
+        this.armTimer = setTimeout(() => {
+          this.armedId = null;
+        }, 3000);
+        return;
+      }
+      clearTimeout(this.armTimer);
+      this.armedId = null;
+      this.$emit("forget", card);
+    },
+    disarm() {
+      clearTimeout(this.armTimer);
+      this.armedId = null;
     },
     doOpen() {
       this.open = true;
@@ -90,6 +144,9 @@ export default {
     close() {
       this.open = false;
       this.hideTip();
+      // a half-armed forget must never survive the grid closing and be waiting,
+      // already armed, the next time the same card is clicked
+      this.disarm();
       document.removeEventListener("mousedown", this.onDocDown);
       document.removeEventListener("keydown", this.onDocKey);
     },
@@ -232,6 +289,7 @@ export default {
     }
 
     .card {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -243,6 +301,48 @@ export default {
       cursor: pointer;
       text-align: center;
       outline: none;
+
+      // FT-970: the shelf-remove ×. Deliberately NOT blood — in this fork red
+      // means "chosen" on a plated control and "ending or leaving" in the
+      // pill, and this button ends nothing for anybody but the person
+      // clicking it. It hovers PURPLE, the same call FT-931 made for Play
+      // again: removing is not by itself a warning.
+      //
+      // Armed it goes amber and swaps × for ?, one step short of the blood the
+      // delete-for-everyone panel wears. The two actions must not look alike:
+      // this one is a shelf edit, that one reaches other people.
+      .forget {
+        position: absolute;
+        top: 2px;
+        right: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        font-size: 11px;
+        opacity: 0;
+        color: #b9b9b9;
+        transition: opacity 120ms, color 120ms;
+
+        &:hover {
+          color: $control-edge-hover;
+          background: rgba(0, 0, 0, 0.45);
+        }
+        &.armed {
+          opacity: 1;
+          color: #e5a33a;
+          background: rgba(0, 0, 0, 0.55);
+        }
+      }
+      // revealed by hovering or keyboard-focusing the card it belongs to, so
+      // a resting grid stays the icon wall it was designed to be
+      &:hover .forget,
+      &:focus .forget,
+      &:focus-within .forget {
+        opacity: 0.75;
+      }
 
       .icon {
         width: 56px;
