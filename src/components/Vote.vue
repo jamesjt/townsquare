@@ -125,11 +125,28 @@ export default {
     nominator: function() {
       return this.players[this.session.nomination[0]];
     },
+    /**
+     * OFF BY ONE SEAT until 2026-08-20 (user report, with the right diagnosis:
+     * "possibly because we moved the 1 position to be where it is on a clock
+     * instead of at the 12 position").
+     *
+     * The ring puts seat `i` at `((i + 1) * 360) / count` — see TownSquare's
+     * own placement — so seat 0 sits ONE STEP PAST twelve o'clock, the way a
+     * clock's 1 does. These arrows were computing `(i / count) * 360`, which
+     * is the same ring MINUS that step, so every arrow pointed at the seat
+     * before its target. It was invisible while both were wrong together and
+     * became visible the moment anyone checked one against a real seat.
+     *
+     * `+ 1` here rather than a shared helper: the ring's own placement is CSS
+     * in the on-circle mixin and this is an inline transform, so there is no
+     * single expression the two could share without inventing one. The two
+     * sites are named in each other's comments instead.
+     */
     nominatorStyle: function() {
       const players = this.players.length;
       const nomination = this.session.nomination[0];
       return {
-        transform: `rotate(${Math.round((nomination / players) * 360)}deg)`,
+        transform: `rotate(${Math.round(((nomination + 1) / players) * 360)}deg)`,
         transitionDuration: this.session.votingSpeed - 100 + "ms"
       };
     },
@@ -140,7 +157,10 @@ export default {
       const players = this.players.length;
       const nomination = this.session.nomination[1];
       const lock = this.session.lockedVote;
-      const rotation = (360 * (nomination + Math.min(lock, players))) / players;
+      // `+ 1` for the ring's own offset (see nominatorStyle above); `lock` is
+      // how far the vote has swept past the nominee, and is unrelated.
+      const rotation =
+        (360 * (nomination + 1 + Math.min(lock, players))) / players;
       return {
         transform: `rotate(${Math.round(rotation)}deg)`,
         transitionDuration: this.session.votingSpeed - 100 + "ms"
