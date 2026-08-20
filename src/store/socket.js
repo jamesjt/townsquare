@@ -334,13 +334,23 @@ class LiveSession {
    */
   sendGamestate(playerId = "", isLightweight = false) {
     if (this._isSpectator) return;
+    const { session } = this._store.state;
     this._gamestate = this._store.state.players.players.map((player) => ({
       name: player.name,
       id: player.id,
       isDead: player.isDead,
       isVoteless: player.isVoteless,
       pronouns: player.pronouns,
-      ...(player.role && player.role.team === "traveler"
+      // FT-931: THE REVEAL'S DATA. Once the town has ENDED there is no
+      // belief left to protect — every seat's TRUE character rides the
+      // ordinary gamestate sync now, on the exact field travelers have
+      // always carried over it (roleId). The receiving end
+      // (_updateGamestate, below) already applies ANY roleId it finds —
+      // that logic was never actually traveler-specific, only the SENDER
+      // was — so this is the only change the reveal needs on the wire.
+      ...(session.isEnded
+        ? { roleId: (player.role && player.role.id) || "" }
+        : player.role && player.role.team === "traveler"
         ? { roleId: player.role.id }
         : {}),
     }));
@@ -350,7 +360,7 @@ class LiveSession {
         isLightweight,
       });
     } else {
-      const { session, grimoire } = this._store.state;
+      const { grimoire } = this._store.state;
       const { fabled } = this._store.state.players;
       this.sendEdition(playerId);
       this._sendDirect(playerId, "gs", {
@@ -369,6 +379,14 @@ class LiveSession {
         isVoteInProgress: session.isVoteInProgress,
         markedPlayer: session.markedPlayer,
         fabled: fabled.map((f) => (f.isCustom ? f : { id: f.id })),
+        // FT-931: the ended flag + the result. A joining or reconnecting
+        // client learns the town is over from this same full sync — the
+        // reveal's role data travels in `gamestate` above, so the two
+        // arrive together, exactly as they do for a client already
+        // connected when the game ends (see the "endGame"/"clearEnded"
+        // cases in the mutation subscriber below).
+        isEnded: session.isEnded,
+        winningTeam: session.winningTeam,
         ...(session.nomination ? { votes: session.votes } : {}),
       });
       // 2026-08-19: a full sync is what a joining or RECONNECTING client gets,
@@ -401,6 +419,10 @@ class LiveSession {
       isVoteInProgress,
       markedPlayer,
       fabled,
+      // FT-931: the ended flag + result — see the matching fields sendGamestate
+      // now sends, above.
+      isEnded,
+      winningTeam,
     } = data;
     const players = this._store.state.players.players;
     // adjust number of players
@@ -454,6 +476,32 @@ class LiveSession {
       // nightDay leaves the client's own count alone rather than zeroing it.
       if (typeof nightDay === "number") {
         this._store.commit("night/setDay", nightDay);
+      }
+      // FT-931: apply the ended state exactly as the host set it — but only
+      // ever UN-end on an explicit "not ended" from the host (the `else if`
+      // guard). A resync during a perfectly ordinary, never-ended game must
+      // never touch `grimoire.isPublic`: that flag is also a storyteller's
+      // own local R-toggle, and committing `clearEnded` on every sync that
+      // simply has no opinion (isEnded undefined/false because the game
+      // never ended) would stomp it on every reconnect. This only fires on a
+      // genuine transition either way.
+      if (isEnded) {
+        this._store.commit("endGame", winningTeam);
+      } else if (this._store.state.session.isEnded) {
+        this._store.commit("clearEnded");
+        // FT-931: PLAY AGAIN, retracting the reveal on THIS client.
+        //
+        // The gamestate loop above only ever clears a role when the incoming
+        // roleId is empty AND the seat is currently a traveler — that rule
+        // predates this feature and is right for what it was built for
+        // (a traveler un-made mid-game), but a revealed NON-traveler role
+        // never existed on a player's client before the ended-state reveal,
+        // so nothing before now has ever had to retract one. Dispatching the
+        // SAME action the host's own Play again uses (players/clearRoles)
+        // reuses its existing spectator branch — "wipe every non-traveler
+        // role's local knowledge, keep the seat" — rather than teaching the
+        // generic sync loop a second, narrower clearing rule.
+        this._store.dispatch("players/clearRoles");
       }
       this._store.commit("session/setVoteHistoryAllowed", isVoteHistoryAllowed);
       this._store.commit("session/nomination", {
@@ -1231,6 +1279,22 @@ export default (store) => {
         break;
       case "toggleNight":
         session.setIsNight();
+        break;
+      // FT-931: THE TOWN ENDS / PLAY AGAIN. Both mutations live at the root
+      // (store/index.js — endGame also forces grimoire.isPublic, a
+      // different module's state) and both fire the SAME response: one full
+      // gamestate resync. That single call carries the ended flag + result
+      // AND (via sendGamestate's own change, above) every seat's TRUE role,
+      // so the reveal and the "game over" state reach every connected
+      // client together — the same full sync a joining spectator already
+      // gets in one shot, reused rather than inventing a second wire
+      // message for this. Guarded internally (sendGamestate is a no-op for
+      // a spectator's own client), so this is safe to list unconditionally
+      // even though a spectator applies these same mutation types too when
+      // the broadcast arrives.
+      case "endGame":
+      case "clearEnded":
+        session.sendGamestate();
         break;
       // FT-882: the night sheet's day scrub. It rides a mutation like every
       // other ST broadcast in this table, so any later surface that wants to

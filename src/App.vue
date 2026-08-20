@@ -380,11 +380,25 @@
            not a durable flag). -->
       <span
         class="endgame"
-        v-if="!session.isSpectator && dealAt"
+        v-if="!session.isSpectator && dealAt && !session.isEnded"
         @click="endGameOpen = true"
         title="End the game and record who won"
       >
         <font-awesome-icon icon="flag-checkered" /> End game
+      </span>
+      <!-- FT-931: PLAY AGAIN — the same table, a new game. Host-only, and
+           only once the town has actually ended (session.isEnded, set by
+           EndGameOverlay's own winner pick — see onGameRecorded below and
+           the store's endGame/clearEnded, which the grimoire reveal rides
+           too). Purple on hover rather than the pill's usual red: this is a
+           fresh start, not a warning. -->
+      <span
+        class="play-again"
+        v-if="!session.isSpectator && session.isEnded"
+        @click="playAgain"
+        title="Clear the roles and start a new game with the same table"
+      >
+        <font-awesome-icon icon="redo" /> Play again
       </span>
       <!-- FT-847 follow-up: the toolbar's "Copy player link" retired with the
            broadcast-tower tab — it wasn't otherwise covered, so it relocates
@@ -447,7 +461,7 @@
     <EndGameOverlay
       v-if="endGameOpen"
       @close="endGameOpen = false"
-      @recorded="dealAt = null"
+      @recorded="onGameRecorded"
     />
     <StatsOverlay
       v-if="statsOpen"
@@ -603,6 +617,11 @@ export default {
     showNightSheet() {
       if (this.session.isSpectator) return false;
       if (this.session.nomination) return false;
+      // FT-931: THE PHASE CONTROLS GO once the town has ended — there is no
+      // next day. This is the checklist's own standing sheet, so hiding it
+      // here also takes showNightChecklist (below) with it; the E hotkey's
+      // own fallback path is guarded separately, in keyup.
+      if (this.session.isEnded) return false;
       if (!this.players.length) return false;
       return !this.showHostTools;
     },
@@ -1049,6 +1068,33 @@ export default {
       }, 1500);
     },
     /**
+     * FT-931: THE TOWN ENDS. EndGameOverlay's own winner pick — recording to
+     * the stats server is best-effort there and does not gate this; the
+     * commit is the SAME root mutation a spectator's client applies when
+     * this arrives over the wire (store/index.js's endGame — it forces the
+     * grimoire reveal in the same commit, and socket.js's subscriber sends
+     * the full resync that carries the reveal's role data to everyone
+     * already connected).
+     */
+    onGameRecorded(winningTeam) {
+      this.dealAt = null;
+      this.$store.commit("endGame", winningTeam);
+    },
+    /**
+     * FT-931: PLAY AGAIN — the same table, a new game. Un-ends the town
+     * (which also un-forces the grimoire reveal — store/index.js's
+     * clearEnded), then clears every seat's role through the SAME action
+     * the menu's own "Clear roles" already uses: seats and people stay,
+     * roles do not. Host-only; the pill only ever shows this button to the
+     * host.
+     */
+    playAgain() {
+      this.$store.commit("clearEnded");
+      this.$store.dispatch("players/clearRoles");
+      this.dealAt = null;
+      this.building = true;
+    },
+    /**
      * FT-857: open the one script drawer on a named tab (the same behaviour
      * the player strip's icons use — the tab already showing closes it).
      */
@@ -1110,6 +1156,12 @@ export default {
           // checklist to answer to, and this falls back to the plain flip the
           // menu has always used.
           if (!isHost) return;
+          // FT-931: THE PHASE CONTROLS GO once the town has ended. Guarded
+          // here too, not only by showNightSheet hiding the ref — without
+          // this an ended town with no ref would silently fall through to
+          // the menu's plain toggleNight and flip day/night with nothing on
+          // screen to show it happened.
+          if (this.session.isEnded) return;
           if (this.$refs.nightSheet) this.$refs.nightSheet.flipPhase();
           else this.$refs.menu.toggleNight();
           break;
@@ -1180,6 +1232,10 @@ export default {
 // `face-disc-tint` below and the light block at the top of faceDisc.scss.
 // This import emits nothing on its own (that file is variables and mixins).
 @import "faceDisc";
+// FT-931: for $control-edge-hover — the Play again pill button's hover
+// colour (the storyteller's own purple, not the pill's usual red). Emits
+// nothing on its own (variables + mixins only).
+@import "controls";
 
 @font-face {
   font-family: "Papyrus";
@@ -1457,7 +1513,8 @@ ul {
   .stats,
   .endgame,
   .copylink,
-  .leave {
+  .leave,
+  .play-again {
     cursor: pointer;
     &:hover {
       color: red;
@@ -1466,6 +1523,13 @@ ul {
   // FT-852: the armed Leave reads as the question it is.
   .leave.armed {
     color: red;
+  }
+  // FT-931: PLAY AGAIN is a fresh start, not a warning — purple on hover
+  // (the storyteller's own colour throughout the app, $control-edge-hover
+  // from controls.scss) rather than the pill's usual red, which every
+  // other control here wears because it names something ending or leaving.
+  .play-again:hover {
+    color: $control-edge-hover;
   }
 
   // THE PILL IS SIZED BY TYPE, and the type shrinks twice on the way down to a
@@ -1483,7 +1547,8 @@ ul {
     .stats,
     .endgame,
     .copylink,
-    .leave {
+    .leave,
+    .play-again {
       display: inline-flex;
       align-items: center;
       justify-content: center;

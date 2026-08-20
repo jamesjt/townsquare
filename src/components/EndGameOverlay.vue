@@ -133,11 +133,18 @@ export default {
         flashHint(
           `Game recorded — ${winningTeam === "good" ? "Good" : "Evil"} wins`
         );
-        this.$emit("recorded");
       } catch (e) {
         flashHint("Couldn't record — server unreachable");
       }
       this.busy = false;
+      // FT-931: THE TOWN ENDS HERE, whether or not the stats POST above
+      // succeeded — recording is best-effort (see the file header) and
+      // ending the game must not inherit that network's fate. Moved out of
+      // the try block (was inside, success-only) and now carries the
+      // winner: App.vue's own listener is what actually ends the town
+      // (there is nowhere else this value is kept — it is a function
+      // parameter, not component state).
+      this.$emit("recorded", winningTeam);
       this.$emit("close");
     }
   }

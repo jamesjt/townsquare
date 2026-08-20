@@ -136,6 +136,26 @@ module.exports = store => {
       // an unreadable stash says nothing; the shelf answers on its own
     }
   }
+  // FT-931: THE ENDED TOWN, restored before the socket ever opens.
+  //
+  // Every other synced-but-unpersisted field (isNight, nomination) is safe to
+  // lose on reload because SOMEONE ELSE — the host — still holds the truth and
+  // corrects it the moment a resync lands. isEnded has no such backstop: the
+  // HOST is the authority on it, and a host who reloads their own tab has
+  // nobody else to be corrected BY. Without this, the host's own refresh
+  // after ending a game would silently un-end it — broadcasting isEnded:false
+  // to every player who reconnects afterward, exactly backwards.
+  //
+  // Same idiom `players`/`session` already use: a flat, single-slot stash (no
+  // per-town key), because this browser only ever mirrors one town at a time.
+  if (localStorage.getItem("gameEnded")) {
+    try {
+      const { winningTeam } = JSON.parse(localStorage.getItem("gameEnded"));
+      store.commit("endGame", winningTeam);
+    } catch (e) {
+      // an unreadable stash says nothing; the game resumes live
+    }
+  }
 
   /**** FT-860: night sheet + log ****/
   // The mode is a standing setting, so it is read before any town is known.
@@ -158,6 +178,26 @@ module.exports = store => {
           localStorage.setItem("isGrimoire", 1);
         } else {
           localStorage.removeItem("isGrimoire");
+        }
+        updatePagetitle(state.grimoire.isPublic);
+        break;
+      // FT-931: the game-end reveal writes grimoire.isPublic directly (a
+      // different mutation, not toggleGrimoire — see store/index.js), so it
+      // needs its own case to keep the tab title in step. isPublic itself is
+      // deliberately NOT stashed to localStorage.isGrimoire here — that key
+      // is a browser's standing preference, and the reveal's isPublic value
+      // is a CONSEQUENCE of isEnded, not an independent preference; restoring
+      // gameEnded (below) on boot re-derives it via the same endGame mutation
+      // that set it live, rather than two stashes that could disagree.
+      case "endGame":
+      case "clearEnded":
+        if (state.session.isEnded) {
+          localStorage.setItem(
+            "gameEnded",
+            JSON.stringify({ winningTeam: state.session.winningTeam })
+          );
+        } else {
+          localStorage.removeItem("gameEnded");
         }
         updatePagetitle(state.grimoire.isPublic);
         break;

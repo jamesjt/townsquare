@@ -234,7 +234,49 @@ export default new Vuex.Store({
         state.night.day += 1;
       }
     },
-    toggleGrimoire: toggle("isPublic"),
+    /**
+     * FT-931: THE TOWN ENDS. The host declared a winner (EndGameOverlay);
+     * this is the one commit every client applies — the host's own, and a
+     * spectator's when it arrives over the wire (socket.js commits this
+     * exact mutation on receipt, the same "one type, two callers" shape
+     * `toggleNight` above already uses).
+     *
+     * It sets the result AND forces the grimoire's reveal flag off in the
+     * same commit, atomically — `isPublic` is Player.vue/TownSquare.vue's
+     * existing "does a seat's coin show its character" switch (see
+     * `#townsquare.public` in TownSquare.vue), reused rather than replaced:
+     * once it is false and the true role has reached this client (the
+     * gamestate sync, socket.js), the existing render pipeline draws the
+     * reveal on its own — nothing here touches how a role is drawn.
+     */
+    endGame(state, winningTeam) {
+      state.session.isEnded = true;
+      state.session.winningTeam = winningTeam === "evil" ? "evil" : "good";
+      state.grimoire.isPublic = false;
+    },
+    /**
+     * FT-931: PLAY AGAIN. Only the result and the reveal are this
+     * mutation's concern — the roster's roles clear through the existing
+     * `players/clearRoles` action (same table, a new game), dispatched
+     * alongside this from wherever Play again is pressed (App.vue).
+     */
+    clearEnded(state) {
+      state.session.isEnded = false;
+      state.session.winningTeam = null;
+      state.grimoire.isPublic = true;
+    },
+    /**
+     * FT-931: the R hotkey's mutation (and Menu's Hide/Show), guarded so the
+     * game-end reveal cannot be hidden again while the town is still ended.
+     * `endGame` / `clearEnded` below are the only other writers of
+     * `grimoire.isPublic` during an ended town, and both always leave it
+     * revealed — this is what makes that irreversible rather than a rule
+     * every future isPublic writer has to remember to respect.
+     */
+    toggleGrimoire(state, val) {
+      if (state.session.isEnded) return;
+      toggle("isPublic")(state, val);
+    },
     toggleImageOptIn: toggle("isImageOptIn"),
     setAllowDupRoles(state, on) {
       state.allowDupRoles = !!on;

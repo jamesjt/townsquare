@@ -32,7 +32,16 @@ const state = () => ({
   // this session). Local to whichever client pressed it — it is not synced and
   // not persisted; it exists so the moment is a fact somewhere rather than only
   // a side effect inside a click handler.
-  calledBackAt: 0
+  calledBackAt: 0,
+  // FT-931: THE TOWN HAS ENDED. Written only by the root `endGame` /
+  // `clearEnded` mutations (store/index.js) — never here directly — because
+  // ending the game also forces `grimoire.isPublic` off (the reveal), a
+  // different module's state that a namespaced mutation in this file cannot
+  // reach. See store/index.js's `toggleNight` for the same "root mutation
+  // reaches into a submodule" shape already used in this app.
+  isEnded: false,
+  // 'good' | 'evil' | null — who won, set alongside isEnded and cleared with it.
+  winningTeam: null
 });
 
 const getters = {};

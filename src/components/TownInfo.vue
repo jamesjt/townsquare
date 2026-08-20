@@ -18,7 +18,7 @@
          stays storyteller-only where it was).
          Sits above the counts, at the top of the in-flow stack — the
          edition badge above it floats independently (position: absolute). -->
-    <li class="info-phase">
+    <li class="info-phase" v-if="!session.isEnded">
       <span class="phase-now">
         <font-awesome-icon
           v-if="!grimoire.isNight"
@@ -27,6 +27,18 @@
         />
         <img v-else class="phase-mark" :src="moonMark" alt="" />
         {{ phaseLabel }}
+      </span>
+    </li>
+    <!-- FT-931: THE RESULT. Once the town has ended there is no next phase
+         to read — this is what every seat sees in its place, host and
+         player alike (this readout has never been storyteller-only). Same
+         team art the counts below and EndGameOverlay's own winner buttons
+         already wear (golem/glyphs teamGlyph) — never a new pictogram for
+         the same "which team" fact. -->
+    <li class="info-result" v-else>
+      <span class="result-now" :class="session.winningTeam">
+        <img class="result-glyph" :src="resultGlyph" alt="" />
+        {{ session.winningTeam === "evil" ? "Evil wins" : "Good wins" }}
       </span>
     </li>
     <li v-if="players.length - teams.traveler < 5">
@@ -186,7 +198,14 @@ export default {
     moonMark() {
       return this.isFirstNight ? moonFirst : moonOther;
     },
-    ...mapState(["edition", "grimoire", "night"]),
+    /** FT-931: the result banner's own art — the same team glyph the counts
+     *  below and EndGameOverlay's choice buttons already wear. */
+    resultGlyph() {
+      return teamGlyph(
+        this.session.winningTeam === "evil" ? "demon" : "townsfolk"
+      );
+    },
+    ...mapState(["edition", "grimoire", "night", "session"]),
     ...mapState("players", ["players"]),
     ...mapGetters("night", ["isFirstNight"])
   },
@@ -486,6 +505,50 @@ export default {
       width: 16px;
       height: 16px;
       color: #d8b45a;
+    }
+  }
+
+  // FT-931: THE RESULT banner — the same box .info-phase computes just
+  // above (position/top/etc — copied rather than merged into that selector
+  // so the long derivation comment there stays attached to the rule it
+  // explains; .info-phase and .info-result are never both in the DOM at
+  // once, so nothing here needs to fight that rule for the slot).
+  .info-result {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    top: calc(-25% + min(200px, 100%));
+    padding-top: 8px;
+    font-family: PiratesBay, sans-serif;
+    letter-spacing: 1px;
+
+    .result-now {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 115%;
+      // same team-colour + glyph-glow recipe the counts below and
+      // EndGameOverlay's own choice buttons already wear — one definition
+      // of "this readout belongs to team X", not a fourth copy of it
+      &.good {
+        color: $townsfolk;
+        .result-glyph {
+          filter: drop-shadow(0 0 4px rgba($townsfolk, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+      }
+      &.evil {
+        color: $demon;
+        .result-glyph {
+          filter: drop-shadow(0 0 4px rgba($demon, 0.8))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+      }
+    }
+    .result-glyph {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
     }
   }
 }
