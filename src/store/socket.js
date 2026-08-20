@@ -27,6 +27,10 @@ import { playCallBack } from "../golem/callBack";
 // FT-890: the app's own transient notice — the relay's reason is said here,
 // never in a browser dialog.
 import { flashHint } from "../golem/hint";
+// FT-965: the town log. `chatErrorText` says a relay refusal in the app's own
+// voice; `gameIdFor` derives the game a line belongs to from the deal moment
+// the host already stashes (golem/stats), so no new per-game identity is minted.
+import { chatErrorText, gameIdFor } from "../golem/chat";
 
 class LiveSession {
   constructor(store) {
@@ -139,6 +143,13 @@ class LiveSession {
       this.sendGamestate();
     }
     this._ping();
+    // FT-965: CATCH THE LOG UP, on every open — the first one and every
+    // reconnect alike. A reconnect is exactly the case the split between
+    // `syncedSeq` and the live stream exists for: whatever the drop swallowed
+    // sits above the cursor, and this is the read that fills it. Idempotent by
+    // construction (the action refuses to overlap itself, and every row is
+    // deduped by seq), so the drawer opening and calling it again is free.
+    this._store.dispatch("chatCatchUp");
   }
 
   /**
@@ -278,6 +289,28 @@ class LiveSession {
       case "pronouns":
         this._updatePlayerPronouns(params);
         break;
+      // FT-965: A LINE THE STORE ACCEPTED. `params` is the platform's row
+      // verbatim — id, seq, createdAt and all — echoed by the relay after the
+      // store took it, so nothing reaches a log here that was not recorded.
+      //
+      // Every client applies this, the storyteller's included: the relay
+      // echoes to the sender too, so a line appears once, from the store,
+      // rather than being optimistically appended locally and then arriving
+      // again. There is deliberately no `isSpectator` guard — chat is the one
+      // thing in this file that travels in BOTH directions.
+      //
+      // The privacy rule is not here. It is in `chatIngest` (store/index.js),
+      // where the catch-up read comes through the same door — see its note for
+      // why the client has to drop whispers even though the relay never sends
+      // this client one it should not have.
+      case "chat":
+        this._store.commit("chatIngest", [params]);
+        break;
+      // ...and the sender-only refusal. Nobody saw the line; say so where the
+      // sender is looking, which is the composer.
+      case "chatError":
+        this._store.commit("chatError", chatErrorText(params && params.reason));
+        break;
     }
   }
 
@@ -363,8 +396,17 @@ class LiveSession {
       const { grimoire } = this._store.state;
       const { fabled } = this._store.state.players;
       this.sendEdition(playerId);
+      // FT-965: WHICH GAME IS BEING PLAYED, for the chat log to filter by.
+      // Only the storyteller's browser holds the deal-moment stash the id is
+      // derived from, so this sync is how a player learns it — the same
+      // "the host is the authority, a joiner inherits it" shape `nightDay`
+      // above already has. Committed locally too, so the host's own composer
+      // tags its lines with the same id it just told the town.
+      const gameId = gameIdFor(this._store.state.session.sessionId);
+      this._store.commit("chatSetGameId", gameId);
       this._sendDirect(playerId, "gs", {
         gamestate: this._gamestate,
+        gameId,
         isNight: grimoire.isNight,
         // FT-882: WHICH night it is, sent explicitly. Until now every client
         // DERIVED this by counting its own day→night transitions, which is
@@ -423,6 +465,8 @@ class LiveSession {
       // now sends, above.
       isEnded,
       winningTeam,
+      // FT-965: which game the chat log's "this game" filter means.
+      gameId,
     } = data;
     const players = this._store.state.players.players;
     // adjust number of players
@@ -467,6 +511,10 @@ class LiveSession {
       }
     });
     if (!isLightweight) {
+      // FT-965: the game the town is playing, straight from the storyteller.
+      // Applied unconditionally — including when it is absent, which is the
+      // real state BETWEEN games and must be able to clear a stale id.
+      this._store.commit("chatSetGameId", gameId || null);
       this._store.commit("toggleNight", !!isNight);
       // FT-882: AFTER toggleNight, never before — that mutation is the one
       // place the counter auto-increments, so a value applied ahead of it
@@ -1159,6 +1207,46 @@ class LiveSession {
   }
 
   /**
+   * FT-965: SAY SOMETHING IN THE TOWN. Anyone may — this is the one message in
+   * this file that is not storyteller-to-town or town-to-storyteller.
+   *
+   * The frame is handed to the relay and nothing is appended locally: the
+   * relay posts it to the store and only echoes it back once the store has
+   * accepted it (server/chat.js), so a line that was never recorded can never
+   * be on screen looking recorded. A refusal comes back as `chatError`, to
+   * this sender alone.
+   *
+   * `to` is ROUTING — the raw connection playerId the relay hands the whisper
+   * to — and is deliberately separate from `recipientKey`/`recipientSeat`,
+   * which are the stored row's identity. The same split the "direct" case
+   * above already draws.
+   */
+  sendChat(payload) {
+    this._send("chat", payload);
+  }
+
+  /**
+   * FT-965: a line the TOWN says about itself — a phase turning, a game
+   * starting. Storyteller-only, matching the relay's own refusal of a system
+   * message from anyone else; a player's client calling this is a no-op rather
+   * than a frame the relay throws away.
+   */
+  systemMessage(body) {
+    if (this._isSpectator) return;
+    const { session, grimoire, chat, night } = this._store.state;
+    if (!session.sessionId) return;
+    this.sendChat({
+      kind: "system",
+      gameId: chat.gameId,
+      senderKey: "system",
+      senderKind: "system",
+      body,
+      phase: grimoire.isNight ? "night" : "day",
+      dayNumber: night.day,
+    });
+  }
+
+  /**
    * Swap two player seats. ST only
    * @param payload
    */
@@ -1240,6 +1328,12 @@ export default (store) => {
         // `location.hash = ""` on leave: the href built here carries no hash,
         // so a legacy link is dropped by the same write.)
         syncAddressBar(state.session.sessionId);
+        // FT-965: a town is a room, so leaving one empties the log this
+        // browser is holding. Not a courtesy — rows are filtered on the way in
+        // by town AND by viewer, and carrying a cursor from one town into
+        // another would claim a completeness that was never fetched. The next
+        // catch-up starts from zero in the town actually being entered.
+        store.commit("chatReset");
         break;
       case "session/claimSeat":
         session.claimSeat(payload);
@@ -1247,7 +1341,27 @@ export default (store) => {
       case "session/distributeRoles":
         if (payload) {
           session.distributeRoles();
+          // FT-965: THE DEAL IS THE START OF A GAME, and a game is what the
+          // chat log filters by. The deal moment the id is derived from is
+          // stamped by App.vue on this same mutation, from a subscriber
+          // registered AFTER this one — so the id does not exist yet at this
+          // instant and is read a tick later, when it does.
+          //
+          // A full resync rather than a new wire message: it is what
+          // `endGame` / `clearEnded` below already do for the same reason,
+          // and it carries the new id to everyone connected in one shot.
+          setTimeout(() => {
+            session.sendGamestate();
+            session.systemMessage("A game begins.");
+          }, 0);
         }
+        break;
+      // FT-965: SAY SOMETHING. The mutation is what travels, the same shape
+      // every other broadcast in this table has — so any future surface that
+      // wants to speak commits `chatSay` and inherits the delivery, the store
+      // round trip and the error reporting for free.
+      case "chatSay":
+        session.sendChat(payload);
         break;
       case "session/nomination":
       case "session/setNomination":
@@ -1279,6 +1393,16 @@ export default (store) => {
         break;
       case "toggleNight":
         session.setIsNight();
+        // FT-965: the phase turning is the town's own news, so it goes in the
+        // town's own log beside what people said about it. Storyteller-only
+        // (systemMessage refuses otherwise), which matches the relay's refusal
+        // of a system line from anyone but the host — so a player applying
+        // this same mutation on receipt does not echo it back.
+        session.systemMessage(
+          state.grimoire.isNight
+            ? `Night ${state.night.day} falls.`
+            : `Day ${state.night.day} breaks.`,
+        );
         break;
       // FT-931: THE TOWN ENDS / PLAY AGAIN. Both mutations live at the root
       // (store/index.js — endGame also forces grimoire.isPublic, a

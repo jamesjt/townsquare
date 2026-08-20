@@ -68,9 +68,23 @@
                the mark for that rather than the quill, which moved to Town
                records. Same baked stone as the rest of the strip (128px,
                silhouette only, no outline, mean rgb 154,146,133, luminance
-               wandering 110-176). -->
+               wandering 110-176).
+
+               FT-965: …and the bubble has moved ON, to the thing it was always
+               drawing. There is REAL CHAT in the town now (ChatDrawer), and a
+               speech bubble that opens anything else is a mark lying about its
+               door. The chronicle keeps its own, one place to the right: a
+               book with a skull, which is what a Blood on the Clocktower
+               game's record of nominations, executions and the dead actually
+               is — and which collides with nothing else in the strip (the
+               quill+inkwell next door is Town records). -->
           <img
             :src="uiChat"
+            title="Town chat — one room, the whole town, always"
+            @click="toggleModal('chatDrawer')"
+          />
+          <font-awesome-icon
+            icon="book-dead"
             title="Chronicle — what has happened this game"
             @click="toggleModal('chronicleDrawer')"
           />
@@ -304,10 +318,15 @@
         </div>
       </div>
     </div>
+
+    <!-- FT-965: the town chat's drawer is NOT here. It is mounted onto its own
+         element on the body — see `mounted` below for why it cannot live in
+         this tree. Its door is the chat bubble in the strip above. -->
   </div>
 </template>
 
 <script>
+import Vue from "vue";
 import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
 import uiVotes from "../assets/ui-votes.png";
@@ -331,6 +350,9 @@ import { flashHint } from "../golem/hint";
 // FT-880: the index page's key lettering, shared so the menu's badges and the
 // key list print a key the same way.
 import KeyCap from "./KeyCap";
+// FT-965: the town's one permanent chat room — see the mount point above for
+// why the drawer hangs off the strip rather than off App.
+import ChatDrawer from "./ChatDrawer";
 
 export default {
   components: { KeyCap },
@@ -390,9 +412,43 @@ export default {
       tab: null,
     };
   },
+  /**
+   * FT-965: STAND THE TOWN CHAT UP, on the body, beside the other drawers.
+   *
+   * The strip owns chat's door, so this component is where the drawer belongs
+   * by responsibility — but it cannot belong here in the DOM. `#controls` (this
+   * component's own root) is `z-index: 75`, which makes it a STACKING CONTEXT:
+   * anything rendered inside it paints at the strip's level, so a drawer there
+   * would cover the very mark that opens it, and would sit above chrome that
+   * should cover IT.
+   *
+   * Moving the element to the body after render does not hold — Vue re-inserts
+   * it at its rendered position on this component's next re-render, and Menu
+   * re-renders on any modal change, which is exactly what opening the drawer
+   * is. So the drawer gets its own root instead: one element on the body, one
+   * small Vue instance on it, sharing THIS store. Vue then owns a tree whose
+   * parent really is the body, and nothing puts it back.
+   *
+   * The other four drawers are mounted by App.vue; this lane does not edit that
+   * file. The result is the same rail, the same z-index, the same behaviour.
+   */
+  mounted() {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    this.chatRoot = new Vue({
+      store: this.$store,
+      render: (h) => h(ChatDrawer),
+    }).$mount(host);
+  },
   beforeDestroy() {
     clearTimeout(this.callBackTimer);
     clearTimeout(this.clearTimer);
+    if (this.chatRoot) {
+      const el = this.chatRoot.$el;
+      this.chatRoot.$destroy();
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      this.chatRoot = null;
+    }
   },
   watch: {
     // The intro screen's "Menu" button flips the store flag the old gear used;

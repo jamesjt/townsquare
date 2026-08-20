@@ -6,6 +6,10 @@ import players from "./modules/players";
 import session from "./modules/session";
 // FT-860: the storyteller's night checklist + append-only night log.
 import night from "./modules/night";
+// FT-965: THE TOWN LOG. The merge/cursor/visibility rules live in the module,
+// not in these mutations — see golem/chat.js for why "no gap, no duplicate" is
+// a property of the data structure rather than of arrival timing.
+import { canSee, catchUp, mergeLog, SCOPES, viewerOf } from "../golem/chat";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
 import fabledJSON from "../fabled.json";
@@ -148,7 +152,35 @@ export default new Vuex.Store({
       // the right-hand rail. It holds no state of its own: golem/chronicle
       // assembles it out of the night log, the vote history and the seats
       // every time it renders, so this flag is the whole of its footprint here.
-      chronicleDrawer: false
+      chronicleDrawer: false,
+      // FT-965: THE TOWN CHAT — the fifth drawer on the right-hand rail, and
+      // the only one that is not scoped to the game being played. Its contents
+      // live in `chat` below rather than being reassembled per render, because
+      // unlike the chronicle it is fed by the wire and cannot be derived.
+      chatDrawer: false,
+    },
+    /**
+     * FT-965: THE TOWN'S ONE PERMANENT ROOM.
+     *
+     *  log        rows, ascending by `seq`, deduped by `seq`. Whispers this
+     *             viewer was not party to never enter it (see `chatIngest`).
+     *  syncedSeq  the high-water mark below which `log` is COMPLETE and
+     *             CONTIGUOUS. Only the REST catch-up advances it; a live row
+     *             arriving out of the blue proves nothing about its
+     *             predecessors and must never move it. This separation is what
+     *             makes a reconnect re-fetch the right range.
+     *  scope      which slice is being LOOKED at — "town" | "game" | "none".
+     *             A view, never a fetch: catch-up always reads the whole town.
+     *  gameId     the game currently being played, or null between games. The
+     *             host derives it; a player is told it on the gamestate sync.
+     */
+    chat: {
+      log: [],
+      syncedSeq: 0,
+      syncing: false,
+      scope: "town",
+      gameId: null,
+      error: "",
     },
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it
@@ -171,6 +203,40 @@ export default new Vuex.Store({
     otherTravelers: getTravelersNotInEdition(),
     fabled,
     jinxes
+  },
+  actions: {
+    /**
+     * FT-965: CATCH THE TOWN LOG UP over REST, from the contiguity cursor to
+     * the store's head, and leave the cursor pointing at the new frontier.
+     *
+     * Safe to call at any time and from anywhere — the socket calls it on
+     * every (re)connect, the drawer calls it on open. Overlapping calls are
+     * refused rather than queued: the second one would fetch the same range as
+     * the first and merge to nothing.
+     *
+     * The pages land as they arrive (`chatIngest` per page) so a long history
+     * fills in progressively, and every one of them is deduped against
+     * whatever the socket delivered in the meantime.
+     */
+    async chatCatchUp({ state, commit }) {
+      const town = state.session.sessionId;
+      if (!town || state.chat.syncing) return;
+      commit("chatSyncing", true);
+      try {
+        const seq = await catchUp(town, state.chat.syncedSeq, (rows) => {
+          commit("chatIngest", rows);
+        });
+        // The town can change under a fetch (a Back press, a hop between two
+        // towns). `chatIngest` drops the rows themselves by townId; this stops
+        // the OLD town's cursor being stamped onto the NEW town's empty log,
+        // which would claim a completeness that was never fetched.
+        if (state.session.sessionId === town) commit("chatSynced", seq);
+      } catch (e) {
+        commit("chatError", "Couldn't load the town log.");
+      } finally {
+        commit("chatSyncing", false);
+      }
+    },
   },
   getters: {
     /**
@@ -294,6 +360,79 @@ export default new Vuex.Store({
     /** FT-857: point the script drawer at one of its three tabs. */
     setScriptDrawerView(state, view) {
       state.scriptDrawerView = view || "team";
+    },
+    /**
+     * FT-965: THE ONE DOOR INTO THE LOG. Both feeds come through here — the
+     * socket's live rows and the catch-up's pages — so the two rules that make
+     * the log correct are stated once and cannot be applied to one path and
+     * forgotten on the other:
+     *
+     *   1. A row for a DIFFERENT TOWN is dropped. The stored row carries its
+     *      own `townId`, so a page still in flight when the browser hops towns
+     *      cannot land in the new town's log.
+     *   2. A whisper this viewer was not party to is dropped BEFORE the store.
+     *      The catch-up GET is unauthenticated and returns every row in the
+     *      town — the relay's live-path guard cannot help there, so this is
+     *      where a whisper stops. Never rendered, because never held.
+     *
+     * Dedup and ordering are `mergeLog`'s, keyed on the store's per-town `seq`.
+     */
+    chatIngest(state, rows) {
+      if (!Array.isArray(rows) || !rows.length) return;
+      const town = state.session.sessionId;
+      const viewer = viewerOf(state);
+      const allowed = rows.filter(
+        (row) =>
+          row &&
+          typeof row.seq === "number" &&
+          row.townId === town &&
+          canSee(row, viewer),
+      );
+      state.chat.log = mergeLog(state.chat.log, allowed);
+    },
+    chatSyncing(state, on) {
+      state.chat.syncing = !!on;
+    },
+    /** The contiguity cursor. Monotonic — only the REST loop ever calls it. */
+    chatSynced(state, seq) {
+      if (Number.isFinite(seq) && seq > state.chat.syncedSeq) {
+        state.chat.syncedSeq = seq;
+      }
+    },
+    /**
+     * Forget the log entirely — a different town, or a different VIEWER.
+     *
+     * The viewer matters as much as the town: rows are filtered on the way in,
+     * so a browser that takes a seat (or hands the storyteller's chair over)
+     * now has a different answer to "may I see this", and the rows it dropped
+     * under its old identity will never be re-offered by a cursor that has
+     * already moved past them. Resetting sends the catch-up back to zero,
+     * where it re-reads the whole log against the identity now in force.
+     */
+    chatReset(state) {
+      state.chat.log = [];
+      state.chat.syncedSeq = 0;
+      state.chat.syncing = false;
+      state.chat.error = "";
+    },
+    chatSetGameId(state, id) {
+      state.chat.gameId = id || null;
+    },
+    chatSetScope(state, scope) {
+      state.chat.scope = SCOPES.includes(scope) ? scope : "town";
+    },
+    chatError(state, message) {
+      state.chat.error = message || "";
+    },
+    /**
+     * SAY SOMETHING. The mutation is what travels — socket.js's subscriber
+     * turns it into the wire frame, exactly as `session/callBack` and every
+     * other broadcast in this app does. Nothing is appended to the log here:
+     * a line reaches the log when the STORE has accepted it and the relay
+     * echoes the row back, so what is on screen is only ever what was recorded.
+     */
+    chatSay(state) {
+      state.chat.error = "";
     },
     toggleModal({ modals }, name) {
       if (name) {
