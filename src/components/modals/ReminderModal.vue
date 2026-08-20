@@ -268,7 +268,17 @@ export default {
 }
 
 ul.reminders .reminder {
-  background: url("../../assets/reminder-golem.png") center center;
+  // (user call 2026-08-20: "those need to use our player coins as the
+  // background") — the SAME ground the seats' own reminders took in FT-940,
+  // and the same one the character coins wear: `--coin`, painted onto the
+  // document root by golem/coinArt.js's applyCoin(). Reading the property
+  // rather than naming a file is what makes these tiles repaint with the
+  // rest of the app when a different coin is picked.
+  //
+  // This rule lives HERE and not with the seats' because the picker's tiles
+  // render inside the modal, outside `.circle` — which is also why FT-940's
+  // fix reached the seats and left these behind.
+  background: var(--coin, url("../../assets/token-golem.png")) center center;
   background-size: 100%;
   width: 14vh;
   height: 14vh;
