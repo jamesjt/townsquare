@@ -1,4 +1,8 @@
-import { normalizeTownId, sessionIdFromPath } from "../golem/towns";
+import {
+  enterWhenOpen,
+  normalizeTownId,
+  sessionIdFromPath,
+} from "../golem/towns";
 // FT-889: the URL is the one thing that says which town you are in. This is
 // where the address bar is written and read; the role always comes from the
 // shelf, never from the link.
@@ -6,6 +10,7 @@ import {
   enterTown,
   isReplayingHistory,
   leaveTown,
+  resolveTownRole,
   syncAddressBar,
   withHistory,
 } from "../golem/townRoute";
@@ -1133,6 +1138,40 @@ class LiveSession {
   }
 }
 
+/**
+ * 2026-08-19 — ENTER THE TOWN, OR WAIT FOR ITS STORYTELLER TO OPEN IT.
+ *
+ * Shared by the two entry paths this file owns: the invite link parsed at
+ * boot, and a Forward press back into a town. Both used to enter
+ * unconditionally, which is how someone following a link before the town was
+ * opened landed in an empty square with nothing to explain it.
+ *
+ * A HOST IS NEVER GATED. Opening a town is exactly the moment no host is
+ * connected to it, so asking the relay first would lock the storyteller out
+ * of their own game — the one failure this must not have.
+ *
+ * @param mode the history mode the entry commits under, once it happens
+ */
+const enterOrWait = (store, id, mode) => {
+  const enter = () => withHistory(mode, () => enterTown(store, id));
+  if (resolveTownRole(id) === "host") return enter();
+  enterWhenOpen(id, enter).then((entered) => {
+    if (entered) return;
+    // Not open — so the waiting screen has to be reachable, and the waiting
+    // screen IS the entry screen (App renders Intro only when there is no
+    // session AND no seats). A boot from an invite link has just restored the
+    // last game's seats from storage, so without this the player would sit in
+    // front of a stale town square instead. Entering the town would have
+    // replaced those seats with the host's gamestate anyway; this is the same
+    // clearing, a beat earlier.
+    //
+    // "silent" because the address bar still names the town they were invited
+    // to, and it stays true: that is the town they are waiting for, and a
+    // reload puts them straight back onto this screen rather than losing it.
+    withHistory("silent", () => leaveTown(store));
+  });
+};
+
 export default (store) => {
   // setup
   const session = new LiveSession(store);
@@ -1256,7 +1295,7 @@ export default (store) => {
     // player. "replace" mode canonicalises the address bar without pushing a
     // history entry of its own: a legacy `/#town` is rewritten to `/town`,
     // and a `/town` path is already true so nothing is written at all.
-    withHistory("replace", () => enterTown(store, sessionId));
+    enterOrWait(store, sessionId, "replace");
   }
 
   // FT-889: Back leaves the town, Forward re-enters it. The browser has
@@ -1274,12 +1313,16 @@ export default (store) => {
     const pathId = normalizeTownId(sessionIdFromPath(window.location.pathname));
     const live = store.state.session.sessionId;
     if (pathId === live) return;
-    withHistory("silent", () => {
-      if (pathId) {
-        enterTown(store, pathId);
-      } else if (live) {
-        leaveTown(store);
-      }
-    });
+    // 2026-08-19: arriving at a town is gated on it being open, wherever the
+    // arrival came from — a Forward press is an entry like any other. The
+    // "silent" wrapper moved INSIDE the two branches because the gate is
+    // asynchronous: wrapping the await would restore the history mode before
+    // the commits ran, and the entry would push a history entry over the one
+    // the browser had just travelled to.
+    if (pathId) {
+      enterOrWait(store, pathId, "silent");
+    } else if (live) {
+      withHistory("silent", () => leaveTown(store));
+    }
   });
 };

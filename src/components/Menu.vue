@@ -266,7 +266,11 @@ import { canSeeBluffs, demonSeatIndex } from "../golem/bluffs";
 // the relay never echoes a message back to whoever sent it.
 import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
 // FT-890: leaving a town is one call, not a commit sequence copied per caller.
-import { leaveTown } from "../golem/townRoute";
+import { leaveTown, resolveTownRole } from "../golem/townRoute";
+// 2026-08-19: joining a town nobody has opened yet is a wait, not an entry —
+// the same gate the Join panel and an invite link answer to.
+import { enterWhenOpen, normalizeTownId } from "../golem/towns";
+import { flashHint } from "../golem/hint";
 // FT-880: the index page's key lettering, shared so the menu's badges and the
 // key list print a key the same way.
 import KeyCap from "./KeyCap";
@@ -443,10 +447,25 @@ export default {
             : sessionId.replace(/^https?:\/\/[^/]+\/?/i, "").split(/[/?]/)[0];
       }
       if (sessionId) {
-        this.$store.commit("session/clearVoteHistory");
-        this.$store.commit("session/setSpectator", true);
-        this.$store.commit("toggleGrimoire", false);
-        this.$store.commit("session/setSessionId", sessionId);
+        const enter = () => {
+          this.$store.commit("session/clearVoteHistory");
+          this.$store.commit("session/setSpectator", true);
+          this.$store.commit("toggleGrimoire", false);
+          this.$store.commit("session/setSessionId", sessionId);
+        };
+        // 2026-08-19: THE SAME GATE the Join panel and an invite link answer
+        // to — a town no storyteller has opened is waited for, not entered.
+        // A host is never gated: opening a town is exactly the moment nobody
+        // is connected to it.
+        if (resolveTownRole(sessionId) === "host") return enter();
+        enterWhenOpen(sessionId, enter).then((entered) => {
+          // This door can be reached with seats already on the table, where
+          // the entry screen — and so the waiting panel — is not rendered.
+          // The transient notice is the only surface guaranteed to be here.
+          if (entered) return;
+          const town = normalizeTownId(sessionId);
+          flashHint(`${town} isn't open yet — waiting for its storyteller.`);
+        });
       }
     },
     // FT-852: `confirmed === true` (the pill's own two-click arm) skips the

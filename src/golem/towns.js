@@ -161,6 +161,119 @@ export function townStatuses(ids) {
     .catch(() => ({}));
 }
 
+/**
+ * 2026-08-19 — IS THE TOWN OPEN? A town is open when a STORYTELLER is
+ * connected to it. `players` alone is not enough: a spectator arriving at a
+ * host-less channel asks "host" for the gamestate, nobody answers, and they
+ * sit in an empty square that never fills.
+ *
+ * IT FAILS OPEN, ALWAYS. Every way the answer can go wrong — relay
+ * unreachable, non-ok response, malformed body, no response at all — resolves
+ * true and lets the player through exactly as they went through before this
+ * check existed. A false "not open" caused by a network hiccup locks someone
+ * out of a working town, which is worse than the empty square this gate
+ * exists to prevent. The timeout race is part of that promise and not an
+ * optimisation: fetch carries no deadline of its own, so a hung relay would
+ * otherwise leave a player in front of a screen that never resolves.
+ */
+const OPEN_CHECK_TIMEOUT = 2500;
+
+export function townIsOpen(id) {
+  const clean = normalizeTownId(id);
+  if (!clean) return Promise.resolve(true);
+  const asked = townStatuses([clean]).then(statuses => {
+    const status = statuses[clean];
+    // The relay answers for EVERY town it is asked about, awake or asleep —
+    // so a MISSING entry means the answer failed, not that the town is shut.
+    return !status || !!status.host;
+  });
+  const deadline = new Promise(resolve =>
+    setTimeout(() => resolve(true), OPEN_CHECK_TIMEOUT)
+  );
+  return Promise.race([asked, deadline]).catch(() => true);
+}
+
+/**
+ * The town this browser is waiting to see opened ("" = none), and when the
+ * wait began. A plain module object rather than store state because it is
+ * WRITTEN from the socket plugin's boot parse — which runs before any
+ * component exists — and READ by Intro, which makes it reactive simply by
+ * holding it in `data` (the same way it already holds titleFonts' fontState).
+ */
+export const townGate = { town: "", since: 0 };
+
+// How often the wait re-asks. Three seconds is fast enough that "you go in
+// the moment they open it" is true to a player's eye; after two minutes it
+// drops to the shelf's own ten-second cadence, since by then nobody is about
+// to arrive in the next breath. IT NEVER GIVES UP: the player chose to wait,
+// the screen says so and offers the way out, and timing them out would dump
+// them back at the doors without being asked.
+const WAIT_POLL = 3000;
+const WAIT_SLOW_POLL = 10000;
+const WAIT_SLOW_AFTER = 2 * 60 * 1000;
+
+let waitTimer = null;
+
+/** Watch `id` until a storyteller opens it, then hand it to `onOpen`. */
+export function waitForTown(id, onOpen) {
+  const clean = normalizeTownId(id);
+  if (!clean) return;
+  stopWaitingForTown();
+  townGate.town = clean;
+  townGate.since = Date.now();
+  const tick = () => {
+    // A player who stopped waiting — or who got in by some other path — must
+    // never be dragged into a town by a check that was already in flight.
+    if (townGate.town !== clean) return;
+    townIsOpen(clean).then(open => {
+      if (townGate.town !== clean) return;
+      if (open) {
+        stopWaitingForTown();
+        onOpen(clean);
+        return;
+      }
+      waitTimer = setTimeout(
+        tick,
+        Date.now() - townGate.since > WAIT_SLOW_AFTER
+          ? WAIT_SLOW_POLL
+          : WAIT_POLL
+      );
+    });
+  };
+  waitTimer = setTimeout(tick, WAIT_POLL);
+}
+
+/** Stop watching — the player left the waiting screen, or has been let in. */
+export function stopWaitingForTown() {
+  clearTimeout(waitTimer);
+  waitTimer = null;
+  townGate.town = "";
+  townGate.since = 0;
+}
+
+/**
+ * THE ONE GATE every PLAYER entry path calls. Open → `enter(id)` runs now;
+ * shut → the wait begins and `enter(id)` runs the moment a storyteller
+ * appears. Resolves true if they went straight in, false if they are waiting.
+ *
+ * A HOST NEVER COMES THROUGH HERE — each caller checks its own role first,
+ * because opening a town is precisely the moment when no host is connected to
+ * it, and gating that would lock a storyteller out of their own game. (The
+ * check lives in the callers rather than here so this module never has to
+ * import townRoute, which imports this one.)
+ */
+export function enterWhenOpen(id, enter) {
+  const clean = normalizeTownId(id);
+  return townIsOpen(clean).then(open => {
+    if (open) {
+      enter(clean);
+      return true;
+    }
+    waitForTown(clean, enter);
+    return false;
+  });
+}
+
 /** The relay lowercases channel names on arrival — mirror that here so the
  *  shelf, the status API and the socket all speak of the same town. The
  *  24-char cap matches the session store's sanitizer AND the server's town-id

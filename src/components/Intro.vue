@@ -49,7 +49,7 @@
                (user call 2026-08-18) — swash rule + "on the" as one piece -->
           <img class="onthe-lockup" :src="ontheLockup" alt="on the" />
         </div>
-        <ul class="doors" v-if="!mode">
+        <ul class="doors" v-if="!mode && !waitingTown">
           <li @click="openHost">
             <span class="key"
               ><img :src="capSrc('H')" :class="capClass('h')" :style="capStyle('H')" alt="H"
@@ -77,6 +77,42 @@
              one-line hint) up top, the primary button at the foot. Everything
              else — the town list and the fields — is `.panel-body`, the
              band inscribed between them. -->
+        <!-- 2026-08-19: NOT OPEN YET. Someone followed an invite link, or
+             typed a town name, before its storyteller opened it. That is a
+             normal thing to do — early is not wrong — so this is a WAIT, not
+             a refusal: the gate keeps polling and the player is carried in
+             the moment a storyteller appears. It is the same panel object
+             (disc on the desktop face, rectangle on a phone) the Host and
+             Join panels are, so it inherits their geometry rather than
+             inventing a fourth surface. It outranks `mode` because a wait can
+             begin with no panel open at all. -->
+        <div class="panel wait" v-else-if="waitingTown">
+          <div class="panel-head">
+            <p class="hint">Not open yet</p>
+          </div>
+          <div class="panel-body">
+            <p class="wait-town">{{ waitingLabel }}</p>
+            <p class="wait-why">
+              The storyteller hasn't opened this town yet.
+            </p>
+            <p class="wait-what">
+              Stay here and you'll walk in the moment they do.
+            </p>
+            <div class="wait-pulse" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="acts">
+            <button
+              class="confirm"
+              title="Go back to the entry screen"
+              @click="stopWaiting"
+            >
+              Stop waiting
+            </button>
+          </div>
+        </div>
+
         <div class="panel" v-else-if="mode === 'host'">
           <div class="panel-head">
             <span class="panel-back" title="Back" @click="mode = null"
@@ -296,8 +332,14 @@ import {
   editKeyFor,
   claimTown,
   townMeta,
-  removeTown
+  removeTown,
+  // 2026-08-19: the closed-town gate — a town nobody has opened is waited
+  // for, not entered.
+  enterWhenOpen,
+  stopWaitingForTown,
+  townGate
 } from "../golem/towns";
+import { resolveTownRole } from "../golem/townRoute";
 import bloodH from "../assets/blood/blood-H.png";
 import bloodJ from "../assets/blood/blood-J.png";
 import bloodC from "../assets/blood/blood-C.png";
@@ -488,6 +530,20 @@ export default {
     canJoin() {
       return !!(this.joinIdClean && this.joinName.trim());
     },
+    /** 2026-08-19: the town being waited on, "" when nothing is. This is the
+     *  panel selector — it outranks `mode`, so a wait started from an invite
+     *  link (where no panel was ever opened) shows the same screen a wait
+     *  started from the Join panel does. */
+    waitingTown() {
+      return this.townGate.town;
+    },
+    /** Its display name if the server knows one, else the id the player
+     *  followed — never blank, and never the raw channel jargon. */
+    waitingLabel() {
+      const id = this.waitingTown;
+      const m = this.meta[id];
+      return (m && m.name) || id;
+    },
     joinIdClean() {
       let raw = this.joinId.trim();
       if (raw.match(/^https?:\/\//i)) {
@@ -537,6 +593,12 @@ export default {
       // Golem fork: the app-wide PNG-font choice (titleFonts.js) — reactive,
       // persisted; the title click is the dev control.
       fontState,
+      // 2026-08-19: which town this browser is waiting to see opened, held
+      // the same way fontState is — a plain shared object that Vue makes
+      // reactive by finding it here. It is written from the socket plugin's
+      // boot parse, which runs before this component exists, so it cannot
+      // live in the component.
+      townGate,
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
       townId: "",
@@ -851,15 +913,38 @@ export default {
         if (editionModal) editionModal.loadFromVault(this.scriptId, true);
       }
     },
+    /**
+     * 2026-08-19: joining is now GATED on the town being open — a town with
+     * no storyteller connected is waited for, not walked into. The name is
+     * stored before the gate on purpose: the entry may happen minutes later,
+     * from the waiting panel, with these fields long gone.
+     *
+     * A host is never gated. This panel joins as a player by construction, so
+     * that can only be a storyteller taking a seat in a town they own — and
+     * checking would refuse them at exactly the moment nobody is connected.
+     */
     confirmJoin() {
       const id = this.joinIdClean;
       const name = this.joinName.trim();
       if (!id || !name) return;
       localStorage.setItem("golem.playerName", name);
+      if (resolveTownRole(id) === "host") return this.enterAsPlayer(id);
+      enterWhenOpen(id, this.enterAsPlayer);
+    },
+    /** Take a seat in `id` as a player — now, or when the wait ends. */
+    enterAsPlayer(id) {
       this.$store.commit("session/clearVoteHistory");
       this.$store.commit("session/setSpectator", true);
       this.$store.commit("toggleGrimoire", false);
       this.$store.commit("session/setSessionId", id);
+    },
+    /** Leave the waiting panel for the entry screen. The gate's timer stops
+     *  with it — nothing keeps polling behind a screen nobody is looking at,
+     *  and a check already in flight can no longer pull them in (waitForTown
+     *  re-reads the gate before acting on its answer). */
+    stopWaiting() {
+      stopWaitingForTown();
+      this.mode = null;
     },
     /** Door/button drop-caps wear their OWN font (the Aa panel is the
      *  control; "follow" mirrors the title). Blood keeps the door-baked art
@@ -1471,6 +1556,70 @@ export default {
       }
     }
 
+    // ── 2026-08-19: NOT OPEN YET ────────────────────────────────────────
+    // The waiting panel is the Join panel's own furniture rearranged — head
+    // cap says the state, band explains it, foot is the way out — so it
+    // inherits the disc geometry and the phone rectangle for free. Centred,
+    // because there is no left-hand label column to line anything up against.
+    // The three dots are the only thing on the screen that moves, and the
+    // app's own animation kill-switch (#app.static) already stops them.
+    &.wait {
+      .panel-body {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      // Everything in this panel sits on bare art — on the desktop disc the
+      // clock face itself, which is the brightest thing in the app. So each
+      // line carries the same black halo `.hint` already uses to stay legible
+      // over the raw background; the Host and Join panels get away without it
+      // because their content is dark input boxes.
+      .wait-town {
+        margin: 4px 0 10px;
+        max-width: 100%;
+        font-family: PiratesBay, sans-serif;
+        font-size: 130%;
+        color: #e11;
+        text-shadow: 0 0 4px black, 0 1px 3px black, 0 0 12px black;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .wait-why,
+      .wait-what {
+        margin: 0 0 6px;
+        font-size: 85%;
+        line-height: 1.35;
+        text-shadow: 0 1px 3px black, 0 0 8px black;
+      }
+
+      .wait-pulse {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+
+        span {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #d02020;
+          box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 7px rgba(0, 0, 0, 0.9);
+          animation: waitPulse 1.4s ease-in-out infinite;
+
+          &:nth-child(2) {
+            animation-delay: 0.2s;
+          }
+          &:nth-child(3) {
+            animation-delay: 0.4s;
+          }
+        }
+      }
+    }
+
     // the way back sits at the panel's top-left (user call 2026-08-18), leaving
     // the bottom row to the action that matters — but IN FLOW, on a line of its
     // own. Floated over the corner it landed on the first remembered town, and
@@ -1657,6 +1806,19 @@ export default {
       display: block;
       margin: auto;
       margin-bottom: 1vh;
+    }
+  }
+
+  // the waiting panel's three dots — the one moving thing on that screen
+  @keyframes waitPulse {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1);
     }
   }
 
