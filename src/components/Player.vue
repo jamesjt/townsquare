@@ -445,6 +445,27 @@
                 <font-awesome-icon icon="undo" />
                 Remove character
               </li>
+              <!-- FT-1006: THE BELIEF DOORWAY. The chip on the coin edits a
+                   belief once one exists, but it cannot SET the first one —
+                   this row is where "is the Drunk, thinks they are X" starts.
+                   Gated by the character's own schema (BELIEVES_OTHER in
+                   golem/nightInfo — the Drunk, the Lunatic, the Marionette),
+                   never a name test here; it also stays for any seat already
+                   carrying a belief, so an invented one can still be changed
+                   or cleared after the character underneath moves. -->
+              <li
+                class="char-act"
+                v-if="canSetBelief"
+                title="Set the character this seat's player is TOLD they are — they are dealt that and shown nothing else"
+                @click="setBelief()"
+              >
+                <font-awesome-icon icon="theater-masks" />
+                {{
+                  beliefChip
+                    ? "Change what they think they are"
+                    : "What do they think they are?"
+                }}
+              </li>
             </template>
             <li @click="movePlayer()" :class="{ disabled: session.lockedVote }">
               <font-awesome-icon icon="redo-alt" />
@@ -528,6 +549,9 @@ import Token from "./Token";
 import RoleHoverCard from "./RoleHoverCard";
 // FT-861: is this seat living a lie, and what does it think it is?
 import { isBelieving } from "../golem/belief";
+// FT-1006: which CHARACTERS come with a lie attached (the Drunk, the
+// Lunatic…) — the schema gate for the seat menu's belief doorway below.
+import { believesOther } from "../golem/nightInfo";
 import { mapGetters, mapState } from "vuex";
 
 // how long the cursor has to rest on a seat before its card appears — enough
@@ -601,6 +625,19 @@ export default {
       if (this.session.isSpectator) return null;
       if (this.grimoire.isPublic) return null;
       return isBelieving(this.player) ? this.player.believedRole : null;
+    },
+    /**
+     * FT-1006: does this seat's menu carry the belief doorway? Two ways in,
+     * and they are different questions: the character DEMANDS a lie (schema —
+     * a freshly seated Drunk has no belief yet and needs one), or a lie is
+     * already on the seat (so it can be changed or cleared even after the
+     * character underneath was swapped away). Same two guards as the chip:
+     * never for a player, never on the public grimoire.
+     */
+    canSetBelief() {
+      if (this.session.isSpectator) return false;
+      if (this.grimoire.isPublic) return false;
+      return believesOther(this.player.role) || isBelieving(this.player);
     },
     /** This chair's character is the one currently in hand. */
     roleArmed() {
@@ -1089,6 +1126,12 @@ export default {
       }
       this.toggleStatus();
     },
+    /** FT-1006: open the belief picker for this seat — the same modal the
+     *  coin's chip opens, reachable before any chip exists. */
+    setBelief() {
+      this.isMenuOpen = false;
+      this.$emit("trigger", ["openBeliefModal"]);
+    },
     /** The ring's add-reminder disc, as a menu row (see the template note). */
     addReminder() {
       this.isMenuOpen = false;
@@ -1564,10 +1607,18 @@ export default {
       margin-left: -50%;
       width: 100%;
       height: 106%;
-      left: 50%;
-      top: -20%;
+      // FT-1004b: the veil lab's position and size ride the SHIPPED numbers
+      // as offsets — the geometry here speaks percent of the shroud box, so
+      // the dials do too (one unit = 1% of the box). With the lab absent
+      // every var falls back to its ship value and each line computes to
+      // exactly what it said before. Size scales art and mask together
+      // (they are the same image) about the existing `top center` origin,
+      // and the arrival keeps its own 1.15 settle on top of it.
+      left: calc(50% + var(--vl-shift-x-adj, 0) * 1%);
+      top: calc(-20% + var(--vl-shift-y-adj, 0) * 1%);
       opacity: 0;
-      transform: perspective(400px) scale(1.15);
+      transform: perspective(400px)
+        scale(calc(var(--vl-size-adj, 100) / 100 * 1.15));
       transform-origin: top center;
       transition: all 200ms;
       pointer-events: none;
@@ -1633,13 +1684,13 @@ export default {
     #townsquare:not(.spectator):not(.building) &:hover:before {
       opacity: calc(var(--vl-opacity-adj, 100) / 100 * 0.5);
       // matches the `.dead` rule below — one number, where the veil settles
-      top: -6%;
-      transform: scale(1);
+      top: calc(-6% + var(--vl-shift-y-adj, 0) * 1%);
+      transform: scale(calc(var(--vl-size-adj, 100) / 100));
     }
     #townsquare:not(.spectator):not(.building) &:hover:after {
       opacity: calc(var(--vl-opacity-adj, 100) / 100 * 0.5);
-      top: -6%;
-      transform: scale(1);
+      top: calc(-6% + var(--vl-shift-y-adj, 0) * 1%);
+      transform: scale(calc(var(--vl-size-adj, 100) / 100));
     }
   }
 
@@ -1650,8 +1701,8 @@ export default {
   // bigger, further fall was.
   &.dead .shroud:before,
   &.dead .shroud:after {
-    top: -6%;
-    transform: perspective(400px) scale(1);
+    top: calc(-6% + var(--vl-shift-y-adj, 0) * 1%);
+    transform: perspective(400px) scale(calc(var(--vl-size-adj, 100) / 100));
   }
   // the pane's own resting strength — still the Opacity dial's home, but the
   // wash itself is what keeps this subtle now, not this number

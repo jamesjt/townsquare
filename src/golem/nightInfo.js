@@ -736,6 +736,41 @@ export const DEAD_WAKE_ENABLERS = {
 };
 
 /**
+ * FT-1006: CHARACTERS WHOSE OWN PLAYER DOES NOT KNOW WHAT THEY ARE — keyed by
+ * role id, valued by the TEAM whose characters they are told they belong to.
+ * This is the schema half of golem/belief.js: that file models the seat's
+ * `believedRole` field and reads it; this map names WHICH characters put a
+ * lie on the seat in the first place, so the assignment doorway (Player.vue's
+ * seat menu) can appear exactly where the deal calls for one — never a
+ * role-name test at a call site (the file header's standing rule).
+ *
+ * `pool` is the team the character's ability text says the player is shown
+ * ("You think you are a Townsfolk character") — advisory for a future picker
+ * filter, not enforced: a storyteller may hand any seat any belief through
+ * the same doorway, and belief.js deliberately supports "anything a
+ * storyteller invents on the night".
+ */
+export const BELIEVES_OTHER = {
+  // "You do not know you are the Drunk. You think you are a Townsfolk
+  // character, but you are not."
+  drunk: { pool: "townsfolk" },
+  // "You think you are a Demon, but you are not."
+  lunatic: { pool: "demon" },
+  // "You think you are a good character, but you are not." (custom scripts)
+  marionette: { pool: "townsfolk" }
+};
+
+/**
+ * Does dealing this character mean its player is TOLD they are someone else?
+ * True exactly for the BELIEVES_OTHER ids — the doorway-gating question, as
+ * distinct from belief.js's isBelieving(), which asks whether a belief has
+ * actually been SET on a seat.
+ */
+export function believesOther(role) {
+  return !!(role && role.id && BELIEVES_OTHER[role.id]);
+}
+
+/**
  * GROUP_INFO — documentation only (see file header). Neither key is a role
  * id, so fieldsFor()/extraFields() never return these via the normal lookup;
  * nothing renders them yet. They demonstrate the two field properties the

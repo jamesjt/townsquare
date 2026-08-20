@@ -36,15 +36,10 @@
          place, not two competing for the same job.
 
          LEFT MOUNTED, MERELY INVISIBLE — not torn out (see `.retired`
-         below). `.ns-warned` just below is position:absolute against THIS
-         box (`top: 100%`); `.ns-warned` itself is also position:absolute,
-         so it never contributes to `.night-sheet`'s own size — this pill,
-         unchanged, is what has always given `.night-sheet` its box during
-         the day. Dropping the v-if instead of hiding it would collapse
-         that box to nothing and pull the warning banner's anchor out from
-         under it. flipLabel/canFlip/flipPhase are all still exercised
-         here, untouched — nothing about ending a phase moved out of this
-         component, only where the button is drawn. -->
+         below). This pill, unchanged, is what has always given
+         `.night-sheet` its box during the day. flipLabel/canFlip/flipPhase
+         are all still exercised here, untouched — nothing about ending a
+         phase moved out of this component, only where the button is drawn. -->
     <div class="phase pill retired" v-if="!showList">
       <button
         type="button"
@@ -57,27 +52,6 @@
         {{ flipLabel }}
       </button>
     </div>
-
-    <!-- WHAT THE `warn` STATE SAYS (2026-08-19). The night ENDED with rows
-         unticked, and this is the sheet saying so — a line, never a
-         confirm()/alert(): this app has been bitten twice by native dialogs
-         being auto-dismissed, and a dialog would also have had to appear
-         BEFORE the flip, which turns "warn" into a second press to get past
-         and makes it a soft version of "required" rather than its own state.
-
-         It appears in DAY, because that is where the storyteller is standing
-         once the night they were warned about is over, and it clears itself
-         when the next night begins (flipPhase).
-
-         Absolutely positioned on purpose: `.night-sheet` in its day form is
-         a shrink-to-fit box around one pill, and a sentence IN the flow
-         would stretch that pill to the width of the sentence. Out of flow it
-         contributes nothing — the same trick NightModeRow's hint uses, and
-         for the same reason. -->
-    <small class="ns-warned" v-if="!showList && endedUnticked">
-      <font-awesome-icon icon="exclamation-triangle" />
-      Night {{ endedNight }} ended with {{ endedUntickedText }} unticked.
-    </small>
 
     <!-- ── the checklist ─────────────────────────────────────────────────── -->
     <template v-if="showList">
@@ -190,44 +164,6 @@
                 believes they are the {{ row.shownRole.name }}
               </small>
             </span>
-
-            <!-- FT-882: SCRUB THIS ROW FROM THE LOG. Present only once there
-                 IS something logged against it (`hasEntry`), so a fresh
-                 night carries no delete buttons at all and the control turns
-                 up exactly where a mistake was made.
-
-                 It sits on the IDENTITY line, hard right, and not with the
-                 answer controls where it started. Measured at 1280×800: down
-                 there it cost the crowded rows 35px of a 275px line and
-                 squeezed two seat pickers past the point of reading
-                 (shot: final-1280x800). Up here the line has slack going
-                 spare, and the placement is truer anyway — this is
-                 administration of the row, not an answer recorded on it. The
-                 gap between the name and the button is what keeps it from
-                 reading as "delete this player".
-
-                 It removes the ENTRY, not its contents: the row goes back to
-                 never-having-been-touched, which is a state the log already
-                 models (a row is born on its first write — see night/write)
-                 rather than a blanked ghost that still counts as a row. The
-                 tick goes with it, because the tick lives on the entry.
-
-                 There is no undo behind it — that is the design, not an
-                 oversight — so it asks first. A confirm is proportionate
-                 HERE and was not on the phase button: ending a phase happens
-                 every few minutes, deleting a record almost never. -->
-            <button
-              v-if="hasEntry(row)"
-              type="button"
-              class="ns-erase"
-              title="Delete what is logged for this row — this cannot be undone"
-              @click="eraseRow(row)"
-            >
-              <!-- trash-ALT: the icon set main.js already registers. The
-                   plain `trash` is not in that list and adding it would mean
-                   editing a file another lane is holding. -->
-              <font-awesome-icon icon="trash-alt" />
-            </button>
           </div>
 
           <!-- THE WORKING LINE (FT-882). A wrapper that is INVISIBLE to the
@@ -415,7 +351,7 @@
            rows are the band — there is no spare line there to put a sentence
            on, and the sentence would have cost the tray height the chip on
            the build panel just gave back. The count rides the tooltip
-           (flipHint) and the day-side line says it in full. -->
+           (flipHint). -->
       <button
         type="button"
         class="phase-flip bottom"
@@ -475,14 +411,7 @@ export default {
     return {
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
-      flashing: {},
-      // THE WARNING THE `warn` STATE LEAVES BEHIND. How many rows the night
-      // that just ended was carrying unticked, and which night it was.
-      // View state, deliberately: it is a note about a press, not a fact
-      // about the log, and it should not survive a reload the way a setting
-      // does. Cleared when the next night begins.
-      endedUnticked: 0,
-      endedNight: 0
+      flashing: {}
     };
   },
   computed: {
@@ -649,7 +578,7 @@ export default {
      *
      * Ending a night is blocked ONLY in the `required` state (NightModeRow's
      * chip). `warn` deliberately returns true: it is the state that lets the
-     * night end and says so afterwards — see warnUnchecked and endedUnticked.
+     * night end while saying so — see warnUnchecked.
      */
     canFlip() {
       if (!this.isNight) return true;
@@ -662,8 +591,7 @@ export default {
      * The WARN state, live: the night may end, and something would be left
      * behind if it did. Drives the button's own amber mark — the pre-press
      * half of the warning, which costs no layout at all because it rides the
-     * slot the finished-list tick already occupies. (The post-press half is
-     * the line under the day pill; see endedUnticked.)
+     * slot the finished-list tick already occupies.
      */
     warnUnchecked() {
       return (
@@ -671,11 +599,6 @@ export default {
         this.night.requireChecks === "warn" &&
         this.uncheckedRows.length > 0
       );
-    },
-    /** "3 rows" / "1 row" — said in three places, spelled once. */
-    endedUntickedText() {
-      const n = this.endedUnticked;
-      return n + (n === 1 ? " row" : " rows");
     }
   },
   methods: {
@@ -698,11 +621,6 @@ export default {
     write(row, patch) {
       this.$store.dispatch("night/write", { row, patch });
     },
-    /** Is there anything in the log for this row at all? The delete control
-     *  exists only where the answer is yes — see the template. */
-    hasEntry(row) {
-      return !!this.entriesById[row.key];
-    },
     /**
      * FT-882: the day counter, moved by hand.
      *
@@ -715,31 +633,6 @@ export default {
      */
     setDay(day) {
       this.$store.commit("night/setDay", day);
-    },
-    /**
-     * FT-882: scrub one row from the log.
-     *
-     * WHAT THIS REMOVES: the whole entry — every target, everything told,
-     * the false-info mark, and the tick. Not a blanking: the row returns to
-     * the state it had before the storyteller first touched it, which is a
-     * state the log already models (rows are born on first write). A blanked
-     * row would have left a record saying "the storyteller logged nothing
-     * here", which is a different and untrue claim.
-     *
-     * It asks first, and the wording names the row so a mis-aimed click on
-     * a crowded list is caught by reading rather than by regret.
-     */
-    eraseRow(row) {
-      const who = row.player.name || "seat " + (row.seat + 1);
-      if (
-        !confirm(
-          `Delete everything logged for ${row.role.name} (${who}) on night ` +
-            `${this.night.day}?\n\nThis cannot be undone.`
-        )
-      ) {
-        return;
-      }
-      this.$store.commit("night/removeEntry", row.key);
     },
     /** Patch `told` by merging over the row's CURRENT told, so setting one
      *  field (a number) never clobbers another already on the entry (a
@@ -912,23 +805,11 @@ export default {
      * checklist is still exactly one tap PER ROW (tick it and move on) —
      * never a "check all", which would teach a hurried storyteller to tick
      * without reading and defeat the point of the list.
-     *
-     * WARN (2026-08-19) ends the night and records what it ended with, read
-     * BEFORE the flip because the roster the count comes from is tonight's
-     * and the flip re-keys it. That count is what the day-side line says.
      */
     flipPhase() {
       if (!this.canFlip) {
         this.flashUnchecked();
         return;
-      }
-      if (this.isNight) {
-        this.endedUnticked = this.warnUnchecked ? this.uncheckedRows.length : 0;
-        this.endedNight = this.night.day;
-      } else {
-        // a night beginning clears the last one's note — it is about the
-        // night that ended, not a standing complaint
-        this.endedUnticked = 0;
       }
       this.$store.commit("toggleNight");
       if (this.grimoire.isNight) {
@@ -1015,8 +896,7 @@ $ns-team-colors: (
   //
   // FT-975: `pointer-events: none` ADDED here. The pill inside is retired
   // (visibility:hidden, its own pointer-events:none — see `.phase.pill
-  // .retired` below) and `.ns-warned` was ALREADY pointer-events:none by
-  // design (it's read-only furniture). So nothing in this state still
+  // .retired` below). So nothing in this state still
   // needs to receive the pointer — but `.night-sheet` itself is z-index 19,
   // stacked above TownInfo's `.info` (z-index 2), and its OWN box sits
   // exactly where the retired pill used to (same size, same centring) —
@@ -1028,37 +908,6 @@ $ns-team-colors: (
   &:not(.has-list) {
     transform: translateY(105px);
     pointer-events: none;
-  }
-
-  // THE WARN STATE'S OWN LINE — "Night 2 ended with 3 rows unticked."
-  // Out of the flow (see the template note): the day sheet is shrink-to-fit
-  // around its pill, and a sentence inside it would drag the pill out to the
-  // sentence's width. Sits directly under the pill, centred on it, and is
-  // read-only furniture — clicks belong to the button above it.
-  .ns-warned {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 250px;
-    margin-top: 6px;
-    pointer-events: none;
-    font-size: 80%;
-    line-height: 1.3;
-    color: #f0d9a0;
-    // It lands in DAY, over the lit stained-glass dial, which is the
-    // brightest ground in the app — gold on gold. The plate is what makes it
-    // readable there without turning the line into a banner, and it matches
-    // the pill it hangs under.
-    background: rgba(0, 0, 0, 0.72);
-    border: 1px solid rgba(216, 180, 90, 0.35);
-    border-radius: 8px;
-    padding: 3px 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-    svg {
-      margin-right: 4px;
-      opacity: 0.9;
-    }
   }
 
   &.has-list {
@@ -1325,8 +1174,8 @@ $ns-team-colors: (
 
     // FT-975: retired — see the template comment above `.phase.pill`.
     // Invisible, not gone: keeping the box (rather than display:none or
-    // dropping the v-if) is what keeps `.ns-warned`'s position:absolute
-    // anchor exactly where it has always been. visibility:hidden also
+    // dropping the v-if) is what keeps `.night-sheet`'s day box the size
+    // it has always been. visibility:hidden also
     // takes it out of the tab order and off screen readers on its own —
     // tabindex="-1" in the template is belt-and-suspenders documentation
     // of that, not load-bearing.
@@ -1982,38 +1831,6 @@ $ns-team-colors: (
     }
   }
 
-  // FT-882: scrub this row from the log. Same box, same height as every
-  // other row control — it is not a special shape, it is just the one with
-  // consequences. Quiet until reached for, then RED: red in this app means
-  // blood and harm, which is exactly what this is, and as a hover state it
-  // says "dangerous" without putting a second standing accent on a surface
-  // whose accent is now the grimoire's purple.
-  .ns-erase {
-    height: 30px;
-    width: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    // hard right of the identity line, with the row's own empty space
-    // between it and the player's name
-    margin-left: auto;
-    cursor: pointer;
-    opacity: 0.4;
-    font-size: 12px;
-    color: #d8cdb4;
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid #3d3d3d;
-    border-radius: 5px;
-    &:hover,
-    &:focus-visible {
-      opacity: 1;
-      color: #ff8a8a;
-      border-color: #7d0e0e;
-      outline: none;
-    }
-  }
-
   // the reminder — FT-862: the sentence the storyteller reads aloud, sized
   // to be readable rather than a caption. FT-874: ONE line now, truncated —
   // a checklist is for SCANNING, not reading (compare ScriptView, which
@@ -2059,8 +1876,7 @@ $ns-team-colors: (
     }
     .ns-free,
     .ns-told,
-    .ns-lie,
-    .ns-erase {
+    .ns-lie {
       height: 44px;
       font-size: 15px;
     }
@@ -2068,8 +1884,7 @@ $ns-team-colors: (
       flex: 1;
       min-width: 140px;
     }
-    .ns-lie,
-    .ns-erase {
+    .ns-lie {
       width: 44px;
     }
   }
