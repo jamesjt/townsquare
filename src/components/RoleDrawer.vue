@@ -12,12 +12,15 @@
            tap. Both are display:none on desktop, where the left-edge tab has
            always been the way in and out — nothing there changes. -->
       <div class="gs-handle" @pointerdown="startSheetDrag"></div>
-      <font-awesome-icon
-        icon="times"
+      <!-- FT-951: THE close mark, shared with every close control in the app
+           (src/components/CloseX.vue) — keeps both @pointerup and @click
+           bound directly to it (the phone's pointer-driven dismiss and the
+           desktop click), same as before. -->
+      <CloseX
         class="rd-close"
         title="Close the grimoire"
-        @pointerup="sheetDismiss"
-        @click="sheetDismiss"
+        @pointerup.native="sheetDismiss"
+        @click.native="sheetDismiss"
       />
       <!-- the how-to rides the title as a tooltip; the actions sit at the top
            where they are reachable without scrolling (user call 2026-08-18) -->
@@ -200,6 +203,7 @@ import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
 // FT-858: THE role hover card, shared with the Almanac workbench's shelf and
 // the seats in the square.
 import RoleHoverCard from "./RoleHoverCard";
+import CloseX from "./CloseX";
 // THE coin — the same component the clock face's own bluff cluster renders in
 // each of its three slots (TownSquare's `<Token :role="bluffs[i]">`). An empty
 // slot is that coin with no role: blank parchment, which is what the face
@@ -211,6 +215,10 @@ import { roleIcon as roleIconSrc, startRoleDrag } from "../golem/roleDrag";
 // the phone's drag-to-dismiss — the same gesture the right-hand rail's three
 // sheets take, so all four dismiss identically
 import bottomSheet from "../golem/bottomSheet";
+// FT-946: "how many seats hold this role" — shared with the "Select the
+// characters" picker (RolesModal) so the two surfaces can never disagree on
+// what is already in play.
+import { placedCount as sharedPlacedCount } from "../golem/duplicates";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 // the cursor has to rest on a row before its card appears — running the list
@@ -219,7 +227,7 @@ const HOVER_DELAY = 170;
 
 export default {
   name: "RoleDrawer",
-  components: { RoleHoverCard, Token },
+  components: { RoleHoverCard, Token, CloseX },
   mixins: [bottomSheet],
   data() {
     return {
@@ -381,8 +389,11 @@ export default {
         .map(p => p.name || "Open")
         .join(", ");
     },
+    // FT-946: the shared definition (golem/duplicates) — the picker
+    // (RolesModal) reads the same function so the two lists can never
+    // disagree on what is already seated.
     placedCount(role) {
-      return this.players.filter(p => p.role.id === role.id).length;
+      return sharedPlacedCount(role, this.players);
     },
     placedInTeam(team) {
       return this.players.filter(p => p.role.team === team).length;

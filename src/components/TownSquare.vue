@@ -595,17 +595,16 @@ export default {
   },
   methods: {
     /**
-     * Golem fork (2026-08-19): measures the demon's own rendered coin and lays
-     * the three bluffs AGAINST it — the first coin's rim a few pixels clear of
-     * the demon's rim, the other two continuing along the same ray, confined
-     * to ONE side (screen-left or screen-right, chosen by `side` below).
-     *
-     * The acceptance for this is a RIM GAP IN PIXELS, not a distance bound: a
-     * bound of "within N seat-widths of the seat's centre" is satisfied by a
-     * cluster that reads as belonging to nothing, which is how two earlier
-     * passes shipped green and wrong. See the block on `bisect` below for the
-     * measured cause and claude_temp_test/2026-08-19-bluffs3-gap.mjs for the
-     * before/after tables.
+     * Golem fork (2026-08-19, FT-939 — the user's second ask for this, "sigh"):
+     * measures the demon's own rendered coin and stacks the three bluffs in a
+     * VERTICAL COLUMN beside it — not a diagonal fan. The previous pass placed
+     * the row along the bisector of the seat's outward spoke and its screen
+     * side, which is only horizontal at 3 and 9 o'clock; everywhere else
+     * (12 and 6 o'clock most visibly) that bisector is a 45° diagonal. This
+     * pass drops the bisector entirely: the column's x is fixed (touching the
+     * seat's rim, on the side `side` below picks) and its three y's are the
+     * seat's own vertical centre plus/minus one step — vertical BY
+     * CONSTRUCTION, at every clock position, not as an outcome of a search.
      *
      * A measured DOM position, not a re-derivation of the ring's own
      * rotate()/vmin math: the ring's radius, each seat's width, and even
@@ -657,6 +656,12 @@ export default {
        * up" (0, -1) — the outward direction before rotation, since the
        * li's un-rotated top edge is the point farthest from the hub — to
        * screen-space (-c, -d).
+       *
+       * FT-939: this vector now drives ONLY `side` below — it no longer
+       * feeds the row's own direction (that direction is fixed vertical),
+       * so the cluster's PLACEMENT still tracks the ring's own rotation
+       * (still correctly measured in screen space, still never confused by
+       * a rotated/clipped seat box) while its ARRANGEMENT no longer does.
        */
       let ox = 0;
       let oy = -1;
@@ -672,100 +677,40 @@ export default {
       ox /= odist;
       oy /= odist;
       /**
-       * (2026-08-19, user call #3): ONE SIDE OF THE SEAT, in screen space —
-       * not a fan spread symmetrically along the outward spoke. At the top
-       * of the ring the spoke points straight up, so a fan spread left AND
-       * right from it put half the coins to the left of the seat and half
-       * to the right — squarely across the seat's own centreline, which is
-       * where its name plate sits regardless of which way the spoke points
-       * (measured, screenshot: Imp at 12 o'clock, bluffs spilling across
-       * its own plate — see claude_temp_test/2026-08-19-bluffs-side.mjs's
-       * before-sweep for the reproduced overlap). A cluster confined to one
-       * side never crosses that centreline, so it never crosses the plate
-       * either.
-       *
-       * `ox` — already the outward unit vector's screen-x component,
-       * computed above off the seat's own rotation matrix rather than any
-       * bounding box (see the block comment just above) — already answers
-       * "which side": positive means the seat sits right-of-hub, negative
-       * left-of-hub. At 12 and 6 o'clock ox≈0, and the `> 0.05` threshold
-       * resolves that to -1 (screen-left) — exactly the user's "top or
-       * bottom → left" rule fires for free, with no separate case needed
-       * for those two seats.
+       * (2026-08-19, user call #3, UNCHANGED by FT-939): ONE SIDE OF THE
+       * SEAT, in screen space. `ox` — the outward unit vector's screen-x
+       * component, computed above off the seat's own rotation matrix rather
+       * than any bounding box — already answers "which side": positive means
+       * the seat sits right-of-hub, negative left-of-hub. At 12 and 6
+       * o'clock ox≈0, and the `> 0.05` threshold resolves that to -1
+       * (screen-left) — the "top or bottom → left" rule fires for free, with
+       * no separate case needed for those two seats.
        */
       const side = ox > 0.05 ? 1 : -1;
       const size = seatRect.width;
       const rootLeft = rootRect.left;
       const rootTop = rootRect.top;
-      /**
-       * THE ROW'S DIRECTION (2026-08-19, user call #3 — the third attempt at
-       * this, and the one that fixes the actual cause).
-       *
-       * WHAT WAS WRONG. The previous pass moved the row's base point 0.9
-       * seat-widths OUTWARD along the spoke and THEN stepped 0.7 seat-widths
-       * SIDEWAYS from there. Those two are perpendicular everywhere except 3
-       * and 9 o'clock, so they added in quadrature: the first coin landed
-       * ~1.14 seat-widths from the seat centre on a diagonal, when "touching"
-       * is 0.7 along a single ray. Measured on the shipped build: a desktop
-       * 6-seat town (124px coins) put the NEAREST bluff coin's rim 105px clear
-       * of the demon's own rim — most of a coin's width of empty space — while
-       * the sweep's "within 3 seat-widths of centre" bound read 2.21 and
-       * passed. The collision search never ran (pushPx was 0 in every one of
-       * those rows); the base geometry alone did it. A distance bound was the
-       * wrong acceptance, so the acceptance is now an ADJACENCY: the gap
-       * between the two rims, in pixels (see claude_temp_test/
-       * 2026-08-19-bluffs3-gap.mjs, before/after tables).
-       *
-       * WHAT IT IS NOW. One ray, from the demon's own coin centre. The first
-       * slot sits at `seatRadius + coinRadius + TOUCH`, so its rim clears the
-       * demon's rim by TOUCH and nothing else — touching distance by
-       * construction rather than by budget. The other two continue along the
-       * same ray.
-       *
-       * WHICH RAY. The bisector of two directions the seat already knows: the
-       * screen side the (unchanged, correct) side rule picked, and the seat's
-       * own outward spoke.
-       *
-       *   3 / 9 o'clock  outward IS the side, so the bisector is the side —
-       *                  a plain horizontal row, exactly as before.
-       *   12 / 6 o'clock outward is vertical and the side is horizontal, so
-       *                  the row leaves at 45° into the ring's own open
-       *                  exterior. This matters: a purely horizontal row at
-       *                  the top of a 15-seat ring runs ALONG the ring, and
-       *                  measured, its third coin lands inside the next seat's
-       *                  own coin — which is exactly what used to send the
-       *                  collision search walking, and walking is what
-       *                  detached the cluster.
-       *
-       * So the side rule is untouched and the crowded cases stop being
-       * crowded, without the standoff that caused the detachment.
-       */
-      const bisect = (sx, sy) => {
-        const bx = side + sx;
-        const by = sy;
-        const len = Math.hypot(bx, by);
-        // Degenerate only when the two directions oppose exactly (an inward
-        // bisector at 3/9 o'clock) — fall back to the pure side, which is
-        // where that case was heading anyway.
-        if (len < 1e-3) return { x: side, y: 0 };
-        return { x: bx / len, y: by / len };
-      };
-      const dirOut = bisect(ox, oy);
       // A bluff coin is 0.4 seat-widths square (see the CSS below) — half 0.2.
       const COIN_HALF = 0.2;
       const coinHalfPx = size * COIN_HALF;
       /**
        * The one number that says "against the coin, not near it": how much
-       * daylight is left between the demon's rim and the first bluff's rim.
+       * daylight is left between the demon's rim and the column's near edge.
        * Proportional so it reads the same at a 6-seat town's 124px coins
        * (~6px) and a 15-seat phone's 45px ones (~2px) — a fixed pixel value
        * would be invisible on one and a gutter on the other.
        */
       const TOUCH = size * 0.05;
-      const SPREAD = 0.34; // spacing between the 3 row slots, unchanged
-      const offsets = [0, 1, 2].map(
-        (k) => seatRadiusPx + coinHalfPx + TOUCH + size * SPREAD * k,
-      );
+      const SPREAD = 0.34; // vertical spacing between the 3 coins, unchanged
+      /**
+       * THE COLUMN (FT-939). One x, fixed by `side` — never re-derived per
+       * coin, so the three centres line up on screen by construction, not by
+       * a search that happens to succeed. Three y's, evenly spaced around the
+       * seat's own vertical centre — so "vertical, evenly spaced" is true
+       * before any collision handling runs, at every clock position.
+       */
+      const axisX = seatCx + side * (seatRadiusPx + coinHalfPx + TOUCH);
+      const rowYs = [-1, 0, 1].map((k) => seatCy + k * size * SPREAD);
       const EDGE_PAD = 2;
       const inViewport = (box) =>
         box[0] >= EDGE_PAD &&
@@ -802,10 +747,15 @@ export default {
             box[1] >= r.bottom + MARGIN_PX ||
             box[3] <= r.top - MARGIN_PX,
         );
-      const rowBoxes = (dir, dx, dy) =>
-        offsets.map((off) => {
-          const cx = seatCx + dir.x * off + dx;
-          const cy = seatCy + dir.y * off + dy;
+      // dxOut >= 0: further from the seat along `side`. dy: the whole column
+      // slid up or down. Both translate all three coins RIGIDLY (same dx,
+      // same dy for every coin), so however the search resolves, the column
+      // that results is exactly as vertical and evenly spaced as the ideal
+      // one — there is no per-coin freedom left to break that.
+      const columnBoxes = (dxOut, dy) =>
+        rowYs.map((y) => {
+          const cx = axisX + side * dxOut;
+          const cy = y + dy;
           return [
             cx - coinHalfPx,
             cy - coinHalfPx,
@@ -814,95 +764,49 @@ export default {
           ];
         });
       /**
-       * THE SEARCH CANNOT DETACH THE CLUSTER. This is the second half of the
-       * fix, and it is a constraint rather than a heuristic.
-       *
-       * The old search pushed the whole row along one axis until everything
-       * cleared, bounded at FOUR seat-widths — so "walk away until the problem
-       * is gone" was a legal answer, and in a crowded ring it was the answer it
-       * found. It cannot be reached from here. There are exactly two freedoms,
-       * and they are not equal:
-       *
-       *   (a) WHICH RAY the row leaves the coin on. This is FREE: every ray
-       *       starts the first slot at the same distance from the same centre,
-       *       so rotating the cluster around the demon's coin changes the rim
-       *       gap by exactly nothing. The rays are tried in order of how far
-       *       they have turned from the ideal (`dirOut`), and the sweep is
-       *       confined to the side the side rule picked — `v.x * side >= 0`, so
-       *       a left-hand demon's cluster can tip up, down, or anywhere
-       *       between, but can never cross to the right.
-       *   (b) A TRANSLATION perpendicular to the chosen ray. This one COSTS
-       *       adjacency, so it is only reached after every ray has failed, and
-       *       it is capped at MAX_NUDGE = 0.25 seat-widths (~31px at a 6-seat
-       *       town's 124px coins, ~11px at a 15-seat phone's 45px ones).
-       *
-       * The worst displacement this can produce is therefore a quarter of a
-       * coin, and it is tried smallest-first. If nothing clears even then, the
-       * row takes the ideal position and OVERLAPS whatever is in the way — the
-       * user's own instruction, and the right one: a cluster sitting on a name
-       * plate still reads as the demon's, and a cluster in the corner does not.
+       * THE SEARCH CANNOT TILT THE CLUSTER (FT-939's replacement for the old
+       * ray sweep). There is no angle left to try — the column's axis is
+       * fixed — so the only two freedoms are both plain translations:
+       *   (a) push further from the seat, along `side` (dxOut, outward only)
+       *   (b) slide the whole column up or down (dy, either sign)
+       * dy is tried first and smallest-first (closest to the seat's own
+       * centre is the least surprising place for its bluffs to sit), then
+       * dxOut grows the same way. If nothing clears, the ideal column is kept
+       * and allowed to overlap — the user's own instruction from the FT-891
+       * pass: a cluster sitting on a name plate still reads as the demon's,
+       * one exiled to a corner does not.
        */
-      const MAX_NUDGE = size * 0.25;
+      const MAX_NUDGE = size * 0.5;
       const NUDGE_STEP = Math.max(2, size * 0.04);
-      // 24 steps of 3.75° to either side of the ideal ray = a quarter turn each
-      // way. Paired so the pair nearest the ideal is tried first, and within a
-      // pair the more OUTWARD of the two goes first — the ring's exterior is
-      // where the open space is, so an equal-cost tie is broken away from the
-      // crowd.
-      const RAY_STEPS = 24;
-      const RAY_STEP_RAD = Math.PI / 48;
-      const baseAngle = Math.atan2(dirOut.y, dirOut.x);
-      const rays = [];
-      const pushRay = (angle) => {
-        const v = { x: Math.cos(angle), y: Math.sin(angle) };
-        // never cross to the other side of the seat — the side rule is not
-        // something this search is allowed to trade away
-        if (v.x * side < -0.001) return;
-        rays.push(v);
-      };
-      pushRay(baseAngle);
-      for (let step = 1; step <= RAY_STEPS; step++) {
-        const delta = step * RAY_STEP_RAD;
-        const plus = { a: baseAngle + delta, out: 0 };
-        const minus = { a: baseAngle - delta, out: 0 };
-        plus.out = Math.cos(plus.a) * ox + Math.sin(plus.a) * oy;
-        minus.out = Math.cos(minus.a) * ox + Math.sin(minus.a) * oy;
-        const pair = plus.out >= minus.out ? [plus, minus] : [minus, plus];
-        pushRay(pair[0].a);
-        pushRay(pair[1].a);
+      const dySteps = [0];
+      for (let k = 1; k * NUDGE_STEP <= MAX_NUDGE + 0.001; k++) {
+        dySteps.push(k * NUDGE_STEP, -k * NUDGE_STEP);
+      }
+      const dxSteps = [0];
+      for (let k = 1; k * NUDGE_STEP <= MAX_NUDGE + 0.001; k++) {
+        dxSteps.push(k * NUDGE_STEP);
       }
       let chosen = null;
       let onscreenOnly = null;
-      for (let n = 0; n <= MAX_NUDGE + 0.001 && !chosen; n += NUDGE_STEP) {
-        for (let d = 0; d < rays.length && !chosen; d++) {
-          const dir = rays[d];
-          // the ray's own perpendicular — the only direction a nudge may move
-          const px = -dir.y;
-          const py = dir.x;
-          const signs = n === 0 ? [0] : [1, -1];
-          for (let s = 0; s < signs.length; s++) {
-            const dx = px * signs[s] * n;
-            const dy = py * signs[s] * n;
-            const boxes = rowBoxes(dir, dx, dy);
-            if (!boxes.every(inViewport)) continue;
-            if (!onscreenOnly) onscreenOnly = { dir, dx, dy };
-            if (boxes.every(clears)) {
-              chosen = { dir, dx, dy };
-              break;
-            }
-          }
+      for (let i = 0; i < dySteps.length && !chosen; i++) {
+        for (let j = 0; j < dxSteps.length && !chosen; j++) {
+          const dy = dySteps[i];
+          const dxOut = dxSteps[j];
+          const boxes = columnBoxes(dxOut, dy);
+          if (!boxes.every(inViewport)) continue;
+          if (!onscreenOnly) onscreenOnly = { dxOut, dy };
+          if (boxes.every(clears)) chosen = { dxOut, dy };
         }
       }
-      // Nothing cleared: prefer the closest candidate that at least fits the
-      // screen, and failing that the ideal ray, overlapping and all.
-      if (!chosen) chosen = onscreenOnly || { dir: dirOut, dx: 0, dy: 0 };
-      let boxes = rowBoxes(chosen.dir, chosen.dx, chosen.dy);
+      if (!chosen) chosen = onscreenOnly || { dxOut: 0, dy: 0 };
+      let boxes = columnBoxes(chosen.dxOut, chosen.dy);
       /**
        * The last-resort on-screen fix is a UNIFORM translation of the whole
-       * row by the least amount that brings its bounding box inside the
-       * viewport — never a per-coin clamp, which would collapse the row into a
-       * stack against the edge and lose the one thing (its shape) that says
-       * these three belong together.
+       * column by the least amount that brings its bounding box inside the
+       * viewport — never a per-coin clamp, which would collapse the column
+       * into a stack against the edge and lose the one thing (its shape)
+       * that says these three belong together. A uniform shift keeps every
+       * x equal and every y-gap even, same as the search above.
        */
       const bbox = boxes.reduce(
         (a, b) => [
@@ -921,8 +825,11 @@ export default {
       if (bbox[1] < EDGE_PAD) fixY = EDGE_PAD - bbox[1];
       else if (bbox[3] > window.innerHeight - EDGE_PAD)
         fixY = window.innerHeight - EDGE_PAD - bbox[3];
-      if (fixX || fixY)
-        boxes = rowBoxes(chosen.dir, chosen.dx + fixX, chosen.dy + fixY);
+      if (fixX || fixY) {
+        // fixX is a screen-space shift; columnBoxes' dxOut moves along
+        // `side`, so convert back through the same sign.
+        boxes = columnBoxes(chosen.dxOut + fixX * side, chosen.dy + fixY);
+      }
       const coins = boxes.map((b) => ({
         left: (b[0] + b[2]) / 2 - rootLeft,
         top: (b[1] + b[3]) / 2 - rootTop,

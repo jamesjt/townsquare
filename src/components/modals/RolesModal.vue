@@ -5,7 +5,11 @@
     @close="toggleModal('roles')"
   >
     <h3>Select the characters for {{ nonTravelers }} players:</h3>
-    <ul class="tokens" v-for="(teamRoles, team) in roleSelection" :key="team">
+    <ul
+      class="tokens"
+      v-for="(teamRoles, team) in visibleRoleSelection"
+      :key="team"
+    >
       <li class="count" :class="[team]">
         {{ teamRoles.reduce((a, { selected }) => a + selected, 0) }} /
         {{ game[nonTravelers - 5][team] }}
@@ -18,7 +22,7 @@
       >
         <Token :role="role" />
         <font-awesome-icon icon="exclamation-triangle" v-if="role.setup" />
-        <div class="buttons" v-if="allowMultiple">
+        <div class="buttons" v-if="allowDup">
           <font-awesome-icon
             icon="minus-circle"
             @click.stop="role.selected--"
@@ -35,9 +39,9 @@
         randomizer does not account for these characters.
       </span>
     </div>
-    <label class="multiple" :class="{ checked: allowMultiple }">
-      <font-awesome-icon :icon="allowMultiple ? 'check-square' : 'square'" />
-      <input type="checkbox" name="allow-multiple" v-model="allowMultiple" />
+    <label class="multiple" :class="{ checked: allowDup }">
+      <font-awesome-icon :icon="allowDup ? 'check-square' : 'square'" />
+      <input type="checkbox" name="allow-multiple" v-model="allowDup" />
       Allow duplicate characters
     </label>
     <div class="button-group">
@@ -64,6 +68,10 @@ import Modal from "./Modal";
 import gameJSON from "./../../game";
 import Token from "./../Token";
 import { mapGetters, mapMutations, mapState } from "vuex";
+// FT-946: THE shared rule for "is this role already in play" — RoleDrawer's
+// own build-panel list reads the same function, so this picker cannot list
+// (and randomly re-deal) a role a seat already holds while Duplicates is off.
+import { placedCount } from "../../golem/duplicates";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -75,8 +83,7 @@ export default {
   data: function() {
     return {
       roleSelection: {},
-      game: gameJSON,
-      allowMultiple: false
+      game: gameJSON
     };
   },
   computed: {
@@ -89,6 +96,41 @@ export default {
       return Object.values(this.roleSelection).some(roles =>
         roles.some(role => role.selected && role.setup)
       );
+    },
+    /**
+     * FT-946: THE list this modal shows — `roleSelection` itself minus
+     * whatever is already seated, unless Duplicates is on. `roleSelection`
+     * stays intact underneath (so a role's `.selected` count survives a
+     * Duplicates toggle instead of the whole picker rebuilding), only the
+     * RENDERED list — and so what a click can reach — excludes an in-play
+     * role entirely. RoleDrawer's own list only GREYS an in-play role out
+     * (it doubles as a seating chart, so it keeps every row); this picker
+     * exists purely to build a random pool, so there is nothing to keep an
+     * already-seated role visible for.
+     */
+    visibleRoleSelection: function() {
+      if (this.allowDup) return this.roleSelection;
+      const visible = {};
+      Object.keys(this.roleSelection).forEach((team) => {
+        visible[team] = this.roleSelection[team].filter(
+          (role) => !placedCount(role, this.players),
+        );
+      });
+      return visible;
+    },
+    /** THE global Duplicates switch (store/index.js) — the same one
+     *  RoleDrawer's "Dupes" checkbox and RoleActions' chip read and write,
+     *  so toggling it here toggles it everywhere. Replaces this modal's own
+     *  disconnected `allowMultiple` flag, which controlled the same idea
+     *  (more than one of a role in the random pool) without ever agreeing
+     *  with the app's one real Duplicates setting. */
+    allowDup: {
+      get() {
+        return this.$store.state.allowDupRoles;
+      },
+      set(on) {
+        this.$store.commit("setAllowDupRoles", on);
+      }
     },
     ...mapState(["roles", "modals"]),
     ...mapState("players", ["players"]),
@@ -110,8 +152,15 @@ export default {
       Object.keys(composition).forEach(team => {
         for (let x = 0; x < composition[team]; x++) {
           if (this.roleSelection[team]) {
+            // FT-946: the default auto-pick never reaches for a role
+            // already seated unless Duplicates is on — this is the pool
+            // "Assign N characters randomly" draws from, so an in-play role
+            // slipping in here is exactly the silent double-assign the
+            // picker is supposed to forbid.
             const available = this.roleSelection[team].filter(
-              role => !role.selected
+              (role) =>
+                !role.selected &&
+                (this.allowDup || !placedCount(role, this.players)),
             );
             if (available.length) {
               randomElement(available).selected = 1;
@@ -157,6 +206,23 @@ export default {
   watch: {
     roles() {
       this.selectRandomRoles();
+    },
+    /**
+     * FT-946: turning Duplicates OFF can leave a role selected from while it
+     * was on — that selection would otherwise survive into `assignRoles`'s
+     * pool even though the role is now hidden and unreachable by a click,
+     * which is the same silent double-assign this whole fix exists to close.
+     * Clears just that role's own count; every other selection is untouched.
+     */
+    allowDup(on) {
+      if (on) return;
+      Object.values(this.roleSelection).forEach((teamRoles) => {
+        teamRoles.forEach((role) => {
+          if (role.selected && placedCount(role, this.players)) {
+            this.$set(role, "selected", 0);
+          }
+        });
+      });
     }
   }
 };
