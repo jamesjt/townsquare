@@ -1186,15 +1186,10 @@ export default {
         case "n":
           this.openScriptDrawer("other");
           break;
-        case "d":
-          // the edition picker, rehomed off E
-          if (!isHost) return;
-          this.$store.commit("toggleModal", "edition");
-          break;
-        case "a":
-          // in-session: upstream's add player
-          if (inSession) this.$refs.menu.addPlayer();
-          break;
+        // (d and a RETIRED 2026-08-20, user call — see golem/hotkeys.js for
+        // why each was redundant. `toggleModal("edition")` and
+        // `menu.addPlayer()` both survive; it is only the KEYS that went, so
+        // the script editor and the menu's own Add player are untouched.)
         case "h":
           // Golem fork: sessionless routes to the SAME panel the Host door
           // opens (Intro.openHost) — the legacy prompt() path only remains

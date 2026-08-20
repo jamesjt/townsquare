@@ -155,18 +155,22 @@ export const HOTKEYS = [
     label: "Characters",
     note: "Choose and assign characters",
   },
-  {
-    key: "D",
-    who: "host",
-    label: "Edition",
-    note: "Pick the edition",
-  },
-  {
-    key: "A",
-    who: "host",
-    label: "Add a player",
-    note: "Add a seat to the town",
-  },
+  // D (Edition) and A (Add a player) RETIRED 2026-08-20, both on the user's
+  // call and both verified redundant before removal:
+  //
+  //   D opened `toggleModal("edition")` — and S, for a storyteller already in
+  //   a town, opens exactly the same thing. D returned early unless you were
+  //   the host, so the host-in-a-town case was the ONLY case it covered, and
+  //   S covers it identically. Two letters, one door.
+  //
+  //   A added a single seat. The seat count is a SCRUB now — drag the number
+  //   in the build panel and set it outright — so a key that adds one at a
+  //   time is a slower way to reach a control that already answers the whole
+  //   question.
+  //
+  // Their handlers in App.vue went with them: a key that still fires while
+  // this map no longer lists it is worse than either keeping or removing it,
+  // because the panel is the only place these are written down.
   {
     key: "V",
     who: "all",
