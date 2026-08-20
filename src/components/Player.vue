@@ -1836,22 +1836,35 @@ li.move:not(.from) .player .overlay svg.move {
 }
 
 /****** Session seat glow *****/
+// WHICH SEAT IS YOURS — a soft breath of light around your own coin.
+//
+// TWO USER CALLS, 2026-08-20. It used to animate `border-color` as well as a
+// shadow, and the border it lit was a SQUARE: the token is a square box
+// carrying round coin art, so a hard edge on that box draws a rectangle around
+// a circle. "A hard border should never be a part of the pulse sequence — just
+// do a very soft shadow pulse."
+//
+// So the border is out of the sequence entirely and only the shadow breathes,
+// between a close halo and a wide one. A box-shadow follows its element's own
+// border-radius, so rounding the box is what makes the light circular — the
+// art inside is already round, so nothing of it is clipped by the change.
+//
+// It BREATHES rather than pulsing out and vanishing: the old keyframes ended
+// at `transparent`, which reads as a repeating ping. A seat marker should say
+// "this one is yours" continuously, not announce itself every five seconds.
 @mixin glow($name, $color) {
   @keyframes #{$name}-glow {
-    0% {
-      box-shadow: 0 0 rgba($color, 1);
-      border-color: $color;
+    0%,
+    100% {
+      box-shadow: 0 0 8px 2px rgba($color, 0.3);
     }
     50% {
-      border-color: black;
-    }
-    100% {
-      box-shadow: 0 0 20px 16px transparent;
-      border-color: $color;
+      box-shadow: 0 0 22px 9px rgba($color, 0.65);
     }
   }
 
   .player.you.#{$name} .token {
+    border-radius: 50%;
     animation: #{$name}-glow 5s ease-in-out infinite;
   }
 }
@@ -1862,7 +1875,9 @@ li.move:not(.from) .player .overlay svg.move {
 @include glow("minion", $minion);
 @include glow("traveler", $traveler);
 
+// the fallback for a seat with no team yet — same shape, same rounding
 .player.you .token {
+  border-radius: 50%;
   animation: townsfolk-glow 5s ease-in-out infinite;
 }
 
