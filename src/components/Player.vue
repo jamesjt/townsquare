@@ -1597,8 +1597,14 @@ export default {
       background: url("../assets/ui-veil.png") center top / contain no-repeat;
       -webkit-mask: url("../assets/ui-veil.png") center top / contain no-repeat;
       mask: url("../assets/ui-veil.png") center top / contain no-repeat;
-      backdrop-filter: blur(1.5px) saturate(94%);
-      -webkit-backdrop-filter: blur(1.5px) saturate(94%);
+      // FT-1004: the shipped blur(1.5px) is now the FALLBACK of the veil
+      // lab's Frost dial, in tenths of a pixel (15 = 1.5px). With the lab
+      // absent no `--vl-*` property exists anywhere and this computes to
+      // exactly the shipped value. The lab's other hooks live in the
+      // `html.vl-*` block after the FT-991 rules below.
+      backdrop-filter: blur(calc(var(--vl-frost-adj, 15) * 0.1px)) saturate(94%);
+      -webkit-backdrop-filter: blur(calc(var(--vl-frost-adj, 15) * 0.1px))
+        saturate(94%);
     }
 
     // THE SHEEN — one diagonal band of light, standing in for the fold silk
@@ -1620,16 +1626,18 @@ export default {
     // the veil previews on hover — but NOT while the town is still being
     // built (user call 2026-08-18): nothing can die yet, and the mark
     // flashing over every seat while assigning roles reads as an error.
-    // The preview is HALF of whatever the resting veil is, so the FT-991
-    // lab's Opacity dial still moves the preview WITH the veil.
+    // The preview is HALF of whatever the resting veil is, so the Opacity
+    // dial still moves the preview WITH the veil. FT-1004: that dial is the
+    // VEIL lab's now (`--vl-opacity-adj`, src/golem/veilGlass.js) — the
+    // veil's controls moved out of the ghost lab with the cowl's retirement.
     #townsquare:not(.spectator):not(.building) &:hover:before {
-      opacity: calc(var(--gg-opacity-adj, 100) / 100 * 0.5);
+      opacity: calc(var(--vl-opacity-adj, 100) / 100 * 0.5);
       // matches the `.dead` rule below — one number, where the veil settles
       top: -6%;
       transform: scale(1);
     }
     #townsquare:not(.spectator):not(.building) &:hover:after {
-      opacity: calc(var(--gg-opacity-adj, 100) / 100 * 0.5);
+      opacity: calc(var(--vl-opacity-adj, 100) / 100 * 0.5);
       top: -6%;
       transform: scale(1);
     }
@@ -1648,21 +1656,21 @@ export default {
   // the pane's own resting strength — still the Opacity dial's home, but the
   // wash itself is what keeps this subtle now, not this number
   &.dead .shroud:before {
-    opacity: calc(var(--gg-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 100) / 100);
   }
   // FT-997: the sheen is no longer gated behind the old cowl-outline's Rim
   // dial (that dial answered "how strong is the outline", and this mark no
   // longer has one) — its strength lives in its own gradient stops now, so
   // it takes the same Opacity dial as the pane and nothing else.
   &.dead .shroud:after {
-    opacity: calc(var(--gg-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 100) / 100);
   }
 
   #townsquare:not(.spectator) &.dead .shroud:hover:before {
-    opacity: calc(var(--gg-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 100) / 100);
   }
   #townsquare:not(.spectator) &.dead .shroud:hover:after {
-    opacity: calc(var(--gg-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 100) / 100);
   }
 }
 
@@ -1739,33 +1747,55 @@ html.gg-glass .circle .player .shroud {
   }
 }
 
-/* FT-974 — WHAT ACTUALLY CARRIES "DEAD" ACROSS A WHOLE RING.
+/* ── FT-1004 — THE VEIL LAB'S TWO HOOKS ──────────────────────────────────────
  *
- * The worry with trading an opaque cloth for a translucent ghost is that the
- * ring gets prettier and weaker. It was measured rather than argued, on a
- * 12-seat grimoire with four seats dead, by cropping every seat, shrinking it
- * to 12x12 (about what survives a glance) and asking how far the least
- * obvious dead seat sits from the most unusual living one:
+ * User: "give me a lab for the dead veil. Let me choose between the two veil
+ * pngs in the botc folder, and then give me controls to make them glassy.
+ * full controls from the glass bench html we looked at before."
  *
- *   cloth, as shipped .................. 19.1 @1280x800   15.1 @1920x1080
- *   ghost alone, same coverage ......... 19.4              14.6
- *   ghost + this dim ................... 23.4              19.2
+ * The lab itself is `src/components/VeilLab.vue` + `src/golem/veilGlass.js`
+ * (behind `devLabs`); its Frost and Opacity dials ride the `--vl-*` fallbacks
+ * woven into the shipped veil rules above. These two rules are the parts that
+ * are not a value but a different set of declarations, so they hang off
+ * classes the lab toggles on <html> — with the lab absent both classes are
+ * absent and this whole block is inert.
  *
- * So the ghost ON ITS OWN is a wash — it buys the look and pays for it in
- * read, exactly as feared. The dim is what turns it into a gain. It also
- * explains itself: the cloth got its read by putting a DARK mass on a bright
- * coin, and the dead coin is already cold metal (Token.vue swaps it), so a
- * dark-on-dark mark was working against itself. Dropping the coin and putting
- * a PALE mark on it restores the same value contrast the other way up, and
- * the ghost gets a darker ground to glow against into the bargain.
+ * THE SILK PICK. The second painting (design/veil2.png, baked to ui-veil2.png
+ * the same way ui-veil.png was: trim, height 512, the fork's own sharp) swaps
+ * in as BOTH the art and the mask, because that pairing is the shipped veil's
+ * whole construction — the image confines its own backdrop effects.
  *
- * `.token` is the whole coin — rim, face, engraved role, cut name — so all of
- * it cools together and nothing on the coin fights the ghost. The retired
- * `.ability` box is not rendered (RoleHoverCard replaced it, and that is a
- * SIBLING of the coin), so no tooltip is dimmed by this. */
-.circle .player.dead .token {
-  filter: brightness(0.72);
+ * THE REFRACTION. `backdrop-filter` swaps from `blur()` to the bench's SVG
+ * displacement filter (`#vl-glass`, mounted by veilGlass.js) with the blur
+ * kept in the chain — the mask stays exactly as shipped, so the bending is
+ * confined to the silk's silhouette the same way the blur is. Chromium-only
+ * (`backdrop-filter: url()` paints nowhere else); the lab never sets the
+ * class elsewhere, leaving those engines the plain-Frost veil above — the
+ * same fallback the bench shows. And the one thing that would kill it — an
+ * ancestor `filter` forms a backdrop root (measured, FT-997) — stays absent.
+ *
+ * TEMPORARY, DELETE ME — this block, the `--vl-*` reads above, VeilLab.vue,
+ * veilGlass.js and their two lines in App.vue all come out together once a
+ * look is chosen and baked. */
+html.vl-silk-two .circle .player .shroud:before {
+  background: url("../assets/ui-veil2.png") center top / contain no-repeat;
+  -webkit-mask: url("../assets/ui-veil2.png") center top / contain no-repeat;
+  mask: url("../assets/ui-veil2.png") center top / contain no-repeat;
 }
+html.vl-refract .circle .player .shroud:before {
+  backdrop-filter: url(#vl-glass) blur(calc(var(--vl-frost-adj, 15) * 0.1px))
+    saturate(94%);
+  -webkit-backdrop-filter: url(#vl-glass)
+    blur(calc(var(--vl-frost-adj, 15) * 0.1px)) saturate(94%);
+}
+
+/* FT-997c (user call 2026-08-20: "you added a dark color to dead coins...
+ * they are already silver we don't need to also make them darker"): the
+ * FT-974 dead-coin dim (`brightness(0.72)` on `.circle .player.dead .token`)
+ * is retired. It existed to give the retired pale ghost a darker ground to
+ * glow against; the ghost is gone (FT-997) and the coin's cold-metal swap
+ * (Token.vue) already says dead on its own. The veil above is judged over
+ * the coin at full brightness now. */
 
 /****** Life token *******/
 .player {

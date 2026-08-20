@@ -267,6 +267,12 @@
 
          BEHIND `devLabs` FROM THE START, for the hands lab's stated reason. -->
     <GhostLab v-if="devLabs" />
+    <!-- THE VEIL LAB (Vl) — one notch below the ghost lab, same column, same
+         shell. The dead seat's silk: the pick of the two veil paintings, then
+         the glass bench's dials (Frost, Refraction, Aberration, Edge band)
+         plus Opacity. See src/golem/veilGlass.js. Behind `devLabs` from the
+         start, for the column's shared reason. -->
+    <VeilLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
@@ -655,6 +661,9 @@ import FaceHandsLab from "./components/FaceHandsLab";
 // FT-991: the ghost lab — TEMPORARY, and it comes out with Player.vue's
 // `html.gg-glass` block and src/golem/ghostGlass.js.
 import GhostLab from "./components/GhostLab";
+// FT-1004: the veil lab — TEMPORARY, and it comes out with Player.vue's
+// `html.vl-*` hooks and src/golem/veilGlass.js.
+import VeilLab from "./components/VeilLab";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -738,6 +747,7 @@ export default {
     FaceHands,
     FaceHandsLab,
     GhostLab,
+    VeilLab,
     Gradients
   },
   computed: {
