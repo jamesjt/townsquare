@@ -1674,6 +1674,23 @@ export default {
         gap: 8px;
       }
 
+      // FT-901: THE ENTER MARK HAD NO CSS AT ALL, so it painted at the file's
+      // natural size and dragged the whole button down with it — measured at
+      // ~98px outside the disc's rim, which is why the join panel's primary
+      // action sat below the circle it belongs in.
+      //
+      // A LENGTH, and it has to be: the mark is the button's only child, so a
+      // percentage would resolve against a box the image is itself sizing.
+      // 1.15em ties it to the button's own type instead, which is the same
+      // thing the drop-cap doors already do — the mark grows and shrinks with
+      // the label rather than against it.
+      img.enter-mark {
+        width: 1.15em;
+        height: 1.15em;
+        object-fit: contain;
+        flex: 0 0 auto;
+      }
+
       .back {
         cursor: pointer;
         opacity: 0.7;
