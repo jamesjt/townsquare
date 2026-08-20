@@ -1779,18 +1779,26 @@ export default {
       brightness(1.15);
   }
 
-  // SWITCH, not an opener — the same dim-and-desaturate step-back the
-  // toolbar's own marks use for "set to off" (Menu.vue's retired
-  // `.player-strip img.off`, carried over unchanged) so a tap never reads
-  // as the mask itself vanishing.
-  &.off {
-    opacity: 0.34;
-    filter: drop-shadow(0 1px 2px black) drop-shadow(0 0 3px rgba(0, 0, 0, 0.9))
-      grayscale(0.75) brightness(0.85);
-    &:hover {
-      opacity: 0.75;
-    }
-  }
+  // NO DIM WHEN OFF (user call 2026-08-20: "that needs to be less hidden when
+  // not active — in fact you can probably just leave it always fully red").
+  //
+  // It arrived carrying the toolbar's own dim-and-desaturate step-back
+  // (opacity 0.34 + grayscale, from Menu.vue's retired `.player-strip
+  // img.off`), which worked where it came from: that strip is a ROW of marks
+  // where the dim one reads against its lit neighbours. Out here the mask
+  // stands alone, half of it over dark background, with nothing to be dim
+  // relative to — so "off" just read as "barely there", and the control that
+  // is the ONLY way back to the bluffs is the last one that should be hard to
+  // find. The reposition lane measured and flagged exactly this.
+  //
+  // THE STATE IS STILL LEGIBLE, and better than the dim ever said it: the
+  // three coins are either beside the seat or they are not. The toggle does
+  // not have to report a state that the thing it toggles is already showing
+  // in full. Its `title` still names the action either way.
+  //
+  // The `.off` class stays bound in the template — it is what a future
+  // treatment would hang on, and removing the hook to remove the styling
+  // would be a bigger change than the user asked for.
 
   // `--seat-sz`-SCALED again (the flat 24px the above-the-column placement
   // used was sized against a fixed top-of-viewport reserve that no longer
