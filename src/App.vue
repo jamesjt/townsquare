@@ -214,6 +214,20 @@
          controls; a new one shipping visible would be that same mistake made
          again on purpose. -->
     <FaceHandsLab v-if="devLabs" />
+    <!-- THE GHOST LAB (Gh) — one notch below the hands lab, same column, same
+         shell. The dead seat's mark: four materials (the painted cowl that
+         ships, glass, clear glass, frost) and then blur, saturation,
+         brightness, tint, opacity and rim.
+
+         WHY A LAB AND NOT A TINT. Glass in this app means `backdrop-filter`,
+         which treats what is BEHIND an element — and `ui-ghost-cowl.png` is a
+         painting, which has no behind. So glass mode stops drawing the PNG and
+         uses its ALPHA AS A MASK over a backdrop-filtered layer instead. That
+         is two idioms this fork already has, composed: TownInfo's masked heart
+         and faceDisc's glass. See `src/golem/ghostGlass.js`.
+
+         BEHIND `devLabs` FROM THE START, for the hands lab's stated reason. -->
+    <GhostLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
@@ -541,6 +555,9 @@ import FaceDiscLab from "./components/FaceDiscLab";
 // column. See src/golem/faceHands.js for what drives the hands.
 import FaceHands from "./components/FaceHands";
 import FaceHandsLab from "./components/FaceHandsLab";
+// FT-991: the ghost lab — TEMPORARY, and it comes out with Player.vue's
+// `html.gg-glass` block and src/golem/ghostGlass.js.
+import GhostLab from "./components/GhostLab";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -623,6 +640,7 @@ export default {
     FaceDiscLab,
     FaceHands,
     FaceHandsLab,
+    GhostLab,
     Gradients
   },
   computed: {
