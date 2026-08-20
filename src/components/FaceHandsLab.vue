@@ -93,6 +93,24 @@
            1.3–14 face-pixels wide and NumberScrub is an integer control — an
            integer px dial would jump the second hand 3 → 4 with nothing
            reachable between. -->
+      <!-- ── ALIGNMENT ────────────────────────────────────────────────────
+           Where the pivot sits, in face-pixels off the MEASURED dial centre.
+           Zero is the measurement (art offset -11, -20; see FaceHands.vue),
+           not the app's `--face-cx/cy`, which point at the ART's centre and
+           are ~11 x 20 face-pixels off the paint. These exist so the
+           measurement can be checked by eye rather than merely trusted. -->
+      <div class="fl-head">Alignment</div>
+      <div class="fl-row" v-for="d in fhAlignDials" :key="d.key">
+        <span class="fl-label" :title="d.hint">{{ d.label }}</span>
+        <NumberScrub
+          :value="fhLab[d.key]"
+          :min="d.min"
+          :max="d.max"
+          :title="d.hint"
+          @input="setFhLab(d.key, $event)"
+        />
+      </div>
+
       <div class="fl-head">Hands</div>
       <div class="fl-row" v-for="d in fhHandDials" :key="d.key">
         <span class="fl-label" :title="d.hint">{{ d.label }}</span>
@@ -128,7 +146,30 @@
            That sweep is the question the hands were chosen on — does a blade
            lying on a painted spoke still read — and this is the control that
            asks it without waiting for the clock to get there. -->
-      <div class="fl-head">Motion</div>
+      <div class="fl-head">
+        Motion
+        <span class="fl-phase">{{ fhMotionLabel }}</span>
+      </div>
+      <!-- HOW THE SECOND HAND MOVES. It STEPS once a second — quantised from
+           elapsed time, so it cannot drift — and the escapement adds the
+           overshoot-and-settle a real movement has. Sweep is the continuous
+           glide this replaced, kept so the two can be compared. The hour and
+           minute hands always creep, whichever is picked: a stepping minute
+           hand looks broken. -->
+      <div class="fl-presets">
+        <button
+          type="button"
+          v-for="m in fhMotions"
+          :key="m.id"
+          class="fl-preset"
+          :class="{ on: fhMotion === m.id }"
+          :title="m.hint"
+          @click="setFhMotion(m.id)"
+        >
+          {{ m.label
+          }}<span class="fl-ships" v-if="m.id === 'escapement'">ships</span>
+        </button>
+      </div>
       <div class="fl-presets">
         <button
           type="button"
@@ -164,7 +205,10 @@
 </template>
 
 <script>
-import faceHandsLab, { FACE_HANDS_STYLES } from "../golem/faceHands";
+import faceHandsLab, {
+  FACE_HANDS_STYLES,
+  FACE_HANDS_MOTIONS,
+} from "../golem/faceHands";
 import NumberScrub from "./NumberScrub";
 
 /** Which dials belong under which heading. Named here rather than sliced by
@@ -178,14 +222,24 @@ const HAND_KEYS = [
   "secondLength",
   "secondWidth",
 ];
+const ALIGN_KEYS = ["centreX", "centreY"];
 const CENTRE_KEYS = ["boss", "opacity"];
-const MOTION_KEYS = ["angle"];
+const MOTION_KEYS = ["angle", "overshoot"];
 
 export default {
   name: "FaceHandsLab",
   components: { NumberScrub },
   mixins: [faceHandsLab],
   computed: {
+    fhAlignDials() {
+      return this.fhDials.filter((d) => ALIGN_KEYS.indexOf(d.key) > -1);
+    },
+    /** The name of the second hand's motion — presentation only; the mixin owns
+     *  which one that is. */
+    fhMotionLabel() {
+      const m = FACE_HANDS_MOTIONS.find((x) => x.id === this.fhMotion);
+      return m ? m.label.toLowerCase() : "";
+    },
     fhHandDials() {
       return this.fhDials.filter((d) => HAND_KEYS.indexOf(d.key) > -1);
     },

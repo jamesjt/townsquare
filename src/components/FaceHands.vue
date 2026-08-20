@@ -55,6 +55,9 @@ import {
   readFaceHandsStyle,
   readFaceHandsColorway,
   readFaceHandsFreeze,
+  readFaceHandsMotion,
+  readFaceHandsLab,
+  overshootDegrees,
   FACE_HANDS_FROZEN,
   FACE_HANDS_EVENT,
 } from "../golem/faceHands";
@@ -95,6 +98,13 @@ export default {
       style: readFaceHandsStyle(),
       colorway: readFaceHandsColorway(),
       frozen: readFaceHandsFreeze(),
+      /** How the second hand moves: escapement / tick / sweep. A CHOICE, so it
+       *  arrives on the lab's event rather than as a custom property. */
+      motion: readFaceHandsMotion(),
+      /** The escapement's peak overshoot, in degrees. The one NUMERIC dial read
+       *  here rather than by the stylesheet — the tick is arithmetic, not a
+       *  transform, so no custom property could carry it. */
+      overshoot: overshootDegrees(readFaceHandsLab().overshoot),
       raf: 0,
     };
   },
@@ -135,6 +145,11 @@ export default {
       this.style = readFaceHandsStyle();
       this.colorway = readFaceHandsColorway();
       this.frozen = readFaceHandsFreeze();
+      this.motion = readFaceHandsMotion();
+      this.overshoot = overshootDegrees(readFaceHandsLab().overshoot);
+      // A dial may have changed while the clock is stopped, and a frozen loop
+      // is not coming back round to notice.
+      this.tick();
     },
     sprite(part) {
       return "url(" + handSprite(this.style, this.colorway, part) + ")";
@@ -157,7 +172,11 @@ export default {
       if (!el) return;
       const a = this.frozen
         ? FACE_HANDS_FROZEN
-        : handAngles(performance.now() - this.phaseEpoch);
+        : handAngles(
+            performance.now() - this.phaseEpoch,
+            this.motion,
+            this.overshoot,
+          );
       // NOTHING REACTIVE IS WRITTEN HERE, on purpose — see the note above. The
       // angles are not held in `data` at all: a component field nothing renders
       // from would still take Vue's reactive setter sixty times a second to
@@ -265,10 +284,70 @@ export default {
    The blades run to 226 face-pixels against a 238 face-pixel face, so the great
    majority of each is in clear air past it. Nothing here moves anything that
    was already on the dial. */
+/* ── THE PIVOT: WHERE THE DIAL ACTUALLY IS, WHICH IS NOT WHERE #app SAYS ─────
+   The hands first shipped centred on `--face-cx` / `--face-cy` and read low and
+   right of the dial. The cause is not in this layer's arithmetic — it is that
+   THOSE TWO PROPERTIES DO NOT POINT AT THE DIAL.
+
+   `--face-cx/cy` describe where the ART's centre is painted: the container
+   centre, plus the +7px nudge `#app`'s background-position carries. That would
+   be the dial's centre only if the dial were centred IN the art, which App.vue
+   states it is ("the art is now 1642x900 with the dial's centre AT the image
+   centre"). MEASURED, IT IS NOT.
+
+   HOW IT WAS MEASURED (claude_temp_test/2026-08-20-ft973-combined.mjs). The
+   centre of a circle is the point from which its edge lies at a CONSTANT
+   radius, so: cast rays, take the radius of strongest luminance gradient at
+   each angle, and pick the centre minimising the median absolute deviation of
+   those radii. Done for TWO independent features of the dial at once — the
+   inner glow edge (r=196) and the outer bronze rim (r=259) — because two
+   concentric edges agreeing is far stronger than one edge fitted well:
+
+       dial centre in the art   810, 430
+       the art's own centre     821, 450
+       OFFSET                   -11 x, -20 y   (art pixels)
+       fit cost                 7.0 here vs 24.0 at the art's centre
+
+   Two earlier methods failed and are worth naming so they are not retried:
+   thresholding for a bright rim (there is no bright ring — it is a glowing DISC
+   with a soft edge on a lit facade; the two background plates landed 10.8px
+   apart) and 45° rotational symmetry (the facade dominates the polar samples;
+   61px apart, one answer pinned to the search boundary). Both judged the dial
+   against its surroundings; this one judges it against itself.
+
+   WHY THE ERROR LOOKED LIKE 'down and right' SPECIFICALLY: at 1280x800 one
+   face-pixel is 0.889px, so the dial sits 11 x 0.889 = 9.8px left and 20 x
+   0.889 = 17.8px up of where `--face-cx/cy` claim — and the +7px background
+   nudge pushes the claim a further 7px right. Net: the pivot stood ~10.9px
+   right and ~19.3px below the paint. That is the reported symptom, arithmetic.
+
+   IT IS EXPRESSED IN FACE-PIXELS AND SCALED BY `--fpx`, never in CSS pixels.
+   The offset is a property of the ARTWORK, so it must scale with the artwork:
+   a constant pixel nudge would be correct at exactly one viewport, which is the
+   definition of having fixed the symptom.
+
+   ── THIS IS A LOCAL FIX TO A SHARED FAULT, AND THAT IS DELIBERATE ───────────
+   `--face-cx/cy` are wrong for EVERYTHING registered to them, not just for the
+   hands — the four face discs read them too. Correcting them centrally is the
+   better fix and it is what the face lab exists for, but it would silently move
+   all four discs, whose positions were dialled by eye and baked across three
+   passes (FT-888 / FT-935) AGAINST the current value. That is a re-bake, not a
+   side effect of a hands lane. Reported rather than done. */
 #face-hands {
   position: absolute;
   inset: 0;
   z-index: 0;
+  /* the measured art offset, in face-pixels — see the block above */
+  --fh-art-dx: -11;
+  --fh-art-dy: -20;
+  /* …plus the lab's nudge, which defaults to zero, so the lab being absent
+     computes to exactly the measurement */
+  --fh-cx: calc(
+    var(--face-cx) + (var(--fh-art-dx) + var(--fh-centre-x, 0)) * var(--fpx)
+  );
+  --fh-cy: calc(
+    var(--face-cy) + (var(--fh-art-dy) + var(--fh-centre-y, 0)) * var(--fpx)
+  );
   /* NEVER TAKES A CLICK. The layer covers the entire face — the seats, the
      readout and the disc all sit inside its box — so this is not a nicety.
      None of the four parts turns it back on. */
@@ -290,8 +369,9 @@ export default {
    viewport, and follow the face lab's background nudges for free. */
 .fh-part {
   position: absolute;
-  left: var(--face-cx);
-  top: var(--face-cy);
+  /* the MEASURED dial centre, not `--face-cx/cy` — see the block above */
+  left: var(--fh-cx);
+  top: var(--fh-cy);
   /* 480 face-pixels: the span the sprites were baked to. The PNG is 960px —
      2x, so it stays crisp on a hi-DPI display at a large viewport. */
   width: calc(480 * var(--fpx));

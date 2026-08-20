@@ -127,6 +127,30 @@ export const FACE_HANDS_COLORWAYS = [
  */
 export const FACE_HANDS_DIALS = [
   {
+    key: "centreX",
+    label: "Centre across",
+    unit: "",
+    // ── THE PIVOT, NUDGEABLE ─────────────────────────────────────────────────
+    // An OFFSET on top of the measured art constant (FACE_HANDS_ART_DX/DY, in
+    // FaceHands.vue's stylesheet), in face-pixels, so zero is the measurement.
+    // It exists for the same reason the face lab does: a centre is ultimately
+    // judged by eye against paint, and the measurement should be checkable
+    // rather than merely trusted.
+    // +-40 face-px is twice the error that was actually found, which is enough
+    // to reach plainly-wrong in both directions and see it.
+    min: -40,
+    max: 40,
+    hint: "Pivot right (positive) or left, in face-pixels off the MEASURED dial centre (0 = the measurement)",
+  },
+  {
+    key: "centreY",
+    label: "Centre down",
+    unit: "",
+    min: -40,
+    max: 40,
+    hint: "Pivot down (positive) or up, in face-pixels off the MEASURED dial centre (0 = the measurement)",
+  },
+  {
     key: "hourLength",
     label: "Hour length",
     unit: "",
@@ -240,6 +264,24 @@ export const FACE_HANDS_DIALS = [
     max: 359,
     hint: "Rotate the whole assembly, in degrees — the dial's eight spokes fall every 45°, so 0 lies along one and 22 sits mid-gap",
   },
+  {
+    key: "overshoot",
+    label: "Overshoot",
+    unit: "",
+    // TENTHS OF A DEGREE, against the shipped 1.2° peak (see overshootDegrees).
+    // Tenths because NumberScrub is an integer control and a whole degree is a
+    // sixth of the whole step — far too coarse for a dial whose entire subject
+    // is a hair of movement.
+    // DOWN to -12: exactly 0.0°, which IS the clean step — so this scrub can
+    // reach the neighbouring look without touching the motion switch, and the
+    // two agree at that point rather than being two separate claims.
+    // UP to +28: 4.0°, two thirds of a step — a hand visibly bouncing.
+    // Reachable on purpose: a dial that can only be subtle cannot show you why
+    // subtle was chosen.
+    min: -12,
+    max: 28,
+    hint: "How far the tick overshoots before settling, in tenths of a degree (0 = the shipped 1.2°; -12 = none, i.e. a clean step)",
+  },
 ];
 
 /**
@@ -249,6 +291,9 @@ export const FACE_HANDS_DIALS = [
  * changed base.
  */
 const DIAL_STORAGE = {
+  centreX: "golem.fhCentreX",
+  centreY: "golem.fhCentreY",
+  overshoot: "golem.fhOvershoot",
   hourLength: "golem.fhHourLength",
   hourWidth: "golem.fhHourWidth",
   minuteLength: "golem.fhMinuteLength",
@@ -263,6 +308,7 @@ const DIAL_STORAGE = {
 const STYLE_STORAGE = "golem.fhStyle";
 const COLORWAY_STORAGE = "golem.fhColorway";
 const FREEZE_STORAGE = "golem.fhFreeze";
+const MOTION_STORAGE = "golem.fhMotion";
 
 /**
  * THE REFERENCE ARRANGEMENT the Angle scrub spins when the clock is FROZEN.
@@ -277,6 +323,83 @@ const FREEZE_STORAGE = "golem.fhFreeze";
  * the thing being judged is each blade against the paint behind it.
  */
 export const FACE_HANDS_FROZEN = { hour: 250, minute: 48, second: 165 };
+
+/** One second of dial. Sixty steps to the turn. */
+export const SECOND_STEP_DEG = 6;
+
+/**
+ * ── THE ESCAPEMENT: A TICK WITH A LITTLE LIFE IN IT ─────────────────────────
+ *
+ * A hard jump is honest and dead. A real escapement releases the wheel, the
+ * hand arrives with momentum, overshoots a hair, and settles back. This is that
+ * settle, as a damped sine added to the stepped angle.
+ *
+ * THE BUDGET IS THE HARD PART. At one step per second the hand must be
+ * completely still well before the next step, or the tick reads as a wobble
+ * rather than a mechanism. SETTLE_MS is 140 — a seventh of the gap — and the
+ * offset is hard-zeroed past it, so "still" is exact rather than asymptotic.
+ *
+ * `ESC_NORM` makes the dial mean what it says: without it the peak of a damped
+ * sine is some fraction of its amplitude coefficient, so a "1.2°" setting would
+ * overshoot by 0.6° and the number in the lab would be a lie. The first maximum
+ * of sin(2π·cycles·p) lands at p = 1/(4·cycles); normalising by the decay there
+ * makes the coefficient equal the ACTUAL peak, in degrees.
+ */
+const ESC_SETTLE_MS = 140;
+const ESC_DECAY = 3.5;
+const ESC_CYCLES = 1.25;
+const ESC_PEAK_P = 1 / (4 * ESC_CYCLES);
+const ESC_NORM = Math.exp(ESC_DECAY * ESC_PEAK_P);
+
+/** The shipped overshoot, in degrees of dial — a fifth of a step. */
+export const ESCAPEMENT_PEAK_DEG = 1.2;
+/** Same number in the tenths the lab's integer scrub speaks. */
+export const ESCAPEMENT_PEAK_TENTHS = 12;
+
+/** The lab's Overshoot scrub is an offset in TENTHS of a degree; this is the
+ *  one place that becomes degrees, so the dial and the motion cannot disagree. */
+export function overshootDegrees(dialValue) {
+  return (ESCAPEMENT_PEAK_TENTHS + (Number(dialValue) || 0)) / 10;
+}
+
+/**
+ * Degrees to ADD to the stepped angle, `tMs` into the current second. Zero
+ * before the step and zero again from ESC_SETTLE_MS onward.
+ */
+function escapementOffset(tMs, peakDeg) {
+  if (!(peakDeg > 0) || tMs < 0 || tMs >= ESC_SETTLE_MS) return 0;
+  const p = tMs / ESC_SETTLE_MS;
+  return (
+    peakDeg *
+    ESC_NORM *
+    Math.exp(-ESC_DECAY * p) *
+    Math.sin(2 * Math.PI * ESC_CYCLES * p)
+  );
+}
+
+/**
+ * HOW THE SECOND HAND MOVES — three looks, so the lab can compare them.
+ * `escapement` ships; see the component for the judgement that put it there.
+ */
+export const FACE_HANDS_MOTIONS = [
+  {
+    id: "escapement",
+    label: "Escapement",
+    hint: "Steps once a second, then overshoots a hair and settles — a real movement's tick. THE SHIPPED PICK",
+  },
+  {
+    id: "tick",
+    label: "Clean step",
+    hint: "Steps once a second and stops dead. Honest, and a little lifeless",
+  },
+  {
+    id: "sweep",
+    label: "Sweep",
+    hint: "Continuous glide, no step at all — a quartz sweep hand. The look this replaced",
+  },
+];
+
+const DEFAULT_MOTION = "escapement";
 
 /**
  * ── THE ONE PLACE TIME BECOMES ROTATION ──────────────────────────────────────
@@ -299,14 +422,39 @@ export const FACE_HANDS_FROZEN = { hour: 250, minute: 48, second: 165 };
  * claiming to point AT something, and there is nothing on this face to point
  * at.
  */
-export function handAngles(elapsedMs) {
+export function handAngles(
+  elapsedMs,
+  motion = DEFAULT_MOTION,
+  overshootDeg = ESCAPEMENT_PEAK_DEG,
+) {
   const ms = Math.max(0, Number(elapsedMs) || 0);
   const seconds = ms / 1000;
   const minutes = seconds / 60;
   const hours = minutes / 60;
+
+  // ── THE SECOND HAND STEPS; THE OTHER TWO CREEP ───────────────────────────
+  // A stepping MINUTE hand would look broken, and a real mechanical movement's
+  // minute hand does creep between its marks — so only the second hand is
+  // quantised. See the header for why nothing here may snap to a SPOKE: the
+  // step is one second of time, never one eighth of the dial.
+  let second;
+  if (motion === "sweep") {
+    second = (seconds % 60) * 6;
+  } else {
+    // FLOOR THE ELAPSED SECONDS — the position is a pure function of the time,
+    // so it is right whenever a frame happens to run. A `setInterval(…, 1000)`
+    // would accumulate its own lateness and walk away from the wall clock; this
+    // cannot, because nothing is accumulated. A dropped frame corrects itself
+    // on the next one rather than costing a step forever.
+    const whole = Math.floor(seconds);
+    second = ((whole % 60) * SECOND_STEP_DEG) % 360;
+    if (motion === "escapement") {
+      second += escapementOffset(ms - whole * 1000, overshootDeg);
+    }
+  }
   return {
-    // 6° a second, 6° a minute, 30° an hour — a full turn in 60, 60 and 12
-    second: (seconds % 60) * 6,
+    second,
+    // 6° a minute, 30° an hour — a full turn in 60 and in 12
     minute: (minutes % 60) * 6,
     hour: (hours % 12) * 30,
   };
@@ -353,6 +501,18 @@ export function readFaceHandsColorway() {
     id = "";
   }
   return FACE_HANDS_COLORWAYS.some((c) => c.id === id) ? id : "dark";
+}
+
+/** The persisted second-hand motion. Anything unrecognised reads as the
+ *  shipped pick, the same rule every other stored choice here follows. */
+export function readFaceHandsMotion() {
+  let id = "";
+  try {
+    id = localStorage.getItem(MOTION_STORAGE) || "";
+  } catch (e) {
+    id = "";
+  }
+  return FACE_HANDS_MOTIONS.some((m) => m.id === id) ? id : DEFAULT_MOTION;
 }
 
 /** The persisted freeze. Off unless storage says exactly "1". */
@@ -503,6 +663,15 @@ export function publishFaceHandsLab(state) {
   root.setProperty("--fh-opacity", String((100 + (state.opacity || 0)) / 100));
   // a length in degrees, because it is composed into a rotate()
   root.setProperty("--fh-angle", (state.angle || 0) + "deg");
+  // BARE FACE-PIXEL COUNTS, not lengths: the stylesheet multiplies them by
+  // --fpx itself, so one dialled value means the same distance on the dial at
+  // every viewport. They are ADDED to the measured art constant, so zero is the
+  // measurement and the lab being absent computes identically.
+  root.setProperty("--fh-centre-x", String(state.centreX || 0));
+  root.setProperty("--fh-centre-y", String(state.centreY || 0));
+  // NOT PUBLISHED: `overshoot`. The tick is computed in JS (handAngles), not by
+  // the stylesheet, so that dial reaches the hands through the change event
+  // with the style/colourway/freeze picks rather than as a custom property.
 }
 
 /**
@@ -521,6 +690,8 @@ export default {
       fhStyle: readFaceHandsStyle(),
       fhColorway: readFaceHandsColorway(),
       fhFreeze: readFaceHandsFreeze(),
+      fhMotion: readFaceHandsMotion(),
+      fhMotions: FACE_HANDS_MOTIONS,
       fhDials: FACE_HANDS_DIALS,
       fhStyles: FACE_HANDS_STYLES,
       fhColorways: FACE_HANDS_COLORWAYS,
@@ -548,6 +719,11 @@ export default {
       } catch (e) {
         // storage off: the dial still works for this session
       }
+      // ONE DIAL IS READ IN JS RATHER THAN BY THE STYLESHEET — `overshoot`,
+      // because the tick is arithmetic and not a transform. Firing on every
+      // dial rather than just that one keeps this method honest: there is no
+      // list here to fall out of step with the component's.
+      notifyFaceHands();
     },
     setFhStyle(id) {
       if (!FACE_HANDS_STYLES.some((s) => s.id === id)) return;
@@ -564,6 +740,16 @@ export default {
       this.fhColorway = id;
       try {
         localStorage.setItem(COLORWAY_STORAGE, id);
+      } catch (e) {
+        // storage off: the pick still works for this session
+      }
+      notifyFaceHands();
+    },
+    setFhMotion(id) {
+      if (!FACE_HANDS_MOTIONS.some((m) => m.id === id)) return;
+      this.fhMotion = id;
+      try {
+        localStorage.setItem(MOTION_STORAGE, id);
       } catch (e) {
         // storage off: the pick still works for this session
       }
@@ -589,6 +775,7 @@ export default {
       FACE_HANDS_DIALS.forEach((d) => this.setFhLab(d.key, 0));
       this.setFhStyle("cathedral");
       this.setFhColorway("dark");
+      this.setFhMotion(DEFAULT_MOTION);
       this.setFhFreeze(false);
     },
   },
