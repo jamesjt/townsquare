@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>The Clocktower — Golem</title>
+  <title>Blood on the Clocktower</title>
   <link rel="apple-touch-icon" sizes="57x57" href="static/apple-icon-57x57.png">
   <link rel="apple-touch-icon" sizes="60x60" href="static/apple-icon-60x60.png">
   <link rel="apple-touch-icon" sizes="72x72" href="static/apple-icon-72x72.png">
@@ -36,12 +36,23 @@
        every town link previews identically. "Join <town>" in the card needs
        the server to inject per-URL meta before the page is served — real work,
        not a copy change. -->
-  <meta name="description" content="A town square and grimoire for running games with friends online, as storyteller or as player.">
-  <meta name="keywords" content="town square, grimoire, storyteller, social deduction, online, golem">
+  <!-- THE WORDS ARE THE USER'S (2026-08-19), and the per-town server route in
+       the platform server must use the same three, with {Town Name} filled:
+
+         site name   Blood on the Clocktower by The Pandemonium Institute
+         title       Blood on the Clocktower: {Town Name}
+         description Join {Town Name} for a game of Blood on the Clocktower,
+                     presented by Golem Studios.
+
+       This file is the NO-TOWN case, so the title drops the colon and the
+       description drops the name. The site-name line credits the rights
+       holder deliberately — we present the game, we do not claim it. -->
+  <meta name="description" content="Join a game of Blood on the Clocktower, presented by Golem Studios.">
+  <meta name="keywords" content="blood on the clocktower, town square, grimoire, storyteller, social deduction, online, golem studios">
   <meta name="robots" content="index, follow">
   <meta name="language" content="English">
   <meta name="author" content="Golem Studios">
-  <meta property="og:site_name" content="Golem"/>
+  <meta property="og:site_name" content="Blood on the Clocktower by The Pandemonium Institute"/>
   <!-- the clocktower itself, cut to the 1200x630 every chat client renders at
        (see claude_temp_test/2026-08-19-og-card.mjs). 129KB on purpose: a card
        image is fetched by a crawler on someone else's timeout, and the 2.3MB
@@ -52,8 +63,8 @@
   <meta property="og:image:height" content="630"/>
   <meta name="twitter:card" content="summary_large_image"/>
   <meta property="og:type" content="website"/>
-  <meta property="og:description" content="A town square and grimoire for running games with friends online, as storyteller or as player."/>
-  <meta property="og:title" content="The Clocktower — Golem"/>
+  <meta property="og:description" content="Join a game of Blood on the Clocktower, presented by Golem Studios."/>
+  <meta property="og:title" content="Blood on the Clocktower"/>
   <meta property="og:url" content="https://botc.golem-studios.com/"/>
 </head>
 <body style="background-color:#0b0d12">
