@@ -124,7 +124,17 @@
              in this same panel, and reusing it on "alive" would read as
              "this is about the demon" the instant both are on screen
              together. -->
-        <img class="count-icon count-icon-masked" :src="countIcons.alive" alt="" />
+        <!-- A SPAN, not an <img> (fix 2026-08-20, user: "seems like we lost the
+             heart symbol"). The recolour was written as `::before` on the
+             image — and a replaced element does not render pseudo-elements,
+             so the mask layer never painted while the image itself stayed
+             `visibility: hidden`. The heart was not lost; it was covered by
+             nothing. A span is not replaced, so it carries the mask itself. -->
+        <span
+          class="count-icon count-icon-masked"
+          :style="{ '--count-mask': 'url(' + countIcons.alive + ')' }"
+          aria-hidden="true"
+        ></span>
         <span class="tip" role="tooltip">Alive</span>
       </span>
       <span class="stat dead" tabindex="0" :aria-label="'Dead: ' + teams.dead">
@@ -431,20 +441,20 @@ export default {
     // NEAR it (a `filter` cannot recolour a bitmap's own pixels). One rule,
     // reusable by name (`.count-icon-masked`) if another count ever wants
     // its own icon recoloured the same way — only `.alive` calls it today.
+    // The mask rides the element ITSELF now — see the template for why the
+    // `::before` it used to sit on never rendered. The mask URL comes in as a
+    // custom property from the same `countIcons` the other stats use, so the
+    // asset is still resolved by the bundler in one place rather than named a
+    // second time here.
     .count-icon-masked {
-      visibility: hidden;
-      position: relative;
-    }
-    .alive .count-icon-masked::before {
-      content: "";
-      visibility: visible;
-      position: absolute;
-      inset: 0;
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.12em;
       background-color: #ff4a50; // the same red the digit beside it already
-      // wears (kept as authored, see the colour block below) — one red,
-      // not a second one for the icon
-      -webkit-mask: url("../assets/ui-alive.png") center / contain no-repeat;
-      mask: url("../assets/ui-alive.png") center / contain no-repeat;
+      // wears — one red, not a second one for the icon
+      -webkit-mask: var(--count-mask) center / contain no-repeat;
+      mask: var(--count-mask) center / contain no-repeat;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
     }
 

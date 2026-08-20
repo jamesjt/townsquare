@@ -579,10 +579,19 @@ export default {
      * all. That is the ask, and it is the read the numeral was always giving
      * the storyteller — it simply used to give it on the wrong face.
      */
+    /**
+     * ALWAYS, unless a character is sitting on the chair (user's cleaner rule,
+     * 2026-08-20: "always show the numerals unless there is a role token on
+     * them — reveal or hide just hides the role tokens").
+     *
+     * The reveal state is deliberately NOT part of this. Revealing and hiding
+     * is about the ROLE TOKENS; the numeral is the chair's own name and does
+     * not come and go with them. The earlier pass tied it to the reveal, which
+     * meant a player — whose view is always hidden — lost seat numbers
+     * entirely, and with them table talk like "four nominates nine".
+     */
     showSeatNumeral() {
-      return (
-        !this.grimoire.isPublic && !(this.player.role && this.player.role.id)
-      );
+      return !(this.player.role && this.player.role.id);
     },
     seatNumeral() {
       // IIII, not IV — the clockmaker's convention (user-confirmed)
@@ -1852,19 +1861,29 @@ li.move:not(.from) .player .overlay svg.move {
 // It BREATHES rather than pulsing out and vanishing: the old keyframes ended
 // at `transparent`, which reads as a repeating ping. A seat marker should say
 // "this one is yours" continuously, not announce itself every five seconds.
+// NO `border-radius` HERE, and the reason is written a file away: Token.vue's
+// own comment records that `border-radius: 50%` CUT EVERY TOOTH crossing the
+// inscribed circle, reported by the user on 2026-08-18 as "the coins look
+// clipped". I reintroduced exactly that bug rounding this box for the halo,
+// and the user reported it again the same way. The art carries its own edge.
+//
+// `filter: drop-shadow` instead of `box-shadow`, which is the better answer
+// anyway: a box-shadow traces the ELEMENT'S BOX, so making it round needed the
+// clip that broke the coin. A drop-shadow traces the ART'S OWN ALPHA — so the
+// light follows the toothed wheel exactly, teeth and all, and no shape has to
+// be imposed on the box at all.
 @mixin glow($name, $color) {
   @keyframes #{$name}-glow {
     0%,
     100% {
-      box-shadow: 0 0 8px 2px rgba($color, 0.3);
+      filter: drop-shadow(0 0 4px rgba($color, 0.55));
     }
     50% {
-      box-shadow: 0 0 22px 9px rgba($color, 0.65);
+      filter: drop-shadow(0 0 11px rgba($color, 0.95));
     }
   }
 
   .player.you.#{$name} .token {
-    border-radius: 50%;
     animation: #{$name}-glow 5s ease-in-out infinite;
   }
 }

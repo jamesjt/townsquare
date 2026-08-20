@@ -1134,9 +1134,19 @@ export default {
      * roles do not. Host-only; the pill only ever shows this button to the
      * host.
      */
+    /**
+     * The same table, a new game. It clears the roles and returns to setup —
+     * and RESETS THE DAY COUNTER, which it did not (user report 2026-08-20:
+     * a fresh game in the same town opened on "End day 24"). The counter is
+     * session state that outlived the game it was counting, so every later
+     * game in a town inherited the last one's tally.
+     */
     playAgain() {
       this.$store.commit("clearEnded");
       this.$store.dispatch("players/clearRoles");
+      // The counter lives in the NIGHT module (`night.day`), which is what
+      // `toggleNight` bumps — not in session, where the ended flag sits.
+      this.$store.commit("night/setDay", 0);
       this.dealAt = null;
       this.building = true;
     },
