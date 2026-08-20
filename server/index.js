@@ -3,6 +3,7 @@ const http = require("http");
 const https = require("https");
 const WebSocket = require("ws");
 const client = require("prom-client");
+const { handleChatFrame } = require("./chat");
 
 // Create a Registry which registers the metrics
 const register = new client.Registry();
@@ -390,6 +391,26 @@ function admitClient(ws, held) {
         } catch (e) {
           console.log("error parsing direct message JSON", e);
         }
+        break;
+      case '"chat"':
+        // Golem fork (FT-964): a room message, a whisper, or a system
+        // message — see server/chat.js for the full contract (wire shape,
+        // the platform round trip, and why nothing is broadcast until the
+        // platform has accepted it). Async, so it runs off this synchronous
+        // handler; `.catch` exists only to stop an unexpected throw from
+        // becoming an unhandled rejection — chat.js itself reports failures
+        // to the sender and never rejects for a normal store failure.
+        handleChatFrame(ws, data, { channels, WebSocket, metrics }).catch(
+          (err) => {
+            console.log(
+              new Date(),
+              ws.channel,
+              ws.playerId,
+              "chat: unhandled error",
+              err,
+            );
+          },
+        );
         break;
       default:
         // all other messages
