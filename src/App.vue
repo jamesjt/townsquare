@@ -1125,8 +1125,17 @@ export default {
       // the app-wide PNG-font state + the font lab panel
       fontState,
       fontDebugOpen: false,
-      // dev labs visibility (Aa + Ik) — hidden for now
-      devLabs: false,
+      // dev labs visibility. FT-1007 (user: "how do I turn the dev labs
+      // on?"): it was a hardcoded false — flipping it meant editing source,
+      // which shut the user out of their own labs on the live site. Now a
+      // doorway: `?labs=1` in the URL turns the column on (`?labs=0` off),
+      // and the choice persists per browser so the param is needed once.
+      devLabs: (() => {
+        const q = new URLSearchParams(window.location.search).get("labs");
+        if (q !== null)
+          localStorage.setItem("golem.devLabs", q === "1" ? "true" : "false");
+        return localStorage.getItem("golem.devLabs") === "true";
+      })(),
       // FT-881 follow-up: the face-lab scrubs, persisted so a dialled value
       // survives the reload it takes to look at it again.
       // Storage keys carry a "2" since the +7px was BAKED: a browser holding the
