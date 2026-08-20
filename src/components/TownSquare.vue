@@ -26,6 +26,20 @@
       ></div>
     </div>
 
+    <!-- Golem fork (FT-936): the CENTRE-FACE SPLAT -- one mark for the game
+         itself, dealt when roles go out. Negative z-index (own rule below,
+         not .blood-dial's) so it sits behind TownInfo's whole hub (a
+         SIBLING component, not a descendant -- see the file header on
+         faceSplat below for why plain z-index:0 was not enough) as well as
+         under every seat. Decoration only: aria-hidden, no pointer-events. -->
+    <div
+      class="face-splat"
+      aria-hidden="true"
+      v-if="faceSplat"
+      :key="faceSplat.file"
+      :style="faceSplatStyle"
+    ></div>
+
     <ul class="circle" :class="['size-' + players.length]">
       <Player
         v-for="(player, index) in players"
@@ -158,10 +172,15 @@ import RoleModal from "./modals/RoleModal";
 // demon, and the Lunatic. One rule, shared with the menu's toggle and the
 // socket's sender so the three can never disagree.
 import { canSeeBluffs, demonSeatIndex } from "../golem/bluffs";
+// Golem fork (FT-936): the centre-face splat -- the game-start mark, its
+// per-file size table, and the hash/RNG both it and this file's own
+// stainOrder() share (moved here from a local copy -- MEMORY-CORE rule 2).
+import { hashString, seededRandoms, pickFaceSplat } from "../golem/faceSplat";
 
 // Golem fork (FT-848): the re-baked dried-blood stains, bundled once for the
-// whole dial. (The older per-seat splats in ../assets/blood/splats stay in the
-// tree, unreferenced.)
+// whole dial. (The older per-seat splats in ../assets/blood/splats are now
+// the centre-face splat's own art -- see golem/faceSplat.js -- rather than
+// unreferenced.)
 const stainCtx = require.context("../assets/blood/stains", false, /\.png$/);
 const STAINS = stainCtx.keys().sort().map(stainCtx);
 
@@ -183,16 +202,6 @@ const STAIN_RADIUS = 185;
 const STAIN_SPAN = 470;
 const STAIN_MAX = 172;
 
-/** FNV-1a over a string — the hash the stains already use for size and lie. */
-const hashString = (str) => {
-  let h = 2166136261;
-  for (let c = 0; c < str.length; c++) {
-    h ^= str.charCodeAt(c);
-    h = (h * 16777619) >>> 0;
-  }
-  return h;
-};
-
 /**
  * A SHUFFLE BAG of stain indices: all 16 are dealt before any of them repeats
  * (user call 2026-08-18 — repeats were showing on the dial).
@@ -212,15 +221,7 @@ const hashString = (str) => {
  */
 const stainOrder = (seed) => {
   const bag = STAINS.map((_, i) => i);
-  let s = hashString(seed) || 1;
-  const next = () => {
-    s ^= s << 13;
-    s >>>= 0;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    s >>>= 0;
-    return s / 4294967296;
-  };
+  const next = seededRandoms(seed);
   for (let i = bag.length - 1; i > 0; i--) {
     const j = Math.floor(next() * (i + 1));
     const swap = bag[i];
@@ -239,7 +240,10 @@ export default {
   },
   computed: {
     ...mapGetters({ nightOrder: "players/nightOrder" }),
-    ...mapState(["grimoire", "roles", "session"]),
+    // Golem fork (FT-936): "edition" and "night" added for the centre-face
+    // splat's seed (faceSplatLive below) -- the script and the day counter,
+    // alongside session/players this file already reads.
+    ...mapState(["grimoire", "roles", "session", "edition", "night"]),
     ...mapState("players", ["players", "bluffs", "fabled"]),
     /**
      * Golem fork (FT-848): one stain per dead seat, laid on that seat's wedge
@@ -372,6 +376,71 @@ export default {
     isBluffsOpen() {
       return this.grimoire.isBluffsOpen;
     },
+    /**
+     * Golem fork (FT-936): is a game actually live right now, for EVERY
+     * client type -- host, seated player, true spectator alike? The one
+     * thing every one of them can read identically off already-synced
+     * state: "does any seat hold a role". `session.isRolesDistributed` (the
+     * flag TownSquare's own `building` class above reads) cannot serve this
+     * -- it is set directly by whoever presses Start and never rebroadcast,
+     * so it is true for the storyteller and permanently false for every
+     * player and spectator (confirmed against store/socket.js: no incoming
+     * message ever commits session/distributeRoles). This mirrors App.vue's
+     * own townCast/townUncast test, which already relies on the same fact
+     * for the same reason.
+     */
+    townLive() {
+      return this.players.some((p) => p.role && p.role.id);
+    },
+    /**
+     * The centre-face splat's seed, computed LIVE off currently-synced
+     * state -- town, script, roster (names + count only, not isDead: that
+     * changes as players die mid-game and would drag the splat along with
+     * it) and the night counter. This is never rendered directly (see
+     * faceSplat below, which reads the FROZEN copy) -- it exists so
+     * `created()` and the store subscription both have one formula to
+     * snapshot from, rather than two.
+     *
+     * Role identities cannot be part of this: FT-861 / the 2026-08-19
+     * bluffs hardening made them private per-seat, sent by direct message
+     * only (store/socket.js distributeRoles/_updatePlayer) -- an ordinary
+     * player's own store never holds anyone's role but their own, so a hash
+     * over "who has which character" would not agree between two clients
+     * watching the SAME game. Town + script + roster + night is the largest
+     * fact set that is both synced and identical for everyone in the game
+     * right now, which is what "two clients, one splat" needs.
+     */
+    faceSplatLive() {
+      const roster = this.players.map((p) => p.name || "").join("|");
+      return [
+        this.session.sessionId || "golem",
+        (this.edition && this.edition.id) || "",
+        roster,
+        this.night.day,
+      ].join("::");
+    },
+    /**
+     * The splat itself, from the FROZEN seed (faceSplatSeed, a data field --
+     * see created() below for how it gets set and stays set for the rest of
+     * the game). Frozen rather than reading faceSplatLive live because
+     * night.day changes every night -- a splat that re-rolled with it would
+     * look like a bug ("why did the mark change") instead of the one-time
+     * "the game began" mark the ask was for.
+     */
+    faceSplat() {
+      if (!this.townLive || !this.faceSplatSeed) return null;
+      return pickFaceSplat(this.faceSplatSeed);
+    },
+    faceSplatStyle() {
+      if (!this.faceSplat) return null;
+      const { url, boxPx, spin } = this.faceSplat;
+      return {
+        backgroundImage: `url(${url})`,
+        width: `calc(${boxPx} * var(--fpx))`,
+        height: `calc(${boxPx} * var(--fpx))`,
+        transform: `translate(-50%, -50%) rotate(${spin}deg)`,
+      };
+    },
   },
   data() {
     // FT-870: FABLED DEFAULTS CLOSED ON A PHONE. Open, that panel is a stacked
@@ -403,6 +472,10 @@ export default {
       // until measureBluffAnchor finds a demon seat, meaning "use the
       // static corner CSS" (see bluffAnchorStyle / the .anchored rules).
       bluffAnchor: null,
+      // Golem fork (FT-936): the centre-face splat's FROZEN seed for this
+      // client's view of the current game — null until created() or the
+      // subscribe below sets it. See faceSplat/faceSplatLive above.
+      faceSplatSeed: null,
     };
   },
   watch: {
@@ -426,6 +499,81 @@ export default {
       if (val) this.$nextTick(this.measureBluffAnchor);
     },
   },
+  /**
+   * Golem fork (FT-936): freezes faceSplatSeed the moment THIS client
+   * learns the game is live, and re-freezes it on every later deal — so the
+   * splat is stable within a game (see faceSplat's own comment) but still
+   * rolls fresh for a second game in the same town, in the same tab.
+   *
+   * Vuex's store.subscribe fires on every COMMIT, unconditionally — unlike
+   * a Vue `watch`, which only fires when the resulting VALUE changes and is
+   * batched to nextTick. That distinction matters here: HostTools' re-deal
+   * clears every seat's role and reassigns in the same synchronous tick
+   * (see App.vue's own comment on `building`), so a `watch` on "does any
+   * seat have a role" would see it go true → true across a whole re-deal
+   * and never fire again. Subscribing to the mutation itself sidesteps that
+   * entirely.
+   *
+   * Two signals, because no single one reaches every client type:
+   *   - session/distributeRoles (truthy payload) — committed ONLY by
+   *     Menu.vue's Start button, and ONLY on the host's own store (confirmed
+   *     against store/socket.js: nothing ever replays this mutation on a
+   *     receiving client). Unambiguous, and fires fresh on every Start.
+   *   - players/update, property "role", targeting THIS client's own seat —
+   *     what a seated player actually receives instead (FT-861's private,
+   *     direct-message deal). This also fires on a LATER single-seat
+   *     correction (the storyteller quietly re-casting one chair mid-game),
+   *     which would re-roll the splat for that one player — a rare,
+   *     cosmetic false positive, traded deliberately against the
+   *     alternative: freezing only once would leave a player who stays in
+   *     the same tab across two games stuck showing game one's mark.
+   *
+   * A TRUE SPECTATOR (no claimed seat) gets neither signal — they receive
+   * no per-seat message at all. The fallback below covers them for the
+   * common case (watching from before Start, or joining while the CURRENT
+   * game is live); a spectator who stays in one tab across two full games
+   * shares the same known gap as the single-tab-player case above.
+   *
+   * A GENERATION NUMBER rides along with every freeze (`_faceSplatGen`, a
+   * plain instance field — not reactive `data`, like `_bluffRO` above,
+   * since only the composed faceSplatSeed needs to trigger a re-render).
+   * faceSplatLive alone is not enough: a re-deal with the SAME roster and
+   * the SAME script, before night.day has moved (the most direct "second
+   * game, same town" case there is), reads back byte-identical — the
+   * generation number is what actually changes on every deal, guaranteed,
+   * independent of whether anything else about the town happened to.
+   * Robust for anyone connected for the whole sequence of deals (the
+   * ordinary case — everyone joins while the town is being built, then the
+   * game starts); a client that only connects mid-sequence starts its own
+   * count from zero, the same documented gap as above.
+   */
+  created() {
+    this._faceSplatGen = 0;
+    const freeze = () => {
+      this._faceSplatGen++;
+      this.faceSplatSeed = this.faceSplatLive + "::" + this._faceSplatGen;
+    };
+    this._faceSplatUnsub = this.$store.subscribe(({ type, payload }) => {
+      if (type === "session/distributeRoles" && payload) {
+        freeze();
+        return;
+      }
+      if (
+        type === "players/update" &&
+        payload &&
+        payload.property === "role" &&
+        payload.player &&
+        payload.player.id &&
+        payload.player.id === this.session.playerId
+      ) {
+        freeze();
+      }
+    });
+    // A client that MOUNTS onto an already-running game (a reload, or a
+    // true spectator with no seat to be told anything on) has no event
+    // left to catch — best-effort snapshot of the current state instead.
+    if (this.townLive) freeze();
+  },
   mounted() {
     this.measureBluffAnchor();
     window.addEventListener("resize", this.measureBluffAnchor);
@@ -443,6 +591,7 @@ export default {
     window.removeEventListener("resize", this.measureBluffAnchor);
     window.removeEventListener("orientationchange", this.measureBluffAnchor);
     if (this._bluffRO) this._bluffRO.disconnect();
+    if (this._faceSplatUnsub) this._faceSplatUnsub();
   },
   methods: {
     /**
@@ -1099,6 +1248,44 @@ export default {
 
 /* the app's animation kill-switch */
 #app.static .blood-dial .stain {
+  animation: none;
+}
+
+/***** The centre-face splat (FT-936) *****
+   A SEPARATE element from .blood-dial above, and a separate (negative)
+   z-index, on purpose: TownInfo (the town readout) is a SIBLING of
+   #townsquare under #app, not a descendant of it, and #townsquare itself
+   sets no z-index -- so a positive or zero z-index here stacks only among
+   #townsquare's OWN children (behind the seats, as .blood-dial wants) and
+   still paints on top of TownInfo, because #townsquare comes later in the
+   template than TownInfo (App.vue) and z-index:auto/0 elements paint in
+   document order. #app DOES establish a stacking context (container-type:
+   size, App.vue), and neither #townsquare nor TownInfo's own .info sets a
+   z-index or any other stacking-context trigger — so a NEGATIVE z-index
+   here escapes #townsquare's own local order and is compared directly
+   against TownInfo inside #app's single stacking context instead, landing
+   behind it. Verified against the built app, not just reasoned about — see
+   claude_temp_test/2026-08-19-splat-proof/screens/.
+   left/top read --face-cx/--face-cy (App.vue) rather than plain 50%/50%
+   (unlike .stain above) — the file's own comment on those variables asks
+   anything centred on the dial to read them, and this mark is large enough
+   for the ~7px bake to be worth the precision. */
+.face-splat {
+  position: absolute;
+  left: var(--face-cx);
+  top: var(--face-cy);
+  z-index: -1;
+  pointer-events: none;
+  background: center / contain no-repeat;
+  transform-origin: center center;
+  /* matches stain-in's own end state (0.88) exactly -- fill-mode is none,
+     so once the animation ends this base value takes back over, and a
+     mismatched number here would show as a one-frame opacity "pop". */
+  opacity: 0.88;
+  animation: stain-in 420ms ease-out;
+}
+
+#app.static .face-splat {
   animation: none;
 }
 

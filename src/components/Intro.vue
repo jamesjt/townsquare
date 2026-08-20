@@ -1671,7 +1671,20 @@ export default {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
+        // NO flex gap (user call 2026-08-19: "the O next to the P instead of
+        // having space between them"). The drop-cap IS the label's first
+        // letter — "O" + "pen the town" is one word broken across two boxes,
+        // and a gap between flex items put 8px inside it. The doors get this
+        // right with 2px of optical nudge and nothing more, so the button
+        // matches them.
+        //
+        // The 8px was really the ENTER MARK's spacing — a mark and a word are
+        // two things and do want air between them — so it moves onto the mark
+        // itself below, where it belongs.
+        gap: 0;
+        > .key {
+          margin-right: 2px;
+        }
       }
 
       // FT-901: THE ENTER MARK HAD NO CSS AT ALL, so it painted at the file's
@@ -1689,6 +1702,9 @@ export default {
         height: 1.15em;
         object-fit: contain;
         flex: 0 0 auto;
+        // the air the flex gap used to give every child, now given only to
+        // the one child that wants it
+        margin-right: 8px;
       }
 
       // …and the button itself still crossed the rim at the tightest size once
