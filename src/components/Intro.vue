@@ -218,7 +218,16 @@
             </small>
           </div>
           <div class="field">
-            <label title="Invite link"><font-awesome-icon icon="link" /></label>
+            <!-- Golem fork: the chain glyph is a copy button too — the URL
+                 span beside it already copies, and a glyph that names the
+                 link but ignores a click reads as broken. Same handler, same
+                 copied-tick feedback. -->
+            <label
+              class="link-copy"
+              :title="copied ? 'Copied!' : 'Copy the invite link'"
+              @click="copyShare"
+              ><font-awesome-icon :icon="copied ? 'check' : 'link'"
+            /></label>
             <span
               class="share"
               @click="copyShare"
@@ -1352,6 +1361,15 @@ export default {
         flex-shrink: 0;
         opacity: 0.8;
         text-align: center;
+      }
+
+      // The invite-link glyph is a live copy control, so it invites the hand.
+      label.link-copy {
+        cursor: pointer;
+
+        &:hover {
+          opacity: 1;
+        }
       }
       input,
       select {

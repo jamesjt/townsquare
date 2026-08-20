@@ -2221,10 +2221,15 @@ li.move:not(.from) .player .overlay svg.move {
  * PALETTE UNCHANGED at (198,214,228), and the reasoning is kept rather than
  * re-derived — see above. `ui-ghost-vote.png` stays in the tree, unreferenced,
  * the way `ui-ghost.png`, `shroud.png` and `token.png` already do. */
+/* FT-996 (user call, 2026-08-20): the mark IS the cowl now — "move the cowl
+ * to be the indicator for the ghost vote." The dead seat itself is moving to a
+ * glass veil (FT-997), which frees the cowl to mean exactly one thing: an
+ * unspent ghost vote. `ui-ghost-vote-cowl.png` (the hand) joins the unreferenced
+ * retirees below. */
 .player .has-vote.ghost-vote {
   width: 30px;
   height: 30px;
-  background: url("../assets/ui-ghost-vote-cowl.png") center center / contain
+  background: url("../assets/ui-ghost-cowl.png") center center / contain
     no-repeat;
   cursor: pointer;
 }
