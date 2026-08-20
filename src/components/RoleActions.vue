@@ -61,18 +61,17 @@
          `control-toggle` well, because there is no persistent "on" state to
          show.
 
-         TWO-CLICK ARM instead of a native confirm(): this app has had
-         confirm()/prompt() silently auto-dismissed under Playwright and
-         embeds four times in one night (App.vue's session-pill Leave is the
-         model this follows — arm on click one, act on click two, disarm on
-         a 3s timeout OR a click anywhere else). -->
+         ONE CLICK (user call 2026-08-19: "that shouldn't require two
+         clicks"). It shipped with a two-click arm borrowed from the session
+         pill's Leave — but Leave ends your involvement in the town and this
+         only puts the roles back in the tray, where they are all still
+         sitting and can be dealt again in one press. The guard was priced
+         for a loss that isn't there. -->
     <button
-      ref="retractBtn"
       class="ra-act"
-      :class="{ armed: retractArmed }"
       :disabled="seatedCount === 0"
-      :title="retractTitle"
-      @click.stop="armRetract"
+      title="Retract all roles — every seat's role returns to the tray"
+      @click.stop="retract"
     >
       <font-awesome-icon icon="undo" />
     </button>
@@ -87,11 +86,7 @@ export default {
   name: "RoleActions",
   data() {
     return {
-      dealGlyph,
-      // FT-943: the retract button's two-click arm — see the template note
-      // by the button itself.
-      retractArmed: false,
-      retractTimer: null
+      dealGlyph
     };
   },
   computed: {
@@ -113,17 +108,7 @@ export default {
       return this.allowDup
         ? "Duplicates on — a role can sit in more than one chair. Click to limit each role to one."
         : "Duplicates off — each role fills one chair. Click to allow a role in more than one.";
-    },
-    /** FT-943: names the arm state, then the consequence — same tooltip
-     *  model as the enforcement chip and Dupes above. */
-    retractTitle() {
-      return this.retractArmed
-        ? "Click again to retract all roles — every seat's role returns to the tray."
-        : "Retract all roles — every seat's role returns to the tray. Click twice to confirm.";
     }
-  },
-  beforeDestroy() {
-    this.disarmRetract();
   },
   methods: {
     /** Deal and Shuffle are the grimoire drawer's own methods — asked for by
@@ -143,30 +128,12 @@ export default {
     shuffle() {
       this.withDrawer(d => d.shuffleSeated());
     },
-    /** FT-943: click one arms (3s, or until a click lands outside this
-     *  button); click two — while armed — dispatches the retract itself.
-     *  No native confirm() anywhere in the path (see the template note). */
-    armRetract() {
-      if (this.retractArmed) {
-        this.disarmRetract();
-        this.$store.dispatch("players/clearRoles");
-        return;
-      }
-      this.retractArmed = true;
-      this.retractTimer = setTimeout(() => this.disarmRetract(), 3000);
-      document.addEventListener("click", this.disarmOutside, true);
-    },
-    disarmRetract() {
-      clearTimeout(this.retractTimer);
-      this.retractArmed = false;
-      document.removeEventListener("click", this.disarmOutside, true);
-    },
-    /** The "or a click elsewhere" half of the arm — the timeout alone left a
-     *  3s window where clicking away from the button did nothing visible. */
-    disarmOutside(e) {
-      if (this.$refs.retractBtn && !this.$refs.retractBtn.contains(e.target)) {
-        this.disarmRetract();
-      }
+    /** Every seat's role goes back to the tray, on one click. No native
+     *  confirm() in the path either — this app has had confirm()/prompt()
+     *  silently auto-dismissed under Playwright and embeds, and a dialog
+     *  nobody sees answers itself. */
+    retract() {
+      this.$store.dispatch("players/clearRoles");
     }
   }
 };
@@ -207,13 +174,6 @@ export default {
       object-fit: contain;
     }
     &.on {
-      @include control-lit;
-    }
-    // RETRACT, ARMED (FT-943): the same blood accent `.on` wears above —
-    // this row's one established "pay attention" cue — borrowed for a
-    // transient "click again to confirm" rather than a persisted state.
-    // Flat, not sunken: arming doesn't turn this action into a toggle.
-    &.armed {
       @include control-lit;
     }
   }
