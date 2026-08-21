@@ -352,7 +352,17 @@
            returns once the game starts; Intro ONLY when sessionless (FT-852:
            a player in a session always sees the live town square — seats
            appear as the host adds them; no waiting screen). -->
-      <HostTools v-if="showHostTools && !session.nomination"></HostTools>
+      <!-- FT-1032: `reentry` — the host walked back INTO a town whose deal
+           stash says a game is running (the durable dealAt marker survived;
+           the local roster mirror did not). The panel greets them with the
+           day instead of the setup; its Re-enter button is what stands the
+           panel down. -->
+      <HostTools
+        v-if="showHostTools && !session.nomination"
+        :reentry="reentry"
+        @reenter="reenterTown"
+        @rebuild="rebuildTown"
+      ></HostTools>
       <Intro
         ref="intro"
         v-else-if="!session.sessionId && !players.length"
@@ -736,7 +746,10 @@ import NumberScrub from "./components/NumberScrub";
 // FT-880: the key list — the first surface in the app that says the hotkeys
 // exist. Its contents come from golem/hotkeys, the same table keyup reads.
 import HotkeyHelp from "./components/HotkeyHelp";
-import { markDealt, dealTimeFor } from "./golem/stats";
+// FT-1032: clearDealt joins the pair — the deal stash must die with the game
+// (End game / Play again), or a re-entered town greets its host as "running"
+// forever. EndGameOverlay's own clear only runs when the record POST lands.
+import { markDealt, dealTimeFor, clearDealt } from "./golem/stats";
 // FT-880: the town summons. App owns only the two ends a player sees — the
 // gesture that buys autoplay credit, and the notice when it was not enough.
 import {
@@ -1063,13 +1076,25 @@ export default {
      * both (Vue batches watcher callbacks to nextTick).
      */
     townUncast(uncast) {
-      if (uncast) this.building = true;
+      if (uncast) {
+        this.building = true;
+        // FT-1032: emptying the town is the host's own act, mid-session —
+        // they are starting over and get the BUILD face, whatever the deal
+        // stash still says. (This cannot misfire on the re-entry path: there
+        // the roster is empty from the first tick, so townUncast never
+        // CHANGES and this watcher never runs.)
+        this.reentry = false;
+      }
     },
     "session.sessionId"(sessionId) {
       this.dealAt = dealTimeFor(sessionId);
       // A DIFFERENT TOWN IS A FRESH JUDGEMENT. `dealAt` has just been re-read
       // for this session, so the same test `created` runs applies again.
       this.building = !this.dealAt || !this.townCast;
+      // FT-1032: same re-entry judgement `created` makes, for the SPA entry
+      // paths (the entry screen's shelf, a Forward hop) — see created().
+      this.reentry =
+        this.building && !!this.dealAt && !this.$store.state.session.isEnded;
       this.endGameOpen = false;
       this.statsOpen = false;
       this.hotkeyHelpOpen = false;
@@ -1093,6 +1118,13 @@ export default {
    */
   created() {
     this.building = !this.dealAt || !this.townCast;
+    // FT-1032: a boot that raises the panel OVER a running game (the deal
+    // stash survived the reload; the roster mirror did not) is a re-entry,
+    // not a build — the panel wears its greeting face. An ENDED town is not
+    // running: its restore (persistence's gameEnded stash) keeps the build
+    // face, exactly as before.
+    this.reentry =
+      this.building && !!this.dealAt && !this.$store.state.session.isEnded;
   },
   mounted() {
     // the face lab's persisted dials, published to <html> — see applyBgOff
@@ -1127,6 +1159,8 @@ export default {
         // isRolesDistributed two seconds later, because this flag is what the
         // panel reads now and nothing re-opens it on its own.
         this.building = false;
+        // FT-1032: a fresh deal is a fresh game — no greeting face pending.
+        this.reentry = false;
       }
     });
     const bg = new Promise((resolve) => {
@@ -1170,6 +1204,14 @@ export default {
       // Real value assigned in `created`; `false` here only so the flag
       // exists before the guard in `showHostTools` can read it.
       building: false,
+      // FT-1032: WHICH FACE the build panel wears. True only when an ENTRY
+      // moment (boot, or hopping into a town from the entry screen) finds the
+      // durable deal stash saying a game is running while the local roster
+      // does not hold it — the host is walking back into a live game, and the
+      // panel should greet them with the day, not the setup. Mid-session
+      // paths that raise `building` (emptying the town, Play again) are the
+      // host STARTING OVER and set this false: they get the build face.
+      reentry: false,
       // FT-852: the pill Leave's two-click arm.
       leaveArmed: false,
       leaveTimer: null,
@@ -1393,6 +1435,15 @@ export default {
      */
     onGameRecorded(winningTeam) {
       this.dealAt = null;
+      // FT-1032: the STASH dies with the game too, unconditionally.
+      // EndGameOverlay's own clearDealt only runs when the record POST
+      // lands; a failed record used to leave the marker standing, and a
+      // later re-entry would have greeted the host with a game that ended.
+      // Idempotent beside the overlay's clear.
+      clearDealt(this.session.sessionId);
+      // ...and a panel still wearing the greeting face falls back to the
+      // build face: there is no running game to greet anyone with now.
+      this.reentry = false;
       // FT-1010: THE END IS THE TOWN'S OWN NEWS, written into the town's log
       // BEFORE the endGame commit below. Order matters: that commit's resync
       // re-derives the live game id — null now, the deal stash was cleared
@@ -1439,7 +1490,32 @@ export default {
       // `toggleNight` bumps — not in session, where the ended flag sits.
       this.$store.commit("night/setDay", 0);
       this.dealAt = null;
+      // FT-1032: Play again means the LAST game is over for good — the deal
+      // stash goes with it (belt beside onGameRecorded's clear, and the
+      // backstop for any older stale entry), so this fresh build can never
+      // be mistaken for a running game by a later re-entry.
+      clearDealt(this.session.sessionId);
       this.building = true;
+      this.reentry = false;
+    },
+    /**
+     * FT-1032: the greeting face's one control — the host has seen the day
+     * and steps back into the live town. The panel stands down; nothing
+     * about the game changes.
+     */
+    reenterTown() {
+      this.building = false;
+      this.reentry = false;
+    },
+    /**
+     * FT-1032: the greeting face's second door — swap to the BUILD face.
+     * Only the face changes: the deal stash and the End-game door stand, so
+     * a game that can still be recorded still can be. This door exists
+     * because a re-entered town whose roster died cannot End its game
+     * (nothing to record) and has no other way back to the builder.
+     */
+    rebuildTown() {
+      this.reentry = false;
     },
     /**
      * FT-857: open the one script drawer on a named tab (the same behaviour

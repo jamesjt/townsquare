@@ -335,6 +335,13 @@ import {
   townGate
 } from "../golem/towns";
 import { resolveTownRole } from "../golem/townRoute";
+// FT-1032: the shelf row says WHERE a running game stands. Both reads are
+// this browser's own stashes: the deal moment (golem/stats, stamped when
+// this browser dealt as host, cleared when its game ends) and the town's
+// night log (golem/nightLog, which carries the day counter) — so the row
+// costs no relay call and can only ever speak about games this browser runs.
+import { dealTimeFor } from "../golem/stats";
+import { loadLog } from "../golem/nightLog";
 import bloodH from "../assets/blood/blood-H.png";
 import bloodJ from "../assets/blood/blood-J.png";
 import bloodC from "../assets/blood/blood-C.png";
@@ -846,11 +853,21 @@ export default {
       return s.players ? "stirring" : "quiet";
     },
     statusLabel(id) {
+      const parts = [];
       const s = this.statuses[id];
-      if (!s) return "";
-      if (s.host)
-        return `awake · ${s.players} in town`;
-      return s.players ? `${s.players} waiting` : "quiet";
+      if (s) {
+        if (s.host) parts.push(`awake · ${s.players} in town`);
+        else parts.push(s.players ? `${s.players} waiting` : "quiet");
+      }
+      // FT-1032: a town THIS browser dealt and has not ended carries its
+      // day, read from the same local stashes the town itself restores from
+      // (see the imports) — so a host scanning the shelf knows they are
+      // walking back into Day 2, not into a fresh build.
+      if (dealTimeFor(id)) {
+        const log = loadLog(id);
+        parts.push(`day ${Math.max((log && log.day) || 0, 1)}`);
+      }
+      return parts.join(" · ");
     },
     async reroll() {
       this.townId = await mintAvailableTownId();

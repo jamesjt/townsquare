@@ -80,10 +80,22 @@
          reason. A wrapper that only one layout can see costs the other three
          nothing. -->
     <div class="ht-body">
+      <!-- ── FT-1032: THE GREETING LINE ─────────────────────────────────────
+         The re-entry face's one statement: a game is running here, and this
+         is its moment. The wording is TownInfo/FaceHands' own phase idiom
+         ("Day 3" / "Night 3", same clamp), because the dial's readouts and
+         this line state the same fact and may never disagree. Everything
+         that belongs to setup — seats, script, roles, tray, Start — stands
+         down below on `!reentry`; the night switch and the Tower rows stay,
+         because a storyteller mid-game still owns the night sheet and the
+         clock. -->
+      <div class="ht-running" v-if="reentry">
+        Game running — {{ phaseLine }}
+      </div>
       <!-- the row carries the claimed count as a `title` as well as on the line,
          because the disc folds the visible copy away for room (see the styles)
          and the number must stay reachable there -->
-      <div class="row" :title="seatsHint">
+      <div class="row" v-if="!reentry" :title="seatsHint">
         <!-- FT-959 (user call): "make it more clear that the chain is tied to
            the 7". `.ht-seat-lead` groups the mark, the scrub and its implied
            counts on the row's LEFT; `.ht-seat-trail` groups the claimed count
@@ -218,14 +230,14 @@
          knows what it holds, so the line says which team is short and by how
          much. The derivation is golem/seatRange — shared, so no second
          surface can disagree about what this script plays. -->
-      <small class="hint seat-warn" v-if="seatWarn">
+      <small class="hint seat-warn" v-if="!reentry && seatWarn">
         {{ seatWarn.reason }}
         <span class="plays" v-if="seatWarn.plays">{{ seatWarn.plays }}</span>
       </small>
 
       <!-- the SHARED script picker (user call): pick right here, with the
          script's OWN art on the trigger; the Almanac card opens the forge -->
-      <div class="row">
+      <div class="row" v-if="!reentry">
         <span class="label">
           <!-- ui-script.png is the SAME file the top strip's own script door
              wears (Menu.vue) — not a new asset. It bakes flat neutral grey
@@ -262,7 +274,7 @@
          already reads as one family via its own shared plate and 6px gap —
          what it lacked was room of its own to read as a group IN, which
          merging the leading pair now gives it. -->
-      <div class="row">
+      <div class="row" v-if="!reentry">
         <span class="ht-role-lead">
           <span class="label">
             <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
@@ -423,7 +435,25 @@
       <!-- FT-859: the UNSEATED TRAY — the script's characters that have no
          chair yet, dragged straight onto a seat from here. Dropping a seated
          role anywhere that is not a seat sends it back to this tray. -->
-      <RoleTray />
+      <RoleTray v-if="!reentry" />
+
+      <!-- FT-1032: the greeting face's quiet second door, and it must exist:
+         a town whose roster did not survive the trip here cannot END its
+         game (EndGameOverlay refuses with no seated roles) and has no other
+         way back to the builder — without this the greeting face is a dead
+         end for exactly the host it greets. In the BAND, not the dock: the
+         disc folds the dock's hint lines into tooltips (see `.start-dock
+         .hint` in the disc rules), and a door that vanishes on the desktop
+         disc is no door. It only swaps the face — the running marker and
+         the End-game door are untouched, so a game that can still be
+         recorded still can be. -->
+      <small
+        class="hint ht-rebuild"
+        v-if="reentry"
+        title="Show the build panel instead — the running game is not ended by this"
+        @click="$emit('rebuild')"
+        >…or set up a new game</small
+      >
     </div>
 
     <!-- Start and the line explaining why it is greyed out are ONE footer.
@@ -431,7 +461,7 @@
          things in it — the button the panel exists to reach sat below the
          fold. Grouped, the pair can ride the sheet's bottom edge (see the
          portrait rule in the styles); on a desktop the wrapper is inert. -->
-    <div class="start-dock">
+    <div class="start-dock" v-if="!reentry">
       <div
         class="start"
         :class="{ ready: canStart }"
@@ -441,6 +471,28 @@
         Start game
       </div>
       <small class="hint">{{ startHint }}</small>
+    </div>
+    <!-- FT-1032: the greeting face's one control — same dock, same button
+         object (the disc's cap geometry and the phone sheets' sticky footer
+         are both keyed on `.start-dock`/`.start`, reused rather than
+         restated). Always `ready`: there is nothing to gate; the game is
+         already running. NOT auto-dismissed (judgement call): the local
+         roster may not have survived the trip here, and dropping the host
+         silently into a square of empty chairs with nothing saying why is
+         FT-913's dead end again — the click is the host stepping back in. -->
+    <div class="start-dock" v-else>
+      <!-- "Re-enter", one word by measure: the disc's bottom cap holds
+           "Start game"'s width and the longer label wrapped to two lines
+           there (seen live, 1545x1090) — the town's name is the heading two
+           inches up, so the label does not need to restate it. -->
+      <div
+        class="start ready"
+        :title="'Back to the town — ' + phaseLine + ' continues'"
+        @click="$emit('reenter')"
+      >
+        Re-enter
+      </div>
+      <small class="hint">The game picks up where it left off.</small>
     </div>
   </div>
 </template>
@@ -517,9 +569,20 @@ export default {
     NightModeRow,
     NumberScrub,
   },
+  // FT-1032: WHICH FACE this panel wears. False (the build face) is every
+  // path that existed before; true is App's re-entry judgement — the durable
+  // deal stash says a game is running in this town and the panel greets the
+  // host with the day instead of the setup. App owns the flag because App
+  // owns `building` and every transition that changes the answer.
+  props: {
+    reentry: { type: Boolean, default: false },
+  },
   mounted() {
     // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
-    // game (5-6 is Teensyville; user call 2026-08-18)
+    // game (5-6 is Teensyville; user call 2026-08-18). Deliberately NOT
+    // gated on `reentry` (FT-1032): when the greeting face is up the local
+    // roster died on the way here, and seeded chairs are what returning
+    // players can claim back — an empty square offers them nothing.
     if (this.players.length === 0) this.setSeatCount(7);
   },
   watch: {
@@ -618,6 +681,15 @@ export default {
       if (this.ownedKey) parts.push("Rename your town");
       if (this.gamesHint) parts.push(this.gamesHint);
       return parts.length ? parts.join("\n") : null;
+    },
+    /** FT-1032: the greeting line's moment — TownInfo/FaceHands' own phase
+     *  wording ("Day 3" / "Night 3"), Math.max clamp included: the dial's
+     *  readouts and this line state the same fact and may never disagree. */
+    phaseLine() {
+      const night = this.grimoire.isNight;
+      return (
+        (night ? "Night " : "Day ") + Math.max(this.$store.state.night.day, 1)
+      );
     },
     /** Travellers sit beyond the base count and outside distribution math. */
     coreSeats() {
@@ -1134,6 +1206,29 @@ export default {
   // the heading wrapper — see the template comment for why it exists at all.
   .ht-head {
     margin-bottom: 8px;
+  }
+
+  // FT-1032: THE GREETING LINE — the re-entry face's one statement, under
+  // the town's name. Brighter than the panel's 0.6 `small` idiom (this line
+  // IS the face's content, not an aside), quieter than the heading; the
+  // letter-spacing is `.start`'s own, so the face's statement and its button
+  // read as one voice.
+  .ht-running {
+    margin: 2px 0 6px;
+    font-size: 95%;
+    letter-spacing: 1px;
+    opacity: 0.85;
+  }
+
+  // FT-1032: the greeting face's second door — a clickable hint, styled as
+  // the hint it is (the face must not read as two rival buttons; re-entering
+  // is the act, rebuilding is the aside).
+  .ht-rebuild {
+    cursor: pointer;
+    &:hover {
+      color: red;
+      opacity: 1;
+    }
   }
 
   h3 {
@@ -1743,7 +1838,12 @@ export default {
       // whose height is genuinely a variable, so it is the only one allowed to
       // give.
       > .row,
-      > .night-mode {
+      > .night-mode,
+      // FT-1032: the greeting line and the rebuild door are fixed content
+      // like the rows — only the tray (absent on the re-entry face anyway)
+      // is allowed to give.
+      > .ht-running,
+      > .ht-rebuild {
         flex-shrink: 0;
       }
 
