@@ -19,7 +19,10 @@ import Vue from "vue";
 // on disk (assets + design sources) but are no longer bundled or cycled.
 const red97Ctx = require.context("../assets/red/970000", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
 const tanCtx = require.context("../assets/gold/d7a25f", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V|o_lc|n_lc|t_lc|h_lc|e_lc)\.png$/);
-const ctCtx = require.context("../assets/gold/clocktower", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V)\.png$/);
+// FT-1020c: I and X join the Clocktower bundle — the dial's ring numerals
+// (FaceHands.vue) are composed from I/V/X of this carved set, the same art
+// the entry screen's CLOCKTOWER lettering wears.
+const ctCtx = require.context("../assets/gold/clocktower", false, /^\.\/(B|L|O|D|H|J|A|C|K|T|W|E|R|N|S|G|F|V|I|X)\.png$/);
 
 import red97Metrics from "../assets/red/970000/metrics.json";
 import tanMetrics from "../assets/gold/d7a25f/metrics.json";

@@ -71,6 +71,10 @@
          styles stand down in place below, kept per the house never-delete
          rule. -->
     <div id="tower-top">
+      <!-- FT-1020c: each numeral is COMPOSED FROM THE CARVED CLOCKTOWER
+           GLYPHS (titleFonts' "ct" set — the entry screen's own lettering),
+           I/V/X laid in a row; live text stays as the fallback if a glyph
+           ever fails to resolve. -->
       <template v-if="showNumerals">
         <span
           v-for="spot in numeralSpots"
@@ -78,8 +82,19 @@
           class="tw-numeral"
           aria-hidden="true"
           :style="spot.style"
-          >{{ spot.label }}</span
         >
+          <template v-if="spot.glyphs">
+            <img
+              v-for="(g, i) in spot.glyphs"
+              :key="spot.n + '-' + i"
+              class="tw-numeral-glyph"
+              :src="g.src"
+              :style="g.style"
+              alt=""
+            />
+          </template>
+          <template v-else>{{ spot.label }}</template>
+        </span>
       </template>
       <!-- the game's own moment, in the hands' place — which day or night it
            is and how long it has run. Decoration like the hands (the phase
@@ -120,6 +135,9 @@ import {
   armTowerAudio,
   ringDayStart,
 } from "../golem/towerBells";
+// FT-1020c: the ring numerals wear the carved Clocktower letter art — the
+// same PNG glyphs the entry screen's CLOCKTOWER lettering is built from.
+import { glyphFrom } from "../golem/titleFonts";
 
 /**
  * ── THE NUMERAL RING (FT-1020) ────────────────────────────────────────────────
@@ -131,6 +149,12 @@ import {
  * inheriting its hand-placed wobble.
  */
 const NUMERAL_RADIUS_FACE = 168;
+
+/** FT-1020c: the ring numerals' cap height, in face-pixels — the carved
+ *  glyphs render with this much letter above the baseline. 28: a step up
+ *  from the live text's 26 for standout, still well clear of neighbours
+ *  (the marks stand ~88 face-pixels apart; IIII is the widest at ~46). */
+const NUMERAL_CAP_FACE = 28;
 
 /** The clockmaker's convention — IIII, never IV (the call fbc9e39 already
  *  made for the seat numerals). Index n-1; XII is the anchor, not a span. */
@@ -195,9 +219,10 @@ export default {
       overshoot: overshootDegrees(readFaceHandsLab().overshoot),
       raf: 0,
       // ── THE TOWER'S CHOICES (FT-1020), re-read on the tower's event ───────
-      /** Which of the four displays this screen shows — the viewer's own pick
-       *  when they made one, the town's otherwise (towerBells.js). */
-      hourMode: effectiveHourMode(),
+      /** Which of the four displays this screen shows — the town's on a
+       *  storyteller's screen, the viewer's own pick (falling back to the
+       *  town's) on a player's (towerBells.js, FT-1020c). */
+      hourMode: effectiveHourMode(this.$store.state.session),
       /** Minute hand steps (the shipped tick) or creeps (the panel's Sweep). */
       minuteTick: towerState.minuteTick,
       hourModes: HOUR_MODES,
@@ -287,6 +312,12 @@ export default {
         spots.push({
           n,
           label: ROMAN[n - 1],
+          // FT-1020c: the numeral as carved Clocktower glyphs — one img per
+          // letter, each scaled to the shared cap height by its own metrics
+          // (I is taller than V/X by a few source pixels; scaling per glyph
+          // keeps the baseline true). Any unresolved letter drops the whole
+          // numeral back to live text.
+          glyphs: this.numeralGlyphs(ROMAN[n - 1]),
           style: {
             left: `calc(var(--fh-cx) + ${x.toFixed(1)} * var(--fpx))`,
             top: `calc(var(--fh-cy) + ${y.toFixed(1)} * var(--fpx))`,
@@ -361,6 +392,27 @@ export default {
     if (this._resetRaf) cancelAnimationFrame(this._resetRaf);
   },
   methods: {
+    /**
+     * FT-1020c: one ring numeral as carved-glyph imgs. Each letter of the
+     * roman numeral resolves against the Clocktower set ("ct" — the entry
+     * screen's own lettering); its img is sized so the ABOVE-BASELINE height
+     * is NUMERAL_CAP_FACE face-pixels (the metrics' `baseline` is measured
+     * from the top, so h/baseline is the small descender allowance). Returns
+     * null if any letter is missing, and the template falls back to text.
+     */
+    numeralGlyphs(label) {
+      const glyphs = [];
+      for (const letter of label) {
+        const g = glyphFrom("ct", letter);
+        if (!g || !g.baseline) return null;
+        const height = (NUMERAL_CAP_FACE * g.h) / g.baseline;
+        glyphs.push({
+          src: g.src,
+          style: { height: `calc(${height.toFixed(1)} * var(--fpx))` },
+        });
+      }
+      return glyphs;
+    },
     /** The lab changed a pick. Storage is the single copy; re-read it. */
     readLab() {
       this.style = readFaceHandsStyle();
@@ -375,7 +427,7 @@ export default {
     /** The tower changed — the build panel, the anchor menu, or a host sync
      *  arriving. Same one-way re-read as the lab's. */
     readTower() {
-      this.hourMode = effectiveHourMode();
+      this.hourMode = effectiveHourMode(this.$store.state.session);
       this.minuteTick = towerState.minuteTick;
       this.tick();
     },
@@ -769,14 +821,42 @@ $digital-y-face: -122;
 }
 
 /* the twelve ring numerals — the dial letters' ink at a numeral's size (the
-   marks stand ~88 face-pixels apart; 26 keeps neighbours clear) */
+   marks stand ~88 face-pixels apart; 26 keeps neighbours clear).
+   FT-1020c: LEGIBILITY PASS (user: "hard to see"; baked art approved). The
+   numerals are the CARVED CLOCKTOWER GLYPHS now — the entry screen's own
+   lettering (titleFonts' "ct" set), I/V/X composed per numeral in the
+   template. The standout treatment rides the container as drop-shadow, which
+   follows each glyph's own alpha (the trick Player.vue's seat glow uses): a
+   dark halo to cut the letter out of the lit face, and a faint pale glow so
+   it also lifts off the dial's DARK bronze band — a plain black shadow was
+   tried first and sank there, black-on-black. The font/text-shadow rules
+   below dress the LIVE-TEXT FALLBACK only (a numeral whose glyph fails to
+   resolve): the seat numerals' PiratesBay + pale-halo idiom. */
 .tw-numeral {
   position: absolute;
   transform: translate(-50%, -50%);
+  display: flex;
+  align-items: flex-end;
+  gap: calc(2 * var(--fpx));
   line-height: 1;
-  font-size: calc(26 * var(--fpx));
-  color: $numeral-ink;
-  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
+  font-family: "PiratesBay", "Times New Roman", Times, serif;
+  font-size: calc(30 * var(--fpx));
+  color: #14100a;
+  text-shadow:
+    0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
+    0 calc(-1 * var(--fpx)) calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
+    calc(1 * var(--fpx)) 0 calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
+    calc(-1 * var(--fpx)) 0 calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
+    0 0 calc(7 * var(--fpx)) rgba(246, 223, 189, 0.45);
+  /* GOLD LETTERS SEPARATE WITH DARK, not with light: a pale glow was tried
+     and hazed them into the lit face. Intro.vue's `.hint` black-halo pair,
+     spoken as drop-shadow so it follows the carved alpha. */
+  filter: drop-shadow(0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) rgba(0, 0, 0, 0.95))
+    drop-shadow(0 0 calc(5 * var(--fpx)) rgba(0, 0, 0, 0.85));
+}
+.tw-numeral-glyph {
+  display: block;
+  width: auto;
 }
 
 /* THE ANCHOR — RETIRED (FT-1020b), rules kept with their unmounted markup.
@@ -810,7 +890,10 @@ $digital-y-face: -122;
   }
 }
 
-/* the game's moment, small on the twelve ray — decoration, like the hands */
+/* the game's moment, small on the twelve ray — decoration, like the hands.
+   FT-1020c: the ink wears a WHITE GLOW now — the pale four-way halo the seat
+   numerals and the role names wear (Player.vue's #f6dfbd idiom), scaled by
+   the face's own pixel so it stays a rim at every viewport. */
 .tw-digital {
   position: absolute;
   left: var(--fh-cx);
@@ -823,7 +906,11 @@ $digital-y-face: -122;
   line-height: 1;
   font-size: calc(20 * var(--fpx));
   color: $numeral-ink;
-  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.45);
+  text-shadow:
+    0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) #f6dfbd,
+    0 calc(-1 * var(--fpx)) calc(2 * var(--fpx)) #f6dfbd,
+    calc(1 * var(--fpx)) 0 calc(2 * var(--fpx)) #f6dfbd,
+    calc(-1 * var(--fpx)) 0 calc(2 * var(--fpx)) #f6dfbd;
   white-space: nowrap;
 }
 .tw-digital-clock {

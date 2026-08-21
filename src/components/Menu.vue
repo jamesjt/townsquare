@@ -165,7 +165,9 @@
              left, mark right, the Night-order row's check idiom) and stay
              open on a pick so the check is seen to move. -->
         <template v-if="tab === 'tower'">
-          <li class="headline">Tower</li>
+          <!-- FT-1020c: the visible word is "Timer" (user call) — the tower
+               naming stays internal (tab id, towerBells.js, the strip art). -->
+          <li class="headline">Timer</li>
           <li
             v-for="m in hourModes"
             :key="m.id"
@@ -410,7 +412,7 @@ export default {
       // object is not reactive; readTowerMode refreshes it on TOWER_EVENT).
       uiHourglass,
       hourModes: HOUR_MODES,
-      towerHourMode: effectiveHourMode(),
+      towerHourMode: effectiveHourMode(this.$store.state.session),
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's
       // feel, not about the town's state, so it does not belong in the store.
@@ -458,9 +460,11 @@ export default {
       this.tab = this.tab === name ? null : name;
     },
     // ── FT-1020b: the hourglass tab ──────────────────────────────────────
-    /** The tower moved (any surface) — re-read which display this screen shows. */
+    /** The tower moved (any surface) — re-read which display this screen
+     *  shows (session passed so a storyteller's check tracks the TOWN's
+     *  mode, never a stale player-era override — FT-1020c). */
     readTowerMode() {
-      this.towerHourMode = effectiveHourMode();
+      this.towerHourMode = effectiveHourMode(this.session);
     },
     /** One display picked. towerBells owns the host-vs-player split. */
     pickHourMode(id) {

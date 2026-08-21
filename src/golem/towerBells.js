@@ -246,9 +246,25 @@ export function setViewerHourMode(id) {
   notifyTower();
 }
 
-/** The mode THIS screen shows: the viewer's own pick when they have made one,
- *  the town's otherwise. */
-export function effectiveHourMode() {
+/**
+ * The mode THIS screen shows.
+ *
+ * A PLAYER's screen: their own pick when they have made one, the town's
+ * otherwise. A STORYTELLER's screen: the town's mode, always — their pick IS
+ * the town's, made through the same menu.
+ *
+ * THE SESSION PARAMETER IS THE FT-1020c FIX. The viewer override is stored
+ * per BROWSER (see setViewerHourMode), and a browser that ever picked a mode
+ * as a player — the same person joining their own town from a second tab is
+ * enough — carried that pick forever. Unparametrised, this function let that
+ * stale override shadow the host's fresh town pick on the host's own screen:
+ * the storyteller clicked Off, `towerState.hourMode` and the per-town storage
+ * both said off, and the hands stayed up because `viewerHourMode` still said
+ * clock. The split mirrors chooseHourMode's exactly: whoever's pick would
+ * WRITE the town's mode reads the town's mode back.
+ */
+export function effectiveHourMode(session) {
+  if (session && !session.isSpectator) return towerState.hourMode;
   return viewerHourMode || towerState.hourMode;
 }
 
