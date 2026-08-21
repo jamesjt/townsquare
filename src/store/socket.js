@@ -940,7 +940,13 @@ class LiveSession {
     if (!this._isSpectator) return;
     const players = this._store.state.players.players;
     if (players.length > seat && (seat < 0 || !players[seat].id)) {
-      this._send("claim", [seat, this._store.state.session.playerId]);
+      // FT-1035: the remembered name rides along with the claim itself —
+      // every claim entry point (the one-tap overlay, the seat menu's
+      // "Claim seat" row) goes through this one method, so this is the one
+      // place that has to know it, rather than each UI surface re-deriving
+      // it (and, before this fix, only one of them bothering to).
+      const name = (localStorage.getItem("golem.playerName") || "").trim();
+      this._send("claim", [seat, this._store.state.session.playerId, name]);
     }
   }
 
@@ -948,9 +954,12 @@ class LiveSession {
    * Update a player id associated with that seat.
    * @param index seat index or -1
    * @param value playerId to add / remove
+   * @param name FT-1035: the claimant's remembered name, applied to the seat
+   *  being claimed only — an unclaimed seat (host-typed or a placeholder)
+   *  never has its label touched, and neither does any OTHER seat.
    * @private
    */
-  _updateSeat([index, value]) {
+  _updateSeat([index, value, name]) {
     if (this._isSpectator) return;
     const property = "id";
     const players = this._store.state.players.players;
@@ -968,6 +977,21 @@ class LiveSession {
       const player = players[index];
       if (!player) return;
       this._store.commit("players/update", { player, property, value });
+      // FT-1035: THE NAME FOLLOWS THE CLAIM. A claimant's own remembered
+      // name wins over whatever the seat was showing — a "Fake N"
+      // placeholder or a name left behind by whoever held the chair
+      // before — the same way claiming already overrides who HOLDS it.
+      // Only fires when the claimant actually has a name to offer, so an
+      // anonymous claim (should not happen via the UI, but costs nothing
+      // to guard) leaves the seat's label alone.
+      const trimmedName = (name || "").trim();
+      if (trimmedName && trimmedName !== player.name) {
+        this._store.commit("players/update", {
+          player,
+          property: "name",
+          value: trimmedName,
+        });
+      }
     }
     // update player session list as if this was a ping
     this._handlePing([true, value, 0]);
