@@ -491,13 +491,21 @@ function admitClient(ws, held) {
         );
         try {
           const dataToPlayer = JSON.parse(data)[1];
+          // FT-1016: the URL parse has ALWAYS lowercased playerId (line ~263),
+          // but the host addresses this payload by the id as its roster holds
+          // it — so a mixed-case id lost every direct frame (the dealt role,
+          // night rows, grimoire grants) while broadcasts worked, which is
+          // exactly the "player sees no role" shape. Match the mailbox:
+          // lowercase the addresses too.
+          const byLowerId = {};
+          for (const k in dataToPlayer) byLowerId[k.toLowerCase()] = dataToPlayer[k];
           channels[ws.channel].forEach(function each(client) {
             if (
               client !== ws &&
               client.readyState === WebSocket.OPEN &&
-              dataToPlayer[client.playerId]
+              byLowerId[client.playerId]
             ) {
-              client.send(JSON.stringify(dataToPlayer[client.playerId]));
+              client.send(JSON.stringify(byLowerId[client.playerId]));
               metrics.messages_outgoing.inc();
             }
           });
