@@ -132,7 +132,8 @@
             :title="f.title"
             @click="filter = f.id"
           >
-            {{ f.label }}
+            <img v-if="f.icon" class="cr-cell-icon" :src="f.icon" alt="" />
+            <template v-else>{{ f.label }}</template>
           </button>
         </div>
         <div class="cr-games" role="group" aria-label="Which game to show">
@@ -286,11 +287,15 @@ import {
   viewerOf,
 } from "../golem/chat";
 import {
-  dayOf,
+  startLabelOf,
   gamesOf,
   inFilter,
   sectionize,
 } from "../golem/chronicles";
+// FT-1019: the filter cells wear the doors' own icons — the gallows keeps
+// the retired vote-history door's art, talk keeps the chat door's.
+import uiVotes from "../assets/ui-votes.png";
+import uiChat from "../assets/ui-chat.png";
 import { townStats } from "../golem/stats";
 // the strip's own quill — the mark that opens this drawer leads its title
 import quill from "../assets/ui-chronicle.png";
@@ -371,11 +376,16 @@ export default {
     filterCells() {
       return [
         { id: "all", label: "All", title: "Talk and events together" },
-        { id: "talk", label: "Talk", title: "Only what people said" },
+        { id: "talk", icon: uiChat, title: "Only what people said" },
+        {
+          id: "gallows",
+          icon: uiVotes,
+          title: "The gallows — nominations, votes, executions",
+        },
         {
           id: "events",
           label: "Events",
-          title: "Only what happened — deals, phases, deaths, votes, endings",
+          title: "Everything else that happened — deals, phases, deaths, endings",
         },
       ];
     },
@@ -493,15 +503,16 @@ export default {
       this.$set(this.folds, section.key, !this.isExpanded(section));
     },
     sectionLabel(section) {
+      // FT-1020 (user): the label IS the start moment, not an ordinal.
       const first = section.rows[0];
-      const day = first ? dayOf(first.createdAt) : "";
-      return `Game ${section.ordinal}${day ? " · " + day : ""}`;
+      const when = first ? startLabelOf(first.createdAt) : "";
+      return when || `Game ${section.ordinal}`;
     },
     gameLabel(game) {
       const live = !!this.chat.gameId && game.gameId === this.chat.gameId;
       if (live) return "This game";
-      const day = dayOf(game.startedAt);
-      return `Game ${game.ordinal}${day ? " · " + day : ""}`;
+      const when = startLabelOf(game.startedAt);
+      return when || `Game ${game.ordinal}`;
     },
     rowClass(row) {
       return [
@@ -630,6 +641,13 @@ export default {
   flex: none;
   overflow: hidden;
 }
+.cr-cell-icon {
+  height: 16px;
+  display: block;
+  margin: 0 auto;
+  opacity: 0.85;
+}
+
 .cr-cell {
   @include control-cell;
   flex: 1 1 0;
@@ -752,6 +770,8 @@ export default {
 
 .cr-row {
   display: block;
+  // FT-1018b, then FT-1020 ("bigger still"): the log reads two sizes up now.
+  font-size: 16px;
   padding: 3px 6px;
   border-radius: 4px;
   color: #e8e2d4;

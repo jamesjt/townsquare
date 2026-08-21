@@ -715,7 +715,8 @@ export default {
       // be wider than they are") — the pill hugged the row's box, not its
       // content, and 14px of side reach plus a 6px blur read as a shadow
       // hanging past the last icon. Tighter reach, tighter blur.
-      inset: -2px -6px;
+      // FT-1020 (user: "tighter on the stats... less padding left and right")
+      inset: -2px -3px;
       z-index: -1;
       border-radius: 999px;
       background: rgba(10, 5, 7, 0.4);

@@ -15,8 +15,10 @@
     <!-- FT-1018 (user call): the moment that matters is the GAME's — which
          day, night or daylight — not the wall clock. The clock is still
          recorded on every row and lives here in the hover. Between-games
-         rows have no game moment, so they keep the clock. -->
-    <span class="crr-time" :title="time">{{ moment }}</span>
+         rows have no game moment, so they keep the clock.
+         FT-1018b (user): it stands at the row's FAR RIGHT, spelled out
+         ("Day 3" / "Night 1"), and the row text grew a size. -->
+
 
     <!-- ── AN EVENT / SYSTEM LINE ─────────────────────────────────────── -->
     <template v-if="row.kind === 'system'">
@@ -50,6 +52,7 @@
       <span class="crr-who">{{ nameFor(row.senderKey) }}</span>
       <span class="crr-body">{{ row.body }}</span>
     </template>
+    <span class="crr-time" :title="time">{{ moment }}</span>
   </span>
 </template>
 
@@ -84,7 +87,7 @@ export default {
     moment() {
       if (!this.row.gameId || !this.row.phase) return this.time;
       const d = this.row.dayNumber == null ? "" : this.row.dayNumber;
-      return (this.row.phase === "night" ? "N" : "D") + d;
+      return (this.row.phase === "night" ? "Night " : "Day ") + d;
     },
     event() {
       return this.row.kind === "system" ? decodeEvent(this.row.body) : null;
@@ -110,13 +113,19 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.crr {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
 .crr-time {
-  display: inline-block;
-  min-width: 38px;
-  margin-right: 4px;
-  font-size: 11px;
+  margin-left: 8px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.45;
+  opacity: 0.5;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .crr-who {
@@ -131,6 +140,7 @@ export default {
 
 .crr-body {
   white-space: pre-wrap;
+  flex: 1;
 }
 
 .crr-whisper-mark {

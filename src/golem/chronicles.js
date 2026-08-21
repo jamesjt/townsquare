@@ -96,12 +96,22 @@ export function eventTextOf(row) {
   return event ? event.text : row.body;
 }
 
-/** The three stream filters. "Talk" is people; "Events" is the town. */
-export const FILTERS = ["all", "talk", "events"];
+/** The stream filters. "Talk" is people; "Gallows" is the nomination arc
+ *  (FT-1019, user call — the vote-history door's icon lives on as its
+ *  filter); "Events" is everything else the town does. */
+export const FILTERS = ["all", "talk", "gallows", "events"];
+
+/** The event types that belong to the gallows — the nomination arc. */
+const GALLOWS_T = new Set(["nomination", "execution"]);
 
 /** Does a row survive the talk/events filter? System rows ARE the events. */
 export function inFilter(row, filter) {
   if (filter === "talk") return row.kind !== "system";
+  if (filter === "gallows") {
+    if (row.kind !== "system") return false;
+    const ev = decodeEvent(row.body);
+    return !!ev && GALLOWS_T.has(ev.t);
+  }
   if (filter === "events") return row.kind === "system";
   return true;
 }
@@ -163,6 +173,19 @@ export function gamesOf(rows) {
 }
 
 /** "20 Aug" for a section header, or "" when the clock is unreadable. */
+/** FT-1020 (user call): a game is LABELLED by when it began — "20 Aug 21:15" —
+ *  not by an ordinal. */
+export function startLabelOf(createdAt) {
+  const at = Date.parse(createdAt);
+  if (!Number.isFinite(at)) return "";
+  const d = new Date(at);
+  const hm =
+    String(d.getHours()).padStart(2, "0") +
+    ":" +
+    String(d.getMinutes()).padStart(2, "0");
+  return dayOf(createdAt) + " · " + hm;
+}
+
 export function dayOf(createdAt) {
   const at = Date.parse(createdAt);
   if (!Number.isFinite(at)) return "";
