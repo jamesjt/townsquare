@@ -280,8 +280,16 @@
                   </button>
                 </span>
 
+                <!-- FT-1028 (user call): "we can get rid of that for spy" —
+                     a row that already carries the GRIMOIRE field (the Spy,
+                     the Widow) has nothing left for a free-text note to say:
+                     the grimoire itself IS the answer. `told.text` stays in
+                     the stored shape untouched (the ledger's write path is
+                     unchanged); this only stops the box from rendering on
+                     exactly those rows. Every other role's fallback note
+                     still renders as before. -->
                 <input
-                  v-else
+                  v-else-if="!isGrimoireRow(row)"
                   :key="'f' + fi"
                   type="text"
                   class="ns-free"
@@ -783,6 +791,12 @@ export default {
     },
     kindOf(field) {
       return renderableType(field.type);
+    },
+    /** FT-1028: does this row carry a GRIMOIRE field (the Spy, the Widow)?
+     *  Gates the free-text note out of those rows only — see the template's
+     *  ns-free comment. */
+    isGrimoireRow(row) {
+      return this.extraFieldsFor(row).fields.some(f => this.kindOf(f) === "grimoire");
     },
     /**
      * FT-1003: the ledger entry for this row's seat — { pinned } while their
