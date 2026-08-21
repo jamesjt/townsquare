@@ -13,6 +13,10 @@
 // listeners once and they never go away. RoleTray no longer owns the target;
 // it only reads whether it is armed, via `roleUnseatState`, so its own
 // highlight still lights up while the tray is on screen.
+//
+// FT-1025: the target now catches a SPECTATOR's (plain player's) drag too —
+// see onDocDrop's own doc comment for the seat-ownership boundary and why
+// nothing about this ever reaches the wire.
 import Vue from "vue";
 
 /** Live, read by RoleTray's template (Vue 2 reactivity via Vue.observable —
@@ -59,7 +63,11 @@ export function installRoleUnseat(store) {
     // the tray lights up for the whole gesture, including over a seat —
     // it is telling you where the role goes if you let go out here
     roleUnseatState.armed = true;
-    if (store.state.session.isSpectator || ownsDrop(e)) return;
+    // FT-1025: the blanket spectator refusal that used to live here is
+    // GONE — a player now gets to drop too (see onDocDrop below for the
+    // seat-by-seat boundary; dragover cannot read `golem/from`, only
+    // `types`, so which seat this is is not knowable until the drop).
+    if (ownsDrop(e)) return;
     // ONLY a drag we would actually accept makes the page a drop target
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -71,15 +79,56 @@ export function installRoleUnseat(store) {
    * A drag that never drops — Escape, or a release over browser chrome —
    * fires `dragend` and no `drop` at all, so it changes nothing. That is
    * why the unassign lives here and not in onDocDragEnd.
+   *
+   * FT-1025: A SPECTATOR (plain player) DROPS HERE TOO NOW — sweeping a
+   * stale, locally-rendered token off a seat that is not theirs (the
+   * haunting FT-949 didn't reach: a browser that once hosted a town, then
+   * joins a LATER town as a player, can still be carrying leftover local
+   * role art on seats it never had any business knowing about).
+   *
+   * THE BOUNDARY: a player's OWN claimed seat is refused below, same as a
+   * host is never refused. Their own seat's role is live game state, dealt
+   * by the host over the wire — the one piece of role data on a player's
+   * client that is NOT a local leftover — so it does not get this
+   * dismiss-from-view exit. Every other seat, for a plain player, only
+   * ever holds locally-rendered display data (the grimoire itself is never
+   * sent to a player — see socket.js's sendPlayer/sendGamestate), so
+   * clearing it is always safe to do silently.
+   *
+   * AND IT NEVER SYNCS, for a player exactly the same way it already does
+   * not sync anything the host isn't allowed to broadcast: this reuses the
+   * same `players/update` mutation the host's own drag-off-to-unseat uses
+   * (below), and that mutation's own dispatch (store/socket.js's
+   * subscriber → `sendPlayer`) is unconditionally spectator-gated —
+   * `sendPlayer` opens with `if (this._isSpectator …) return;` — so this
+   * commit runs the exact same code path for a player as for the host,
+   * and only the host's copy of that path is ever allowed to reach the
+   * wire. No new sync guard was written for this feature; the existing
+   * one already does the job.
    */
   function onDocDrop(e) {
     roleUnseatState.armed = false;
-    if (store.state.session.isSpectator) return;
     if (!isSeatDrag(e) || ownsDrop(e)) return;
     const from = e.dataTransfer.getData("golem/from");
     if (from === "") return;
     const player = store.state.players.players[Number(from)];
     if (!player || !player.role || !player.role.id) return;
+    // The seat-ownership boundary (see the doc comment above): a player's
+    // own dealt seat refuses the drop. In the ordinary gesture this branch
+    // is never reached — Player.vue's `draggable` gate is what actually
+    // stops the drag from starting on your own seat — but the drop target
+    // is a bare document listener with no view of which seat a drag came
+    // from until now, so the same rule is re-checked here as the real
+    // enforcement point.
+    const session = store.state.session;
+    if (
+      session.isSpectator &&
+      session.playerId &&
+      player.id &&
+      player.id === session.playerId
+    ) {
+      return;
+    }
     e.preventDefault();
     store.commit("players/update", {
       player,

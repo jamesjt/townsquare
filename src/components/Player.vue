@@ -62,9 +62,16 @@
            like grabbing the bare coin does). The shroud's own click stays
            untouched — a plain click still ends as a click, same as the coin's
            own `@click="setRole"` living beside its `draggable` today. -->
+      <!-- FT-1025: a SPECTATOR (plain player) may now start this same drag —
+           but only off a seat that is not their own. Their own claimed
+           seat's role is live game state, dealt by the host; every OTHER
+           seat's role data on a player's client is a local-only display
+           value (see roleUnseat.js's onDocDrop for the rest of the
+           boundary). `isOwnSeat` is the one case a spectator is still
+           refused; the host's `!session.isSpectator` branch is untouched. -->
       <div
         class="shroud"
-        :draggable="String(!!player.role.id && !session.isSpectator)"
+        :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
         @dragstart="onRoleDragStart"
         @click="onLifeClick"
         @mouseenter="showCard"
@@ -126,7 +133,7 @@
         :role="player.role"
         :hover-card="false"
         :belief="beliefChip"
-        :draggable="String(!!player.role.id && !session.isSpectator)"
+        :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
         @dragstart.native="onRoleDragStart"
         @mouseenter.native="showCard"
         @mouseleave.native="hideCardSoon"
@@ -630,6 +637,20 @@ export default {
     },
     index: function() {
       return this.players.indexOf(this.player);
+    },
+    /**
+     * FT-1025: is this the seat I (a player) have claimed? Same three-part
+     * identity test the "you" class above already runs, pulled out as its
+     * own computed because the drag-off-to-dismiss gate (the `.shroud` and
+     * `<Token>` draggable bindings below) needs it independent of that
+     * class binding.
+     */
+    isOwnSeat: function() {
+      return !!(
+        this.session.sessionId &&
+        this.player.id &&
+        this.player.id === this.session.playerId
+      );
     },
     /**
      * FT-861: the chip on this seat's coin — the character its player was TOLD
