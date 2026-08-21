@@ -27,6 +27,9 @@ import { playCallBack } from "../golem/callBack";
 // FT-890: the app's own transient notice — the relay's reason is said here,
 // never in a browser dialog.
 import { flashHint } from "../golem/hint";
+// FT-1013: a town OWNER refused as a duplicate host is offered an
+// authenticated takeover instead of a dead end.
+import { offerHostTakeover, takeoverSuffix } from "../golem/hostTakeover";
 // FT-965: the town log. `chatErrorText` says a relay refusal in the app's own
 // voice; `gameIdFor` derives the game a line belongs to from the deal moment
 // the host already stashes (golem/stats), so no new per-game identity is minted.
@@ -73,7 +76,9 @@ class LiveSession {
       this._wss +
         channel +
         "/" +
-        (this._isSpectator ? this._store.state.session.playerId : "host"),
+        (this._isSpectator ? this._store.state.session.playerId : "host") +
+        // FT-1013: one-shot owner-takeover credential; "" in every other case.
+        takeoverSuffix(channel, this._isSpectator),
     );
     this._socket.addEventListener("message", this._handleMessage.bind(this));
     this._socket.onopen = this._onOpen.bind(this);
@@ -106,6 +111,9 @@ class LiveSession {
         // seats alone render the sessionless in-person square — so the app sat
         // in a town it was no longer connected to, with no way back to the
         // entry screen.
+        // FT-1013: the town's owner, refused as a duplicate host, is offered
+        // an authenticated takeover; the module owns both outcomes.
+        if (offerHostTakeover(err.reason, channel, this)) return;
         leaveTown(this._store);
         // ...and the reason is said IN the app. alert() was doubly wrong here:
         // a browser dialog is silently auto-dismissed in some contexts (the
