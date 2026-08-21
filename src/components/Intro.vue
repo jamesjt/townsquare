@@ -198,25 +198,11 @@
               @open="peekVaultMeta"
             />
           </div>
-          <!-- FT-847: owned towns. Hosting claims the town by default (the
-               name + later its script save to the server, keyed to THIS
-               browser — the same anonymous edit-key model as the script
-               vault); a taken name just hosts as a guest of that town. -->
-          <div class="field keep" v-if="ownsPicked">
-            <label></label>
-            <!-- It read "yours — its name travel with it", which is a plural
-                 verb left behind when the script half is absent, and it never
-                 said what "travel with it" meant anyway (user 2026-08-19:
-                 "what is this trying to say?"). Now it says the thing: you own
-                 this town, so what you set on it is remembered and comes back
-                 the next time anyone opens it. -->
-            <small class="owned-note">
-              This town is yours — its name{{
-                attachedScriptId ? " and script are" : " is"
-              }}
-              saved and comes back next time.
-            </small>
-          </div>
+          <!-- FT-1012 (user call, 2026-08-20): the owned-town note is GONE
+               ("I think we can remove that message right?") — ownership still
+               claims and saves exactly as FT-847 built it; the panel just
+               stops saying so. -->
+
           <div class="field">
             <!-- Golem fork: the chain glyph is a copy button too — the URL
                  span beside it already copies, and a glyph that names the
@@ -1558,13 +1544,7 @@ export default {
       }
     }
 
-    // FT-847: the owned-town note (hosting claims by default now).
-    .field.keep {
-      .owned-note {
-        font-size: 80%;
-        color: #c66;
-      }
-    }
+    // FT-1012: the owned-note rule left with its element (FT-847 note retired).
 
     // ── 2026-08-19: NOT OPEN YET ────────────────────────────────────────
     // The waiting panel is the Join panel's own furniture rearranged — head
