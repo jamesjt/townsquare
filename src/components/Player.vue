@@ -624,7 +624,14 @@ export default {
     beliefChip() {
       if (this.session.isSpectator) return null;
       if (this.grimoire.isPublic) return null;
-      return isBelieving(this.player) ? this.player.believedRole : null;
+      if (isBelieving(this.player)) return this.player.believedRole;
+      // FT-1021 (user call): a believing-class seat ALWAYS wears the chip —
+      // before a belief is set it stands as the "?" placeholder, which is
+      // also the doorway to setting one. "Sometimes there" was the unset
+      // Drunk showing nothing.
+      if (this.player.role && believesOther(this.player.role))
+        return { placeholder: true };
+      return null;
     },
     /**
      * FT-1006: does this seat's menu carry the belief doorway? Two ways in,

@@ -92,18 +92,20 @@
          the performance second. Only a SEAT passes `belief`; the bluffs, the
          fabled and both pickers never do, so nothing else grows one. -->
     <button
-      v-if="belief && belief.id"
+      v-if="belief && (belief.id || belief.placeholder)"
       type="button"
       class="belief-chip"
       :class="belief.team"
-      :title="`Believes they are the ${belief.name} — click to change what they were told`"
-      :aria-label="`Believes they are the ${belief.name}`"
+      :title="belief.placeholder ? 'This character believes it is something else — click to set what they were told' : `Believes they are the ${belief.name} — click to change what they were told`"
+      :aria-label="belief.placeholder ? 'Set what they believe they are' : `Believes they are the ${belief.name}`"
       @click.stop="$emit('set-belief')"
     >
       <span
         class="belief-icon"
-        :style="{ backgroundImage: `url(${beliefIcon})` }"
-      ></span>
+        :class="{ unset: belief.placeholder }"
+        :style="belief.placeholder ? null : { backgroundImage: `url(${beliefIcon})` }"
+        >{{ belief.placeholder ? "?" : "" }}</span
+      >
     </button>
 
     <!-- FT-858: the coin's read is THE role hover card — the same component
@@ -651,10 +653,12 @@ $blood: #970000; // our red, for the one mark that must not be missed
   .belief-chip {
     position: absolute;
     left: 50%;
-    bottom: -6%;
+    // FT-1021 (user): ~50% bigger than the bluff minis and OVERLAPPING the
+    // coin rather than hanging off its rim.
+    bottom: 4%;
     transform: translateX(-50%);
-    width: 26%;
-    height: 26%;
+    width: 40%;
+    height: 40%;
     padding: 0;
     border: none;
     border-radius: 50%;
@@ -717,6 +721,16 @@ $blood: #970000; // our red, for the one mark that must not be missed
     // face — at 78% the engraving read as a smudge. It also carries the big
     // coin's own lift off centre, so the two read as the same object struck at
     // two sizes.
+    .belief-icon.unset {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: PiratesBay, sans-serif;
+      font-size: 120%;
+      color: #d8cdb4;
+      text-shadow: 0 1px 2px black;
+    }
+
     .belief-icon {
       position: absolute;
       left: 0;
