@@ -7,7 +7,7 @@
          · a SYSTEM row — the town's own news. If its body wears the EV1
            envelope (golem/chronicles) it renders as a TYPED event with its
            own mark; a plain body (every pre-FT-1010 row) renders as the
-           muted italic line it always was.
+           muted line it always was (upright since FT-1024).
 
        FT-1019: a NOMINATION row is the head of the GALLOWS THREAD — its
        tally chip is the expand handle, and the strand it unfolds holds the
@@ -28,7 +28,12 @@
       <!-- ── AN EVENT / SYSTEM LINE ───────────────────────────────────── -->
       <template v-if="row.kind === 'system'">
         <span class="crr-ev-mark" :class="evClass" aria-hidden="true">
-          <font-awesome-icon v-if="evIcon" :icon="evIcon" />
+          <!-- FT-1024: marked-for-execution wears the fork's own noose art —
+               an <img>, the same idiom the drawer's filter cells and
+               TownInfo's votes-to-execute count wear — never the FA skull,
+               which is death's mark and must not promise one. -->
+          <img v-if="isNoosed" class="crr-noose" :src="noose" alt="" />
+          <font-awesome-icon v-else-if="evIcon" :icon="evIcon" />
           <template v-else>◆</template>
         </span>
         <span class="crr-body crr-sys" :class="evClass">{{ text }}</span>
@@ -102,7 +107,9 @@
         <span v-else class="crr-none">nobody</span>
       </span>
       <span class="crr-beat" v-if="thread.mark">
-        <font-awesome-icon class="crr-beat-mark ev-execution" icon="skull" />
+        <!-- FT-1024: the mark beat wears the noose here too — same honesty
+             as the head row's mark: marked is not dead. -->
+        <img class="crr-beat-mark crr-noose" :src="noose" alt="" />
         {{ beatText(thread.mark) }}
       </span>
       <span class="crr-beat" v-if="thread.unmark">
@@ -126,6 +133,9 @@ import { decodeEvent, eventTextOf, gallowsThreadOf } from "../golem/chronicles";
 // FT-1019: the ghost-vote cowl — the same hand that drew the seat's own mark
 // (Player.vue wears this art on a spent ghost vote's token).
 import cowl from "../assets/ui-ghost-vote-cowl.png";
+// FT-1024: the fork's own noose — the marked-for-execution mark, the same art
+// TownInfo's votes-to-execute count wears (its source SVG sits beside it).
+import noose from "../assets/ui-noose.png";
 
 /** Event type → the registered FA icon that marks it. Only icons main.js
  *  already registers — this file adds none. */
@@ -135,8 +145,11 @@ const EV_ICONS = {
   phase: null, // the moon/sun pair reads better as color than as glyphs here
   death: "skull",
   revive: "heartbeat",
-  nomination: "vote-yea",
-  execution: "skull",
+  // FT-1024 (user call): a nomination is a pointed finger, not a ballot.
+  nomination: "hand-point-right",
+  // FT-1024: execution wears the noose <img> (see the template), never the
+  // skull — the skull is death's, and a mark is not a death.
+  execution: null,
   unmark: "heartbeat",
 };
 
@@ -151,7 +164,7 @@ export default {
     rows: { type: Array, default: null },
   },
   data() {
-    return { cowl, open: false };
+    return { cowl, noose, open: false };
   },
   computed: {
     time() {
@@ -175,6 +188,11 @@ export default {
     },
     evIcon() {
       return this.event ? EV_ICONS[this.event.t] || null : null;
+    },
+    /** FT-1024: does this row's mark wear the noose art? Only the
+     *  marked-for-execution event does. */
+    isNoosed() {
+      return !!this.event && this.event.t === "execution";
     },
     /** FT-1019: does this nomination carry a roster? Old rows do not, and
      *  render tally-only — the chip is a handle only when there is a thread
@@ -263,11 +281,12 @@ export default {
 
 // ── THE TOWN'S OWN LINES ───────────────────────────────────────────────────
 // The chat idiom held: an event is not a person, so no name and no colon —
-// italic smallcaps-ish lettering, a mark in the speaker's place, and the
-// mark's COLOR says what kind of news it is.
+// the serif lettering, a mark in the speaker's place, and the mark's COLOR
+// says what kind of news it is. UPRIGHT since FT-1024 (user call): the serif
+// family and the muted ink already set system text apart from talk; the
+// italic on top of them was a third differentiator doing no work.
 .crr-sys {
   font-family: PiratesBay, sans-serif;
-  font-style: italic;
   letter-spacing: 0.3px;
   color: #b9b1a2;
 }
@@ -279,7 +298,13 @@ export default {
   font-size: 10px;
   text-align: center;
   color: rgba(190, 90, 90, 0.75);
-  &.ev-death,
+  // FT-1024 (user call): a death's mark is news in the row's own bone ink,
+  // not blood — the sentence already says what happened.
+  &.ev-death {
+    color: #d8cdb4;
+  }
+  // execution's mark is the noose <img> now (FT-1024); this ink survives only
+  // as the fallback for a row whose art failed to load.
   &.ev-execution {
     color: rgba(220, 120, 120, 0.95);
   }
@@ -306,8 +331,9 @@ export default {
 }
 .crr-sys.ev-start,
 .crr-sys.ev-end {
+  // (the `font-style: normal` that stood here is the family default since
+  // FT-1024 made every system line upright)
   color: #d8cdb4;
-  font-style: normal;
 }
 
 .crr-tally {
@@ -387,7 +413,7 @@ export default {
   display: block;
   margin-top: 3px;
   font-family: PiratesBay, sans-serif;
-  font-style: italic;
+  // upright since FT-1024, with the system lines above — same reasoning
   letter-spacing: 0.3px;
   color: #cdc4b2;
 }
@@ -396,13 +422,22 @@ export default {
   margin-right: 4px;
   font-size: 10px;
   text-align: center;
-  &.ev-execution,
+  // FT-1024: the death beat's skull in bone ink, not blood (the mark beat
+  // wears the noose <img> and takes no color at all)
   &.ev-death {
-    color: rgba(220, 120, 120, 0.95);
+    color: #d8cdb4;
   }
   &.ev-unmark {
     color: rgba(126, 214, 126, 0.85);
   }
+}
+
+// FT-1024: the noose art, sized to stand where a 10px FA glyph stood — the
+// cowl beside it in the thread is 13px, and matching it keeps the two pieces
+// of hand-drawn art on one visual rank.
+.crr-noose {
+  height: 13px;
+  vertical-align: -2px;
 }
 .crr-none {
   opacity: 0.55;

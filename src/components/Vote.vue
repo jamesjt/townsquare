@@ -25,13 +25,15 @@
             has the shapes for both — `control-toggle` and the
             plate+`control-cell` segment — and `NumberScrub` for the timing.
 
-         THE GROUND IS A SCRIM, NOT THE FACE DISC (explicit user call) and not
-         a bordered plate either: the town square is a circle, and a hard
-         rectangle dropped in the middle of it reads as a dialog sitting on
-         the art rather than part of it. The scrim is the plate's own ground
-         colour taken to near-opaque at the centre and faded to nothing at the
-         rim, so the type gets its contrast and the composition keeps its
-         shape. -->
+         THE GROUND, IN TWO REGISTERS (FT-1024, user call — superseding
+         FT-976's "a scrim, not the face disc"): on desktop the overlay now
+         STANDS ON THE FACE DISC, the same plate the night checklist and the
+         host panel wear (src/faceDisc.scss — geometry, gate, material).
+         Below the gate — every phone, every small window — the scrim below
+         remains the ground exactly as FT-976 built it: the plate's own
+         ground colour taken to near-opaque at the centre and faded to
+         nothing at the rim, an edgeless ground for a circle's middle. The
+         disc is a desktop dress; the re-grounding moves NO control. -->
     <div class="overlay">
       <audio src="../assets/sounds/countdown.mp3" preload="auto"></audio>
 
@@ -423,6 +425,7 @@ export default {
 <style lang="scss" scoped>
 @import "../vars.scss";
 @import "../controls.scss";
+@import "../faceDisc.scss";
 
 #vote {
   position: absolute;
@@ -530,6 +533,42 @@ export default {
       rgba(0, 0, 0, 0) 100%
     );
     pointer-events: none;
+  }
+}
+
+// ── THE DISC (FT-1024, user call — reversing FT-976's "not the face disc") ──
+// On desktop the overlay stands ON the plate the night checklist and the host
+// panel wear: same geometry, same gate, same material, all of it from
+// src/faceDisc.scss. Below the gate nothing in this block applies and the
+// scrim above is the ground, untouched — the disc is a desktop dress.
+//
+// WHY THE FRAME'S PERCENTAGES ARE HONEST FROM INSIDE #vote — because they are
+// not resolved against #app here, and it matters. face-disc-frame positions
+// with `--face-cx` = calc(50% + 7px + …), and that 50% resolves against the
+// overlay's CONTAINING BLOCK, which is #vote (`position: absolute` above),
+// not #app the way it is for NightSheet and HostTools. It still lands to the
+// pixel, and not by luck: #vote is an absolutely-positioned flex child of
+// #app with no insets, so its static position CENTRES its box on #app's
+// centre in both axes — 50% of #vote's box IS #app's 50% — and every other
+// term in the frame's expressions (the +7px, the geometry map's offsets, the
+// lab's adjusts) is an absolute length, indifferent to the base. If #vote
+// ever takes an inset or leaves #app's flex centring, this equality breaks
+// and the disc drifts off the dial; the sweep rig for this lane
+// (claude_temp_test/2026-08-21-ft1024-*) is what would catch it.
+//
+// THE SCRIM STANDS DOWN INSIDE THE GATE without a single property of its own
+// being touched: face-disc-plate's ground layer redeclares every property the
+// scrim's ::before sets (content, position, inset, z-index, background,
+// pointer-events), and this block compiles after the base rule, so the
+// plate's declarations win here and only here.
+@include face-disc-gate {
+  .overlay {
+    @include face-disc-frame;
+    // The frame is already a centring flex column; this overlay's furniture
+    // is a compact cluster, not a header/band/foot spread, so it gathers at
+    // the plate's centre instead of being distributed into the caps — every
+    // control keeps its order and its logic. Re-grounding, not redesign.
+    justify-content: center;
   }
 }
 
