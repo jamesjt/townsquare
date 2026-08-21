@@ -256,6 +256,26 @@ export function logGameIdOf(townId, startedAt) {
   return `g-${townId}-${at}`;
 }
 
+/** FT-1032 (user call): how long each phase RAN, keyed by the phase-turn
+ *  row that ENDED it — "Night 1 falls" carries the length of the day (or
+ *  setup) it closed. Computed from the rows' own timestamps; only phase
+ *  turns and the game start anchor the clock. */
+export function phaseDurations(rows) {
+  const out = {};
+  let anchorAt = null;
+  for (const row of rows) {
+    if (row.kind !== "system") continue;
+    const ev = decodeEvent(row.body);
+    if (!ev) continue;
+    const at = Date.parse(row.createdAt);
+    if (ev.t === "start") { anchorAt = at; continue; }
+    if (ev.t !== "phase") continue;
+    if (anchorAt != null && Number.isFinite(at)) out[row.id] = Math.max(0, Math.round((at - anchorAt) / 1000));
+    anchorAt = at;
+  }
+  return out;
+}
+
 export function dayOf(createdAt) {
   const at = Date.parse(createdAt);
   if (!Number.isFinite(at)) return "";

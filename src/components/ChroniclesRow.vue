@@ -32,11 +32,23 @@
                an <img>, the same idiom the drawer's filter cells and
                TownInfo's votes-to-execute count wear — never the FA skull,
                which is death's mark and must not promise one. -->
-          <img v-if="isNoosed" class="crr-noose" :src="noose" alt="" />
+          <!-- FT-1032 (user call): night falls under the full moon, day
+               breaks under the sun. -->
+          <img
+            v-if="isPhaseNight"
+            class="crr-moon"
+            :src="moonFull"
+            alt=""
+          />
+          <font-awesome-icon v-else-if="isPhaseDay" icon="sun" class="crr-sun" />
+          <img v-else-if="isNoosed" class="crr-noose" :src="noose" alt="" />
           <font-awesome-icon v-else-if="evIcon" :icon="evIcon" />
           <template v-else>◆</template>
         </span>
         <span class="crr-body crr-sys" :class="evClass">{{ text }}</span>
+        <!-- FT-1032: how long the phase this row CLOSED ran — hidden when
+             the timer is Off -->
+        <span class="crr-ran" v-if="ranLabel">{{ ranLabel }}</span>
         <!-- a concluded vote carries its tally beside the sentence; with a
              roster aboard (FT-1019) the chip is the thread's expand handle -->
         <span
@@ -136,6 +148,9 @@ import cowl from "../assets/ui-ghost-vote-cowl.png";
 // FT-1024: the fork's own noose — the marked-for-execution mark, the same art
 // TownInfo's votes-to-execute count wears (its source SVG sits beside it).
 import noose from "../assets/ui-noose.png";
+// FT-1032: the phase marks' art and the timer-off gate
+import moonFull from "../assets/moon-full.png";
+import { effectiveHourMode } from "../golem/towerBells";
 
 /** Event type → the registered FA icon that marks it. Only icons main.js
  *  already registers — this file adds none. */
@@ -157,6 +172,8 @@ export default {
   name: "ChroniclesRow",
   props: {
     row: { type: Object, required: true },
+    // FT-1032: seconds the phase this row closed ran for (null = unknown)
+    ran: { type: Number, default: null },
     viewer: { type: Object, required: true },
     /** The row's own SECTION (FT-1019) — the run the gallows thread walks
      *  forward through. Optional: without it a nomination still renders,
@@ -185,6 +202,22 @@ export default {
     },
     evClass() {
       return this.event ? "ev-" + this.event.t : "ev-plain";
+    },
+    isPhaseNight() {
+      return !!this.event && this.event.t === "phase" && this.row.phase === "night";
+    },
+    isPhaseDay() {
+      return !!this.event && this.event.t === "phase" && this.row.phase !== "night";
+    },
+    ranLabel() {
+      if (this.ran == null || !this.event || this.event.t !== "phase") return "";
+      if (effectiveHourMode(this.$store.state.session) === "off") return "";
+      const m = Math.floor(this.ran / 60);
+      const s = this.ran % 60;
+      return m ? m + "m " + String(s).padStart(2, "0") + "s" : s + "s";
+    },
+    moonFull() {
+      return moonFull;
     },
     evIcon() {
       return this.event ? EV_ICONS[this.event.t] || null : null;
@@ -237,6 +270,21 @@ export default {
   display: flex;
   align-items: baseline;
   gap: 2px;
+}
+
+.crr-moon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+.crr-sun {
+  color: #e8c15a;
+}
+.crr-ran {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.5;
+  white-space: nowrap;
 }
 
 .crr-time {

@@ -297,6 +297,7 @@
                        boundary) in. -->
                   <ChroniclesRow
                     :row="row"
+                    :ran="ranOf(section, row)"
                     :viewer="viewer"
                     :rows="threadSource[section.gameId] || section.rows"
                   />
@@ -385,6 +386,7 @@ import {
   inFilter,
   sectionize,
   logGameIdOf,
+  phaseDurations,
 } from "../golem/chronicles";
 // FT-1019: the filter cells wear the doors' own icons — the gallows keeps
 // the retired vote-history door's art, talk keeps the chat door's.
@@ -666,6 +668,16 @@ export default {
     },
     toggleSection(section) {
       this.$set(this.folds, section.key, !this.isExpanded(section));
+    },
+    /** FT-1032: seconds each phase ran, keyed by the closing row id. */
+    ranOf(section, row) {
+      if (!this._ranCache) this._ranCache = new WeakMap();
+      let map = this._ranCache.get(section.rows);
+      if (!map) {
+        map = phaseDurations(section.rows);
+        this._ranCache.set(section.rows, map);
+      }
+      return map[row.id] != null ? map[row.id] : null;
     },
     sectionLabel(section) {
       // FT-1020 (user): the label IS the start moment, not an ordinal.
