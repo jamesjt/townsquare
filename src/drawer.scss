@@ -143,8 +143,14 @@ $sheet-h: var(--sheet-h, 52vh);
     // absolutely positioned against the padding box and the centring must not
     // run under it either. Both are reset for the phone sheet below, where the
     // head is half a screen beneath the strip and has the full width.
+    // FT-1027b (user: "by wrap this isn't what I meant — put it on a line
+    // below the toolbar"): the reserve approach retires. The head clears the
+    // strip VERTICALLY instead — the title stands on its own full-width line
+    // under the strip's row, so it never shares an inch with the icons and
+    // never wraps letter-by-letter in a starved column.
     padding-left: 26px;
-    padding-right: 240px;
+    padding-right: 12px;
+    padding-top: 40px;
     .sd-title {
       margin: 0;
       // the head reserves the strip's footprint above, so the title may use
@@ -161,8 +167,9 @@ $sheet-h: var(--sheet-h, 52vh);
       // is the top strip's real footprint (the icons float over the head),
       // so the column is narrower than the head LOOKS — wrapping uses it
       // honestly instead of eating the tail.
+      // FT-1027b: word-level wrap only — anywhere-wrap in the starved column
+      // stacked "Chronicles" one letter per line.
       white-space: normal;
-      overflow-wrap: anywhere;
       min-width: 0;
       .sd-mark {
         width: 22px;
