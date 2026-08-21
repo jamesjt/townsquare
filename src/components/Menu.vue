@@ -53,6 +53,21 @@
             title="Chronicles — the town's whole story"
             @click="toggleModal('chroniclesDrawer')"
           />
+          <!-- FT-1020b: THE TOWER'S HOURGLASS — the hour display's menu
+               (Off / Clock / Digital / Show numerals), a tab section like
+               the sections below it: click opens, click again closes. The
+               art is ui-records.png, the old town-records door's hourglass,
+               freed when the quill took Chronicles (FT-1010) — and the
+               control the user's first ask meant all along: the
+               voice-transcribed "hour class" was this HOURGLASS, not the
+               XII that briefly anchored the menu on the dial (FaceHands.vue,
+               retired). The storyteller's pick sets the TOWN's display; a
+               player's sets their own screen (towerBells.chooseHourMode). -->
+          <img
+            :src="uiHourglass"
+            title="The tower — how the dial shows the hour"
+            @click="setTab('tower')"
+          />
           <!-- (FT-1010: the chat bubble and the chronicle's book-with-a-skull
                stood here, FT-965/FT-886 — both merged into the Chronicles
                quill above. ui-chat.png stays in the tree.) -->
@@ -144,6 +159,30 @@
             @click="clearTable"
           />
         </li>
+
+        <!-- FT-1020b: the hourglass's own section — the four hour displays,
+             the current one checked. Rows keep the menu's own shape (word
+             left, mark right, the Night-order row's check idiom) and stay
+             open on a pick so the check is seen to move. -->
+        <template v-if="tab === 'tower'">
+          <li class="headline">Tower</li>
+          <li
+            v-for="m in hourModes"
+            :key="m.id"
+            :title="m.hint"
+            @click="pickHourMode(m.id)"
+          >
+            {{ m.label }}
+            <em>
+              <font-awesome-icon
+                :icon="[
+                  'fas',
+                  towerHourMode === m.id ? 'check-square' : 'square',
+                ]"
+              />
+            </em>
+          </li>
+        </template>
 
         <template v-if="tab === 'grimoire'">
           <!-- Grimoire -->
@@ -302,9 +341,21 @@ import uiScript from "../assets/ui-script.png";
 import uiNight from "../assets/ui-night.png";
 // the Chronicles quill — the file is still named for its first home
 // (ui-chronicle.png) but the drawing on it, a quill in an inkwell, is the one
-// door onto the town's whole story now (FT-1010). ui-chat.png and
-// ui-records.png are unused but stay in the tree.
+// door onto the town's whole story now (FT-1010). ui-chat.png stays in the
+// tree unused.
 import uiQuill from "../assets/ui-chronicle.png";
+// FT-1020b: the hourglass — the old town-records door art, back in service
+// as the tower's hour-display menu (see the strip's template note).
+import uiHourglass from "../assets/ui-records.png";
+// ...and the menu it opens: the four displays, the split between a
+// storyteller's town-wide pick and a player's own-screen one, and the event
+// that says the tower changed (another surface, or a host sync, moved it).
+import {
+  HOUR_MODES,
+  TOWER_EVENT,
+  chooseHourMode,
+  effectiveHourMode,
+} from "../golem/towerBells";
 // FT-880: the town summons — the storyteller's press plays it here too, since
 // the relay never echoes a message back to whoever sent it.
 import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
@@ -354,6 +405,12 @@ export default {
       uiScript,
       uiNight,
       uiQuill,
+      // FT-1020b: the hourglass tab's furniture — the four modes and a
+      // snapshot of the one this screen currently shows (a plain module
+      // object is not reactive; readTowerMode refreshes it on TOWER_EVENT).
+      uiHourglass,
+      hourModes: HOUR_MODES,
+      towerHourMode: effectiveHourMode(),
       // FT-880: the nervous-double-press guard, held locally the same way the
       // pill's Leave holds its two-click arm — it is about this one button's
       // feel, not about the town's state, so it does not belong in the store.
@@ -377,7 +434,14 @@ export default {
   // workaround for that lane being barred from App.vue, where the other
   // drawers mount. Chronicles mounts from App.vue like the rest, so the
   // workaround retired with the drawer it carried.)
+  mounted() {
+    // FT-1020b: the tower can change from three places — this tab, the build
+    // panel's segment, a host's sync arriving — and the check here must
+    // follow all of them.
+    window.addEventListener(TOWER_EVENT, this.readTowerMode);
+  },
   beforeDestroy() {
+    window.removeEventListener(TOWER_EVENT, this.readTowerMode);
     clearTimeout(this.callBackTimer);
     clearTimeout(this.clearTimer);
   },
@@ -392,6 +456,15 @@ export default {
     // Click the open tab → collapse to the toolbar; click another → switch.
     setTab(name) {
       this.tab = this.tab === name ? null : name;
+    },
+    // ── FT-1020b: the hourglass tab ──────────────────────────────────────
+    /** The tower moved (any surface) — re-read which display this screen shows. */
+    readTowerMode() {
+      this.towerHourMode = effectiveHourMode();
+    },
+    /** One display picked. towerBells owns the host-vs-player split. */
+    pickHourMode(id) {
+      chooseHourMode(this.session, id);
     },
     /**
      * FT-857: the strip's script + night icons open ONE drawer on their own

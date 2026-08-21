@@ -55,15 +55,21 @@
       ></div>
     </div>
 
-    <!-- ── THE TOWER'S TOP (FT-1020) ────────────────────────────────────────
-         THE ANCHOR IS THE XII. The dial's hour marks came off the art with the
-         painted hands; this stands the twelve o'clock numeral back up, in the
-         dial letters' own ink (App.vue's CLOCKTOWER spans — same Times, same
-         near-black, same soft shadow), and makes it the hour display's one
-         control: click it and the four modes open under it. In "Show
-         numerals" the other eleven join it on the same tick-ray ring; in
-         every other mode it stands alone — even Off keeps it, or there would
-         be no way back. -->
+    <!-- ── THE TOWER'S TOP (FT-1020, control retired FT-1020b) ──────────────
+         PURE DISPLAY NOW: the numeral ring (all twelve, in the dial letters'
+         own ink — App.vue's CLOCKTOWER spans: same Times, same near-black,
+         same soft shadow) and the digital readout.
+
+         THE XII ANCHOR STOOD HERE for one revision — the twelve o'clock
+         numeral doubled as the hour display's control, its menu opening
+         under it. USER VETO (FT-1020b): the original ask's voice-transcribed
+         "hour class" meant the HOURGLASS all along — ui-records.png, the old
+         town-records door art — so the four-mode menu lives in the top-right
+         strip behind that hourglass now (Menu.vue's Tower tab), and the dial
+         goes back to being paint. The anchor/menu markup came off this
+         template; its script half (pickMode, menuOpen, anchorTitle) and its
+         styles stand down in place below, kept per the house never-delete
+         rule. -->
     <div id="tower-top">
       <template v-if="showNumerals">
         <span
@@ -82,40 +88,10 @@
         {{ digitalLabel
         }}<span class="tw-digital-clock">{{ digitalClock }}</span>
       </span>
-      <button
-        type="button"
-        class="tw-anchor"
-        :class="{ open: menuOpen }"
-        aria-haspopup="menu"
-        :aria-expanded="String(menuOpen)"
-        aria-label="Hour display"
-        :title="anchorTitle"
-        @click="menuOpen = !menuOpen"
-        @keyup.esc="menuOpen = false"
-      >
-        XII
-      </button>
-      <div
-        v-if="menuOpen"
-        class="tw-menu"
-        role="menu"
-        aria-label="Hour display mode"
-        @keyup.esc="menuOpen = false"
-      >
-        <button
-          v-for="m in hourModes"
-          :key="m.id"
-          type="button"
-          class="tw-mode"
-          :class="{ on: hourMode === m.id }"
-          role="menuitemradio"
-          :aria-checked="String(hourMode === m.id)"
-          :title="m.hint"
-          @click="pickMode(m.id)"
-        >
-          {{ m.label }}
-        </button>
-      </div>
+      <!-- (FT-1020b: the XII anchor button and its four-mode menu stood here.
+           Unmounted — the control is the strip's hourglass tab now, Menu.vue.
+           With no control left, this whole layer is decoration again and the
+           pointer never re-enters it.) -->
     </div>
   </div>
 </template>
@@ -225,6 +201,8 @@ export default {
       /** Minute hand steps (the shipped tick) or creeps (the panel's Sweep). */
       minuteTick: towerState.minuteTick,
       hourModes: HOUR_MODES,
+      /** RETIRED (FT-1020b) with the XII anchor — nothing opens here now;
+       *  the four-mode menu is the strip's hourglass tab (Menu.vue). */
       menuOpen: false,
       /** The digital readout's mm:ss half, rewritten at most once a second by
        *  the frame loop — never per frame; a data field sixty writes a second
@@ -284,6 +262,7 @@ export default {
       const night = s.grimoire && s.grimoire.isNight;
       return (night ? "Night " : "Day ") + Math.max(this.gameDay, 1);
     },
+    /** RETIRED (FT-1020b) with the anchor it titled — see the template. */
     anchorTitle() {
       const m = HOUR_MODES.find((mode) => mode.id === this.hourMode);
       return (
@@ -291,15 +270,17 @@ export default {
       );
     },
     /**
-     * The eleven numerals that join the anchor in "Show numerals" — I..XI on
-     * the tick rays, XII being the anchor itself. Positioned in JS rather
-     * than as eleven CSS blocks because the ring is one formula: numeral n
-     * stands at n × 30° clockwise from twelve, NUMERAL_RADIUS_FACE out from
-     * the measured centre, scaled by the face's own `--fpx`.
+     * The twelve numerals of "Show numerals", I..XII on the tick rays.
+     * (I..XI while the XII was the anchor button — FT-1020b returned the
+     * twelve to the ring when the control left the dial.) Positioned in JS
+     * rather than as twelve CSS blocks because the ring is one formula:
+     * numeral n stands at n × 30° clockwise from twelve,
+     * NUMERAL_RADIUS_FACE out from the measured centre, scaled by the
+     * face's own `--fpx`.
      */
     numeralSpots() {
       const spots = [];
-      for (let n = 1; n <= 11; n++) {
+      for (let n = 1; n <= 12; n++) {
         const angle = (n * 30 * Math.PI) / 180;
         const x = Math.sin(angle) * NUMERAL_RADIUS_FACE;
         const y = -Math.cos(angle) * NUMERAL_RADIUS_FACE;
@@ -399,10 +380,12 @@ export default {
       this.tick();
     },
     /**
-     * One of the four modes picked from the anchor menu. The STORYTELLER's
-     * pick is the town's (persisted per town, ridden out on the next full
-     * sync — the same write the build panel's segment makes); a PLAYER's is
-     * their own screen's override (towerBells.js keeps the two apart).
+     * RETIRED (FT-1020b): this answered the XII anchor's menu, unmounted
+     * with it. The live pick runs through towerBells' chooseHourMode —
+     * Menu.vue's hourglass tab calls it — which carries the same split this
+     * held: the STORYTELLER's pick is the town's (persisted per town,
+     * ridden out on the next full sync); a PLAYER's is their own screen's
+     * override.
      */
     pickMode(id) {
       const session = this.$store.state.session;
@@ -768,13 +751,14 @@ $digital-y-face: -122;
   transform: scale(var(--fh-boss, 1));
 }
 
-/* ── THE TOWER'S TOP (FT-1020): the anchor, the ring, the readout, the menu ──
+/* ── THE TOWER'S TOP (FT-1020; the ring and the readout only since 1020b) ──
    z-index 3: the first slot that clears the town readout (FT-995 measured the
-   hands crossing `.info` at 3+), which a CONTROL must — an hour switch buried
-   under the counts would be furniture that cannot be reached. The layer
-   itself still takes no clicks; only the anchor and the menu re-enable the
-   pointer, so the seats and the readout lose not one pixel of their surface
-   to decoration. */
+   hands crossing `.info` at 3+) — chosen when this layer carried a CONTROL,
+   kept now that it is pure display so the numerals stay legible above the
+   night veil, the same slot the retired anchor earned. NOTHING here takes a
+   click any more (FT-1020b): pointer-events none at the layer and no child
+   turns it back on, so the seats and the readout lose not one pixel of
+   their surface to decoration. */
 #tower-top {
   position: absolute;
   inset: 0;
@@ -784,8 +768,8 @@ $digital-y-face: -122;
   font-weight: bold;
 }
 
-/* the eleven ring numerals — the dial letters' ink at a numeral's size (the
-   ring is twelve marks ~88 face-pixels apart; 26 keeps neighbours clear) */
+/* the twelve ring numerals — the dial letters' ink at a numeral's size (the
+   marks stand ~88 face-pixels apart; 26 keeps neighbours clear) */
 .tw-numeral {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -795,11 +779,11 @@ $digital-y-face: -122;
   text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
 }
 
-/* THE ANCHOR — the XII, standing whether or not its eleven siblings are
-   shown. A real <button> (keyboard reachable, Esc closes the menu), wearing
-   the numeral ink rather than button chrome: it is the dial's own mark first
-   and a control second. The pointer states brighten it to old gold so a
-   mouse learns it is alive without the dial wearing a plate. */
+/* THE ANCHOR — RETIRED (FT-1020b), rules kept with their unmounted markup.
+   It was the XII as a real <button>, numeral ink over button chrome, gold on
+   hover. The user's veto moved the menu behind the strip's HOURGLASS
+   (Menu.vue) — the original ask's "hour class" was that hourglass all
+   along — and the XII went back to being one numeral among twelve. */
 .tw-anchor {
   position: absolute;
   left: var(--fh-cx);

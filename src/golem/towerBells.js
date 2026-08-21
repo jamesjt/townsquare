@@ -252,6 +252,22 @@ export function effectiveHourMode() {
   return viewerHourMode || towerState.hourMode;
 }
 
+/**
+ * One of the four modes picked from the hourglass menu (FT-1020b — the
+ * strip's Tower tab in Menu.vue; it stood on the dial as the XII anchor for
+ * one revision). The STORYTELLER's pick is the town's — persisted per town
+ * and ridden out on the next full sync, the same write the build panel's
+ * segment makes; a PLAYER's is their own screen's override. One function so
+ * every surface that offers the menu carries the same split.
+ */
+export function chooseHourMode(session, id) {
+  if (session && !session.isSpectator) {
+    setTowerField(session.sessionId || "", "hourMode", id);
+  } else {
+    setViewerHourMode(id);
+  }
+}
+
 /* ── THE BELL ITSELF — the FT-880 mechanics, applied to two clips ──────────── */
 
 const GESTURES = ["pointerdown", "touchend", "keydown"];
