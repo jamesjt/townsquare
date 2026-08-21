@@ -156,9 +156,14 @@ $sheet-h: var(--sheet-h, 52vh);
       gap: 8px;
       font-family: PiratesBay, sans-serif;
       font-weight: normal;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      // FT-1027 (user call): titles WRAP instead of clipping — "Trouble
+      // Brewing" was ellipsizing inside its column. The right padding above
+      // is the top strip's real footprint (the icons float over the head),
+      // so the column is narrower than the head LOOKS — wrapping uses it
+      // honestly instead of eating the tail.
+      white-space: normal;
+      overflow-wrap: anywhere;
+      min-width: 0;
       .sd-mark {
         width: 22px;
         height: 22px;
