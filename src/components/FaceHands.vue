@@ -37,6 +37,21 @@
       :class="{ 'fh-tick': minuteTick }"
       v-show="handsVisible"
     >
+      <!-- FT-1029 (user call): the ring wears the SEAT COINS' black numerals
+           (PiratesBay, #14100a, the engraved pale under-light) and sits in
+           the PAINT layer so the hands pass over it. The carved-glyph
+           composer (FT-1020c) stands down unused in the script half, per
+           the never-delete rule. -->
+      <template v-if="showNumerals">
+        <span
+          v-for="spot in numeralSpots"
+          :key="'num-' + spot.n"
+          class="tw-numeral tw-numeral-ink"
+          aria-hidden="true"
+          :style="spot.style"
+          >{{ spot.label }}</span
+        >
+      </template>
       <div
         class="fh-part fh-hour"
         :style="{ backgroundImage: sprite('hour') }"
@@ -71,31 +86,9 @@
          styles stand down in place below, kept per the house never-delete
          rule. -->
     <div id="tower-top">
-      <!-- FT-1020c: each numeral is COMPOSED FROM THE CARVED CLOCKTOWER
-           GLYPHS (titleFonts' "ct" set — the entry screen's own lettering),
-           I/V/X laid in a row; live text stays as the fallback if a glyph
-           ever fails to resolve. -->
-      <template v-if="showNumerals">
-        <span
-          v-for="spot in numeralSpots"
-          :key="'num-' + spot.n"
-          class="tw-numeral"
-          aria-hidden="true"
-          :style="spot.style"
-        >
-          <template v-if="spot.glyphs">
-            <img
-              v-for="(g, i) in spot.glyphs"
-              :key="spot.n + '-' + i"
-              class="tw-numeral-glyph"
-              :src="g.src"
-              :style="g.style"
-              alt=""
-            />
-          </template>
-          <template v-else>{{ spot.label }}</template>
-        </span>
-      </template>
+      <!-- FT-1029 (user call): the numeral ring moved DOWN into the paint
+           layer (#face-hands, before the hands) so the hands pass OVER the
+           numerals; it wears the seat coins' black ink now. -->
       <!-- the game's own moment, in the hands' place — which day or night it
            is and how long it has run. Decoration like the hands (the phase
            readout on the dial already states the same fact accessibly). -->
@@ -832,6 +825,14 @@ $digital-y-face: -122;
    tried first and sank there, black-on-black. The font/text-shadow rules
    below dress the LIVE-TEXT FALLBACK only (a numeral whose glyph fails to
    resolve): the seat numerals' PiratesBay + pale-halo idiom. */
+// FT-1029: the ink variant — the seat coins' own engraved treatment
+// (Player.vue .seat-numeral: near-black, one pale under-light), replacing
+// the FT-1020c four-way halo for the ring in the paint layer.
+.tw-numeral-ink {
+  color: #14100a !important;
+  text-shadow: 0 calc(1 * var(--fpx)) calc(1 * var(--fpx)) rgba(255, 250, 235, 0.45) !important;
+}
+
 .tw-numeral {
   position: absolute;
   transform: translate(-50%, -50%);
