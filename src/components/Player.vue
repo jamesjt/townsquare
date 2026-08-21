@@ -45,8 +45,27 @@
            the three boxes that have to carry the coin's hover — see showCard's
            own note. The ghost's art is `pointer-events: none`, so hovering the
            GHOST is hovering this div. -->
+      <!-- FT-1022: and because it SITS ABOVE `.token` in stacking order without
+           being its ancestor, it is also where a role-coin drag silently died.
+           HTML5 drag-start is not a click: the browser's native search for a
+           draggable source starts at the exact element the pointer went down
+           on and walks up THAT element's own ancestors — it never crosses to
+           a sibling. A drag begun anywhere in the shroud's box (the coin's top
+           ~61%, the single biggest and most natural place to grab a coin) hit
+           `.shroud`, found no draggable ancestor short of `.player`, and quit
+           before `.token`'s own `draggable`/`dragstart` ever saw it — while a
+           grab on the coin's exposed bottom third worked fine. The belief chip
+           (FT-1006/1021) was the suspect, but it is a DESCENDANT of `.token`,
+           not a sibling — a drag started on it walks up through `.token` and
+           finds the coin's own `draggable` just fine (verified: dragging a
+           dealt seat's coin from directly on its chip swaps the seat exactly
+           like grabbing the bare coin does). The shroud's own click stays
+           untouched — a plain click still ends as a click, same as the coin's
+           own `@click="setRole"` living beside its `draggable` today. -->
       <div
         class="shroud"
+        :draggable="String(!!player.role.id && !session.isSpectator)"
+        @dragstart="onRoleDragStart"
         @click="onLifeClick"
         @mouseenter="showCard"
         @mouseleave="hideCardSoon"
