@@ -28,6 +28,57 @@ const PING_INTERVAL = 30000; // 30 seconds
 // while a grace too long only delays a reload.
 const HOST_RECLAIM_GRACE = 2000; // 2 seconds
 
+// Golem fork (FT-1013): the close reason handed to an incumbent host evicted
+// by the town's OWNER. The words matter more than usual: a REASONED code-1000
+// close is the one signal the client treats as "the relay put you out —
+// leave" rather than "the relay went away — reconnect" (see the FT-1011 note
+// in src/store/socket.js). An empty reason here would send the evicted window
+// into a reconnect loop against its own successor.
+const TAKEOVER_REASON =
+  "The town's owner took over hosting from another window";
+
+// Golem fork (FT-1013): where the platform lives — same env contract as
+// server/chatStore.js (separate processes, separate hosts in production; the
+// localhost fallback is dev-only, matching server/framework.ts's port).
+const PLATFORM_URL = (
+  process.env.PLATFORM_URL || "http://127.0.0.1:3939"
+).replace(/\/+$/, "");
+
+// Bounded like the chat store call: a wedged platform must not hold a
+// takeover decision open forever — the newcomer is just refused instead.
+const TAKEOVER_VERIFY_TIMEOUT = 5000;
+
+/**
+ * Golem fork (FT-1013): ask the platform whether `key` owns town `townId`.
+ * The relay never sees the stored hash and never logs the raw key — it is a
+ * courier between the newcomer's credential and the platform's comparison
+ * (POST /api/botc/towns/:id/verify, 204 = yes, anything else = no).
+ *
+ * FAILS CLOSED, always: network failure, timeout, non-204 — all resolve
+ * false. Evicting a live storyteller needs a proven yes; an unreachable
+ * platform only costs the owner a retry, which is the cheap direction.
+ * Never rejects.
+ */
+async function verifyTownKey(townId, key) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TAKEOVER_VERIFY_TIMEOUT);
+  try {
+    const res = await fetch(
+      `${PLATFORM_URL}/api/botc/towns/${encodeURIComponent(townId)}/verify`,
+      {
+        method: "POST",
+        headers: { "x-botc-edit-key": key },
+        signal: controller.signal
+      }
+    );
+    return res.status === 204;
+  } catch (e) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const options = {};
 
 // Golem fork: BEHIND_PROXY=1 runs a PLAIN ws server on PORT — the reverse
@@ -156,6 +207,15 @@ const metrics = {
     name: "connection_reclaimed_host",
     help: "Host channel reclaimed from an unresponsive host connection"
   }),
+  // Golem fork (FT-1013): the third way a duplicate-host encounter can end —
+  // the newcomer PROVED it owns the town (platform-verified edit key) and the
+  // incumbent was evicted with a reason. Counted apart from the reclaim above
+  // because that one means "the old socket was dead"; this one means "the old
+  // socket was alive and outranked".
+  connection_takeover_host: new client.Counter({
+    name: "connection_takeover_host",
+    help: "Host channel taken over by the town's verified owner"
+  }),
   connection_terminated_spam: new client.Counter({
     name: "connection_terminated_spam",
     help: "Terminated connection due to message spam"
@@ -192,10 +252,20 @@ function refuseDuplicateHost(ws, why) {
 
 // a new client connects
 wss.on("connection", function connection(ws, req) {
-  // url pattern: clocktower.online/<channel>/<playerId|host>
-  const url = req.url.toLocaleLowerCase().split("/");
+  // url pattern: clocktower.online/<channel>/<playerId|host>[?takeover=<key>]
+  //
+  // FT-1013: the query string is split off CASE-PRESERVED before the lowercase
+  // parse — a takeover credential is a base64url edit key, and lowercasing it
+  // would destroy it (channel and playerId keep their historical lowercasing).
+  // The key is read once into a local and never logged.
+  const [path, query] = req.url.split("?");
+  const url = path.toLocaleLowerCase().split("/");
   ws.playerId = url.pop();
   ws.channel = url.pop();
+  const takeoverKey =
+    ws.playerId === "host" && query
+      ? new URLSearchParams(query).get("takeover") || ""
+      : "";
   // check for another host on this channel
   const incumbents =
     ws.playerId === "host" && channels[ws.channel]
@@ -248,6 +318,49 @@ wss.on("connection", function connection(ws, req) {
   ws.on("message", hold);
 
   hostProbes.add(ws.channel);
+
+  // Golem fork (FT-1013): THE TOWN'S OWNER OUTRANKS THEIR OWN GHOST TAB.
+  //
+  // A newcomer host presenting a takeover credential skips the liveness
+  // question entirely — it does not matter whether the incumbent is alive,
+  // it matters whether the newcomer OWNS the town. The platform answers that
+  // (it holds the key's hash; see verifyTownKey above), and a proven yes
+  // closes the incumbent WITH A REASON — the signal that makes its client
+  // leave rather than reconnect-loop against its successor (FT-1011) — then
+  // admits the newcomer with the frames it sent while we were asking, so the
+  // gamestate handoff is not dropped on the floor.
+  //
+  // A no of any kind — wrong key, unclaimed town, platform unreachable — is
+  // upstream's refusal, byte-for-byte. The credential path never widens what
+  // an unproven newcomer can do; absent a credential this branch does not
+  // exist and the liveness probe below runs exactly as before.
+  if (takeoverKey) {
+    verifyTownKey(ws.channel, takeoverKey).then(ok => {
+      hostProbes.delete(ws.channel);
+      ws.removeListener("message", hold);
+      // The newcomer gave up while we were asking; there is nobody to admit
+      // and therefore nobody worth evicting for.
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (!ok) {
+        refuseDuplicateHost(ws, "takeover credential rejected");
+        return;
+      }
+      incumbents.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.close(1000, TAKEOVER_REASON);
+        }
+      });
+      console.log(
+        new Date(),
+        ws.channel,
+        "duplicate host TAKEN OVER — the town's owner presented a verified key"
+      );
+      metrics.connection_takeover_host.inc();
+      admitClient(ws, held);
+    });
+    return;
+  }
+
   incumbents.forEach(client => {
     client.reclaimAnswered = false;
     client.once("pong", answerReclaimProbe);
