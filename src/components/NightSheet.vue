@@ -191,15 +191,20 @@
                    immediately before this row's first control. -->
               <span v-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
 
+              <!-- FT-1005: a slot the seat's own player filled wears the gold
+                   seam (see .from-player below) — the quiet mark that says
+                   "their own pick" apart from the storyteller's record. The
+                   storyteller's edit clears it (setTarget). -->
               <SeatPicker
                 v-for="slot in row.slots"
                 :key="'seat' + slot"
                 class="ns-target"
+                :class="{ 'from-player': targetBy(row, slot - 1) === 'player' }"
                 :players="players"
                 :picked-seat="entryFor(row).targets[slot - 1]"
                 :show-role="isStoryteller"
                 :icon-for="p => roleIconUrl(p.role)"
-                :title="'Who they chose (' + slot + ' of ' + row.slots + ')'"
+                :title="targetHint(row, slot)"
                 @pick="seat => setTarget(row, slot - 1, seat)"
               />
 
@@ -305,6 +310,20 @@
                    mask), so brightness carries the state on its own — see
                    .ns-lie: dim parchment in a pressable box when off, lit gold
                    when on. Exactly two states, no third. -->
+              <!-- FT-1005: THE PLAYER'S OWN WORDS — their free-text choice,
+                   arrived over the wire (entry.playerText). Rendered in the
+                   same gold as the player-filled slots, quoted so it reads as
+                   speech rather than as the storyteller's own note (which
+                   stays told.text, in the free box). Never editable here —
+                   it is theirs. -->
+              <span
+                v-if="entryFor(row).playerText"
+                class="ns-player-said"
+                :title="'Entered by the player: ' + entryFor(row).playerText"
+              >
+                &ldquo;{{ entryFor(row).playerText }}&rdquo;
+              </span>
+
               <span
                 v-if="extraFieldsFor(row).mayBeFalse"
                 class="ns-lie"
@@ -613,6 +632,10 @@ export default {
       return {
         targets: new Array(row.slots).fill(-1),
         targetNames: new Array(row.slots).fill(""),
+        // FT-1005: who filled each slot ("" = storyteller/nothing, "player" =
+        // the seat's own player) and the player's own words — see makeEntry.
+        targetsBy: new Array(row.slots).fill(""),
+        playerText: "",
         told: { ping: null, number: null, characterId: "", characterName: "", text: "" },
         isFalseInfo: false,
         done: false
@@ -675,12 +698,30 @@ export default {
       const s = Number.isInteger(seat) ? seat : -1;
       const targets = entry.targets.slice();
       const names = entry.targetNames.slice();
+      // FT-1005: the storyteller's own edit clears the slot's player mark —
+      // their record is the authority, and the gold seam must not claim a
+      // value the player no longer owns.
+      const by = (entry.targetsBy || new Array(row.slots).fill("")).slice();
+      while (by.length <= slot) by.push("");
       targets[slot] = s;
+      by[slot] = "";
       // the name is stamped ALONGSIDE the seat because seats move: a replay
       // needs the person the storyteller was pointing at tonight
       const player = this.players[s];
       names[slot] = player ? player.name : "";
-      this.write(row, { targets, targetNames: names });
+      this.write(row, { targets, targetNames: names, targetsBy: by });
+    },
+    /** FT-1005: who filled a slot — "" (storyteller/nothing) or "player". */
+    targetBy(row, i) {
+      const by = this.entryFor(row).targetsBy || [];
+      return by[i] || "";
+    },
+    /** FT-1005: the slot's hover text says whose pick it holds. */
+    targetHint(row, slot) {
+      const base = "Who they chose (" + slot + " of " + row.slots + ")";
+      return this.targetBy(row, slot - 1) === "player"
+        ? base + " — their own pick, entered by the player"
+        : base;
     },
     /** null → yes → no → null. */
     cyclePing(row) {
@@ -1641,6 +1682,29 @@ $ns-team-colors: (
       outline: none;
       border-color: #a01414;
     }
+  }
+
+  // FT-1005: THE GOLD SEAM — the quiet convention for "the player entered
+  // this themselves". Two wearers, one colour: a seat-picker slot the
+  // player's own frame filled (an inset gold ring on the trigger), and the
+  // player's own typed words (a gold quoted line). Gold rather than a glyph
+  // because the answer zone is already glyph-dense, and because gold is
+  // already this sheet's colour for "this came from the other side of the
+  // table" (.ns-lie lit, .ns-grim-show open). The storyteller's own edit
+  // clears the ring (setTarget empties the slot's mark).
+  .ns-target.from-player ::v-deep .sp-trigger {
+    border-color: #b28f2f;
+    box-shadow: inset 0 0 0 1px rgba(212, 175, 85, 0.55);
+  }
+
+  .ns-player-said {
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-style: italic;
+    color: #d4af55;
   }
 
   .ns-told {

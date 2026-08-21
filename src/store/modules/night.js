@@ -55,7 +55,10 @@ import {
   targetCount,
   reminderFor,
   entryId,
-  makeEntry
+  makeEntry,
+  // FT-1005: the player-safe projection, shared with the socket layer's
+  // sender so the wire shape and the client state shape cannot drift.
+  projectPlayerRow
 } from "../../golem/nightLog";
 // FT-861: what a seat IS versus what its player is TOLD it is.
 import { beliefOf, isBelieving } from "../../golem/belief";
@@ -80,7 +83,17 @@ const state = () => ({
   // CHECK_MODES in golem/nightLog for what each one does. The key keeps its
   // FT-874 name — every consumer already reads `night.requireChecks`, and
   // what it holds is still "how much this town requires the checks".
-  requireChecks: DEFAULT_CHECK_MODE
+  requireChecks: DEFAULT_CHECK_MODE,
+  // FT-1005: A PLAYER'S OWN NIGHT ROWS, AS DELIVERED — the receiving half of
+  // the host's "night" frame, and the ONLY night data a spectator client ever
+  // holds. `live` is the host's actual sharing verdict (their mode is
+  // "everyone"), which gates the drawer's input surface — a player's own
+  // localStorage mode default says nothing about the town they joined.
+  // `rows` are projectPlayerRow shapes, re-projected on the way in (see
+  // setPlayerNight) so the lie mark and the done tick cannot exist in this
+  // state no matter what arrives. Transient by design: not persisted, emptied
+  // with the frame that says so.
+  playerNight: { live: false, rows: [] }
 });
 
 const getters = {
@@ -224,6 +237,14 @@ const getters = {
    *   about.
    */
   myEntries(state, getters, rootState) {
+    // FT-1005: A CONNECTED PLAYER READS WHAT THE HOST DELIVERED, nothing
+    // else. Their local `entries` are empty in a live town (the log lives on
+    // the host's client alone), so before the "night" frame existed this
+    // getter could only ever answer [] for them; now it answers with the
+    // host-projected rows, already sanitised on the way into the store. The
+    // host's own sharing mode gated the send, so no further mode check
+    // belongs here — a player's local mode is a different browser's setting.
+    if (rootState.session.isSpectator) return state.playerNight.rows;
     if (state.mode !== "everyone") return [];
     const { playerId, claimedSeat } = rootState.session;
     if (!playerId && claimedSeat < 0) return [];
@@ -240,24 +261,14 @@ const getters = {
       // performance, false on a truth row. (Rows written before this field
       // existed carry no shownRoleId and stay readable.)
       .filter(e => !e.shownRoleId || e.shownRoleId === e.roleId)
-      .map(e => ({
-        id: e.id,
-        day: e.day,
-        phase: e.phase,
-        seat: e.seat,
-        roleName: e.roleName,
-        // their own choices, by the names those seats wore that night
-        targetNames: (e.targetNames || []).filter(Boolean),
-        // what they were TOLD — never whether it was true. FT-862 added
-        // number/characterName alongside the original ping; characterId is
-        // deliberately NOT projected (a player gets the name shown to them,
-        // never an id to cross-reference against anything else — the same
-        // reasoning targetNames-not-targets already applies here).
-        ping: e.told ? e.told.ping : null,
-        number: e.told && e.told.number !== undefined ? e.told.number : null,
-        characterName: e.told ? e.told.characterName : "",
-        text: e.told ? e.told.text : ""
-      }));
+      // FT-1005: the field projection moved to golem/nightLog's
+      // projectPlayerRow — ONE definition of "what a player may know about
+      // their own row", shared with the host's wire sender and the receiving
+      // client's sanitiser. Same rules as the inline map it replaces (told
+      // flattened, characterId withheld, isFalseInfo/done ABSENT), plus the
+      // keys FT-1005 added (targets for the player's own pickers, roleId to
+      // match the live row, playerText — their own words).
+      .map(projectPlayerRow);
   },
 
   /** How much of tonight the storyteller has walked. */
@@ -315,6 +326,83 @@ const actions = {
       return;
     }
     commit("patchEntry", { id, patch });
+  },
+
+  /**
+   * FT-1005: A PLAYER'S OWN NIGHT INPUT, ARRIVING AT THE HOST — the merge
+   * half of the "nightAction" frame (socket.js resolved the sender to a seat
+   * and verified the roleId is the character that seat was TOLD it has).
+   *
+   * THE OWNERSHIP RULE, per slot:
+   *   · an empty slot, or one the player filled earlier, takes the player's
+   *     pick and wears the "player" mark (targetsBy);
+   *   · a slot the STORYTELLER filled stands — a later player frame never
+   *     silently overwrites the storyteller's own record. The storyteller's
+   *     edit is the authority the whole sheet already treats it as.
+   *   · a player clearing their own pick (-1) empties the slot AND its mark,
+   *     so the storyteller may fill it after.
+   *
+   * `text` is the player's own words (playerText) — theirs alone, so it
+   * always applies; the storyteller's free note (told.text) is a different
+   * field and never collides.
+   *
+   * Silent when the town is not sharing (mode !== "everyone"), when nothing
+   * on tonight's roster matches, or when nothing actually changes — the last
+   * so an idle re-send does not restamp `at` on every entry it grazes.
+   */
+  applyPlayerAction(
+    { state, getters, dispatch, rootState },
+    { seat, roleId, targets, text }
+  ) {
+    if (state.mode !== "everyone") return;
+    const row = getters.roster.find(
+      r => r.seat === seat && r.role.id === roleId
+    );
+    if (!row) return;
+    const id = entryId(state.day, seat, roleId);
+    const existing = state.entries.find(e => e.id === id);
+    const cur = existing || {
+      targets: new Array(row.slots).fill(-1),
+      targetNames: new Array(row.slots).fill(""),
+      targetsBy: new Array(row.slots).fill(""),
+      playerText: ""
+    };
+    const patch = {};
+    if (Array.isArray(targets)) {
+      const t = (cur.targets || []).slice();
+      const names = (cur.targetNames || []).slice();
+      const by = (cur.targetsBy || []).slice();
+      while (t.length < row.slots) t.push(-1);
+      while (names.length < row.slots) names.push("");
+      while (by.length < row.slots) by.push("");
+      let changed = false;
+      const seats = rootState.players.players;
+      for (let i = 0; i < row.slots; i++) {
+        const v = targets[i];
+        if (v === undefined || v === null) continue;
+        const s = Number.isInteger(v) && v >= 0 && v < seats.length ? v : -1;
+        // a storyteller-entered value stands (filled slot, no player mark)
+        if (t[i] !== -1 && by[i] !== "player") continue;
+        if (t[i] === s) continue;
+        t[i] = s;
+        by[i] = s === -1 ? "" : "player";
+        // the name is stamped host-side from the seat, never trusted off the
+        // wire — the same "seats move, replays need the name worn tonight"
+        // rule setTarget applies
+        names[i] = (seats[s] && seats[s].name) || "";
+        changed = true;
+      }
+      if (changed) {
+        patch.targets = t;
+        patch.targetNames = names;
+        patch.targetsBy = by;
+      }
+    }
+    if (typeof text === "string") {
+      const clean = text.slice(0, 280);
+      if (clean !== (cur.playerText || "")) patch.playerText = clean;
+    }
+    if (Object.keys(patch).length) dispatch("write", { row, patch });
   }
 };
 
@@ -367,6 +455,35 @@ const mutations = {
     if (index < 0) return;
     state.entries.splice(index, 1);
   },
+  /**
+   * FT-1005: the "night" frame landing on a player's client — the host's
+   * projected rows for THIS seat, plus the town's live sharing verdict.
+   *
+   * RE-PROJECTED ON THE WAY IN, not trusted: every row is passed back through
+   * projectPlayerRow, which builds a fresh object holding exactly the allowed
+   * keys — so `isFalseInfo` (the lie mark) and `done` cannot exist anywhere
+   * in this client's state even if a frame carried them. Absent, not hidden:
+   * the same rule the projection has enforced since FT-860.
+   */
+  setPlayerNight(state, { live, rows } = {}) {
+    state.playerNight = {
+      live: !!live,
+      rows: (Array.isArray(rows) ? rows : []).map(projectPlayerRow)
+    };
+  },
+
+  /**
+   * FT-1005: THE PLAYER SPEAKS — their own picks and words for tonight's
+   * action, riding a mutation like every wire event in this app (the
+   * session/callBack idiom): the socket plugin listens for this commit and is
+   * the one place that sends it, direct to the host and nowhere else. The
+   * stamp is the only state it keeps — the truth of what was entered comes
+   * back as the host's own "night" frame, never from local optimism.
+   */
+  playerAction(state) {
+    state.playerNight = { ...state.playerNight, sentAt: Date.now() };
+  },
+
   /** Restore a stashed log (persistence only). */
   setLog(state, { day, entries } = {}) {
     state.day = day || 0;

@@ -33,6 +33,10 @@ import { flashHint } from "../golem/hint";
 import { chatErrorText, gameIdFor } from "../golem/chat";
 // FT-1010: the event envelope — a game event riding a system row's body.
 import { encodeEvent } from "../golem/chronicles";
+// FT-1005: a player wakes to their own night action. The projection is the
+// privacy rule made code — a player-bound night row NEVER carries the lie
+// mark, the done tick, or the true/shown pair (see golem/nightLog).
+import { projectEntriesFor } from "../golem/nightLog";
 
 class LiveSession {
   constructor(store) {
@@ -302,6 +306,17 @@ class LiveSession {
       case "grimoire":
         this._updateGrimoireGrant(params);
         break;
+      // FT-1005: a player's own night rows arriving on THEIR client — always
+      // a direct frame to one seat, never a broadcast (see sendNightRows).
+      case "night":
+        this._updateNightRows(params);
+        break;
+      // FT-1005: ...and a player's own night input arriving at the host —
+      // always a direct frame TO the host (the same player→host direct lane
+      // "claim" and "getGamestate" already ride).
+      case "nightAction":
+        this._updateNightAction(params);
+        break;
       case "playername":
         this._updatePlayerName(params);
         break;
@@ -461,6 +476,9 @@ class LiveSession {
       // the self-healing no-op revoke. Skipped on a broadcast sync: grants
       // are per-seat by construction.
       this._syncGrimoireGrant(playerId);
+      // FT-1005: ...and each seat's own night rows — a joiner or reconnector
+      // gets their notes back on the same full sync everything else rides.
+      this.sendNightRows(playerId);
     }
   }
 
@@ -1164,6 +1182,111 @@ class LiveSession {
   }
 
   /**
+   * FT-1005: DELIVER EACH SEAT'S OWN NIGHT ROWS — the read half of "a player
+   * wakes to their own night action". Host only.
+   *
+   * NEVER A BROADCAST, structurally — the sendBluffs/sendGrimoire rule: this
+   * only ever builds the `{playerId: [command, params]}` map the relay splits
+   * per recipient, so no seat can receive another seat's rows by any path
+   * through here. Each recipient's payload is built by projectEntriesFor,
+   * which filters to THAT player's own readable rows and projects away
+   * everything a player may not know (the lie mark, the done tick, the
+   * true/shown pair — absent from the frame, not hidden by the client).
+   *
+   * `live` is the town's sharing verdict (mode === "everyone"). When it is
+   * off every seat still gets a frame — with `live: false` and no rows —
+   * which is how a town that stops sharing empties what players were holding;
+   * an empty frame teaches its recipient nothing about anyone else.
+   *
+   * @param playerId optional — only that one seat (a joiner, the seat whose
+   *                 row just changed); omitted means every claimed seat.
+   */
+  sendNightRows(playerId = "") {
+    if (this._isSpectator) return;
+    const { night, players } = this._store.state;
+    const live = night.mode === "everyone";
+    const message = {};
+    players.players.forEach((player, seat) => {
+      if (!player.id) return;
+      if (playerId && player.id !== playerId) return;
+      message[player.id] = [
+        "night",
+        {
+          live,
+          rows: live ? projectEntriesFor(night.entries, player.id, seat) : [],
+        },
+      ];
+    });
+    if (Object.keys(message).length) {
+      this._send("direct", message);
+    }
+  }
+
+  /**
+   * FT-1005: the "night" frame landing. Player only — a storyteller's own
+   * log is the authority and is never written from the wire. The mutation
+   * re-projects every row on the way in (see night/setPlayerNight), so this
+   * hands the params over whole.
+   * @private
+   */
+  _updateNightRows(params) {
+    if (!this._isSpectator) return;
+    this._store.commit("night/setPlayerNight", params || {});
+  }
+
+  /**
+   * FT-1005: SAY WHAT YOU DID TONIGHT — a player's own picks and words,
+   * travelling player → host on the direct lane. The payload carries this
+   * client's own playerId because the relay attaches no sender to a direct
+   * frame — the same trust shape "claim" and "getGamestate" already have.
+   */
+  sendNightAction(payload) {
+    if (!this._isSpectator) return;
+    this._sendDirect("host", "nightAction", {
+      ...payload,
+      playerId: this._store.state.session.playerId,
+    });
+  }
+
+  /**
+   * FT-1005: a player's night input arriving. Host only.
+   *
+   * Two gates before the store sees it:
+   *   · the sender must HOLD a seat (the claimed playerId resolves to one);
+   *   · the roleId must be the character that seat was TOLD it has
+   *     (beliefOf) — so a player can only ever write the row of the
+   *     character they believe they are, never a believing seat's truth row,
+   *     structurally.
+   * The slot-by-slot merge (a storyteller's own entry is never silently
+   * overwritten) lives in night/applyPlayerAction.
+   *
+   * The rows are re-sent even when nothing changed: the sender's client
+   * shows what the HOST recorded, never local optimism, so every action
+   * frame is answered by a state frame — including a refusal, which answers
+   * with the standing state.
+   * @private
+   */
+  _updateNightAction(params) {
+    if (this._isSpectator) return;
+    if (!params || typeof params !== "object") return;
+    const { playerId, roleId, targets, text } = params;
+    if (!playerId || !roleId) return;
+    const seat = this._store.state.players.players.findIndex(
+      (p) => p.id && p.id === playerId,
+    );
+    if (seat < 0) return;
+    const player = this._store.state.players.players[seat];
+    if (beliefOf(player).id !== roleId) return;
+    this._store.dispatch("night/applyPlayerAction", {
+      seat,
+      roleId,
+      targets,
+      text,
+    });
+    this.sendNightRows(playerId);
+  }
+
+  /**
    * A player nomination. ST only
    * This also syncs the voting speed to the players.
    * Payload can be an object with {nomination} property or just the nomination itself, or undefined.
@@ -1640,8 +1763,39 @@ export default (store) => {
       // FT-882: the night sheet's day scrub. It rides a mutation like every
       // other ST broadcast in this table, so any later surface that wants to
       // correct the counter commits the same thing and inherits the guard.
+      // FT-1005: re-keying the night also re-scopes which rows are "tonight",
+      // so every seat's own rows go out again beside the counter.
       case "night/setDay":
         session.setNightDay();
+        session.sendNightRows();
+        break;
+      // FT-1005: THE LOG CHANGED — each affected seat's own rows follow it.
+      // A new or patched entry names its player, so only that one seat is
+      // written to; the shapes that cannot (a removal, a restored log, the
+      // sharing mode flipping) go to every claimed seat — each still receives
+      // only their OWN rows, that is sendNightRows' own structure. All four
+      // are host-only inside sendNightRows; a spectator committing these
+      // (they never do today) would send nothing.
+      case "night/addEntry":
+        session.sendNightRows((payload && payload.playerId) || "");
+        break;
+      case "night/patchEntry": {
+        const entry = state.night.entries.find(
+          (e) => e.id === (payload && payload.id),
+        );
+        session.sendNightRows((entry && entry.playerId) || "");
+        break;
+      }
+      case "night/removeEntry":
+      case "night/setLog":
+      case "night/setMode":
+        session.sendNightRows();
+        break;
+      // FT-1005: the player's own night input going up — the callBack idiom:
+      // the commit is the event, this is the one place it goes out (direct to
+      // the host; sendNightAction stamps the sender's own playerId).
+      case "night/playerAction":
+        session.sendNightAction(payload);
         break;
       case "setEdition":
         session.sendEdition();

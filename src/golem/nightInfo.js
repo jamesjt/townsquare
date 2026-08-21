@@ -964,6 +964,29 @@ export function deadStillWakes(role, enabledTeams) {
 }
 
 /**
+ * FT-1005: how many of this character's night choices belong to THE PLAYER
+ * THEMSELVES — the count of PLAYER-typed fields with by:"player". This is the
+ * player-surface twin of `targetCount()` (nightLog): the checklist renders a
+ * SeatPicker per pointing REGARDLESS of who points (the Washerwoman's two are
+ * the storyteller's own pointing, information given), while the player's own
+ * night row may only offer pickers for the choices that are genuinely theirs
+ * (the Fortune Teller's two, the Monk's one, the Imp's kill).
+ *
+ * Zero for an unlisted or line-only character, deliberately — the OPPOSITE
+ * fallback direction from fieldsFor()'s free-text box, because this count
+ * gates an INPUT: a control nobody designed must not invite a player to write
+ * into a row whose slots mean something else. The player's universal fallback
+ * is the free-text "in your own words" box, gated on `known` by the caller.
+ */
+export function playerSlots(roleId) {
+  const entry = NIGHT_INFO[roleId];
+  if (!entry || !entry.fields) return 0;
+  return entry.fields.filter(
+    f => f.type === FIELD_TYPES.PLAYER && f.by === FIELD_OWNERS.PLAYER
+  ).length;
+}
+
+/**
  * The fields a row needs a NEW control for. PLAYER fields are excluded
  * regardless of `by` — every one of them, chosen by the player or set by the
  * storyteller, is already a seat someone points at, and the row already

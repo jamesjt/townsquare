@@ -281,6 +281,18 @@ export function makeEntry({
     // (seats move; a replay needs the name it was told)
     targets: new Array(slots).fill(-1),
     targetNames: new Array(slots).fill(""),
+    // FT-1005: WHO FILLED EACH SLOT — "" (the storyteller, or nothing yet) or
+    // "player" (the seat's own player picked it themselves, arriving over the
+    // wire). The checklist reads this to mark a player's own pick apart from
+    // the storyteller's record of it, and the merge rule reads it to keep a
+    // storyteller-entered value from being silently overwritten by a later
+    // player frame. A storyteller editing a slot clears its mark.
+    targetsBy: new Array(slots).fill(""),
+    // FT-1005: the player's OWN words — the universal fallback where their
+    // choice has no designed control (a character picked from the sheet, a
+    // custom script's own character). Written only from a player frame; the
+    // storyteller's own free note stays told.text, so the two never collide.
+    playerText: "",
     // WHAT THEY WERE TOLD — the delivered information, never the truth.
     // FT-862: golem/nightInfo's field table decides which of these a row
     // actually uses; every key exists on every entry regardless (Vue 2's
@@ -302,6 +314,67 @@ export function makeEntry({
     // last write, so a replay can order rows inside one night
     at: new Date().toISOString()
   };
+}
+
+/**
+ * FT-1005: ONE ROW, PROJECTED TO WHAT ITS OWN PLAYER MAY KNOW.
+ *
+ * This is the wire shape of a player's night row AND the sanctioned shape of
+ * their client state — the same projection night/myEntries has always made,
+ * now shared between the host's sender and the receiving client's mutation so
+ * the two cannot drift. The rules it encodes:
+ *
+ *   · `isFalseInfo` (the storyteller's lie mark) and `done` (their walk-the-
+ *     list state) DO NOT EXIST here — not false, ABSENT. The receiving
+ *     mutation re-projects through this same function, so even a malformed or
+ *     hostile frame cannot seed the key into a player's store.
+ *   · `trueRole*` / `shownRole*` are absent for the same reason: a readable
+ *     row is by definition about the character the player was told they have,
+ *     and the pair would name the deception.
+ *   · `told` is flattened to the delivered values (never the truth of them);
+ *     characterId stays behind — the player gets the NAME they were shown.
+ *
+ * Accepts either a full log entry (nested `told`) or an already-projected
+ * row (flat), so the client-side re-projection is the identity on honest
+ * frames.
+ */
+export function projectPlayerRow(e) {
+  const told = e.told || e;
+  return {
+    id: e.id,
+    day: e.day,
+    phase: e.phase,
+    seat: e.seat,
+    roleId: e.roleId || "",
+    roleName: e.roleName || "",
+    targets: Array.isArray(e.targets) ? e.targets.slice() : [],
+    targetNames: (Array.isArray(e.targetNames) ? e.targetNames : []).filter(
+      Boolean
+    ),
+    ping: told.ping === true || told.ping === false ? told.ping : null,
+    number:
+      told.number === null || told.number === undefined ? null : told.number,
+    characterName: told.characterName || "",
+    text: told.text || "",
+    playerText: e.playerText || ""
+  };
+}
+
+/**
+ * FT-1005: every row ONE player may read, projected — the host-side builder
+ * of the "night" frame. The row filters are exactly night/myEntries':
+ *   · rows logged against the seat this player holds (durable playerId first,
+ *     seat index only for rows predating a claim);
+ *   · never a truth row about a believing seat (shownRoleId === roleId).
+ */
+export function projectEntriesFor(entries, playerId, seat) {
+  return (entries || [])
+    .filter(e => {
+      if (e.playerId && playerId) return e.playerId === playerId;
+      return seat >= 0 && e.seat === seat;
+    })
+    .filter(e => !e.shownRoleId || e.shownRoleId === e.roleId)
+    .map(projectPlayerRow);
 }
 
 /** The whole stash — a plain {sessionId: {day, entries}} map, safely parsed. */
