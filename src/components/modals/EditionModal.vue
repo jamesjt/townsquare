@@ -77,8 +77,8 @@
         <h4 class="ws-lead">The Almanac wants a desk</h4>
         <p class="ws-body">
           Two columns, a rail of every character, and a drag to move one up the
-          night order. None of that fits in a hand — and the drag does not
-          exist on a touch screen at all.
+          night order. None of that fits in a hand — and the drag does not exist
+          on a touch screen at all.
         </p>
         <div class="ws-loaded">
           <img class="ws-mark" :src="loadedCard.icon" alt="" />
@@ -118,7 +118,7 @@
               class="wb-team-toggle"
               :class="[
                 'team-' + t.team,
-                { on: teamState[t.team] === 1, exc: teamState[t.team] === -1 }
+                { on: teamState[t.team] === 1, exc: teamState[t.team] === -1 },
               ]"
               :title="teamTitle(t)"
               @click="toggleTeam(t.team)"
@@ -134,7 +134,11 @@
               <font-awesome-icon v-else :icon="t.icon" />
               <span class="cnt">{{ t.count }}</span>
             </button>
-            <div class="button wb-plus" title="New role" @click="openRoleForm()">
+            <div
+              class="button wb-plus"
+              title="New role"
+              @click="openRoleForm()"
+            >
               <font-awesome-icon icon="plus" />
             </div>
           </div>
@@ -255,7 +259,9 @@
                   :style="{ backgroundImage: `url(${entry.iconUrl})` }"
                 ></span>
                 <span class="wb-role-name">{{ entry.name }}</span>
-                <small v-if="entry.isLib">{{ entry.mine ? "yours" : "library" }}</small>
+                <small v-if="entry.isLib">{{
+                  entry.mine ? "yours" : "library"
+                }}</small>
                 <span class="wb-in" v-if="entry.inScript">✓</span>
               </li>
             </template>
@@ -351,13 +357,19 @@
         </div>
         <div class="row team-pick">
           <button
-            v-for="t in ['townsfolk', 'outsider', 'minion', 'demon', 'traveller']"
+            v-for="t in [
+              'townsfolk',
+              'outsider',
+              'minion',
+              'demon',
+              'traveller',
+            ]"
             :key="t"
             type="button"
             class="team-btn"
             :class="[
               'team-' + (t === 'traveller' ? 'traveler' : t),
-              { on: roleForm.roleType === t }
+              { on: roleForm.roleType === t },
             ]"
             @click="roleForm.roleType = t"
           >
@@ -372,7 +384,11 @@
             <font-awesome-icon
               v-else
               :icon="
-                t === 'townsfolk' ? 'users' : t === 'minion' ? 'mask' : 'walking'
+                t === 'townsfolk'
+                  ? 'users'
+                  : t === 'minion'
+                  ? 'mask'
+                  : 'walking'
               "
             />
             {{ t }}
@@ -386,29 +402,134 @@
             rows="3"
           ></textarea>
         </div>
+        <!-- FT-1040: the forge speaks chips — the FT-1039 idiom, one plate,
+             lit states; the two wakes wear the night tabs' own moon phases. -->
         <div class="wakes-block">
           <span class="wakes-title">Wakes:</span>
-          <label class="wake-opt" :class="{ on: wakesFirstNight }">
-            <input type="checkbox" v-model="wakesFirstNight" />
-            <span class="wake-box"></span> First Night
-          </label>
-          <label class="wake-opt" :class="{ on: wakesOtherNights }">
-            <input type="checkbox" v-model="wakesOtherNights" />
-            <span class="wake-box"></span> Other Nights
-          </label>
+          <div class="forge-seg" role="group" aria-label="Wakes">
+            <button
+              type="button"
+              class="forge-cell"
+              :class="{ on: wakesFirstNight }"
+              :aria-pressed="wakesFirstNight ? 'true' : 'false'"
+              title="Wakes on the first night"
+              @click="wakesFirstNight = !wakesFirstNight"
+            >
+              <img class="moon" :src="moonFirstArt" alt="" /> First Night
+            </button>
+            <button
+              type="button"
+              class="forge-cell"
+              :class="{ on: wakesOtherNights }"
+              :aria-pressed="wakesOtherNights ? 'true' : 'false'"
+              title="Wakes on every night after the first"
+              @click="wakesOtherNights = !wakesOtherNights"
+            >
+              <img class="moon" :src="moonOtherArt" alt="" /> Other Nights
+            </button>
+          </div>
+          <button
+            type="button"
+            class="forge-chip"
+            :class="{ on: roleForm.setup }"
+            :aria-pressed="roleForm.setup ? 'true' : 'false'"
+            title="This character changes the game's setup"
+            @click="roleForm.setup = !roleForm.setup"
+          >
+            Affects setup
+          </button>
+        </div>
+        <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character that wakes
+             composes one. Six shapes, each a one-to-one dressing of a night
+             schema field (golem/nightInfo NIGHT_SHAPES); the composed entry
+             rides the forged role and registers at script load, so its
+             checklist row, player prompt and chronicle presence are native. -->
+        <div class="night-composer" v-if="wakesFirstNight || wakesOtherNights">
+          <span class="nc-title">At night, this character…</span>
+          <div class="nc-shapes" role="group" aria-label="Night action">
+            <button
+              v-for="s in nightShapes"
+              :key="s.id"
+              type="button"
+              class="forge-chip"
+              :class="{ on: roleForm.nightShape === s.id }"
+              :title="
+                s.hint +
+                (roleForm.nightShape === s.id ? ' (click to clear)' : '')
+              "
+              :aria-pressed="roleForm.nightShape === s.id ? 'true' : 'false'"
+              @click="pickNightShape(s.id)"
+            >
+              {{ s.label }}
+            </button>
+          </div>
+          <div class="nc-dials" v-if="roleForm.nightShape === 'players'">
+            <NumberScrub
+              class="nc-count"
+              preset="night"
+              :value="roleForm.nightCount"
+              :min="1"
+              :max="3"
+              title="How many players — drag to scrub, click to type"
+              @input="(n) => (roleForm.nightCount = n)"
+            />
+            <!-- the FILLER — real only here: a PLAYER field is the one kind
+                 the player-side machinery renders an input for (FT-1005) -->
+            <div class="forge-seg nc-by" role="group" aria-label="Who picks">
+              <button
+                type="button"
+                class="forge-cell"
+                :class="{ on: roleForm.nightBy === 'player' }"
+                title="The seat's own player makes this choice at night"
+                @click="roleForm.nightBy = 'player'"
+              >
+                The player picks
+              </button>
+              <button
+                type="button"
+                class="forge-cell"
+                :class="{ on: roleForm.nightBy === 'storyteller' }"
+                title="You point for them — information you give"
+                @click="roleForm.nightBy = 'storyteller'"
+              >
+                You point for them
+              </button>
+            </div>
+          </div>
+          <div class="row" v-if="roleForm.nightShape">
+            <input
+              v-model="roleForm.nightPrompt"
+              class="wide"
+              maxlength="200"
+              placeholder="Prompt line — what the night row says"
+            />
+          </div>
+        </div>
+        <!-- reminder tokens as REAL PILLS — type + Enter mints one, click one
+             to remove it; the stored shape stays the comma-joined string -->
+        <div class="row rem-row">
+          <span class="rem-pills">
+            <button
+              v-for="(r, i) in reminderPills"
+              :key="'rem' + i"
+              type="button"
+              class="rem-pill"
+              :title="'Remove “' + r + '”'"
+              @click="removeReminderPill(i)"
+            >
+              {{ r }} <span class="rem-x">×</span>
+            </button>
+            <input
+              v-model="reminderDraft"
+              class="rem-input"
+              maxlength="40"
+              placeholder="Reminder token — Enter adds"
+              @keydown.enter.prevent="addReminderPill"
+              @blur="addReminderPill"
+            />
+          </span>
         </div>
         <div class="row">
-          <input
-            v-model="roleForm.reminders"
-            class="wide"
-            placeholder="Reminder tokens, comma-separated"
-          />
-        </div>
-        <div class="row">
-          <label>
-            <input type="checkbox" v-model="roleForm.setup" />
-            affects setup
-          </label>
           <input
             v-model="roleForm.authorName"
             placeholder="Author"
@@ -553,7 +674,10 @@
               maxlength="60"
               @keyup.enter="createNewScript"
             />
-            <small class="ns-note">The icon is optional — it marks the script wherever scripts are picked.</small>
+            <small class="ns-note"
+              >The icon is optional — it marks the script wherever scripts are
+              picked.</small
+            >
             <!-- FT-856: an upload arrives twice — inked to the official
                  look, and untouched. The pick is one click. -->
             <div class="ns-style-toggle" v-if="newScriptForm.iconStyled">
@@ -563,7 +687,9 @@
                 >Inked</span
               >
               <span
-                :class="{ on: newScriptForm.icon === newScriptForm.iconOriginal }"
+                :class="{
+                  on: newScriptForm.icon === newScriptForm.iconOriginal,
+                }"
                 @click="newScriptForm.icon = newScriptForm.iconOriginal"
                 >Original</span
               >
@@ -585,7 +711,7 @@
             <textarea
               v-model="nsJsonText"
               rows="2"
-              placeholder='Paste a script JSON, a share link, or a URL — or leave empty for a blank page'
+              placeholder="Paste a script JSON, a share link, or a URL — or leave empty for a blank page"
             ></textarea>
             <div class="button" @click="openUpload">
               <font-awesome-icon icon="file-upload" /> Upload
@@ -790,7 +916,7 @@ import { countTeams, servableFor, servableText } from "../../golem/composition";
 import {
   EDITION_ICONS,
   edCustom,
-  OFFICIAL_BLURBS
+  OFFICIAL_BLURBS,
 } from "../../golem/editionArt";
 // FT-856: uploads take the official engraving look (ink/tint/parchment).
 import { stylizeIcon } from "../../golem/iconStyle";
@@ -809,14 +935,24 @@ import moonFirst from "../../assets/moon-first.png";
 import moonOther from "../../assets/moon-other.png";
 // FT-887: the shelf's night filter labels read "Wakes first night" — the same
 // claim the hover card's chip makes, so it comes from the same function.
-import { wakesOn } from "../../golem/nightInfo";
+// FT-1040: plus the forge's night action composer — the six-shape palette and
+// the compose/decompose pair that turn its dials into a schema entry riding
+// the forged role (role.golemNight) and back.
+import {
+  wakesOn,
+  NIGHT_SHAPES,
+  composeAuthoredNight,
+  decomposeAuthoredNight,
+} from "../../golem/nightInfo";
+// FT-1040: the players shape's 1–3 count wears the night sheet's own scrub.
+import NumberScrub from "../NumberScrub";
 // The app-wide PNG-font choice — the Almanac's A wears the caps' font.
 import {
   fontState,
   glyphFrom,
   glyphStyleFrom,
   resolvedCapKey,
-  CAP_SHRINK
+  CAP_SHRINK,
 } from "../../golem/titleFonts";
 
 // Golem fork (FT-854): the official setup table — players: [townsfolk,
@@ -830,7 +966,7 @@ const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon", "traveler"];
 // groups; an exclude always wins. Library roles carry no night/setup data,
 // so they only match tags we can actually prove.
 const LUF_ROLES = new Set(
-  (editionJSON.find(e => e.id === "luf") || { roles: [] }).roles
+  (editionJSON.find((e) => e.id === "luf") || { roles: [] }).roles,
 );
 const TAG_GROUPS = [
   {
@@ -840,8 +976,8 @@ const TAG_GROUPS = [
       { id: "team:townsfolk", label: "Townsfolk" },
       { id: "team:outsider", label: "Outsiders" },
       { id: "team:minion", label: "Minions" },
-      { id: "team:demon", label: "Demons" }
-    ]
+      { id: "team:demon", label: "Demons" },
+    ],
   },
   {
     key: "source",
@@ -853,8 +989,8 @@ const TAG_GROUPS = [
       { id: "src:luf", label: "Laissez un Faire" },
       { id: "src:exp", label: "Experimental" },
       { id: "src:mine", label: "Your library" },
-      { id: "src:lib", label: "Community" }
-    ]
+      { id: "src:lib", label: "Community" },
+    ],
   },
   {
     key: "night",
@@ -862,17 +998,17 @@ const TAG_GROUPS = [
     tags: [
       { id: "night:first", label: "Wakes first night" },
       { id: "night:other", label: "Wakes other nights" },
-      { id: "night:never", label: "Never wakes" }
-    ]
+      { id: "night:never", label: "Never wakes" },
+    ],
   },
   {
     key: "flags",
     label: "Special",
     tags: [
       { id: "flag:setup", label: "Affects setup" },
-      { id: "flag:inscript", label: "In this script" }
-    ]
-  }
+      { id: "flag:inscript", label: "In this script" },
+    ],
+  },
 ];
 // FT-1039: what a chip WEARS — a 270px rail cannot spell "Trouble Brewing"
 // seven times, so editions wear their marks (EDITION_ICONS above), the rest
@@ -897,18 +1033,18 @@ const ROLE_TEMPLATE = {
   firstNight: 0,
   otherNight: 0,
   reminders: [],
-  setup: false
+  setup: false,
 };
 const TEAM_LABELS = {
   townsfolk: "Townsfolk",
   outsider: "Outsiders",
   minion: "Minions",
   demon: "Demons",
-  traveler: "Travellers"
+  traveler: "Travellers",
 };
 // roles.json spells it "traveler"; the server's roleType vocabulary spells it
 // "traveller". Normalize to the app side everywhere the two meet.
-const normTeam = t => (t || "").replace("traveller", "traveler");
+const normTeam = (t) => (t || "").replace("traveller", "traveler");
 
 /**
  * FT-981: ONE spelling of a searchable string, for the query and for the text
@@ -965,11 +1101,12 @@ const SMALL_BENCH =
 export default {
   components: {
     Modal,
+    NumberScrub,
     RoleHoverCard,
     ScriptPicker,
-    ScriptView
+    ScriptView,
   },
-  data: function() {
+  data: function () {
     return {
       editions: editionJSON,
       // the workbench is the modal's only page now; the flag stays because
@@ -996,6 +1133,14 @@ export default {
       roleResults: [],
       roleShelf: roleLib.getRecents(),
       roleError: "",
+      // FT-1040: the forge's chips and composer — the wakes chips wear the
+      // night tabs' moons; the palette is the schema's own six shapes; the
+      // reminder pill being typed lives outside roleForm (it is not a token
+      // until Enter mints it).
+      moonFirstArt: moonFirst,
+      moonOtherArt: moonOther,
+      nightShapes: NIGHT_SHAPES,
+      reminderDraft: "",
       // FT-981: the last library browse failed. Not an error banner (see
       // searchRoles) — just enough for the empty state to say why the
       // haystack is smaller than the author expects.
@@ -1064,35 +1209,35 @@ export default {
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
         ["bad-moon-rising", "Bad Moon Rising"],
-        ["sects-and-violets", "Sects & Violets"]
+        ["sects-and-violets", "Sects & Violets"],
       ],
       vaultSourceId: null,
       scripts: [
         [
           "Deadly Penance Day",
-          "https://gist.githubusercontent.com/bra1n/0337cc44c6fd2c44f7589256ed5486d2/raw/16be38fa3c01aaf49827303ac80577bdb52c0b25/penanceday.json"
+          "https://gist.githubusercontent.com/bra1n/0337cc44c6fd2c44f7589256ed5486d2/raw/16be38fa3c01aaf49827303ac80577bdb52c0b25/penanceday.json",
         ],
         [
           "Catfishing 11.1",
-          "https://gist.githubusercontent.com/bra1n/8a5ec41a7bbf945f6b7dfc1cef72b569/raw/a312ab93c2f302e0ef83c8b65a4e8e82760fda3a/catfishing.json"
+          "https://gist.githubusercontent.com/bra1n/8a5ec41a7bbf945f6b7dfc1cef72b569/raw/a312ab93c2f302e0ef83c8b65a4e8e82760fda3a/catfishing.json",
         ],
         [
           "On Thin Ice (Teensyville)",
-          "https://gist.githubusercontent.com/bra1n/8dacd9f2abc6f428331ea1213ab153f5/raw/0cacbcaf8ed9bddae0cca25a9ada97e9958d868b/on-thin-ice.json"
+          "https://gist.githubusercontent.com/bra1n/8dacd9f2abc6f428331ea1213ab153f5/raw/0cacbcaf8ed9bddae0cca25a9ada97e9958d868b/on-thin-ice.json",
         ],
         [
           "Race To The Bottom (Teensyville)",
-          "https://gist.githubusercontent.com/bra1n/63e1354cb3dc9d4032bcd0623dc48888/raw/5acb0eedcc0a67a64a99c7e0e6271de0b7b2e1b2/race-to-the-bottom.json"
+          "https://gist.githubusercontent.com/bra1n/63e1354cb3dc9d4032bcd0623dc48888/raw/5acb0eedcc0a67a64a99c7e0e6271de0b7b2e1b2/race-to-the-bottom.json",
         ],
         [
           "Frankenstein's Mayor by Ted (Teensyville)",
-          "https://gist.githubusercontent.com/bra1n/32c52b422cc01b934a4291eeb81dbcee/raw/5bf770693bbf7aff5e86601c82ca4af3222f4ba6/Frankensteins_Mayor_by_Ted.json"
+          "https://gist.githubusercontent.com/bra1n/32c52b422cc01b934a4291eeb81dbcee/raw/5bf770693bbf7aff5e86601c82ca4af3222f4ba6/Frankensteins_Mayor_by_Ted.json",
         ],
         [
           "Vigormortis High School (Teensyville)",
-          "https://gist.githubusercontent.com/bra1n/1f65bd4a999524719d5dabe98c3c2d27/raw/22bbec6bf56a51a7459e5ae41ed47e41971c5445/VigormortisHighSchool.json"
-        ]
-      ]
+          "https://gist.githubusercontent.com/bra1n/1f65bd4a999524719d5dabe98c3c2d27/raw/22bbec6bf56a51a7459e5ae41ed47e41971c5445/VigormortisHighSchool.json",
+        ],
+      ],
     };
   },
   computed: {
@@ -1102,7 +1247,7 @@ export default {
     // recomputes despite being a Map.
     editionCustomRoles() {
       const list = [];
-      this.$store.state.roles.forEach(role => {
+      this.$store.state.roles.forEach((role) => {
         if (role.isCustom) list.push(role);
       });
       return list;
@@ -1111,7 +1256,7 @@ export default {
     iconMatches() {
       const q = this.iconSearch.trim().toLowerCase();
       if (!q) return rolesJSON;
-      return rolesJSON.filter(role => role.name.toLowerCase().includes(q));
+      return rolesJSON.filter((role) => role.name.toLowerCase().includes(q));
     },
     // The shelf, narrowed by the browse query so search reads as one list.
     ilThemes() {
@@ -1122,9 +1267,8 @@ export default {
       const list = this.$options.ilList || [];
       const q = this.ilSearch.trim().toLowerCase();
       return list.filter(
-        e =>
-          (!this.ilTheme || e.t === this.ilTheme) &&
-          (!q || e.n.includes(q))
+        (e) =>
+          (!this.ilTheme || e.t === this.ilTheme) && (!q || e.n.includes(q)),
       );
     },
     /** Cap the rendered grid — 1.3k canvases in one paint is a hitch. */
@@ -1139,8 +1283,8 @@ export default {
     roleTipChips() {
       if (!this.roleTip) return [];
       return [...this.entryTags(this.roleTip)]
-        .filter(id => !id.startsWith("team:"))
-        .map(id => this.pillValueLabel({ id }));
+        .filter((id) => !id.startsWith("team:"))
+        .map((id) => this.pillValueLabel({ id }));
     },
     ilPreviewSrc() {
       return (
@@ -1165,7 +1309,7 @@ export default {
     canDestroyLoaded() {
       if (!this.vaultSourceId) return false;
       return this.recents.some(
-        e => e.id === this.vaultSourceId && !!e.editKey
+        (e) => e.id === this.vaultSourceId && !!e.editKey,
       );
     },
     /** The forge header's drop-cap N, in the caps' font (Almanac-style). */
@@ -1178,16 +1322,16 @@ export default {
     roleShelfFiltered() {
       const q = this.roleQuery.trim().toLowerCase();
       if (!q) return this.roleShelf;
-      return this.roleShelf.filter(entry =>
-        (entry.name || "").toLowerCase().includes(q)
+      return this.roleShelf.filter((entry) =>
+        (entry.name || "").toLowerCase().includes(q),
       );
     },
     // ── Golem fork (FT-854): the workbench ───────────────────────────────
     myScripts() {
-      return this.recents.filter(e => e.editKey);
+      return this.recents.filter((e) => e.editKey);
     },
     viewedScripts() {
-      return this.recents.filter(e => !e.editKey);
+      return this.recents.filter((e) => !e.editKey);
     },
     /** What the picker should show as current. */
     wbPickedId() {
@@ -1200,13 +1344,13 @@ export default {
      *  Non-conforming scripts wear the warning right in their name. */
     wbScriptCards() {
       const cards = [];
-      this.editions.forEach(e => {
+      this.editions.forEach((e) => {
         cards.push({
           id: e.id,
           name: e.name,
           icon: EDITION_ICONS[e.id] || edCustom,
           blurb: OFFICIAL_BLURBS[e.id] || "",
-          source: "OFFICIAL"
+          source: "OFFICIAL",
         });
       });
       // every official character on one script, behind the gold logo
@@ -1215,7 +1359,7 @@ export default {
         name: "All of Blood on the Clocktower",
         icon: goldLogo,
         blurb: "Every official character — the whole book on one script.",
-        source: "OFFICIAL"
+        source: "OFFICIAL",
       });
       const vaultCard = (entry, source) => ({
         id: entry.id,
@@ -1237,10 +1381,10 @@ export default {
         // ...and whether this browser holds the key, which is the whole
         // difference between "you lose your copy of the link" and "you lose
         // the only way you will ever edit this again".
-        owned: !!entry.editKey
+        owned: !!entry.editKey,
       });
-      this.myScripts.forEach(e => cards.push(vaultCard(e, "yours")));
-      this.viewedScripts.forEach(e => cards.push(vaultCard(e, "viewed")));
+      this.myScripts.forEach((e) => cards.push(vaultCard(e, "yours")));
+      this.viewedScripts.forEach((e) => cards.push(vaultCard(e, "viewed")));
       return cards;
     },
     /** The picker's own card for what is loaded — the small-screen note's
@@ -1248,7 +1392,7 @@ export default {
      *  a name on the edition, so the fallback is never a blank plate. */
     loadedCard() {
       const id = this.wbPickedId;
-      const card = this.wbScriptCards.find(c => c.id === id);
+      const card = this.wbScriptCards.find((c) => c.id === id);
       if (card) return card;
       const edition = this.$store.state.edition || {};
       return { id: "", name: edition.name || "Custom script", icon: edCustom };
@@ -1259,19 +1403,19 @@ export default {
         townsfolk: "users",
         outsider: "walking",
         minion: "mask",
-        demon: "user-secret"
+        demon: "user-secret",
       };
-      return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
+      return ["townsfolk", "outsider", "minion", "demon"].map((team) => ({
         team,
         label: TEAM_LABELS[team],
         icon: icons[team],
-        count: this.teamCounts[team]
+        count: this.teamCounts[team],
       }));
     },
     /** The current script as a list (state.roles is replaced wholesale). */
     scriptRoles() {
       const list = [];
-      this.$store.state.roles.forEach(role => list.push(role));
+      this.$store.state.roles.forEach((role) => list.push(role));
       return list;
     },
     // FT-857: the meter itself renders inside ScriptView; what stays here is
@@ -1299,7 +1443,7 @@ export default {
         townsfolk: "users",
         outsider: "walking",
         minion: "mask",
-        demon: "" // bespoke horned-head SVG (DEMON_PATH)
+        demon: "", // bespoke horned-head SVG (DEMON_PATH)
       };
       // FT-981: ONE pass, tallying by team — this was four passes over every
       // entry, one per team button, each re-running the same two matchers on
@@ -1312,7 +1456,7 @@ export default {
         if (!this.matchesPills(e, null)) return;
         counts[e.team]++;
       });
-      return ["townsfolk", "outsider", "minion", "demon"].map(team => ({
+      return ["townsfolk", "outsider", "minion", "demon"].map((team) => ({
         team,
         label: TEAM_LABELS[team],
         icon: icons[team],
@@ -1321,13 +1465,13 @@ export default {
     },
     // FT-1039: the three always-visible chip rows (the fold retired).
     sourceTags() {
-      return TAG_GROUPS.find(g => g.key === "source").tags;
+      return TAG_GROUPS.find((g) => g.key === "source").tags;
     },
     nightTags() {
-      return TAG_GROUPS.find(g => g.key === "night").tags;
+      return TAG_GROUPS.find((g) => g.key === "night").tags;
     },
     flagTags() {
-      return TAG_GROUPS.find(g => g.key === "flags").tags;
+      return TAG_GROUPS.find((g) => g.key === "flags").tags;
     },
     filteredCount() {
       return this.sidebarRoles.length;
@@ -1386,12 +1530,12 @@ export default {
     },
     /** Every shelf entry, UNFILTERED — the base set filters and counts read. */
     allShelfEntries() {
-      const inScriptIds = new Set(this.scriptRoles.map(r => r.id));
+      const inScriptIds = new Set(this.scriptRoles.map((r) => r.id));
       const inScriptLibIds = new Set(
-        this.scriptRoles.map(r => r.golemRoleId).filter(Boolean)
+        this.scriptRoles.map((r) => r.golemRoleId).filter(Boolean),
       );
       const entries = [];
-      rolesJSON.forEach(role => {
+      rolesJSON.forEach((role) => {
         if (normTeam(role.team) === "traveler") return; // town-side, not script
         entries.push({
           key: "off-" + role.id,
@@ -1409,11 +1553,11 @@ export default {
           edition: role.edition,
           firstNight: role.firstNight,
           otherNight: role.otherNight,
-          setup: !!role.setup
+          setup: !!role.setup,
         });
       });
       const seen = new Set();
-      this.roleShelf.forEach(entry => {
+      this.roleShelf.forEach((entry) => {
         seen.add(entry.id);
         if (normTeam(entry.role) === "traveler") return;
         entries.push({
@@ -1429,10 +1573,10 @@ export default {
           ability: entry.ability || "",
           isLib: true,
           mine: !!entry.editKey,
-          inScript: inScriptLibIds.has(entry.id)
+          inScript: inScriptLibIds.has(entry.id),
         });
       });
-      this.roleResults.forEach(row => {
+      this.roleResults.forEach((row) => {
         if (seen.has(row.id)) return;
         if (normTeam(row.roleType) === "traveler") return;
         entries.push({
@@ -1443,7 +1587,7 @@ export default {
           ability: row.ability || "",
           isLib: true,
           mine: false,
-          inScript: inScriptLibIds.has(row.id)
+          inScript: inScriptLibIds.has(row.id),
         });
       });
       // FT-981: the searchable text and the tag set, built ONCE per entry here
@@ -1461,7 +1605,7 @@ export default {
           e.searchName +
           " " +
           normalizeSearch(
-            (e.ability || "") + " " + (e.reminders || []).join(" ")
+            (e.ability || "") + " " + (e.reminders || []).join(" "),
           );
         e.tags = this.entryTags(e);
       });
@@ -1470,16 +1614,16 @@ export default {
     /** The shelf, filtered by search + team row + pills, sorted team/name.
      *  (roles.json arrives grouped by edition — "weirdly sorted".) */
     sidebarRoles() {
-      const teamRank = t => {
+      const teamRank = (t) => {
         const i = TEAM_ORDER.indexOf(t);
         return i < 0 ? TEAM_ORDER.length : i;
       };
       return this.allShelfEntries
         .filter(
-          e =>
+          (e) =>
             this.matchesSearch(e) &&
             this.matchesTeams(e) &&
-            this.matchesPills(e, null)
+            this.matchesPills(e, null),
         )
         .sort(
           (a, b) =>
@@ -1491,7 +1635,7 @@ export default {
             // A name hit outranks an ability-only hit inside each team group;
             // with no query both sides are 0 and the order is unchanged.
             this.nameHitRank(b) - this.nameHitRank(a) ||
-            (a.name || "").localeCompare(b.name || "")
+            (a.name || "").localeCompare(b.name || ""),
         );
     },
     roleTemplateJson() {
@@ -1508,7 +1652,15 @@ export default {
       set(v) {
         if (!this.roleForm) return;
         this.roleForm.firstNight = v ? this.roleForm.firstNight || 100 : 0;
-      }
+      },
+    },
+    /** FT-1040: the pill view of the stored comma-joined reminder string. */
+    reminderPills() {
+      if (!this.roleForm) return [];
+      return this.roleForm.reminders
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     },
     wakesOtherNights: {
       get() {
@@ -1517,7 +1669,7 @@ export default {
       set(v) {
         if (!this.roleForm) return;
         this.roleForm.otherNight = v ? this.roleForm.otherNight || 100 : 0;
-      }
+      },
     },
     /** The Almanac's drop-cap wears the caps' font (right-click a door to
      *  cycle); blood keeps the pixel-tuned baked class. */
@@ -1529,7 +1681,7 @@ export default {
           return {
             src: g.src,
             cls: "font-cap",
-            style: glyphStyleFrom(key, "S", CAP_SHRINK)
+            style: glyphStyleFrom(key, "S", CAP_SHRINK),
           };
       }
       return { src: this.bloodA, cls: "blood-cap-a", style: null };
@@ -1542,7 +1694,7 @@ export default {
         e: e.id,
         n: e.name || "",
         l: e.logo || "",
-        r: this.collapseScript()
+        r: this.collapseScript(),
       });
     },
     scriptDirty() {
@@ -1554,7 +1706,7 @@ export default {
     nsIconMatches() {
       const q = this.nsIconSearch.trim().toLowerCase();
       if (!q) return rolesJSON;
-      return rolesJSON.filter(role => role.name.toLowerCase().includes(q));
+      return rolesJSON.filter((role) => role.name.toLowerCase().includes(q));
     },
     nsIconStyle() {
       const f = this.newScriptForm;
@@ -1564,12 +1716,12 @@ export default {
     /** The shelf grouped by team, headers included (user call). */
     sidebarGroups() {
       return ["townsfolk", "outsider", "minion", "demon"]
-        .map(team => ({
+        .map((team) => ({
           team,
           label: TEAM_LABELS[team],
-          roles: this.sidebarRoles.filter(r => r.team === team)
+          roles: this.sidebarRoles.filter((r) => r.team === team),
         }))
-        .filter(g => g.roles.length);
+        .filter((g) => g.roles.length);
     },
     // FT-857: the by-team groups, the night wakers/sleepers and the drag
     // bookkeeping moved into ScriptView — the component that renders them.
@@ -1587,7 +1739,7 @@ export default {
     // phone rotated into landscape, or a desktop window dragged narrow, has
     // to flip live rather than at the next reload.
     const mq = window.matchMedia(SMALL_BENCH);
-    const onChange = e => {
+    const onChange = (e) => {
       this.smallScreen = e.matches;
     };
     this.smallScreen = mq.matches;
@@ -1600,7 +1752,7 @@ export default {
     // (App.vue keyup): keys typed into a field are typing, not hotkeys. The
     // overlays (forge, new-script, fork/ask/destroy panels) also swallow it —
     // focusing a field UNDER an overlay would type into the dark.
-    const onSlash = e => {
+    const onSlash = (e) => {
       if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
@@ -1635,7 +1787,7 @@ export default {
     // FT-856: a team switch re-prints the baked library icon in the new tint
     "roleForm.roleType"() {
       this.rebakeForTeam();
-    }
+    },
   },
   methods: {
     /** The team's own art, one definition for the whole app (golem/glyphs). */
@@ -1647,8 +1799,12 @@ export default {
         // roles verbatim; carry the vault name in as _meta so the script's
         // name survives the round trip and seeds the save prompt later.
         const roles = Array.isArray(script.roles) ? script.roles.slice() : [];
-        if (!roles.some(r => r && r.id === "_meta")) {
-          roles.unshift({ id: "_meta", name: script.name, author: script.author });
+        if (!roles.some((r) => r && r.id === "_meta")) {
+          roles.unshift({
+            id: "_meta",
+            name: script.name,
+            author: script.author,
+          });
         }
         this.parseRoles(roles);
         this.vaultSourceId = script.id;
@@ -1673,7 +1829,7 @@ export default {
       if (!towns.editKeyFor(session.sessionId)) return;
       towns
         .updateTown(session.sessionId, { scriptId })
-        .then(town => flashHint(`Script saved to ${town.name || town.id}`))
+        .then((town) => flashHint(`Script saved to ${town.name || town.id}`))
         .catch(() => {});
     },
     /** Open the workbench's inline ask (see its markup for why it exists). */
@@ -1729,14 +1885,14 @@ export default {
     /** Open the delete-for-everyone confirm for the LOADED script. */
     askDestroy() {
       if (!this.canDestroyLoaded) return;
-      const entry = this.recents.find(e => e.id === this.vaultSourceId);
+      const entry = this.recents.find((e) => e.id === this.vaultSourceId);
       this.destroyError = "";
       this.destroyForm = {
         id: this.vaultSourceId,
         name:
           (entry && entry.name) ||
           (this.$store.state.edition || {}).name ||
-          "this script"
+          "this script",
       };
     },
     cancelDestroy() {
@@ -1792,7 +1948,9 @@ export default {
     saveToVault() {
       const custom = this.$store.state.roles;
       if (this.$store.state.edition.id !== "custom" || !custom.size) {
-        alert("Load or build a custom script first — the vault stores custom scripts.");
+        alert(
+          "Load or build a custom script first — the vault stores custom scripts.",
+        );
         return;
       }
       const name = (this.$store.state.edition.name || "").trim();
@@ -1812,7 +1970,7 @@ export default {
       this.forkForm = {
         forking,
         original,
-        name: forking ? this.suggestForkName(original) : original
+        name: forking ? this.suggestForkName(original) : original,
       };
       this.$nextTick(() => {
         const el = this.$refs.forkName;
@@ -1839,9 +1997,9 @@ export default {
     nameTaken(name) {
       const want = name.trim().toLowerCase();
       return this.recents.some(
-        e =>
+        (e) =>
           e.id !== this.vaultSourceId &&
-          (e.name || "").trim().toLowerCase() === want
+          (e.name || "").trim().toLowerCase() === want,
       );
     },
     /** Confirm the panel. The name must be there, must not be the original's,
@@ -1896,10 +2054,10 @@ export default {
       // (the Script Tool convention) — kept as a bare string when it carries
       // no night-order override; a custom role ships whole, minus the
       // store's derived display fields.
-      const roles = this.collapseScript().map(entry =>
+      const roles = this.collapseScript().map((entry) =>
         Object.keys(entry).length === 1 && entry.id !== undefined
           ? entry.id
-          : entry
+          : entry,
       );
       // FT-854: the script's icon travels in _meta (script-tool convention),
       // so it survives the save/load round trip.
@@ -1908,7 +2066,7 @@ export default {
           id: "_meta",
           name,
           author: meta.author,
-          logo: this.$store.state.edition.logo
+          logo: this.$store.state.edition.logo,
         });
       }
       try {
@@ -1917,7 +2075,7 @@ export default {
           author: meta.author,
           roles,
           sourceId: this.vaultSourceId,
-          forceFork
+          forceFork,
         });
         // the confirmed name belongs to the script on the bench now, so the
         // title, the picker and the next save all read the copy, not the
@@ -1940,8 +2098,8 @@ export default {
         const what = forked
           ? "Forked into your own copy"
           : created
-            ? "Saved"
-            : "Updated";
+          ? "Saved"
+          : "Updated";
         try {
           await navigator.clipboard.writeText(link);
           alert(`${what}. Share link copied:\n${link}`);
@@ -1962,7 +2120,9 @@ export default {
     async copyLinks() {
       try {
         await navigator.clipboard.writeText(vault.exportLinks());
-        alert("Your script links (edit keys included) are on the clipboard — paste them somewhere safe.");
+        alert(
+          "Your script links (edit keys included) are on the clipboard — paste them somewhere safe.",
+        );
       } catch (e) {
         alert(vault.exportLinks());
       }
@@ -1972,8 +2132,19 @@ export default {
     openRoleForm(role) {
       this.roleError = "";
       this.iconSearch = "";
+      this.reminderDraft = "";
       // the library tab is the default view — have its chunk ready
       this.openIconLibrary();
+      // FT-1040: reopen the composer where it was left — the stored entry
+      // back to its dials; anything that isn't one of the six shapes (or no
+      // entry at all) starts the composer blank.
+      const dials = (role && decomposeAuthoredNight(role.golemNight)) || {};
+      const night = {
+        nightShape: dials.shape || "",
+        nightCount: dials.count || 1,
+        nightBy: dials.by || "player",
+        nightPrompt: dials.prompt || "",
+      };
       if (role) {
         this.editingLibId = role.golemRoleId || null;
         this.roleForm = {
@@ -1989,9 +2160,10 @@ export default {
           iconData: role.golemIconData || "",
           iconRef: role.golemIconRef || "",
           iconSeed: role.golemIconSeed || 0,
+          ...night,
           // the app-side id to replace in the script (a fork mints a new
           // library id, so the library id alone can't find the old row)
-          appId: role.id
+          appId: role.id,
         };
       } else {
         this.editingLibId = null;
@@ -2008,9 +2180,29 @@ export default {
           iconData: "",
           iconRef: "",
           iconSeed: 0,
-          appId: null
+          ...night,
+          appId: null,
         };
       }
+    },
+    /** FT-1040: pick a night action shape — clicking the lit one clears it
+     *  (a composed action is optional; none means the fallback free box). */
+    pickNightShape(id) {
+      this.roleForm.nightShape = this.roleForm.nightShape === id ? "" : id;
+    },
+    /** FT-1040: the reminder pills — a live view over the stored
+     *  comma-joined string, which stays the storage shape. */
+    addReminderPill() {
+      const token = this.reminderDraft.trim().replace(/,/g, "");
+      if (!token) return;
+      const list = this.reminderPills.concat(token);
+      this.roleForm.reminders = list.join(", ");
+      this.reminderDraft = "";
+    },
+    removeReminderPill(i) {
+      const list = this.reminderPills.slice();
+      list.splice(i, 1);
+      this.roleForm.reminders = list.join(", ");
     },
     closeRoleForm() {
       this.roleForm = null;
@@ -2049,8 +2241,8 @@ export default {
           cache.set(
             tintKey,
             await iconLib.bakeIcon(entry, this.roleForm.roleType, {
-              size: 96
-            })
+              size: 96,
+            }),
           );
         }
         this.ilHoverBaked = cache.get(tintKey);
@@ -2075,7 +2267,7 @@ export default {
       f.iconRef = entry.n;
       f.icon = "";
       f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
-        seed: f.iconSeed || 0
+        seed: f.iconSeed || 0,
       });
     },
     async rerollIcon() {
@@ -2085,7 +2277,7 @@ export default {
       if (!entry) return;
       f.iconSeed = 1 + Math.floor(Math.random() * 1e6);
       f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
-        seed: f.iconSeed
+        seed: f.iconSeed,
       });
     },
     /** Team changed — re-print the bake in the new tint. */
@@ -2097,7 +2289,7 @@ export default {
       const entry = iconLib.findIcon(this.$options.ilList, f.iconRef);
       if (!entry) return;
       f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
-        seed: f.iconSeed || 0
+        seed: f.iconSeed || 0,
       });
     },
     /** The bundled icon URL for an official role id. */
@@ -2111,29 +2303,31 @@ export default {
     /** Save to the library (create/update/fork), then into the script. */
     async saveRoleForm() {
       const f = this.roleForm;
+      // a token still sitting in the pill input counts — Enter was implied
+      this.addReminderPill();
       const reminders = f.reminders
         .split(",")
-        .map(s => s.trim())
+        .map((s) => s.trim())
         .filter(Boolean);
       // honest inline validation, mirroring the server's bounds
       const nightsOk = [f.firstNight, f.otherNight].every(
-        n => Number.isInteger(n) && n >= 0 && n <= 200
+        (n) => Number.isInteger(n) && n >= 0 && n <= 200,
       );
       const problem = !f.name.trim()
         ? "A role needs a name."
         : f.name.trim().length > 40
-          ? "Name is limited to 40 characters."
-          : !f.ability.trim()
-            ? "A role needs an ability."
-            : f.ability.trim().length > 600
-              ? "Ability is limited to 600 characters."
-              : !nightsOk
-                ? "Night positions are whole numbers 0–200."
-                : reminders.length > 20
-                  ? "At most 20 reminder tokens."
-                  : reminders.some(r => r.length > 40)
-                    ? "Reminder tokens are limited to 40 characters."
-                    : "";
+        ? "Name is limited to 40 characters."
+        : !f.ability.trim()
+        ? "A role needs an ability."
+        : f.ability.trim().length > 600
+        ? "Ability is limited to 600 characters."
+        : !nightsOk
+        ? "Night positions are whole numbers 0–200."
+        : reminders.length > 20
+        ? "At most 20 reminder tokens."
+        : reminders.some((r) => r.length > 40)
+        ? "Reminder tokens are limited to 40 characters."
+        : "";
       if (problem) {
         this.roleError = problem;
         return;
@@ -2149,7 +2343,7 @@ export default {
           otherNight: f.otherNight,
           reminders,
           setup: f.setup,
-          authorName: f.authorName.trim() || undefined
+          authorName: f.authorName.trim() || undefined,
         });
         this.roleShelf = roleLib.getRecents();
         const appRole = roleLib.toAppRole(role);
@@ -2161,13 +2355,30 @@ export default {
           appRole.golemIconSeed = f.iconSeed || 0;
           appRole.image = f.iconData;
         }
+        // FT-1040: the composed night action rides the APP role, snapshot
+        // semantics like the baked icon — the script carries it whole, the
+        // library row does not. Only a WAKING character keeps one; no shape
+        // picked means no composed action, and the role stays an ordinary
+        // unlisted one (the free-text fallback).
+        if ((f.firstNight > 0 || f.otherNight > 0) && f.nightShape) {
+          const wakes = [];
+          if (f.firstNight > 0) wakes.push("first");
+          if (f.otherNight > 0) wakes.push("other");
+          appRole.golemNight = composeAuthoredNight({
+            shape: f.nightShape,
+            count: f.nightCount,
+            by: f.nightBy,
+            prompt: f.nightPrompt,
+            wakes,
+          });
+        }
         this.insertRoleIntoEdition(appRole, f.appId);
         flashHint(
           forked
             ? "Forked into your own copy — script updated"
             : created
-              ? "Saved to the role library — added to this script"
-              : "Updated — script refreshed"
+            ? "Saved to the role library — added to this script"
+            : "Updated — script refreshed",
         );
         this.closeRoleForm();
       } catch (e) {
@@ -2192,16 +2403,16 @@ export default {
       try {
         // FT-855: a single shown-only team narrows the library browse too.
         const inc = Object.keys(this.teamState).filter(
-          t => this.teamState[t] === 1
+          (t) => this.teamState[t] === 1,
         );
         const type = inc.length === 1 ? inc[0] : "";
         const rows = await roleLib.browseRoles({
           q: this.roleQuery.trim(),
           type,
-          limit: 20
+          limit: 20,
         });
-        const shelfIds = new Set(this.roleShelf.map(e => e.id));
-        this.roleResults = rows.filter(r => !shelfIds.has(r.id));
+        const shelfIds = new Set(this.roleShelf.map((e) => e.id));
+        this.roleResults = rows.filter((r) => !shelfIds.has(r.id));
         this.browseDown = false;
       } catch (e) {
         // FT-981: a failed library browse is NOT an error banner.
@@ -2229,10 +2440,10 @@ export default {
     insertRoleIntoEdition(appRole, replaceAppId) {
       const list = this.collapseScript();
       const at = list.findIndex(
-        r =>
+        (r) =>
           (replaceAppId && r.id === replaceAppId) ||
           (appRole.golemRoleId && r.golemRoleId === appRole.golemRoleId) ||
-          r.id === appRole.id
+          r.id === appRole.id,
       );
       if (at > -1) list.splice(at, 1, appRole);
       else list.push(appRole);
@@ -2241,7 +2452,7 @@ export default {
         const meta = this.$store.state.edition;
         this.$store.commit("setEdition", {
           id: "custom",
-          name: meta.name || "Custom script"
+          name: meta.name || "Custom script",
         });
       }
     },
@@ -2255,13 +2466,15 @@ export default {
     collapseScript(excludeAppId) {
       const base = this.$store.getters.rolesJSONbyId;
       const list = [];
-      this.$store.state.roles.forEach(role => {
+      this.$store.state.roles.forEach((role) => {
         if (excludeAppId && role.id === excludeAppId) return;
         const b = base.get(role.id);
         if (b) {
           const ref = { id: role.id };
-          if (role.firstNight !== b.firstNight) ref.firstNight = role.firstNight;
-          if (role.otherNight !== b.otherNight) ref.otherNight = role.otherNight;
+          if (role.firstNight !== b.firstNight)
+            ref.firstNight = role.firstNight;
+          if (role.otherNight !== b.otherNight)
+            ref.otherNight = role.otherNight;
           list.push(ref);
         } else {
           const rest = { ...role };
@@ -2286,24 +2499,24 @@ export default {
       if (card.id === "__all") {
         // the whole book: every playable official (travellers stay town-side)
         const all = rolesJSON
-          .filter(r =>
+          .filter((r) =>
             ["townsfolk", "outsider", "minion", "demon"].includes(
-              normTeam(r.team)
-            )
+              normTeam(r.team),
+            ),
           )
-          .map(r => ({ id: r.id }));
+          .map((r) => ({ id: r.id }));
         this.$store.commit("setCustomRoles", all);
         this.$store.commit("setEdition", {
           id: "custom",
           name: "All of Blood on the Clocktower",
-          logo: "__gold"
+          logo: "__gold",
         });
         this.vaultSourceId = null;
         this.ensureOpen();
         this.setBaseline();
         return;
       }
-      const edition = editionJSON.find(e => e.id === card.id);
+      const edition = editionJSON.find((e) => e.id === card.id);
       if (edition) {
         this.$store.commit("setEdition", edition);
         this.vaultSourceId = null;
@@ -2355,7 +2568,7 @@ export default {
         id: "custom",
         name: f.name.trim(),
         // the icon rides the edition and persists through _meta on save
-        logo: f.icon || undefined
+        logo: f.icon || undefined,
       });
       this.newScriptForm = null;
       this.nsJsonText = "";
@@ -2364,7 +2577,7 @@ export default {
       flashHint(
         seed
           ? `${f.name.trim()} — seeded and ready`
-          : `${f.name.trim()} — a blank page. Add roles from the shelf`
+          : `${f.name.trim()} — a blank page. Add roles from the shelf`,
       );
     },
     // ── dirty tracking (Save/Discard live in the meter, only when dirty) ─
@@ -2376,14 +2589,14 @@ export default {
       if (!this.scriptBaseline) return;
       const b = JSON.parse(this.scriptBaseline);
       if (b.e !== "custom") {
-        const edition = editionJSON.find(x => x.id === b.e);
+        const edition = editionJSON.find((x) => x.id === b.e);
         if (edition) this.$store.commit("setEdition", edition);
       } else {
         this.$store.commit("setCustomRoles", b.r);
         this.$store.commit("setEdition", {
           id: "custom",
           name: b.n,
-          logo: b.l || undefined
+          logo: b.l || undefined,
         });
       }
       this.ensureOpen();
@@ -2413,7 +2626,9 @@ export default {
       }
       // library entries: the script carries snapshots keyed by golemRoleId
       if (entry.inScript) {
-        const role = this.scriptRoles.find(r => r.golemRoleId === entry.libId);
+        const role = this.scriptRoles.find(
+          (r) => r.golemRoleId === entry.libId,
+        );
         if (role) this.removeRole(role.id);
       } else {
         await this.addLibraryRole(entry.libId);
@@ -2428,7 +2643,7 @@ export default {
         const meta = this.$store.state.edition;
         this.$store.commit("setEdition", {
           id: "custom",
-          name: meta.name || "Custom script"
+          name: meta.name || "Custom script",
         });
       }
       this.ensureOpen();
@@ -2452,7 +2667,9 @@ export default {
         const id = parsed.toLowerCase().replace(/[^a-z0-9]/g, "");
         const official = base.get(id);
         if (!official) {
-          this.roleError = `No official role called ${JSON.stringify(parsed)} — paste a role object for customs.`;
+          this.roleError = `No official role called ${JSON.stringify(
+            parsed,
+          )} — paste a role object for customs.`;
           return;
         }
         this.openRoleForm(official);
@@ -2465,7 +2682,7 @@ export default {
       const f = this.roleForm;
       if (parsed.name) f.name = String(parsed.name).slice(0, 40);
       f.roleType = roleLib.roleTypeFromTeam(
-        normTeam(parsed.team || parsed.roleType || "townsfolk")
+        normTeam(parsed.team || parsed.roleType || "townsfolk"),
       );
       if (parsed.ability) f.ability = String(parsed.ability).slice(0, 600);
       f.firstNight = Math.abs(parsed.firstNight || 0);
@@ -2484,7 +2701,7 @@ export default {
      *  script entry — official refs carry it as an override). */
     setNight(appId, prop, value) {
       const list = this.collapseScript();
-      const entry = list.find(r => r.id === appId);
+      const entry = list.find((r) => r.id === appId);
       if (!entry) return;
       entry[prop] = value;
       this.$store.commit("setCustomRoles", list);
@@ -2492,7 +2709,7 @@ export default {
         const meta = this.$store.state.edition;
         this.$store.commit("setEdition", {
           id: "custom",
-          name: meta.name || "Custom script"
+          name: meta.name || "Custom script",
         });
       }
       this.ensureOpen();
@@ -2560,20 +2777,22 @@ export default {
     matchesTeams(entry) {
       if (this.teamState[entry.team] === -1) return false;
       const inc = Object.keys(this.teamState).filter(
-        t => this.teamState[t] === 1
+        (t) => this.teamState[t] === 1,
       );
       return !inc.length || inc.includes(entry.team);
     },
     /** Pills: includes OR within a facet, AND across facets; every is-not
      *  pill excludes. excludeFacet skips one facet's pills (its own counts). */
     matchesPills(entry, excludeFacet) {
-      const active = this.pills.filter(p => p.facet !== excludeFacet);
+      const active = this.pills.filter((p) => p.facet !== excludeFacet);
       if (!active.length) return true;
       const tags = this.entryTags(entry);
-      if (active.some(p => p.not && tags.has(p.id))) return false;
-      const facets = [...new Set(active.filter(p => !p.not).map(p => p.facet))];
-      return facets.every(f =>
-        active.some(p => !p.not && p.facet === f && tags.has(p.id))
+      if (active.some((p) => p.not && tags.has(p.id))) return false;
+      const facets = [
+        ...new Set(active.filter((p) => !p.not).map((p) => p.facet)),
+      ];
+      return facets.every((f) =>
+        active.some((p) => !p.not && p.facet === f && tags.has(p.id)),
       );
     },
     // ── FT-855: controls ─────────────────────────────────────────────────
@@ -2586,7 +2805,7 @@ export default {
       else if (next[team] === -1) delete next[team];
       else next[team] = 1;
       const teams = ["townsfolk", "outsider", "minion", "demon"];
-      if (teams.every(t => next[t] === -1)) this.teamState = {};
+      if (teams.every((t) => next[t] === -1)) this.teamState = {};
       else this.teamState = next;
     },
     teamTitle(t) {
@@ -2596,8 +2815,8 @@ export default {
         (s === 1
           ? " — showing only (click to hide)"
           : s === -1
-            ? " — hidden (click to reset)"
-            : " — click to show only")
+          ? " — hidden (click to reset)"
+          : " — click to show only")
       );
     },
     /**
@@ -2624,7 +2843,7 @@ export default {
       this.teamState = {};
     },
     pillFor(id) {
-      return this.pills.find(p => p.id === id) || null;
+      return this.pills.find((p) => p.id === id) || null;
     },
     // ── FT-1039: the chip rows (pills stay the single truth underneath) ──
     /** 1 shown, -1 hidden, 0 neutral — the states the team row taught. */
@@ -2687,7 +2906,7 @@ export default {
         : [...rest, { id: tag.id, facet: "night", not: false }];
     },
     facetKeyOf(id) {
-      const g = TAG_GROUPS.find(g => g.tags.some(t => t.id === id));
+      const g = TAG_GROUPS.find((g) => g.tags.some((t) => t.id === id));
       return g ? g.key : "";
     },
     pillValueLabel(pill) {
@@ -2842,7 +3061,9 @@ export default {
       // captured BEFORE the commits below auto-close the modal — a silent
       // ?script= arrival (modal never open) must stay silent
       const wasOpen = this.$store.state.modals.edition;
-      roles = roles.map(role => typeof role === "string" ? { id: role } : role);
+      roles = roles.map((role) =>
+        typeof role === "string" ? { id: role } : role,
+      );
       const metaIndex = roles.findIndex(({ id }) => id === "_meta");
       let meta = {};
       if (metaIndex > -1) {
@@ -2851,7 +3072,7 @@ export default {
       this.$store.commit("setCustomRoles", roles);
       this.$store.commit(
         "setEdition",
-        Object.assign({}, meta, { id: "custom" })
+        Object.assign({}, meta, { id: "custom" }),
       );
       // check for fabled and set those too, if present
       if (roles.some((role) => this.$store.state.fabled.has(role.id || role))) {
@@ -2870,8 +3091,8 @@ export default {
       if (wasOpen) this.ensureOpen();
       this.setBaseline();
     },
-    ...mapMutations(["toggleModal", "setEdition"])
-  }
+    ...mapMutations(["toggleModal", "setEdition"]),
+  },
 };
 </script>
 
@@ -2902,8 +3123,12 @@ ul.editions .edition {
   width: 30%;
   margin: 5px;
   font-size: 120%;
-  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
-    1px 1px 0 #000, 0 0 5px rgba(0, 0, 0, 0.75);
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 0 5px rgba(0, 0, 0, 0.75);
   cursor: pointer;
   &:hover {
     color: red;
@@ -3017,7 +3242,7 @@ $team-colors: (
   "outsider": #46d5ff,
   "minion": #ff6900,
   "demon": #ce0100,
-  "traveler": #cc04ff
+  "traveler": #cc04ff,
 );
 
 // FT-856 slice B: the icon tabs + library browser
@@ -3129,61 +3354,153 @@ $team-colors: (
   }
 }
 
-// Wakes: its own block — title line, one themed checkbox row per night
+// FT-1040: the forge speaks chips — the FT-1039 idiom (one plate for grouped
+// cells, standalone chips beside it, the shared lit state), scoped to the
+// forge overlay. The checkboxes these replace were retired by the same pass.
 .role-form .wakes-block {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
   margin: 6px 0;
   .wakes-title {
     font-weight: bold;
   }
-  .wake-opt {
+}
+// one plate, cells inside — the workbench night lens's own construction
+.role-form .forge-seg {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  overflow: hidden;
+  .forge-cell {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    padding: 4px 12px;
-    background: rgba(0, 0, 0, 0.45);
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
+    gap: 5px;
+    padding: 4px 11px;
+    background: transparent;
+    border: 0;
+    border-right: 1px solid $control-divider;
     color: rgba(255, 255, 255, 0.75);
-    cursor: pointer;
+    font-family: inherit;
     font-size: 13px;
-    input {
-      display: none;
+    cursor: pointer;
+    white-space: nowrap;
+    &:last-child {
+      border-right: 0;
     }
-    .wake-box {
+    .moon {
       width: 14px;
       height: 14px;
-      border: 1px solid #666;
-      border-radius: 3px;
-      background: rgba(0, 0, 0, 0.5);
-      position: relative;
+      object-fit: contain;
+      opacity: 0.9;
     }
     &:hover {
-      border-color: #666;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    &:focus-visible {
+      @include control-focus-ring;
     }
     &.on {
+      background: $control-on-bg;
+      color: $control-on-color;
+    }
+  }
+}
+// a standalone chip — the workbench facet chip's plate and lit state
+.role-form .forge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  &:hover {
+    border-color: #666;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &.on {
+    border-color: $control-on-edge;
+    background: $control-on-bg;
+    color: $control-on-color;
+  }
+}
+// FT-1040: the night action composer — visible only while a wakes chip is lit
+.role-form .night-composer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid #2c2c2c;
+  border-radius: 8px;
+  .nc-title {
+    font-size: 13px;
+    opacity: 0.8;
+  }
+  .nc-shapes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+  .nc-dials {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .row {
+    width: 100%;
+    margin: 0;
+  }
+}
+// FT-1040: reminder tokens as pills — type + Enter mints one, click removes
+.role-form .rem-row .rem-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  .rem-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid #3d3d3d;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    .rem-x {
+      opacity: 0.6;
+    }
+    &:hover {
       border-color: #a01414;
-      background: rgba(160, 20, 20, 0.14);
-      color: white;
-      .wake-box {
-        border-color: #a01414;
-        background: #7d0e0e;
-      }
-      .wake-box::after {
-        content: "";
-        position: absolute;
-        left: 4px;
-        top: 1px;
-        width: 4px;
-        height: 8px;
-        border: solid #ffd9d9;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
+      .rem-x {
+        color: #ff8a8a;
+        opacity: 1;
       }
     }
+    &:focus-visible {
+      @include control-focus-ring;
+    }
+  }
+  .rem-input {
+    flex: 1;
+    min-width: 150px;
   }
 }
 // the forge's team choice wears the workbench toggle look, not a native select
@@ -3207,8 +3524,12 @@ $team-colors: (
       height: 14px;
     }
     .demon-glyph {
+      // width AND height so every button matches — object-fit keeps the wide
+      // townsfolk art (160×96) letterboxed instead of squeezed square (the
+      // count-icon idiom; user report, FT-1040 rider)
       width: 15px;
       height: 15px;
+      object-fit: contain;
     }
     &:not(.on) .demon-glyph {
       filter: grayscale(1) brightness(1.35);
@@ -3430,7 +3751,6 @@ $team-colors: (
       flex-shrink: 0;
     }
   }
-
 
   .wb-body {
     display: flex;
@@ -3742,6 +4062,9 @@ $team-colors: (
         .demon-glyph {
           width: 17px;
           height: 17px;
+          // the wide townsfolk art keeps its ratio (FT-1040 rider) — the
+          // same fix RoleDrawer's copy of this rule already carries
+          object-fit: contain;
         }
         // img glyphs can't inherit the grey text color — grey them by hand
         // whenever the team isn't the active "show only" pick
@@ -3900,8 +4223,6 @@ $team-colors: (
     }
   }
 
-
-
   // The forge floats over the workbench instead of replacing it — wearing
   // the WORKBENCH's chrome (dark, blood hairline), not upstream's white box.
   .role-form {
@@ -4059,7 +4380,9 @@ $team-colors: (
       background-position: center;
       background-origin: content-box;
       padding: 6px;
-      transition: border-color 150ms, background-color 150ms;
+      transition:
+        border-color 150ms,
+        background-color 150ms;
       .hint {
         font-size: 12px;
         opacity: 0.55;

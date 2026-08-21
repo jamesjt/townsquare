@@ -64,13 +64,13 @@ export const FIELD_TYPES = {
   // renders this field as the show/keep-shown control; the rows that get it
   // are exactly the rows whose entry carries this field, never a role-name
   // list at a call site.
-  GRIMOIRE: "grimoire"
+  GRIMOIRE: "grimoire",
 };
 
 /** Who fills a field: a player's own choice, or the storyteller's own information. */
 export const FIELD_OWNERS = {
   PLAYER: "player",
-  STORYTELLER: "storyteller"
+  STORYTELLER: "storyteller",
 };
 
 /**
@@ -79,7 +79,7 @@ export const FIELD_OWNERS = {
  * exactly one: the Demon's bluffs are characters NOT currently in play.
  */
 export const FIELD_FILTERS = {
-  NOT_IN_PLAY: "notInPlay"
+  NOT_IN_PLAY: "notInPlay",
 };
 
 /**
@@ -95,7 +95,7 @@ export const RENDERED_FIELD_TYPES = [
   FIELD_TYPES.NUMBER,
   FIELD_TYPES.BOOLEAN,
   FIELD_TYPES.TEXT,
-  FIELD_TYPES.GRIMOIRE
+  FIELD_TYPES.GRIMOIRE,
 ];
 
 /** A field's type, degraded to TEXT if nothing renders it yet. Never throws, never renders nothing. */
@@ -321,86 +321,100 @@ export const NIGHT_INFO = {
     fields: [
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
-      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "A Townsfolk and two players — one is it."
+    line: "A Townsfolk and two players — one is it.",
   },
   librarian: {
     wakes: ["first"],
     fields: [
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
-      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: true,
     label: "Learns:",
     // the zero case is the whole reason this one differs from its neighbours
-    line: "An Outsider and two players, or zero if none."
+    line: "An Outsider and two players, or zero if none.",
   },
   investigator: {
     wakes: ["first"],
     fields: [
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER },
-      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "A Minion and two players — one is it."
+    line: "A Minion and two players — one is it.",
   },
   chef: {
     wakes: ["first"],
-    fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 7 }],
+    fields: [
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 0,
+        max: 7,
+      },
+    ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many pairs of evil players sit together."
+    line: "How many pairs of evil players sit together.",
   },
   empath: {
     wakes: ["first", "other"],
-    fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 2 }],
+    fields: [
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 0,
+        max: 2,
+      },
+    ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many of their 2 live neighbours are evil."
+    line: "How many of their 2 live neighbours are evil.",
   },
   fortuneteller: {
     wakes: ["first", "other"],
     fields: [
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
-      { type: FIELD_TYPES.BOOLEAN, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.BOOLEAN, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: true,
     label: "Learns:",
     // the red herring is the rule this row exists to stop you forgetting
-    line: "Yes if either is the Demon — or the red herring."
+    line: "Yes if either is the Demon — or the red herring.",
   },
   undertaker: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: true,
     label: "Learns executed was:",
-    line: "Only if a player was executed today."
+    line: "Only if a player was executed today.",
   },
   monk: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
     label: "Protects:",
-    line: "Not themselves; Demon only."
+    line: "Not themselves; Demon only.",
   },
   ravenkeeper: {
     wakes: ["other"],
     fields: [
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
-      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: true,
     label: "Learns:",
     // the row exists ONLY for a dead seat — the line has said so all along
     wakesWhenDead: true,
-    line: "Only if they died tonight. They choose."
+    line: "Only if they died tonight. They choose.",
   },
   virgin: { wakes: [], fields: [], mayBeFalse: false }, // day ability — never reaches a night row
   slayer: { wakes: [], fields: [], mayBeFalse: false }, // day ability
@@ -412,7 +426,7 @@ export const NIGHT_INFO = {
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
     label: "Chooses master:",
-    line: "Tomorrow they vote only with that player."
+    line: "Tomorrow they vote only with that player.",
   },
   drunk: { wakes: [], fields: [], mayBeFalse: false }, // never wakes as itself — see golem/belief's performance rows
   recluse: { wakes: [], fields: [], mayBeFalse: false }, // passive
@@ -424,7 +438,7 @@ export const NIGHT_INFO = {
     mayBeFalse: false,
     label: "Poisons:",
     // night one has nobody to recover — the only difference between the two
-    line: "Poisoned to dusk tomorrow."
+    line: "Poisoned to dusk tomorrow.",
   },
   spy: {
     wakes: ["first", "other"],
@@ -434,18 +448,18 @@ export const NIGHT_INFO = {
     // free box recorded before the control existed.
     fields: [
       { type: FIELD_TYPES.GRIMOIRE, by: FIELD_OWNERS.STORYTELLER },
-      { type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: false,
     label: "Sees:",
-    line: "The whole grimoire, for as long as they want."
+    line: "The whole grimoire, for as long as they want.",
   },
   scarletwoman: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: false, // "you are now the Demon" is a state transition, not corruptible info
     label: "Becomes:",
-    line: "If the Demon died, 5+ alive."
+    line: "If the Demon died, 5+ alive.",
   },
   baron: { wakes: [], fields: [], mayBeFalse: false }, // setup-only, never wakes
   // ── Trouble Brewing — Demon ──────────────────────────────────────────────
@@ -455,18 +469,18 @@ export const NIGHT_INFO = {
     mayBeFalse: false, // chooses a kill, told nothing back — the Demon's OWN first-night reveal is GROUP_INFO.demon, below
     label: "Kills:",
     // "Kills:" already says the kill; the starpass is what the label can't say
-    line: "A self-kill passes it to a Minion."
+    line: "A self-kill passes it to a Minion.",
   },
   // ── Trouble Brewing — Travellers ─────────────────────────────────────────
   // Line-only (see the header): both already render a seat picker off their
   // reminder text, and neither field design was ever made.
   bureaucrat: {
     wakes: ["first", "other"],
-    line: "Their vote counts three times tomorrow."
+    line: "Their vote counts three times tomorrow.",
   },
   thief: {
     wakes: ["first", "other"],
-    line: "Their vote counts minus one tomorrow."
+    line: "Their vote counts minus one tomorrow.",
   },
 
   // ── Bad Moon Rising / Sects & Violets — entered opportunistically ───────
@@ -475,39 +489,72 @@ export const NIGHT_INFO = {
     fields: [
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
-      { type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 2 }
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 0,
+        max: 2,
+      },
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many of their two choices wake tonight."
+    line: "How many of their two choices wake tonight.",
   },
   clockmaker: {
     wakes: ["first"],
-    fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 1, max: 20 }],
+    fields: [
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 1,
+        max: 20,
+      },
+    ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "Seats from the Demon to its nearest Minion."
+    line: "Seats from the Demon to its nearest Minion.",
   },
   mathematician: {
     wakes: ["first", "other"],
-    fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 20 }],
+    fields: [
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 0,
+        max: 20,
+      },
+    ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "Abilities another broke since dawn."
+    line: "Abilities another broke since dawn.",
   },
   oracle: {
     wakes: ["other"],
-    fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 20 }],
+    fields: [
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 0,
+        max: 20,
+      },
+    ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many of the dead are evil."
+    line: "How many of the dead are evil.",
   },
   juggler: {
     wakes: ["other"],
-    fields: [{ type: FIELD_TYPES.NUMBER, by: FIELD_OWNERS.STORYTELLER, min: 0, max: 5 }],
+    fields: [
+      {
+        type: FIELD_TYPES.NUMBER,
+        by: FIELD_OWNERS.STORYTELLER,
+        min: 0,
+        max: 5,
+      },
+    ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many first-day guesses were right."
+    line: "How many first-day guesses were right.",
   },
 
   // ── Bad Moon Rising — line-only (FT-886) ─────────────────────────────────
@@ -518,87 +565,87 @@ export const NIGHT_INFO = {
     wakes: ["first", "other"],
     line: {
       first: "The grandchild — a player and their character.",
-      other: "If the Demon killed the grandchild, they die."
-    }
+      other: "If the Demon killed the grandchild, they die.",
+    },
   },
   sailor: {
     wakes: ["first", "other"],
-    line: "They or their choice is drunk till dusk; you pick."
+    line: "They or their choice is drunk till dusk; you pick.",
   },
   exorcist: {
     wakes: ["other"],
-    line: "Not last night's pick. A chosen Demon skips."
+    line: "Not last night's pick. A chosen Demon skips.",
   },
   innkeeper: {
     wakes: ["other"],
-    line: "Both safe tonight; one of them drunk till dusk."
+    line: "Both safe tonight; one of them drunk till dusk.",
   },
   gambler: {
     wakes: ["other"],
-    line: "A player and a character: wrong, and they die."
+    line: "A player and a character: wrong, and they die.",
   },
   gossip: {
     wakes: ["other"],
-    line: "Only if today's claim was true: someone dies."
+    line: "Only if today's claim was true: someone dies.",
   },
   courtier: {
     wakes: ["first", "other"],
-    line: "Once per game: a character drunk for 3 days."
+    line: "Once per game: a character drunk for 3 days.",
   },
   professor: {
     wakes: ["other"],
-    line: "Once per game: a dead Townsfolk lives again."
+    line: "Once per game: a dead Townsfolk lives again.",
   },
   tinker: {
     wakes: ["other"],
-    line: "They may die at any moment — your choice."
+    line: "They may die at any moment — your choice.",
   },
   moonchild: {
     wakes: ["other"],
     wakesWhenDead: true,
-    line: "Only if they died today: their pick dies, if good."
+    line: "Only if they died today: their pick dies, if good.",
   },
   // lunatic — DELIBERATELY UNWRITTEN, see LEFT ALONE in the header.
   godfather: {
     wakes: ["first", "other"],
     line: {
       first: "Name every Outsider in play.",
-      other: "Only if an Outsider died today."
-    }
+      other: "Only if an Outsider died today.",
+    },
   },
   devilsadvocate: {
     wakes: ["first", "other"],
-    line: "Survives tomorrow's execution. Never twice."
+    line: "Survives tomorrow's execution. Never twice.",
   },
   assassin: {
     wakes: ["other"],
-    line: "Once per game: their choice dies regardless."
+    line: "Once per game: their choice dies regardless.",
   },
   zombuul: {
     wakes: ["other"],
     // "The 1st time you die, you live but register as dead" — the app marks
     // that death on the seat, so a Zombuul is a DEAD player that kills
     wakesWhenDead: true,
-    line: "Only if nobody died today."
+    line: "Only if nobody died today.",
   },
   pukka: {
     wakes: ["first", "other"],
     line: {
       first: "Their choice is poisoned.",
-      other: "The new choice is poisoned; the last dies."
-    }
+      other: "The new choice is poisoned; the last dies.",
+    },
   },
   shabaloth: {
     wakes: ["other"],
-    line: "Two die; one of last night's dead may return."
+    line: "Two die; one of last night's dead may return.",
   },
   po: {
     wakes: ["other"],
-    line: "If they chose nobody last night, three die."
+    line: "If they chose nobody last night, three die.",
   },
   apprentice: {
     wakes: ["first"],
-    line: "A Townsfolk ability if good, a Minion's if evil."
+    line: "A Townsfolk ability if good, a Minion's if evil.",
   },
 
   // FT-1003: the other "sees the grimoire" character. New entry rather than
@@ -612,96 +659,96 @@ export const NIGHT_INFO = {
     fields: [
       { type: FIELD_TYPES.GRIMOIRE, by: FIELD_OWNERS.STORYTELLER },
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER },
-      { type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }
+      { type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER },
     ],
     mayBeFalse: true,
     label: "Poisons:",
-    line: "They see the grimoire; one good player learns."
+    line: "They see the grimoire; one good player learns.",
   },
 
   // ── Sects & Violets — line-only (FT-886) ─────────────────────────────────
   dreamer: {
     wakes: ["first", "other"],
-    line: "One good and one evil character; one is true."
+    line: "One good and one evil character; one is true.",
   },
   snakecharmer: {
     wakes: ["first", "other"],
-    line: "A chosen Demon swaps, and is poisoned."
+    line: "A chosen Demon swaps, and is poisoned.",
   },
   flowergirl: {
     wakes: ["other"],
-    line: "Whether the Demon voted today."
+    line: "Whether the Demon voted today.",
   },
   towncrier: {
     wakes: ["other"],
-    line: "Whether a Minion nominated today."
+    line: "Whether a Minion nominated today.",
   },
   seamstress: {
     wakes: ["first", "other"],
-    line: "Once per game: same alignment or not?"
+    line: "Once per game: same alignment or not?",
   },
   philosopher: {
     wakes: ["first", "other"],
-    line: "Once per game: a good ability, its owner drunk."
+    line: "Once per game: a good ability, its owner drunk.",
   },
   sage: {
     wakes: ["other"],
     wakesWhenDead: true,
-    line: "Only if the Demon killed them: two players."
+    line: "Only if the Demon killed them: two players.",
   },
   sweetheart: {
     wakes: ["other"],
     wakesWhenDead: true,
-    line: "Only if they died: someone stays drunk."
+    line: "Only if they died: someone stays drunk.",
   },
   barber: {
     wakes: ["other"],
     wakesWhenDead: true,
-    line: "If they died today, the Demon may swap two."
+    line: "If they died today, the Demon may swap two.",
   },
   eviltwin: {
     wakes: ["first"],
-    line: "Wake both twins; each learns who the other is."
+    line: "Wake both twins; each learns who the other is.",
   },
   witch: {
     wakes: ["first", "other"],
-    line: "Dies if they nominate tomorrow; four alive."
+    line: "Dies if they nominate tomorrow; four alive.",
   },
   cerenovus: {
     wakes: ["first", "other"],
-    line: "Mad as that character tomorrow, or executed."
+    line: "Mad as that character tomorrow, or executed.",
   },
   pithag: {
     wakes: ["other"],
-    line: "They become that character, if it is out of play."
+    line: "They become that character, if it is out of play.",
   },
   fanggu: {
     wakes: ["other"],
-    line: "First Outsider killed turns evil; they die."
+    line: "First Outsider killed turns evil; they die.",
   },
   vigormortis: {
     wakes: ["other"],
-    line: "A killed Minion keeps it, poisons a neighbour."
+    line: "A killed Minion keeps it, poisons a neighbour.",
   },
   nodashii: {
     wakes: ["other"],
-    line: "Their two Townsfolk neighbours are poisoned."
+    line: "Their two Townsfolk neighbours are poisoned.",
   },
   vortox: {
     wakes: ["other"],
-    line: "Every Townsfolk reading is false tonight."
+    line: "Every Townsfolk reading is false tonight.",
   },
   barista: {
     wakes: ["first", "other"],
-    line: "True information tonight, or their ability twice."
+    line: "True information tonight, or their ability twice.",
   },
   harlot: {
     wakes: ["other"],
-    line: "If they agree, they learn it — and both may die."
+    line: "If they agree, they learn it — and both may die.",
   },
   bonecollector: {
     wakes: ["other"],
-    line: "Once per game: a dead player's ability returns."
+    line: "Once per game: a dead player's ability returns.",
   },
 
   // ── Experimental / Carousel — FLAG-ONLY entries (FT-874, 2026-08-19) ─────
@@ -720,7 +767,7 @@ export const NIGHT_INFO = {
   poppygrower: { wakes: ["first", "other"], wakesWhenDead: true },
   banshee: { wakes: ["other"], wakesWhenDead: true },
   plaguedoctor: { wakes: ["other"], wakesWhenDead: true },
-  hatter: { wakes: ["other"], wakesWhenDead: true }
+  hatter: { wakes: ["other"], wakesWhenDead: true },
 };
 
 /**
@@ -732,7 +779,7 @@ export const NIGHT_INFO = {
  */
 export const DEAD_WAKE_ENABLERS = {
   // "Minions you kill keep their ability & poison 1 Townsfolk neighbour"
-  vigormortis: ["minion"]
+  vigormortis: ["minion"],
 };
 
 /**
@@ -757,7 +804,7 @@ export const BELIEVES_OTHER = {
   // "You think you are a Demon, but you are not."
   lunatic: { pool: "demon" },
   // "You think you are a good character, but you are not." (custom scripts)
-  marionette: { pool: "townsfolk" }
+  marionette: { pool: "townsfolk" },
 };
 
 /**
@@ -784,23 +831,31 @@ export const GROUP_INFO = {
       { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER }, // who the Demon is
       // the other Minions, when there's more than one in play — `count` is
       // dynamic here (the team's own size minus one), not a fixed number
-      { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER, count: "otherMinions" }
+      {
+        type: FIELD_TYPES.PLAYER,
+        by: FIELD_OWNERS.STORYTELLER,
+        count: "otherMinions",
+      },
     ],
-    mayBeFalse: false
+    mayBeFalse: false,
   },
   demon: {
     wakes: ["first"],
     fields: [
-      { type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.STORYTELLER, count: "allMinions" }, // its Minions
+      {
+        type: FIELD_TYPES.PLAYER,
+        by: FIELD_OWNERS.STORYTELLER,
+        count: "allMinions",
+      }, // its Minions
       {
         type: FIELD_TYPES.CHARACTER,
         by: FIELD_OWNERS.STORYTELLER,
         filter: FIELD_FILTERS.NOT_IN_PLAY,
-        count: 3
-      } // the three bluffs
+        count: 3,
+      }, // the three bluffs
     ],
-    mayBeFalse: false
-  }
+    mayBeFalse: false,
+  },
 };
 
 /**
@@ -852,7 +907,7 @@ export const FIRST_NIGHT_GROUP_TEAMS = ["minion", "demon"];
 export function wakesOn(role) {
   const r = role || {};
   const group = FIRST_NIGHT_GROUP_TEAMS.includes(
-    String(r.team || "").toLowerCase()
+    String(r.team || "").toLowerCase(),
   );
   const declares =
     "firstNight" in r ||
@@ -862,8 +917,255 @@ export function wakesOn(role) {
   return {
     first: group || r.firstNight > 0 || !!r.firstNightReminder,
     other: r.otherNight > 0 || !!r.otherNightReminder,
-    known: group || declares
+    known: group || declares,
   };
+}
+
+/**
+ * ── AUTHORED NIGHT ACTIONS (FT-1040) ──────────────────────────────────────
+ *
+ * The forge (EditionModal's role form) lets an author COMPOSE a night action
+ * for their own character, from a palette of exactly six shapes — each one a
+ * one-to-one dressing of a field list this file already renders. The composed
+ * entry rides the forged role itself (`role.golemNight`, script-snapshot
+ * semantics like the baked icon), and REGISTERS here when the script loads
+ * (store setCustomRoles), so every consumer — the storyteller checklist, the
+ * player's night prompt, the chronicle — answers for a forged character
+ * through the same four functions it already calls for a shipped one. No
+ * surface knows authored roles exist.
+ *
+ * THE SIX SHAPES, and their one-to-one field dressings:
+ *
+ *   players    N × { PLAYER, by }   — the only shape where the FILLER choice
+ *                                     is real: by:"player" is FT-1005's own-
+ *                                     pick slot, by:"storyteller" is a
+ *                                     pointing the storyteller records (the
+ *                                     Washerwoman's two). N is 1–3, nightLog's
+ *                                     own MAX_TARGETS ceiling.
+ *   yesno      { BOOLEAN, storyteller }
+ *   number     { NUMBER, storyteller, 0–20 }
+ *   character  { CHARACTER, storyteller }
+ *   grimoire   { GRIMOIRE, storyteller } — the Spy's whole-town view
+ *   note       { TEXT, storyteller }     — the universal free box
+ *
+ * Non-PLAYER shapes are STORYTELLER-ONLY by construction, not by scope cut:
+ * a by:"player" BOOLEAN would map to no player-side control at all
+ * (playerSlots counts PLAYER fields alone, and the drawer renders SeatPickers
+ * and the free box, nothing else) — a filler toggle there would be a lie.
+ *
+ * label / mayBeFalse are DERIVED from the shape, never guessed: the author
+ * chose the shape, and the shape IS the semantics ("Chooses:" for their own
+ * pick, "Learns:" for told information, "Sees:" for the grimoire; mayBeFalse
+ * exactly when a storyteller-filled field exists to have lied in).
+ *
+ * THE REGISTRY IS RUNTIME-ONLY and rebuilt wholesale on every script load —
+ * never persisted here, never merged into NIGHT_INFO (the shipped table wins
+ * a collision, though forged ids are golem-prefixed and cannot collide in
+ * practice). An UNREGISTERED forged role — an old one saved before the
+ * composer existed, or a malformed entry — falls through every lookup exactly
+ * as an unlisted role always has: free-text box, zero player slots, official
+ * reminder line. The fallback is the compatibility story.
+ */
+
+/** The forge's shape palette — id, face label, and the composed row's hint. */
+export const NIGHT_SHAPES = [
+  {
+    id: "players",
+    label: "Chooses players",
+    hint: "One seat picker per player",
+  },
+  { id: "yesno", label: "Learns yes / no", hint: "The told yes-or-no answer" },
+  {
+    id: "number",
+    label: "Learns a number",
+    hint: "A number the storyteller sets",
+  },
+  {
+    id: "character",
+    label: "Is shown a character",
+    hint: "A character off the script",
+  },
+  {
+    id: "grimoire",
+    label: "Sees the grimoire",
+    hint: "The whole town, shown to that seat",
+  },
+  { id: "note", label: "Free note", hint: "The storyteller's own words" },
+];
+
+/** Ceiling on the players shape's count — nightLog's own MAX_TARGETS. */
+export const AUTHORED_MAX_PLAYERS = 3;
+
+/**
+ * Compose a full schema entry from the forge's four dials. Returns the entry
+ * (the exact shape NIGHT_INFO rows carry) or null when `shape` names nothing
+ * — the caller stores null as "no composed action".
+ */
+export function composeAuthoredNight({ shape, count, by, prompt, wakes }) {
+  const st = FIELD_OWNERS.STORYTELLER;
+  const filler = by === FIELD_OWNERS.PLAYER ? FIELD_OWNERS.PLAYER : st;
+  let fields = null;
+  let label = "";
+  let mayBeFalse = true;
+  switch (shape) {
+    case "players": {
+      const n = Math.min(
+        Math.max(parseInt(count, 10) || 1, 1),
+        AUTHORED_MAX_PLAYERS,
+      );
+      fields = Array.from({ length: n }, () => ({
+        type: FIELD_TYPES.PLAYER,
+        by: filler,
+      }));
+      label = filler === FIELD_OWNERS.PLAYER ? "Chooses:" : "Learns:";
+      // their own pick with nothing told back cannot be lied about
+      mayBeFalse = filler !== FIELD_OWNERS.PLAYER;
+      break;
+    }
+    case "yesno":
+      fields = [{ type: FIELD_TYPES.BOOLEAN, by: st }];
+      label = "Learns:";
+      break;
+    case "number":
+      fields = [{ type: FIELD_TYPES.NUMBER, by: st, min: 0, max: 20 }];
+      label = "Learns:";
+      break;
+    case "character":
+      fields = [{ type: FIELD_TYPES.CHARACTER, by: st }];
+      label = "Learns:";
+      break;
+    case "grimoire":
+      fields = [{ type: FIELD_TYPES.GRIMOIRE, by: st }];
+      label = "Sees:";
+      // a view opened on their client, not information to have corrupted
+      mayBeFalse = false;
+      break;
+    case "note":
+      fields = [{ type: FIELD_TYPES.TEXT, by: st }];
+      break;
+    default:
+      return null;
+  }
+  return {
+    wakes: Array.isArray(wakes)
+      ? wakes.filter((w) => w === "first" || w === "other")
+      : [],
+    fields,
+    label,
+    line: String(prompt || "")
+      .trim()
+      .slice(0, 200),
+    mayBeFalse,
+  };
+}
+
+/**
+ * The reverse map — a stored entry back to the forge's dials, so re-editing a
+ * forged role reopens the composer where it was left. Null for anything that
+ * doesn't read as one of the six shapes (the forge then starts blank, and a
+ * save without a shape simply stores no composed action).
+ */
+export function decomposeAuthoredNight(entry) {
+  if (!entry || !Array.isArray(entry.fields) || !entry.fields.length)
+    return null;
+  const dials = {
+    shape: "",
+    count: 1,
+    by: FIELD_OWNERS.STORYTELLER,
+    prompt: typeof entry.line === "string" ? entry.line : "",
+  };
+  const types = entry.fields.map((f) => f && f.type);
+  if (types.every((t) => t === FIELD_TYPES.PLAYER)) {
+    dials.shape = "players";
+    dials.count = Math.min(entry.fields.length, AUTHORED_MAX_PLAYERS);
+    dials.by =
+      entry.fields[0].by === FIELD_OWNERS.PLAYER
+        ? FIELD_OWNERS.PLAYER
+        : FIELD_OWNERS.STORYTELLER;
+    return dials;
+  }
+  if (types.length !== 1) return null;
+  const shapeByType = {
+    [FIELD_TYPES.BOOLEAN]: "yesno",
+    [FIELD_TYPES.NUMBER]: "number",
+    [FIELD_TYPES.CHARACTER]: "character",
+    [FIELD_TYPES.GRIMOIRE]: "grimoire",
+    [FIELD_TYPES.TEXT]: "note",
+  };
+  dials.shape = shapeByType[types[0]] || "";
+  return dials.shape ? dials : null;
+}
+
+/**
+ * Validate a stored `golemNight` into a clean schema entry, or null. Strict
+ * on purpose: this is the one door through which PERSISTED data (a script
+ * vault row, a wire frame from another client) reaches the schema, so an
+ * unknown field type, a missing list, or an empty list all answer null and
+ * the role stays an ordinary unlisted one. Numbers are clamped, strings
+ * trimmed and capped, and the result is a fresh object — never a reference
+ * into the stored role.
+ */
+export function sanitizeAuthoredNight(raw) {
+  if (!raw || !Array.isArray(raw.fields) || !raw.fields.length) return null;
+  const validTypes = Object.values(FIELD_TYPES);
+  const fields = [];
+  for (const f of raw.fields.slice(0, 8)) {
+    if (!f || !validTypes.includes(f.type)) return null;
+    const clean = {
+      type: f.type,
+      by:
+        f.by === FIELD_OWNERS.PLAYER
+          ? FIELD_OWNERS.PLAYER
+          : FIELD_OWNERS.STORYTELLER,
+    };
+    if (f.type === FIELD_TYPES.NUMBER) {
+      clean.min = Number.isInteger(f.min) ? f.min : 0;
+      clean.max = Number.isInteger(f.max) ? f.max : 20;
+      if (clean.max < clean.min) clean.max = clean.min;
+    }
+    fields.push(clean);
+  }
+  return {
+    wakes: Array.isArray(raw.wakes)
+      ? raw.wakes.filter((w) => w === "first" || w === "other")
+      : [],
+    fields,
+    label: typeof raw.label === "string" ? raw.label.trim().slice(0, 40) : "",
+    line: typeof raw.line === "string" ? raw.line.trim().slice(0, 200) : "",
+    mayBeFalse: !!raw.mayBeFalse,
+  };
+}
+
+/** roleId → sanitized authored entry. Runtime-only; rebuilt on script load. */
+const AUTHORED_NIGHT = Object.create(null);
+
+/** Register one forged role's composed action. False when the raw entry
+ *  doesn't sanitize — the role then falls through as unlisted, by design. */
+export function registerAuthoredNight(roleId, raw) {
+  const entry = sanitizeAuthoredNight(raw);
+  if (!roleId || !entry) return false;
+  AUTHORED_NIGHT[roleId] = entry;
+  return true;
+}
+
+/** Drop every authored registration — the start of each script load. */
+export function resetAuthoredNight() {
+  Object.keys(AUTHORED_NIGHT).forEach((id) => delete AUTHORED_NIGHT[id]);
+}
+
+/** The registered authored entry for a role id, or null. Exposed for the
+ *  forge (re-edit seeding) and for nightLog's targetCount. */
+export function authoredNightFor(roleId) {
+  return (roleId && AUTHORED_NIGHT[roleId]) || null;
+}
+
+/** ONE lookup for both tables — the shipped table wins a collision (forged
+ *  ids are golem-prefixed, so in practice there is none). Every per-role
+ *  function below reads through this, which is the whole registration story:
+ *  a forged character is native everywhere because no consumer ever asks a
+ *  second question. */
+function entryOf(roleId) {
+  return NIGHT_INFO[roleId] || AUTHORED_NIGHT[roleId];
 }
 
 /**
@@ -874,7 +1176,7 @@ export function wakesOn(role) {
  * that can never be wrong: free text.
  */
 export function fieldsFor(roleId) {
-  const entry = NIGHT_INFO[roleId];
+  const entry = entryOf(roleId);
   // FT-886: no entry, or a LINE-ONLY entry (one that carries prose but has no
   // `fields` KEY at all) — both mean "nobody has designed this row's controls",
   // and both must render identically. Note this is `!entry.fields`, not a
@@ -884,7 +1186,7 @@ export function fieldsFor(roleId) {
     return {
       fields: [{ type: FIELD_TYPES.TEXT, by: FIELD_OWNERS.STORYTELLER }],
       mayBeFalse: true,
-      known: false
+      known: false,
     };
   }
   return { fields: entry.fields, mayBeFalse: !!entry.mayBeFalse, known: true };
@@ -898,7 +1200,7 @@ export function fieldsFor(roleId) {
  * can `v-if` on the return value directly.
  */
 export function labelFor(roleId) {
-  const entry = NIGHT_INFO[roleId];
+  const entry = entryOf(roleId);
   return (entry && entry.label) || "";
 }
 
@@ -918,7 +1220,7 @@ export function labelFor(roleId) {
  * to the official text rather than showing a sentence about a different night.
  */
 export function lineFor(roleId, isFirstNight) {
-  const entry = NIGHT_INFO[roleId];
+  const entry = entryOf(roleId);
   const line = entry && entry.line;
   if (!line) return "";
   if (typeof line === "string") return line;
@@ -935,8 +1237,8 @@ export function lineFor(roleId, isFirstNight) {
  */
 export function deadWakeTeams(roleIds) {
   const teams = new Set();
-  (roleIds || []).forEach(id => {
-    (DEAD_WAKE_ENABLERS[id] || []).forEach(team => teams.add(team));
+  (roleIds || []).forEach((id) => {
+    (DEAD_WAKE_ENABLERS[id] || []).forEach((team) => teams.add(team));
   });
   return teams;
 }
@@ -979,10 +1281,10 @@ export function deadStillWakes(role, enabledTeams) {
  * is the free-text "in your own words" box, gated on `known` by the caller.
  */
 export function playerSlots(roleId) {
-  const entry = NIGHT_INFO[roleId];
+  const entry = entryOf(roleId);
   if (!entry || !entry.fields) return 0;
   return entry.fields.filter(
-    f => f.type === FIELD_TYPES.PLAYER && f.by === FIELD_OWNERS.PLAYER
+    (f) => f.type === FIELD_TYPES.PLAYER && f.by === FIELD_OWNERS.PLAYER,
   ).length;
 }
 
@@ -997,5 +1299,9 @@ export function playerSlots(roleId) {
  */
 export function extraFields(roleId) {
   const { fields, mayBeFalse, known } = fieldsFor(roleId);
-  return { fields: fields.filter(f => f.type !== FIELD_TYPES.PLAYER), mayBeFalse, known };
+  return {
+    fields: fields.filter((f) => f.type !== FIELD_TYPES.PLAYER),
+    mayBeFalse,
+    known,
+  };
 }

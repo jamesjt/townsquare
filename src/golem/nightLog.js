@@ -26,6 +26,11 @@
  *      a different town never sees it.
  */
 
+// FT-1040: a FORGED role's composed action names its player slots outright —
+// its count comes from the registered schema entry, never from reminder prose
+// (a forged role has none to parse).
+import { authoredNightFor, FIELD_TYPES } from "./nightInfo";
+
 const LOG_KEY = "golem.nightLog";
 const MODE_KEY = "golem.nightMode";
 // FT-874: "how hard the checklist is enforced when the night ends" — a
@@ -93,7 +98,7 @@ export const DEFAULT_MODE = "everyone";
 export const MODE_LABELS = {
   off: "Off",
   storyteller: "Storyteller",
-  everyone: "Everyone"
+  everyone: "Everyone",
 };
 
 /**
@@ -106,16 +111,15 @@ export const MODE_LABELS = {
 export const MODE_HINTS = {
   off: "No sheet, no log.",
   storyteller: "Only you see it.",
-  everyone: "Players read their own notes."
+  everyone: "Players read their own notes.",
 };
 
 /** The full explanation, on each option's tooltip. */
 export const MODE_TITLES = {
   off: "No night sheet and no log.",
-  storyteller:
-    "You get the checklist. Players see nothing of it at all.",
+  storyteller: "You get the checklist. Players see nothing of it at all.",
   everyone:
-    "You still own the checklist — a player can read their OWN night notes, and nothing of any other seat."
+    "You still own the checklist — a player can read their OWN night notes, and nothing of any other seat.",
 };
 
 /** Words a night reminder uses to count players. */
@@ -127,7 +131,7 @@ const COUNT_WORDS = {
   one: 1,
   two: 2,
   three: 3,
-  four: 4
+  four: 4,
 };
 
 /**
@@ -160,7 +164,7 @@ export const HARD_TARGETS = {
   ojo: 0,
   courtier: 0,
   philosopher: 0,
-  engineer: 0
+  engineer: 0,
 };
 
 /** Ceiling on derived targets — no night row needs more slots than this. */
@@ -174,16 +178,15 @@ const MAX_TARGETS = 3;
  */
 export function countFromReminder(text) {
   if (!text) return 0;
-  const s = String(text)
-    .toLowerCase()
-    .replace(/[‘’]/g, "'");
-  const re = /(?:points?\s+(?:to|at)|pointing\s+(?:to|at)|chooses?|choose)\s+((?:[a-z0-9']+\s+){0,4}?)players?\b/g;
+  const s = String(text).toLowerCase().replace(/[‘’]/g, "'");
+  const re =
+    /(?:points?\s+(?:to|at)|pointing\s+(?:to|at)|chooses?|choose)\s+((?:[a-z0-9']+\s+){0,4}?)players?\b/g;
   let best = 0;
   let m;
   while ((m = re.exec(s)) !== null) {
     const words = m[1].trim().split(/\s+/).filter(Boolean);
     let n = 1;
-    words.forEach(w => {
+    words.forEach((w) => {
       const known =
         COUNT_WORDS[w] !== undefined
           ? COUNT_WORDS[w]
@@ -205,6 +208,15 @@ export function countFromReminder(text) {
 export function targetCount(role, isFirstNight) {
   if (!role || !role.id) return 0;
   if (HARD_TARGETS[role.id] !== undefined) return HARD_TARGETS[role.id];
+  // FT-1040: a forged character's composed action states its count — one
+  // SeatPicker per PLAYER field, whoever fills it (the checklist rule).
+  const authored = authoredNightFor(role.id);
+  if (authored) {
+    return Math.min(
+      authored.fields.filter((f) => f.type === FIELD_TYPES.PLAYER).length,
+      MAX_TARGETS,
+    );
+  }
   const text = isFirstNight ? role.firstNightReminder : role.otherNightReminder;
   return countFromReminder(text);
 }
@@ -245,7 +257,7 @@ export function makeEntry({
   shownRoleName,
   isPerformance,
   order,
-  slots
+  slots,
 }) {
   return {
     id: entryId(day, seat, roleId),
@@ -305,14 +317,20 @@ export function makeEntry({
     //                  later renamed or leaves the script)
     //   text           free-form — the universal fallback, and also "the
     //                  exact words" a supplementary note captures elsewhere
-    told: { ping: null, number: null, characterId: "", characterName: "", text: "" },
+    told: {
+      ping: null,
+      number: null,
+      characterId: "",
+      characterName: "",
+      text: "",
+    },
     // the storyteller's mark that the delivered information was FALSE
     // (drunk, poisoned, a Recluse read). With `told` this recovers the truth.
     isFalseInfo: false,
     // the storyteller's walk-the-list checkmark
     done: false,
     // last write, so a replay can order rows inside one night
-    at: new Date().toISOString()
+    at: new Date().toISOString(),
   };
 }
 
@@ -349,14 +367,14 @@ export function projectPlayerRow(e) {
     roleName: e.roleName || "",
     targets: Array.isArray(e.targets) ? e.targets.slice() : [],
     targetNames: (Array.isArray(e.targetNames) ? e.targetNames : []).filter(
-      Boolean
+      Boolean,
     ),
     ping: told.ping === true || told.ping === false ? told.ping : null,
     number:
       told.number === null || told.number === undefined ? null : told.number,
     characterName: told.characterName || "",
     text: told.text || "",
-    playerText: e.playerText || ""
+    playerText: e.playerText || "",
   };
 }
 
@@ -369,11 +387,11 @@ export function projectPlayerRow(e) {
  */
 export function projectEntriesFor(entries, playerId, seat) {
   return (entries || [])
-    .filter(e => {
+    .filter((e) => {
       if (e.playerId && playerId) return e.playerId === playerId;
       return seat >= 0 && e.seat === seat;
     })
-    .filter(e => !e.shownRoleId || e.shownRoleId === e.roleId)
+    .filter((e) => !e.shownRoleId || e.shownRoleId === e.roleId)
     .map(projectPlayerRow);
 }
 

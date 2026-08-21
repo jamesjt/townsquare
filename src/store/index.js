@@ -13,6 +13,11 @@ import { canSee, catchUp, mergeLog, SCOPES, viewerOf } from "../golem/chat";
 // FT-1019: the chronicles stream's filter vocabulary — the store holds which
 // one is showing so the V hotkey can arm "gallows" before the drawer opens.
 import { FILTERS } from "../golem/chronicles";
+// FT-1040: a FORGED role's composed night action (role.golemNight) registers
+// into the night schema as the script loads, so the checklist, the player
+// prompt and the chronicle all answer for it natively — see nightInfo's
+// AUTHORED NIGHT ACTIONS section.
+import { registerAuthoredNight, resetAuthoredNight } from "../golem/nightInfo";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
 import fabledJSON from "../fabled.json";
@@ -107,6 +112,11 @@ const customRole = {
   // role reuses; golemRoleId = the role-library id (lineage/edit handle).
   golemIcon: "",
   golemRoleId: "",
+  // FT-1040: the composed night action the forge authored — a full schema
+  // entry ({wakes, fields, label, line, mayBeFalse}), null when none was
+  // composed. In this template so it survives customRolesStripped's wire
+  // form (only template keys ride the numeric mapping to other clients).
+  golemNight: null,
 };
 
 export default new Vuex.Store({
@@ -625,6 +635,15 @@ export default new Vuex.Store({
         .filter((role) => role.name && role.ability && role.team)
         // sort by team
         .sort((a, b) => b.team.localeCompare(a.team));
+      // FT-1040: register every forged role's composed night action — the
+      // whole registry rebuilds with the script, on every client this
+      // mutation runs on (local load, vault load, the socket's edition
+      // frame). A role without one, or with one that doesn't sanitize,
+      // simply stays unlisted — the free-text fallback, as before.
+      resetAuthoredNight();
+      processedRoles.forEach((role) => {
+        if (role.golemNight) registerAuthoredNight(role.id, role.golemNight);
+      });
       // convert to Map without Fabled
       state.roles = new Map(
         processedRoles
