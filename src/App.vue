@@ -495,7 +495,10 @@
         :class="{ reconnecting: session.isReconnecting }"
         :title="session.ping ? session.ping + 'ms latency' : ''"
       >
-        {{ session.isSpectator ? "Playing in" : "Hosting" }}
+        <!-- FT-1034 (user call): the host's word wears the storyteller's
+             purple. -->
+        <template v-if="session.isSpectator">Playing in</template>
+        <em v-else class="hosting-word">Hosting</em>
         <b>{{ session.sessionId }}</b>
         · {{ session.playerCount }}
         {{ session.playerCount === 1 ? "player" : "players" }}
@@ -1942,6 +1945,12 @@ ul {
     transition: none !important;
     animation: none !important;
   }
+}
+
+// FT-1034: purple is the storyteller's color app-wide (the checklist accent).
+#session-pill .hosting-word {
+  font-style: normal;
+  color: rgb(167, 143, 205);
 }
 
 #session-pill {

@@ -143,10 +143,21 @@
             <span class="ns-ord" :title="'Night order ' + row.night">{{ row.order }}</span>
             <span
               class="ns-icon"
-              :style="{ backgroundImage: `url(${roleIconUrl(row.role)})` }"
+              :style="{ backgroundImage: `url(${roleIconUrl(row.isPerformance ? row.trueRole : row.role)})` }"
             ></span>
             <span class="ns-who">
-              <span class="ns-name-line">
+              <!-- FT-1034 (user call): a performance row leads with the TRUTH
+                   — the Drunk's own icon and name, then who they believe
+                   they are, then the seat. The masks line below folds away
+                   for these rows (its fact lives in the name now). -->
+              <span class="ns-name-line" v-if="row.isPerformance">
+                <b>{{ row.trueRole.name }}</b>
+                <span class="ns-sep">·</span>
+                <small>{{ row.role.name }}</small>
+                <span class="ns-sep">·</span>
+                <small>{{ row.player.name || "Open seat" }}</small>
+              </span>
+              <span class="ns-name-line" v-else>
                 <b>{{ row.role.name }}</b>
                 <span class="ns-sep">·</span>
                 <small>{{ row.player.name || "Open seat" }}</small>
@@ -155,10 +166,7 @@
                    ACTS in full, and the one the storyteller must not forget
                    — because which of the two it is decides whether anything
                    actually happens. -->
-              <small class="ns-truth" v-if="row.isPerformance">
-                <font-awesome-icon icon="theater-masks" />
-                a performance — really the {{ row.trueRole.name }}
-              </small>
+              <!-- FT-1034: the performance masks line folded into the name above -->
               <small class="ns-truth" v-else-if="row.isBelieving">
                 <font-awesome-icon icon="theater-masks" />
                 believes they are the {{ row.shownRole.name }}
@@ -645,7 +653,9 @@ export default {
         targetsBy: new Array(row.slots).fill(""),
         playerText: "",
         told: { ping: null, number: null, characterId: "", characterName: "", text: "" },
-        isFalseInfo: false,
+        // FT-1034 (user call): the Drunk's information is a lie by default —
+        // a performance row starts with the marker lit.
+        isFalseInfo: !!row.isPerformance,
         done: false
       };
     },
