@@ -77,7 +77,18 @@ class LiveSession {
       this._socket = null;
       clearInterval(this._pingTimer);
       this._pingTimer = null;
-      if (err.code !== 1000) {
+      // FT-1011: a maintenance shutdown (the relay restarting for a deploy)
+      // closes every socket with code 1000 and NO reason — the server never
+      // calls ws.close() at all, the process just drops out from under the
+      // connection. That is indistinguishable from a deliberate eviction by
+      // code alone, and treating it as one exiled every connected town the
+      // moment a routine deploy restarted the relay. The two deliberate
+      // eviction paths (refuseDuplicateHost's duplicate-host refusal, and the
+      // spam-disconnect in server/index.js) both ALWAYS pass a reason string
+      // — that is the one signal that actually distinguishes "the relay put
+      // you out" from "the relay went away". So: reasonless 1000 now reads as
+      // an interruption, same as any non-1000 close.
+      if (err.code !== 1000 || !err.reason) {
         // connection interrupted, reconnect after 3 seconds
         this._store.commit("session/setReconnecting", true);
         this._reconnectTimer = setTimeout(
@@ -97,7 +108,7 @@ class LiveSession {
         // trap Menu.leaveSession and the script editor's save path each hit
         // before this), and it blocks the page at the exact moment the app is
         // trying to put itself back together.
-        if (err.reason) flashHint(err.reason);
+        flashHint(err.reason);
       }
     };
   }
