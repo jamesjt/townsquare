@@ -248,19 +248,22 @@
             /></span>
             <p class="hint">Enter a Town</p>
           </div>
-          <div class="panel-body">
-          <ul class="towns" v-if="joinTowns.length">
+          <div class="panel-body join-body">
+          <!-- FT-1038 (user call): "shouldn't this have a place for recent
+               towns? list the 3 most recent the user has been in" — any
+               role, since a town hosted last week is as worth a one-click
+               return to as one joined. A row here COMMITS (enterRecent goes
+               straight to confirmJoin when a name is already on file)
+               rather than just filling the field the way the Host panel's
+               `ul.towns` picker does, so it stays its own list. -->
+          <ul class="recent-shelf" v-if="recentEnterTowns.length">
             <li
-              v-for="t in joinTowns"
+              v-for="t in recentEnterTowns"
               :key="t.id"
-              :class="{ picked: joinId === t.id }"
-              @click="joinId = t.id"
+              @click="enterRecent(t)"
             >
               <span class="dot" :class="dotClass(t.id)"></span>
-              <span class="name" :title="t.id">
-                {{ townLabel(t) }}
-                <small class="tid" v-if="townLabel(t) !== t.id">{{ t.id }}</small>
-              </span>
+              <span class="name" :title="t.id">{{ townLabel(t) }}</span>
               <small>{{ statusLabel(t.id) }}</small>
             </li>
           </ul>
@@ -269,23 +272,28 @@
             <input
               v-model="joinId"
               spellcheck="false"
-              placeholder="paste a link or a town name"
+              placeholder="town name or link"
               @keyup.enter="confirmJoin"
             />
           </div>
           <div class="field">
             <label title="Your name"><font-awesome-icon icon="user" /></label>
             <input
+              ref="joinNameInput"
               v-model="joinName"
               spellcheck="false"
               placeholder="what the town calls you"
               @keyup.enter="confirmJoin"
             />
           </div>
-          </div>
-          <div class="acts">
+          <!-- FT-1038: the door leaves the foot cap (it used to ride `.acts`
+               down at the rim, small — see the CSS note where that lived)
+               and stands instead at the band's own centre, which is also
+               the disc's (see .join-body's style comment). `.enter-dock`
+               just claims whatever room the shelf and fields above leave. -->
+          <div class="enter-dock">
             <button
-              class="confirm"
+              class="confirm enter-door"
               :class="{ disabled: !canJoin }"
               title="Enter the town"
               @click="confirmJoin"
@@ -298,6 +306,7 @@
                    the mask rather than anything the pixels' darkness says. -->
               <img class="enter-mark" :src="uiEnter" alt="" />
             </button>
+          </div>
           </div>
         </div>
       </template>
@@ -612,7 +621,10 @@ export default {
       joinId: "",
       joinName: "",
       hostTowns: [],
-      joinTowns: [],
+      // FT-1038: the join panel's one-click shelf — top 3, any role. Same
+      // idiom as hostTowns/joinTowns above it: a plain data array, refreshed
+      // on panel open (not a computed — nothing here reads a reactive dep).
+      recentEnterTowns: [],
       statuses: {},
       copied: false,
       statusTimer: null,
@@ -732,7 +744,7 @@ export default {
       this.forgetConfirm = null;
       removeTown(t.id);
       this.hostTowns = this.sortOwnedFirst(listTowns("host"));
-      this.joinTowns = listTowns("player");
+      this.recentEnterTowns = listTowns().slice(0, 3);
       this.shelfVersion++;
     },
     openHost() {
@@ -749,7 +761,7 @@ export default {
     },
     openJoin() {
       this.mode = "join";
-      this.joinTowns = listTowns("player");
+      this.recentEnterTowns = listTowns().slice(0, 3);
       this.joinName = localStorage.getItem("golem.playerName") || "";
       this.watchTowns();
       this.refreshMeta();
@@ -770,7 +782,8 @@ export default {
         // re-list: townMeta cached fresh display names onto the shelf
         if (this.mode === "host")
           this.hostTowns = this.sortOwnedFirst(listTowns("host"));
-        if (this.mode === "join") this.joinTowns = listTowns("player");
+        if (this.mode === "join")
+          this.recentEnterTowns = listTowns().slice(0, 3);
         this.syncAttached();
       });
     },
@@ -837,7 +850,9 @@ export default {
       const refresh = () => {
         if (!this.mode) return clearInterval(this.statusTimer);
         const ids = [
-          ...new Set([...this.hostTowns, ...this.joinTowns].map(t => t.id))
+          ...new Set(
+            [...this.hostTowns, ...this.recentEnterTowns].map(t => t.id)
+          )
         ];
         townStatuses(ids).then(statuses => {
           this.statuses = statuses;
@@ -954,6 +969,19 @@ export default {
       localStorage.setItem("golem.playerName", name);
       if (resolveTownRole(id) === "host") return this.enterAsPlayer(id);
       enterWhenOpen(id, this.enterAsPlayer);
+    },
+    /** FT-1038: the recent-shelf's one-click row. A name is usually already
+     *  on file (openJoin seeds joinName from localStorage), so most clicks
+     *  go straight through confirmJoin; the rare bare-browser case just
+     *  fills the town field and hands focus to the name field rather than
+     *  submitting a join nobody's named for. */
+    enterRecent(t) {
+      this.joinId = t.id;
+      if (this.joinName.trim()) {
+        this.confirmJoin();
+      } else if (this.$refs.joinNameInput) {
+        this.$refs.joinNameInput.focus();
+      }
     },
     /** Take a seat in `id` as a player — now, or when the wait ends. */
     enterAsPlayer(id) {
@@ -1561,6 +1589,144 @@ export default {
       }
     }
 
+    // ── FT-1038 (user call, 2026-08-21): "move the join town button to the
+    //    middle of the disc and much bigger" ────────────────────────────
+    // The band sits centred between two EQUAL caps (faceDisc.scss:
+    // face-disc-head and face-disc-foot both claim `var(--fd-caph)`), so the
+    // band's own vertical middle already IS the disc's. This panel stops
+    // giving the bottom cap to a button: the shelf and the two fields stack
+    // at their natural height, `.enter-dock` claims whatever the band has
+    // left below them, and the door centres inside THAT box.
+    //
+    // MEASURED, not assumed: that lands the door's own centre a little
+    // below the band's true middle — 83px at 1920x1080, less at smaller
+    // discs where the (fixed-px) fields are a bigger share of a smaller
+    // band. Pulling it to the exact midpoint would mean shrinking the shelf
+    // or the fields until they clear less than half the band, which reads
+    // worse than a few tens of pixels of vertical offset does: the door is
+    // still the plate's dominant object, no longer riding outside the rim
+    // the way it did at the foot cap, and "the middle of the disc" is a
+    // composition call, not a coordinate.
+    .panel-body.join-body {
+      display: flex;
+      flex-direction: column;
+
+      // A touch tighter than the Host panel's own `.field` rows (unscoped,
+      // so Host is untouched) — every px here is a px the door gets back.
+      .field {
+        margin-bottom: 5px;
+      }
+    }
+
+    // The recent-shelf rows: same dot + status idiom `ul.towns` above
+    // already carries, but a click here COMMITS (enterRecent) instead of
+    // filling the field for review, so it stays its own list rather than a
+    // reuse of `ul.towns`.
+    ul.recent-shelf {
+      list-style: none;
+      margin: 0 0 6px;
+      padding: 0;
+      flex: 0 0 auto;
+
+      li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid transparent;
+
+        &:hover {
+          border-color: #a01414;
+          background: rgba(160, 20, 20, 0.15);
+        }
+        .name {
+          flex-grow: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          &:hover {
+            color: red;
+          }
+        }
+        small {
+          opacity: 0.7;
+          white-space: nowrap;
+        }
+        .dot {
+          flex-shrink: 0;
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: #333;
+          box-shadow: 0 0 3px black;
+
+          &.awake {
+            background: #c00;
+            box-shadow: 0 0 6px #c00;
+          }
+          &.stirring {
+            background: #a60;
+            box-shadow: 0 0 5px #a60;
+          }
+        }
+      }
+    }
+
+    // THE ENTER DOOR'S DOCK. Centres the button in whatever room the shelf
+    // and the fields above leave (see the offset note above .join-body).
+    // NOT `flex: 1` here — this box is auto-height on the phone rectangle
+    // (no `.panel-body` here carries a fixed size the way the disc's band
+    // does), and a flex-grow child of an auto-height column has nowhere to
+    // grow into. The disc gate further down this file is where it grows —
+    // see the note there for what measuring the alternative found.
+    .enter-dock {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button.enter-door {
+      flex: 0 0 auto;
+      // WIDTH DRIVES IT here: the rectangle's own width is always definite,
+      // its height never is, so `aspect-ratio` derives the height from a
+      // WIDTH percentage rather than the reverse. (The disc gate further
+      // down flips this — there the band's HEIGHT is the tight, definite
+      // dimension instead, and sizing off width there is what produced an
+      // oval on the smaller discs: measured, not guessed.)
+      width: min(60%, 150px);
+      aspect-ratio: 1;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      border: 3px solid #400;
+      border-radius: 50%;
+      box-shadow: 0 0 14px black;
+      cursor: pointer;
+
+      &:hover {
+        border-color: #a01414;
+        box-shadow: 0 0 20px rgba(210, 40, 40, 0.6);
+      }
+      &.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        border-color: black;
+      }
+
+      // ui-enter.png is 128x128 natively (checked — no larger source lives
+      // in assets/ or design/); a door capped at 150px keeps the mark at or
+      // under its own resolution rather than upscaling it.
+      img.enter-mark {
+        width: 56%;
+        height: 56%;
+        object-fit: contain;
+      }
+    }
+
     // FT-1012: the owned-note rule left with its element (FT-847 note retired).
 
     // ── 2026-08-19: NOT OPEN YET ────────────────────────────────────────
@@ -1682,25 +1848,11 @@ export default {
         }
       }
 
-      // FT-901: THE ENTER MARK HAD NO CSS AT ALL, so it painted at the file's
-      // natural size and dragged the whole button down with it — measured at
-      // ~98px outside the disc's rim, which is why the join panel's primary
-      // action sat below the circle it belongs in.
-      //
-      // A LENGTH, and it has to be: the mark is the button's only child, so a
-      // percentage would resolve against a box the image is itself sizing.
-      // 1.15em ties it to the button's own type instead, which is the same
-      // thing the drop-cap doors already do — the mark grows and shrinks with
-      // the label rather than against it.
-      img.enter-mark {
-        width: 1.15em;
-        height: 1.15em;
-        object-fit: contain;
-        flex: 0 0 auto;
-        // the air the flex gap used to give every child, now given only to
-        // the one child that wants it
-        margin-right: 8px;
-      }
+      // FT-901 used to live here (the enter mark had no CSS at all and
+      // dragged the button ~98px below the disc's rim). FT-1038 (2026-08-21,
+      // user call) moves that whole door off this foot cap and into the
+      // band's centre — `.enter-door` / `img.enter-mark`, under
+      // `.join-body`, further down this file.
 
       // …and the button itself still crossed the rim at the tightest size once
       // the mark stopped dragging it: measured 1.028 of the plate's ellipse at
@@ -1833,6 +1985,27 @@ export default {
         // claiming most of the band the way 30vh did on a ~245px band.
         ul.towns {
           max-height: 96px;
+        }
+
+        // FT-1038: ONLY HERE does the door's dock get to fill the band's
+        // leftover height — `@include face-disc-band` is what makes this
+        // `.panel-body` a DEFINITE height in the first place. Outside the
+        // gate (the phone rectangle) the body is auto-height, and a
+        // `flex: 1 1 0` child of an auto-height column has nothing to grow
+        // into: measured, not guessed — it collapsed the dock to 0 and the
+        // door to 6px square. So the base rules below size the door off its
+        // WIDTH (always definite — the rectangle's own width is), and this
+        // gated override is what switches the door to sizing off its
+        // HEIGHT instead, because inside the disc that's the dimension
+        // actually under pressure.
+        .enter-dock {
+          flex: 1 1 0;
+          min-height: 0;
+        }
+        button.enter-door {
+          width: auto;
+          height: 100%;
+          max-width: min(calc(0.55 * var(--fd-rx, 220px)), 150px);
         }
       }
 
