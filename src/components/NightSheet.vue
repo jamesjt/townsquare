@@ -167,7 +167,7 @@
                    — because which of the two it is decides whether anything
                    actually happens. -->
               <!-- FT-1034: the performance masks line folded into the name above -->
-              <small class="ns-truth" v-else-if="row.isBelieving">
+              <small class="ns-truth" v-if="row.isBelieving">
                 <font-awesome-icon icon="theater-masks" />
                 believes they are the {{ row.shownRole.name }}
               </small>
