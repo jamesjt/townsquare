@@ -46,11 +46,25 @@
         <span
           v-for="spot in numeralSpots"
           :key="'num-' + spot.n"
-          class="tw-numeral tw-numeral-ink"
+          class="tw-numeral"
           aria-hidden="true"
           :style="spot.style"
-          >{{ spot.label }}</span
         >
+          <!-- FT-1031 (user: "the clock tower text is working fine, make the
+               numerals look like that"): the CARVED glyphs return, with more
+               glow and a wider ring. Text stays the fallback. -->
+          <template v-if="spot.glyphs">
+            <img
+              v-for="(g, i) in spot.glyphs"
+              :key="spot.n + '-' + i"
+              class="tw-numeral-glyph"
+              :src="g.src"
+              :style="g.style"
+              alt=""
+            />
+          </template>
+          <template v-else>{{ spot.label }}</template>
+        </span>
       </template>
       <div
         class="fh-part fh-hour"
@@ -141,7 +155,8 @@ import { glyphFrom } from "../golem/titleFonts";
  * by ray) — so one constant radius keeps the ring true to that band without
  * inheriting its hand-placed wobble.
  */
-const NUMERAL_RADIUS_FACE = 168;
+// FT-1031 (user): further out — from the lettering band toward the rim.
+const NUMERAL_RADIUS_FACE = 196;
 
 /** FT-1020c: the ring numerals' cap height, in face-pixels — the carved
  *  glyphs render with this much letter above the baseline. 28: a step up
@@ -825,7 +840,8 @@ $digital-y-face: -122;
    tried first and sank there, black-on-black. The font/text-shadow rules
    below dress the LIVE-TEXT FALLBACK only (a numeral whose glyph fails to
    resolve): the seat numerals' PiratesBay + pale-halo idiom. */
-// FT-1029: the ink variant — the seat coins' own engraved treatment
+// FT-1029: the ink variant — RETIRED BY FT-1031 (the carved look returned);
+// kept unused for the next taste swing. Was: the seat coins engraved treatment
 // (Player.vue .seat-numeral: near-black, one pale under-light), replacing
 // the FT-1020c four-way halo for the ring in the paint layer.
 .tw-numeral-ink {
@@ -852,8 +868,11 @@ $digital-y-face: -122;
   /* GOLD LETTERS SEPARATE WITH DARK, not with light: a pale glow was tried
      and hazed them into the lit face. Intro.vue's `.hint` black-halo pair,
      spoken as drop-shadow so it follows the carved alpha. */
-  filter: drop-shadow(0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) rgba(0, 0, 0, 0.95))
-    drop-shadow(0 0 calc(5 * var(--fpx)) rgba(0, 0, 0, 0.85));
+  /* FT-1031 (user: "more glow"): the dark pair grows and a warm outer breath
+     joins it — wide and faint enough not to haze gold-into-gold. */
+  filter: drop-shadow(0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) rgba(0, 0, 0, 1))
+    drop-shadow(0 0 calc(8 * var(--fpx)) rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 calc(14 * var(--fpx)) rgba(255, 214, 150, 0.5));
 }
 .tw-numeral-glyph {
   display: block;
