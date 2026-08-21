@@ -56,6 +56,17 @@ export async function townGames(id, limit = 50) {
   return Array.isArray(body.games) ? body.games : [];
 }
 
+/**
+ * FT-1037: ONE recorded game, seats included — the roster behind the
+ * chronicles' per-game stats tab (seatNo, playerName, roleIdFinal,
+ * teamAtEnd, survived). Same best-effort contract as the rest.
+ */
+export async function gameRecord(id) {
+  const res = await fetch(`${API}/games/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`game failed (${res.status})`);
+  return res.json();
+}
+
 /** Every town together — same shape as townStats. */
 export async function platformStats() {
   const res = await fetch(`${API}/stats/platform`);

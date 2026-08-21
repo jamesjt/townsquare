@@ -34,14 +34,19 @@
                which is death's mark and must not promise one. -->
           <!-- FT-1032 (user call): night falls under the full moon, day
                breaks under the sun. -->
-          <img
-            v-if="isPhaseNight"
-            class="crr-moon"
-            :src="moonFull"
-            alt=""
+          <img v-if="isPhaseNight" class="crr-moon" :src="moonFull" alt="" />
+          <font-awesome-icon
+            v-else-if="isPhaseDay"
+            icon="sun"
+            class="crr-sun"
           />
-          <font-awesome-icon v-else-if="isPhaseDay" icon="sun" class="crr-sun" />
           <img v-else-if="isNoosed" class="crr-noose" :src="noose" alt="" />
+          <!-- FT-1037 (user call): a game beginning wears the SAME mark the
+               entry panel's join button wears — the figure on the road into
+               town. The end keeps the checkered flag: an ending is a finish
+               line, and the pair reads as arrival/finish rather than one
+               glyph doing both. -->
+          <img v-else-if="isStart" class="crr-enter" :src="uiEnter" alt="" />
           <font-awesome-icon v-else-if="evIcon" :icon="evIcon" />
           <template v-else>◆</template>
         </span>
@@ -68,32 +73,45 @@
       </template>
       <span class="crr-time" :title="time">{{ moment }}</span>
     </span>
-    <span class="crr-tally-line" v-if="row.kind === 'system' && event && event.t === 'nomination'">
-    <!-- FT-1036 (user call): the vote tally stands on its own line at the
+    <span
+      class="crr-tally-line"
+      v-if="row.kind === 'system' && event && event.t === 'nomination'"
+    >
+      <!-- FT-1036 (user call): the vote tally stands on its own line at the
      message's foot; with a roster aboard it is still the thread's
      expand handle. -->
-    <span
-      class="crr-tally"
-      v-if="event && event.t === 'nomination'"
-      :class="{ carried: event.carried, handle: hasRoster, open }"
-      :role="hasRoster ? 'button' : null"
-      :title="
-        hasRoster
-          ? open
-            ? 'Fold the gallows thread away'
-            : 'Who raised hands, and what followed'
-          : null
-      "
-      @click="hasRoster && (open = !open)"
-    >
-      {{ event.votes }} <font-awesome-icon icon="hand-paper" /> of
-      {{ event.majority }}
-      <font-awesome-icon
-        v-if="hasRoster"
-        class="crr-tally-chev"
-        icon="chevron-down"
-      />
+      <span
+        class="crr-tally"
+        v-if="event && event.t === 'nomination'"
+        :class="{ carried: event.carried, handle: hasRoster, open }"
+        :role="hasRoster ? 'button' : null"
+        :title="
+          hasRoster
+            ? open
+              ? 'Fold the gallows thread away'
+              : 'Who raised hands, and what followed'
+            : null
+        "
+        @click="hasRoster && (open = !open)"
+      >
+        {{ event.votes }} <font-awesome-icon icon="hand-paper" /> of
+        {{ event.majority }}
+        <font-awesome-icon
+          v-if="hasRoster"
+          class="crr-tally-chev"
+          icon="chevron-down"
+        />
+      </span>
     </span>
+
+    <!-- ── A BOARD PORTRAIT (FT-1037) — a board row carries the ring as
+         data, and the log shows it as the mini board it describes, right
+         where it was posted. -->
+    <span class="crr-board" v-if="hasBoard">
+      <ChroniclesPortrait
+        :board="event"
+        :label="event.moment === 'day1' ? 'Day 1' : 'The end'"
+      />
     </span>
 
     <!-- ── THE GALLOWS THREAD (FT-1019) — the strand under a nomination:
@@ -146,6 +164,8 @@
 <script>
 import { timeOf } from "../golem/chat";
 import { decodeEvent, eventTextOf, gallowsThreadOf } from "../golem/chronicles";
+// FT-1037: a board row's real face — the mini ring its data describes.
+import ChroniclesPortrait from "./ChroniclesPortrait";
 // FT-1019: the ghost-vote cowl — the same hand that drew the seat's own mark
 // (Player.vue wears this art on a spent ghost vote's token).
 import cowl from "../assets/ui-ghost-vote-cowl.png";
@@ -154,12 +174,17 @@ import cowl from "../assets/ui-ghost-vote-cowl.png";
 import noose from "../assets/ui-noose.png";
 // FT-1032: the phase marks' art and the timer-off gate
 import moonFull from "../assets/moon-full.png";
+// FT-1037 (user call): the game-start mark IS the join button's mark — the
+// figure on the road into town (Intro.vue's enter art, reused as-is).
+import uiEnter from "../assets/ui-enter.png";
 import { effectiveHourMode } from "../golem/towerBells";
 
 /** Event type → the registered FA icon that marks it. Only icons main.js
  *  already registers — this file adds none. */
 const EV_ICONS = {
-  start: "flag-checkered",
+  // FT-1037 (user call): start wears the join button's own road-into-town
+  // art (the <img> branch in the template), not an FA glyph.
+  start: null,
   end: "flag-checkered",
   phase: null, // the moon/sun pair reads better as color than as glyphs here
   death: "skull",
@@ -170,10 +195,15 @@ const EV_ICONS = {
   // skull — the skull is death's, and a mark is not a death.
   execution: null,
   unmark: "heartbeat",
+  // FT-1037: the session boundary and the board rows keep the plain mark —
+  // the open line is quiet news, and a board row's real face is its portrait.
+  open: null,
+  board: null,
 };
 
 export default {
   name: "ChroniclesRow",
+  components: { ChroniclesPortrait },
   props: {
     row: { type: Object, required: true },
     // FT-1032: seconds the phase this row closed ran for (null = unknown)
@@ -185,7 +215,7 @@ export default {
     rows: { type: Array, default: null },
   },
   data() {
-    return { cowl, noose, open: false };
+    return { cowl, noose, uiEnter, open: false };
   },
   computed: {
     time() {
@@ -208,13 +238,18 @@ export default {
       return this.event ? "ev-" + this.event.t : "ev-plain";
     },
     isPhaseNight() {
-      return !!this.event && this.event.t === "phase" && this.row.phase === "night";
+      return (
+        !!this.event && this.event.t === "phase" && this.row.phase === "night"
+      );
     },
     isPhaseDay() {
-      return !!this.event && this.event.t === "phase" && this.row.phase !== "night";
+      return (
+        !!this.event && this.event.t === "phase" && this.row.phase !== "night"
+      );
     },
     ranLabel() {
-      if (this.ran == null || !this.event || this.event.t !== "phase") return "";
+      if (this.ran == null || !this.event || this.event.t !== "phase")
+        return "";
       if (effectiveHourMode(this.$store.state.session) === "off") return "";
       const m = Math.floor(this.ran / 60);
       const s = this.ran % 60;
@@ -231,6 +266,10 @@ export default {
     isNoosed() {
       return !!this.event && this.event.t === "execution";
     },
+    /** FT-1037: the game-start row, wearing the join button's road art. */
+    isStart() {
+      return !!this.event && this.event.t === "start";
+    },
     /** FT-1019: does this nomination carry a roster? Old rows do not, and
      *  render tally-only — the chip is a handle only when there is a thread
      *  to open. */
@@ -239,6 +278,15 @@ export default {
         !!this.event &&
         this.event.t === "nomination" &&
         Array.isArray(this.event.voters)
+      );
+    },
+    /** FT-1037: is this a board row with a ring actually aboard? */
+    hasBoard() {
+      return (
+        !!this.event &&
+        this.event.t === "board" &&
+        Array.isArray(this.event.seats) &&
+        this.event.seats.length > 0
       );
     },
     /** The beats after the nomination — computed only while the strand is
@@ -496,7 +544,22 @@ export default {
   height: 13px;
   vertical-align: -2px;
 }
+
+// FT-1037: the game-start mark — the join button's road-into-town art, sized
+// to the same rank as the noose and the cowl (the hand-drawn 13px set).
+.crr-enter {
+  height: 13px;
+  vertical-align: -2px;
+}
+
 .crr-none {
   opacity: 0.55;
+}
+
+// FT-1037: a board row's portrait, standing under its line
+.crr-board {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 2px;
 }
 </style>

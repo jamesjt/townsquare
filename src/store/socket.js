@@ -38,7 +38,13 @@ import { chatErrorText, gameIdFor } from "../golem/chat";
 // bell) rides the full gamestate sync — never a new frame kind.
 import { towerSyncPayload, applyTowerSync } from "../golem/towerBells";
 // FT-1010: the event envelope — a game event riding a system row's body.
-import { encodeEvent } from "../golem/chronicles";
+import {
+  encodeEvent,
+  beginTownSession,
+  touchTownSession,
+  stashDay1Board,
+  boardRingOf,
+} from "../golem/chronicles";
 // FT-1005: a player wakes to their own night action. The projection is the
 // privacy rule made code — a player-bound night row NEVER carries the lie
 // mark, the done tick, or the true/shown pair (see golem/nightLog).
@@ -1627,6 +1633,20 @@ export default (store) => {
   // alike; only the host's client ever turns it into a row.
   let lastMarkedSeat = -1;
 
+  // FT-1037: the town this host is about to OPEN — set when the host enters
+  // a town whose session stash says it was shut (golem/chronicles'
+  // beginTownSession), consumed by the first `chatSetGameId` commit, which is
+  // the host's own sendGamestate on socket open: the one moment that is both
+  // "connected" and reachable from this subscriber without touching
+  // LiveSession. A resume (reload, relay blip) never sets it, so Current's
+  // anchor holds across a mid-game reload.
+  let pendingOpenTown = null;
+
+  // FT-1037: the hosting heartbeat — keeps the session stash's `seen` fresh
+  // while the town is open, so "shut" is measured from when the host actually
+  // left, not from when they arrived.
+  let openHeartbeat = null;
+
   // listen to mutations
   store.subscribe(({ type, payload }, state) => {
     switch (type) {
@@ -1635,6 +1655,16 @@ export default (store) => {
           session.connect(state.session.sessionId);
         } else {
           session.disconnect();
+        }
+        // FT-1037: entering as HOST decides fresh-opening vs resumed sitting;
+        // the open row itself waits for the connect (see pendingOpenTown).
+        clearInterval(openHeartbeat);
+        openHeartbeat = null;
+        pendingOpenTown = null;
+        if (state.session.sessionId && !state.session.isSpectator) {
+          const town = state.session.sessionId;
+          if (beginTownSession(town)) pendingOpenTown = town;
+          openHeartbeat = setInterval(() => touchTownSession(town), 60 * 1000);
         }
         // FT-889: the ONE place the address bar is written. Every entry path
         // funnels through this mutation — the intro's host/join, the menu's
@@ -1694,6 +1724,15 @@ export default (store) => {
           lastLiveGameId = state.chat.gameId;
           store.commit("chatReset");
           store.dispatch("chatCatchUp");
+        }
+        // FT-1037: THE TOWN OPENS — written once, on the first sync after a
+        // fresh-opening connect (the host's own sendGamestate commits this
+        // mutation with the socket already open, so the row cannot be lost
+        // to a not-yet-ready connection). Current mode anchors on the LAST
+        // of these rows; History reads everything by game.
+        if (pendingOpenTown && pendingOpenTown === state.session.sessionId) {
+          pendingOpenTown = null;
+          session.systemMessage("The town opens.", { t: "open" });
         }
         break;
       // FT-1010: a CONCLUDED VOTE is a chronicle event, written by the host
@@ -1806,6 +1845,20 @@ export default (store) => {
           // chronicles stream, not just a sentence.
           { t: "phase", night: state.grimoire.isNight, day: state.night.day },
         );
+        // FT-1037: DAY 1 BREAKS — capture the board portrait's ring, host
+        // only, stashed rather than sent: a board row broadcast now would
+        // hand every player the grimoire (roles ride the body). App.vue
+        // posts it at game end, beside the end portrait, when the roles are
+        // public anyway. First capture wins per game (the stash refuses an
+        // overwrite), so a day counter scrubbed back to 1 cannot re-shoot it.
+        if (
+          !state.session.isSpectator &&
+          !state.grimoire.isNight &&
+          state.night.day === 1 &&
+          state.chat.gameId
+        ) {
+          stashDay1Board(state.chat.gameId, boardRingOf(state.players.players));
+        }
         break;
       // FT-931: THE TOWN ENDS / PLAY AGAIN. Both mutations live at the root
       // (store/index.js — endGame also forces grimoire.isPublic, a

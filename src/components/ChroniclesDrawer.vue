@@ -48,6 +48,28 @@
           <img class="sd-mark" :src="quill" alt="" />
           <span>Chronicles</span>
         </h3>
+        <!-- FT-1037 (user redesign): the two READING MODES, at the top beside
+             the title. Current is the town since it was opened this time —
+             the live stream and the composer. History is the reading room:
+             a dropdown per finished game, with stats and messages inside. -->
+        <div class="cr-mode" role="group" aria-label="Current or history">
+          <button
+            class="cr-mode-btn"
+            :class="{ on: mode === 'current' }"
+            title="The town since it opened this time"
+            @click="setMode('current')"
+          >
+            Current
+          </button>
+          <button
+            class="cr-mode-btn"
+            :class="{ on: mode === 'history' }"
+            title="Past games — stats and messages"
+            @click="setMode('history')"
+          >
+            History
+          </button>
+        </div>
       </div>
 
       <div class="sd-view cr-view">
@@ -59,8 +81,14 @@
              jumps the stream to that chapter. "All towns" (StatsOverlay's
              old platform scope) returns here as the band's own toggle.
              Best-effort like every records read: unreachable is an honest
-             line, never a broken band. -->
-        <div class="cr-records" :class="{ open: recordsOpen }">
+             line, never a broken band.
+             FT-1037: the band lives in HISTORY now — it is the reading
+             room's summary, and Current keeps only the live stream. -->
+        <div
+          class="cr-records"
+          :class="{ open: recordsOpen }"
+          v-if="mode === 'history'"
+        >
           <p
             class="cr-records-line"
             role="button"
@@ -109,16 +137,14 @@
               class="cr-recgames"
               v-if="recordsScope === 'town' && records.games.length"
             >
+              <!-- FT-1037: every ledger row is a door now — it picks the
+                   game in the dropdown below and opens its stats page. -->
               <li
                 v-for="g in records.games"
                 :key="g.id"
-                :class="{ jump: !!chapterOf(g) }"
-                :title="
-                  chapterOf(g)
-                    ? 'Read this game\'s chapter in the stream'
-                    : 'Recorded before the log kept games — no chapter to open'
-                "
-                @click="jumpTo(g)"
+                class="jump"
+                title="Open this game's page"
+                @click="pickFromLedger(g)"
               >
                 <span class="rg-when">{{ recordLabel(g) }}</span>
                 <span class="rg-script">{{ g.scriptName }}</span>
@@ -175,9 +201,16 @@
           </template>
         </div>
 
-        <!-- ── THE FILTERS: what kind of line, and which game. Two rows of
-             the same plated-segment idiom the night sheet uses. -->
-        <div class="cr-filter" role="group" aria-label="Which lines to show">
+        <!-- ── THE FILTERS: what kind of line. One row of the plated-segment
+             idiom the night sheet uses. FT-1037: the per-game chips are gone
+             — History's dropdown is where a single game is read now, and
+             Current is always the whole stream since the town opened. -->
+        <div
+          class="cr-filter"
+          role="group"
+          aria-label="Which lines to show"
+          v-if="mode === 'current'"
+        >
           <button
             v-for="f in filterCells"
             :key="f.id"
@@ -190,34 +223,6 @@
             <template v-else>{{ f.label }}</template>
           </button>
         </div>
-        <div class="cr-games" role="group" aria-label="Which game to show">
-          <button
-            class="cr-chip"
-            :class="{ on: gamePick === null }"
-            title="The whole story — every game and everything between"
-            @click="pickGame(null)"
-          >
-            Everything
-          </button>
-          <button
-            v-for="g in games"
-            :key="g.gameId"
-            class="cr-chip"
-            :class="{ on: gamePick === g.gameId }"
-            :title="'Only game ' + g.ordinal"
-            @click="pickGame(g.gameId)"
-          >
-            {{ gameLabel(g) }}
-          </button>
-          <button
-            class="cr-chip"
-            :class="{ on: gamePick === 'between' }"
-            title="Only what was said outside a game"
-            @click="pickGame('between')"
-          >
-            Between games
-          </button>
-        </div>
 
         <!-- ── THE LIVE TALLY LIST's controls (FT-1019) — the two the retired
              vote-history drawer carried, rehomed inside the gallows view.
@@ -227,7 +232,9 @@
              control touches a single row of it. -->
         <div
           class="cr-live"
-          v-if="filter === 'gallows' && !session.isSpectator"
+          v-if="
+            mode === 'current' && filter === 'gallows' && !session.isSpectator
+          "
         >
           <span
             class="cr-live-opt"
@@ -254,8 +261,14 @@
           </span>
         </div>
 
-        <!-- ── THE STREAM ──────────────────────────────────────────────── -->
-        <div class="cr-log" ref="log" v-blood-scroll @scroll="onScroll">
+        <!-- ── THE STREAM (Current) ────────────────────────────────────── -->
+        <div
+          class="cr-log"
+          ref="log"
+          v-blood-scroll
+          @scroll="onScroll"
+          v-if="mode === 'current'"
+        >
           <template v-for="section in sections">
             <!-- A GAME is a chapter: a header that says which, folding the
                  run beneath it. The game being played right now says so. -->
@@ -322,8 +335,10 @@
 
         <!-- ── THE COMPOSER — lifted whole from the chat drawer: chips for
              who this goes to (Room resting, whisper armed in purple), the
-             entry, and the refusal line when the store never took it. -->
-        <div class="cr-compose">
+             entry, and the refusal line when the store never took it.
+             Current only — History is a reading room, nobody talks into
+             a finished game. -->
+        <div class="cr-compose" v-if="mode === 'current'">
           <div class="cr-targets">
             <button
               class="cr-target"
@@ -368,6 +383,172 @@
           <p class="cr-error" v-if="error">{{ error }}</p>
           <p class="cr-note" v-else-if="!canTalk">{{ mutedText }}</p>
         </div>
+
+        <!-- ── HISTORY — the reading room (FT-1037, user redesign): a
+             dropdown per finished game, then STATS or MESSAGES inside it.
+             Stats is what the records know (script, winner, the roster's
+             own record) plus the two board portraits when the log holds
+             them; Messages is the game's chapter, chat and events
+             filterable exactly as the live stream is. -->
+        <template v-if="mode === 'history'">
+          <div class="cr-hpick" v-if="historyGames.length">
+            <select
+              class="cr-select"
+              v-model="historyPick"
+              title="Which finished game to read"
+            >
+              <option v-for="g in historyGames" :key="g.key" :value="g.key">
+                {{ historyLabel(g) }}
+              </option>
+            </select>
+          </div>
+
+          <div
+            class="cr-filter cr-tabs"
+            role="group"
+            aria-label="Stats or messages"
+            v-if="pickedGame"
+          >
+            <button
+              class="cr-cell"
+              :class="{ on: historyTab === 'stats' }"
+              title="The game's record — script, winner, roster, portraits"
+              @click="historyTab = 'stats'"
+            >
+              Stats
+            </button>
+            <button
+              class="cr-cell"
+              :class="{ on: historyTab === 'messages' }"
+              title="The game's chapter — what was said and what happened"
+              @click="historyTab = 'messages'"
+            >
+              Messages
+            </button>
+          </div>
+
+          <!-- ── STATS ─────────────────────────────────────────────────── -->
+          <div
+            class="cr-log cr-hbody"
+            v-blood-scroll
+            v-if="pickedGame && historyTab === 'stats'"
+          >
+            <p class="cr-hhead">
+              <span class="cr-hscript">{{ pickedScript }}</span>
+              <span
+                class="rg-winner"
+                :class="pickedWinner"
+                v-if="pickedWinner"
+                >{{ pickedWinner === "good" ? "Good wins" : "Evil wins" }}</span
+              >
+              <span class="cr-hwhen">{{ historyWhen(pickedGame) }}</span>
+            </p>
+
+            <!-- THE BOARD PORTRAITS: the ring as Day 1 broke and as the
+                 game ended. Games from before the portraits existed show
+                 stats only. -->
+            <div
+              class="cr-portraits"
+              v-if="pickedBoards.day1 || pickedBoards.end"
+            >
+              <ChroniclesPortrait
+                v-if="pickedBoards.day1"
+                :board="pickedBoards.day1"
+                label="Day 1"
+              />
+              <ChroniclesPortrait
+                v-if="pickedBoards.end"
+                :board="pickedBoards.end"
+                label="The end"
+              />
+            </div>
+
+            <p class="cr-hnote" v-if="pickedDetail && pickedDetail.loading">
+              Consulting the archives…
+            </p>
+            <table class="cr-roster" v-if="pickedRoster.length">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Role</th>
+                  <th>Fate</th>
+                  <th title="This player's games in this town's records">
+                    Games
+                  </th>
+                  <th>Wins</th>
+                  <th title="Games survived to the end">Lived</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in pickedRoster" :key="row.key">
+                  <td class="cr-rname">{{ row.name }}</td>
+                  <td>{{ row.role }}</td>
+                  <td :class="row.survived ? 'lived' : 'died'">
+                    {{ row.survived ? "lived" : "died" }}
+                  </td>
+                  <td>{{ row.games }}</td>
+                  <td>{{ row.wins }}</td>
+                  <td>{{ row.survivals }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p
+              class="cr-empty"
+              v-else-if="!pickedDetail || !pickedDetail.loading"
+            >
+              No roster survives for this game.
+            </p>
+          </div>
+
+          <!-- ── MESSAGES ──────────────────────────────────────────────── -->
+          <template v-if="pickedGame && historyTab === 'messages'">
+            <div
+              class="cr-filter"
+              role="group"
+              aria-label="Which lines to show"
+            >
+              <button
+                v-for="f in filterCells"
+                :key="f.id"
+                class="cr-cell"
+                :class="{ on: historyFilter === f.id }"
+                :title="f.title"
+                @click="historyFilter = f.id"
+              >
+                <img v-if="f.icon" class="cr-cell-icon" :src="f.icon" alt="" />
+                <template v-else>{{ f.label }}</template>
+              </button>
+            </div>
+            <div class="cr-log cr-hbody" v-blood-scroll>
+              <ol class="cr-rows" v-if="pickedVisibleRows.length">
+                <li
+                  v-for="row in pickedVisibleRows"
+                  :key="row.seq"
+                  class="cr-row"
+                  :class="rowClass(row)"
+                >
+                  <ChroniclesRow
+                    :row="row"
+                    :ran="pickedRan[row.id] != null ? pickedRan[row.id] : null"
+                    :viewer="viewer"
+                    :rows="pickedRows"
+                  />
+                </li>
+              </ol>
+              <p class="cr-empty" v-else>
+                {{
+                  pickedRows.length
+                    ? "Nothing of that kind in this game."
+                    : "Recorded before the log kept games — no messages."
+                }}
+              </p>
+            </div>
+          </template>
+
+          <p class="cr-empty" v-if="!historyGames.length">
+            No finished games yet — History fills in as games end.
+          </p>
+        </template>
       </div>
     </div>
   </transition>
@@ -387,18 +568,29 @@ import {
   sectionize,
   logGameIdOf,
   phaseDurations,
+  // FT-1037: Current's anchor, and the stats page's readings
+  openAnchorSeq,
+  boardsOf,
+  winnerOf,
 } from "../golem/chronicles";
+// FT-1037: the stats tab's board portraits — the ring a board row carries.
+import ChroniclesPortrait from "./ChroniclesPortrait";
 // FT-1019: the filter cells wear the doors' own icons — the gallows keeps
 // the retired vote-history door's art, talk keeps the chat door's.
 import uiVotes from "../assets/ui-votes.png";
 import uiChat from "../assets/ui-chat.png";
-import { townStats, platformStats, townGames } from "../golem/stats";
+import {
+  townStats,
+  platformStats,
+  townGames,
+  gameRecord,
+} from "../golem/stats";
 // the strip's own quill — the mark that opens this drawer leads its title
 import quill from "../assets/ui-chronicle.png";
 
 export default {
   name: "ChroniclesDrawer",
-  components: { CloseX, ChroniclesRow },
+  components: { CloseX, ChroniclesRow, ChroniclesPortrait },
   mixins: [
     bottomSheet,
     rightDrawer({
@@ -417,8 +609,19 @@ export default {
       target: null,
       /** Is the log scrolled to the bottom? Decides whether it follows. */
       stuck: true,
-      /** null = everything; "between" = between games; else one gameId. */
-      gamePick: null,
+      /** FT-1037: "current" — the stream since the town opened this time —
+       *  or "history", the per-game reading room. */
+      mode: "current",
+      /** History's picked game (a historyGames entry key), and which of its
+       *  two pages is open. */
+      historyPick: null,
+      historyTab: "stats",
+      /** The messages page's own kind filter — separate from Current's so
+       *  the V hotkey (which arms the live gallows) never re-aims History. */
+      historyFilter: "all",
+      /** Fetched full records (roster included), keyed by record id —
+       *  {loading, game}. */
+      details: {},
       /** Per-section fold overrides, keyed by section key. Untouched
        *  sections answer by default: the live/newest game open, the rest
        *  folded. */
@@ -473,13 +676,20 @@ export default {
     canTalk() {
       return !!this.viewer.key && !!this.session.sessionId;
     },
-    /** The stream, narrowed to the kind and the game being looked at. */
+    /** FT-1037: CURRENT'S ANCHOR — the seq of the last "The town opens."
+     *  row. Derived from the log itself, so host, players and a mid-game
+     *  reload all cut the stream at the same place. 0 = no open row ever
+     *  (a pre-FT-1037 town): the whole log stands as Current. */
+    anchorSeq() {
+      return openAnchorSeq(this.chat.log);
+    },
+    /** The Current stream: everything since the town opened this time,
+     *  narrowed to the kind of line being looked at. */
     visible() {
+      const anchor = this.anchorSeq;
       return this.chat.log.filter((row) => {
-        if (!inFilter(row, this.filter)) return false;
-        if (this.gamePick === "between") return !row.gameId;
-        if (this.gamePick) return row.gameId === this.gamePick;
-        return true;
+        if (anchor && row.seq < anchor) return false;
+        return inFilter(row, this.filter);
       });
     },
     /** The chapters — consecutive runs of one gameId, in story order. */
@@ -490,6 +700,121 @@ export default {
      *  the unfiltered log so the picker never loses a game to the filter. */
     games() {
       return gamesOf(this.chat.log);
+    },
+    /**
+     * FT-1037: HISTORY'S GAMES, newest first — the recorded games and the
+     * log's own chapters merged on the deal instant both sides carry
+     * (logGameIdOf), so one game is one entry however many surfaces know
+     * it. The LIVE game is Current's and never listed here.
+     */
+    historyGames() {
+      const town = this.session.sessionId;
+      const known = new Set(this.games.map((g) => g.gameId));
+      const claimed = new Set();
+      const entries = [];
+      this.records.games.forEach((g) => {
+        const gid = logGameIdOf(town, g.startedAt);
+        const logGameId = gid && known.has(gid) ? gid : null;
+        if (logGameId) claimed.add(logGameId);
+        entries.push({
+          key: "rec:" + g.id,
+          record: g,
+          logGameId,
+          at: g.startedAt || g.endedAt,
+        });
+      });
+      this.games.forEach((g) => {
+        if (g.gameId === this.chat.gameId) return;
+        if (claimed.has(g.gameId)) return;
+        entries.push({
+          key: "log:" + g.gameId,
+          record: null,
+          logGameId: g.gameId,
+          at: g.startedAt,
+        });
+      });
+      return entries.sort(
+        (a, b) => (Date.parse(b.at) || 0) - (Date.parse(a.at) || 0),
+      );
+    },
+    /** The picked entry, or null. */
+    pickedGame() {
+      return this.historyGames.find((e) => e.key === this.historyPick) || null;
+    },
+    /** The picked game's whole chapter — unfiltered, for the thread walk,
+     *  the durations and the portraits. Empty for a record-only game. */
+    pickedRows() {
+      const g = this.pickedGame;
+      if (!g || !g.logGameId) return [];
+      return this.threadSource[g.logGameId] || [];
+    },
+    pickedVisibleRows() {
+      return this.pickedRows.filter((row) => inFilter(row, this.historyFilter));
+    },
+    /** FT-1032's phase clocks, for the picked chapter's rows. */
+    pickedRan() {
+      return phaseDurations(this.pickedRows);
+    },
+    /** The two board portraits the log holds for this game, or nulls. */
+    pickedBoards() {
+      const g = this.pickedGame;
+      if (!g || !g.logGameId) return { day1: null, end: null };
+      return boardsOf(this.pickedRows, g.logGameId);
+    },
+    /** Winner: the record's word first, else the chapter's own end row. */
+    pickedWinner() {
+      const g = this.pickedGame;
+      if (!g) return null;
+      if (g.record) return g.record.winningTeam;
+      return winnerOf(this.pickedRows, g.logGameId);
+    },
+    pickedScript() {
+      const g = this.pickedGame;
+      return (g && g.record && g.record.scriptName) || "Unrecorded game";
+    },
+    /** The fetched full record (roster aboard), or null while absent. */
+    pickedDetail() {
+      const g = this.pickedGame;
+      return (g && g.record && this.details[g.record.id]) || null;
+    },
+    /**
+     * THE ROSTER — the record's seats when the archive answers (role, fate),
+     * the end portrait's ring as the fallback, each name joined to its own
+     * town-wide line (games / wins / survived) from the aggregates the band
+     * already read.
+     */
+    pickedRoster() {
+      const aggr = new Map(
+        ((this.records.stats && this.records.stats.players) || []).map((p) => [
+          p.playerName,
+          p,
+        ]),
+      );
+      const rowFor = (name, roleId, survived, i) => {
+        const a = aggr.get(name);
+        return {
+          key: i + ":" + name,
+          name,
+          role: this.roleNameOf(roleId),
+          survived,
+          games: a ? a.games : "—",
+          wins: a ? a.wins : "—",
+          survivals: a ? a.survivals : "—",
+        };
+      };
+      const detail = this.pickedDetail;
+      const seats = (detail && detail.game && detail.game.seats) || [];
+      if (seats.length) {
+        return seats.map((s, i) =>
+          rowFor(s.playerName, s.roleIdFinal, s.survived, i),
+        );
+      }
+      const boards = this.pickedBoards;
+      const ring =
+        (boards.end && boards.end.seats) ||
+        (boards.day1 && boards.day1.seats) ||
+        [];
+      return ring.map((s, i) => rowFor(s.name, s.role, !s.dead, i));
     },
     filterCells() {
       return [
@@ -550,9 +875,7 @@ export default {
     emptyText() {
       if (this.chat.syncing) return "Reading the town's story…";
       if (this.filter === "events") return "Nothing has happened yet.";
-      if (this.gamePick === "between") return "Nothing said between games yet.";
-      if (this.gamePick) return "Nothing recorded in that game.";
-      return "Nobody has said anything in this town yet.";
+      return "Nothing said since the town opened.";
     },
   },
   watch: {
@@ -577,6 +900,22 @@ export default {
     whisperTargets(list) {
       if (!this.target) return;
       if (!list.some((t) => t.id === this.target.id)) this.target = null;
+    },
+    /** FT-1037: the dropdown always points at a real game — newest by
+     *  default, re-aimed only when its pick disappears from under it. */
+    historyGames(list) {
+      if (!list.length) {
+        this.historyPick = null;
+        return;
+      }
+      if (!this.historyPick || !list.some((e) => e.key === this.historyPick)) {
+        this.historyPick = list[0].key;
+      }
+    },
+    /** A recorded pick fetches its roster (once — details caches by id). */
+    historyPick() {
+      const g = this.pickedGame;
+      if (g && g.record) this.loadDetail(g.record);
     },
   },
   methods: {
@@ -613,21 +952,61 @@ export default {
       this.recordsScope = scope;
       this.loadRecords();
     },
-    /** The chapter a RECORDED game answers to in the log, or null — the
-     *  bridge is the deal instant both sides carry (golem/chronicles'
-     *  logGameIdOf), and only a game the log actually holds is a door. */
-    chapterOf(g) {
-      const gid = logGameIdOf(this.session.sessionId, g.startedAt);
-      if (!gid) return null;
-      return this.games.some((known) => known.gameId === gid) ? gid : null;
+    /** FT-1037: the reading mode flips. Entering History re-reads the
+     *  records (a game may have finished since last look); returning to
+     *  Current re-sticks the stream to its newest line. */
+    setMode(mode) {
+      if (this.mode === mode) return;
+      this.mode = mode;
+      if (mode === "history") {
+        this.loadRecords();
+        if (!this.historyPick && this.historyGames.length) {
+          this.historyPick = this.historyGames[0].key;
+        }
+      } else {
+        this.stuck = true;
+        this.$nextTick(this.toBottom);
+      }
     },
-    /** A ledger row's click IS its game chip's click: jump the stream to
-     *  that chapter. A row with no chapter (recorded before the log kept
-     *  games) is inert rather than a dead-feeling door. */
-    jumpTo(g) {
-      const gid = this.chapterOf(g);
-      if (!gid) return;
-      this.pickGame(gid);
+    /** A ledger row picks its game in the dropdown and opens its stats. */
+    pickFromLedger(g) {
+      const entry = this.historyGames.find(
+        (e) => e.record && e.record.id === g.id,
+      );
+      if (!entry) return;
+      this.historyPick = entry.key;
+      this.historyTab = "stats";
+    },
+    /** The dropdown's line for a game: when it began, on which script. */
+    historyLabel(g) {
+      const when = startLabelOf(g.at) || "—";
+      return when + " — " + (g.record ? g.record.scriptName : "unrecorded");
+    },
+    historyWhen(g) {
+      return startLabelOf(g.at) || "—";
+    },
+    /** One full record, fetched once and kept — best-effort like every
+     *  records read: a miss renders the portraits/fallbacks, never an
+     *  error page. */
+    loadDetail(record) {
+      if (!record || this.details[record.id]) return;
+      this.$set(this.details, record.id, { loading: true, game: null });
+      gameRecord(record.id)
+        .then((game) => {
+          this.$set(this.details, record.id, { loading: false, game });
+        })
+        .catch(() => {
+          this.$set(this.details, record.id, { loading: false, game: null });
+        });
+    },
+    /** A role id's display name — the loaded edition first, the full
+     *  official library second, the raw id as the honest fallback. */
+    roleNameOf(id) {
+      if (!id) return "—";
+      const known =
+        this.$store.state.roles.get(id) ||
+        this.$store.getters.rolesJSONbyId.get(id);
+      return (known && known.name) || id;
     },
     recordLabel(g) {
       return startLabelOf(g.startedAt || g.endedAt) || "—";
@@ -642,16 +1021,6 @@ export default {
     },
     clearLive() {
       this.$store.commit("session/clearVoteHistory");
-    },
-    /** Picking a game is a view change AND an unfold — the point of picking
-     *  one is to read it. */
-    pickGame(pick) {
-      this.gamePick = pick;
-      if (pick && pick !== "between") {
-        this.$set(this.folds, pick, true);
-      }
-      this.stuck = true;
-      this.$nextTick(this.toBottom);
     },
     isLive(section) {
       return !!this.chat.gameId && section.gameId === this.chat.gameId;
@@ -684,12 +1053,6 @@ export default {
       const first = section.rows[0];
       const when = first ? startLabelOf(first.createdAt) : "";
       return when || `Game ${section.ordinal}`;
-    },
-    gameLabel(game) {
-      const live = !!this.chat.gameId && game.gameId === this.chat.gameId;
-      if (live) return "This game";
-      const when = startLabelOf(game.startedAt);
-      return when || `Game ${game.ordinal}`;
     },
     rowClass(row) {
       return [
@@ -751,6 +1114,11 @@ export default {
   // the right-hand rail's blood seam, as every drawer on it
   @include right-drawer(#4a0d0d);
   @include sheet-handle;
+  // FT-1037: above the square's bluffs/fabled panels (z 50, which float OVER
+  // the mixin's z 20 and were sitting on the stats portraits), still under
+  // the player strip (75) and the session pill (80). Scoped here rather than
+  // in the shared mixin — the other drawers' stacking is not this lane's.
+  z-index: 55;
 }
 
 .cr-view {
@@ -758,6 +1126,24 @@ export default {
   flex-direction: column;
   min-height: 0;
   gap: 6px;
+}
+
+// ── THE MODE TOGGLE (FT-1037) — Current | History, beside the title ────────
+.cr-mode {
+  @include control-plate;
+  display: flex;
+  overflow: hidden;
+  margin-left: 12px;
+}
+.cr-mode-btn {
+  @include control-cell;
+  padding: 3px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  &.on {
+    @include control-lit;
+  }
 }
 
 // ── THE RECORDS BAND ───────────────────────────────────────────────────────
@@ -955,32 +1341,99 @@ export default {
     @include control-lit;
   }
 }
-.cr-games {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+// ── HISTORY (FT-1037) — the reading room ───────────────────────────────────
+.cr-hpick {
   flex: none;
 }
-.cr-chip {
+.cr-select {
   @include control-plate;
+  width: 100%;
+  padding: 4px 8px;
   font-family: inherit;
-  padding: 2px 8px;
-  font-size: 11px;
+  font-size: 13px;
   color: #d8cdb4;
   cursor: pointer;
-  transition:
-    color 150ms,
-    border-color 150ms,
-    background 150ms;
-  &:hover {
-    color: #fff;
-    @include control-plate-hover;
+  &:focus {
+    outline: none;
+    border-color: $control-focus;
   }
-  &:focus-visible {
-    @include control-focus-ring;
+  option {
+    background: #1a1210;
+    color: #d8cdb4;
   }
-  &.on {
-    @include control-lit;
+}
+
+.cr-hbody {
+  padding-right: 4px;
+}
+
+.cr-hhead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 2px 2px 6px;
+}
+.cr-hscript {
+  font-family: PiratesBay, sans-serif;
+  font-size: 17px;
+  color: #d8cdb4;
+}
+.cr-hwhen {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cr-hnote {
+  margin: 6px 2px;
+  font-size: 12px;
+  opacity: 0.55;
+  text-align: center;
+}
+
+// the two portraits stand side by side; a lone one stands centred
+.cr-portraits {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 2px 0 8px;
+}
+
+// the roster — the records band's table lettering, one size up
+.cr-roster {
+  width: 100%;
+  margin: 2px 0 6px;
+  border-collapse: collapse;
+  font-size: 13px;
+  cursor: default;
+  th {
+    opacity: 0.6;
+    font-weight: normal;
+    text-align: left;
+    padding: 2px 10px 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  td {
+    text-align: left;
+    padding: 3px 10px 3px 0;
+  }
+  th:nth-child(n + 4),
+  td:nth-child(n + 4) {
+    text-align: right;
+    padding-right: 0;
+    padding-left: 10px;
+  }
+  .cr-rname {
+    font-family: PiratesBay, sans-serif;
+    color: #d8cdb4;
+  }
+  .lived {
+    color: rgba(126, 214, 126, 0.85);
+  }
+  .died {
+    opacity: 0.6;
   }
 }
 

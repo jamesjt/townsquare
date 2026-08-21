@@ -703,7 +703,10 @@ import NightInfoDrawer from "./components/NightInfoDrawer";
 // body — both RETIRED BY UNMOUNTING; their files stay in the tree.
 import ChroniclesDrawer from "./components/ChroniclesDrawer";
 // FT-1010: the game-end event the winner pick writes into the town's log.
-import { encodeEvent } from "./golem/chronicles";
+// FT-1037: plus the two BOARD PORTRAITS posted beside it — the day-1 ring
+// (stashed by socket.js when Day 1 broke; broadcasting it live would have
+// leaked the grimoire) and the final ring, read from the seats as they stand.
+import { encodeEvent, takeDay1Board, boardRingOf } from "./golem/chronicles";
 // FT-888: the face-disc lab — TEMPORARY, and it comes out with src/faceDisc.scss's
 // four `--fd-*-adj` reads and src/golem/faceDisc.js.
 import FaceDiscLab from "./components/FaceDiscLab";
@@ -1456,6 +1459,45 @@ export default {
       // on boot-restore of an ended town and on every spectator's receipt of
       // the resync; THIS handler runs only on the host's actual winner pick.
       const winner = winningTeam === "evil" ? "evil" : "good";
+      // FT-1037: THE BOARD PORTRAITS, posted first so the chapter still
+      // closes on the winner's sentence. Data snapshots, not pixels: the
+      // ring in seat order — name, role, alive/dead, traveler — rendered
+      // back into a mini board by the chronicles' stats tab. The day-1
+      // capture may be absent (a game that never saw Day 1 break, or a
+      // pre-FT-1037 game); the end portrait is shot here, while the roles
+      // still stand (Play again clears them later).
+      const gameChat = {
+        kind: "system",
+        gameId: this.$store.state.chat.gameId,
+        senderKey: "system",
+        senderKind: "system",
+        phase: this.$store.state.grimoire.isNight ? "night" : "day",
+        dayNumber: this.$store.state.night.day,
+      };
+      const day1Ring = takeDay1Board(gameChat.gameId);
+      if (day1Ring) {
+        this.$store.commit("chatSay", {
+          ...gameChat,
+          body: encodeEvent({
+            t: "board",
+            moment: "day1",
+            seats: day1Ring,
+            text: "The board, as Day 1 broke.",
+          }),
+        });
+      }
+      const endRing = boardRingOf(this.$store.state.players.players);
+      if (endRing.length) {
+        this.$store.commit("chatSay", {
+          ...gameChat,
+          body: encodeEvent({
+            t: "board",
+            moment: "end",
+            seats: endRing,
+            text: "The final board.",
+          }),
+        });
+      }
       this.$store.commit("chatSay", {
         kind: "system",
         gameId: this.$store.state.chat.gameId,

@@ -74,6 +74,15 @@ export const EVENTS = [
   "nomination",
   "execution",
   "unmark",
+  // FT-1037: the town-session boundary — the storyteller opened the town.
+  // Current mode anchors on the LAST of these (openAnchorSeq below).
+  "open",
+  // FT-1037: a BOARD PORTRAIT — the ring as data, not pixels; detail:
+  // { moment: "day1" | "end", seats: [{name, role, dead, traveler}] }.
+  // Captured when Day 1 breaks and at game end, but both POSTED at game
+  // end: a day-1 row broadcast mid-game would hand every player the full
+  // grimoire (roles ride the body, and system rows reach everyone).
+  "board",
 ];
 
 /** Event → stored body. `text` is required; detail keys ride beside it. */
@@ -268,12 +277,158 @@ export function phaseDurations(rows) {
     const ev = decodeEvent(row.body);
     if (!ev) continue;
     const at = Date.parse(row.createdAt);
-    if (ev.t === "start") { anchorAt = at; continue; }
+    if (ev.t === "start") {
+      anchorAt = at;
+      continue;
+    }
     if (ev.t !== "phase") continue;
-    if (anchorAt != null && Number.isFinite(at)) out[row.id] = Math.max(0, Math.round((at - anchorAt) / 1000));
+    if (anchorAt != null && Number.isFinite(at))
+      out[row.id] = Math.max(0, Math.round((at - anchorAt) / 1000));
     anchorAt = at;
   }
   return out;
+}
+
+/**
+ * FT-1037: THE CURRENT ANCHOR — the seq of the LAST `open` row in the log,
+ * or 0 when the town has never written one. Current mode shows rows at or
+ * after this seq; History reads per game. Derived from the log itself so
+ * every client — host, player, a reload mid-game — computes the same
+ * boundary from the same rows, with no per-browser state to drift.
+ */
+export function openAnchorSeq(rows) {
+  let anchor = 0;
+  (rows || []).forEach((row) => {
+    if (row.kind !== "system") return;
+    const ev = decodeEvent(row.body);
+    if (ev && ev.t === "open") anchor = row.seq;
+  });
+  return anchor;
+}
+
+/**
+ * FT-1037: the ring as DATA — one compact seat per chair, in seat order.
+ * Names capped so a 20-seat ring stays well under the store's BODY_MAX.
+ */
+export function boardRingOf(players) {
+  return (players || []).map((player, i) => ({
+    name: ((player && player.name) || `Seat ${i + 1}`).slice(0, 32),
+    role: (player && player.role && player.role.id) || "",
+    dead: !!(player && player.isDead),
+    traveler: !!(player && player.role && player.role.team === "traveler"),
+  }));
+}
+
+/**
+ * FT-1037: a game's two portraits, decoded — { day1, end }, each the board
+ * EVENT or null. The first day1 wins and the last end wins, so a duplicate
+ * row (a re-recorded end) can never split the pair.
+ */
+export function boardsOf(rows, gameId) {
+  const out = { day1: null, end: null };
+  (rows || []).forEach((row) => {
+    if (row.gameId !== gameId || row.kind !== "system") return;
+    const ev = decodeEvent(row.body);
+    if (!ev || ev.t !== "board" || !Array.isArray(ev.seats)) return;
+    if (ev.moment === "day1" && !out.day1) out.day1 = ev;
+    else if (ev.moment === "end") out.end = ev;
+  });
+  return out;
+}
+
+/** FT-1037: a game's winner from its own `end` row — for a game the log
+ *  holds but the records API never got. */
+export function winnerOf(rows, gameId) {
+  let winner = null;
+  (rows || []).forEach((row) => {
+    if (row.gameId !== gameId || row.kind !== "system") return;
+    const ev = decodeEvent(row.body);
+    if (ev && ev.t === "end" && (ev.winner === "good" || ev.winner === "evil"))
+      winner = ev.winner;
+  });
+  return winner;
+}
+
+/*
+ * FT-1037: THE TOWN-SESSION STASH — is this connect a fresh OPENING, or the
+ * same sitting resumed (a reload, a relay blip)? localStorage `golem.townOpen`
+ * holds {townId: {at, seen}}. A host whose `seen` is within OPEN_STALE_MS is
+ * resuming and writes no new open row; older (or absent) means the town was
+ * shut and this connect opens it. socket.js bumps `seen` on a heartbeat while
+ * hosting, so "recently seen" literally means "the town was recently open".
+ */
+const OPEN_KEY = "golem.townOpen";
+const OPEN_STALE_MS = 45 * 60 * 1000;
+
+function readOpenStash() {
+  try {
+    return JSON.parse(localStorage.getItem(OPEN_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeOpenStash(stash) {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify(stash));
+  } catch (e) {
+    // storage denied — the host just re-opens each visit, honestly
+  }
+}
+
+/** Host connects: true = a FRESH opening (write the open row), false = the
+ *  same sitting resumed. Stamps/bumps the stash either way. */
+export function beginTownSession(townId) {
+  if (!townId) return false;
+  const stash = readOpenStash();
+  const now = Date.now();
+  const prior = stash[townId];
+  const fresh = !prior || !prior.seen || now - prior.seen > OPEN_STALE_MS;
+  stash[townId] = { at: fresh ? now : prior.at, seen: now };
+  writeOpenStash(stash);
+  return fresh;
+}
+
+/** The hosting heartbeat — keeps `seen` current while the town is open. */
+export function touchTownSession(townId) {
+  if (!townId) return;
+  const stash = readOpenStash();
+  if (!stash[townId]) return;
+  stash[townId].seen = Date.now();
+  writeOpenStash(stash);
+}
+
+/*
+ * FT-1037: THE DAY-1 BOARD STASH — the ring captured as Day 1 breaks, held on
+ * the host until game end posts it (see EVENTS's `board` note for why it is
+ * not broadcast live). One entry only — a new game's capture replaces the
+ * last game's orphan (an abandoned game leaves nothing behind). First write
+ * wins per game, so a day counter scrubbed back to 1 cannot re-capture a
+ * later board as "day 1".
+ */
+const DAY1_KEY = "golem.boardDay1";
+
+export function stashDay1Board(gameId, seats) {
+  if (!gameId || !Array.isArray(seats) || !seats.length) return;
+  try {
+    const prior = JSON.parse(localStorage.getItem(DAY1_KEY)) || {};
+    if (prior.gameId === gameId) return; // first write wins
+    localStorage.setItem(DAY1_KEY, JSON.stringify({ gameId, seats }));
+  } catch (e) {
+    // storage denied — the game just records with an end portrait only
+  }
+}
+
+/** The stashed day-1 ring for a game, cleared on read, or null. */
+export function takeDay1Board(gameId) {
+  try {
+    const stash = JSON.parse(localStorage.getItem(DAY1_KEY)) || {};
+    if (stash.gameId !== gameId || !Array.isArray(stash.seats)) return null;
+    localStorage.removeItem(DAY1_KEY);
+    return stash.seats;
+  } catch (e) {
+    return null;
+  }
 }
 
 export function dayOf(createdAt) {
