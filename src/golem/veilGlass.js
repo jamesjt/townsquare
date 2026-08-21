@@ -265,7 +265,9 @@ export function readVeilLab() {
     state.dials[d.key] = clamp(d, v);
   });
   try {
-    if (localStorage.getItem(VL_STORAGE.silk) === "two") state.silk = "two";
+    // FT-1014b: list-driven, so a third silk survives a reload too.
+    const savedSilk = localStorage.getItem(VL_STORAGE.silk);
+    if (VEIL_SILKS.some((s) => s.id === savedSilk)) state.silk = savedSilk;
   } catch (e) {
     state.silk = "one";
   }
@@ -515,9 +517,12 @@ export default {
         // storage off: the dial still works for this session
       }
     },
-    /** The veil PICK — which of the two silks the veil is made of. */
+    /** The veil PICK — which of the silks the veil is made of. */
     setVlSilk(id) {
-      this.vlLab.silk = id === "two" ? "two" : "one";
+      // FT-1014b: validate against the LIST — the hardcoded pair silently
+      // coerced Silk three to Silk one (user: "clicking silk 3 just goes
+      // to silk 1?").
+      this.vlLab.silk = VEIL_SILKS.some((s) => s.id === id) ? id : "one";
       publishVeilLab(this.vlLab);
       try {
         localStorage.setItem(VL_STORAGE.silk, this.vlLab.silk);
