@@ -1064,10 +1064,9 @@ export default {
   }
 }
 
-// YOUR OWN LINE — the chat drawer's hairline, unchanged.
-.cr-row.mine {
-  box-shadow: inset 2px 0 0 rgba(150, 130, 175, 0.55);
-}
+// FT-1023 (user call): the own-line purple hairline is GONE — "you" in the
+// name slot already says whose line it is. (Whispers below keep their own
+// mine mark; that one distinguishes sender from recipient in a pair.)
 
 // A WHISPER IS VISIBLY NOT ROOM TALK — recessed purple, both ends named.
 .cr-row.is-whisper {
