@@ -327,6 +327,24 @@ export const FACE_HANDS_FROZEN = { hour: 250, minute: 48, second: 165 };
 /** One second of dial. Sixty steps to the turn. */
 export const SECOND_STEP_DEG = 6;
 
+/** One minute of dial — the minute hand's own step when the tower ticks. */
+export const MINUTE_STEP_DEG = 6;
+
+/**
+ * ── ONE GAME DAY OF DIAL (FT-1020) ───────────────────────────────────────────
+ * The hour hand no longer measures hours: it counts the GAME'S OWN DAYS, one
+ * step at each day-start, and ignores the wall clock entirely. The step is an
+ * hour position — 30°, a full circle in twelve days — because the dial's tick
+ * rays (where the numerals stand, see FaceHands.vue) fall every 30°, so day N
+ * points at numeral N. Games run three to five days; the hand will not lap.
+ *
+ * This does NOT break the eight-spokes no-snapping doctrine above: that rule
+ * forbids asserting a precision the art cannot carry, and "which day is it" is
+ * a count, not a clock reading — the phase readout states the same number in
+ * words an inch away.
+ */
+export const DAY_STEP_DEG = 30;
+
 /**
  * ── THE ESCAPEMENT: A TICK WITH A LITTLE LIFE IN IT ─────────────────────────
  *
@@ -410,22 +428,33 @@ const DEFAULT_MOTION = "escapement";
  * unchanged. That is the whole reason this is a function of one number.
  *
  * IT IS A REAL CLOCK'S GEARING, on elapsed time rather than time of day: the
- * second hand sweeps a full turn a minute, the minute hand a full turn an hour,
- * the hour hand a turn every twelve. So the assembly reads as a clock MEASURING
- * THE PHASE — which is what it is — and the minute hand tracks elapsed minutes
- * exactly as asked.
+ * second hand sweeps a full turn a minute, the minute hand a full turn an
+ * hour. The HOUR hand left that gearing in FT-1020 — it counts game days now
+ * (see DAY_STEP_DEG above): pass `opts.day` and it stands at day × 30°,
+ * ignoring elapsed time entirely. Omit it and the old twelve-hour creep
+ * remains, for any caller with no game to count.
  *
- * NOTHING IS ROUNDED OR SNAPPED, at any of the three. The minute hand creeps
- * between its marks and the hour hand creeps between its own, which is what a
- * mechanical movement does and, more to the point here, is the only honest
- * option on a dial with eight spokes: see the header. A snapped hand would be
- * claiming to point AT something, and there is nothing on this face to point
- * at.
+ * THE TOWER TICKS NOW (FT-1020). `opts.minuteTick` quantises the minute hand
+ * to whole minutes; the short snap between positions is the stylesheet's
+ * (FaceHands.vue carries a transition on exactly the two stepping hands), so
+ * this function stays a pure position — time in, angles out, nothing animated
+ * here. Without the flag the minute hand creeps as it always did (the build
+ * panel's Sweep).
+ *
+ * MINUTE AND HOUR ANGLES ARE DELIBERATELY UNBOUNDED — no `% 360`. A CSS
+ * transition animates between the two numbers it is given, so 354°→0° would
+ * play as a fast backwards lap; 354°→360° steps forward like every other
+ * tick. rotate() is periodic, so the unbounded number paints identically.
+ *
+ * NOTHING SNAPS TO A SPOKE. The second step is one second of time, the minute
+ * step one minute of it, the day step a count the readout states in words —
+ * see the header for the eight-spokes doctrine this keeps faith with.
  */
 export function handAngles(
   elapsedMs,
   motion = DEFAULT_MOTION,
   overshootDeg = ESCAPEMENT_PEAK_DEG,
+  opts = {},
 ) {
   const ms = Math.max(0, Number(elapsedMs) || 0);
   const seconds = ms / 1000;
@@ -452,12 +481,19 @@ export function handAngles(
       second += escapementOffset(ms - whole * 1000, overshootDeg);
     }
   }
-  return {
-    second,
-    // 6° a minute, 30° an hour — a full turn in 60 and in 12
-    minute: (minutes % 60) * 6,
-    hour: (hours % 12) * 30,
-  };
+  // THE MINUTE HAND: whole-minute steps when the tower ticks (floored from
+  // elapsed time, the same drift-proof arithmetic as the second hand's step),
+  // the old creep otherwise. Unbounded either way — see the note above.
+  const minute = opts.minuteTick
+    ? Math.floor(minutes) * MINUTE_STEP_DEG
+    : minutes * MINUTE_STEP_DEG;
+  // THE HOUR HAND: the game's day counter when a day is given (FT-1020),
+  // the legacy twelve-hour creep when none is.
+  const hour =
+    typeof opts.day === "number"
+      ? Math.max(0, opts.day) * DAY_STEP_DEG
+      : (hours % 12) * 30;
+  return { second, minute, hour };
 }
 
 const clamp = (dial, v) =>

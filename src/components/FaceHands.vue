@@ -1,5 +1,6 @@
 <template>
-  <!-- ── THE CLOCK HANDS ON THE TOWN'S DIAL (FT-973) ────────────────────────
+  <!-- ── THE CLOCK HANDS ON THE TOWN'S DIAL (FT-973), AND THE TOWER'S OWN
+       FURNITURE (FT-1020) ────────────────────────────────────────────────────
        The town square is played on a BLANK plate: `#app.in-game` paints
        `background-clocktower-blank-centered.png`, the art with no hands on it,
        while the entry screen keeps the painting's own hands. This layer is what
@@ -7,44 +8,115 @@
        exactly that reason. On the entry screen it must not exist at all, or the
        painted hands and these would both be standing there.
 
-       WHAT DRIVES THEM: one number, `elapsedMs` — how long this phase has been
-       running — turned into three angles by `handAngles` in
-       src/golem/faceHands.js. See `phaseEpoch` below for where that number
-       comes from today and the one line that changes when the real phase log
-       lands.
+       FT-1020 SPLIT THE ROOT IN TWO. The wrapper below carries NO z-index of
+       its own (z auto forms no stacking context), so its two children join
+       #app's stack independently:
 
-       IT TAKES NO CLICKS, EVER. `pointer-events: none` on the layer, and none
-       of the four parts turns it back on. The dial sits under the town's whole
-       working surface — seats, the readout, the disc — and a decorative layer
-       that could swallow a click on any of them would be a bug that only shows
-       up as "the seat sometimes doesn't respond".
+         #face-hands  — the four hand sprites. PAINT, exactly as FT-973 left
+                        them: z-index 0, pointer-events none, under the town's
+                        working surface, dimmed by the night veil.
+         #tower-top   — the anchor numeral (the hour display's own control),
+                        the eleven other numerals, the digital readout and the
+                        display-mode menu. FURNITURE: z-index 3 — the readout
+                        `.info` sits at 2 (FT-995 re-measure) and a CONTROL has
+                        to stay reachable above the veil — with pointer-events
+                        none at the layer and auto only on the anchor and menu.
 
-       WHERE IT SITS: z-index 0, a direct child of #app, mounted before
-       `.backdrop`. These are PAINT, not furniture — the town's readout, seats
-       and discs all belong over them, and the night veil dims them along with
-       the art they lie on. z-index -1 was tried first and paints NOTHING; the
-       stylesheet carries the measurement and the reason.
+       WHAT DRIVES THE HANDS: `handAngles` in src/golem/faceHands.js, from two
+       inputs now — how long this phase has been running (`phaseEpoch` below)
+       and, since FT-1020, the game's own day counter for the hour hand.
 
-       ARIA-HIDDEN: it is decoration. The hands carry no reading a screen reader
-       could use — the face has eight spokes, so they do not even tell the time
-       (see faceHands.js). -->
-  <div id="face-hands" aria-hidden="true" ref="layer">
+       THE HANDS LAYER TAKES NO CLICKS, EVER — see FT-973's note below on why
+       a decorative layer that could swallow a click is a bug. The tower layer
+       re-enables the pointer ONLY on its two real controls. -->
+  <div id="face-hands-root">
     <div
-      class="fh-part fh-hour"
-      :style="{ backgroundImage: sprite('hour') }"
-    ></div>
-    <div
-      class="fh-part fh-minute"
-      :style="{ backgroundImage: sprite('minute') }"
-    ></div>
-    <div
-      class="fh-part fh-second"
-      :style="{ backgroundImage: sprite('second') }"
-    ></div>
-    <div
-      class="fh-part fh-boss"
-      :style="{ backgroundImage: sprite('boss') }"
-    ></div>
+      id="face-hands"
+      aria-hidden="true"
+      ref="layer"
+      :class="{ 'fh-tick': minuteTick }"
+      v-show="handsVisible"
+    >
+      <div
+        class="fh-part fh-hour"
+        :style="{ backgroundImage: sprite('hour') }"
+      ></div>
+      <div
+        class="fh-part fh-minute"
+        :style="{ backgroundImage: sprite('minute') }"
+      ></div>
+      <div
+        class="fh-part fh-second"
+        :style="{ backgroundImage: sprite('second') }"
+      ></div>
+      <div
+        class="fh-part fh-boss"
+        :style="{ backgroundImage: sprite('boss') }"
+      ></div>
+    </div>
+
+    <!-- ── THE TOWER'S TOP (FT-1020) ────────────────────────────────────────
+         THE ANCHOR IS THE XII. The dial's hour marks came off the art with the
+         painted hands; this stands the twelve o'clock numeral back up, in the
+         dial letters' own ink (App.vue's CLOCKTOWER spans — same Times, same
+         near-black, same soft shadow), and makes it the hour display's one
+         control: click it and the four modes open under it. In "Show
+         numerals" the other eleven join it on the same tick-ray ring; in
+         every other mode it stands alone — even Off keeps it, or there would
+         be no way back. -->
+    <div id="tower-top">
+      <template v-if="showNumerals">
+        <span
+          v-for="spot in numeralSpots"
+          :key="'num-' + spot.n"
+          class="tw-numeral"
+          aria-hidden="true"
+          :style="spot.style"
+          >{{ spot.label }}</span
+        >
+      </template>
+      <!-- the game's own moment, in the hands' place — which day or night it
+           is and how long it has run. Decoration like the hands (the phase
+           readout on the dial already states the same fact accessibly). -->
+      <span v-if="showDigital" class="tw-digital" aria-hidden="true">
+        {{ digitalLabel
+        }}<span class="tw-digital-clock">{{ digitalClock }}</span>
+      </span>
+      <button
+        type="button"
+        class="tw-anchor"
+        :class="{ open: menuOpen }"
+        aria-haspopup="menu"
+        :aria-expanded="String(menuOpen)"
+        aria-label="Hour display"
+        :title="anchorTitle"
+        @click="menuOpen = !menuOpen"
+        @keyup.esc="menuOpen = false"
+      >
+        XII
+      </button>
+      <div
+        v-if="menuOpen"
+        class="tw-menu"
+        role="menu"
+        aria-label="Hour display mode"
+        @keyup.esc="menuOpen = false"
+      >
+        <button
+          v-for="m in hourModes"
+          :key="m.id"
+          type="button"
+          class="tw-mode"
+          :class="{ on: hourMode === m.id }"
+          role="menuitemradio"
+          :aria-checked="String(hourMode === m.id)"
+          :title="m.hint"
+          @click="pickMode(m.id)"
+        >
+          {{ m.label }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -61,6 +133,45 @@ import {
   FACE_HANDS_FROZEN,
   FACE_HANDS_EVENT,
 } from "../golem/faceHands";
+import {
+  HOUR_MODES,
+  TOWER_EVENT,
+  towerState,
+  effectiveHourMode,
+  setTowerField,
+  setViewerHourMode,
+  loadTowerForTown,
+  armTowerAudio,
+  ringDayStart,
+} from "../golem/towerBells";
+
+/**
+ * ── THE NUMERAL RING (FT-1020) ────────────────────────────────────────────────
+ * Where the twelve hour numerals stand, in face-pixels off the MEASURED dial
+ * centre (the same `--fh-cx/cy` the hands pivot on). 168 sits inside the
+ * entry screen's own lettering — App.vue's CLOCKTOWER spans were measured
+ * onto the painted tick rays at radii 157–177 (they were placed by eye, ray
+ * by ray) — so one constant radius keeps the ring true to that band without
+ * inheriting its hand-placed wobble.
+ */
+const NUMERAL_RADIUS_FACE = 168;
+
+/** The clockmaker's convention — IIII, never IV (the call fbc9e39 already
+ *  made for the seat numerals). Index n-1; XII is the anchor, not a span. */
+const ROMAN = [
+  "I",
+  "II",
+  "III",
+  "IIII",
+  "V",
+  "VI",
+  "VII",
+  "VIII",
+  "IX",
+  "X",
+  "XI",
+  "XII",
+];
 
 export default {
   name: "FaceHands",
@@ -70,8 +181,9 @@ export default {
        * ── THE INPUT. THIS IS THE LINE THAT CHANGES. ─────────────────────────
        *
        * When the current phase began, in `performance.now()` milliseconds.
-       * Everything the hands do is `now - phaseEpoch` handed to `handAngles`,
-       * so this one assignment is the whole of "what drives the hands".
+       * The minute and second hands are `now - phaseEpoch` handed to
+       * `handAngles`; the hour hand reads the store's own day counter instead
+       * (FT-1020 — see `tick`).
        *
        * WHY IT IS OBSERVED RATHER THAN READ. The app records no phase-start
        * timestamp anywhere — checked, not assumed: `toggleNight`
@@ -106,6 +218,18 @@ export default {
        *  transform, so no custom property could carry it. */
       overshoot: overshootDegrees(readFaceHandsLab().overshoot),
       raf: 0,
+      // ── THE TOWER'S CHOICES (FT-1020), re-read on the tower's event ───────
+      /** Which of the four displays this screen shows — the viewer's own pick
+       *  when they made one, the town's otherwise (towerBells.js). */
+      hourMode: effectiveHourMode(),
+      /** Minute hand steps (the shipped tick) or creeps (the panel's Sweep). */
+      minuteTick: towerState.minuteTick,
+      hourModes: HOUR_MODES,
+      menuOpen: false,
+      /** The digital readout's mm:ss half, rewritten at most once a second by
+       *  the frame loop — never per frame; a data field sixty writes a second
+       *  is the reactivity cost `tick` exists to avoid. */
+      digitalClock: "0:00",
     };
   },
   computed: {
@@ -117,27 +241,143 @@ export default {
       const grimoire = s.grimoire || {};
       return (grimoire.isNight ? "n" : "d") + ":" + (night.day || 0);
     },
+    /** The game's day counter, as the readout states it. */
+    gameDay() {
+      const s = this.$store && this.$store.state;
+      return (s && s.night && s.night.day) || 0;
+    },
+    /**
+     * The hour hand's whole input (FT-1020): how many DAYS HAVE BROKEN. The
+     * store's counter increments at DUSK (`toggleNight` moves it when night N
+     * begins), but the ask is a step at DAY START — so through the night the
+     * hand holds the morning it last saw, and the +1 lands exactly when
+     * "Day N breaks". The night the town has not yet survived is not counted.
+     */
+    hourDays() {
+      const s = this.$store && this.$store.state;
+      const night = (s && s.grimoire && s.grimoire.isNight) || false;
+      return night ? Math.max(0, this.gameDay - 1) : this.gameDay;
+    },
+    /** The app's animation kill-switch. `#app.static` already kills the CSS
+     *  tick transitions; watching it here is what stops the FRAME LOOP too —
+     *  JS writes are motion the stylesheet cannot silence. */
+    isStaticNow() {
+      const s = this.$store && this.$store.state;
+      return !!(s && s.grimoire && s.grimoire.isStatic);
+    },
+    handsVisible() {
+      return this.hourMode === "clock" || this.hourMode === "numerals";
+    },
+    showNumerals() {
+      return this.hourMode === "numerals";
+    },
+    showDigital() {
+      return this.hourMode === "digital";
+    },
+    /** The digital readout's words: the phase readout's own fact, restated
+     *  small — "Day 3" / "Night 3". The Math.max is TownInfo's own clamp
+     *  (phaseLabel): the setup day, before the counter first moves, is
+     *  "Day 1" on the pill and must be "Day 1" here — the two state the
+     *  same fact an inch apart and may never disagree. */
+    digitalLabel() {
+      const s = this.$store.state;
+      const night = s.grimoire && s.grimoire.isNight;
+      return (night ? "Night " : "Day ") + Math.max(this.gameDay, 1);
+    },
+    anchorTitle() {
+      const m = HOUR_MODES.find((mode) => mode.id === this.hourMode);
+      return (
+        "Hour display: " + (m ? m.label : "") + " — click to choose another"
+      );
+    },
+    /**
+     * The eleven numerals that join the anchor in "Show numerals" — I..XI on
+     * the tick rays, XII being the anchor itself. Positioned in JS rather
+     * than as eleven CSS blocks because the ring is one formula: numeral n
+     * stands at n × 30° clockwise from twelve, NUMERAL_RADIUS_FACE out from
+     * the measured centre, scaled by the face's own `--fpx`.
+     */
+    numeralSpots() {
+      const spots = [];
+      for (let n = 1; n <= 11; n++) {
+        const angle = (n * 30 * Math.PI) / 180;
+        const x = Math.sin(angle) * NUMERAL_RADIUS_FACE;
+        const y = -Math.cos(angle) * NUMERAL_RADIUS_FACE;
+        spots.push({
+          n,
+          label: ROMAN[n - 1],
+          style: {
+            left: `calc(var(--fh-cx) + ${x.toFixed(1)} * var(--fpx))`,
+            top: `calc(var(--fh-cy) + ${y.toFixed(1)} * var(--fpx))`,
+          },
+        });
+      }
+      return spots;
+    },
   },
   watch: {
     // A NEW PHASE RESTARTS THE COUNT. Both halves matter: the day/night flag
     // catches dusk and dawn, the day number catches a second night (the flag
     // is already true when it starts).
-    phaseKey() {
+    phaseKey(now, before) {
       this.phaseEpoch = performance.now();
       this.tick();
+      // ── DAY BREAKS, THE BELL TOLLS (FT-1020) ──────────────────────────────
+      // Night→day on the SAME counter is a genuine dawn — the one moment the
+      // town's bell speaks — and it is the only transition that rings: a
+      // joiner leaping "d:0"→"d:3" keeps the flag and stays silent, a
+      // reconnect re-commits the same key and never gets here at all. Every
+      // client runs this watcher on its own store, so host and players each
+      // ring their own bell off the phase flip that already syncs — no new
+      // wire traffic exists for it.
+      if (before.charAt(0) === "n" && now.charAt(0) === "d") {
+        ringDayStart(this.$store.state.grimoire.isMuted);
+      }
     },
     frozen() {
+      this.tick();
+    },
+    // The kill-switch flipping: silence the loop, or stand it back up.
+    isStaticNow() {
+      if (this.raf) cancelAnimationFrame(this.raf);
+      this.raf = 0;
+      this.loop();
+    },
+    // The day count can move WITHOUT a phase flip (the night sheet's day
+    // scrub, FT-882) — the hour hand follows it wherever it goes. (A flip
+    // moves this too, but the phaseKey watcher's tick has already run by
+    // then and a second write of the same values is three no-op strings.)
+    hourDays() {
       this.tick();
     },
   },
   mounted() {
     this.phaseEpoch = performance.now();
+    // last-written stepped angles, for the reset guard in `tick` — plain
+    // instance fields, NOT data(): they change with the writes they guard and
+    // nothing renders from them.
+    this._lastMinute = -1;
+    this._lastHour = -1;
+    this._resetRaf = 0;
     window.addEventListener(FACE_HANDS_EVENT, this.readLab);
+    window.addEventListener(TOWER_EVENT, this.readTower);
+    // FT-1020: a HOST arriving in a town stands its remembered tower up (a
+    // reload mid-game never passes through the build panel, so both mounts
+    // load it — the read is idempotent). Every client arms the bell's silent
+    // audio unlock; the first gesture pays for it.
+    const session = this.$store.state.session;
+    if (!session.isSpectator && session.sessionId) {
+      loadTowerForTown(session.sessionId);
+    }
+    armTowerAudio();
+    this.readTower();
     this.loop();
   },
   beforeDestroy() {
     window.removeEventListener(FACE_HANDS_EVENT, this.readLab);
+    window.removeEventListener(TOWER_EVENT, this.readTower);
     if (this.raf) cancelAnimationFrame(this.raf);
+    if (this._resetRaf) cancelAnimationFrame(this._resetRaf);
   },
   methods: {
     /** The lab changed a pick. Storage is the single copy; re-read it. */
@@ -150,6 +390,28 @@ export default {
       // A dial may have changed while the clock is stopped, and a frozen loop
       // is not coming back round to notice.
       this.tick();
+    },
+    /** The tower changed — the build panel, the anchor menu, or a host sync
+     *  arriving. Same one-way re-read as the lab's. */
+    readTower() {
+      this.hourMode = effectiveHourMode();
+      this.minuteTick = towerState.minuteTick;
+      this.tick();
+    },
+    /**
+     * One of the four modes picked from the anchor menu. The STORYTELLER's
+     * pick is the town's (persisted per town, ridden out on the next full
+     * sync — the same write the build panel's segment makes); a PLAYER's is
+     * their own screen's override (towerBells.js keeps the two apart).
+     */
+    pickMode(id) {
+      const session = this.$store.state.session;
+      if (!session.isSpectator) {
+        setTowerField(session.sessionId || "", "hourMode", id);
+      } else {
+        setViewerHourMode(id);
+      }
+      this.menuOpen = false;
     },
     sprite(part) {
       return "url(" + handSprite(this.style, this.colorway, part) + ")";
@@ -164,6 +426,18 @@ export default {
      * binding at all, so Vue never touches its style attribute and cannot wipe
      * what is written here.
      *
+     * THE STEPPED HANDS ANIMATE IN CSS (FT-1020). The minute and hour angles
+     * change rarely now — once a minute, once a day — and the stylesheet
+     * carries a short snap transition on exactly those two parts, so each
+     * discrete write arrives as a tick rather than a jump. `#app.static`
+     * already kills that transition globally.
+     *
+     * THE RESET GUARD: a transition animates BETWEEN values, so any write
+     * that moves a stepped hand BACKWARDS — the phase flipping (elapsed back
+     * to zero), Play again (the day counter home), the lab freezing into its
+     * spread — would play as a fast anticlockwise lap. `.fh-reset` turns the
+     * transition off for that one write and comes off on the next frame.
+     *
      * The stylesheet composes these with the lab's `--fh-angle` offset, so the
      * Angle scrub works whether the clock is running or frozen.
      */
@@ -176,7 +450,18 @@ export default {
             performance.now() - this.phaseEpoch,
             this.motion,
             this.overshoot,
+            { minuteTick: this.minuteTick, day: this.hourDays },
           );
+      if (a.minute < this._lastMinute || a.hour < this._lastHour) {
+        el.classList.add("fh-reset");
+        if (this._resetRaf) cancelAnimationFrame(this._resetRaf);
+        this._resetRaf = requestAnimationFrame(() => {
+          this._resetRaf = 0;
+          el.classList.remove("fh-reset");
+        });
+      }
+      this._lastMinute = a.minute;
+      this._lastHour = a.hour;
       // NOTHING REACTIVE IS WRITTEN HERE, on purpose — see the note above. The
       // angles are not held in `data` at all: a component field nothing renders
       // from would still take Vue's reactive setter sixty times a second to
@@ -186,19 +471,30 @@ export default {
       el.style.setProperty("--fh-second-angle", a.second + "deg");
     },
     /**
-     * THE FRAME LOOP, and it STOPS DEAD WHEN FROZEN — one write, then no
-     * further frames until the clock is started again. A lab that is being used
-     * to judge a still image should not also be burning a frame callback a
-     * sixtieth of a second to redraw the same three numbers.
+     * THE FRAME LOOP, and it STOPS DEAD WHEN FROZEN OR STATIC — one write,
+     * then no further frames until the clock is started again. The freeze is
+     * the lab's (judging a still image); static is the app's own animation
+     * kill-switch, which must silence JS-driven motion as surely as it
+     * silences the stylesheet's (FT-1020).
      *
-     * requestAnimationFrame rather than an interval, for the second hand: it is
-     * a continuous sweep (nothing here is rounded or snapped — see
-     * faceHands.js), so it wants the display's own cadence. rAF also pauses
-     * itself in a hidden tab, which an interval would not.
+     * requestAnimationFrame rather than an interval, for the second hand: its
+     * escapement wants the display's own cadence, and rAF pauses itself in a
+     * hidden tab, which an interval would not.
      */
     loop() {
       this.tick();
-      if (this.frozen) {
+      // the digital readout's clock, at second-granularity — compare first so
+      // 59 of every 60 frames write nothing reactive
+      if (this.showDigital && !this.frozen) {
+        const total = Math.max(
+          0,
+          Math.floor((performance.now() - this.phaseEpoch) / 1000),
+        );
+        const clock =
+          Math.floor(total / 60) + ":" + String(total % 60).padStart(2, "0");
+        if (clock !== this.digitalClock) this.digitalClock = clock;
+      }
+      if (this.frozen || this.isStaticNow) {
         this.raf = 0;
         return;
       }
@@ -209,8 +505,29 @@ export default {
 </script>
 
 <style scoped lang="scss">
-/* ── WHERE THIS LAYER SITS IN THE STACK, AND WHY ─────────────────────────────
-   z-index 0, a direct child of #app, mounted BEFORE `.backdrop`.
+// ── THE TOWER'S TICK (FT-1020) ───────────────────────────────────────────────
+// How long a stepped hand takes to arrive, and how it lands. 340ms is well
+// under the minute hand's one-minute gap and long enough to read as movement
+// rather than a cut; the ease overshoots a few percent and settles — the same
+// personality the second hand's JS escapement already has, spoken in CSS.
+$tower-tick-duration: 340ms;
+$tower-tick-ease: cubic-bezier(0.2, 1.35, 0.4, 1);
+
+// the numeral ring's ink — the entry screen's dial letters, restated
+// (App.vue's `.dial-letters`: bold Times, near-black, a soft drop under it)
+$numeral-ink: #0a0502;
+
+// where the digital readout stands: on the twelve ray, under the anchor and
+// above the readout's own edition badge — face-pixels off the measured centre
+$digital-y-face: -122;
+
+/* ── WHERE THESE LAYERS SIT IN THE STACK, AND WHY ────────────────────────────
+   The ROOT wrapper carries inset: 0 and NO z-index — z auto forms no stacking
+   context, so the two layers below join #app's stack on their own numbers,
+   and the wrapper's place in the DOM (before `.backdrop`) is what the hands
+   layer's veil ordering still reads from.
+
+   #face-hands: z-index 0, exactly as FT-973 shipped it.
 
    ── z-index -1 WAS TRIED FIRST AND IT PAINTS NOTHING AT ALL ─────────────────
    Worth writing down, because the reasoning for it is seductive and wrong.
@@ -244,17 +561,17 @@ export default {
    longer the live threshold. The -1-is-a-hole finding is unaffected.
 
    ── WHY 0 AND NOT 1 ────────────────────────────────────────────────────────
-   Those two rows differ by 3 261 pixels, and every one of them is a pixel where
-   a blade would be drawn ON TOP OF THE TOWN READOUT — the script lockup, the
-   living/dead counts, the day number, the End-day button. THE HANDS ARE PAINT,
-   NOT FURNITURE: they stand in for hands painted into the entry screen's own
-   background image, so the town's working surface belongs over them. 0 is the
-   slot that says so.
+   Every pixel above 0 is a pixel where a blade would be drawn ON TOP OF THE
+   TOWN READOUT — the script lockup, the living/dead counts, the day number,
+   the End-day button. THE HANDS ARE PAINT, NOT FURNITURE: they stand in for
+   hands painted into the entry screen's own background image, so the town's
+   working surface belongs over them. 0 is the slot that says so.
 
    WHAT COVERS THEM, top to bottom: the dev labs (60+), the vote (20), the face
-   disc surfaces (19), the seats (1..N), the dial letters (1, and entry-only
-   anyway), the town readout `.info` (auto, later in DOM so it takes the tie)
-   and the death stains `.blood-dial` (0, likewise).
+   disc surfaces (19), #tower-top (3 — FT-1020, see below), the seats (1..N),
+   the dial letters (1, and entry-only anyway), the town readout `.info` (2,
+   FT-995) and the death stains `.blood-dial` (0, later in DOM so it takes the
+   tie).
 
    WHAT THEY COVER: the dial art, and the blood splat `.face-splat` (-1) —
    which is the one relationship this slot gets the wrong way round. Blood
@@ -265,9 +582,9 @@ export default {
 
    AND THE NIGHT VEIL IS WON BY DOM ORDER, NOT BY z-index. `.backdrop` (opacity
    .5 at night) is also stack level 0, so whichever comes later in App.vue's
-   template paints on top. This layer is mounted BEFORE it deliberately, so the
-   veil dims the hands along with the art they lie on — the same treatment the
-   entry screen's painted hands get.
+   template paints on top. This wrapper is mounted BEFORE it deliberately, so
+   the veil dims the hands along with the art they lie on — the same treatment
+   the entry screen's painted hands get.
 
    MEASURED, because an ordering claim that is merely reasoned is the kind that
    turns out backwards (claude_temp_test/2026-08-20-ft973-veilorder2.mjs). The
@@ -339,11 +656,15 @@ export default {
    better fix and it is what the face lab exists for, but it would silently move
    all four discs, whose positions were dialled by eye and baked across three
    passes (FT-888 / FT-935) AGAINST the current value. That is a re-bake, not a
-   side effect of a hands lane. Reported rather than done. */
-#face-hands {
+   side effect of a hands lane. Reported rather than done.
+
+   THE CENTRE LIVES ON THE ROOT WRAPPER (FT-1020) so both layers — the hands
+   AND the tower's numerals/menu — inherit one measurement instead of holding
+   two copies of it. */
+#face-hands-root {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  pointer-events: none;
   /* the measured art offset, in face-pixels — see the block above */
   --fh-art-dx: -11;
   --fh-art-dy: -20;
@@ -355,6 +676,12 @@ export default {
   --fh-cy: calc(
     var(--face-cy) + (var(--fh-art-dy) + var(--fh-centre-y, 0)) * var(--fpx)
   );
+}
+
+#face-hands {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   /* NEVER TAKES A CLICK. The layer covers the entire face — the seats, the
      readout and the disc all sit inside its box — so this is not a nicety.
      None of the four parts turns it back on. */
@@ -407,10 +734,27 @@ export default {
 .fh-hour {
   transform: rotate(calc(var(--fh-hour-angle, 0deg) + var(--fh-angle, 0deg)))
     scale(var(--fh-hour-wid, 1), var(--fh-hour-len, 1));
+  /* ── THE HOUR HAND TICKS (FT-1020) ───────────────────────────────────────
+     It steps once a game day now, so each write is discrete and the snap
+     lives here, in CSS — where `#app.static`'s global transition kill
+     already silences it. Always on: the hand has no continuous mode left. */
+  transition: transform $tower-tick-duration $tower-tick-ease;
 }
 .fh-minute {
   transform: rotate(calc(var(--fh-minute-angle, 0deg) + var(--fh-angle, 0deg)))
     scale(var(--fh-minute-wid, 1), var(--fh-minute-len, 1));
+}
+/* THE MINUTE HAND'S SNAP IS GATED ON THE TICK CLASS: in Sweep the angle
+   changes every frame, and a transition chasing a per-frame value smears the
+   hand instead of moving it. The class comes off, the transition goes with
+   it. */
+#face-hands.fh-tick .fh-minute {
+  transition: transform $tower-tick-duration $tower-tick-ease;
+}
+/* THE RESET WRITE — a stepped hand moving BACKWARDS (phase flip, Play again,
+   the lab's freeze) snaps without animating; see `tick` for who sets this. */
+#face-hands.fh-reset .fh-part {
+  transition: none;
 }
 .fh-second {
   transform: rotate(calc(var(--fh-second-angle, 0deg) + var(--fh-angle, 0deg)))
@@ -422,5 +766,127 @@ export default {
    may want different stacking later. */
 .fh-boss {
   transform: scale(var(--fh-boss, 1));
+}
+
+/* ── THE TOWER'S TOP (FT-1020): the anchor, the ring, the readout, the menu ──
+   z-index 3: the first slot that clears the town readout (FT-995 measured the
+   hands crossing `.info` at 3+), which a CONTROL must — an hour switch buried
+   under the counts would be furniture that cannot be reached. The layer
+   itself still takes no clicks; only the anchor and the menu re-enable the
+   pointer, so the seats and the readout lose not one pixel of their surface
+   to decoration. */
+#tower-top {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+}
+
+/* the eleven ring numerals — the dial letters' ink at a numeral's size (the
+   ring is twelve marks ~88 face-pixels apart; 26 keeps neighbours clear) */
+.tw-numeral {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+  font-size: calc(26 * var(--fpx));
+  color: $numeral-ink;
+  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
+}
+
+/* THE ANCHOR — the XII, standing whether or not its eleven siblings are
+   shown. A real <button> (keyboard reachable, Esc closes the menu), wearing
+   the numeral ink rather than button chrome: it is the dial's own mark first
+   and a control second. The pointer states brighten it to old gold so a
+   mouse learns it is alive without the dial wearing a plate. */
+.tw-anchor {
+  position: absolute;
+  left: var(--fh-cx);
+  top: calc(var(--fh-cy) - 168 * var(--fpx));
+  transform: translate(-50%, -50%);
+  padding: calc(4 * var(--fpx));
+  margin: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: 1;
+  font-size: calc(26 * var(--fpx));
+  color: $numeral-ink;
+  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+  cursor: pointer;
+  &:hover,
+  &:focus-visible,
+  &.open {
+    color: #caa662;
+    outline: none;
+    text-shadow: 0 0 calc(6 * var(--fpx)) rgba(202, 166, 98, 0.6);
+  }
+}
+
+/* the game's moment, small on the twelve ray — decoration, like the hands */
+.tw-digital {
+  position: absolute;
+  left: var(--fh-cx);
+  top: calc(var(--fh-cy) + #{$digital-y-face} * var(--fpx));
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--fpx));
+  line-height: 1;
+  font-size: calc(20 * var(--fpx));
+  color: $numeral-ink;
+  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+.tw-digital-clock {
+  font-size: calc(15 * var(--fpx));
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* THE MENU — UI chrome, not dial paint, so it speaks the app's dark-plate
+   idiom (RoleHoverCard's ground and border) at a fixed UI size rather than
+   face-pixels: a control's legibility must not shrink with the viewport. */
+.tw-menu {
+  position: absolute;
+  left: var(--fh-cx);
+  top: calc(var(--fh-cy) - 150 * var(--fpx));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: rgba(10, 4, 4, 0.97);
+  border: 1px solid #400;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
+  pointer-events: auto;
+  font-family: inherit;
+}
+.tw-mode {
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  color: #d8cdb4;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  &:hover,
+  &:focus-visible {
+    border-color: rgba(150, 130, 175, 0.75);
+    outline: none;
+  }
+  &.on {
+    color: #0d0a12;
+    background: #caa662;
+    border-color: #caa662;
+  }
 }
 </style>

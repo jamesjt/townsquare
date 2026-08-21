@@ -57,9 +57,12 @@
            server's finished-game count plus the one being built right now.
            Blank (not zero) while the count is unknown: a wrong number reads
            worse than no number. -->
-      <small v-if="!renaming && gamesLine" class="ht-games" :title="gamesHint">{{
-        gamesLine
-      }}</small>
+      <small
+        v-if="!renaming && gamesLine"
+        class="ht-games"
+        :title="gamesHint"
+        >{{ gamesLine }}</small
+      >
       <small v-if="!renaming && renameNote" class="ht-rename-note">{{
         renameNote
       }}</small>
@@ -77,11 +80,11 @@
          reason. A wrapper that only one layout can see costs the other three
          nothing. -->
     <div class="ht-body">
-    <!-- the row carries the claimed count as a `title` as well as on the line,
+      <!-- the row carries the claimed count as a `title` as well as on the line,
          because the disc folds the visible copy away for room (see the styles)
          and the number must stay reachable there -->
-    <div class="row" :title="seatsHint">
-      <!-- FT-959 (user call): "make it more clear that the chain is tied to
+      <div class="row" :title="seatsHint">
+        <!-- FT-959 (user call): "make it more clear that the chain is tied to
            the 7". `.ht-seat-lead` groups the mark, the scrub and its implied
            counts on the row's LEFT; `.ht-seat-trail` groups the claimed count
            and the shuffle on the RIGHT. Two clusters instead of five loose
@@ -102,25 +105,25 @@
            or bracket was the other option on the table; the plate was picked
            because it is already how every other "this is one control" claim
            on this panel is made. -->
-      <span class="ht-seat-lead">
-        <span class="label">
-          <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
-        </span>
-        <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
-          <!-- the number is a SCRUBBER: drag it sideways to set the count
+        <span class="ht-seat-lead">
+          <span class="label">
+            <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
+          </span>
+          <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
+            <!-- the number is a SCRUBBER: drag it sideways to set the count
                (user call — the +/- pair retired). FT-874: extracted into
                NumberScrub so the night sheet's own number fields run the SAME
                gesture code — see that component for the full history. -->
-          <span class="stepper">
-            <NumberScrub
-              class="seat-scrub-ctl"
-              :value="players.length"
-              :min="0"
-              :max="20"
-              @input="setSeatCount"
-            />
-          </span>
-          <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition
+            <span class="stepper">
+              <NumberScrub
+                class="seat-scrub-ctl"
+                :value="players.length"
+                :min="0"
+                :max="20"
+                @input="setSeatCount"
+              />
+            </span>
+            <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition
                the seat count implies, right of the number that decides it.
                Drag the scrub and the four counts move with it, which is the
                whole reason it belongs on this row and not on another one.
@@ -143,30 +146,30 @@
 
                Below five non-travellers there is no official composition to
                state, so nothing is stated — same gate TownInfo uses. -->
-          <span class="ht-comp" v-if="composition" :title="compHint">
-            <span
-              v-for="t in COMP_TEAMS"
-              :key="t"
-              class="stat"
-              :class="t"
-              :title="TEAM_LABELS[t] + ': ' + composition[t]"
-            >
-              {{ composition[t] }}
-              <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+            <span class="ht-comp" v-if="composition" :title="compHint">
+              <span
+                v-for="t in COMP_TEAMS"
+                :key="t"
+                class="stat"
+                :class="t"
+                :title="TEAM_LABELS[t] + ': ' + composition[t]"
+              >
+                {{ composition[t] }}
+                <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+              </span>
             </span>
           </span>
         </span>
-      </span>
-      <span class="ht-seat-trail">
-        <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
+        <span class="ht-seat-trail">
+          <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
              shift-clicking START does the filling now, so there is one dev
              gesture instead of two. devFillSeats itself is kept below.) -->
-        <small class="claimed">{{ claimedCount }} claimed</small>
-        <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
+          <small class="claimed">{{ claimedCount }} claimed</small>
+          <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
              ALWAYS rendered — appearing icons shove the row (user call);
              unusable states grey out instead. -->
-        <!-- (trash retired — scrub the count to 0 instead; user call) -->
-        <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
+          <!-- (trash retired — scrub the count to 0 instead; user call) -->
+          <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
              control plate (2026-08-19, user call: "and this shuffle
              button?"). It was a bare <svg> with no box at all — the only
              control on the panel with nothing under it — which is why it
@@ -178,20 +181,20 @@
              disabled state comes with the mixin, the button stops taking
              clicks by itself, and it drops out of the tab order — which the
              old opacity-plus-pointer-events pair never did. -->
-        <span class="tools">
-          <button
-            class="tool-btn"
-            type="button"
-            :disabled="players.length <= 2"
-            @click="randomizeSeatings"
-            title="Shuffle seat order"
-          >
-            <font-awesome-icon icon="random" />
-          </button>
+          <span class="tools">
+            <button
+              class="tool-btn"
+              type="button"
+              :disabled="players.length <= 2"
+              @click="randomizeSeatings"
+              title="Shuffle seat order"
+            >
+              <font-awesome-icon icon="random" />
+            </button>
+          </span>
         </span>
-      </span>
-    </div>
-    <!-- FT-895 (user call: "a script should carry a minimum and maximum number
+      </div>
+      <!-- FT-895 (user call: "a script should carry a minimum and maximum number
          of players... and the seat number should respect that", then — on how
          hard — "the seat control probably shouldn't enforce the number but
          warn when it is outside of that range").
@@ -215,16 +218,16 @@
          knows what it holds, so the line says which team is short and by how
          much. The derivation is golem/seatRange — shared, so no second
          surface can disagree about what this script plays. -->
-    <small class="hint seat-warn" v-if="seatWarn">
-      {{ seatWarn.reason }}
-      <span class="plays" v-if="seatWarn.plays">{{ seatWarn.plays }}</span>
-    </small>
+      <small class="hint seat-warn" v-if="seatWarn">
+        {{ seatWarn.reason }}
+        <span class="plays" v-if="seatWarn.plays">{{ seatWarn.plays }}</span>
+      </small>
 
-    <!-- the SHARED script picker (user call): pick right here, with the
+      <!-- the SHARED script picker (user call): pick right here, with the
          script's OWN art on the trigger; the Almanac card opens the forge -->
-    <div class="row">
-      <span class="label">
-        <!-- ui-script.png is the SAME file the top strip's own script door
+      <div class="row">
+        <span class="label">
+          <!-- ui-script.png is the SAME file the top strip's own script door
              wears (Menu.vue) — not a new asset. It bakes flat neutral grey
              (mean rgb ~101,101,101) where seat/role/nightcheck bake warm
              (~154,146,133), the recipe every other row mark in the app
@@ -233,23 +236,23 @@
              warms THIS instance only, tuned against the live render to land
              within ~2 units of the warm family's own mean RGB — see the
              sampling rig, claude_temp_test/2026-08-19-ft936-sample/. -->
-        <img
-          class="row-mark ht-script-mark"
-          :src="uiScript"
-          alt="Script"
-          title="Script"
+          <img
+            class="row-mark ht-script-mark"
+            :src="uiScript"
+            alt="Script"
+            title="Script"
+          />
+        </span>
+        <ScriptPicker
+          class="ht-script-picker"
+          :cards="scriptCards"
+          :picked-id="pickedScriptId"
+          @pick="pickScript"
         />
-      </span>
-      <ScriptPicker
-        class="ht-script-picker"
-        :cards="scriptCards"
-        :picked-id="pickedScriptId"
-        @pick="pickScript"
-      />
-    </div>
+      </div>
 
-    <!-- FT-854: the role DRAWER replaced the overlay -->
-    <!-- FT-959 (user call): "the '0/7 assigned' value should sit with its
+      <!-- FT-854: the role DRAWER replaced the overlay -->
+      <!-- FT-959 (user call): "the '0/7 assigned' value should sit with its
          mark rather than adrift." Same fix as the Seats row above: the mark
          and the value become ONE cluster (`.ht-role-lead`), so the row's
          `space-between` has exactly two things to split — this cluster and
@@ -259,28 +262,168 @@
          already reads as one family via its own shared plate and 6px gap —
          what it lacked was room of its own to read as a group IN, which
          merging the leading pair now gives it. -->
-    <div class="row">
-      <span class="ht-role-lead">
-        <span class="label">
-          <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
+      <div class="row">
+        <span class="ht-role-lead">
+          <span class="label">
+            <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
+          </span>
+          <span class="value" @click="toggleModal('roleDrawer')">
+            {{ rolesAssigned }} / {{ players.length }} assigned
+          </span>
         </span>
-        <span class="value" @click="toggleModal('roleDrawer')">
-          {{ rolesAssigned }} / {{ players.length }} assigned
-        </span>
-      </span>
-      <!-- Deal / Shuffle / Dupes sit INLINE with the count on every width
+        <!-- Deal / Shuffle / Dupes sit INLINE with the count on every width
            (user call 2026-08-18) — the tray below carries only characters -->
-      <RoleActions />
-    </div>
+        <RoleActions />
+      </div>
 
-    <!-- FT-860: the night sheet's three-state switch. Its own component so
+      <!-- FT-860: the night sheet's three-state switch. Its own component so
          the setting travels with the rest of the night code. -->
-    <NightModeRow />
+      <NightModeRow />
 
-    <!-- FT-859: the UNSEATED TRAY — the script's characters that have no
+      <!-- ── FT-1020: THE TOWER — the storyteller's own clockworks ────────────
+         Two rows: how the dial tells the game's time (the four display modes
+         and whether the minute hand ticks or sweeps), and the bell that
+         answers a day-start (on/off, which of the two bells, how loud, and a
+         listen button so the pick can be heard before the town hears it).
+
+         The choices live in golem/towerBells.js: persisted PER TOWN under
+         this town's id, and ridden out on the full gamestate sync every
+         joining player already receives — never a new frame kind. The dial's
+         own anchor numeral (FaceHands.vue) opens the same four display modes
+         for players, as a local per-screen pick.
+
+         The segments wear the panel's shared control plate (controls.scss),
+         the same object NightModeRow's switches are made of. -->
+      <div
+        class="row tw-row"
+        title="How the tower shows the hour, and how its minute hand moves"
+      >
+        <span class="tw-lead">
+          <span class="label">
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="clock"
+              title="The tower's clock"
+            />
+          </span>
+          <span class="tw-seg" role="radiogroup" aria-label="Hour display">
+            <button
+              v-for="m in hourModes"
+              :key="m.id"
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.hourMode === m.id)"
+              :class="{ on: tower.hourMode === m.id }"
+              :title="m.hint"
+              @click="setTower('hourMode', m.id)"
+            >
+              {{ m.short || m.label }}
+            </button>
+          </span>
+        </span>
+        <!-- TICK is what ships (FT-1020 — the tower keeps its own time);
+           Sweep is the old continuous creep, kept reachable. The hour hand
+           steps with the game's days either way: it has no hours to sweep. -->
+        <span class="tw-seg" role="radiogroup" aria-label="Minute hand motion">
+          <button
+            type="button"
+            class="tw-opt"
+            role="radio"
+            :aria-checked="String(tower.minuteTick)"
+            :class="{ on: tower.minuteTick }"
+            title="The minute hand steps once a minute, arriving with a short snap"
+            @click="setTower('minuteTick', true)"
+          >
+            Tick
+          </button>
+          <button
+            type="button"
+            class="tw-opt"
+            role="radio"
+            :aria-checked="String(!tower.minuteTick)"
+            :class="{ on: !tower.minuteTick }"
+            title="The minute hand creeps continuously — the pre-tower glide"
+            @click="setTower('minuteTick', false)"
+          >
+            Sweep
+          </button>
+        </span>
+      </div>
+      <div class="row tw-row" title="The bell that tolls when a day begins">
+        <span class="tw-lead">
+          <span class="label">
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="bell"
+              title="The day-start bell"
+            />
+          </span>
+          <span class="tw-seg" role="radiogroup" aria-label="Day-start bell">
+            <button
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.bellOn)"
+              :class="{ on: tower.bellOn }"
+              title="The bell tolls at every day-start, for the whole town"
+              @click="setTower('bellOn', true)"
+            >
+              On
+            </button>
+            <button
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(!tower.bellOn)"
+              :class="{ on: !tower.bellOn }"
+              title="No bell — the day breaks silently"
+              @click="setTower('bellOn', false)"
+            >
+              Off
+            </button>
+          </span>
+          <span class="tw-seg" role="radiogroup" aria-label="Which bell">
+            <button
+              v-for="b in bells"
+              :key="b.id"
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.bellId === b.id)"
+              :class="{ on: tower.bellId === b.id }"
+              :title="b.label"
+              @click="setTower('bellId', b.id)"
+            >
+              {{ b.short }}
+            </button>
+          </span>
+        </span>
+        <span class="tw-bell-trail">
+          <NumberScrub
+            :value="tower.bellVolume"
+            :min="0"
+            :max="100"
+            title="Bell volume, in percent of the clip as cut"
+            @input="setTower('bellVolume', $event)"
+          />
+          <span class="tools">
+            <button
+              class="tool-btn"
+              type="button"
+              title="Ring the bell now — hear the pick before the town does"
+              @click="listenBell"
+            >
+              <font-awesome-icon icon="volume-up" />
+            </button>
+          </span>
+        </span>
+      </div>
+
+      <!-- FT-859: the UNSEATED TRAY — the script's characters that have no
          chair yet, dragged straight onto a seat from here. Dropping a seated
          role anywhere that is not a seat sends it back to this tray. -->
-    <RoleTray />
+      <RoleTray />
     </div>
 
     <!-- Start and the line explaining why it is greyed out are ONE footer.
@@ -346,6 +489,19 @@ import { TEAM_LABELS } from "../golem/composition";
 // golem/composition's `servableFor`, which both of them read — the seat row
 // and the meter cannot disagree about a script's range.
 import { seatWarning } from "../golem/seatRange";
+// FT-1020: THE TOWER — the storyteller's clockworks (display mode, tick vs
+// sweep, the day-start bell). towerState is the module's single copy; the
+// rows here write through setTowerField (which persists per town) and re-read
+// on the tower's own event, the same one-way shape the face lab runs on.
+import {
+  TOWER_BELLS,
+  HOUR_MODES,
+  TOWER_EVENT,
+  towerState,
+  loadTowerForTown,
+  setTowerField,
+  previewBell,
+} from "../golem/towerBells";
 
 // The four teams the setup table names, in the order every other surface in
 // this app states them (the reading order of a composition, best to worst).
@@ -354,7 +510,13 @@ import { seatWarning } from "../golem/seatRange";
 const COMP_TEAMS = ["townsfolk", "outsider", "minion", "demon"];
 
 export default {
-  components: { ScriptPicker, RoleTray, RoleActions, NightModeRow, NumberScrub },
+  components: {
+    ScriptPicker,
+    RoleTray,
+    RoleActions,
+    NightModeRow,
+    NumberScrub,
+  },
   mounted() {
     // a fresh town opens at SEVEN chairs — the smallest non-Teensyville
     // game (5-6 is Teensyville; user call 2026-08-18)
@@ -364,9 +526,8 @@ export default {
     // the HOST sees assignments as they land — while building, the first
     // assigned role flips the grimoire face-up (G still toggles freely)
     rolesAssigned(n) {
-      if (n > 0 && this.grimoire.isPublic)
-        this.$store.commit("toggleGrimoire");
-    }
+      if (n > 0 && this.grimoire.isPublic) this.$store.commit("toggleGrimoire");
+    },
   },
   data() {
     return {
@@ -392,12 +553,27 @@ export default {
       // (finished games + this one). null while unknown — no server count
       // yet, or the fetch failed — and the template's gate is on that null,
       // not on 0: a wrong number reads worse than no number.
-      gamesCount: null
+      gamesCount: null,
+      // FT-1020: the tower rows' furniture, and a local snapshot of the
+      // module's state (a plain module object is not reactive; the snapshot
+      // is what Vue renders, refreshed on TOWER_EVENT by readTower).
+      hourModes: HOUR_MODES,
+      bells: TOWER_BELLS,
+      tower: { ...towerState },
     };
   },
   created() {
     this.loadTownName();
     this.loadGamesCount();
+    // FT-1020: stand this town's remembered tower up (idempotent — FaceHands
+    // does the same for a host who reloads mid-game and never passes through
+    // this panel), then track its changes.
+    loadTowerForTown(this.session.sessionId || "");
+    this.readTower();
+    window.addEventListener(TOWER_EVENT, this.readTower);
+  },
+  beforeDestroy() {
+    window.removeEventListener(TOWER_EVENT, this.readTower);
   },
   computed: {
     ...mapState(["edition", "session", "grimoire"]),
@@ -411,7 +587,7 @@ export default {
       );
     },
     claimedCount() {
-      return this.players.filter(p => p.id).length;
+      return this.players.filter((p) => p.id).length;
     },
     /** The heading's second line: finished games in this town plus the one
      *  being built now. "" (not "0 games") while gamesCount is unknown, which
@@ -429,7 +605,10 @@ export default {
       const finished = this.gamesCount - 1;
       return finished === 0
         ? "The first game in this town."
-        : finished + (finished === 1 ? " game finished here before this one." : " games finished here before this one.");
+        : finished +
+            (finished === 1
+              ? " game finished here before this one."
+              : " games finished here before this one.");
     },
     /** The heading's own tooltip: rename affordance plus — because the disc
      *  cap has no room for the games line as text (see the styles) — the
@@ -442,12 +621,10 @@ export default {
     },
     /** Travellers sit beyond the base count and outside distribution math. */
     coreSeats() {
-      return this.players.filter(
-        p => !p.role || p.role.team !== "traveler"
-      );
+      return this.players.filter((p) => !p.role || p.role.team !== "traveler");
     },
     rolesAssigned() {
-      return this.players.filter(p => p.role && p.role.team).length;
+      return this.players.filter((p) => p.role && p.role.team).length;
     },
     /**
      * FT-888: what THIS MANY SEATS makes — the official setup table, read the
@@ -519,26 +696,26 @@ export default {
     },
     canRemoveSeat() {
       // The spinner never evicts: only an EMPTY seat can go.
-      return this.players.some(p => !p.id);
+      return this.players.some((p) => !p.id);
     },
     /** The shared picker's cards: officials, the vault shelf, the Almanac. */
     scriptCards() {
       const cards = editionJSON
-        .filter(e => e.isOfficial)
-        .map(e => ({
+        .filter((e) => e.isOfficial)
+        .map((e) => ({
           id: e.id,
           name: e.name,
           icon: EDITION_ICONS[e.id] || edCustom,
           blurb: OFFICIAL_BLURBS[e.id] || "",
-          source: "OFFICIAL"
+          source: "OFFICIAL",
         }));
-      getRecents().forEach(s => {
+      getRecents().forEach((s) => {
         cards.push({
           id: s.id,
           name: s.name || s.id,
           icon: edCustom,
           blurb: "",
-          source: "Scripts"
+          source: "Scripts",
         });
       });
       cards.push({
@@ -546,7 +723,7 @@ export default {
         name: "Scripts…",
         icon: edCustom,
         blurb: "Open the workbench — edit or forge a script",
-        source: ""
+        source: "",
       });
       return cards;
     },
@@ -557,29 +734,50 @@ export default {
     canStart() {
       return (
         this.coreSeats.length > 0 &&
-        this.coreSeats.every(p => p.id) &&
+        this.coreSeats.every((p) => p.id) &&
         this.rolesAssigned >= this.players.length
       );
     },
     startHint() {
       if (!this.players.length) return "Add seats to begin.";
-      if (!this.coreSeats.every(p => p.id)) {
-        const open = this.coreSeats.filter(p => !p.id).length;
-        return `Waiting on ${open} ${open === 1 ? "seat" : "seats"} to be claimed…`;
+      if (!this.coreSeats.every((p) => p.id)) {
+        const open = this.coreSeats.filter((p) => !p.id).length;
+        return `Waiting on ${open} ${
+          open === 1 ? "seat" : "seats"
+        } to be claimed…`;
       }
       if (this.rolesAssigned < this.players.length)
         return "Assign roles (the shuffle) before starting.";
       return "Everyone seated and cast — deal the characters.";
-    }
+    },
   },
   methods: {
     ...mapMutations(["toggleModal"]),
     // FT-888: golem/glyphs' team art, the same call TownInfo makes.
     teamGlyph,
+    // ── FT-1020: the tower rows ──────────────────────────────────────────
+    /** The tower changed — here, on the dial's anchor menu, or by a load. */
+    readTower() {
+      this.tower = { ...towerState };
+    },
+    /** One choice made: validate, persist for THIS town, tell the dial. */
+    setTower(key, value) {
+      setTowerField(this.session.sessionId || "", key, value);
+    },
+    /** Hear the pick before the town does. The click is itself the gesture
+     *  the browser's autoplay rule wants, so this also unlocks the bell for
+     *  the storyteller's own day-starts. */
+    listenBell() {
+      previewBell(
+        this.tower.bellId,
+        this.tower.bellVolume,
+        this.grimoire.isMuted,
+      );
+    },
     // ── FT-847: owned-town rename ────────────────────────────────────────
     loadTownName() {
       const id = this.session.sessionId;
-      const entry = id && listTowns().find(t => t.id === id);
+      const entry = id && listTowns().find((t) => t.id === id);
       this.townName = (entry && entry.name) || id || "";
     },
     /** Best-effort, like every golem call here: an unreachable server just
@@ -660,12 +858,12 @@ export default {
           this.$store.commit("players/update", {
             player: p,
             property: "id",
-            value: "dev-" + (i + 1)
+            value: "dev-" + (i + 1),
           });
           this.$store.commit("players/update", {
             player: p,
             property: "name",
-            value: "Fake " + (i + 1)
+            value: "Fake " + (i + 1),
           });
         }
       });
@@ -676,7 +874,7 @@ export default {
      *  or not — see App.vue). Reusing the WALK rather than reimplementing
      *  Deal: the only dealer is `RoleDrawer.assignRandomly`. */
     withDrawer(fn) {
-      const find = c =>
+      const find = (c) =>
         c.$options.name === "RoleDrawer"
           ? c
           : c.$children.reduce((a, x) => a || find(x), null);
@@ -689,7 +887,7 @@ export default {
         this.toggleModal("edition");
         return;
       }
-      const ed = editionJSON.find(e => e.id === card.id);
+      const ed = editionJSON.find((e) => e.id === card.id);
       if (ed) {
         this.$store.commit("setEdition", ed);
         this.vaultPickedId = null;
@@ -734,14 +932,16 @@ export default {
         }
         this.devFillSeats();
         if (this.rolesAssigned < this.players.length) {
-          this.withDrawer(d => d.assignRandomly());
+          this.withDrawer((d) => d.assignRandomly());
         }
         if (this.rolesAssigned < this.players.length) {
           // The script can't cast every seat — too few characters on a team,
           // or (above 15 non-traveler seats) more chairs than the composition
           // table even has a row for. Say so instead of a Start that looks
           // like it did nothing.
-          flashHint("The script can't cast every seat — add characters or remove seats.");
+          flashHint(
+            "The script can't cast every seat — add characters or remove seats.",
+          );
           return;
         }
         this.$parent.$refs.menu.distributeRoles();
@@ -749,14 +949,17 @@ export default {
       }
       if (!this.canStart) {
         // The button explains itself instead of doing nothing.
-        if (this.rolesAssigned < this.players.length && this.coreSeats.every(p => p.id)) {
+        if (
+          this.rolesAssigned < this.players.length &&
+          this.coreSeats.every((p) => p.id)
+        ) {
           this.toggleModal("roles");
         }
         return;
       }
       this.$parent.$refs.menu.distributeRoles();
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -822,7 +1025,6 @@ export default {
   .ht-body {
     display: contents;
   }
-
 
   // PORTRAIT PHONE: the panel stops being a plate in the middle of the ring
   // and becomes the bottom half of the screen.
@@ -973,7 +1175,9 @@ export default {
     font-size: 55%;
     opacity: 0.65;
     cursor: pointer;
-    transition: color 150ms, opacity 150ms;
+    transition:
+      color 150ms,
+      opacity 150ms;
 
     &:hover {
       color: red;
@@ -1121,6 +1325,58 @@ export default {
     .ht-script-mark {
       filter: sepia(0.5) saturate(2.5) hue-rotate(-5deg) brightness(1.9)
         contrast(0.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    }
+
+    // ── FT-1020: the tower rows ──────────────────────────────────────────
+    // The two marks are Font Awesome glyphs, not baked art — there is no
+    // clock or bell in the fork's own set yet (the FT-880 note on BellSlash
+    // says the same). Inked in the warm family's own mean (154, 146, 133)
+    // and drop-shadowed like `.row-mark`, so they stand in the same line.
+    .row-mark-fa {
+      width: 18px;
+      height: 18px;
+      color: rgb(154, 146, 133);
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    }
+    // mark + segments as ONE cluster, so the row's space-between spends its
+    // slack in a single gap — the FT-959 lesson the Seats and Roles rows
+    // both already carry.
+    .tw-lead {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    // the panel's shared segment — NightModeRow's `.nm-seg`/`.nm-opt`
+    // restated, because scoped CSS cannot reach across components and the
+    // mixins in controls.scss exist precisely so the restatement is two
+    // includes rather than a recipe
+    .tw-seg {
+      @include control-plate;
+      display: inline-flex;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .tw-opt {
+      @include control-cell;
+      font-size: 80%;
+      padding: 3px 6px;
+      &:hover {
+        color: #ff8a8a;
+      }
+      &.on {
+        background: $control-on-bg;
+        font-weight: bold;
+      }
+      @media (pointer: coarse) {
+        min-height: 40px;
+        padding: 0 10px;
+      }
+    }
+    // the volume scrub and the listen button, together on the row's right
+    .tw-bell-trail {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .stepper {
       display: flex;

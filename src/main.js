@@ -18,6 +18,9 @@ const faIcons = [
   "Check",
   "CheckSquare",
   "ChevronDown",
+  // FT-1020: the build panel's Tower row mark (there is no clock in the
+  // fork's own art set yet — same standing note as Bell/BellSlash below).
+  "Clock",
   "CloudMoon",
   "Cog",
   "Copy",
@@ -82,12 +85,12 @@ const faIcons = [
   "VoteYea",
   "Walking",
   "WindowMaximize",
-  "WindowMinimize"
+  "WindowMinimize",
 ];
 const fabIcons = ["Github", "Discord"];
 library.add(
-  ...faIcons.map(i => fas["fa" + i]),
-  ...fabIcons.map(i => fab["fa" + i])
+  ...faIcons.map((i) => fas["fa" + i]),
+  ...fabIcons.map((i) => fab["fa" + i]),
 );
 Vue.component("font-awesome-icon", FontAwesomeIcon);
 Vue.config.productionTip = false;
@@ -98,6 +101,6 @@ import BloodScroll from "./golem/bloodScrollbar";
 Vue.directive("blood-scroll", BloodScroll);
 
 new Vue({
-  render: h => h(App),
-  store
+  render: (h) => h(App),
+  store,
 }).$mount("#app");
