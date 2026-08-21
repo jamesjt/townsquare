@@ -40,7 +40,7 @@
       'sheet-left': modals.roleDrawer,
       // A FACE DISC IS STANDING OVER THE HUB — see the computed. The town
       // readout answers to this and to nothing else (TownInfo.vue).
-      'face-disc-open': faceDiscOpen
+      'face-disc-open': faceDiscOpen,
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -55,7 +55,7 @@
       // H: added to cover's own height, so + zooms in and − zooms out. Past
       // the point where cover stops covering, the edges show — which is the
       // trade, made visible rather than argued about.
-      '--bg-h': bgH + 'px'
+      '--bg-h': bgH + 'px',
     }"
   >
     <video
@@ -153,7 +153,11 @@
     <!-- the COIN LAB (Co): swap the seats' coin art live (user call
          2026-08-18). The choice rides CSS variables, so it is a repaint. -->
     <div id="coin-lab" :class="{ open: coinLabOpen }" v-if="devLabs">
-      <div class="fd-toggle" title="Coin lab" @click="coinLabOpen = !coinLabOpen">
+      <div
+        class="fd-toggle"
+        title="Coin lab"
+        @click="coinLabOpen = !coinLabOpen"
+      >
         Co
       </div>
       <div class="co-rows" v-if="coinLabOpen">
@@ -203,23 +207,42 @@
          can be dragged but not typed. Left as-is rather than forking the shared
          control for a dev tool that is coming out again. -->
     <div id="face-lab" :class="{ open: faceLabOpen }" v-if="devLabs">
-      <div class="fd-toggle" title="Face lab" @click="faceLabOpen = !faceLabOpen">
+      <div
+        class="fd-toggle"
+        title="Face lab"
+        @click="faceLabOpen = !faceLabOpen"
+      >
         Fa
       </div>
       <div class="fa-rows" v-if="faceLabOpen">
         <div class="fa-row">
           <span class="fa-label">X</span>
-          <NumberScrub :value="bgOffX" :min="-40" :max="40" @input="setBgOff('x', $event)" />
+          <NumberScrub
+            :value="bgOffX"
+            :min="-40"
+            :max="40"
+            @input="setBgOff('x', $event)"
+          />
         </div>
         <div class="fa-row">
           <span class="fa-label">Y</span>
-          <NumberScrub :value="bgOffY" :min="-40" :max="40" @input="setBgOff('y', $event)" />
+          <NumberScrub
+            :value="bgOffY"
+            :min="-40"
+            :max="40"
+            @input="setBgOff('y', $event)"
+          />
         </div>
         <!-- H is the size, and it needs a wider range than the two nudges: it
              is how far the art zooms past (or short of) covering the window. -->
         <div class="fa-row">
           <span class="fa-label">H</span>
-          <NumberScrub :value="bgH" :min="-200" :max="400" @input="setBgOff('h', $event)" />
+          <NumberScrub
+            :value="bgH"
+            :min="-200"
+            :max="400"
+            @input="setBgOff('h', $event)"
+          />
         </div>
         <button
           class="fa-reset"
@@ -275,7 +298,11 @@
     <VeilLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
-      <div class="fd-toggle" title="Font lab" @click="fontDebugOpen = !fontDebugOpen">
+      <div
+        class="fd-toggle"
+        title="Font lab"
+        @click="fontDebugOpen = !fontDebugOpen"
+      >
         Aa
       </div>
       <div class="fd-rows" v-if="fontDebugOpen">
@@ -286,7 +313,11 @@
           </button>
         </div>
       </div>
-      <div class="fd-toggle ik-toggle" title="Engraver lab" @click="toggleIkLab">
+      <div
+        class="fd-toggle ik-toggle"
+        title="Engraver lab"
+        @click="toggleIkLab"
+      >
         Ik
       </div>
       <div class="ik-panel" v-if="ikOpen">
@@ -321,9 +352,7 @@
            returns once the game starts; Intro ONLY when sessionless (FT-852:
            a player in a session always sees the live town square — seats
            appear as the host adds them; no waiting screen). -->
-      <HostTools
-        v-if="showHostTools && !session.nomination"
-      ></HostTools>
+      <HostTools v-if="showHostTools && !session.nomination"></HostTools>
       <Intro
         ref="intro"
         v-else-if="!session.sessionId && !players.length"
@@ -405,10 +434,13 @@
          what the strip's script/night icons open now; the two overlays below
          stay mounted but nothing routes to them. -->
     <ScriptDrawer />
-    <!-- FT-858: the vote-history drawer, the script drawer's twin on the same
-         right-hand rail. Opening either closes the other (the store's
-         toggleModal closes every other modal), so they never overlap. -->
-    <VoteDrawer />
+    <!-- (FT-858's vote-history drawer stood here until FT-1019: the gallows
+         lives in the Chronicles now — the permanent log's nomination rows,
+         each unfolding its own voter roster and arc — so VoteDrawer is
+         RETIRED BY UNMOUNTING, the same way the chat and chronicle drawers
+         went. Its file, VoteHistoryView and the old overlay stay in the
+         tree; the live tally list's two host controls rehomed into the
+         chronicles' gallows view.) -->
     <!-- FT-860: a player's OWN night information — the third right-hand
          drawer, mounted only while the town's night setting is "Everyone". -->
     <NightInfoDrawer v-if="night.mode === 'everyone'" />
@@ -455,12 +487,15 @@
       >
         {{ session.isSpectator ? "Playing in" : "Hosting" }}
         <b>{{ session.sessionId }}</b>
-        · {{ session.playerCount }} {{ session.playerCount === 1 ? "player" : "players" }}
+        · {{ session.playerCount }}
+        {{ session.playerCount === 1 ? "player" : "players" }}
       </span>
+      <!-- FT-1019: the count opens the CHRONICLES on its gallows view — the
+           vote-history drawer it used to raise is retired. -->
       <span
         class="nomlog"
         v-if="session.voteHistory.length"
-        @click="$store.commit('toggleModal', 'voteDrawer')"
+        @click="openGallows"
         :title="session.voteHistory.length + ' recent nominations'"
       >
         <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
@@ -645,8 +680,7 @@ import RoleHoverCard from "./components/RoleHoverCard";
 // FT-857: the player-facing script drawer (reference sheet + night order in
 // one), sharing the workbench's ScriptView.
 import ScriptDrawer from "./components/ScriptDrawer";
-// FT-858: the vote-history drawer — the nomination log on the same rail.
-import VoteDrawer from "./components/VoteDrawer";
+// (FT-858's VoteDrawer import left with its mount — FT-1019; file stays.)
 // FT-860: the storyteller's night checklist, and a player's own night notes.
 import NightSheet from "./components/NightSheet";
 import NightInfoDrawer from "./components/NightInfoDrawer";
@@ -673,7 +707,11 @@ import GhostLab from "./components/GhostLab";
 import VeilLab from "./components/VeilLab";
 // FT-1015: the baked veil refracts, so its displacement filter mounts at boot
 import { bootVeilGlass } from "./golem/veilGlass";
-import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
+import {
+  dripKnobs,
+  saveDripKnobs,
+  resetDripKnobs,
+} from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
 // The Pandemonium Institute's own mark, worn by the footer credit that links
@@ -704,7 +742,7 @@ import { markDealt, dealTimeFor } from "./golem/stats";
 import {
   armCallBackAudio,
   callBackState,
-  enableCallBackSound
+  enableCallBackSound,
 } from "./golem/callBack";
 // the FONT LAB: per-element lettering choices (title, on-the, the dial's
 // two words, the drop-caps)
@@ -713,7 +751,7 @@ import {
   glyphFrom,
   glyphStyleFrom,
   cycleField,
-  labelFor
+  labelFor,
 } from "./golem/titleFonts";
 // the ENGRAVER LAB (Ik): the icon stylizer's dials, dragged live against
 // official reference icons (the library chunk loads on first open)
@@ -721,7 +759,7 @@ import {
   engraver,
   ENGRAVER_DIALS,
   saveEngraver,
-  resetEngraver
+  resetEngraver,
 } from "./golem/iconStyle";
 import ikRefGood from "./assets/icons/ravenkeeper.png";
 import ikRefEvil from "./assets/icons/imp.png";
@@ -748,7 +786,6 @@ export default {
     RolesModal,
     RoleDrawer,
     ScriptDrawer,
-    VoteDrawer,
     NightSheet,
     NightInfoDrawer,
     ChroniclesDrawer,
@@ -757,7 +794,7 @@ export default {
     FaceHandsLab,
     GhostLab,
     VeilLab,
-    Gradients
+    Gradients,
   },
   computed: {
     ...mapState(["grimoire", "session", "modals", "scriptDrawerView", "night"]),
@@ -897,7 +934,9 @@ export default {
     },
     showNightChecklist() {
       return (
-        this.showNightSheet && this.night.mode !== "off" && this.grimoire.isNight
+        this.showNightSheet &&
+        this.night.mode !== "off" &&
+        this.grimoire.isNight
       );
     },
     /**
@@ -940,14 +979,14 @@ export default {
     townCast() {
       return (
         this.players.length > 0 &&
-        this.players.every(p => p.role && p.role.id)
+        this.players.every((p) => p.role && p.role.id)
       );
     },
     /** NO chair holds a character — the town has been emptied out. Stricter
      *  than `!townCast` on purpose; see `building` below for why the two
      *  conditions are not the same question. */
     townUncast() {
-      return !this.players.some(p => p.role && p.role.id);
+      return !this.players.some((p) => p.role && p.role.id);
     },
     // Golem fork: the building phase = hosting live, characters not yet dealt.
     // The deal moment is the DURABLE `dealAt` stash, not session
@@ -968,7 +1007,7 @@ export default {
       if (!this.session.sessionId || this.session.isSpectator) return false;
       if (this.session.isRolesDistributed) return false;
       return this.building;
-    }
+    },
   },
   // Golem fork: THE BOOT GATE — the ordering the user asked for, literally:
   // background first, fonts second, content third. The UI stays hidden (dark
@@ -996,15 +1035,15 @@ export default {
         // `pinned` prop. Read once, here, because a rotation drops the card
         // anyway (the card asks to be dismissed on resize).
         this.armedPinned = window.matchMedia(
-          "(orientation: landscape) and (max-height: 500px)"
+          "(orientation: landscape) and (max-height: 500px)",
         ).matches;
         this.$nextTick(() => {
           if (this.$store.state.drawerPick !== role) return;
           this.armedAnchor = document.querySelector(
-            ".rt-icon.picked, .rd-token.picked"
+            ".rt-icon.picked, .rd-token.picked",
           );
         });
-      }
+      },
     },
     /**
      * THE ONE LIVE WAY BACK INTO THE BUILDER, and it is deliberately the
@@ -1036,7 +1075,7 @@ export default {
       this.hotkeyHelpOpen = false;
       clearTimeout(this.leaveTimer);
       this.leaveArmed = false;
-    }
+    },
   },
   /**
    * IS THIS TOWN BEING BUILT? Asked ONCE, here, on the state the app boots
@@ -1090,7 +1129,7 @@ export default {
         this.building = false;
       }
     });
-    const bg = new Promise(resolve => {
+    const bg = new Promise((resolve) => {
       const img = new Image();
       img.onload = resolve;
       img.onerror = resolve;
@@ -1099,9 +1138,9 @@ export default {
     const fonts = Promise.all([
       document.fonts.load("1em PiratesBay"),
       document.fonts.load("1em Bloody"),
-      document.fonts.ready
+      document.fonts.ready,
     ]).catch(() => {});
-    const cap = new Promise(resolve => setTimeout(resolve, 4000));
+    const cap = new Promise((resolve) => setTimeout(resolve, 4000));
     Promise.race([Promise.all([bg, fonts]), cap]).then(() => {
       this.booted = true;
     });
@@ -1177,7 +1216,7 @@ export default {
         { key: "overlap", label: "Overlap", min: 0, max: 48, step: 2 },
         { key: "dx", label: "X offset", min: -20, max: 20, step: 1 },
         { key: "dy", label: "Y offset", min: -30, max: 30, step: 1 },
-        { key: "bx", label: "Bulb X", min: -12, max: 12, step: 1 }
+        { key: "bx", label: "Bulb X", min: -12, max: 12, step: 1 },
       ],
       // the engraver lab
       engraverRef: engraver,
@@ -1189,7 +1228,7 @@ export default {
       fdRows: [
         { field: "clockKey", label: "Clock" },
         { field: "towerKey", label: "Tower" },
-        { field: "capKey", label: "Hotkey letters" }
+        { field: "capKey", label: "Hotkey letters" },
       ],
       dialLetters: [
         { cls: "dl-c1", letter: "C", word: "clock" },
@@ -1201,8 +1240,8 @@ export default {
         { cls: "dl-o2", letter: "O", word: "tower" },
         { cls: "dl-w", letter: "W", word: "tower" },
         { cls: "dl-e", letter: "E", word: "tower" },
-        { cls: "dl-r", letter: "R", word: "tower" }
-      ]
+        { cls: "dl-r", letter: "R", word: "tower" },
+      ],
     };
   },
   methods: {
@@ -1218,7 +1257,10 @@ export default {
       else this.bgH = v;
       this.applyBgOff();
       try {
-        localStorage.setItem("golem.bgOff" + axis.toUpperCase() + "2", String(v));
+        localStorage.setItem(
+          "golem.bgOff" + axis.toUpperCase() + "2",
+          String(v),
+        );
       } catch (e) {
         // storage off: the dial still works for this session
       }
@@ -1263,7 +1305,7 @@ export default {
       const list = await lib.loadIcons();
       const pairs = [
         { key: "raven / good", n: "raven", team: "townsfolk", ref: ikRefGood },
-        { key: "imp / evil", n: "imp-laugh", team: "demon", ref: ikRefEvil }
+        { key: "imp / evil", n: "imp-laugh", team: "demon", ref: ikRefEvil },
       ];
       const done = [];
       for (const p of pairs) {
@@ -1274,8 +1316,8 @@ export default {
           official: p.ref,
           ours: await lib.bakeIcon(entry, p.team, {
             seed: this.ikSeed,
-            size: 128
-          })
+            size: 128,
+          }),
         });
       }
       this.ikPreviews = done;
@@ -1301,7 +1343,9 @@ export default {
       return labelFor(this.fontState[field]);
     },
     wordKey(d) {
-      return d.word === "clock" ? this.fontState.clockKey : this.fontState.towerKey;
+      return d.word === "clock"
+        ? this.fontState.clockKey
+        : this.fontState.towerKey;
     },
     dialGlyph(d) {
       return glyphFrom(this.wordKey(d), d.letter);
@@ -1409,6 +1453,17 @@ export default {
       this.$store.commit("setScriptDrawerView", view);
       if (!this.modals.scriptDrawer) {
         this.$store.commit("toggleModal", "scriptDrawer");
+      }
+    },
+    /**
+     * FT-1019: open the chronicles ON THE GALLOWS — filter armed first, so
+     * the drawer wakes already showing the nomination rows. The pill's
+     * count and the V key both land here.
+     */
+    openGallows() {
+      this.$store.commit("setChroniclesFilter", "gallows");
+      if (!this.modals.chroniclesDrawer) {
+        this.$store.commit("toggleModal", "chroniclesDrawer");
       }
     },
     /**
@@ -1523,18 +1578,39 @@ export default {
           this.$store.commit("toggleModal", "roles");
           break;
         case "v":
-          // FT-858: V opens the vote-history DRAWER (the overlay stays
-          // mounted; nothing routes to it).
-          if (this.session.voteHistory.length || !this.session.isSpectator) {
-            this.$store.commit("toggleModal", "voteDrawer");
+          // FT-1019: V opens the CHRONICLES with the gallows filter armed —
+          // the nomination log's rows in the permanent stream (the
+          // vote-history drawer it used to open is retired). Pressed while
+          // the drawer already shows the gallows, it closes; pressed while
+          // the drawer shows another filter, it re-aims it.
+          if (!inSession) return;
+          if (
+            this.modals.chroniclesDrawer &&
+            this.$store.state.chroniclesFilter === "gallows"
+          ) {
+            this.$store.commit("toggleModal", "chroniclesDrawer");
+          } else {
+            this.openGallows();
           }
           break;
+        // FT-1019: the chronicles' own filter keys, live only while the
+        // drawer is out (the field guard above already keeps typing safe).
+        // Digits, because every free letter near the map is spoken for.
+        case "1":
+        case "2":
+        case "3":
+        case "4": {
+          if (!this.modals.chroniclesDrawer) return;
+          const filters = ["all", "talk", "gallows", "events"];
+          this.$store.commit("setChroniclesFilter", filters[Number(key) - 1]);
+          break;
+        }
         case "escape":
           this.hotkeyHelpOpen = false;
           this.$store.commit("toggleModal");
       }
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -1553,7 +1629,8 @@ export default {
 @font-face {
   font-family: "Papyrus";
   src: url("assets/fonts/papyrus.eot"); /* IE9*/
-  src: url("assets/fonts/papyrus.eot?#iefix") format("embedded-opentype"),
+  src:
+    url("assets/fonts/papyrus.eot?#iefix") format("embedded-opentype"),
     /* IE6-IE8 */ url("assets/fonts/papyrus.woff2") format("woff2"),
     /* chrome firefox */ url("assets/fonts/papyrus.woff") format("woff"),
     /* chrome firefox */ url("assets/fonts/papyrus.ttf") format("truetype"),
@@ -1685,8 +1762,7 @@ body {
   // at the shipped value.
   background-position: calc(50% + 7px + var(--bg-off-x, 0px))
     calc(50% + var(--bg-off-y, 0px));
-  background-size: auto
-    calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
+  background-size: auto calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
   color: white;
   height: 100%;
   font-family: "Roboto Condensed", sans-serif;
@@ -1777,8 +1853,7 @@ ul {
   // and past zero-cover the edges stop being covered — that is the letterbox
   // seam, and the scrub is how you find where it starts rather than being
   // told about it.
-  background-size: auto
-    calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
+  background-size: auto calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
   display: flex;
   align-items: center;
   align-content: center;
@@ -1801,7 +1876,9 @@ ul {
   // the right drawer would bury the Leave door — the pill steps aside for it
   // instead of hiding under it (user call 2026-08-18). On a phone the step is
   // UP rather than sideways (see the sheet rule below), so both edges move.
-  transition: right 220ms ease, bottom 220ms ease;
+  transition:
+    right 220ms ease,
+    bottom 220ms ease;
   &.drawer-open {
     // follows the drawer's own (resizable) width
     right: calc(var(--sd-width, 400px) + 10px);
@@ -1940,7 +2017,9 @@ ul {
   font-size: 13px;
   line-height: 1.35;
   cursor: pointer;
-  transition: border-color 200ms, background 200ms;
+  transition:
+    border-color 200ms,
+    background 200ms;
 
   svg {
     flex: 0 0 auto;
@@ -2038,13 +2117,12 @@ ul {
   }
   border: solid 0.125em transparent;
   border-radius: 15px;
-  box-shadow: inset 0 1px 1px #9c9c9c, 0 0 10px #000;
-  background: radial-gradient(
-        at 0 -15%,
-        rgba(#fff, 0.07) 70%,
-        rgba(#fff, 0) 71%
-      )
-      0 0/ 80% 90% no-repeat content-box,
+  box-shadow:
+    inset 0 1px 1px #9c9c9c,
+    0 0 10px #000;
+  background:
+    radial-gradient(at 0 -15%, rgba(#fff, 0.07) 70%, rgba(#fff, 0) 71%) 0 0/ 80%
+      90% no-repeat content-box,
     linear-gradient(#4e4e4e, #040404) content-box,
     linear-gradient(#292929, #010101) border-box;
   color: white;
@@ -2071,7 +2149,8 @@ ul {
     height: 10px;
   }
   &.townsfolk {
-    background: radial-gradient(
+    background:
+      radial-gradient(
           at 0 -15%,
           rgba(255, 255, 255, 0.07) 70%,
           rgba(255, 255, 255, 0) 71%
@@ -2079,13 +2158,16 @@ ul {
         0 0/80% 90% no-repeat content-box,
       linear-gradient(#0031ad, rgba(5, 0, 0, 0.22)) content-box,
       linear-gradient(#292929, #001142) border-box;
-    box-shadow: inset 0 1px 1px #002c9c, 0 0 10px #000;
+    box-shadow:
+      inset 0 1px 1px #002c9c,
+      0 0 10px #000;
     &:hover:not(.disabled) {
       color: #008cf7;
     }
   }
   &.demon {
-    background: radial-gradient(
+    background:
+      radial-gradient(
           at 0 -15%,
           rgba(255, 255, 255, 0.07) 70%,
           rgba(255, 255, 255, 0) 71%
@@ -2093,7 +2175,9 @@ ul {
         0 0/80% 90% no-repeat content-box,
       linear-gradient(#ad0000, rgba(5, 0, 0, 0.22)) content-box,
       linear-gradient(#292929, #420000) border-box;
-    box-shadow: inset 0 1px 1px #9c0000, 0 0 10px #000;
+    box-shadow:
+      inset 0 1px 1px #9c0000,
+      0 0 10px #000;
   }
 }
 
@@ -2387,7 +2471,10 @@ video#background {
   border: 1px solid rgba(120, 105, 135, 0.35);
   border-radius: 6px;
   z-index: 80;
-  transition: color 200ms, border-color 200ms, background 200ms;
+  transition:
+    color 200ms,
+    border-color 200ms,
+    background 200ms;
 
   // their own mark, leading the credit — unaltered, just sized and calmed
   .tpi-mark {
@@ -2466,8 +2553,7 @@ video#background {
   // at the shipped value.
   background-position: calc(50% + 7px + var(--bg-off-x, 0px))
     calc(50% + var(--bg-off-y, 0px));
-  background-size: auto
-    calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
+  background-size: auto calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
 }
 
 #app > .dial-letters {
@@ -2489,22 +2575,54 @@ video#background {
     cursor: pointer;
     img {
       /* glyph mode: no painted-text shadow double-up */
-      filter: drop-shadow(0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(
+        0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.45)
+      );
     }
   }
   /* hour positions on the measured tick rays (image px from the face's own
      centre, which is now the viewport centre — recentred art, no more
      baked-in +15,-20.5) */
-  .dl-c1 { left: calc(50% + 81.9 * var(--fpx)); top: calc(50% + -152.1 * var(--fpx)); }
-  .dl-l  { left: calc(50% + 148.3 * var(--fpx)); top: calc(50% + -96.9 * var(--fpx)); }
-  .dl-o1 { left: calc(50% + 162.5 * var(--fpx)); top: calc(50% + -13.5 * var(--fpx)); }
-  .dl-c2 { left: calc(50% + 141.1 * var(--fpx)); top: calc(50% + 68.0 * var(--fpx)); }
-  .dl-k  { left: calc(50% + 90.0 * var(--fpx)); top: calc(50% + 129.5 * var(--fpx)); }
-  .dl-t  { left: calc(50% + -100.4 * var(--fpx)); top: calc(50% + 132.2 * var(--fpx)); }
-  .dl-o2 { left: calc(50% + -154.5 * var(--fpx)); top: calc(50% + 67.9 * var(--fpx)); }
-  .dl-w  { left: calc(50% + -177.5 * var(--fpx)); top: calc(50% + -13.0 * var(--fpx)); }
-  .dl-e  { left: calc(50% + -156.5 * var(--fpx)); top: calc(50% + -96.7 * var(--fpx)); }
-  .dl-r  { left: calc(50% + -97.5 * var(--fpx)); top: calc(50% + -156.1 * var(--fpx)); }
+  .dl-c1 {
+    left: calc(50% + 81.9 * var(--fpx));
+    top: calc(50% + -152.1 * var(--fpx));
+  }
+  .dl-l {
+    left: calc(50% + 148.3 * var(--fpx));
+    top: calc(50% + -96.9 * var(--fpx));
+  }
+  .dl-o1 {
+    left: calc(50% + 162.5 * var(--fpx));
+    top: calc(50% + -13.5 * var(--fpx));
+  }
+  .dl-c2 {
+    left: calc(50% + 141.1 * var(--fpx));
+    top: calc(50% + 68 * var(--fpx));
+  }
+  .dl-k {
+    left: calc(50% + 90 * var(--fpx));
+    top: calc(50% + 129.5 * var(--fpx));
+  }
+  .dl-t {
+    left: calc(50% + -100.4 * var(--fpx));
+    top: calc(50% + 132.2 * var(--fpx));
+  }
+  .dl-o2 {
+    left: calc(50% + -154.5 * var(--fpx));
+    top: calc(50% + 67.9 * var(--fpx));
+  }
+  .dl-w {
+    left: calc(50% + -177.5 * var(--fpx));
+    top: calc(50% + -13 * var(--fpx));
+  }
+  .dl-e {
+    left: calc(50% + -156.5 * var(--fpx));
+    top: calc(50% + -96.7 * var(--fpx));
+  }
+  .dl-r {
+    left: calc(50% + -97.5 * var(--fpx));
+    top: calc(50% + -156.1 * var(--fpx));
+  }
 }
 
 /* Golem fork: the FONT LAB — the top-left dev dropdown owning every

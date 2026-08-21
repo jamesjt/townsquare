@@ -52,19 +52,23 @@
 
       <div class="sd-view cr-view">
         <!-- ── THE SUMMARY BAND — the town records, standing over the story.
-             One line always; the tables unfold on a click. Best-effort like
-             every records read: unreachable is an honest line, never a
-             broken band. -->
-        <div
-          class="cr-records"
-          :class="{ open: recordsOpen }"
-          role="button"
-          :title="
-            recordsOpen ? 'Fold the records away' : 'Unfold the town records'
-          "
-          @click="recordsOpen = !recordsOpen"
-        >
-          <p class="cr-records-line">
+             One line always; the ledger unfolds on a click. FT-1019: the
+             unfolded band leads with PER-GAME ROWS — when it began, on which
+             script, who won — and a recorded game the log also holds is a
+             DOOR: clicking its row does exactly what its game chip does and
+             jumps the stream to that chapter. "All towns" (StatsOverlay's
+             old platform scope) returns here as the band's own toggle.
+             Best-effort like every records read: unreachable is an honest
+             line, never a broken band. -->
+        <div class="cr-records" :class="{ open: recordsOpen }">
+          <p
+            class="cr-records-line"
+            role="button"
+            :title="
+              recordsOpen ? 'Fold the records away' : 'Unfold the town records'
+            "
+            @click="recordsOpen = !recordsOpen"
+          >
             <template v-if="records.loading">Consulting the archives…</template>
             <template v-else-if="records.error"
               >Records unavailable — server unreachable</template
@@ -77,47 +81,97 @@
               {{ records.stats.games === 1 ? "game" : "games" }} · Good
               {{ records.stats.byTeam.good }} · Evil
               {{ records.stats.byTeam.evil }}
-              <font-awesome-icon class="cr-records-chev" icon="chevron-down" />
             </template>
+            <font-awesome-icon class="cr-records-chev" icon="chevron-down" />
           </p>
-          <template v-if="recordsOpen && records.stats && records.stats.games">
-            <table
-              v-if="records.stats.byScript && records.stats.byScript.length"
-              @click.stop
+          <template v-if="recordsOpen">
+            <div class="cr-scope" role="group" aria-label="Records scope">
+              <button
+                class="cr-scope-btn"
+                :class="{ on: recordsScope === 'town' }"
+                title="This town's ledger"
+                @click="setRecordsScope('town')"
+              >
+                This town
+              </button>
+              <button
+                class="cr-scope-btn"
+                :class="{ on: recordsScope === 'platform' }"
+                title="Every town on the platform, together"
+                @click="setRecordsScope('platform')"
+              >
+                All towns
+              </button>
+            </div>
+            <!-- THE LEDGER: this town's games, newest first. A row the log
+                 also holds is a door into its chapter. -->
+            <ol
+              class="cr-recgames"
+              v-if="recordsScope === 'town' && records.games.length"
             >
-              <thead>
-                <tr>
-                  <th>Script</th>
-                  <th>Games</th>
-                  <th>Good wins</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in records.stats.byScript" :key="row.scriptName">
-                  <td>{{ row.scriptName }}</td>
-                  <td>{{ row.games }}</td>
-                  <td>{{ row.goodWins }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <table v-if="topPlayers.length" @click.stop>
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>Games</th>
-                  <th>Wins</th>
-                  <th>Survived</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in topPlayers" :key="row.playerName">
-                  <td>{{ row.playerName }}</td>
-                  <td>{{ row.games }}</td>
-                  <td>{{ row.wins }}</td>
-                  <td>{{ row.survivals }}</td>
-                </tr>
-              </tbody>
-            </table>
+              <li
+                v-for="g in records.games"
+                :key="g.id"
+                :class="{ jump: !!chapterOf(g) }"
+                :title="
+                  chapterOf(g)
+                    ? 'Read this game\'s chapter in the stream'
+                    : 'Recorded before the log kept games — no chapter to open'
+                "
+                @click="jumpTo(g)"
+              >
+                <span class="rg-when">{{ recordLabel(g) }}</span>
+                <span class="rg-script">{{ g.scriptName }}</span>
+                <span class="rg-winner" :class="g.winningTeam">{{
+                  g.winningTeam === "good" ? "Good" : "Evil"
+                }}</span>
+              </li>
+            </ol>
+            <template v-if="records.stats && records.stats.games">
+              <table
+                v-if="
+                  recordsScope === 'platform' &&
+                  records.stats.byScript &&
+                  records.stats.byScript.length
+                "
+              >
+                <thead>
+                  <tr>
+                    <th>Script</th>
+                    <th>Games</th>
+                    <th>Good wins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="row in records.stats.byScript"
+                    :key="row.scriptName"
+                  >
+                    <td>{{ row.scriptName }}</td>
+                    <td>{{ row.games }}</td>
+                    <td>{{ row.goodWins }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <table v-if="topPlayers.length">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Games</th>
+                    <th>Wins</th>
+                    <th>Survived</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in topPlayers" :key="row.playerName">
+                    <td>{{ row.playerName }}</td>
+                    <td>{{ row.games }}</td>
+                    <td>{{ row.wins }}</td>
+                    <td>{{ row.survivals }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </template>
           </template>
         </div>
 
@@ -165,6 +219,41 @@
           </button>
         </div>
 
+        <!-- ── THE LIVE TALLY LIST's controls (FT-1019) — the two the retired
+             vote-history drawer carried, rehomed inside the gallows view.
+             They govern the SESSION's live list only (the pill's count, and
+             whether a spectator's client records into it at all); the
+             permanent log above is the full-transparency record and neither
+             control touches a single row of it. -->
+        <div
+          class="cr-live"
+          v-if="filter === 'gallows' && !session.isSpectator"
+        >
+          <span
+            class="cr-live-opt"
+            title="Whether players' clients keep the live tally list at all"
+            @click="toggleLiveAllowed"
+          >
+            <font-awesome-icon
+              :icon="[
+                'fas',
+                session.isVoteHistoryAllowed ? 'check-square' : 'square',
+              ]"
+            />
+            Live list open to players
+          </span>
+          <span
+            class="cr-live-opt"
+            title="Clears everyone's live tally list for this session — the permanent log keeps every row"
+            @click="clearLive"
+          >
+            <font-awesome-icon icon="trash-alt" />
+            Clear the live list<template v-if="session.voteHistory.length">
+              ({{ session.voteHistory.length }})</template
+            >
+          </span>
+        </div>
+
         <!-- ── THE STREAM ──────────────────────────────────────────────── -->
         <div class="cr-log" ref="log" v-blood-scroll @scroll="onScroll">
           <template v-for="section in sections">
@@ -201,7 +290,15 @@
                   class="cr-row"
                   :class="rowClass(row)"
                 >
-                  <ChroniclesRow :row="row" :viewer="viewer" />
+                  <!-- FT-1019: the thread walks the game's UNFILTERED run —
+                       under the gallows filter the section itself has no
+                       death or phase rows to find its beats (or its day
+                       boundary) in. -->
+                  <ChroniclesRow
+                    :row="row"
+                    :viewer="viewer"
+                    :rows="threadSource[section.gameId] || section.rows"
+                  />
                 </li>
               </ol>
             </section>
@@ -280,23 +377,19 @@ import CloseX from "./CloseX";
 import ChroniclesRow from "./ChroniclesRow";
 import rightDrawer from "../golem/rightDrawer";
 import bottomSheet from "../golem/bottomSheet";
-import {
-  BODY_MAX,
-  seatOf,
-  STORYTELLER_KEY,
-  viewerOf,
-} from "../golem/chat";
+import { BODY_MAX, seatOf, STORYTELLER_KEY, viewerOf } from "../golem/chat";
 import {
   startLabelOf,
   gamesOf,
   inFilter,
   sectionize,
+  logGameIdOf,
 } from "../golem/chronicles";
 // FT-1019: the filter cells wear the doors' own icons — the gallows keeps
 // the retired vote-history door's art, talk keeps the chat door's.
 import uiVotes from "../assets/ui-votes.png";
 import uiChat from "../assets/ui-chat.png";
-import { townStats } from "../golem/stats";
+import { townStats, platformStats, townGames } from "../golem/stats";
 // the strip's own quill — the mark that opens this drawer leads its title
 import quill from "../assets/ui-chronicle.png";
 
@@ -321,22 +414,44 @@ export default {
       target: null,
       /** Is the log scrolled to the bottom? Decides whether it follows. */
       stuck: true,
-      /** "all" | "talk" | "events" — what kind of line the stream shows. */
-      filter: "all",
       /** null = everything; "between" = between games; else one gameId. */
       gamePick: null,
       /** Per-section fold overrides, keyed by section key. Untouched
        *  sections answer by default: the live/newest game open, the rest
        *  folded. */
       folds: {},
-      /** The records band — the town's finished-games aggregates. */
-      records: { loading: true, error: false, stats: null },
+      /** The records band — aggregates + the per-game ledger (FT-1019). */
+      records: { loading: true, error: false, stats: null, games: [] },
       recordsOpen: false,
+      /** "town" | "platform" — which ledger the band reads (FT-1019; the
+       *  platform scope is StatsOverlay's old "All towns", rehomed). */
+      recordsScope: "town",
     };
   },
   computed: {
     ...mapState(["chat", "grimoire", "session", "night"]),
     ...mapState("players", ["players"]),
+    /** FT-1019: what kind of line the stream shows — one of golem/
+     *  chronicles' FILTERS, held in the ROOT STORE so the V hotkey can arm
+     *  "gallows" before this drawer exists (App.vue's keyup). */
+    filter: {
+      get() {
+        return this.$store.state.chroniclesFilter;
+      },
+      set(f) {
+        this.$store.commit("setChroniclesFilter", f);
+      },
+    },
+    /** FT-1019: each game's UNFILTERED run, for the gallows thread to walk —
+     *  the view filter must not blind a nomination to its own outcome. */
+    threadSource() {
+      const runs = {};
+      this.chat.log.forEach((row) => {
+        if (!row.gameId) return;
+        (runs[row.gameId] = runs[row.gameId] || []).push(row);
+      });
+      return runs;
+    },
     error() {
       return this.chat.error;
     },
@@ -385,7 +500,8 @@ export default {
         {
           id: "events",
           label: "Events",
-          title: "Everything else that happened — deals, phases, deaths, endings",
+          title:
+            "Everything else that happened — deals, phases, deaths, endings",
         },
       ];
     },
@@ -464,17 +580,65 @@ export default {
     loadRecords() {
       const town = this.session.sessionId;
       if (!town) {
-        this.records = { loading: false, error: false, stats: null };
+        this.records = { loading: false, error: false, stats: null, games: [] };
         return;
       }
-      this.records = { loading: true, error: false, stats: null };
-      townStats(town)
-        .then((stats) => {
-          this.records = { loading: false, error: false, stats };
+      this.records = { loading: true, error: false, stats: null, games: [] };
+      // Town scope reads the aggregates AND the per-game ledger together;
+      // platform scope is aggregates only (a per-game list across every town
+      // is not a surface this band offers). Best-effort as one unit — a half
+      // answer renders as the honest error line, not a half band.
+      const reads =
+        this.recordsScope === "platform"
+          ? [platformStats(), Promise.resolve([])]
+          : [townStats(town), townGames(town)];
+      Promise.all(reads)
+        .then(([stats, games]) => {
+          this.records = { loading: false, error: false, stats, games };
         })
         .catch(() => {
-          this.records = { loading: false, error: true, stats: null };
+          this.records = {
+            loading: false,
+            error: true,
+            stats: null,
+            games: [],
+          };
         });
+    },
+    setRecordsScope(scope) {
+      if (this.recordsScope === scope) return;
+      this.recordsScope = scope;
+      this.loadRecords();
+    },
+    /** The chapter a RECORDED game answers to in the log, or null — the
+     *  bridge is the deal instant both sides carry (golem/chronicles'
+     *  logGameIdOf), and only a game the log actually holds is a door. */
+    chapterOf(g) {
+      const gid = logGameIdOf(this.session.sessionId, g.startedAt);
+      if (!gid) return null;
+      return this.games.some((known) => known.gameId === gid) ? gid : null;
+    },
+    /** A ledger row's click IS its game chip's click: jump the stream to
+     *  that chapter. A row with no chapter (recorded before the log kept
+     *  games) is inert rather than a dead-feeling door. */
+    jumpTo(g) {
+      const gid = this.chapterOf(g);
+      if (!gid) return;
+      this.pickGame(gid);
+    },
+    recordLabel(g) {
+      return startLabelOf(g.startedAt || g.endedAt) || "—";
+    },
+    /** FT-1019: the live tally list's two controls (see the template note —
+     *  session list only; the permanent log is untouched by both). */
+    toggleLiveAllowed() {
+      this.$store.commit(
+        "session/setVoteHistoryAllowed",
+        !this.session.isVoteHistoryAllowed,
+      );
+    },
+    clearLive() {
+      this.$store.commit("session/clearVoteHistory");
     },
     /** Picking a game is a view change AND an unfold — the point of picking
      *  one is to read it. */
@@ -584,53 +748,172 @@ export default {
 }
 
 // ── THE RECORDS BAND ───────────────────────────────────────────────────────
+// FT-1019 (user, twice): the band stopped being 11px table scraps. The
+// summary line reads at the stream's own size, the ledger rows wear the
+// chapter headings' lettering, and the tables sit two sizes up.
 .cr-records {
   @include control-plate;
   flex: none;
-  padding: 4px 8px;
-  cursor: pointer;
-  max-height: 40vh;
+  padding: 5px 10px;
+  max-height: 45vh;
   overflow-y: auto;
 }
 .cr-records-line {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   text-align: center;
-  opacity: 0.8;
+  opacity: 0.85;
+  cursor: pointer;
+  user-select: none;
+  &:hover {
+    opacity: 1;
+  }
   b {
     color: #c00;
+    font-size: 16px;
   }
 }
 .cr-records-chev {
-  margin-left: 6px;
-  font-size: 9px;
+  margin-left: 7px;
+  font-size: 10px;
   opacity: 0.6;
   transition: transform 150ms;
 }
 .cr-records.open .cr-records-chev {
   transform: rotate(180deg);
 }
+
+// which ledger — this town, or every town together
+.cr-scope {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 7px 0 4px;
+}
+.cr-scope-btn {
+  @include control-plate;
+  font-family: inherit;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: #d8cdb4;
+  cursor: pointer;
+  transition:
+    color 150ms,
+    border-color 150ms,
+    background 150ms;
+  &:hover {
+    color: #fff;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &.on {
+    @include control-lit;
+  }
+}
+
+// THE LEDGER — one row per recorded game: began, script, winner. A row the
+// log also holds is a DOOR into its chapter and lights like one.
+.cr-recgames {
+  list-style: none;
+  margin: 4px 0 6px;
+  padding: 0;
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    & + li {
+      border-top: 1px solid rgba(216, 205, 180, 0.1);
+    }
+    &.jump {
+      cursor: pointer;
+      &:hover {
+        background: rgba(216, 205, 180, 0.08);
+        .rg-when {
+          color: #fff;
+        }
+      }
+    }
+    &:not(.jump) {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+}
+.rg-when {
+  font-family: PiratesBay, sans-serif;
+  font-size: 15px;
+  color: #d8cdb4;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rg-script {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+.rg-winner {
+  font-family: PiratesBay, sans-serif;
+  font-size: 15px;
+  white-space: nowrap;
+  &.good {
+    color: $townsfolk;
+  }
+  &.evil {
+    color: $demon;
+  }
+}
+
 .cr-records table {
   margin: 6px auto 4px;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 13px;
   cursor: default;
   th {
     opacity: 0.6;
     font-weight: normal;
     text-align: left;
-    padding: 1px 10px 1px 0;
+    padding: 2px 12px 2px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
   td {
     text-align: left;
-    padding: 2px 10px 2px 0;
+    padding: 3px 12px 3px 0;
   }
   th:not(:first-child),
   td:not(:first-child) {
     text-align: right;
     padding-right: 0;
-    padding-left: 10px;
+    padding-left: 12px;
+  }
+}
+
+// ── THE LIVE TALLY LIST's controls (gallows view, host only) ───────────────
+.cr-live {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  flex: none;
+  font-size: 12px;
+}
+.cr-live-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.75;
+  cursor: pointer;
+  user-select: none;
+  &:hover {
+    opacity: 1;
+    color: #ff9a9a;
   }
 }
 

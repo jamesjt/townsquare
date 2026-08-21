@@ -34,6 +34,9 @@ import { offerHostTakeover, takeoverSuffix } from "../golem/hostTakeover";
 // voice; `gameIdFor` derives the game a line belongs to from the deal moment
 // the host already stashes (golem/stats), so no new per-game identity is minted.
 import { chatErrorText, gameIdFor } from "../golem/chat";
+// FT-1020: the storyteller's tower (hour display, hand motion, day-start
+// bell) rides the full gamestate sync — never a new frame kind.
+import { towerSyncPayload, applyTowerSync } from "../golem/towerBells";
 // FT-1010: the event envelope — a game event riding a system row's body.
 import { encodeEvent } from "../golem/chronicles";
 // FT-1005: a player wakes to their own night action. The projection is the
@@ -471,6 +474,9 @@ class LiveSession {
         // cases in the mutation subscriber below).
         isEnded: session.isEnded,
         winningTeam: session.winningTeam,
+        // FT-1020: the town's tower — five fields, host-authoritative, so a
+        // joiner's dial and bell match the storyteller's from the first sync.
+        tower: towerSyncPayload(),
         ...(session.nomination ? { votes: session.votes } : {}),
       });
       // 2026-08-19: a full sync is what a joining or RECONNECTING client gets,
@@ -518,6 +524,9 @@ class LiveSession {
       winningTeam,
       // FT-965: which game the chat log's "this game" filter means.
       gameId,
+      // FT-1020: the host's tower choices (absent from an older host, and
+      // applyTowerSync sanitizes every field it does find).
+      tower,
     } = data;
     const players = this._store.state.players.players;
     // adjust number of players
@@ -562,6 +571,9 @@ class LiveSession {
       }
     });
     if (!isLightweight) {
+      // FT-1020: the tower, guarded — an older host sending none leaves this
+      // client's defaults standing rather than zeroing them.
+      if (tower) applyTowerSync(tower);
       // FT-965: the game the town is playing, straight from the storyteller.
       // Applied unconditionally — including when it is absent, which is the
       // real state BETWEEN games and must be able to clear a stale id.
@@ -1584,6 +1596,13 @@ export default (store) => {
   // below).
   let lastLiveGameId = null;
 
+  // FT-1019: the execution mark as last seen, for telling a DELIBERATE
+  // unmark (news — the storyteller lifted a standing mark during the day)
+  // from the night falling (housekeeping — the day expired and took its mark
+  // with it). Updated on every setMarkedPlayer commit, host and spectator
+  // alike; only the host's client ever turns it into a row.
+  let lastMarkedSeat = -1;
+
   // listen to mutations
   store.subscribe(({ type, payload }, state) => {
     switch (type) {
@@ -1671,6 +1690,16 @@ export default (store) => {
           state.session.voteHistory[state.session.voteHistory.length - 1];
         if (!rec) break;
         const carried = rec.majority > 0 && rec.votes.length >= rec.majority;
+        // FT-1019: THE ROSTER RIDES THE ROW — who raised hands, recorded once
+        // at the conclusion (this case only ever fires on a completed sweep),
+        // never per-hand. `ghosts` is the subset who were dead as they voted:
+        // a spent ghost vote, which the render marks with the cowl. Read from
+        // the live seats + tallies (still standing — the nomination clears one
+        // commit later), not from `rec`, which only kept the names.
+        const ghosts = state.players.players
+          .filter((p, i) => state.session.votes[i] && p.isDead)
+          .map((p) => p.name)
+          .filter(Boolean);
         session.systemMessage(
           `${rec.nominator} nominated ${rec.nominee} — ${rec.votes.length} of ` +
             `${rec.majority} needed${carried ? ", majority reached" : ""}.`,
@@ -1682,6 +1711,8 @@ export default (store) => {
             votes: rec.votes.length,
             majority: rec.majority,
             carried,
+            voters: rec.votes,
+            ghosts,
           },
         );
         break;
@@ -1823,8 +1854,9 @@ export default (store) => {
         // FT-1010: MARKED FOR EXECUTION — the closest thing to an execution
         // the app actually records. "Marked", never "executed": the
         // storyteller decides what a mark means, and the log must not invent
-        // an outcome (golem/chronicle.js's own honesty rule). -1 is the mark
-        // being cleared, which is housekeeping, not news.
+        // an outcome (golem/chronicle.js's own honesty rule).
+        const prevMarked = lastMarkedSeat;
+        lastMarkedSeat = typeof payload === "number" ? payload : -1;
         if (typeof payload === "number" && payload >= 0) {
           const marked = state.players.players[payload];
           const name = (marked && marked.name) || `Seat ${payload + 1}`;
@@ -1832,6 +1864,24 @@ export default (store) => {
             t: "execution",
             name,
             seat: payload,
+          });
+        } else if (
+          payload === -1 &&
+          prevMarked >= 0 &&
+          !state.grimoire.isNight
+        ) {
+          // FT-1019: THE UNMARK IS NEWS TOO — but only the deliberate one.
+          // The night falling also commits -1 (Menu.toggleNight /
+          // NightSheet.flipPhase, both AFTER toggleNight, so isNight is
+          // already true here) and that is the day expiring, not a decision;
+          // it writes no row. A -1 during the day with a mark standing is
+          // the storyteller's own lift, and the record keeps it.
+          const was = state.players.players[prevMarked];
+          const name = (was && was.name) || `Seat ${prevMarked + 1}`;
+          session.systemMessage(`The mark is lifted from ${name}.`, {
+            t: "unmark",
+            name,
+            seat: prevMarked,
           });
         }
         break;

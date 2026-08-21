@@ -10,6 +10,9 @@ import night from "./modules/night";
 // not in these mutations — see golem/chat.js for why "no gap, no duplicate" is
 // a property of the data structure rather than of arrival timing.
 import { canSee, catchUp, mergeLog, SCOPES, viewerOf } from "../golem/chat";
+// FT-1019: the chronicles stream's filter vocabulary — the store holds which
+// one is showing so the V hotkey can arm "gallows" before the drawer opens.
+import { FILTERS } from "../golem/chronicles";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
 import fabledJSON from "../fabled.json";
@@ -21,9 +24,9 @@ Vue.use(Vuex);
 const getRolesByEdition = (edition = editionJSON[0]) => {
   return new Map(
     rolesJSON
-      .filter(r => r.edition === edition.id || edition.roles.includes(r.id))
+      .filter((r) => r.edition === edition.id || edition.roles.includes(r.id))
       .sort((a, b) => b.team.localeCompare(a.team))
-      .map(role => [role.id, role])
+      .map((role) => [role.id, role]),
   );
 };
 
@@ -31,35 +34,39 @@ const getTravelersNotInEdition = (edition = editionJSON[0]) => {
   return new Map(
     rolesJSON
       .filter(
-        r =>
+        (r) =>
           r.team === "traveler" &&
           r.edition !== edition.id &&
-          !edition.roles.includes(r.id)
+          !edition.roles.includes(r.id),
       )
-      .map(role => [role.id, role])
+      .map((role) => [role.id, role]),
   );
 };
 
-const set = key => ({ grimoire }, val) => {
-  grimoire[key] = val;
-};
-
-const toggle = key => ({ grimoire }, val) => {
-  if (val === true || val === false) {
+const set =
+  (key) =>
+  ({ grimoire }, val) => {
     grimoire[key] = val;
-  } else {
-    grimoire[key] = !grimoire[key];
-  }
-};
+  };
 
-const clean = id => id.toLocaleLowerCase().replace(/[^a-z0-9]/g, "");
+const toggle =
+  (key) =>
+  ({ grimoire }, val) => {
+    if (val === true || val === false) {
+      grimoire[key] = val;
+    } else {
+      grimoire[key] = !grimoire[key];
+    }
+  };
+
+const clean = (id) => id.toLocaleLowerCase().replace(/[^a-z0-9]/g, "");
 
 // global data maps
 const editionJSONbyId = new Map(
-  editionJSON.map(edition => [edition.id, edition])
+  editionJSON.map((edition) => [edition.id, edition]),
 );
-const rolesJSONbyId = new Map(rolesJSON.map(role => [role.id, role]));
-const fabled = new Map(fabledJSON.map(role => [role.id, role]));
+const rolesJSONbyId = new Map(rolesJSON.map((role) => [role.id, role]));
+const fabled = new Map(fabledJSON.map((role) => [role.id, role]));
 
 // jinxes
 let jinxes = {};
@@ -71,8 +78,8 @@ try {
   jinxes = new Map(
     jinxesJSON.map(({ id, hatred }) => [
       clean(id),
-      new Map(hatred.map(({ id, reason }) => [clean(id), reason]))
-    ])
+      new Map(hatred.map(({ id, reason }) => [clean(id), reason])),
+    ]),
   );
   // });
 } catch (e) {
@@ -99,14 +106,14 @@ const customRole = {
   // unchanged. golemIcon = an official role id whose bundled icon this custom
   // role reuses; golemRoleId = the role-library id (lineage/edit handle).
   golemIcon: "",
-  golemRoleId: ""
+  golemRoleId: "",
 };
 
 export default new Vuex.Store({
   modules: {
     players,
     session,
-    night
+    night,
   },
   state: {
     grimoire: {
@@ -143,7 +150,7 @@ export default new Vuex.Store({
       // the frozen mark on the very next vote. Never stashed to
       // localStorage (no persistence.js entry, deliberately) — per-tab,
       // per-load, same as it was as local data before this move.
-      faceSplatSeed: null
+      faceSplatSeed: null,
     },
     modals: {
       edition: false,
@@ -223,11 +230,17 @@ export default new Vuex.Store({
     // FT-857: which tab the script drawer opens on — "team" | "first" |
     // "other". The strip's night icon lands on "first".
     scriptDrawerView: "team",
+    // FT-1019: which kind of line the chronicles stream shows — one of
+    // golem/chronicles' FILTERS. Root state (not drawer-local) for the same
+    // reason scriptDrawerView is: the V hotkey opens the drawer ALREADY
+    // pointed at the gallows, so the pointer must exist before the drawer
+    // does.
+    chroniclesFilter: "all",
     edition: editionJSONbyId.get("tb"),
     roles: getRolesByEdition(),
     otherTravelers: getTravelersNotInEdition(),
     fabled,
-    jinxes
+    jinxes,
   },
   actions: {
     /**
@@ -276,9 +289,9 @@ export default new Vuex.Store({
       const strippedProps = [
         "firstNightReminder",
         "otherNightReminder",
-        "isCustom"
+        "isCustom",
       ];
-      roles.forEach(role => {
+      roles.forEach((role) => {
         if (!role.isCustom) {
           customRoles.push({ id: role.id });
         } else {
@@ -297,7 +310,7 @@ export default new Vuex.Store({
       });
       return customRoles;
     },
-    rolesJSONbyId: () => rolesJSONbyId
+    rolesJSONbyId: () => rolesJSONbyId,
   },
   mutations: {
     setZoom: set("zoom"),
@@ -414,7 +427,7 @@ export default new Vuex.Store({
     revokeGrimoire(state) {
       if (!state.session.isGrimoireGranted) return;
       const own = state.players.players.findIndex(
-        p => p.id === state.session.playerId
+        (p) => p.id === state.session.playerId,
       );
       state.players.players.forEach((player, index) => {
         if (index === own) return;
@@ -440,6 +453,11 @@ export default new Vuex.Store({
     /** FT-857: point the script drawer at one of its three tabs. */
     setScriptDrawerView(state, view) {
       state.scriptDrawerView = view || "team";
+    },
+    /** FT-1019: point the chronicles stream at one of its filters (the V
+     *  hotkey lands on "gallows"; the drawer's own cells commit this too). */
+    setChroniclesFilter(state, filter) {
+      state.chroniclesFilter = FILTERS.includes(filter) ? filter : "all";
     },
     /**
      * FT-965: THE ONE DOOR INTO THE LOG. Both feeds come through here — the
@@ -534,7 +552,7 @@ export default new Vuex.Store({
     setCustomRoles(state, roles) {
       const processedRoles = roles
         // replace numerical role object keys with matching key names
-        .map(role => {
+        .map((role) => {
           if (role[0]) {
             const customKeys = Object.keys(customRole);
             const mappedRole = {};
@@ -549,12 +567,12 @@ export default new Vuex.Store({
           }
         })
         // clean up role.id
-        .map(role => {
+        .map((role) => {
           role.id = clean(role.id);
           return role;
         })
         // map existing roles to base definition or pre-populate custom roles to ensure all properties
-        .map(role => {
+        .map((role) => {
           const out =
             rolesJSONbyId.get(role.id) ||
             state.roles.get(role.id) ||
@@ -577,7 +595,7 @@ export default new Vuex.Store({
           return out;
         })
         // default empty icons and placeholders, clean up firstNight / otherNight
-        .map(role => {
+        .map((role) => {
           if (rolesJSONbyId.get(role.id)) return role;
           // Golem fork (FT-856): a locally BAKED icon (library pick or
           // upload run through the engraver) rides the role as a data URL —
@@ -596,32 +614,37 @@ export default new Vuex.Store({
               outsider: "outsider",
               minion: "minion",
               demon: "evil",
-              fabled: "fabled"
-            }[role.team] || "custom";
+              fabled: "fabled",
+            }[role.team] ||
+            "custom";
           role.firstNight = Math.abs(role.firstNight);
           role.otherNight = Math.abs(role.otherNight);
           return role;
         })
         // filter out roles that don't match an existing role and also don't have name/ability/team
-        .filter(role => role.name && role.ability && role.team)
+        .filter((role) => role.name && role.ability && role.team)
         // sort by team
         .sort((a, b) => b.team.localeCompare(a.team));
       // convert to Map without Fabled
       state.roles = new Map(
         processedRoles
-          .filter(role => role.team !== "fabled")
-          .map(role => [role.id, role])
+          .filter((role) => role.team !== "fabled")
+          .map((role) => [role.id, role]),
       );
       // update Fabled to include custom Fabled from this script
       state.fabled = new Map([
-        ...processedRoles.filter(r => r.team === "fabled").map(r => [r.id, r]),
-        ...fabledJSON.map(role => [role.id, role])
+        ...processedRoles
+          .filter((r) => r.team === "fabled")
+          .map((r) => [r.id, r]),
+        ...fabledJSON.map((role) => [role.id, role]),
       ]);
       // update extraTravelers map to only show travelers not in this script
       state.otherTravelers = new Map(
         rolesJSON
-          .filter(r => r.team === "traveler" && !roles.some(i => i.id === r.id))
-          .map(role => [role.id, role])
+          .filter(
+            (r) => r.team === "traveler" && !roles.some((i) => i.id === r.id),
+          )
+          .map((role) => [role.id, role]),
       );
     },
     setEdition(state, edition) {
@@ -633,7 +656,7 @@ export default new Vuex.Store({
         state.edition = edition;
       }
       state.modals.edition = false;
-    }
+    },
   },
-  plugins: [persistence, socket]
+  plugins: [persistence, socket],
 });

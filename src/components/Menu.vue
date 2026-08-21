@@ -19,13 +19,11 @@
             title="The script (reference sheet)"
             @click="openScriptDrawer('team')"
           />
-          <!-- FT-858: the gallows opens the vote-history DRAWER, on the same
-               right-hand rail as the script (the old overlay stays in-tree). -->
-          <img
-            :src="uiVotes"
-            title="Vote history"
-            @click="toggleModal('voteDrawer')"
-          />
+          <!-- (FT-858's gallows door stood here until FT-1019: the vote
+               history lives inside the Chronicles now — its rows in the
+               permanent stream, behind the quill below, and V lands there
+               with the gallows filter already on. The noose art lives on as
+               that filter's own cell; ui-votes.png stays in the tree.) -->
           <!-- (the moon retired 2026-08-18 as a NIGHT-ORDER door — that is a
                tab inside the script drawer now. FT-860 gives it a different
                job: a player's OWN night notes, and only where the town has
@@ -299,7 +297,8 @@
 <script>
 import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
-import uiVotes from "../assets/ui-votes.png";
+// (uiVotes left with the gallows door, FT-1019 — the noose art now serves the
+// chronicles gallows filter cell instead; the file stays in the tree.)
 import uiNight from "../assets/ui-night.png";
 // the Chronicles quill — the file is still named for its first home
 // (ui-chronicle.png) but the drawing on it, a quill in an inkwell, is the one
@@ -353,7 +352,6 @@ export default {
   data() {
     return {
       uiScript,
-      uiVotes,
       uiNight,
       uiQuill,
       // FT-880: the nervous-double-press guard, held locally the same way the

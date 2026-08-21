@@ -30,7 +30,7 @@ export async function recordGame(payload) {
   const res = await fetch(`${API}/games`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`record failed (${res.status})`);
   return res.json();
@@ -41,6 +41,19 @@ export async function townStats(id) {
   const res = await fetch(`${API}/stats/town/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`stats failed (${res.status})`);
   return res.json();
+}
+
+/**
+ * FT-1019: one town's RECORDED GAMES, newest first — the flat per-game rows
+ * (script, winner, startedAt…) behind the chronicles records band. Same
+ * best-effort contract as the aggregates.
+ */
+export async function townGames(id, limit = 50) {
+  const qs = new URLSearchParams({ town: id, limit: String(limit) });
+  const res = await fetch(`${API}/games?${qs}`);
+  if (!res.ok) throw new Error(`games failed (${res.status})`);
+  const body = await res.json();
+  return Array.isArray(body.games) ? body.games : [];
 }
 
 /** Every town together — same shape as townStats. */

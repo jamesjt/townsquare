@@ -174,8 +174,19 @@ export const HOTKEYS = [
   {
     key: "V",
     who: "all",
-    label: "Votes",
-    note: "The nomination log",
+    // FT-1019: V lands in the CHRONICLES with the gallows filter already on
+    // — the nomination log lives there now, each vote unfolding its own
+    // roster and outcome. (The old vote-history drawer is retired.)
+    label: "Gallows",
+    note: "The chronicles, filtered to nominations and votes",
+  },
+  {
+    key: "1–4",
+    who: "all",
+    // FT-1019: live only while the chronicles drawer is out — the four
+    // filter cells in their on-screen order.
+    label: "Chronicle filters",
+    note: "While the chronicles are open: All, Talk, Gallows, Events",
   },
   {
     key: "H",

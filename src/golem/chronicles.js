@@ -49,11 +49,21 @@ export const EV_PREFIX = "EV1";
  *   death       a shroud placed;  detail: { name, seat }
  *   revive      a shroud lifted;  detail: { name, seat }
  *   nomination  a vote concluded; detail: { nominator, nominee, type,
- *               votes: number, majority: number, carried: bool }
+ *               votes: number, majority: number, carried: bool,
+ *               voters: [names], ghosts: [names] }.
+ *               FT-1019: `voters` is WHO RAISED HANDS at the conclusion —
+ *               recorded once, when the vote is recorded, never per-hand —
+ *               and `ghosts` is the subset who were dead when they did (a
+ *               spent ghost vote). Rows written before FT-1019 carry
+ *               neither key and render tally-only.
  *   execution   a seat marked for execution; detail: { name, seat }.
  *               "Marked", not "died" — the storyteller decides what a
  *               majority means, and the record must not invent an outcome
  *               (the same honesty rule golem/chronicle.js stated).
+ *   unmark      the mark lifted DELIBERATELY (the storyteller's own clear,
+ *               during the day); detail: { name, seat }. The night falling
+ *               also clears the mark, but that is the day expiring, not
+ *               news — socket.js writes no row for it.
  */
 export const EVENTS = [
   "start",
@@ -63,6 +73,7 @@ export const EVENTS = [
   "revive",
   "nomination",
   "execution",
+  "unmark",
 ];
 
 /** Event → stored body. `text` is required; detail keys ride beside it. */
@@ -102,7 +113,7 @@ export function eventTextOf(row) {
 export const FILTERS = ["all", "talk", "gallows", "events"];
 
 /** The event types that belong to the gallows — the nomination arc. */
-const GALLOWS_T = new Set(["nomination", "execution"]);
+const GALLOWS_T = new Set(["nomination", "execution", "unmark"]);
 
 /** Does a row survive the talk/events filter? System rows ARE the events. */
 export function inFilter(row, filter) {
@@ -184,6 +195,65 @@ export function startLabelOf(createdAt) {
     ":" +
     String(d.getMinutes()).padStart(2, "0");
   return dayOf(createdAt) + " · " + hm;
+}
+
+/**
+ * FT-1019: THE GALLOWS THREAD — the strand a nomination row unfolds into.
+ *
+ * A concluded nomination is one beat of a longer arc: hands went up, the
+ * storyteller may have marked the nominee for execution, may have lifted the
+ * mark again, and the nominee may then have died. The roster travels INSIDE
+ * the nomination's own envelope (voters/ghosts); the mark, the unmark and the
+ * outcome are their own rows in the same stream, written as they happened.
+ * This walks FORWARD from the nomination row and gathers the rows that belong
+ * to ITS arc:
+ *
+ *   · same game only — a thread never crosses a chapter
+ *   · about the NOMINEE by name — another seat's mark is another arc
+ *   · until the day turns (a `phase` row) — the gallows is a daytime
+ *     machine and the night falling ends every standing arc — or until the
+ *     same nominee is nominated AGAIN (a fresh arc supersedes)
+ *
+ * Returns { mark, unmark, death } — each the matched ROW or null. Honest by
+ * construction: it reports rows that were actually written, never inferring
+ * an outcome from a majority (the record's own rule).
+ */
+export function gallowsThreadOf(rows, nominationRow) {
+  const out = { mark: null, unmark: null, death: null };
+  const nom = decodeEvent(nominationRow.body);
+  if (!nom || nom.t !== "nomination") return out;
+  const from = (rows || []).findIndex((r) => r.seq === nominationRow.seq);
+  if (from < 0) return out;
+  for (let i = from + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.gameId !== nominationRow.gameId) break;
+    if (row.kind !== "system") continue;
+    const ev = decodeEvent(row.body);
+    if (!ev) continue;
+    if (ev.t === "phase") break;
+    if (ev.t === "nomination" && ev.nominee === nom.nominee) break;
+    if (ev.name !== nom.nominee) continue;
+    if (ev.t === "execution" && !out.mark) out.mark = row;
+    else if (ev.t === "unmark" && out.mark && !out.unmark) out.unmark = row;
+    else if (ev.t === "death" && !out.death) out.death = row;
+  }
+  return out;
+}
+
+/**
+ * FT-1019: a RECORDED game (the games API's DTO) → the id its rows carry in
+ * the town log, or null when the bridge cannot be built. The log's gameId is
+ * minted from the town and the deal instant (golem/chat's gameIdFor); the
+ * recorded game's `startedAt` IS that same stashed instant, posted with the
+ * record — so the two sides meet on `g-<town>-<ms>` without either being
+ * taught about the other. A record with no startedAt (never dealt through
+ * this client, or a pre-FT-965 row) has no bridge and answers null.
+ */
+export function logGameIdOf(townId, startedAt) {
+  if (!townId || !startedAt) return null;
+  const at = Date.parse(startedAt);
+  if (!Number.isFinite(at)) return null;
+  return `g-${townId}-${at}`;
 }
 
 export function dayOf(createdAt) {
