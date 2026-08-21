@@ -118,14 +118,21 @@ export function eventTextOf(row) {
 
 /** The stream filters. "Talk" is people; "Gallows" is the nomination arc
  *  (FT-1019, user call — the vote-history door's icon lives on as its
- *  filter); "Events" is everything else the town does. */
-export const FILTERS = ["all", "talk", "gallows", "events"];
+ *  filter); "Events" is everything else the town does. FT-1037b (user call):
+ *  "nights" is THIS VIEWER'S OWN night learnings — the retired night
+ *  drawer's history, now a toggle here. It is a viewer-local projection
+ *  (night/myEntries), not town-log rows, so under it the surface renders
+ *  the nights view instead of the stream. */
+export const FILTERS = ["all", "talk", "gallows", "events", "nights"];
 
 /** The event types that belong to the gallows — the nomination arc. */
 const GALLOWS_T = new Set(["nomination", "execution", "unmark"]);
 
 /** Does a row survive the talk/events filter? System rows ARE the events. */
 export function inFilter(row, filter) {
+  // FT-1037b: night learnings are not log rows — no row survives; the
+  // drawer renders the nights view in the stream's place instead.
+  if (filter === "nights") return false;
   if (filter === "talk") return row.kind !== "system";
   if (filter === "gallows") {
     if (row.kind !== "system") return false;

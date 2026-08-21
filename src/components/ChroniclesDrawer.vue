@@ -261,13 +261,19 @@
           </span>
         </div>
 
+        <!-- ── YOUR NIGHTS (FT-1037b, user call) — the retired night
+             drawer's whole surface, behind the moon cell: viewer-local
+             night learnings plus the FT-1005 live Tonight inputs, in the
+             stream's place while the cell is lit. -->
+        <ChroniclesNights v-if="mode === 'current' && filter === 'nights'" />
+
         <!-- ── THE STREAM (Current) ────────────────────────────────────── -->
         <div
           class="cr-log"
           ref="log"
           v-blood-scroll
           @scroll="onScroll"
-          v-if="mode === 'current'"
+          v-if="mode === 'current' && filter !== 'nights'"
         >
           <template v-for="section in sections">
             <!-- A GAME is a chapter: a header that says which, folding the
@@ -508,7 +514,7 @@
               aria-label="Which lines to show"
             >
               <button
-                v-for="f in filterCells"
+                v-for="f in historyCells"
                 :key="f.id"
                 class="cr-cell"
                 :class="{ on: historyFilter === f.id }"
@@ -575,6 +581,10 @@ import {
 } from "../golem/chronicles";
 // FT-1037: the stats tab's board portraits — the ring a board row carries.
 import ChroniclesPortrait from "./ChroniclesPortrait";
+// FT-1037b (user call): the retired night drawer's surface, now the moon
+// cell's view — viewer-local night learnings + the live Tonight inputs.
+import ChroniclesNights from "./ChroniclesNights";
+import uiNight from "../assets/ui-night.png";
 // FT-1019: the filter cells wear the doors' own icons — the gallows keeps
 // the retired vote-history door's art, talk keeps the chat door's.
 import uiVotes from "../assets/ui-votes.png";
@@ -590,7 +600,7 @@ import quill from "../assets/ui-chronicle.png";
 
 export default {
   name: "ChroniclesDrawer",
-  components: { CloseX, ChroniclesRow, ChroniclesPortrait },
+  components: { CloseX, ChroniclesRow, ChroniclesPortrait, ChroniclesNights },
   mixins: [
     bottomSheet,
     rightDrawer({
@@ -817,7 +827,7 @@ export default {
       return ring.map((s, i) => rowFor(s.name, s.role, !s.dead, i));
     },
     filterCells() {
-      return [
+      const cells = [
         { id: "all", label: "All", title: "Talk and events together" },
         { id: "talk", icon: uiChat, title: "Only what people said" },
         {
@@ -832,6 +842,30 @@ export default {
             "Everything else that happened — deals, phases, deaths, endings",
         },
       ];
+      // FT-1037b (user call): the retired night drawer is a cell here now,
+      // wearing the moon door's own art. Same gate the door had (FT-860):
+      // the town shares night info with everyone, and this viewer holds a
+      // chair — its content is that seat's own rows and nothing else.
+      if (this.canSeeNights) {
+        cells.push({
+          id: "nights",
+          icon: uiNight,
+          title: "Your nights — what you learned, yours alone",
+        });
+      }
+      return cells;
+    },
+    /** FT-1037b: the moon cell's gate — the retired strip door's
+     *  `showNightInfo` rule, verbatim. */
+    canSeeNights() {
+      if (this.night.mode !== "everyone") return false;
+      if (!this.session.isSpectator) return false;
+      return seatOf(this.$store.state) >= 0;
+    },
+    /** History's Messages page filters LOG rows only — the nights view is
+     *  Current's (a live, viewer-local surface, not a game's chapter). */
+    historyCells() {
+      return this.filterCells.filter((f) => f.id !== "nights");
     },
     /** Who can be whispered — ChatDrawer's rule, verbatim. */
     whisperTargets() {
@@ -911,6 +945,12 @@ export default {
       if (!this.historyPick || !list.some((e) => e.key === this.historyPick)) {
         this.historyPick = list[0].key;
       }
+    },
+    /** FT-1037b: the moon cell's gate can close under an armed nights
+     *  filter (the town stops sharing, the seat is lost) — fall back to the
+     *  whole stream rather than an empty surface. */
+    canSeeNights(can) {
+      if (!can && this.filter === "nights") this.filter = "all";
     },
     /** A recorded pick fetches its roster (once — details caches by id). */
     historyPick() {

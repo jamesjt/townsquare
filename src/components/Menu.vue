@@ -24,16 +24,11 @@
                permanent stream, behind the quill below, and V lands there
                with the gallows filter already on. The noose art lives on as
                that filter's own cell; ui-votes.png stays in the tree.) -->
-          <!-- (the moon retired 2026-08-18 as a NIGHT-ORDER door — that is a
-               tab inside the script drawer now. FT-860 gives it a different
-               job: a player's OWN night notes, and only where the town has
-               opted into sharing them.) -->
-          <img
-            v-if="showNightInfo"
-            :src="uiNight"
-            title="What you learned at night"
-            @click="toggleModal('nightDrawer')"
-          />
+          <!-- (the moon retired 2026-08-18 as a NIGHT-ORDER door, then
+               served FT-860 as the night-notes door until FT-1037b — "all
+               of this should be a toggle for events in the chronicle", user
+               call. The art lives on as that toggle's own filter cell in
+               the chronicles; ui-night.png stays in the tree.) -->
           <!-- THE DEMON'S BLUFFS mark lived here (2026-08-19 to FT-958) and now
                rides the bluffs cluster itself, above its top coin — TownSquare.vue's
                `.bluffs-toggle`, driving the SAME `toggleBluffsOpen` commit this
@@ -340,7 +335,6 @@ import { mapMutations, mapState } from "vuex";
 import uiScript from "../assets/ui-script.png";
 // (uiVotes left with the gallows door, FT-1019 — the noose art now serves the
 // chronicles gallows filter cell instead; the file stays in the tree.)
-import uiNight from "../assets/ui-night.png";
 // the Chronicles quill — the file is still named for its first home
 // (ui-chronicle.png) but the drawing on it, a quill in an inkwell, is the one
 // door onto the town's whole story now (FT-1010). ui-chat.png stays in the
@@ -382,20 +376,8 @@ export default {
       "night",
     ]),
     ...mapState("players", ["players"]),
-    /**
-     * FT-860: the night-notes door. It appears only where the town's night
-     * setting is "Everyone" AND this viewer holds a chair — the drawer behind
-     * it shows that seat's own rows and nothing else. The storyteller has the
-     * night sheet instead and never needs this.
-     */
-    showNightInfo() {
-      if (this.night.mode !== "everyone") return false;
-      if (!this.session.isSpectator) return false;
-      return (
-        this.session.claimedSeat >= 0 ||
-        this.players.some((p) => p.id && p.id === this.session.playerId)
-      );
-    },
+    // (FT-860's `showNightInfo` gate moved with its door — it lives on as
+    // the chronicles' `canSeeNights`, FT-1037b.)
     // the player strip is IN-GAME chrome — on the intro there is no script,
     // no votes and no night to look at (user call, 2026-08-18)
     inGame() {
@@ -405,7 +387,6 @@ export default {
   data() {
     return {
       uiScript,
-      uiNight,
       uiQuill,
       // FT-1020b: the hourglass tab's furniture — the four modes and a
       // snapshot of the one this screen currently shows (a plain module

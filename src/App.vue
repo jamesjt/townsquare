@@ -451,9 +451,12 @@
          went. Its file, VoteHistoryView and the old overlay stay in the
          tree; the live tally list's two host controls rehomed into the
          chronicles' gallows view.) -->
-    <!-- FT-860: a player's OWN night information — the third right-hand
-         drawer, mounted only while the town's night setting is "Everyone". -->
-    <NightInfoDrawer v-if="night.mode === 'everyone'" />
+    <!-- (FT-860's night-notes drawer stood here until FT-1037b — "all of
+         this should be a toggle for events in the chronicle", user call.
+         RETIRED BY UNMOUNTING like the chat and chronicle drawers; its file
+         stays in the tree. The whole surface — night history AND the
+         FT-1005 live Tonight inputs — lives on as the chronicles' moon
+         filter cell, ChroniclesNights.vue.) -->
     <!-- FT-1010: CHRONICLES — the town's whole story: talk, whispers and game
          events in one stream, chaptered per game, with the town records as
          its summary band. Mounted for everyone; what differs by viewer is
@@ -694,9 +697,9 @@ import RoleHoverCard from "./components/RoleHoverCard";
 // one), sharing the workbench's ScriptView.
 import ScriptDrawer from "./components/ScriptDrawer";
 // (FT-858's VoteDrawer import left with its mount — FT-1019; file stays.)
-// FT-860: the storyteller's night checklist, and a player's own night notes.
+// FT-860: the storyteller's night checklist. (The player's own night notes
+// drawer retired by unmounting — FT-1037b folded it into the chronicles.)
 import NightSheet from "./components/NightSheet";
-import NightInfoDrawer from "./components/NightInfoDrawer";
 // FT-1010: CHRONICLES — the town's whole story as one surface (chat + game
 // events + records merged; user decision 2026-08-20). It replaced the
 // ChronicleDrawer mounted here and the ChatDrawer Menu used to stand on the
@@ -806,7 +809,6 @@ export default {
     RoleDrawer,
     ScriptDrawer,
     NightSheet,
-    NightInfoDrawer,
     ChroniclesDrawer,
     FaceDiscLab,
     FaceHands,
@@ -904,7 +906,8 @@ export default {
       return (
         this.modals.scriptDrawer ||
         this.modals.voteDrawer ||
-        this.modals.nightDrawer ||
+        // (nightDrawer left this list with FT-1037b — the flag stays in the
+        // store, unrouted, the same way the chronicle drawer's did.)
         // FT-1010: chronicles took the chronicle drawer's place on the rail
         // (the old flag stays in the store, unrouted). Listing it here is
         // also what finally lets the pill step aside for the composer — the
