@@ -325,7 +325,10 @@ export default {
           // (I is taller than V/X by a few source pixels; scaling per glyph
           // keeps the baseline true). Any unresolved letter drops the whole
           // numeral back to live text.
-          glyphs: this.numeralGlyphs(ROMAN[n - 1]),
+          // FT-1033 (user): the ring wears the MAIN PAGE letters' own look —
+          // dark Times over the face — so the carved-glyph route stands down
+          // (again; third taste swing, composer still intact below).
+          glyphs: null,
           style: {
             left: `calc(var(--fh-cx) + ${x.toFixed(1)} * var(--fpx))`,
             top: `calc(var(--fh-cy) + ${y.toFixed(1)} * var(--fpx))`,
@@ -856,23 +859,20 @@ $digital-y-face: -122;
   align-items: flex-end;
   gap: calc(2 * var(--fpx));
   line-height: 1;
-  font-family: "PiratesBay", "Times New Roman", Times, serif;
-  font-size: calc(30 * var(--fpx));
-  color: #14100a;
-  text-shadow:
-    0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
-    0 calc(-1 * var(--fpx)) calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
-    calc(1 * var(--fpx)) 0 calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
-    calc(-1 * var(--fpx)) 0 calc(2 * var(--fpx)) rgba(255, 250, 235, 0.6),
-    0 0 calc(7 * var(--fpx)) rgba(246, 223, 189, 0.45);
+  /* FT-1033 (user): the dial-letters' own dress — the entry page's CLOCK
+     TOWER text: Times bold, its exact near-black, its soft dark shadow. */
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: calc(34 * var(--fpx));
+  color: #0a0502;
+  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
   /* GOLD LETTERS SEPARATE WITH DARK, not with light: a pale glow was tried
      and hazed them into the lit face. Intro.vue's `.hint` black-halo pair,
      spoken as drop-shadow so it follows the carved alpha. */
   /* FT-1031 (user: "more glow"): the dark pair grows and a warm outer breath
      joins it — wide and faint enough not to haze gold-into-gold. */
-  filter: drop-shadow(0 calc(1 * var(--fpx)) calc(2 * var(--fpx)) rgba(0, 0, 0, 1))
-    drop-shadow(0 0 calc(8 * var(--fpx)) rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 calc(14 * var(--fpx)) rgba(255, 214, 150, 0.5));
+  /* FT-1033: the gold-cutout glow stands down with the glyphs — dark text
+     wears the dial letters' plain soft shadow above. */
 }
 .tw-numeral-glyph {
   display: block;
