@@ -494,15 +494,23 @@ export default {
 // the type actually is, then let go entirely by the rim, so there is no edge
 // anywhere for the eye to catch on.
 //
-// THE SCRIM MUST OUTRANK THE CLOCK HANDS. `.arrows` are absolutely positioned
-// siblings at z-index auto, and they run at 150% height — the tips point out
-// at the nominator's and nominee's seats, which is the whole job, but the
-// SHAFTS cross the middle of the overlay, and a scarlet hand drawn straight
-// through the count is exactly as unreadable as the ochre was. So `.overlay`
-// takes a stacking context of its own ABOVE them (`z-index: 1`), and the
-// scrim's `z-index: -1` is then scoped inside that context: it paints under
-// every glyph here but over both hands. The hands stay untouched everywhere
-// outside the scrim's reach, which is where they do their pointing.
+// THE SCRIM MUST OUTRANK THE CLOCK HANDS — BELOW THE GATE. `.arrows` are
+// absolutely positioned siblings at z-index auto, and they run at 150% height
+// — the tips point out at the nominator's and nominee's seats, which is the
+// whole job, but the SHAFTS cross the middle of the overlay, and a scarlet
+// hand drawn straight through the count is exactly as unreadable as the ochre
+// was. So `.overlay` takes a stacking context of its own ABOVE them
+// (`z-index: 1`), and the scrim's `z-index: -1` is then scoped inside that
+// context: it paints under every glyph here but over both hands.
+//
+// ON THE DISC THE ORDER REVERSES (FT-1024b, user call: "the nomination hands
+// should be on top"). Under the gate the ground is the plate's glass, not the
+// scrim, and a hand dimmed to a third of its brightness by the plate's
+// brightness(0.34) stopped doing its one job — saying WHO, visibly. So inside
+// the gate block below, `.arrows` takes `z-index: 2` and rides above the
+// plate and its type both; the hands are `pointer-events: none`, so nothing
+// under them loses a click. Below the gate this paragraph's original order
+// stands untouched.
 .overlay {
   position: relative;
   z-index: 1;
@@ -569,6 +577,16 @@ export default {
     // the plate's centre instead of being distributed into the caps — every
     // control keeps its order and its logic. Re-grounding, not redesign.
     justify-content: center;
+  }
+
+  // FT-1024b (user call): the pointer hands ride ABOVE the glass. The plate's
+  // brightness(0.34) took the hands down to a third of their paint, and a
+  // pointer that has to be looked for is not pointing. z-index 2 clears the
+  // overlay's own 1, so the hands paint over the plate AND its type — ruled,
+  // not drifted into; the full stacking story (and why the order is the
+  // opposite below the gate) is the scrim block's own comment above.
+  .arrows {
+    z-index: 2;
   }
 }
 
