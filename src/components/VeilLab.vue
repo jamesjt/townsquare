@@ -10,9 +10,10 @@
        TWO GROUPS, LABELLED, the ghost lab's shape: Silk (which painting the
        veil is made of) and Dials.
 
-       DEFAULT STATE IS THE SHIPPED VEIL — Silk one, Frost 15 (= the shipped
-       1.5px), Refraction 0, Aberration 0, Opacity 100 — so opening the lab
-       changes nothing until a dial moves.
+       DEFAULT STATE IS THE SHIPPED VEIL — since FT-1015 the user's tuned
+       look, baked: Silk three, Frost 103 (= 10.3px), Refraction 33,
+       Aberration 40, Edge band 60, Shift down 7, Size 144, Transparency 75
+       — so opening the lab changes nothing until a dial moves.
 
        REFRACTION IS CHROMIUM-ONLY (`backdrop-filter: url()` paints nowhere
        else), detected by brand the way the bench does it. Elsewhere the three
@@ -90,7 +91,7 @@
       <button
         type="button"
         class="fl-reset"
-        title="Back to the shipped veil: Silk one, Frost 15 (1.5px), no refraction, full opacity — which leaves the document carrying no veil-lab property at all"
+        title="Back to the shipped veil — the FT-1015 baked look: Silk three, Frost 103 (10.3px), Refraction 33, Aberration 40, Edge band 60, Shift down 7, Size 144, Transparency 75 — which leaves the document carrying no veil-lab property at all"
         @click="resetVlLab"
       >
         Reset

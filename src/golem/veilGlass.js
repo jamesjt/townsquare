@@ -44,7 +44,7 @@
 // own mask, confining the backdrop blur to the fabric's silhouette. The
 // refraction filter rides that same confinement: the mask declarations never
 // change, only the `backdrop-filter` value swaps from `blur()` to
-// `url(#vl-glass) blur()` (Player.vue's `html.vl-refract` rule). And the
+// `url(#vl-glass) blur()` (Player.vue’s `html.veil-glass` rule). And the
 // one thing that would kill it all — an ancestor `filter`, which forms a
 // backdrop root (measured, FT-997) — this lab never adds.
 
@@ -61,18 +61,26 @@ const VL_STORAGE = {
   opacity: "golem.vlOpacity",
 };
 
-/** The class that swaps the veil art to the second silk. A CLASS and not a
- *  property because what changes is which url() declarations exist — and the
- *  compiled asset URLs live in the stylesheet, where webpack can hash them. */
+/** The classes that swap the veil art to a NON-DEFAULT silk. Classes and not
+ *  properties because what changes is which url() declarations exist — and
+ *  the compiled asset URLs live in the stylesheet, where webpack can hash
+ *  them. FT-1015 re-derived the map when Silk three became the ship: the
+ *  DEFAULT silk carries no class (that is the zero-footprint rule), so one
+ *  and two are the classed alternates now and "vl-silk-three" is retired. */
+export const SILK_CLASS_ONE = "vl-silk-one";
 export const SILK_CLASS = "vl-silk-two";
-// FT-1014: silk three joins — one class per non-default silk, same idiom.
-export const SILK_CLASS_THREE = "vl-silk-three";
 
 /** The class that swaps the veil's backdrop-filter from `blur()` to the SVG
- *  refraction filter. Only ever set on a Chromium engine, and only while
- *  Refraction is above zero — at zero the shipped blur IS the correct look,
- *  not a special case of the filter. */
-export const REFRACT_CLASS = "vl-refract";
+ *  refraction filter. SINCE FT-1015 THIS IS THE SHIP'S OWN CLASS, not the
+ *  lab's: the shipped Refraction is 33, so `bootVeilGlass` below sets it at
+ *  app boot on every Chromium engine, labs or no labs. It is named OUTSIDE
+ *  the lab's vl-* namespace for exactly that reason — "no vl-* classes with
+ *  the labs off" stays true while the baked look keeps its bend. The lab
+ *  still toggles it (Refraction dialled to 0 removes it, restoring the
+ *  plain blur); non-Chromium engines never get it, and ship the plain
+ *  blur(10.3px) fallback — THE SHIPPED LOOK FORKS BY ENGINE, exactly as the
+ *  glass bench itself does. */
+export const REFRACT_CLASS = "veil-glass";
 
 /**
  * THE DIALS. Frost and Opacity publish as custom properties (CSS consumes
@@ -83,42 +91,48 @@ export const REFRACT_CLASS = "vl-refract";
  * a x10 scale — tenths of a pixel — because the shipped blur is 1.5px and an
  * integer-pixel dial could never rest on the shipped look.
  *
- * SHIP VALUES ARE THE SHIPPED VEIL: Silk one, Frost 15 (= 1.5px), Refraction
- * 0, Aberration 0, Opacity 100. Opening the lab changes NOTHING until a dial
- * moves, and a dial sitting on its ship value publishes NOTHING — after
- * Reset, <html> carries no `--vl-*` property and no vl-* class at all, so
- * "reset" and "this lab was never built" are the same DOM.
+ * SHIP VALUES ARE THE SHIPPED VEIL — since FT-1015 that is the USER'S TUNED
+ * LOOK, found in this lab and baked: Silk three, Frost 103 (= 10.3px),
+ * Refraction 33, Aberration 40, Edge band 60, Shift down 7, Size 144,
+ * Transparency 75. Opening the lab changes NOTHING until a dial moves, and a
+ * dial sitting on its ship value publishes NOTHING — after Reset, <html>
+ * carries no `--vl-*` property and no vl-* class at all, so "reset" and
+ * "this lab was never built" are the same DOM. (The baked look itself lives
+ * in Player.vue's stylesheet numbers and the boot-mounted filter below, not
+ * in published vars.)
  */
 export const VEIL_DIALS = [
   {
     key: "frost",
     label: "Frost",
-    ship: 15,
-    // TENTHS OF A PIXEL. 15 is the shipped blur(1.5px) — deliberately tiny,
-    // because at seat scale a strong blur smears the role art into mush.
+    ship: 103,
+    // TENTHS OF A PIXEL. 103 is the shipped blur(10.3px) — the user's tuned
+    // look (FT-1015; the original ship was a tiny 1.5px).
     // UP to 240 (24px) — the bench's own ceiling, well into frost, reachable
     // because a dial that can only make things better cannot show the edge.
     min: 0,
     max: 240,
-    hint: "Blur of what shows through, in tenths of a pixel (15 = the shipped 1.5px; 0 = clear silk; 240 = the bench's full frost)",
+    hint: "Blur of what shows through, in tenths of a pixel (103 = the shipped 10.3px; 0 = clear silk; 240 = the bench's full frost)",
   },
   {
     key: "refract",
     label: "Refraction",
-    ship: 0,
-    // The feDisplacementMap scale, in the bench's own units and range. 0 is
-    // shipped — no filter at all, plain blur. Above 0 the veil's backdrop
-    // bends at the edge band, which is what makes glass read as glass.
+    ship: 33,
+    // The feDisplacementMap scale, in the bench's own units and range. 33 is
+    // shipped (FT-1015) — the veil's backdrop bends at the edge band, which
+    // is what makes glass read as glass; 0 turns the filter off entirely and
+    // leaves the plain blur.
     min: 0,
     max: 140,
-    hint: "How far the silk bends what shows through, in the bench's displacement units (0 = the shipped plain blur; Chromium only — elsewhere this is inert and the veil keeps its blur)",
+    hint: "How far the silk bends what shows through, in the bench's displacement units (33 = shipped; 0 = plain blur; Chromium only — elsewhere the veil always keeps its plain blur)",
   },
   {
     key: "aber",
     label: "Aberration",
-    ship: 0,
+    ship: 40,
     // Percent split between the channels: R displaces at Refraction x(1+a),
     // B at x(1-a). Nothing without Refraction — it multiplies the scale.
+    // 40 — the ceiling — is shipped (FT-1015).
     min: 0,
     max: 40,
     hint: "Prismatic fringe: the red and blue channels displaced a touch more and less than green, in hundredths of the Refraction (does nothing while Refraction is 0)",
@@ -126,10 +140,12 @@ export const VEIL_DIALS = [
   {
     key: "band",
     label: "Edge band",
-    ship: 30,
+    ship: 60,
     // The width of the displacement map's active rim, in map pixels. The
     // map's interior is neutral gray (displaces nothing), so this is "how
-    // deep into the silk the bending reaches".
+    // deep into the silk the bending reaches". 60 — the ceiling — is shipped
+    // (FT-1015): at seat scale that swallows the interior, so the whole
+    // silk bends.
     min: 10,
     max: 60,
     hint: "Width of the bending rim in the displacement map, in pixels (the interior stays optically flat; does nothing while Refraction is 0)",
@@ -154,17 +170,17 @@ export const VEIL_DIALS = [
   {
     key: "shiftY",
     label: "Shift down",
-    ship: 0,
+    ship: 7,
     // Applied to the arrival's start AND its resting -6% together, so the
     // 200ms drop always glides the same distance wherever the veil settles.
     min: -50,
     max: 50,
-    hint: "Slide the veil down the coin, in hundredths of the veil box (0 = shipped; positive is down — the arrival still drops the same distance)",
+    hint: "Slide the veil down the coin, in hundredths of the veil box (7 = shipped; positive is down — the arrival still drops the same distance)",
   },
   {
     key: "size",
     label: "Size",
-    ship: 100,
+    ship: 144,
     // A transform scale about `top center` (the veil's own transform-origin),
     // so growing seats the silk deeper onto the coin instead of lifting it.
     // It scales art and mask TOGETHER — they are the same image, and the
@@ -173,12 +189,12 @@ export const VEIL_DIALS = [
     // (480 vs 577), so they sit differently at 100.
     min: 50,
     max: 200,
-    hint: "Scale of the whole veil about its top centre, in hundredths (100 = shipped; art and mask scale together, so the glass keeps its silhouette)",
+    hint: "Scale of the whole veil about its top centre, in hundredths (144 = shipped; art and mask scale together, so the glass keeps its silhouette)",
   },
   {
     key: "opacity",
     label: "Transparency",
-    ship: 100,
+    ship: 75,
     // The whole veil's resting strength, in hundredths, multiplying the
     // states the veil already has — the hover preview stays half of whatever
     // this is (Player.vue's `calc(... * 0.5)`). Labelled "Transparency"
@@ -187,7 +203,7 @@ export const VEIL_DIALS = [
     // stored value survives the relabel.
     min: 0,
     max: 100,
-    hint: "How strongly the veil shows at rest, in hundredths (100 = as it ships, 0 = gone; the hover preview stays half of whatever this is)",
+    hint: "How strongly the veil shows at rest, in hundredths (75 = as it ships, 0 = gone; the hover preview stays half of whatever this is)",
   },
 ];
 
@@ -197,7 +213,7 @@ export const VEIL_SILKS = [
   {
     id: "one",
     label: "Silk one",
-    hint: "The shipped veil (design/viel.png, baked to ui-veil.png) — the loose drape",
+    hint: "The first silk (design/viel.png, baked to ui-veil.png) — the loose drape; the original ship before FT-1015",
   },
   {
     id: "two",
@@ -207,7 +223,7 @@ export const VEIL_SILKS = [
   {
     id: "three",
     label: "Silk three",
-    hint: "The third silk (design/veil3.png, baked to ui-veil3.png) — the 2026-08-20 evening drop",
+    hint: "The shipped veil since FT-1015 (design/veil3.png, baked to ui-veil3.png) — the 2026-08-20 evening drop, tuned and baked",
   },
 ];
 
@@ -247,7 +263,7 @@ export function veilDial(key) {
 export function shippedVeilLab() {
   const dials = {};
   VEIL_DIALS.forEach((d) => (dials[d.key] = d.ship));
-  return { silk: "one", dials };
+  return { silk: "three", dials };
 }
 
 /** Read the persisted state. Anything unreadable reads as SHIPPED — a broken
@@ -269,7 +285,7 @@ export function readVeilLab() {
     const savedSilk = localStorage.getItem(VL_STORAGE.silk);
     if (VEIL_SILKS.some((s) => s.id === savedSilk)) state.silk = savedSilk;
   } catch (e) {
-    state.silk = "one";
+    state.silk = "three";
   }
   return state;
 }
@@ -423,6 +439,7 @@ function mountVeilFilter() {
  *  filter: rebuild the map at the veil's measured size, split the scales. */
 function updateVeilFilter(dials) {
   if (!filterSvg) return;
+  lastFilterDials = dials;
   const box = measureVeilBox();
   mapW = box.w;
   mapH = box.h;
@@ -438,8 +455,54 @@ function updateVeilFilter(dials) {
   feB.setAttribute("scale", (s * (1 - a)).toFixed(2));
 }
 
+/** The dials the filter was last driven with — what a re-measure (window
+ *  resize, or the first seat appearing) re-applies. */
+let lastFilterDials = null;
+
+/**
+ * FT-1015 — THE SHIP BOOTS ITS OWN GLASS. The baked look refracts
+ * (Refraction 33), so the displacement filter can no longer be the lab's
+ * private rig: it mounts at app boot for EVERYONE on a Chromium engine, and
+ * the ship's `veil-glass` class points the veil's backdrop-filter at it.
+ * Non-Chromium engines never enter here and keep the stylesheet's plain
+ * blur(10.3px) — the shipped look forks by engine, exactly as the glass
+ * bench itself does.
+ *
+ * The map is drawn at the seat's measured pixel size, and at boot no seat
+ * exists yet — a MutationObserver waits for the first shroud, re-measures
+ * once, and stops looking. After that only a window resize changes a seat
+ * (they are vmin-sized), so a debounced resize listener re-measures with
+ * whatever dials last drove the filter (the ship's, or the lab's if one is
+ * publishing).
+ */
+export function bootVeilGlass() {
+  if (typeof document === "undefined" || !CAN_REFRACT) return;
+  mountVeilFilter();
+  updateVeilFilter(shippedVeilLab().dials);
+  document.documentElement.classList.add(REFRACT_CLASS);
+  const seen = () => !!document.querySelector(".circle .player .shroud");
+  if (!seen()) {
+    const mo = new MutationObserver(() => {
+      if (!seen()) return;
+      mo.disconnect();
+      if (lastFilterDials) updateVeilFilter(lastFilterDials);
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  }
+  let t = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      if (lastFilterDials) updateVeilFilter(lastFilterDials);
+    }, 150);
+  });
+}
+
 /** Take the filter (and the class that points at it) back out — the veil
- *  must never be left aimed at a url() that no longer resolves. */
+ *  must never be left aimed at a url() that no longer resolves. FT-1015:
+ *  RETIRED from the lab's teardown path — the filter is the ship's now, so
+ *  the lab going away restores the baked look instead (see beforeDestroy).
+ *  Kept for completeness; calling it strips the shipped glass. */
 export function teardownVeilFilter() {
   document.documentElement.classList.remove(REFRACT_CLASS);
   if (filterSvg && filterSvg.parentNode)
@@ -463,8 +526,8 @@ export function publishVeilLab(state) {
     if (v === d.ship) style.removeProperty(VL_VAR[d.key]);
     else style.setProperty(VL_VAR[d.key], String(v));
   });
+  root.classList.toggle(SILK_CLASS_ONE, state.silk === "one");
   root.classList.toggle(SILK_CLASS, state.silk === "two");
-  root.classList.toggle(SILK_CLASS_THREE, state.silk === "three");
 
   const refracting = CAN_REFRACT && state.dials.refract > 0;
   if (refracting) {
@@ -502,7 +565,9 @@ export default {
   beforeDestroy() {
     window.removeEventListener("resize", this.vlResize);
     clearTimeout(this.vlResizeTimer);
-    teardownVeilFilter();
+    // FT-1015: the filter is the SHIP's — the lab going away restores the
+    // baked look rather than tearing the glass out from under everyone.
+    publishVeilLab(shippedVeilLab());
   },
   methods: {
     /** Clamped against the dial's OWN declared bounds. */
@@ -522,7 +587,7 @@ export default {
       // FT-1014b: validate against the LIST — the hardcoded pair silently
       // coerced Silk three to Silk one (user: "clicking silk 3 just goes
       // to silk 1?").
-      this.vlLab.silk = VEIL_SILKS.some((s) => s.id === id) ? id : "one";
+      this.vlLab.silk = VEIL_SILKS.some((s) => s.id === id) ? id : "three";
       publishVeilLab(this.vlLab);
       try {
         localStorage.setItem(VL_STORAGE.silk, this.vlLab.silk);
@@ -530,10 +595,12 @@ export default {
         // storage off: the pick still works for this session
       }
     },
-    /** Back to the shipped veil: Silk one, every dial on its ship value —
-     *  which leaves <html> carrying no `--vl-*` property and no vl-* class. */
+    /** Back to the shipped veil — the FT-1015 baked look: Silk three, every
+     *  dial on its ship value — which leaves <html> carrying no `--vl-*`
+     *  property and no vl-* class (the ship's own veil-glass class stays,
+     *  because the baked look refracts). */
     resetVlLab() {
-      this.setVlSilk("one");
+      this.setVlSilk("three");
       VEIL_DIALS.forEach((d) => this.setVlDial(d.key, d.ship));
     },
   },

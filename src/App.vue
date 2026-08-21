@@ -671,6 +671,8 @@ import GhostLab from "./components/GhostLab";
 // FT-1004: the veil lab — TEMPORARY, and it comes out with Player.vue's
 // `html.vl-*` hooks and src/golem/veilGlass.js.
 import VeilLab from "./components/VeilLab";
+// FT-1015: the baked veil refracts, so its displacement filter mounts at boot
+import { bootVeilGlass } from "./golem/veilGlass";
 import { dripKnobs, saveDripKnobs, resetDripKnobs } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
@@ -1056,6 +1058,9 @@ export default {
   mounted() {
     // the face lab's persisted dials, published to <html> — see applyBgOff
     this.applyBgOff();
+    // FT-1015: the shipped veil is bent glass — mount its filter for everyone
+    // (Chromium-gated inside; elsewhere the veil ships its plain blur)
+    bootVeilGlass();
     // FT-880: start watching for the first gesture, so the call-back's audio
     // element has earned its autoplay credit long before there is a summons to
     // play. Costs nothing until something is clicked; see golem/callBack.js.

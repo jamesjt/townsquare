@@ -1610,15 +1610,18 @@ export default {
       // FT-1004b: the veil lab's position and size ride the SHIPPED numbers
       // as offsets — the geometry here speaks percent of the shroud box, so
       // the dials do too (one unit = 1% of the box). With the lab absent
-      // every var falls back to its ship value and each line computes to
-      // exactly what it said before. Size scales art and mask together
-      // (they are the same image) about the existing `top center` origin,
-      // and the arrival keeps its own 1.15 settle on top of it.
+      // every var falls back to its ship value. FT-1015 BAKED THE USER'S
+      // TUNED LOOK: the fallbacks ARE the ship now (Shift down 7, Size 144,
+      // Frost 103, Transparency 75 below), so a fresh browser wears the
+      // tuned veil and the lab's dials rest on these same numbers. Size
+      // scales art and mask together (they are the same image) about the
+      // existing `top center` origin, and the arrival keeps its own 1.15
+      // settle on top of it.
       left: calc(50% + var(--vl-shift-x-adj, 0) * 1%);
-      top: calc(-20% + var(--vl-shift-y-adj, 0) * 1%);
+      top: calc(-20% + var(--vl-shift-y-adj, 7) * 1%);
       opacity: 0;
       transform: perspective(400px)
-        scale(calc(var(--vl-size-adj, 100) / 100 * 1.15));
+        scale(calc(var(--vl-size-adj, 144) / 100 * 1.15));
       transform-origin: top center;
       transition: all 200ms;
       pointer-events: none;
@@ -1645,16 +1648,22 @@ export default {
       // silhouette (a bare backdrop-filter fills the whole box), and the
       // alpha-on-alpha multiply densifies the sheer fabric just enough to
       // read over a bright coin without any added wash.
-      background: url("../assets/ui-veil.png") center top / contain no-repeat;
-      -webkit-mask: url("../assets/ui-veil.png") center top / contain no-repeat;
-      mask: url("../assets/ui-veil.png") center top / contain no-repeat;
-      // FT-1004: the shipped blur(1.5px) is now the FALLBACK of the veil
-      // lab's Frost dial, in tenths of a pixel (15 = 1.5px). With the lab
-      // absent no `--vl-*` property exists anywhere and this computes to
-      // exactly the shipped value. The lab's other hooks live in the
-      // `html.vl-*` block after the FT-991 rules below.
-      backdrop-filter: blur(calc(var(--vl-frost-adj, 15) * 0.1px)) saturate(94%);
-      -webkit-backdrop-filter: blur(calc(var(--vl-frost-adj, 15) * 0.1px))
+      // FT-1015: SILK THREE is the shipped art now — the user tuned the
+      // look in the veil lab and called it ("let's do this for the veil").
+      // ui-veil.png and ui-veil2.png remain the lab's classed alternates in
+      // the hook block below.
+      background: url("../assets/ui-veil3.png") center top / contain no-repeat;
+      -webkit-mask: url("../assets/ui-veil3.png") center top / contain no-repeat;
+      mask: url("../assets/ui-veil3.png") center top / contain no-repeat;
+      // FT-1004/1015: the Frost dial's fallback IS the ship — 103 tenths =
+      // the baked blur(10.3px). On a Chromium engine the boot-set
+      // `html.veil-glass` rule below REPLACES this backdrop-filter with the
+      // displacement filter (same blur kept in the chain); everywhere else
+      // THIS is the shipped look — the ship forks by engine, as the glass
+      // bench itself does.
+      backdrop-filter: blur(calc(var(--vl-frost-adj, 103) * 0.1px))
+        saturate(94%);
+      -webkit-backdrop-filter: blur(calc(var(--vl-frost-adj, 103) * 0.1px))
         saturate(94%);
     }
 
@@ -1682,15 +1691,15 @@ export default {
     // VEIL lab's now (`--vl-opacity-adj`, src/golem/veilGlass.js) — the
     // veil's controls moved out of the ghost lab with the cowl's retirement.
     #townsquare:not(.spectator):not(.building) &:hover:before {
-      opacity: calc(var(--vl-opacity-adj, 100) / 100 * 0.5);
+      opacity: calc(var(--vl-opacity-adj, 75) / 100 * 0.5);
       // matches the `.dead` rule below — one number, where the veil settles
-      top: calc(-6% + var(--vl-shift-y-adj, 0) * 1%);
-      transform: scale(calc(var(--vl-size-adj, 100) / 100));
+      top: calc(-6% + var(--vl-shift-y-adj, 7) * 1%);
+      transform: scale(calc(var(--vl-size-adj, 144) / 100));
     }
     #townsquare:not(.spectator):not(.building) &:hover:after {
-      opacity: calc(var(--vl-opacity-adj, 100) / 100 * 0.5);
-      top: calc(-6% + var(--vl-shift-y-adj, 0) * 1%);
-      transform: scale(calc(var(--vl-size-adj, 100) / 100));
+      opacity: calc(var(--vl-opacity-adj, 75) / 100 * 0.5);
+      top: calc(-6% + var(--vl-shift-y-adj, 7) * 1%);
+      transform: scale(calc(var(--vl-size-adj, 144) / 100));
     }
   }
 
@@ -1701,27 +1710,27 @@ export default {
   // bigger, further fall was.
   &.dead .shroud:before,
   &.dead .shroud:after {
-    top: calc(-6% + var(--vl-shift-y-adj, 0) * 1%);
-    transform: perspective(400px) scale(calc(var(--vl-size-adj, 100) / 100));
+    top: calc(-6% + var(--vl-shift-y-adj, 7) * 1%);
+    transform: perspective(400px) scale(calc(var(--vl-size-adj, 144) / 100));
   }
   // the pane's own resting strength — still the Opacity dial's home, but the
   // wash itself is what keeps this subtle now, not this number
   &.dead .shroud:before {
-    opacity: calc(var(--vl-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 75) / 100);
   }
   // FT-997: the sheen is no longer gated behind the old cowl-outline's Rim
   // dial (that dial answered "how strong is the outline", and this mark no
   // longer has one) — its strength lives in its own gradient stops now, so
   // it takes the same Opacity dial as the pane and nothing else.
   &.dead .shroud:after {
-    opacity: calc(var(--vl-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 75) / 100);
   }
 
   #townsquare:not(.spectator) &.dead .shroud:hover:before {
-    opacity: calc(var(--vl-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 75) / 100);
   }
   #townsquare:not(.spectator) &.dead .shroud:hover:after {
-    opacity: calc(var(--vl-opacity-adj, 100) / 100);
+    opacity: calc(var(--vl-opacity-adj, 75) / 100);
   }
 }
 
@@ -1825,26 +1834,30 @@ html.gg-glass .circle .player .shroud {
  * same fallback the bench shows. And the one thing that would kill it — an
  * ancestor `filter` forms a backdrop root (measured, FT-997) — stays absent.
  *
- * TEMPORARY, DELETE ME — this block, the `--vl-*` reads above, VeilLab.vue,
- * veilGlass.js and their two lines in App.vue all come out together once a
- * look is chosen and baked. */
+ * FT-1015 — A LOOK WAS CHOSEN AND BAKED. Silk three and the tuned numbers
+ * moved into the shipped rules above; what remains here is (a) the lab's two
+ * classed ALTERNATE silks (the default silk carries no class — one and two
+ * are the classed ones now, "vl-silk-three" is retired), and (b) the
+ * `veil-glass` rule, which is the SHIP'S: the baked look refracts, so
+ * `bootVeilGlass()` (veilGlass.js, called from App.vue's mounted) sets the
+ * class at boot on every Chromium engine — labs or no labs — and the lab
+ * merely re-uses it (Refraction dialled to 0 removes it). Non-Chromium
+ * engines never get the class and ship the plain blur above. */
+html.vl-silk-one .circle .player .shroud:before {
+  background: url("../assets/ui-veil.png") center top / contain no-repeat;
+  -webkit-mask: url("../assets/ui-veil.png") center top / contain no-repeat;
+  mask: url("../assets/ui-veil.png") center top / contain no-repeat;
+}
 html.vl-silk-two .circle .player .shroud:before {
   background: url("../assets/ui-veil2.png") center top / contain no-repeat;
   -webkit-mask: url("../assets/ui-veil2.png") center top / contain no-repeat;
   mask: url("../assets/ui-veil2.png") center top / contain no-repeat;
 }
-
-/* FT-1014: the third silk, same contract as the second. */
-html.vl-silk-three .circle .player .shroud:before {
-  background: url("../assets/ui-veil3.png") center top / contain no-repeat;
-  -webkit-mask: url("../assets/ui-veil3.png") center top / contain no-repeat;
-  mask: url("../assets/ui-veil3.png") center top / contain no-repeat;
-}
-html.vl-refract .circle .player .shroud:before {
-  backdrop-filter: url(#vl-glass) blur(calc(var(--vl-frost-adj, 15) * 0.1px))
+html.veil-glass .circle .player .shroud:before {
+  backdrop-filter: url(#vl-glass) blur(calc(var(--vl-frost-adj, 103) * 0.1px))
     saturate(94%);
   -webkit-backdrop-filter: url(#vl-glass)
-    blur(calc(var(--vl-frost-adj, 15) * 0.1px)) saturate(94%);
+    blur(calc(var(--vl-frost-adj, 103) * 0.1px)) saturate(94%);
 }
 
 /* FT-997c (user call 2026-08-20: "you added a dark color to dead coins...
