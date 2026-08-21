@@ -65,6 +65,8 @@ const VL_STORAGE = {
  *  property because what changes is which url() declarations exist — and the
  *  compiled asset URLs live in the stylesheet, where webpack can hash them. */
 export const SILK_CLASS = "vl-silk-two";
+// FT-1014: silk three joins — one class per non-default silk, same idiom.
+export const SILK_CLASS_THREE = "vl-silk-three";
 
 /** The class that swaps the veil's backdrop-filter from `blur()` to the SVG
  *  refraction filter. Only ever set on a Chromium engine, and only while
@@ -189,7 +191,7 @@ export const VEIL_DIALS = [
   },
 ];
 
-/** The two silks — the veil PICK. Both baked the same way (trim threshold 8,
+/** The silks — the veil PICK. All baked the same way (trim threshold 8,
  *  height 512, the fork's own sharp) so they compare fairly. */
 export const VEIL_SILKS = [
   {
@@ -201,6 +203,11 @@ export const VEIL_SILKS = [
     id: "two",
     label: "Silk two",
     hint: "The second silk (design/veil2.png, baked to ui-veil2.png) — the twisted ring",
+  },
+  {
+    id: "three",
+    label: "Silk three",
+    hint: "The third silk (design/veil3.png, baked to ui-veil3.png) — the 2026-08-20 evening drop",
   },
 ];
 
@@ -455,6 +462,7 @@ export function publishVeilLab(state) {
     else style.setProperty(VL_VAR[d.key], String(v));
   });
   root.classList.toggle(SILK_CLASS, state.silk === "two");
+  root.classList.toggle(SILK_CLASS_THREE, state.silk === "three");
 
   const refracting = CAN_REFRACT && state.dials.refract > 0;
   if (refracting) {

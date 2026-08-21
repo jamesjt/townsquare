@@ -1833,6 +1833,13 @@ html.vl-silk-two .circle .player .shroud:before {
   -webkit-mask: url("../assets/ui-veil2.png") center top / contain no-repeat;
   mask: url("../assets/ui-veil2.png") center top / contain no-repeat;
 }
+
+/* FT-1014: the third silk, same contract as the second. */
+html.vl-silk-three .circle .player .shroud:before {
+  background: url("../assets/ui-veil3.png") center top / contain no-repeat;
+  -webkit-mask: url("../assets/ui-veil3.png") center top / contain no-repeat;
+  mask: url("../assets/ui-veil3.png") center top / contain no-repeat;
+}
 html.vl-refract .circle .player .shroud:before {
   backdrop-filter: url(#vl-glass) blur(calc(var(--vl-frost-adj, 15) * 0.1px))
     saturate(94%);
