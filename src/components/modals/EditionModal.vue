@@ -108,7 +108,10 @@
       </div>
 
       <div class="wb-body" v-else>
-        <aside class="wb-sidebar">
+        <!-- FT-1040b: while the forge holds the main pane, the sidebar's
+             clicks would edit the script view you cannot see — so it stays
+             put but visibly paused until the forge closes. -->
+        <aside class="wb-sidebar" :class="{ inert: !!roleForm }">
           <!-- team toggles are TRI-STATE on click (show only → hide → off);
                the + at the end forges a new role -->
           <div class="wb-team-row">
@@ -308,8 +311,12 @@
 
         <!-- FT-857: THE script view — the same component the player-facing
              ScriptDrawer renders. Editable here (drag the night order, remove
-             / edit a role, the dirty Save-Discard chips); read-only there. -->
+             / edit a role, the dirty Save-Discard chips); read-only there.
+             FT-1040b: v-show, not v-if, while the forge borrows the pane —
+             the component stays mounted, so its scroll comes back where it
+             was when Save or Discard hands the pane back. -->
         <ScriptView
+          v-show="!roleForm"
           :roles="scriptRoles"
           :editable="true"
           :dirty="scriptDirty"
@@ -321,317 +328,322 @@
           @save="saveToVault"
           @discard="discardEdits"
         />
-      </div>
 
-      <!-- Golem fork (FT-851): the custom-role library — author a role once,
-           save it to the library, and drop it into the current script as a
-           full snapshot (the script carries the whole role). Fork-on-edit
-           like scripts: saving someone else's role forks your own copy.
-           FT-854: the forge floats over the workbench as an overlay. -->
-      <div class="role-form" v-if="roleForm" v-blood-scroll>
-        <div class="button-group forge-acts">
-          <div class="button" title="Save role" @click="saveRoleForm">
-            <font-awesome-icon icon="feather-alt" /> Save
+        <!-- Golem fork (FT-851): the custom-role library — author a role once,
+             save it to the library, and drop it into the current script as a
+             full snapshot (the script carries the whole role). Fork-on-edit
+             like scripts: saving someone else's role forks your own copy.
+             FT-1040b (user call): the forge works WHERE THE SCRIPT LIVES —
+             it takes the script view's own pane instead of floating over it;
+             Save or Discard brings the script view back. -->
+        <div class="role-form forge-inline" v-if="roleForm" v-blood-scroll>
+          <div class="button-group forge-acts">
+            <div class="button" title="Save role" @click="saveRoleForm">
+              <font-awesome-icon icon="feather-alt" /> Save
+            </div>
+            <div class="button" title="Discard" @click="closeRoleForm">
+              <font-awesome-icon icon="times" /> Discard
+            </div>
           </div>
-          <div class="button" title="Discard" @click="closeRoleForm">
-            <font-awesome-icon icon="times" /> Discard
-          </div>
-        </div>
-        <h3 class="almanac-title forge-title">
-          <img
-            v-if="forgeCap"
-            :src="forgeCap.src"
-            class="font-cap"
-            :style="forgeCap.style"
-            alt="N"
-          />{{ forgeCap ? "ew Role" : "New Role" }}
-        </h3>
-        <!-- paste a role JSON (or an official id) to fill the form; the
-             ghost text IS the accepted syntax, Template copies it -->
-        <div class="row">
-          <input
-            v-model="roleForm.name"
-            placeholder="Role name"
-            maxlength="40"
-          />
-        </div>
-        <div class="row team-pick">
-          <button
-            v-for="t in [
-              'townsfolk',
-              'outsider',
-              'minion',
-              'demon',
-              'traveller',
-            ]"
-            :key="t"
-            type="button"
-            class="team-btn"
-            :class="[
-              'team-' + (t === 'traveller' ? 'traveler' : t),
-              { on: roleForm.roleType === t },
-            ]"
-            @click="roleForm.roleType = t"
-          >
-            <!-- our own team art for every team (golem/glyphs); the Font
-                 Awesome branch stays as the fallback for an unknown team -->
+          <h3 class="almanac-title forge-title">
             <img
-              v-if="teamGlyph(t)"
-              class="demon-glyph"
-              :src="teamGlyph(t)"
-              alt=""
+              v-if="forgeCap"
+              :src="forgeCap.src"
+              class="font-cap"
+              :style="forgeCap.style"
+              alt="N"
+            />{{ forgeCap ? "ew Role" : "New Role" }}
+          </h3>
+          <!-- paste a role JSON (or an official id) to fill the form; the
+             ghost text IS the accepted syntax, Template copies it -->
+          <div class="row">
+            <input
+              v-model="roleForm.name"
+              placeholder="Role name"
+              maxlength="40"
             />
-            <font-awesome-icon
-              v-else
-              :icon="
-                t === 'townsfolk'
-                  ? 'users'
-                  : t === 'minion'
-                  ? 'mask'
-                  : 'walking'
-              "
-            />
-            {{ t }}
-          </button>
-        </div>
-        <div class="row">
-          <textarea
-            v-model="roleForm.ability"
-            placeholder="Ability text"
-            maxlength="600"
-            rows="3"
-          ></textarea>
-        </div>
-        <!-- FT-1040: the forge speaks chips — the FT-1039 idiom, one plate,
-             lit states; the two wakes wear the night tabs' own moon phases. -->
-        <div class="wakes-block">
-          <span class="wakes-title">Wakes:</span>
-          <div class="forge-seg" role="group" aria-label="Wakes">
+          </div>
+          <div class="row team-pick">
             <button
+              v-for="t in [
+                'townsfolk',
+                'outsider',
+                'minion',
+                'demon',
+                'traveller',
+              ]"
+              :key="t"
               type="button"
-              class="forge-cell"
-              :class="{ on: wakesFirstNight }"
-              :aria-pressed="wakesFirstNight ? 'true' : 'false'"
-              title="Wakes on the first night"
-              @click="wakesFirstNight = !wakesFirstNight"
+              class="team-btn"
+              :class="[
+                'team-' + (t === 'traveller' ? 'traveler' : t),
+                { on: roleForm.roleType === t },
+              ]"
+              @click="roleForm.roleType = t"
             >
-              <img class="moon" :src="moonFirstArt" alt="" /> First Night
-            </button>
-            <button
-              type="button"
-              class="forge-cell"
-              :class="{ on: wakesOtherNights }"
-              :aria-pressed="wakesOtherNights ? 'true' : 'false'"
-              title="Wakes on every night after the first"
-              @click="wakesOtherNights = !wakesOtherNights"
-            >
-              <img class="moon" :src="moonOtherArt" alt="" /> Other Nights
+              <!-- our own team art for every team (golem/glyphs); the Font
+                 Awesome branch stays as the fallback for an unknown team -->
+              <img
+                v-if="teamGlyph(t)"
+                class="demon-glyph"
+                :src="teamGlyph(t)"
+                alt=""
+              />
+              <font-awesome-icon
+                v-else
+                :icon="
+                  t === 'townsfolk'
+                    ? 'users'
+                    : t === 'minion'
+                    ? 'mask'
+                    : 'walking'
+                "
+              />
+              {{ t }}
             </button>
           </div>
-          <button
-            type="button"
-            class="forge-chip"
-            :class="{ on: roleForm.setup }"
-            :aria-pressed="roleForm.setup ? 'true' : 'false'"
-            title="This character changes the game's setup"
-            @click="roleForm.setup = !roleForm.setup"
-          >
-            Affects setup
-          </button>
-        </div>
-        <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character that wakes
+          <div class="row">
+            <textarea
+              v-model="roleForm.ability"
+              placeholder="Ability text"
+              maxlength="600"
+              rows="3"
+            ></textarea>
+          </div>
+          <!-- FT-1040: the forge speaks chips — the FT-1039 idiom, one plate,
+             lit states; the two wakes wear the night tabs' own moon phases. -->
+          <div class="wakes-block">
+            <span class="wakes-title">Wakes:</span>
+            <div class="forge-seg" role="group" aria-label="Wakes">
+              <button
+                type="button"
+                class="forge-cell"
+                :class="{ on: wakesFirstNight }"
+                :aria-pressed="wakesFirstNight ? 'true' : 'false'"
+                title="Wakes on the first night"
+                @click="wakesFirstNight = !wakesFirstNight"
+              >
+                <img class="moon" :src="moonFirstArt" alt="" /> First Night
+              </button>
+              <button
+                type="button"
+                class="forge-cell"
+                :class="{ on: wakesOtherNights }"
+                :aria-pressed="wakesOtherNights ? 'true' : 'false'"
+                title="Wakes on every night after the first"
+                @click="wakesOtherNights = !wakesOtherNights"
+              >
+                <img class="moon" :src="moonOtherArt" alt="" /> Other Nights
+              </button>
+            </div>
+            <button
+              type="button"
+              class="forge-chip"
+              :class="{ on: roleForm.setup }"
+              :aria-pressed="roleForm.setup ? 'true' : 'false'"
+              title="This character changes the game's setup"
+              @click="roleForm.setup = !roleForm.setup"
+            >
+              Affects setup
+            </button>
+          </div>
+          <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character that wakes
              composes one. Six shapes, each a one-to-one dressing of a night
              schema field (golem/nightInfo NIGHT_SHAPES); the composed entry
              rides the forged role and registers at script load, so its
              checklist row, player prompt and chronicle presence are native. -->
-        <div class="night-composer" v-if="wakesFirstNight || wakesOtherNights">
-          <span class="nc-title">At night, this character…</span>
-          <div class="nc-shapes" role="group" aria-label="Night action">
-            <button
-              v-for="s in nightShapes"
-              :key="s.id"
-              type="button"
-              class="forge-chip"
-              :class="{ on: roleForm.nightShape === s.id }"
-              :title="
-                s.hint +
-                (roleForm.nightShape === s.id ? ' (click to clear)' : '')
-              "
-              :aria-pressed="roleForm.nightShape === s.id ? 'true' : 'false'"
-              @click="pickNightShape(s.id)"
-            >
-              {{ s.label }}
-            </button>
-          </div>
-          <div class="nc-dials" v-if="roleForm.nightShape === 'players'">
-            <NumberScrub
-              class="nc-count"
-              preset="night"
-              :value="roleForm.nightCount"
-              :min="1"
-              :max="3"
-              title="How many players — drag to scrub, click to type"
-              @input="(n) => (roleForm.nightCount = n)"
-            />
-            <!-- the FILLER — real only here: a PLAYER field is the one kind
-                 the player-side machinery renders an input for (FT-1005) -->
-            <div class="forge-seg nc-by" role="group" aria-label="Who picks">
+          <div
+            class="night-composer"
+            v-if="wakesFirstNight || wakesOtherNights"
+          >
+            <span class="nc-title">At night, this character…</span>
+            <div class="nc-shapes" role="group" aria-label="Night action">
               <button
+                v-for="s in nightShapes"
+                :key="s.id"
                 type="button"
-                class="forge-cell"
-                :class="{ on: roleForm.nightBy === 'player' }"
-                title="The seat's own player makes this choice at night"
-                @click="roleForm.nightBy = 'player'"
+                class="forge-chip"
+                :class="{ on: roleForm.nightShape === s.id }"
+                :title="
+                  s.hint +
+                  (roleForm.nightShape === s.id ? ' (click to clear)' : '')
+                "
+                :aria-pressed="roleForm.nightShape === s.id ? 'true' : 'false'"
+                @click="pickNightShape(s.id)"
               >
-                The player picks
-              </button>
-              <button
-                type="button"
-                class="forge-cell"
-                :class="{ on: roleForm.nightBy === 'storyteller' }"
-                title="You point for them — information you give"
-                @click="roleForm.nightBy = 'storyteller'"
-              >
-                You point for them
+                {{ s.label }}
               </button>
             </div>
+            <div class="nc-dials" v-if="roleForm.nightShape === 'players'">
+              <NumberScrub
+                class="nc-count"
+                preset="night"
+                :value="roleForm.nightCount"
+                :min="1"
+                :max="3"
+                title="How many players — drag to scrub, click to type"
+                @input="(n) => (roleForm.nightCount = n)"
+              />
+              <!-- the FILLER — real only here: a PLAYER field is the one kind
+                 the player-side machinery renders an input for (FT-1005) -->
+              <div class="forge-seg nc-by" role="group" aria-label="Who picks">
+                <button
+                  type="button"
+                  class="forge-cell"
+                  :class="{ on: roleForm.nightBy === 'player' }"
+                  title="The seat's own player makes this choice at night"
+                  @click="roleForm.nightBy = 'player'"
+                >
+                  The player picks
+                </button>
+                <button
+                  type="button"
+                  class="forge-cell"
+                  :class="{ on: roleForm.nightBy === 'storyteller' }"
+                  title="You point for them — information you give"
+                  @click="roleForm.nightBy = 'storyteller'"
+                >
+                  You point for them
+                </button>
+              </div>
+            </div>
+            <div class="row" v-if="roleForm.nightShape">
+              <input
+                v-model="roleForm.nightPrompt"
+                class="wide"
+                maxlength="200"
+                placeholder="Prompt line — what the night row says"
+              />
+            </div>
           </div>
-          <div class="row" v-if="roleForm.nightShape">
-            <input
-              v-model="roleForm.nightPrompt"
-              class="wide"
-              maxlength="200"
-              placeholder="Prompt line — what the night row says"
-            />
-          </div>
-        </div>
-        <!-- reminder tokens as REAL PILLS — type + Enter mints one, click one
+          <!-- reminder tokens as REAL PILLS — type + Enter mints one, click one
              to remove it; the stored shape stays the comma-joined string -->
-        <div class="row rem-row">
-          <span class="rem-pills">
-            <button
-              v-for="(r, i) in reminderPills"
-              :key="'rem' + i"
-              type="button"
-              class="rem-pill"
-              :title="'Remove “' + r + '”'"
-              @click="removeReminderPill(i)"
-            >
-              {{ r }} <span class="rem-x">×</span>
-            </button>
-            <input
-              v-model="reminderDraft"
-              class="rem-input"
-              maxlength="40"
-              placeholder="Reminder token — Enter adds"
-              @keydown.enter.prevent="addReminderPill"
-              @blur="addReminderPill"
-            />
-          </span>
-        </div>
-        <div class="row">
-          <input
-            v-model="roleForm.authorName"
-            placeholder="Author"
-            maxlength="200"
-          />
-        </div>
-        <div class="icon-picker">
-          <div class="ip-tabs">
-            <span
-              class="wb-tab"
-              :class="{ active: iconTab === 'library' }"
-              @click="openIconLibrary"
-              >Icon library</span
-            >
-            <span
-              class="wb-tab"
-              :class="{ active: iconTab === 'official' }"
-              @click="iconTab = 'official'"
-              >Official art</span
-            >
-            <span class="ip-current" v-if="roleForm.iconData">
-              <img :src="roleForm.iconData" alt="" />
-              <span
-                class="ip-reroll"
-                title="Re-roll the texture — same art, fresh grain"
-                @click="rerollIcon"
-                ><font-awesome-icon icon="redo-alt"
-              /></span>
+          <div class="row rem-row">
+            <span class="rem-pills">
+              <button
+                v-for="(r, i) in reminderPills"
+                :key="'rem' + i"
+                type="button"
+                class="rem-pill"
+                :title="'Remove “' + r + '”'"
+                @click="removeReminderPill(i)"
+              >
+                {{ r }} <span class="rem-x">×</span>
+              </button>
+              <input
+                v-model="reminderDraft"
+                class="rem-input"
+                maxlength="40"
+                placeholder="Reminder token — Enter adds"
+                @keydown.enter.prevent="addReminderPill"
+                @blur="addReminderPill"
+              />
             </span>
           </div>
-          <template v-if="iconTab === 'official'">
+          <div class="row">
             <input
-              v-model="iconSearch"
-              placeholder="Icon: search official roles (optional)…"
+              v-model="roleForm.authorName"
+              placeholder="Author"
+              maxlength="200"
             />
-            <div class="icon-grid">
-              <div
-                class="icon-cell"
-                v-for="official in iconMatches"
-                :key="official.id"
-                :class="{ selected: roleForm.icon === official.id }"
-                @click="pickIcon(official.id)"
-              >
-                <span
-                  class="icon"
-                  :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
-                ></span>
-                <span class="label">{{ official.name }}</span>
-              </div>
-            </div>
-          </template>
-          <div v-else class="icon-lib">
-            <div class="il-head">
-              <input
-                v-model="ilSearch"
-                placeholder="Search the icon library…"
-              />
-              <span
-                v-for="t in ilThemes"
-                :key="t"
-                class="il-chip"
-                :class="{ on: ilTheme === t }"
-                @click="ilTheme = ilTheme === t ? '' : t"
-                >{{ t }}</span
-              >
-            </div>
-            <div class="il-preview">
-              <img v-if="ilPreviewSrc" :src="ilPreviewSrc" alt="" />
-              <span v-else class="il-empty">hover an icon to preview it</span>
-              <span class="label">{{ ilPreviewLabel }}</span>
-            </div>
-            <div class="icon-grid il-grid" v-if="ilLoaded">
-              <div
-                class="icon-cell"
-                v-for="e in ilShown"
-                :key="e.n"
-                :class="{ selected: roleForm.iconRef === e.n }"
-                :title="e.n.replace(/-/g, ' ')"
-                @mouseenter="ilHover(e)"
-                @mouseleave="ilHoverClear"
-                @click="pickLibraryIcon(e)"
-              >
-                <img class="il-thumb" :src="ilThumb(e)" alt="" />
-                <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
-              </div>
-              <div class="il-more" v-if="ilOverflow > 0">
-                +{{ ilOverflow }} more — refine the search
-              </div>
-            </div>
-            <div class="il-loading" v-else>Loading the library…</div>
           </div>
-        </div>
-        <div class="role-error" v-if="roleError">{{ roleError }}</div>
-        <div class="row wb-forge-paste">
-          <textarea
-            v-model="roleJsonText"
-            rows="2"
-            :placeholder="roleTemplateJson"
-          ></textarea>
-          <div class="paste-acts">
-            <div class="button" @click="fillForgeFromJson">
-              <font-awesome-icon icon="file-code" /> Fill from JSON
+          <div class="icon-picker">
+            <div class="ip-tabs">
+              <span
+                class="wb-tab"
+                :class="{ active: iconTab === 'library' }"
+                @click="openIconLibrary"
+                >Icon library</span
+              >
+              <span
+                class="wb-tab"
+                :class="{ active: iconTab === 'official' }"
+                @click="iconTab = 'official'"
+                >Official art</span
+              >
+              <span class="ip-current" v-if="roleForm.iconData">
+                <img :src="roleForm.iconData" alt="" />
+                <span
+                  class="ip-reroll"
+                  title="Re-roll the texture — same art, fresh grain"
+                  @click="rerollIcon"
+                  ><font-awesome-icon icon="redo-alt"
+                /></span>
+              </span>
+            </div>
+            <template v-if="iconTab === 'official'">
+              <input
+                v-model="iconSearch"
+                placeholder="Icon: search official roles (optional)…"
+              />
+              <div class="icon-grid">
+                <div
+                  class="icon-cell"
+                  v-for="official in iconMatches"
+                  :key="official.id"
+                  :class="{ selected: roleForm.icon === official.id }"
+                  @click="pickIcon(official.id)"
+                >
+                  <span
+                    class="icon"
+                    :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
+                  ></span>
+                  <span class="label">{{ official.name }}</span>
+                </div>
+              </div>
+            </template>
+            <div v-else class="icon-lib">
+              <div class="il-head">
+                <input
+                  v-model="ilSearch"
+                  placeholder="Search the icon library…"
+                />
+                <span
+                  v-for="t in ilThemes"
+                  :key="t"
+                  class="il-chip"
+                  :class="{ on: ilTheme === t }"
+                  @click="ilTheme = ilTheme === t ? '' : t"
+                  >{{ t }}</span
+                >
+              </div>
+              <div class="il-preview">
+                <img v-if="ilPreviewSrc" :src="ilPreviewSrc" alt="" />
+                <span v-else class="il-empty">hover an icon to preview it</span>
+                <span class="label">{{ ilPreviewLabel }}</span>
+              </div>
+              <div class="icon-grid il-grid" v-if="ilLoaded">
+                <div
+                  class="icon-cell"
+                  v-for="e in ilShown"
+                  :key="e.n"
+                  :class="{ selected: roleForm.iconRef === e.n }"
+                  :title="e.n.replace(/-/g, ' ')"
+                  @mouseenter="ilHover(e)"
+                  @mouseleave="ilHoverClear"
+                  @click="pickLibraryIcon(e)"
+                >
+                  <img class="il-thumb" :src="ilThumb(e)" alt="" />
+                  <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
+                </div>
+                <div class="il-more" v-if="ilOverflow > 0">
+                  +{{ ilOverflow }} more — refine the search
+                </div>
+              </div>
+              <div class="il-loading" v-else>Loading the library…</div>
+            </div>
+          </div>
+          <div class="role-error" v-if="roleError">{{ roleError }}</div>
+          <div class="row wb-forge-paste">
+            <textarea
+              v-model="roleJsonText"
+              rows="2"
+              :placeholder="roleTemplateJson"
+            ></textarea>
+            <div class="paste-acts">
+              <div class="button" @click="fillForgeFromJson">
+                <font-awesome-icon icon="file-code" /> Fill from JSON
+              </div>
             </div>
           </div>
         </div>
@@ -4223,8 +4235,10 @@ $team-colors: (
     }
   }
 
-  // The forge floats over the workbench instead of replacing it — wearing
-  // the WORKBENCH's chrome (dark, blood hairline), not upstream's white box.
+  // The overlay panels (new-script, fork, ask, destroy) float over the
+  // workbench — wearing the WORKBENCH's chrome (dark, blood hairline), not
+  // upstream's white box. The role FORGE shares this base but is re-homed
+  // inline since FT-1040b — see .forge-inline below.
   .role-form {
     position: absolute;
     left: 50%;
@@ -4259,6 +4273,29 @@ $team-colors: (
         margin: 0;
       }
     }
+  }
+
+  // FT-1040b (user call): the forge works WHERE THE SCRIPT LIVES — it takes
+  // the script view's flex slot in wb-body instead of floating over it, so
+  // the modal-backdrop chrome (centering transform, drop shadow, z-index)
+  // goes. The overlay's 680px column survives as centered padding: the form
+  // reads the same, the pane is just its room now.
+  .wb-body .role-form.forge-inline {
+    position: static;
+    transform: none;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-height: none;
+    box-shadow: none;
+    z-index: auto;
+    padding: 8px max(18px, calc((100% - 680px) / 2)) 18px;
+  }
+  // while the forge holds the pane, the sidebar stays put but visibly paused
+  // (its clicks would edit the script view you cannot see)
+  .wb-body .wb-sidebar.inert {
+    opacity: 0.45;
+    pointer-events: none;
   }
 
   // the "name your copy" panel — one field, so it stays narrow and reads as
