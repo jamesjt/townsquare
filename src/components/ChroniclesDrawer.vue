@@ -274,14 +274,15 @@
                 "
                 @click="toggleSection(section)"
               >
+                {{ sectionLabel(section) }}
+                <span class="cr-now" v-if="isLive(section)">now</span>
+                <span class="cr-count">{{ section.rows.length }}</span>
+                <!-- FT-1030 (user call): chevrons go on the right -->
                 <font-awesome-icon
                   class="cr-chev"
                   :class="{ open: isExpanded(section) }"
                   icon="chevron-down"
                 />
-                {{ sectionLabel(section) }}
-                <span class="cr-now" v-if="isLive(section)">now</span>
-                <span class="cr-count">{{ section.rows.length }}</span>
               </h4>
               <ol class="cr-rows" v-if="isExpanded(section)">
                 <li
@@ -1022,6 +1023,8 @@ export default {
   }
 }
 .cr-chev {
+  // FT-1030: rides the row's right edge
+  margin-left: auto;
   font-size: 10px;
   opacity: 0.55;
   transform: rotate(-90deg);
