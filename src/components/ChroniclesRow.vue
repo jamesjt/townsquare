@@ -12,7 +12,11 @@
        This component renders what it is handed and decides nothing about
        who may see it — that was settled at ingest (chatIngest + canSee). -->
   <span class="crr">
-    <span class="crr-time">{{ time }}</span>
+    <!-- FT-1018 (user call): the moment that matters is the GAME's — which
+         day, night or daylight — not the wall clock. The clock is still
+         recorded on every row and lives here in the hover. Between-games
+         rows have no game moment, so they keep the clock. -->
+    <span class="crr-time" :title="time">{{ moment }}</span>
 
     <!-- ── AN EVENT / SYSTEM LINE ─────────────────────────────────────── -->
     <template v-if="row.kind === 'system'">
@@ -74,6 +78,13 @@ export default {
   computed: {
     time() {
       return timeOf(this.row);
+    },
+    /** "N2" / "D3" — the in-game moment; the wall clock only when the row
+     *  lives between games. */
+    moment() {
+      if (!this.row.gameId || !this.row.phase) return this.time;
+      const d = this.row.dayNumber == null ? "" : this.row.dayNumber;
+      return (this.row.phase === "night" ? "N" : "D") + d;
     },
     event() {
       return this.row.kind === "system" ? decodeEvent(this.row.body) : null;
