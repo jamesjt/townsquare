@@ -49,30 +49,7 @@
         <!-- FT-1032: how long the phase this row CLOSED ran — hidden when
              the timer is Off -->
         <span class="crr-ran" v-if="ranLabel">{{ ranLabel }}</span>
-        <!-- a concluded vote carries its tally beside the sentence; with a
-             roster aboard (FT-1019) the chip is the thread's expand handle -->
-        <span
-          class="crr-tally"
-          v-if="event && event.t === 'nomination'"
-          :class="{ carried: event.carried, handle: hasRoster, open }"
-          :role="hasRoster ? 'button' : null"
-          :title="
-            hasRoster
-              ? open
-                ? 'Fold the gallows thread away'
-                : 'Who raised hands, and what followed'
-              : null
-          "
-          @click="hasRoster && (open = !open)"
-        >
-          {{ event.votes }} <font-awesome-icon icon="hand-paper" /> of
-          {{ event.majority }}
-          <font-awesome-icon
-            v-if="hasRoster"
-            class="crr-tally-chev"
-            icon="chevron-down"
-          />
-        </span>
+        <!-- FT-1036: the tally moved to its own line below the sentence -->
       </template>
 
       <!-- ── A WHISPER — both ends of the pair named up front ─────────── -->
@@ -90,6 +67,33 @@
         <span class="crr-body">{{ row.body }}</span>
       </template>
       <span class="crr-time" :title="time">{{ moment }}</span>
+    </span>
+    <span class="crr-tally-line" v-if="row.kind === 'system' && event && event.t === 'nomination'">
+    <!-- FT-1036 (user call): the vote tally stands on its own line at the
+     message's foot; with a roster aboard it is still the thread's
+     expand handle. -->
+    <span
+      class="crr-tally"
+      v-if="event && event.t === 'nomination'"
+      :class="{ carried: event.carried, handle: hasRoster, open }"
+      :role="hasRoster ? 'button' : null"
+      :title="
+        hasRoster
+          ? open
+            ? 'Fold the gallows thread away'
+            : 'Who raised hands, and what followed'
+          : null
+      "
+      @click="hasRoster && (open = !open)"
+    >
+      {{ event.votes }} <font-awesome-icon icon="hand-paper" /> of
+      {{ event.majority }}
+      <font-awesome-icon
+        v-if="hasRoster"
+        class="crr-tally-chev"
+        icon="chevron-down"
+      />
+    </span>
     </span>
 
     <!-- ── THE GALLOWS THREAD (FT-1019) — the strand under a nomination:
@@ -382,6 +386,11 @@ export default {
   // (the `font-style: normal` that stood here is the family default since
   // FT-1024 made every system line upright)
   color: #d8cdb4;
+}
+
+.crr-tally-line {
+  display: block;
+  margin: 2px 0 0 22px;
 }
 
 .crr-tally {

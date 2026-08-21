@@ -1060,10 +1060,19 @@ export default {
   font-variant-numeric: tabular-nums;
 }
 
-// a game's rows sit under their heading, on the chapter's own hairline
+// FT-1036 (user: "waste of space"): the chapter hairline and its indent are
+// gone — the fold chevron already says what nests where. Chat rows LIFT a
+// touch instead (below) so talk and system separate without a gutter.
 .cr-game .cr-rows {
-  padding-left: 6px;
-  border-left: 1px solid rgba(216, 205, 180, 0.14);
+  padding-left: 0;
+}
+
+// FT-1036: TALK stands a step off the black (a faint lifted plate); system
+// lines stay flat on the ground — the user's own read: sinking is spent,
+// so raise the voices instead.
+.cr-row.is-say,
+.cr-row.is-whisper {
+  background: rgba(216, 205, 180, 0.06);
 }
 
 .cr-row {
