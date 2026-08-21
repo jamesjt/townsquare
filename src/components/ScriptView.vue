@@ -26,38 +26,27 @@
         @click="setView('other')"
         ><img class="tab-moon" :src="moonOther" alt="" />Other nights</span
       >
-      <!-- the composition meter rides the tab line; icon + count per
-           team, tinted in the team's color (icon REPLACES text —
-           the word lives on the tooltip) -->
+      <!-- FT-1039: the meter shares the tab ROW (user call 2026-08-21) and
+           its counts FOLLOW the tab — the whole script on Script, who wakes
+           that night on the two night tabs. Icon + count per team, tinted in
+           the team's color (icon REPLACES text — the word lives on the
+           tooltip, and the tooltip names the night when a night tab is up). -->
       <div
         class="wb-meter"
         :class="{ nonconforming: !servableCounts.length }"
-        :title="
-          servableCounts.length
-            ? 'Plays ' + servableRange + ' players'
-            : 'No standard player count fits this composition'
-        "
+        :title="meterTitle"
       >
-        <!-- our own team art for all four now (golem/glyphs): the many,
-             the loner, the cowl, the horned head — no Font Awesome -->
-        <span class="chip team-townsfolk" title="Townsfolk">
-          <img class="demon-glyph" :src="teamGlyph('townsfolk')" alt="" />{{
-            teamCounts.townsfolk
+        <!-- our own team art for all four (golem/glyphs): the many, the
+             loner, the cowl, the horned head — no Font Awesome -->
+        <span
+          v-for="t in meterTeams"
+          :key="t"
+          :class="['chip', 'team-' + t]"
+          :title="chipTitle(t)"
+        >
+          <img class="demon-glyph" :src="teamGlyph(t)" alt="" />{{
+            meterCounts[t]
           }}
-        </span>
-        <span class="chip team-outsider" title="Outsiders">
-          <img class="demon-glyph" :src="teamGlyph('outsider')" alt="" />{{
-            teamCounts.outsider
-          }}
-        </span>
-        <span class="chip team-minion" title="Minions">
-          <img class="demon-glyph" :src="teamGlyph('minion')" alt="" />{{
-            teamCounts.minion
-          }}
-        </span>
-        <span class="chip team-demon" title="Demons">
-          <img class="demon-glyph" :src="teamGlyph('demon')" alt="" />
-          {{ teamCounts.demon }}
         </span>
         <!-- unsaved edits: Save / Discard appear ONLY when dirty
              (user call — the actions row lost its Save button) -->
@@ -82,8 +71,11 @@
           />
         </span>
         <!-- the servable range rides the tooltip now (user call:
-             the green sentence was noise); only the WARNING renders -->
-        <span class="verdict" v-if="!servableCounts.length">
+             the green sentence was noise); only the WARNING renders, and
+             only beside the composition it judges (the Script tab) — a
+             composition verdict next to wake counts would read as a claim
+             about the night. -->
+        <span class="verdict" v-if="view === 'team' && !servableCounts.length">
           <font-awesome-icon icon="exclamation-triangle" />
           outside the rules — still playable
         </span>
@@ -285,6 +277,10 @@ import quill from "../assets/ui-chronicle.png";
 // One definition of "the glyph for team X" (golem/glyphs), shared with
 // TownInfo, RoleDrawer and EditionModal.
 import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
+// FT-1039: ONE definition of "does the seat wake" (golem/nightInfo) — the
+// same predicate the workbench's night chips and the hover card's chip read,
+// so the meter's night counts can never disagree with either.
+import { wakesOn } from "../golem/nightInfo";
 
 export default {
   name: "ScriptView",
@@ -347,6 +343,36 @@ export default {
     servableRange() {
       return servableText(this.servableCounts);
     },
+    // ── FT-1039: the meter follows the tab ───────────────────────────────
+    meterTeams() {
+      return ["townsfolk", "outsider", "minion", "demon"];
+    },
+    /** Script tab: the whole script's counts. Night tabs: how many of each
+     *  team WAKE that night (wakesOn — Demons and Minions wake night one via
+     *  the group step, and these counts agree with the sidebar's night
+     *  chips because both read the same predicate). */
+    meterCounts() {
+      if (this.view === "team") return this.teamCounts;
+      const counts = { townsfolk: 0, outsider: 0, minion: 0, demon: 0 };
+      this.roles.forEach((r) => {
+        const team = normTeam(r.team);
+        if (counts[team] === undefined) return;
+        const w = wakesOn(r);
+        if (this.view === "first" ? w.first : w.other) counts[team] += 1;
+      });
+      return counts;
+    },
+    /** The "Plays 5–15" reading belongs to the composition, so it rides the
+     *  Script tab only; the night tabs say what their counts mean. */
+    meterTitle() {
+      if (this.view === "first")
+        return "How many of each team wake the first night";
+      if (this.view === "other")
+        return "How many of each team wake on other nights";
+      return this.servableCounts.length
+        ? "Plays " + this.servableRange + " players"
+        : "No standard player count fits this composition";
+    },
     /** The by-team groups. Travellers never render here — town-side content. */
     viewGroups() {
       const roles = this.roles.filter(r => normTeam(r.team) !== "traveler");
@@ -401,6 +427,14 @@ export default {
      *  teamIcon below stays as the fallback for a team the map lacks. */
     teamGlyph(team) {
       return teamGlyphSrc(team);
+    },
+    /** FT-1039: the chip's word (tooltip) says what its number is counting —
+     *  the team on the Script tab, the team's wakers on a night tab. */
+    chipTitle(team) {
+      const label = TEAM_LABELS[team];
+      if (this.view === "first") return label + " that wake the first night";
+      if (this.view === "other") return label + " that wake on other nights";
+      return label;
     },
     teamIcon(team) {
       if (team === "townsfolk") return "users";
@@ -515,13 +549,12 @@ $team-colors: (
     flex-wrap: wrap;
     gap: 3px;
     margin-bottom: 6px;
-    // the composition meter gets its OWN row, centred above the list
-    // (user call 2026-08-18 — right-aligned on the tab line it read as a
-    // stray cluster in the corner)
+    // FT-1039: the meter RIDES the tab row, right of the tabs (user call
+    // 2026-08-21 — "put both of those things in the same row"; supersedes
+    // the 2026-08-18 own-row call, and the counts now follow the active
+    // tab, which is what makes them the tab row's business).
     .wb-meter {
-      flex: 1 1 100%;
-      justify-content: center;
-      padding: 2px 0 0;
+      margin-left: auto;
     }
     // in the app's idiom (user call): dark plates, blood on the active,
     // and the TITLE's lettering (PiratesBay — what "Almanac" wears)

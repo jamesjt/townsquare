@@ -138,89 +138,102 @@
               <font-awesome-icon icon="plus" />
             </div>
           </div>
-          <!-- FT-855 r2: the FILTER BOX — its header row is the collapsible's
-               header (Filter · search · chevron far right). Typing opens the
-               box and narrows the facet values; groups open independently,
-               chevrons on their right. -->
-          <div class="wb-filterbox" :class="{ open: filterOpen }">
-            <div class="fb-head" @click="filterOpen = !filterOpen">
-              <input
-                v-model="roleQuery"
-                class="wb-search"
-                placeholder="Search name or ability…"
-                @click.stop
-                @input="onSearchInput"
-                @keyup.enter="searchRoles"
-              />
-              <span class="fb-title">Filter</span>
-              <font-awesome-icon
-                icon="chevron-down"
-                class="caret"
-                :class="{ open: filterOpen }"
-              />
-            </div>
-            <div class="fb-body" v-if="filterOpen" v-blood-scroll>
-              <!-- FT-981: no v-show. A live search used to hide every group
-                   whose LABEL did not match the role query, which put the
-                   filters out of reach exactly when they were most wanted. -->
-              <div
-                class="facet-group"
-                v-for="facet in facetList"
-                :key="facet.key"
-              >
-                <h5
-                  class="facet-head"
-                  :class="{ open: facetShowing(facet) }"
-                  @click="toggleFacetOpen(facet.key)"
-                >
-                  <span class="fh-label">
-                    {{ facet.label }}
-                    <em v-if="pillCountIn(facet.key)">{{ pillCountIn(facet.key) }}</em>
-                  </span>
-                  <font-awesome-icon icon="chevron-down" class="caret" />
-                </h5>
-                <template v-if="facetShowing(facet)">
-                  <div
-                    class="facet-val"
-                    v-for="tag in facetTagsFiltered(facet)"
-                    :key="tag.id"
-                    :class="{ zero: countFor(tag) === 0, active: !!pillFor(tag.id) }"
-                    @click="togglePillValue(tag)"
-                  >
-                    <span class="vlabel">
-                      {{ tag.label }}
-                      <em v-if="pillFor(tag.id)">{{
-                        pillFor(tag.id).not ? "hidden" : "shown"
-                      }}</em>
-                    </span>
-                    <span class="vcount">{{ countFor(tag) }}</span>
-                  </div>
-                </template>
-              </div>
-            </div>
+          <!-- FT-1039: the FOLD DISSOLVED. The facets stand in the open as
+               chip rows below — the plated idiom the Chronicles filters and
+               the team row above already speak — and the result tally rides
+               INSIDE the search field, where feedback on the search belongs.
+               The pill row went with the fold: a lit chip IS the active
+               filter, and every chip cycles the team row's own tri-state
+               (neutral → shown → hidden). -->
+          <div class="wb-searchwrap">
+            <input
+              ref="searchInput"
+              v-model="roleQuery"
+              class="wb-search"
+              placeholder="Search name or ability…"
+              title="Press / to jump here"
+              @input="onSearchInput"
+              @keyup.enter="searchRoles"
+              @keydown.esc.stop="clearSearch"
+            />
+            <span class="ws-tally" aria-live="polite"
+              >{{ filteredCount }} of {{ totalCount }}</span
+            >
+            <button
+              type="button"
+              class="ws-clear"
+              v-if="roleQuery"
+              title="Clear the search"
+              @click="clearSearch"
+            >
+              ×
+            </button>
           </div>
-          <div class="wb-pill-row">
-            <span
-              class="wb-pill"
-              v-for="pill in pills"
-              :key="pill.id"
-              :class="{ negative: pill.not }"
+          <!-- SOURCE — naturally multi (a script borrows from several).
+               Edition marks where an edition has one, words where not. -->
+          <div class="wb-chips" role="group" aria-label="Source">
+            <button
+              v-for="tag in sourceTags"
+              :key="tag.id"
+              type="button"
+              class="wb-chip"
+              :class="chipClass(tag)"
+              :title="chipTitle(tag)"
+              :aria-pressed="chipState(tag.id) === 1 ? 'true' : 'false'"
+              @click="cycleChip(tag)"
             >
-              <span class="facet">{{ pillFacetLabel(pill) }}</span>
-              <span
-                class="verb"
-                title="Click to flip between is / is not"
-                @click="flipPill(pill)"
-              >{{ pill.not ? "is not" : "is" }}</span>
-              <span class="val">{{ pillValueLabel(pill) }}</span>
-              <span class="x" title="Remove this filter" @click="removePill(pill)"
-                >×</span
-              >
-            </span>
-            <span class="wb-clearall" v-if="pills.length" @click="pills = []"
-              >Clear</span
+              <img
+                v-if="editionMark(tag.id)"
+                class="mark"
+                :src="editionMark(tag.id)"
+                alt=""
+              />
+              <span v-else class="word">{{ chipWord(tag) }}</span>
+              <span class="cnt">{{ countFor(tag) }}</span>
+            </button>
+          </div>
+          <!-- NIGHT — a lens, one at a time; click the lit one to clear it.
+               The two wakes wear the night tabs' own moon phases. -->
+          <div class="wb-seg" role="group" aria-label="Night">
+            <button
+              v-for="tag in nightTags"
+              :key="tag.id"
+              type="button"
+              class="wb-cell"
+              :class="{
+                on: chipState(tag.id) === 1,
+                zero: countFor(tag) === 0,
+              }"
+              :title="chipTitle(tag)"
+              :aria-pressed="chipState(tag.id) === 1 ? 'true' : 'false'"
+              @click="toggleLens(tag)"
             >
-            <span class="wb-results">{{ filteredCount }} of {{ totalCount }}</span>
+              <img
+                v-if="nightMark(tag.id)"
+                class="moon"
+                :src="nightMark(tag.id)"
+                alt=""
+              />
+              <span class="word">{{ chipWord(tag) }}</span>
+              <span class="cnt">{{ countFor(tag) }}</span>
+            </button>
+          </div>
+          <!-- SPECIAL — independent flags, tri-state like the sources
+               ("hidden" on In-this-script answers "what could I add?"). -->
+          <div class="wb-seg" role="group" aria-label="Special">
+            <button
+              v-for="tag in flagTags"
+              :key="tag.id"
+              type="button"
+              class="wb-cell"
+              :class="chipClass(tag)"
+              :title="chipTitle(tag)"
+              :aria-pressed="chipState(tag.id) === 1 ? 'true' : 'false'"
+              @click="cycleChip(tag)"
+            >
+              <span class="word">{{ chipWord(tag) }}</span>
+              <span class="cnt">{{ countFor(tag) }}</span>
+            </button>
           </div>
           <!-- grouped by team (user call), sticky group headers -->
           <ul class="wb-all-roles" v-blood-scroll @scroll.passive="hideRoleTip">
@@ -790,6 +803,10 @@ import outsiderGlyph from "../../assets/blood/outsider-glyph.png";
 // One definition of "the glyph for team X" (golem/glyphs), shared with
 // TownInfo, ScriptView and RoleDrawer.
 import { teamGlyph } from "../../golem/glyphs";
+// FT-1039: the source chips wear the edition marks already imported above
+// (EDITION_ICONS), and the night lens wears the night tabs' own moon phases.
+import moonFirst from "../../assets/moon-first.png";
+import moonOther from "../../assets/moon-other.png";
 // FT-887: the shelf's night filter labels read "Wakes first night" — the same
 // claim the hover card's chip makes, so it comes from the same function.
 import { wakesOn } from "../../golem/nightInfo";
@@ -857,6 +874,19 @@ const TAG_GROUPS = [
     ]
   }
 ];
+// FT-1039: what a chip WEARS — a 270px rail cannot spell "Trouble Brewing"
+// seven times, so editions wear their marks (EDITION_ICONS above), the rest
+// wear one short word, and every chip's full label rides its tooltip.
+const CHIP_WORDS = {
+  "src:exp": "Exp",
+  "src:mine": "Yours",
+  "src:lib": "Shared",
+  "night:first": "First",
+  "night:other": "Other",
+  "night:never": "Never",
+  "flag:setup": "Setup",
+  "flag:inscript": "In script",
+};
 
 // The import box's ghost text and its copyable template — the same object,
 // so the syntax the ghost shows is exactly the syntax the parser accepts.
@@ -1030,9 +1060,6 @@ export default {
       // + structured filter pills [{ id: 'src:tb', not: false }].
       teamState: {},
       pills: [],
-      filterOpen: false,
-      // which facet groups are unfolded in the menu (Source starts open)
-      facetOpen: {},
       ncMap: JSON.parse(localStorage.getItem("golem.scriptNC") || "{}"),
       officials: [
         ["trouble-brewing", "Trouble Brewing"],
@@ -1292,8 +1319,15 @@ export default {
         count: counts[team],
       }));
     },
-    facetList() {
-      return TAG_GROUPS.filter(g => g.key !== "team");
+    // FT-1039: the three always-visible chip rows (the fold retired).
+    sourceTags() {
+      return TAG_GROUPS.find(g => g.key === "source").tags;
+    },
+    nightTags() {
+      return TAG_GROUPS.find(g => g.key === "night").tags;
+    },
+    flagTags() {
+      return TAG_GROUPS.find(g => g.key === "flags").tags;
     },
     filteredCount() {
       return this.sidebarRoles.length;
@@ -1368,6 +1402,9 @@ export default {
           iconUrl: this.iconUrl(role.id),
           official: true,
           inScript: inScriptIds.has(role.id),
+          // FT-1039: the search reads the reminder tokens too — "poisoned"
+          // finds every role that leaves that marker on a seat.
+          reminders: role.reminders,
           // the tag filter's raw material
           edition: role.edition,
           firstNight: role.firstNight,
@@ -1420,7 +1457,12 @@ export default {
       // vocabulary and simply reads this cache when it is present.
       entries.forEach((e) => {
         e.searchName = normalizeSearch(e.name);
-        e.search = e.searchName + " " + normalizeSearch(e.ability || "");
+        e.search =
+          e.searchName +
+          " " +
+          normalizeSearch(
+            (e.ability || "") + " " + (e.reminders || []).join(" ")
+          );
         e.tags = this.entryTags(e);
       });
       return entries;
@@ -1554,8 +1596,35 @@ export default {
     else mq.addListener(onChange);
     this.$options.benchMQ = mq;
     this.$options.benchOnChange = onChange;
+    // FT-1039: `/` jumps to the search — the app's hotkey guard idiom
+    // (App.vue keyup): keys typed into a field are typing, not hotkeys. The
+    // overlays (forge, new-script, fork/ask/destroy panels) also swallow it —
+    // focusing a field UNDER an overlay would type into the dark.
+    const onSlash = e => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (!this.modals.edition || this.smallScreen) return;
+      if (
+        this.roleForm ||
+        this.newScriptForm ||
+        this.forkForm ||
+        this.askForm ||
+        this.destroyForm
+      )
+        return;
+      const el = this.$refs.searchInput;
+      if (!el) return;
+      e.preventDefault();
+      el.focus();
+      el.select();
+    };
+    window.addEventListener("keydown", onSlash);
+    this.$options.benchOnSlash = onSlash;
   },
   beforeDestroy() {
+    if (this.$options.benchOnSlash)
+      window.removeEventListener("keydown", this.$options.benchOnSlash);
     const mq = this.$options.benchMQ;
     if (!mq) return;
     if (mq.removeEventListener)
@@ -2533,13 +2602,8 @@ export default {
     },
     /**
      * Typing (debounced) asks the community library too — the Browse button
-     * retired.
-     *
-     * FT-981: it no longer forces the filter box OPEN. That made sense only
-     * while typing also narrowed the facet values; now that the groups all
-     * stay put, auto-opening would shove the role list down the rail on the
-     * first keystroke of every search — the results being pushed off screen by
-     * a panel the author did not ask for.
+     * retired. (FT-1039: the filter box this used to be careful not to
+     * auto-open dissolved into the always-visible chip rows.)
      */
     onSearchInput() {
       clearTimeout(this.__searchDebounce);
@@ -2547,24 +2611,6 @@ export default {
         if (this.roleQuery.trim()) this.searchRoles();
         else this.roleResults = [];
       }, 400);
-    },
-    /**
-     * FT-981: THE SEARCH BOX SEARCHES ROLES, NOT FILTER LABELS.
-     *
-     * This used to narrow a facet's values by the same query that narrows the
-     * role list, and the template hid any group left with nothing — which is
-     * how the two controls clobbered each other. Measured on the shipped
-     * build: with `poison` typed and the filter box open, all three facet
-     * groups were in the DOM and NONE of them was visible, because "poison" is
-     * not a Source, a Night or a Flag label. So the moment you searched, every
-     * filter you had not already set became unreachable — including the one
-     * that answers "which of these are already in my script".
-     *
-     * One input, one job. The facet values are a short fixed vocabulary the
-     * author reads down, not something to search through.
-     */
-    facetTagsFiltered(facet) {
-      return facet.tags;
     },
     /** FT-981: the empty state's two ways out, each undoing only its own
      *  half — clearing a search must not silently drop the author's filters. */
@@ -2577,43 +2623,72 @@ export default {
       this.pills = [];
       this.teamState = {};
     },
-    /** A group shows its values when the author opens it. */
-    facetShowing(facet) {
-      return !!this.facetOpen[facet.key];
-    },
     pillFor(id) {
       return this.pills.find(p => p.id === id) || null;
     },
-    /** Menu click: no pill → add (shown); pill exists → remove (a toggle). */
-    togglePillValue(tag) {
+    // ── FT-1039: the chip rows (pills stay the single truth underneath) ──
+    /** 1 shown, -1 hidden, 0 neutral — the states the team row taught. */
+    chipState(id) {
+      const p = this.pillFor(id);
+      return p ? (p.not ? -1 : 1) : 0;
+    },
+    chipClass(tag) {
+      const s = this.chipState(tag.id);
+      return {
+        on: s === 1,
+        exc: s === -1,
+        zero: !s && this.countFor(tag) === 0,
+      };
+    },
+    /** The FULL label lives here — the chip face wears a mark or one word. */
+    chipTitle(tag) {
+      const s = this.chipState(tag.id);
+      return (
+        tag.label +
+        (s === 1
+          ? " — showing only (click to hide)"
+          : s === -1
+          ? " — hidden (click to reset)"
+          : "")
+      );
+    },
+    chipWord(tag) {
+      return CHIP_WORDS[tag.id] || tag.label;
+    },
+    /** An edition's mark, for the chips of the editions that have one. */
+    editionMark(id) {
+      return EDITION_ICONS[id.replace("src:", "")] || "";
+    },
+    nightMark(id) {
+      if (id === "night:first") return moonFirst;
+      if (id === "night:other") return moonOther;
+      return "";
+    },
+    /** Multi-select rows cycle neutral → shown → hidden → neutral. */
+    cycleChip(tag) {
       const existing = this.pillFor(tag.id);
-      if (existing) this.pills = this.pills.filter(p => p !== existing);
-      else
+      if (!existing)
         this.pills = [
           ...this.pills,
-          { id: tag.id, facet: this.facetKeyOf(tag.id), not: false }
+          { id: tag.id, facet: this.facetKeyOf(tag.id), not: false },
         ];
+      else if (!existing.not)
+        this.pills = this.pills.map((p) =>
+          p === existing ? { ...p, not: true } : p,
+        );
+      else this.pills = this.pills.filter((p) => p !== existing);
     },
-    flipPill(pill) {
-      pill.not = !pill.not;
-    },
-    removePill(pill) {
-      this.pills = this.pills.filter(p => p !== pill);
-    },
-    /** Groups open independently (user call — the accordion retired). */
-    toggleFacetOpen(key) {
-      this.$set(this.facetOpen, key, !this.facetOpen[key]);
-    },
-    pillCountIn(key) {
-      return this.pills.filter(p => p.facet === key).length;
+    /** The night row is a LENS — one at a time, click the lit one to clear. */
+    toggleLens(tag) {
+      const had = this.pillFor(tag.id);
+      const rest = this.pills.filter((p) => p.facet !== "night");
+      this.pills = had
+        ? rest
+        : [...rest, { id: tag.id, facet: "night", not: false }];
     },
     facetKeyOf(id) {
       const g = TAG_GROUPS.find(g => g.tags.some(t => t.id === id));
       return g ? g.key : "";
-    },
-    pillFacetLabel(pill) {
-      const g = TAG_GROUPS.find(g => g.key === pill.facet);
-      return g ? g.label : "";
     },
     pillValueLabel(pill) {
       for (const g of TAG_GROUPS)
@@ -3485,55 +3560,162 @@ $team-colors: (
     display: flex;
     flex-direction: column;
     min-height: 0;
-    // FT-855 r2: the filter box — header row = Filter · search · chevron
-    .wb-filterbox {
-      border: 1px solid #3d3d3d;
-      border-radius: 6px;
-      margin-bottom: 7px;
-      &.open {
-        border-color: #7d0e0e;
-      }
-      .fb-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 8px;
-        cursor: pointer;
-        .fb-title {
-          font-size: 13px;
-          opacity: 0.85;
-          flex-shrink: 0;
-        }
-        .wb-search {
-          flex-grow: 1;
-          width: auto;
-          margin: 0;
-        }
-        .caret {
-          flex-shrink: 0;
-          font-size: 10px;
-          opacity: 0.7;
-          transition: transform 150ms;
-          &.open {
-            transform: rotate(180deg);
-          }
-        }
-      }
-      .fb-body {
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 2px 8px 8px;
-        max-height: 300px;
-        overflow-y: auto;
-      }
-    }
-    .wb-search {
-      width: 100%;
+    // FT-1039: the search field — the tally rides inside it (feedback on
+    // the search), the ✕ beside the tally when there is anything to clear.
+    .wb-searchwrap {
+      display: flex;
+      flex: none; // the role LIST is the shrink region, never the controls
+      align-items: center;
+      gap: 4px;
       background: rgba(0, 0, 0, 0.5);
-      color: white;
       border: 1px solid #666;
       border-radius: 4px;
-      padding: 4px 8px;
+      padding: 0 6px;
+      margin-bottom: 6px;
+      &:focus-within {
+        border-color: $control-focus;
+      }
+      .wb-search {
+        flex: 1 1 auto;
+        min-width: 0;
+        background: transparent;
+        border: 0;
+        color: white;
+        padding: 4px 0;
+        font-family: inherit;
+        &:focus {
+          outline: none;
+        }
+      }
+      .ws-tally {
+        flex-shrink: 0;
+        font-size: 11px;
+        opacity: 0.55;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+      }
+      .ws-clear {
+        flex-shrink: 0;
+        background: none;
+        border: 0;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 15px;
+        line-height: 1;
+        padding: 0 2px;
+        cursor: pointer;
+        &:hover {
+          color: #ff8a8a;
+        }
+        &:focus-visible {
+          @include control-focus-ring;
+        }
+      }
+    }
+    // FT-1039: the facet CHIP ROWS — the fold dissolved; the facets stand in
+    // the open and answer in the states the team row taught: lit when shown,
+    // dimmed behind a blood hairline when hidden, greyed at zero.
+    .wb-chips {
+      display: flex;
+      flex: none;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 5px;
+    }
+    .wb-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      color: rgba(255, 255, 255, 0.75);
       font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      .mark {
+        width: 15px;
+        height: 15px;
+        object-fit: contain;
+      }
+      &:hover {
+        border-color: #666;
+      }
+      &:focus-visible {
+        @include control-focus-ring;
+      }
+      &.on {
+        border-color: $control-on-edge;
+      }
+      &.exc {
+        border-color: #7d0e0e;
+      }
+    }
+    // one plate, cells inside — the night lens and the special flags
+    .wb-seg {
+      display: flex;
+      flex: none;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 5px;
+      .wb-cell {
+        flex: 1 1 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 3px 4px;
+        background: transparent;
+        border: 0;
+        border-right: 1px solid $control-divider;
+        color: rgba(255, 255, 255, 0.75);
+        font-family: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        &:last-child {
+          border-right: 0;
+        }
+        .moon {
+          width: 13px;
+          height: 13px;
+          object-fit: contain;
+          opacity: 0.9;
+        }
+        &:hover {
+          background: rgba(255, 255, 255, 0.08);
+        }
+        &:focus-visible {
+          @include control-focus-ring;
+        }
+      }
+    }
+    // the shared states — a chip and a cell answer alike
+    .wb-chip,
+    .wb-cell {
+      .cnt {
+        font-size: 11px;
+        opacity: 0.7;
+      }
+      &.on {
+        background: $control-on-bg;
+        color: $control-on-color;
+        .cnt {
+          opacity: 1;
+          font-weight: bold;
+        }
+      }
+      &.exc {
+        opacity: 0.45;
+        .cnt {
+          text-decoration: line-through;
+        }
+      }
+      &.zero {
+        opacity: 0.35;
+      }
     }
     // FT-855: the team icon row — on/off toggles with live counts.
     .wb-team-row {
@@ -3595,154 +3777,15 @@ $team-colors: (
         }
       }
     }
-    // FT-855: structured pills — the single truth of active filters.
-    .wb-pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 5px;
-      margin-bottom: 6px;
-      font-size: 13px;
-      .wb-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 1px 8px;
-        border-radius: 999px;
-        background: rgba(160, 20, 20, 0.22);
-        border: 1px solid #7d0e0e;
-        .facet {
-          opacity: 0.65;
-        }
-        .verb {
-          cursor: pointer;
-          font-weight: bold;
-          text-decoration: underline dotted;
-          &:hover {
-            color: #ff8a8a;
-          }
-        }
-        .val {
-          font-weight: bold;
-        }
-        .x {
-          cursor: pointer;
-          margin-left: 2px;
-          opacity: 0.7;
-          &:hover {
-            color: red;
-            opacity: 1;
-          }
-        }
-        &.negative {
-          background: rgba(0, 0, 0, 0.55);
-          .verb {
-            color: #ff8a8a;
-          }
-          .val {
-            text-decoration: line-through;
-            opacity: 0.85;
-          }
-        }
-      }
-      .wb-addfilter {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 1px 10px;
-        border-radius: 999px;
-        border: 1px dashed #555;
-        cursor: pointer;
-        opacity: 0.85;
-        svg {
-          width: 11px;
-        }
-        &:hover,
-        &.open {
-          border-color: #a01414;
-          color: #ff8a8a;
-        }
-      }
-      .wb-clearall {
-        cursor: pointer;
-        color: #ff8a8a;
-        font-size: 12px;
-        &:hover {
-          color: red;
-        }
-      }
-      .wb-results {
-        margin-left: auto;
-        font-size: 12px;
-        opacity: 0.6;
-      }
-    }
-    // FT-855 r2: facet groups inside the filter box.
-    .wb-filterbox .fb-body {
-      .facet-group h5.facet-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        margin: 5px 0 2px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        opacity: 0.65;
-        cursor: pointer;
-        // chevron on the RIGHT (user call)
-        .caret {
-          font-size: 9px;
-          transform: rotate(-90deg);
-          transition: transform 150ms;
-        }
-        &.open .caret {
-          transform: rotate(0deg);
-        }
-        em {
-          font-style: normal;
-          color: #ff8a8a;
-          letter-spacing: 0;
-        }
-        &:hover {
-          opacity: 1;
-        }
-      }
-      .facet-val {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 8px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 13px;
-        cursor: pointer;
-        &:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
-        &.zero {
-          opacity: 0.35;
-        }
-        &.active {
-          background: rgba(160, 20, 20, 0.2);
-        }
-        .vlabel em {
-          font-style: normal;
-          font-size: 11px;
-          color: #ff8a8a;
-          margin-left: 4px;
-        }
-        .vcount {
-          opacity: 0.55;
-          font-size: 12px;
-        }
-      }
-    }
     .wb-all-roles {
       flex-grow: 1;
       overflow-y: auto;
       display: block;
       min-height: 0;
+      // FT-1039: the modal's upstream flex rules leave align-content:center
+      // on this ul, and block layout HONORS align-content now (Chrome 123+)
+      // — a short filtered list was floating vertically centered in the rail.
+      align-content: start;
       // FT-981: the nothing-matched panel. Written BEFORE the generic `li`
       // below so the row rules that follow (flex, pointer, the team stripe)
       // still win where they should — this one opts out of all three: it is
