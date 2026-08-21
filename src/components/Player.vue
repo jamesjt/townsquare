@@ -335,11 +335,15 @@
            see onPlayerDrop below and TownSquare's dragPlayer. Draggable only
            for a claimed seat (an "Open" plate has no player to carry) and
            never for a spectator, mirroring Token's own draggable gate. -->
+      <!-- FT-1026 (user call, 2026-08-21): the plate no longer raises the role
+           card — the hover belongs to the COIN alone. Retires the FT-858
+           plate-park (2026-08-19); showCard's fromPlate branch stays for the
+           day it is wanted back. -->
       <div
         class="name"
         @click="isMenuOpen = !isMenuOpen"
-        @mouseenter="showCard($event); nameHover = true"
-        @mouseleave="hideCardSoon(); nameHover = false"
+        @mouseenter="nameHover = true"
+        @mouseleave="nameHover = false"
         :class="{ active: isMenuOpen }"
         :draggable="String(!!player.id && !session.isSpectator)"
         @dragstart="onPlayerDragStart"
