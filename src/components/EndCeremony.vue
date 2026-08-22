@@ -121,6 +121,9 @@
          (the demon stays centre-stage beneath it) and the centre stats
          block; z-topmost in the ceremony's own stack, pointer-transparent so
          the skip surface (the root) still takes the one click through it. -->
+    <!-- FT-1053e (user): the banner IS the small result line, made big — the
+         team glyph + "Evil wins" / "Good wins" as one piece, standing in the
+         MIDDLE of the clock face (not hung above it). -->
     <div
       v-if="bannerOn"
       class="ec-banner"
@@ -128,6 +131,7 @@
       aria-live="polite"
     >
       <span class="ec-banner-text">
+        <img class="ec-banner-glyph" :src="bannerGlyph" alt="" />
         {{ settledWinner === "evil" ? "Evil wins" : "Good wins" }}
       </span>
     </div>
@@ -136,6 +140,7 @@
 
 <script>
 import Token from "./Token";
+import { teamGlyph } from "../golem/glyphs";
 import {
   ceremonyState,
   beginCeremony,
@@ -319,6 +324,10 @@ export default {
      *  idle, and the banner outlives the show */
     settledWinner() {
       return this.storeWinner();
+    },
+    /** FT-1053e: the small result line's own glyph, at banner size */
+    bannerGlyph() {
+      return teamGlyph(this.settledWinner === "evil" ? "demon" : "townsfolk");
     },
     rootClasses() {
       return ["ec-" + this.phase, "ec-" + (this.winner || this.settledWinner)];
@@ -1272,7 +1281,8 @@ export default {
 .ec-banner {
   position: absolute;
   left: var(--ec-cx);
-  top: calc(var(--ec-cy) - 148 * var(--fpx));
+  /* FT-1053e (user): dead centre of the clock face, not hung above it */
+  top: var(--ec-cy);
   width: 0;
   height: 0;
   z-index: 10;
@@ -1281,14 +1291,16 @@ export default {
 .ec-banner-text {
   position: absolute;
   translate: -50% -50%;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--fpx));
   white-space: nowrap;
   font-family: PiratesBay, sans-serif;
-  text-transform: uppercase;
+  /* FT-1053e: the SMALL result line's own composition, made big — glyph +
+     mixed-case "Evil wins", not the shouted uppercase. */
   font-size: calc(68 * var(--fpx));
   line-height: 1;
-  letter-spacing: calc(6 * var(--fpx));
-  padding-left: calc(6 * var(--fpx)); /* re-centres the tracked line */
+  letter-spacing: calc(3 * var(--fpx));
   color: transparent;
   -webkit-background-clip: text;
   background-clip: text;
@@ -1296,6 +1308,15 @@ export default {
   opacity: 0;
   animation: ec-banner-in 0.95s cubic-bezier(0.22, 0.9, 0.3, 1.05) forwards;
   will-change: transform, opacity;
+}
+/* FT-1053e: the glyph rides the line at cap height, outside the text's
+   background-clip (an img keeps its own colors + drop shadow). */
+.ec-banner-glyph {
+  width: calc(64 * var(--fpx));
+  height: calc(64 * var(--fpx));
+  filter: drop-shadow(
+    0 calc(2 * var(--fpx)) calc(4 * var(--fpx)) rgba(0, 0, 0, 0.8)
+  );
 }
 /* arriving with presence: oversized and gone → lands with a settle bounce */
 @keyframes ec-banner-in {
