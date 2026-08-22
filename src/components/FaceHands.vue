@@ -870,12 +870,23 @@ $digital-y-face: -122;
      bands; kept dim enough not to haze on the lit face.
      FT-1046b (user: "still hard to see, bit more glow"): the halo steps up —
      a crisp pale under-light (the seat numerals' engraved trick) plus a
-     stronger close halo and a wider breath. Ink and font untouched. */
+     stronger close halo and a wider breath. Ink and font untouched.
+     FT-1049 (user: "too much glow now" — a lab to tune it by eye): the four
+     layers ride the numeral-glow lab's `--ng-*` dials now
+     (src/golem/numeralGlow.js) — strengths in hundredths, radii in
+     face-pixels. EVERY FALLBACK IS THE FT-1046b NUMBER, so with the lab
+     absent — devLabs off, storage cleared — this computes to exactly the
+     shipped dressing; when a look is found it gets baked back here as plain
+     numbers and the vars come out with the lab. */
   text-shadow:
-    0 calc(1 * var(--fpx)) calc(1 * var(--fpx)) rgba(255, 250, 235, 0.5),
-    0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55),
-    0 0 calc(4 * var(--fpx)) rgba(255, 246, 220, 0.6),
-    0 0 calc(12 * var(--fpx)) rgba(255, 240, 200, 0.35);
+    0 calc(1 * var(--fpx)) calc(1 * var(--fpx))
+      rgba(255, 250, 235, calc(var(--ng-under, 50) / 100)),
+    0 calc(2 * var(--fpx)) calc(var(--ng-drop-blur, 3) * var(--fpx))
+      rgba(0, 0, 0, calc(var(--ng-drop, 55) / 100)),
+    0 0 calc(var(--ng-halo-size, 4) * var(--fpx))
+      rgba(255, 246, 220, calc(var(--ng-halo, 60) / 100)),
+    0 0 calc(var(--ng-breath-size, 12) * var(--fpx))
+      rgba(255, 240, 200, calc(var(--ng-breath, 35) / 100));
   /* GOLD LETTERS SEPARATE WITH DARK, not with light: a pale glow was tried
      and hazed them into the lit face. Intro.vue's `.hint` black-halo pair,
      spoken as drop-shadow so it follows the carved alpha. */

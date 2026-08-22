@@ -296,6 +296,13 @@
          plus Opacity. See src/golem/veilGlass.js. Behind `devLabs` from the
          start, for the column's shared reason. -->
     <VeilLab v-if="devLabs" />
+    <!-- THE NUMERAL-GLOW LAB (Ng) — one notch below the veil lab, same
+         column, same shell. The clock ring's dressing: the four shadow
+         layers under the twelve numerals (under-light, dark drop, close
+         halo, wide breath), strength and size dials each. See
+         src/golem/numeralGlow.js. Behind `devLabs` from the start, for the
+         column's shared reason. -->
+    <NumeralGlowLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div
@@ -724,6 +731,9 @@ import GhostLab from "./components/GhostLab";
 // FT-1004: the veil lab — TEMPORARY, and it comes out with Player.vue's
 // `html.vl-*` hooks and src/golem/veilGlass.js.
 import VeilLab from "./components/VeilLab";
+// FT-1049: the numeral-glow lab — TEMPORARY, and it comes out with
+// FaceHands.vue's `var(--ng-*)` reads and src/golem/numeralGlow.js.
+import NumeralGlowLab from "./components/NumeralGlowLab";
 // FT-1015: the baked veil refracts, so its displacement filter mounts at boot
 import { bootVeilGlass } from "./golem/veilGlass";
 import {
@@ -815,6 +825,7 @@ export default {
     FaceHandsLab,
     GhostLab,
     VeilLab,
+    NumeralGlowLab,
     Gradients,
   },
   computed: {
