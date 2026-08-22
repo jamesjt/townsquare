@@ -104,8 +104,17 @@ export default {
         });
       });
       if (!seats.length) {
-        flashHint("Nothing to record — no seated roles.");
+        // FT-1050: nothing to record is not a reason to leave the game
+        // running forever. There is no stats POST to make (nothing to
+        // post), but the town still has to come out of "running" the same
+        // way a recorded end does — so this takes the SAME shared exit as
+        // the success path below: emit "recorded" (App.vue's
+        // onGameRecorded clears the deal stash, authors the chronicle end
+        // event, and commits the endGame mutation) before "close". Only
+        // the POST itself is skipped.
+        flashHint("Game ended — nothing to record.");
         this.busy = false;
+        this.$emit("recorded", winningTeam);
         this.$emit("close");
         return;
       }
