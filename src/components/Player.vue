@@ -291,11 +291,15 @@
         @click="updatePlayer('isVoteless', true)"
         title="Ghost vote"
       />
+      <!-- FT-1046 (user): spending the ghost vote no longer vanishes the
+           cowl — it crosses out and fades, and a click toggles the state
+           back, so a misclick is one click to undo. -->
       <div
         class="has-vote ghost-vote"
-        v-if="!showBallotVote && player.isDead && !player.isVoteless"
-        @click="updatePlayer('isVoteless', true)"
-        title="Ghost vote"
+        :class="{ spent: player.isVoteless }"
+        v-if="!showBallotVote && player.isDead"
+        @click="updatePlayer('isVoteless', !player.isVoteless)"
+        :title="player.isVoteless ? 'Ghost vote spent' : 'Ghost vote'"
       ></div>
 
       <!-- On block icon -->
@@ -2346,6 +2350,28 @@ li.move:not(.from) .player .overlay svg.move {
   background: url("../assets/ui-ghost-cowl.png") center center / contain
     no-repeat;
   cursor: pointer;
+
+  // FT-1046: the SPENT state — the cowl stays on the seat, faded and struck
+  // through, one click from coming back. The strike is drawn as its own
+  // stroke so the cowl art keeps its alpha.
+  &.spent {
+    opacity: 0.35;
+    filter: grayscale(0.6) drop-shadow(0 0 3px black);
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        45deg,
+        transparent 44%,
+        rgba(20, 8, 8, 0.95) 47%,
+        rgba(120, 24, 24, 0.95) 50%,
+        rgba(20, 8, 8, 0.95) 53%,
+        transparent 56%
+      );
+    }
+  }
 }
 
 /****** Session seat glow *****/
