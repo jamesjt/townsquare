@@ -893,12 +893,14 @@
         </div>
       </div>
       <!-- FT-1043: the ICON OVERLAY — clicking the builder head's icon
-           floats the official-art browser (the retired New-script modal's
-           grid + search) over the bench; a pick lands on the header and the
-           overlay closes. The upload door lives here too (FT-856: an upload
-           arrives twice — inked to the official look, and untouched), and
-           dropping an image on the header icon never needs this open at
-           all. -->
+           floats a browser over the bench; a pick lands on the header and
+           the overlay closes. FT-1043b: that browser shows the ICON
+           LIBRARY (the forge feed's own set + thumbs), not official role
+           art — a pick bakes through the same shadedRender/stylizeIcon
+           path a forge pick gets, neutral-tinted like an upload. The
+           upload door lives here too (FT-856: an upload arrives twice —
+           inked to the official look, and untouched), and dropping an
+           image on the header icon never needs this open at all. -->
       <div class="role-form icon-overlay" v-if="iconPickOpen" v-blood-scroll>
         <h3>Script icon</h3>
         <div class="io-tools">
@@ -930,23 +932,26 @@
           <input
             v-model="nsIconSearch"
             class="ns-search"
-            placeholder="…or search the official art"
+            placeholder="…or search the icon library"
           />
-          <div class="icon-grid ns-grid">
-            <div
-              class="icon-cell"
-              v-for="official in nsIconMatches"
-              :key="'ns-' + official.id"
-              :class="{ selected: builderLogo === official.id }"
-              @click="pickScriptIcon(official.id)"
-            >
-              <span
-                class="icon"
-                :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
-              ></span>
-              <span class="label">{{ official.name }}</span>
+          <template v-if="ilLoaded">
+            <div class="icon-grid ns-grid">
+              <div
+                class="icon-cell"
+                v-for="e in nsIconMatches"
+                :key="'ns-' + e.n"
+                :title="e.n.replace(/-/g, ' ')"
+                @click="pickScriptLibraryIcon(e)"
+              >
+                <img class="il-thumb" :src="ilThumb(e)" loading="lazy" alt="" />
+                <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
+              </div>
             </div>
-          </div>
+            <div class="feed-none" v-if="!nsIconMatches.length">
+              Nothing in the library matches “{{ nsIconSearch.trim() }}”.
+            </div>
+          </template>
+          <div class="il-loading" v-else>Loading the library…</div>
         </div>
         <div class="fk-acts">
           <div class="button" @click="iconPickOpen = false">
@@ -2002,10 +2007,14 @@ export default {
         this.scriptBaseline !== this.currentScriptSnapshot
       );
     },
+    /** FT-1043b: the overlay browses the ICON LIBRARY now, not the official
+     *  art — same list the forge feed's library tab shows, same search. */
     nsIconMatches() {
+      if (!this.ilLoaded) return [];
       const q = this.nsIconSearch.trim().toLowerCase();
-      if (!q) return rolesJSON;
-      return rolesJSON.filter((role) => role.name.toLowerCase().includes(q));
+      const list = this.$options.ilList || [];
+      if (!q) return list;
+      return list.filter((e) => e.n.includes(q));
     },
     // ── FT-1043: the builder head ────────────────────────────────────────
     /** The head shows wherever the loaded script is CUSTOM — officials have
@@ -2996,9 +3005,28 @@ export default {
       this.setScriptIcon(id);
       this.iconPickOpen = false;
     },
-    openIconPick() {
+    /** FT-1043b: a library pick runs the same bake a forge pick gets
+     *  (shadedRender -> stylizeIcon) — neutral tint, matching how an
+     *  uploaded image gets inked — so the script logo lands as a baked
+     *  image, not a bare ref. Land it and close, same one click. */
+    async pickScriptLibraryIcon(entry) {
+      const data = await stylizeIcon(iconLib.shadedRender(entry), {
+        tint: "neutral",
+      });
+      this.setScriptIcon(data);
+      this.iconPickOpen = false;
+    },
+    async openIconPick() {
       this.nsIconSearch = "";
       this.iconPickOpen = true;
+      // FT-1043b: the overlay now browses the icon library — load its
+      // chunk once, into the same cache the forge feed uses.
+      if (!this.ilLoaded) {
+        this.$options.ilList = await iconLib.loadIcons();
+        this.$options.ilThumbs = this.$options.ilThumbs || new Map();
+        this.$options.ilBakes = this.$options.ilBakes || new Map();
+        this.ilLoaded = true;
+      }
     },
     // ── FT-1043: the import view — the old "Begin with" in the pane ──────
     /** ONE import door, accepting everything the retired seed box accepted:
@@ -5241,13 +5269,12 @@ $team-colors: (
           cursor: pointer;
           border-radius: 6px;
           text-align: center;
-          .icon {
+          .il-thumb {
             display: block;
             width: 48px;
             height: 48px;
             margin: 0 auto;
-            background-size: cover;
-            background-position: center;
+            opacity: 0.9;
           }
           .label {
             display: block;
@@ -5264,6 +5291,16 @@ $team-colors: (
             outline: 2px solid $grimoire-plum;
           }
         }
+      }
+      .feed-none {
+        padding: 14px;
+        font-size: 13px;
+        opacity: 0.6;
+        text-align: center;
+      }
+      .il-loading {
+        padding: 12px;
+        opacity: 0.7;
       }
     }
     .fk-acts {
