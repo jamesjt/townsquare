@@ -395,6 +395,9 @@
               Off
             </button>
           </span>
+          <!-- FT-1045: the bell buttons PREVIEW as they pick — a click plays
+             that bell here (local only), a second click on a still-tolling
+             bell stops it. Custom opens the source row below. -->
           <span class="tw-seg" role="radiogroup" aria-label="Which bell">
             <button
               v-for="b in bells"
@@ -404,8 +407,10 @@
               role="radio"
               :aria-checked="String(tower.bellId === b.id)"
               :class="{ on: tower.bellId === b.id }"
-              :title="b.label"
-              @click="setTower('bellId', b.id)"
+              :title="
+                b.label + ' — click plays it for you; a second click stops it'
+              "
+              @click="pickBell(b.id)"
             >
               {{ b.short }}
             </button>
@@ -429,6 +434,57 @@
               <font-awesome-icon icon="volume-up" />
             </button>
           </span>
+        </span>
+      </div>
+
+      <!-- FT-1045: THE CUSTOM BELL'S SOURCE — the row only Custom shows.
+         A link, or an upload that becomes one: either way what the town
+         syncs is a URL in the tower config, never audio bytes. The field
+         validates by actually loading the sound; a link that will not play
+         wears the quiet failure state and is not kept. -->
+      <div
+        class="row tw-row tw-custom"
+        v-if="tower.bellId === 'custom'"
+        title="Where the custom bell's sound lives — every player's browser fetches it from here"
+      >
+        <span class="tw-lead">
+          <span class="label">
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="link"
+              title="The custom bell's source"
+            />
+          </span>
+          <input
+            class="tw-url"
+            type="text"
+            :class="{ bad: bellUrlState === 'bad' }"
+            placeholder="Link to a sound"
+            :title="bellUrlHint"
+            v-model="bellUrlDraft"
+            @change="setBellUrl"
+            @keyup.enter="$event.target.blur()"
+          />
+        </span>
+        <span class="tools">
+          <label
+            class="tool-btn tw-upload"
+            :class="{ busy: bellUploading }"
+            :title="
+              bellUploading
+                ? 'Uploading…'
+                : 'Upload a sound file instead (10MB cap)'
+            "
+          >
+            <font-awesome-icon icon="file-upload" />
+            <input
+              type="file"
+              accept="audio/*"
+              hidden
+              :disabled="bellUploading"
+              @change="uploadBell"
+            />
+          </label>
         </span>
       </div>
 
@@ -553,6 +609,11 @@ import {
   loadTowerForTown,
   setTowerField,
   previewBell,
+  // FT-1045: the bell buttons preview as they pick, and Custom brings a
+  // source row — a validated link, or an upload that becomes one.
+  toggleBellPreview,
+  probeBellUrl,
+  uploadBellFile,
 } from "../golem/towerBells";
 
 // The four teams the setup table names, in the order every other surface in
@@ -623,6 +684,12 @@ export default {
       hourModes: HOUR_MODES,
       bells: TOWER_BELLS,
       tower: { ...towerState },
+      // FT-1045: the custom bell's source row. The draft is what the field
+      // shows (it may trail towerState.bellUrl while being typed); the state
+      // is the quiet validation verdict ("", "checking", "bad", "ok").
+      bellUrlDraft: towerState.bellUrl || "",
+      bellUrlState: "",
+      bellUploading: false,
     };
   },
   created() {
@@ -690,6 +757,13 @@ export default {
       return (
         (night ? "Night " : "Day ") + Math.max(this.$store.state.night.day, 1)
       );
+    },
+    /** FT-1045: the source field's tooltip doubles as its quiet status. */
+    bellUrlHint() {
+      if (this.bellUrlState === "bad")
+        return "That link would not load as audio — an unplayable source is not kept (and at day-start the town would fall back to bell One)";
+      if (this.bellUrlState === "checking") return "Checking the link…";
+      return "Link to a sound file — every player's browser fetches it from here";
     },
     /** Travellers sit beyond the base count and outside distribution math. */
     coreSeats() {
@@ -830,7 +904,14 @@ export default {
     // ── FT-1020: the tower rows ──────────────────────────────────────────
     /** The tower changed — here, on the dial's anchor menu, or by a load. */
     readTower() {
+      // FT-1045: follow an outside change of the source URL (a load, another
+      // surface) unless the field holds an unsaved edit — the draft only
+      // moves when it still agrees with what the module last knew.
+      const before = this.tower.bellUrl;
       this.tower = { ...towerState };
+      if (this.bellUrlDraft === (before || "") || !this.bellUrlDraft) {
+        this.bellUrlDraft = this.tower.bellUrl || "";
+      }
     },
     /** One choice made: validate, persist for THIS town, tell the dial. */
     setTower(key, value) {
@@ -845,6 +926,60 @@ export default {
         this.tower.bellVolume,
         this.grimoire.isMuted,
       );
+    },
+    /** FT-1045: picking a bell also PLAYS it, right here, local only —
+     *  clicking the one still tolling stops it instead (these clips run
+     *  12-17s; a second click almost always means "enough"). Custom with no
+     *  source yet just opens its row — there is nothing to play. */
+    pickBell(id) {
+      this.setTower("bellId", id);
+      if (id === "custom" && !this.tower.bellUrl) return;
+      toggleBellPreview(id, this.tower.bellVolume, this.grimoire.isMuted);
+    },
+    /** FT-1045: the link committed (change/Enter). Validated by loading it
+     *  as audio before it is kept — a link that will not play wears the
+     *  quiet failure state and never reaches the town. */
+    async setBellUrl() {
+      const url = this.bellUrlDraft.trim();
+      if (!url) {
+        this.bellUrlState = "";
+        this.setTower("bellUrl", "");
+        return;
+      }
+      this.bellUrlState = "checking";
+      const ok = await probeBellUrl(url);
+      // a slow probe finishing after the draft moved on says nothing
+      if (this.bellUrlDraft.trim() !== url) return;
+      if (!ok) {
+        this.bellUrlState = "bad";
+        return;
+      }
+      this.bellUrlState = "ok";
+      this.setTower("bellUrl", url);
+      // let the storyteller hear exactly what the town will hear
+      toggleBellPreview("custom", this.tower.bellVolume, this.grimoire.isMuted);
+    },
+    /** FT-1045: a sound file becomes a link — the platform's asset store
+     *  takes the bytes and the returned URL syncs like any other. */
+    async uploadBell(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      ev.target.value = "";
+      if (!file || this.bellUploading) return;
+      this.bellUploading = true;
+      try {
+        const url = await uploadBellFile(file);
+        this.bellUrlDraft = url;
+        this.bellUrlState = "ok";
+        this.setTower("bellUrl", url);
+        toggleBellPreview(
+          "custom",
+          this.tower.bellVolume,
+          this.grimoire.isMuted,
+        );
+      } catch (e) {
+        flashHint(e.message || "The upload failed.");
+      }
+      this.bellUploading = false;
     },
     // ── FT-847: owned-town rename ────────────────────────────────────────
     loadTownName() {
@@ -1472,6 +1607,38 @@ export default {
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+    // FT-1045: the custom bell's source row — the field takes the slack the
+    // segments leave, wearing the same control plate the segments wear.
+    .tw-custom .tw-lead {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .tw-url {
+      @include control-plate;
+      flex: 1 1 auto;
+      min-width: 0;
+      color: inherit;
+      font-family: inherit;
+      font-size: 80%;
+      padding: 4px 8px;
+      border: 0;
+      outline: 0;
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.35);
+      }
+      // the quiet failure state: the link would not load as audio
+      &.bad {
+        box-shadow: inset 0 0 0 1px rgba(255, 70, 70, 0.55);
+        color: #ff8a8a;
+      }
+    }
+    .tw-upload {
+      cursor: pointer;
+      &.busy {
+        opacity: 0.4;
+        pointer-events: none;
+      }
     }
     .stepper {
       display: flex;

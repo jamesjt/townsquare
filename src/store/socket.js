@@ -35,8 +35,15 @@ import { offerHostTakeover, takeoverSuffix } from "../golem/hostTakeover";
 // the host already stashes (golem/stats), so no new per-game identity is minted.
 import { chatErrorText, gameIdFor } from "../golem/chat";
 // FT-1020: the storyteller's tower (hour display, hand motion, day-start
-// bell) rides the full gamestate sync — never a new frame kind.
-import { towerSyncPayload, applyTowerSync } from "../golem/towerBells";
+// bell) rides the full gamestate sync. FT-1045 adds one live frame on top:
+// a tower CHANGE now broadcasts as it happens (see TOWER_EVENT below) —
+// before that, a bell picked mid-session reached only future joiners, and
+// the custom bell's URL has to reach the town before the day it rings for.
+import {
+  TOWER_EVENT,
+  towerSyncPayload,
+  applyTowerSync,
+} from "../golem/towerBells";
 // FT-1010: the event envelope — a game event riding a system row's body.
 import {
   encodeEvent,
@@ -266,6 +273,14 @@ class LiveSession {
       case "isNight":
         if (!this._isSpectator) return;
         this._store.commit("toggleNight", params);
+        break;
+      // FT-1045: the storyteller changed the tower (a bell picked, a custom
+      // sound linked) — applied live, same sanitizing gate the full sync's
+      // copy goes through. Before this frame, a mid-session tower change
+      // reached only clients that joined or reconnected after it.
+      case "tower":
+        if (!this._isSpectator) return;
+        applyTowerSync(params);
         break;
       // FT-882: the storyteller moved the night counter by hand (the night
       // sheet's day scrub). Its own channel rather than a full gamestate
@@ -1372,6 +1387,17 @@ class LiveSession {
   }
 
   /**
+   * FT-1045: send the whole tower (it is six small fields), live. ST only.
+   * Fired from the TOWER_EVENT listener in the plugin below — the same
+   * event every tower surface already re-reads on — so any surface that
+   * writes the tower inherits the delivery without knowing this exists.
+   */
+  sendTower() {
+    if (this._isSpectator) return;
+    this._send("tower", towerSyncPayload());
+  }
+
+  /**
    * FT-882: send WHICH night it is. ST only.
    *
    * Only needed because the counter became editable — a phase flip still
@@ -1618,6 +1644,18 @@ const enterOrWait = (store, id, mode) => {
 export default (store) => {
   // setup
   const session = new LiveSession(store);
+
+  // FT-1045: THE TOWER CHANGED, somewhere on this client — the same window
+  // event every tower surface re-reads on. A HOST broadcasts the new tower
+  // live; a spectator's event (their own display pick, or a sync applying)
+  // is nobody else's business and the guard drops it. Also fires on the
+  // host's own load/mount — a redundant send of six small fields, and a
+  // closed socket swallows it (_send checks readyState).
+  window.addEventListener(TOWER_EVENT, () => {
+    if (!store.state.session.isSpectator && store.state.session.sessionId) {
+      session.sendTower();
+    }
+  });
 
   // FT-1010: the live game id as last seen, for spotting the moment it
   // CHANGES. `chatSetGameId` is committed on every gamestate sync, almost

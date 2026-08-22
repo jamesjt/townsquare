@@ -38,10 +38,14 @@ import bellOneSound from "../assets/bell-tolls.mp3";
 import bellTwoSound from "../assets/bell-tolls-2.mp3";
 
 /** The two bells the user cut for the tower (FT-979 trimmed and faded them;
- *  the full-length originals live in design/bells/). */
+ *  the full-length originals live in design/bells/), plus CUSTOM (FT-1045):
+ *  a storyteller-supplied sound, addressed by URL. Custom has no `src` of its
+ *  own — its source is `towerState.bellUrl`, synced with the rest of the
+ *  tower so every player's client can reach the same sound. */
 export const TOWER_BELLS = [
   { id: "one", label: "Bell one", short: "One", src: bellOneSound },
   { id: "two", label: "Bell two", short: "Two", src: bellTwoSound },
+  { id: "custom", label: "A sound of your own", short: "Custom", src: "" },
 ];
 
 /**
@@ -84,6 +88,10 @@ export const DEFAULT_TOWER = {
   bellOn: true,
   bellId: "one",
   bellVolume: 80,
+  // FT-1045: the custom bell's source — "" until the storyteller sets one.
+  // A key of DEFAULT_TOWER, so it persists per town and rides the sync with
+  // no further plumbing (both walk these keys).
+  bellUrl: "",
 };
 
 /** The volume dial's bounds, in percent — 0 is silent, 100 is the clip as cut. */
@@ -151,6 +159,17 @@ function sanitize(key, value) {
       const n = Math.round(Number(value));
       if (!isFinite(n)) return DEFAULT_TOWER.bellVolume;
       return Math.max(BELL_VOLUME_MIN, Math.min(BELL_VOLUME_MAX, n));
+    }
+    case "bellUrl": {
+      // FT-1045: a link, or nothing. Only http(s) and same-origin paths pass
+      // — a javascript: or data: URL arriving off the wire dies here (data:
+      // is also barred by size: audio data-URLs would ride every sync).
+      if (typeof value !== "string") return DEFAULT_TOWER.bellUrl;
+      const s = value.trim().slice(0, 1024);
+      if (!s) return "";
+      return /^https?:\/\//i.test(s) || s.charAt(0) === "/"
+        ? s
+        : DEFAULT_TOWER.bellUrl;
     }
     default:
       return undefined;
@@ -293,10 +312,26 @@ let unlocked = false;
 let listening = false;
 let opToken = 0;
 let lastRangAt = 0;
+/** FT-1045: which URL els.custom was built for — the one exception to
+ *  "one element forever": a NEW custom link earns a new element (the old
+ *  one's autoplay credit transfers with the page's unlocked state). */
+let customSrc = "";
 
-/** THE elements — one per bell, forever (credit belongs to the element). */
+/** THE elements — one per bell, forever (credit belongs to the element).
+ *  CUSTOM (FT-1045) resolves through towerState.bellUrl; custom with no URL
+ *  set resolves to bell one, so no caller can ever hold a source-less bell. */
 function element(bellId) {
   const bell = TOWER_BELLS.find((b) => b.id === bellId) || TOWER_BELLS[0];
+  if (bell.id === "custom") {
+    const url = towerState.bellUrl;
+    if (!url) return element(TOWER_BELLS[0].id);
+    if (!els.custom || customSrc !== url) {
+      els.custom = new Audio(url);
+      els.custom.preload = "auto";
+      customSrc = url;
+    }
+    return els.custom;
+  }
   if (!els[bell.id]) {
     els[bell.id] = new Audio(bell.src);
     els[bell.id].preload = "auto";
@@ -356,6 +391,50 @@ export function armTowerAudio() {
   }
 }
 
+/**
+ * One element commanded to play, volume applied. Resolves "ok", "blocked"
+ * (a policy refusal — the FT-880 record), or "failed" (the SOURCE would not
+ * load or decode — a rotted link, a 404, a page that is not audio). The
+ * split exists for FT-1045's fallback: a policy refusal would refuse any
+ * bell, but a dead source deserves a second try on a bell that ships.
+ */
+function ringElement(a, volume) {
+  const token = ++opToken;
+  a.muted = false;
+  a.volume = Math.max(BELL_VOLUME_MIN, Math.min(BELL_VOLUME_MAX, volume)) / 100;
+  try {
+    a.currentTime = 0;
+  } catch (e) {
+    // an element that has never loaded throws on seek; play() will start it
+  }
+  let p;
+  try {
+    p = a.play();
+  } catch (e) {
+    return Promise.resolve("failed");
+  }
+  if (!p || !p.then) {
+    towerBellState.blocked = false;
+    return Promise.resolve("ok");
+  }
+  return p
+    .then(() => {
+      unlocked = true;
+      towerBellState.blocked = false;
+      stopListening();
+      return "ok";
+    })
+    .catch((err) => {
+      if (opToken !== token) return "failed";
+      const name = (err && err.name) || "";
+      if (name === "NotSupportedError" || name === "AbortError") {
+        return "failed";
+      }
+      towerBellState.blocked = true;
+      return "blocked";
+    });
+}
+
 /** One real play of one bell, volume applied, refusal recorded. */
 function play(bellId, volume, isMuted) {
   try {
@@ -369,31 +448,18 @@ function play(bellId, volume, isMuted) {
   }
   if (isMuted) return Promise.resolve(false);
   const a = element(bellId);
-  const token = ++opToken;
-  a.muted = false;
-  a.volume = Math.max(BELL_VOLUME_MIN, Math.min(BELL_VOLUME_MAX, volume)) / 100;
-  try {
-    a.currentTime = 0;
-  } catch (e) {
-    // an element that has never loaded throws on seek; play() will start it
-  }
-  const p = a.play();
-  if (!p || !p.then) {
-    towerBellState.blocked = false;
-    return Promise.resolve(true);
-  }
-  return p
-    .then(() => {
-      unlocked = true;
-      towerBellState.blocked = false;
-      stopListening();
-      return true;
-    })
-    .catch(() => {
-      if (opToken !== token) return false;
-      towerBellState.blocked = true;
-      return false;
-    });
+  return ringElement(a, volume).then((status) => {
+    // FT-1045: the custom SOURCE died — fall back to bell one, so a rotted
+    // link never buys the town a silent day. Only on source failure (see
+    // ringElement); and only when custom actually resolved to its own
+    // element (custom with no URL already resolved to bell one above).
+    if (status === "failed" && bellId === "custom" && a === els.custom) {
+      return ringElement(element(TOWER_BELLS[0].id), volume).then(
+        (second) => second === "ok",
+      );
+    }
+    return status === "ok";
+  });
 }
 
 /**
@@ -420,4 +486,102 @@ export function ringDayStart(isMuted) {
  */
 export function previewBell(bellId, volume, isMuted) {
   return play(bellId, volume, isMuted);
+}
+
+/** Which bell the build panel is currently auditioning (its id), or "". */
+let previewingId = "";
+
+/** Every bell element silenced — one bell at a time is the row's rule. */
+export function stopBellPreview() {
+  previewingId = "";
+  Object.keys(els).forEach((id) => {
+    const a = els[id];
+    if (!a || a.paused) return;
+    a.pause();
+    try {
+      a.currentTime = 0;
+    } catch (e) {
+      // never loaded; nothing to rewind
+    }
+  });
+}
+
+/**
+ * FT-1045: the bell buttons themselves preview. Clicking a bell plays it at
+ * the row's volume; clicking the SAME bell while it still tolls STOPS it —
+ * stop over restart, because these clips run 12-17 seconds and the second
+ * click almost always means "enough". A different bell mid-toll switches to
+ * it. Local-only, like every preview: play() never touches the wire.
+ */
+export function toggleBellPreview(bellId, volume, isMuted) {
+  const a = element(bellId);
+  if (previewingId === bellId && !a.paused && !a.ended) {
+    stopBellPreview();
+    return Promise.resolve(false);
+  }
+  stopBellPreview();
+  previewingId = bellId;
+  return play(bellId, volume, isMuted);
+}
+
+/**
+ * FT-1045: does this link actually hold audio the browser can play? Loads
+ * it into a throwaway element (metadata only reaches the network, no sound)
+ * and answers within 10 seconds. The row's URL field shows its quiet
+ * failure state on false.
+ */
+export function probeBellUrl(url) {
+  return new Promise((resolve) => {
+    const clean = sanitize("bellUrl", url);
+    if (!clean) return resolve(false);
+    let a;
+    try {
+      a = new Audio();
+    } catch (e) {
+      return resolve(false);
+    }
+    let done = false;
+    const settle = (ok) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      a.oncanplay = null;
+      a.onerror = null;
+      resolve(ok);
+    };
+    const timer = setTimeout(() => settle(false), 10 * 1000);
+    a.oncanplay = () => settle(true);
+    a.onerror = () => settle(false);
+    a.preload = "auto";
+    a.src = clean;
+    a.load();
+  });
+}
+
+/**
+ * FT-1045: push a sound file to the platform's asset store and return the
+ * same-origin URL it will be served from — POST /api/assets/upload, the
+ * multipart endpoint every experience shares (10MB cap, audio validated by
+ * magic bytes server-side). "unlisted" because the URL is handed out by the
+ * tower sync, not by a gallery. Throws a message fit for the row's quiet
+ * failure state; the platform requires a login for uploads in every
+ * environment, so 401 gets the honest wording.
+ */
+export async function uploadBellFile(file) {
+  const body = new FormData();
+  body.append("file", file, file.name || "bell");
+  body.append("kind", "botc_bell");
+  body.append("visibility", "unlisted");
+  const res = await fetch("/api/assets/upload", { method: "POST", body });
+  if (res.status === 401)
+    throw new Error(
+      "Uploading needs a golem-studios.com login — a link works without one",
+    );
+  if (res.status === 413) throw new Error("Too big — 10MB is the cap");
+  if (res.status === 415) throw new Error("That file is not audio");
+  if (!res.ok) throw new Error(`The upload failed (${res.status})`);
+  const data = await res.json();
+  const url = data && data.asset && data.asset.url;
+  if (!url) throw new Error("The upload came back without an address");
+  return url;
 }
