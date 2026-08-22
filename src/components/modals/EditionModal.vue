@@ -335,8 +335,18 @@
              like scripts: saving someone else's role forks your own copy.
              FT-1040b (user call): the forge works WHERE THE SCRIPT LIVES —
              it takes the script view's own pane instead of floating over it;
-             Save or Discard brings the script view back. -->
-        <div class="role-form forge-inline" v-if="roleForm" v-blood-scroll>
+             Save or Discard brings the script view back.
+             FT-1041b: the WHOLE forge accepts a dropped .json — dropping
+             anywhere on it is an import, the same fill path the paste box
+             runs. -->
+        <div
+          class="role-form forge-inline"
+          v-if="roleForm"
+          v-blood-scroll
+          @dragover.prevent="forgeDrag = true"
+          @dragleave="forgeDrag = false"
+          @drop.prevent="onForgeDrop"
+        >
           <!-- FT-1040c: the title and the two acts share one line, and stay
                reachable while the pane scrolls -->
           <div class="forge-head">
@@ -360,11 +370,11 @@
           </div>
           <div class="role-error" v-if="roleError">{{ roleError }}</div>
 
-          <!-- FT-1040c: two columns — IDENTITY under a living coin on the
-               left, BEHAVIOR on the right. They wrap to a stack when the
-               pane runs narrow (flex-wrap, no breakpoint to maintain). -->
+          <!-- FT-1041b: ONE FORM COLUMN under the living coin on the left;
+               the ENTIRE right side is the art feed, always open. The
+               Change-art door retired with the second column. -->
           <div class="forge-cols">
-            <div class="forge-col fc-identity">
+            <div class="forge-col fc-identity" v-blood-scroll>
               <!-- the LIVE COIN — the real Token component rendering the
                    draft role exactly as the grimoire will: coin ground,
                    picked art, curved name, team rim, wake moon, setup stone.
@@ -373,347 +383,358 @@
               <div class="forge-coin">
                 <Token :role="previewRole" :hover-card="false" />
               </div>
-              <button
-                type="button"
-                class="forge-chip art-door"
-                :class="{ on: artOpen }"
-                :aria-expanded="artOpen ? 'true' : 'false'"
-                title="Pick the coin's art — the icon library or an official borrow"
-                @click="toggleArtDoor"
-              >
-                {{ artOpen ? "Close the art shelf" : "Change art" }}
-              </button>
-              <div class="forge-group fg-identity">
-                <label class="forge-label" for="fg-name">Name</label>
-                <input
-                  id="fg-name"
-                  v-model="roleForm.name"
-                  placeholder="Role name"
-                  maxlength="40"
-                />
-                <label class="forge-label">Team</label>
-                <div class="team-pick">
-                  <button
-                    v-for="t in [
-                      'townsfolk',
-                      'outsider',
-                      'minion',
-                      'demon',
-                      'traveller',
-                    ]"
-                    :key="t"
-                    type="button"
-                    class="team-btn"
-                    :class="[
-                      'team-' + (t === 'traveller' ? 'traveler' : t),
-                      { on: roleForm.roleType === t },
-                    ]"
-                    @click="roleForm.roleType = t"
-                  >
-                    <!-- our own team art for every team (golem/glyphs); the
+              <template v-if="!importOpen">
+                <div class="forge-group fg-identity">
+                  <label class="forge-label" for="fg-name">Name</label>
+                  <!-- FT-1041b: Import JSON shares the Name line — a small
+                       button at the row's far right that swaps the form for
+                       the import view (a mode, not a collapsible) -->
+                  <div class="fg-name-row">
+                    <input
+                      id="fg-name"
+                      v-model="roleForm.name"
+                      placeholder="Role name"
+                      maxlength="40"
+                    />
+                    <button
+                      type="button"
+                      class="forge-chip imp-door"
+                      title="Fill the form from a role JSON — paste it, or drop a .json file anywhere on the forge"
+                      @click="importOpen = true"
+                    >
+                      <font-awesome-icon icon="file-code" /> Import JSON
+                    </button>
+                  </div>
+                  <label class="forge-label">Role</label>
+                  <div class="team-pick">
+                    <button
+                      v-for="t in [
+                        'townsfolk',
+                        'outsider',
+                        'minion',
+                        'demon',
+                        'traveller',
+                      ]"
+                      :key="t"
+                      type="button"
+                      class="team-btn"
+                      :class="[
+                        'team-' + (t === 'traveller' ? 'traveler' : t),
+                        { on: roleForm.roleType === t },
+                      ]"
+                      @click="roleForm.roleType = t"
+                    >
+                      <!-- our own team art for every team (golem/glyphs); the
                        Font Awesome branch stays as the fallback -->
-                    <img
-                      v-if="teamGlyph(t)"
-                      class="demon-glyph"
-                      :src="teamGlyph(t)"
-                      alt=""
-                    />
-                    <font-awesome-icon
-                      v-else
-                      :icon="
-                        t === 'townsfolk'
-                          ? 'users'
-                          : t === 'minion'
-                          ? 'mask'
-                          : 'walking'
-                      "
-                    />
-                    {{ t }}
-                  </button>
+                      <img
+                        v-if="teamGlyph(t)"
+                        class="demon-glyph"
+                        :src="teamGlyph(t)"
+                        alt=""
+                      />
+                      <font-awesome-icon
+                        v-else
+                        :icon="
+                          t === 'townsfolk'
+                            ? 'users'
+                            : t === 'minion'
+                            ? 'mask'
+                            : 'walking'
+                        "
+                      />
+                      {{ t }}
+                    </button>
+                  </div>
+                  <label class="forge-label" for="fg-ability">Ability</label>
+                  <textarea
+                    id="fg-ability"
+                    v-model="roleForm.ability"
+                    placeholder="Ability text"
+                    maxlength="600"
+                    rows="4"
+                  ></textarea>
+                  <label class="forge-label" for="fg-author">Author</label>
+                  <input
+                    id="fg-author"
+                    v-model="roleForm.authorName"
+                    placeholder="Shown beside the role in the library"
+                    maxlength="200"
+                  />
                 </div>
-                <label class="forge-label" for="fg-ability">Ability</label>
-                <textarea
-                  id="fg-ability"
-                  v-model="roleForm.ability"
-                  placeholder="Ability text"
-                  maxlength="600"
-                  rows="4"
-                ></textarea>
-                <label class="forge-label" for="fg-author">Author</label>
-                <input
-                  id="fg-author"
-                  v-model="roleForm.authorName"
-                  placeholder="Shown beside the role in the library"
-                  maxlength="200"
-                />
-              </div>
-            </div>
 
-            <div class="forge-col fc-behavior">
-              <!-- FT-1040: the forge speaks chips — the FT-1039 idiom; the
-                   two wakes wear the night tabs' own moon phases. FT-1040c:
-                   wakes and the composer are ONE plated group. -->
-              <div class="forge-group fg-night">
-                <span class="forge-label">Wakes</span>
-                <div class="forge-seg fg-wakes" role="group" aria-label="Wakes">
-                  <button
-                    type="button"
-                    class="forge-cell"
-                    :class="{ on: wakesFirstNight }"
-                    :aria-pressed="wakesFirstNight ? 'true' : 'false'"
-                    title="Wakes on the first night"
-                    @click="wakesFirstNight = !wakesFirstNight"
-                  >
-                    <img class="moon" :src="moonFirstArt" alt="" /> First Night
-                  </button>
-                  <button
-                    type="button"
-                    class="forge-cell"
-                    :class="{ on: wakesOtherNights }"
-                    :aria-pressed="wakesOtherNights ? 'true' : 'false'"
-                    title="Wakes on every night after the first"
-                    @click="wakesOtherNights = !wakesOtherNights"
-                  >
-                    <img class="moon" :src="moonOtherArt" alt="" /> Other Nights
-                  </button>
-                </div>
-                <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character
+                <!-- FT-1041b: the TAGS row — the two wakes and Affects setup,
+                   ONE inline chip row in the same column flow; the composer
+                   opens below the row when a moon is lit. -->
+                <div class="forge-group fg-night">
+                  <span class="forge-label">Tags</span>
+                  <div class="forge-tags" role="group" aria-label="Tags">
+                    <div
+                      class="forge-seg fg-wakes"
+                      role="group"
+                      aria-label="Wakes"
+                    >
+                      <button
+                        type="button"
+                        class="forge-cell"
+                        :class="{ on: wakesFirstNight }"
+                        :aria-pressed="wakesFirstNight ? 'true' : 'false'"
+                        title="Wakes on the first night"
+                        @click="wakesFirstNight = !wakesFirstNight"
+                      >
+                        <img class="moon" :src="moonFirstArt" alt="" /> First
+                        Night
+                      </button>
+                      <button
+                        type="button"
+                        class="forge-cell"
+                        :class="{ on: wakesOtherNights }"
+                        :aria-pressed="wakesOtherNights ? 'true' : 'false'"
+                        title="Wakes on every night after the first"
+                        @click="wakesOtherNights = !wakesOtherNights"
+                      >
+                        <img class="moon" :src="moonOtherArt" alt="" /> Other
+                        Nights
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      class="forge-chip"
+                      :class="{ on: roleForm.setup }"
+                      :aria-pressed="roleForm.setup ? 'true' : 'false'"
+                      title="This character changes the game's setup"
+                      @click="roleForm.setup = !roleForm.setup"
+                    >
+                      Affects setup
+                    </button>
+                  </div>
+                  <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character
                    that wakes composes one. Six shapes, each a one-to-one
                    dressing of a night schema field (golem/nightInfo
                    NIGHT_SHAPES); the composed entry rides the forged role
                    and registers at script load, so its checklist row, player
                    prompt and chronicle presence are native. -->
-                <div
-                  class="night-composer"
-                  v-if="wakesFirstNight || wakesOtherNights"
-                >
-                  <span class="nc-title">At night, this character…</span>
-                  <div class="nc-shapes" role="group" aria-label="Night action">
-                    <button
-                      v-for="s in nightShapes"
-                      :key="s.id"
-                      type="button"
-                      class="forge-chip"
-                      :class="{ on: roleForm.nightShape === s.id }"
-                      :title="
-                        s.hint +
-                        (roleForm.nightShape === s.id
-                          ? ' (click to clear)'
-                          : '')
-                      "
-                      :aria-pressed="
-                        roleForm.nightShape === s.id ? 'true' : 'false'
-                      "
-                      @click="pickNightShape(s.id)"
-                    >
-                      {{ s.label }}
-                    </button>
-                  </div>
                   <div
-                    class="nc-dials"
-                    v-if="roleForm.nightShape === 'players'"
+                    class="night-composer"
+                    v-if="wakesFirstNight || wakesOtherNights"
                   >
-                    <NumberScrub
-                      class="nc-count"
-                      preset="night"
-                      :value="roleForm.nightCount"
-                      :min="1"
-                      :max="3"
-                      title="How many players — drag to scrub, click to type"
-                      @input="(n) => (roleForm.nightCount = n)"
-                    />
-                    <!-- the FILLER — real only here: a PLAYER field is the one kind
-                 the player-side machinery renders an input for (FT-1005) -->
+                    <span class="nc-title">At night, this character…</span>
                     <div
-                      class="forge-seg nc-by"
+                      class="nc-shapes"
                       role="group"
-                      aria-label="Who picks"
+                      aria-label="Night action"
                     >
                       <button
+                        v-for="s in nightShapes"
+                        :key="s.id"
                         type="button"
-                        class="forge-cell"
-                        :class="{ on: roleForm.nightBy === 'player' }"
-                        title="The seat's own player makes this choice at night"
-                        @click="roleForm.nightBy = 'player'"
+                        class="forge-chip"
+                        :class="{ on: roleForm.nightShape === s.id }"
+                        :title="
+                          s.hint +
+                          (roleForm.nightShape === s.id
+                            ? ' (click to clear)'
+                            : '')
+                        "
+                        :aria-pressed="
+                          roleForm.nightShape === s.id ? 'true' : 'false'
+                        "
+                        @click="pickNightShape(s.id)"
                       >
-                        The player picks
-                      </button>
-                      <button
-                        type="button"
-                        class="forge-cell"
-                        :class="{ on: roleForm.nightBy === 'storyteller' }"
-                        title="You point for them — information you give"
-                        @click="roleForm.nightBy = 'storyteller'"
-                      >
-                        You point for them
+                        {{ s.label }}
                       </button>
                     </div>
-                  </div>
-                  <div class="row" v-if="roleForm.nightShape">
-                    <input
-                      v-model="roleForm.nightPrompt"
-                      class="wide"
-                      maxlength="200"
-                      placeholder="Prompt line — what the night row says"
-                    />
+                    <div
+                      class="nc-dials"
+                      v-if="roleForm.nightShape === 'players'"
+                    >
+                      <NumberScrub
+                        class="nc-count"
+                        preset="night"
+                        :value="roleForm.nightCount"
+                        :min="1"
+                        :max="3"
+                        title="How many players — drag to scrub, click to type"
+                        @input="(n) => (roleForm.nightCount = n)"
+                      />
+                      <!-- the FILLER — real only here: a PLAYER field is the one kind
+                 the player-side machinery renders an input for (FT-1005) -->
+                      <div
+                        class="forge-seg nc-by"
+                        role="group"
+                        aria-label="Who picks"
+                      >
+                        <button
+                          type="button"
+                          class="forge-cell"
+                          :class="{ on: roleForm.nightBy === 'player' }"
+                          title="The seat's own player makes this choice at night"
+                          @click="roleForm.nightBy = 'player'"
+                        >
+                          The player picks
+                        </button>
+                        <button
+                          type="button"
+                          class="forge-cell"
+                          :class="{ on: roleForm.nightBy === 'storyteller' }"
+                          title="You point for them — information you give"
+                          @click="roleForm.nightBy = 'storyteller'"
+                        >
+                          You point for them
+                        </button>
+                      </div>
+                    </div>
+                    <div class="row" v-if="roleForm.nightShape">
+                      <input
+                        v-model="roleForm.nightPrompt"
+                        class="wide"
+                        maxlength="200"
+                        placeholder="Prompt line — what the night row says"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <!-- reminder tokens as REAL PILLS — type + Enter mints one,
+                <!-- reminder tokens as REAL PILLS — type + Enter mints one,
                  click one to remove it; the stored shape stays the
                  comma-joined string -->
-              <div class="forge-group fg-rem">
-                <span class="forge-label">Reminder tokens</span>
-                <span class="rem-pills">
-                  <button
-                    v-for="(r, i) in reminderPills"
-                    :key="'rem' + i"
-                    type="button"
-                    class="rem-pill"
-                    :title="'Remove “' + r + '”'"
-                    @click="removeReminderPill(i)"
-                  >
-                    {{ r }} <span class="rem-x">×</span>
-                  </button>
-                  <input
-                    v-model="reminderDraft"
-                    class="rem-input"
-                    maxlength="40"
-                    placeholder="Reminder token — Enter adds"
-                    @keydown.enter.prevent="addReminderPill"
-                    @blur="addReminderPill"
-                  />
-                </span>
-              </div>
-              <div class="forge-group fg-setup">
-                <button
-                  type="button"
-                  class="forge-chip"
-                  :class="{ on: roleForm.setup }"
-                  :aria-pressed="roleForm.setup ? 'true' : 'false'"
-                  title="This character changes the game's setup"
-                  @click="roleForm.setup = !roleForm.setup"
-                >
-                  Affects setup
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- FT-1040c: the ART SHELF — the icon library and the official
-               borrows, behind the Change-art door under the coin. Spans the
-               pane when open; a pick closes it and lands on the coin. -->
-          <div class="icon-picker" v-if="artOpen">
-            <div class="ip-tabs">
-              <span
-                class="wb-tab"
-                :class="{ active: iconTab === 'library' }"
-                @click="openIconLibrary"
-                >Icon library</span
-              >
-              <span
-                class="wb-tab"
-                :class="{ active: iconTab === 'official' }"
-                @click="iconTab = 'official'"
-                >Official art</span
-              >
-              <span class="ip-current" v-if="roleForm.iconData">
-                <img :src="roleForm.iconData" alt="" />
-                <span
-                  class="ip-reroll"
-                  title="Re-roll the texture — same art, fresh grain"
-                  @click="rerollIcon"
-                  ><font-awesome-icon icon="redo-alt"
-                /></span>
-              </span>
-            </div>
-            <template v-if="iconTab === 'official'">
-              <input
-                v-model="iconSearch"
-                placeholder="Icon: search official roles (optional)…"
-              />
-              <div class="icon-grid">
-                <div
-                  class="icon-cell"
-                  v-for="official in iconMatches"
-                  :key="official.id"
-                  :class="{ selected: roleForm.icon === official.id }"
-                  @click="pickIcon(official.id)"
-                >
-                  <span
-                    class="icon"
-                    :style="{ backgroundImage: `url(${iconUrl(official.id)})` }"
-                  ></span>
-                  <span class="label">{{ official.name }}</span>
+                <div class="forge-group fg-rem">
+                  <span class="forge-label">Reminder tokens</span>
+                  <span class="rem-pills">
+                    <button
+                      v-for="(r, i) in reminderPills"
+                      :key="'rem' + i"
+                      type="button"
+                      class="rem-pill"
+                      :title="'Remove “' + r + '”'"
+                      @click="removeReminderPill(i)"
+                    >
+                      {{ r }} <span class="rem-x">×</span>
+                    </button>
+                    <input
+                      v-model="reminderDraft"
+                      class="rem-input"
+                      maxlength="40"
+                      placeholder="Reminder token — Enter adds"
+                      @keydown.enter.prevent="addReminderPill"
+                      @blur="addReminderPill"
+                    />
+                  </span>
                 </div>
-              </div>
-            </template>
-            <div v-else class="icon-lib">
-              <div class="il-head">
+              </template>
+
+              <!-- FT-1041b: IMPORT MODE — the Name row's button swaps the
+                   form for this view; Back returns it. Paste + fill, or the
+                   drop zone (the whole forge accepts a dropped .json at any
+                   time — the pane's own drop handler). -->
+              <template v-else>
+                <div class="forge-group fg-import">
+                  <button
+                    type="button"
+                    class="forge-chip imp-back"
+                    title="Back to the form"
+                    @click="importOpen = false"
+                  >
+                    <font-awesome-icon icon="times" /> Back to the form
+                  </button>
+                  <label class="forge-label" for="fg-import-json"
+                    >Role JSON</label
+                  >
+                  <textarea
+                    id="fg-import-json"
+                    v-model="roleJsonText"
+                    rows="6"
+                    :placeholder="roleTemplateJson"
+                  ></textarea>
+                  <div class="imp-drop" :class="{ dragover: forgeDrag }">
+                    …or drop a .json file here — anywhere on the forge works
+                  </div>
+                  <div class="paste-acts">
+                    <div class="button" @click="fillForgeFromJson">
+                      <font-awesome-icon icon="file-code" /> Fill from JSON
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- FT-1041b: the ART FEED — the entire right side, always open.
+                 One live search across every group; the library's categories
+                 (and the officials' editions) stand as small sticky headers
+                 in the stream; the Official-art chip swaps the SOURCE.
+                 Rendered in batches — the sentinel at the bottom asks for
+                 the next slice as it scrolls into view, so first paint is
+                 instant with hundreds of icons behind it. -->
+            <div class="forge-feed" v-blood-scroll>
+              <div class="feed-top">
                 <input
                   v-model="ilSearch"
-                  placeholder="Search the icon library…"
+                  class="feed-search"
+                  placeholder="Search the art…"
                 />
-                <span
-                  v-for="t in ilThemes"
-                  :key="t"
-                  class="il-chip"
-                  :class="{ on: ilTheme === t }"
-                  @click="ilTheme = ilTheme === t ? '' : t"
-                  >{{ t }}</span
+                <button
+                  type="button"
+                  class="forge-chip feed-source"
+                  :class="{ on: iconTab === 'official' }"
+                  :aria-pressed="iconTab === 'official' ? 'true' : 'false'"
+                  title="Borrow an official character's art instead of the icon library"
+                  @click="toggleOfficialSource"
                 >
+                  Official art
+                </button>
+                <span class="ip-current" v-if="currentArtSrc">
+                  <img :src="currentArtSrc" alt="" />
+                  <span
+                    class="ip-reroll"
+                    v-if="roleForm.iconRef"
+                    title="Re-roll the texture — same art, fresh grain"
+                    @click="rerollIcon"
+                    ><font-awesome-icon icon="redo-alt"
+                  /></span>
+                </span>
               </div>
-              <div class="il-preview">
-                <img v-if="ilPreviewSrc" :src="ilPreviewSrc" alt="" />
-                <span v-else class="il-empty">hover an icon to preview it</span>
-                <span class="label">{{ ilPreviewLabel }}</span>
-              </div>
-              <div class="icon-grid il-grid" v-if="ilLoaded">
-                <div
-                  class="icon-cell"
-                  v-for="e in ilShown"
-                  :key="e.n"
-                  :class="{ selected: roleForm.iconRef === e.n }"
-                  :title="e.n.replace(/-/g, ' ')"
-                  @mouseenter="ilHover(e)"
-                  @mouseleave="ilHoverClear"
-                  @click="pickLibraryIcon(e)"
-                >
-                  <img class="il-thumb" :src="ilThumb(e)" alt="" />
-                  <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
+              <template v-if="feedReady">
+                <template v-for="group in feedShownGroups">
+                  <div class="feed-head" :key="'fh-' + group.key">
+                    {{ group.label }} <small>({{ group.total }})</small>
+                  </div>
+                  <div class="feed-grid" :key="'fg-' + group.key">
+                    <template v-if="iconTab === 'official'">
+                      <div
+                        class="icon-cell"
+                        v-for="official in group.items"
+                        :key="'off-' + official.id"
+                        :class="{ selected: roleForm.icon === official.id }"
+                        @click="pickIcon(official.id)"
+                      >
+                        <span
+                          class="icon"
+                          :style="{
+                            backgroundImage: `url(${iconUrl(official.id)})`,
+                          }"
+                        ></span>
+                        <span class="label">{{ official.name }}</span>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div
+                        class="icon-cell"
+                        v-for="e in group.items"
+                        :key="'lib-' + e.n"
+                        :class="{ selected: roleForm.iconRef === e.n }"
+                        :title="e.n.replace(/-/g, ' ')"
+                        @click="pickLibraryIcon(e)"
+                      >
+                        <img class="il-thumb" :src="ilThumb(e)" alt="" />
+                        <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+                <div class="feed-none" v-if="!feedShownGroups.length">
+                  Nothing in the art matches “{{ ilSearch.trim() }}”.
                 </div>
-                <div class="il-more" v-if="ilOverflow > 0">
-                  +{{ ilOverflow }} more — refine the search
-                </div>
-              </div>
+              </template>
               <div class="il-loading" v-else>Loading the library…</div>
-            </div>
-          </div>
-          <!-- FT-1040c: the JSON path tucks behind a small door at the
-               bottom edge — paste a role JSON (or an official id) to fill
-               the form; the ghost text IS the accepted syntax. -->
-          <div class="forge-import">
-            <button
-              type="button"
-              class="forge-chip imp-door"
-              :class="{ on: importOpen }"
-              :aria-expanded="importOpen ? 'true' : 'false'"
-              title="Fill the form from a pasted role JSON or an official id"
-              @click="importOpen = !importOpen"
-            >
-              <font-awesome-icon icon="file-code" /> Import JSON
-            </button>
-            <div class="row wb-forge-paste" v-if="importOpen">
-              <textarea
-                v-model="roleJsonText"
-                rows="2"
-                :placeholder="roleTemplateJson"
-              ></textarea>
-              <div class="paste-acts">
-                <div class="button" @click="fillForgeFromJson">
-                  <font-awesome-icon icon="file-code" /> Fill from JSON
-                </div>
-              </div>
+              <div class="feed-sentinel" ref="feedSentinel"></div>
             </div>
           </div>
         </div>
@@ -1127,6 +1148,19 @@ const TEAM_LABELS = {
   demon: "Demons",
   traveler: "Travellers",
 };
+// FT-1041b: the art feed renders in BATCHES — first paint is one slice, and
+// the sentinel at the feed's bottom edge asks for the next as it scrolls
+// into view. 96 fills a tall column and still paints instantly.
+const FEED_BATCH = 96;
+// The officials' editions, as the feed's sticky group headers. Anything
+// without one of the three marked editions (carousel included) is
+// Experimental — the same reading the sidebar's src:exp chip makes.
+const FEED_EDITIONS = [
+  ["tb", "Trouble Brewing"],
+  ["bmr", "Bad Moon Rising"],
+  ["snv", "Sects & Violets"],
+  ["exp", "Experimental"],
+];
 // roles.json spells it "traveler"; the server's roleType vocabulary spells it
 // "traveller". Normalize to the app side everywhere the two meet.
 const normTeam = (t) => (t || "").replace("traveller", "traveler");
@@ -1213,7 +1247,6 @@ export default {
       // icon-picker filter, browse query/filter/results, the roles shelf.
       roleForm: null,
       editingLibId: null,
-      iconSearch: "",
       roleQuery: "",
       roleTypeFilter: "",
       roleResults: [],
@@ -1227,10 +1260,14 @@ export default {
       moonOtherArt: moonOther,
       nightShapes: NIGHT_SHAPES,
       reminderDraft: "",
-      // FT-1040c: the two doors — the art shelf under the coin and the JSON
-      // import at the bottom edge. Both closed on every fresh open.
-      artOpen: false,
+      // FT-1041b: import is a MODE — true swaps the form column for the
+      // paste-or-drop view; false brings the form back. Closed on every
+      // fresh open. (The FT-1040c art door retired: the feed is always open.)
       importOpen: false,
+      // is a drag hovering the forge? (the import drop zone lights up)
+      forgeDrag: false,
+      // how many feed cells are RENDERED — the sentinel grows it in batches
+      feedLimit: FEED_BATCH,
       // FT-981: the last library browse failed. Not an error banner (see
       // searchRoles) — just enough for the empty state to say why the
       // haystack is smaller than the author expects.
@@ -1286,11 +1323,7 @@ export default {
       // library (game-icons.net curation, lazy chunk).
       iconTab: "library",
       ilSearch: "",
-      ilTheme: "",
       ilLoaded: false,
-      ilTick: 0,
-      ilHoverBaked: "",
-      ilHoverName: "",
       // FT-855: tri-state team toggles (1 show-only, -1 hide, absent off)
       // + structured filter pills [{ id: 'src:tb', not: false }].
       teamState: {},
@@ -1342,31 +1375,59 @@ export default {
       });
       return list;
     },
-    // The icon picker's grid: official roles, name-filtered.
-    iconMatches() {
-      const q = this.iconSearch.trim().toLowerCase();
-      if (!q) return rolesJSON;
-      return rolesJSON.filter((role) => role.name.toLowerCase().includes(q));
-    },
-    // The shelf, narrowed by the browse query so search reads as one list.
-    ilThemes() {
-      return iconLib.THEMES;
-    },
-    ilFiltered() {
+    // ── FT-1041b: the ART FEED ───────────────────────────────────────────
+    /** One live search across the whole source; the groups carry the feed's
+     *  sticky headers — the library's seven themes, or the officials'
+     *  editions. (The theme filter pills retired with the tabs.) */
+    feedGroups() {
+      const q = this.ilSearch.trim().toLowerCase();
+      if (this.iconTab === "official") {
+        const byKey = {};
+        const groups = FEED_EDITIONS.map(([key, label]) => {
+          return (byKey[key] = { key, label, items: [] });
+        });
+        rolesJSON.forEach((role) => {
+          if (q && !role.name.toLowerCase().includes(q)) return;
+          (byKey[role.edition] || byKey.exp).items.push(role);
+        });
+        return groups.filter((g) => g.items.length);
+      }
       if (!this.ilLoaded) return [];
       const list = this.$options.ilList || [];
-      const q = this.ilSearch.trim().toLowerCase();
-      return list.filter(
-        (e) =>
-          (!this.ilTheme || e.t === this.ilTheme) && (!q || e.n.includes(q)),
+      return iconLib.THEMES.map((t) => ({
+        key: t,
+        label: t,
+        items: list.filter((e) => e.t === t && (!q || e.n.includes(q))),
+      })).filter((g) => g.items.length);
+    },
+    /** The groups, truncated to the rendered window — 1.3k canvases in one
+     *  paint is a hitch, so the feed shows feedLimit cells and the sentinel
+     *  asks for more. Each group still states its TRUE total. */
+    feedShownGroups() {
+      let left = this.feedLimit;
+      const out = [];
+      for (const g of this.feedGroups) {
+        if (left <= 0) break;
+        const items = g.items.length > left ? g.items.slice(0, left) : g.items;
+        out.push({ key: g.key, label: g.label, total: g.items.length, items });
+        left -= items.length;
+      }
+      return out;
+    },
+    feedHasMore() {
+      return (
+        this.feedLimit < this.feedGroups.reduce((n, g) => n + g.items.length, 0)
       );
     },
-    /** Cap the rendered grid — 1.3k canvases in one paint is a hitch. */
-    ilShown() {
-      return this.ilFiltered.slice(0, 160);
+    /** The officials are bundled; the library arrives as its own chunk. */
+    feedReady() {
+      return this.iconTab === "official" || this.ilLoaded;
     },
-    ilOverflow() {
-      return Math.max(0, this.ilFiltered.length - 160);
+    /** What the coin currently wears — the feed's corner swatch. */
+    currentArtSrc() {
+      const f = this.roleForm;
+      if (!f) return "";
+      return f.iconData || (f.icon ? this.iconUrl(f.icon) : "");
     },
     /** The hovered role's tags, as readable chip labels (team rides the
      *  card border already, so it stays off the chips). */
@@ -1375,16 +1436,6 @@ export default {
       return [...this.entryTags(this.roleTip)]
         .filter((id) => !id.startsWith("team:"))
         .map((id) => this.pillValueLabel({ id }));
-    },
-    ilPreviewSrc() {
-      return (
-        this.ilHoverBaked || (this.roleForm && this.roleForm.iconData) || ""
-      );
-    },
-    ilPreviewLabel() {
-      if (this.ilHoverName) return this.ilHoverName;
-      const f = this.roleForm;
-      return f && f.iconRef ? f.iconRef.replace(/-/g, " ") : "";
     },
     /** Would the next save FORK? A script loaded from the vault that this
      *  browser holds no edit key for cannot be updated in place — saving it
@@ -1901,6 +1952,7 @@ export default {
     this.$options.benchOnSlash = onSlash;
   },
   beforeDestroy() {
+    this.detachFeedObserver();
     if (this.$options.benchOnSlash)
       window.removeEventListener("keydown", this.$options.benchOnSlash);
     const mq = this.$options.benchMQ;
@@ -1913,6 +1965,20 @@ export default {
     // FT-856: a team switch re-prints the baked library icon in the new tint
     "roleForm.roleType"() {
       this.rebakeForTeam();
+    },
+    // FT-1041b: the feed's sentinel observer lives exactly as long as the
+    // forge does. Re-opening while already open (an official-id import
+    // rebuilds roleForm) keeps the observer it has.
+    roleForm(v, old) {
+      if (v && !old) this.$nextTick(() => this.attachFeedObserver());
+      else if (!v) this.detachFeedObserver();
+    },
+    // a new search or a source swap starts the feed from its first batch
+    ilSearch() {
+      this.resetFeed();
+    },
+    iconTab() {
+      this.resetFeed();
     },
   },
   methods: {
@@ -2257,11 +2323,11 @@ export default {
     /** Open the form — blank, or seeded from an existing edition role. */
     openRoleForm(role) {
       this.roleError = "";
-      this.iconSearch = "";
       this.reminderDraft = "";
-      // FT-1040c: both doors start closed on every fresh open
-      this.artOpen = false;
+      // FT-1041b: every fresh open lands on the form (not import mode) with
+      // the feed rewound to its first batch
       this.importOpen = false;
+      this.resetFeed();
       // the library tab is the default view — have its chunk ready
       this.openIconLibrary();
       // FT-1040: reopen the composer where it was left — the stored entry
@@ -2314,18 +2380,77 @@ export default {
         };
       }
     },
-    /** FT-1040c: the art door — the shelf opens below the columns, so bring
-     *  it to the eye; a pick closes it (see pickIcon / pickLibraryIcon). */
-    toggleArtDoor() {
-      this.artOpen = !this.artOpen;
-      if (this.artOpen) {
-        this.$nextTick(() => {
-          const el = this.$el.querySelector(".icon-picker");
-          if (el && el.scrollIntoView) {
-            el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }
-        });
+    // ── FT-1041b: the art feed + whole-forge drop ────────────────────────
+    /** The one surviving pill: swap the feed's SOURCE. Swapping back to the
+     *  library goes through openIconLibrary so its chunk is there. */
+    toggleOfficialSource() {
+      if (this.iconTab === "official") this.openIconLibrary();
+      else this.iconTab = "official";
+    },
+    /** First batch, top of the feed — a new search or source starts over. */
+    resetFeed() {
+      this.feedLimit = FEED_BATCH;
+      const el = this.$el && this.$el.querySelector(".forge-feed");
+      if (el) el.scrollTop = 0;
+      this.nudgeFeed();
+    },
+    /** The sentinel at the feed's bottom edge asks for the next batch as it
+     *  comes into view. Root is the viewport — intersection accounts for
+     *  every clipping ancestor, so it works whether the feed column scrolls
+     *  itself (wide) or rides the pane's scroll (stacked). */
+    attachFeedObserver() {
+      this.detachFeedObserver();
+      const el = this.$refs.feedSentinel;
+      if (!el || typeof IntersectionObserver === "undefined") return;
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((e) => e.isIntersecting)) return;
+          if (!this.feedHasMore) return;
+          this.feedLimit += FEED_BATCH;
+          this.nudgeFeed();
+        },
+        { rootMargin: "300px 0px" },
+      );
+      io.observe(el);
+      this.$options.feedIO = io;
+    },
+    /** The observer only reports CHANGES — a sentinel still visible after a
+     *  batch lands would go quiet. Re-observing forces a fresh report, so
+     *  batches chain until the sentinel finally leaves the viewport. */
+    nudgeFeed() {
+      this.$nextTick(() => {
+        const io = this.$options.feedIO;
+        const el = this.$refs.feedSentinel;
+        if (!io || !el) return;
+        io.unobserve(el);
+        io.observe(el);
+      });
+    },
+    detachFeedObserver() {
+      if (this.$options.feedIO) {
+        this.$options.feedIO.disconnect();
+        this.$options.feedIO = null;
       }
+    },
+    /** Dropping a .json ANYWHERE on the forge is an import — read the file
+     *  and run the same fill the paste box runs. A successful fill lands
+     *  back on the form so the result is on screen. */
+    onForgeDrop(e) {
+      this.forgeDrag = false;
+      const file =
+        e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      if (!/\.json$/i.test(file.name) && !/json/i.test(file.type || "")) {
+        this.roleError = "Drop a .json file — one role, Script-Tool shape.";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.roleJsonText = String(reader.result);
+        this.fillForgeFromJson();
+        if (!this.roleError) this.importOpen = false;
+      };
+      reader.readAsText(file);
     },
     /** FT-1040: pick a night action shape — clicking the lit one clears it
      *  (a composed action is optional; none means the fallback free box). */
@@ -2349,17 +2474,18 @@ export default {
     closeRoleForm() {
       this.roleForm = null;
       this.roleError = "";
+      this.importOpen = false;
+      this.forgeDrag = false;
     },
-    /** Click an icon to select it; click again to clear (icon is optional). */
+    /** Click an icon to select it; click again to clear (icon is optional).
+     *  FT-1041b: the pick lands on the coin immediately — the feed stays
+     *  open, so there is no door to close any more. */
     pickIcon(id) {
       this.roleForm.icon = this.roleForm.icon === id ? "" : id;
       // an official borrow replaces any baked library pick
       if (this.roleForm.icon) {
         this.roleForm.iconData = "";
         this.roleForm.iconRef = "";
-        // FT-1040c: a real pick closes the art door and lands on the coin;
-        // clearing keeps the shelf open for the next choice
-        this.artOpen = false;
       }
     },
     // ── FT-856 slice B: the new-icon library ─────────────────────────────
@@ -2377,31 +2503,11 @@ export default {
       if (!cache.has(entry.n)) cache.set(entry.n, iconLib.silhouette(entry));
       return cache.get(entry.n);
     },
-    ilHover(entry) {
-      clearTimeout(this.$options.ilHoverTimer);
-      this.$options.ilHoverTimer = setTimeout(async () => {
-        const tintKey = entry.n + "|" + this.roleForm.roleType;
-        const cache = this.$options.ilBakes;
-        if (!cache.has(tintKey)) {
-          cache.set(
-            tintKey,
-            await iconLib.bakeIcon(entry, this.roleForm.roleType, {
-              size: 96,
-            }),
-          );
-        }
-        this.ilHoverBaked = cache.get(tintKey);
-        this.ilHoverName = entry.n.replace(/-/g, " ");
-      }, 120);
-    },
-    /** Leaving a cell only cancels a PENDING bake — the shown preview is
-     *  sticky (last hover, else the current pick) so the slot never
-     *  collapses and the layout never jumps. */
-    ilHoverClear() {
-      clearTimeout(this.$options.ilHoverTimer);
-    },
     /** A pick bakes in the CURRENT team's tint; the ref rides the role so a
-     *  later team switch re-bakes (rule: one stored bake, source kept). */
+     *  later team switch re-bakes (rule: one stored bake, source kept).
+     *  FT-1041b: it lands on the coin immediately — the feed stays open.
+     *  (The FT-856 hover-preview pane retired with the tabs; the coin is
+     *  the preview now, and a pick is one cheap click to undo.) */
     async pickLibraryIcon(entry) {
       const f = this.roleForm;
       if (f.iconRef === entry.n) {
@@ -2414,8 +2520,6 @@ export default {
       f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
         seed: f.iconSeed || 0,
       });
-      // FT-1040c: the pick closes the art door and lands on the coin
-      this.artOpen = false;
     },
     async rerollIcon() {
       const f = this.roleForm;
@@ -2837,6 +2941,9 @@ export default {
       f.reminders = (parsed.reminders || []).join(", ");
       f.setup = !!parsed.setup;
       this.roleJsonText = "";
+      // FT-1041b: a successful fill lands back on the FORM, filled — import
+      // is a mode, and the point of filling is to look at the result
+      this.importOpen = false;
     },
     // ── FT-857: the night-order drag lives in ScriptView; the WRITE stays
     //    here, where the store is owned. The view emits set-night with the
@@ -3392,124 +3499,15 @@ $team-colors: (
   "traveler": #cc04ff,
 );
 
-// FT-856 slice B: the icon tabs + library browser
-.role-form .icon-picker {
-  .ip-tabs {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 4px;
-    .wb-tab {
-      padding: 3px 12px;
-      border: 1px solid #3d3d3d;
-      border-radius: 6px;
-      cursor: pointer;
-      color: rgba(255, 255, 255, 0.75);
-      font-size: 13px;
-      &.active {
-        border-color: #a01414;
-        background: rgba(160, 20, 20, 0.14);
-        color: white;
-      }
-    }
-    .ip-current {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      img {
-        width: 34px;
-        height: 34px;
-      }
-      .ip-reroll {
-        cursor: pointer;
-        opacity: 0.7;
-        font-size: 12px;
-        &:hover {
-          opacity: 1;
-          color: #ff6b6b;
-        }
-      }
-    }
-  }
-  .il-head {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 4px;
-    input {
-      width: 180px;
-    }
-  }
-  .il-chip {
-    padding: 2px 9px;
-    border: 1px solid #3d3d3d;
-    border-radius: 10px;
-    font-size: 12px;
-    cursor: pointer;
-    color: rgba(255, 255, 255, 0.7);
-    &.on {
-      border-color: #a01414;
-      background: rgba(160, 20, 20, 0.14);
-      color: white;
-    }
-  }
-  .il-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin: 4px 0;
-    // the slot NEVER collapses — a hover swap repaints in place
-    height: 68px;
-    img {
-      width: 64px;
-      height: 64px;
-    }
-    .label {
-      font-size: 13px;
-      text-transform: capitalize;
-      opacity: 0.85;
-    }
-    .il-empty {
-      font-size: 12px;
-      opacity: 0.45;
-      font-style: italic;
-    }
-  }
-  .il-grid {
-    .il-thumb {
-      width: 40px;
-      height: 40px;
-      opacity: 0.9;
-    }
-    .icon-cell.selected {
-      outline: 1px solid #a01414;
-      background: rgba(160, 20, 20, 0.14);
-    }
-    .il-more {
-      width: 100%;
-      padding: 6px;
-      font-size: 12px;
-      opacity: 0.6;
-    }
-  }
-  .il-loading {
-    padding: 12px;
-    opacity: 0.7;
-  }
-}
-
 // FT-1040: the forge speaks chips — the FT-1039 idiom (one plate for grouped
 // cells, standalone chips beside it, the shared lit state), scoped to the
 // forge overlay. The checkboxes these replaced were retired by that pass.
 //
-// FT-1040c: THE BEAUTY PASS — two columns under a living coin. The title and
-// the two acts share one sticky line; identity (coin, art door, name, team,
-// ability, author) on the left, behavior (wakes + composer as one plated
-// group, reminder pills, setup) on the right. The columns wrap to a stack
-// when the pane runs narrow — flex-wrap, no breakpoint to maintain.
+// FT-1041b: ONE FORM COLUMN under the living coin — identity, then the Tags
+// chip row (wakes + setup) with the composer beneath, then reminder pills —
+// and the ENTIRE right side is the art feed, always open, each region
+// scrolling on its own. Below ~1024px viewport the two stack (form above
+// feed) and the pane scrolls as one.
 .role-form .forge-head {
   position: sticky;
   top: 0;
@@ -3539,18 +3537,202 @@ $team-colors: (
 }
 .role-form .forge-cols {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 12px;
-  .forge-col {
-    flex: 1 1 320px;
+  align-items: stretch;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  // the ONE form column — fixed width (wide enough that the Tags row keeps
+  // its three chips on one line), its own scroll
+  .forge-col.fc-identity {
+    flex: 0 0 384px;
     min-width: 0;
-    max-width: 470px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  // the ART FEED — all the remaining width, its own scroll
+  .forge-feed {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-y: auto;
+    text-align: left;
+  }
+}
+// the Name row — the field takes the line, Import JSON holds the far right
+.role-form .fg-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .imp-door {
+    flex: none;
+    white-space: nowrap;
+    opacity: 0.75;
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+// the Tags row — the wakes plate and the setup chip, one inline row
+.role-form .forge-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  // the row's three chips share one line at the column's width
+  .fg-wakes .forge-cell {
+    padding: 4px 8px;
+  }
+}
+// IMPORT MODE — the form column's other face
+.role-form .fg-import {
+  gap: 8px;
+  textarea {
+    min-height: 110px;
+  }
+  .imp-back {
+    align-self: flex-start;
+    opacity: 0.75;
+    &:hover {
+      opacity: 1;
+    }
+  }
+  .imp-drop {
+    border: 2px dashed #555;
+    border-radius: 10px;
+    padding: 22px 10px;
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.6;
+    transition:
+      border-color 150ms,
+      background-color 150ms;
+    &.dragover {
+      border-color: #d42020;
+      background-color: rgba(160, 20, 20, 0.12);
+      opacity: 1;
+    }
+  }
+  .paste-acts {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+}
+// the FEED's furniture — sticky search bar, sticky group mini-headers, an
+// auto-fill grid that takes as many icons per row as the width gives
+.role-form .forge-feed {
+  .feed-top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 2px 6px;
+    background: rgba(8, 8, 10, 0.97);
+    .feed-search {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+    }
+    .feed-source {
+      flex: none;
+    }
+    .ip-current {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      img {
+        width: 30px;
+        height: 30px;
+      }
+      .ip-reroll {
+        cursor: pointer;
+        opacity: 0.7;
+        font-size: 12px;
+        &:hover {
+          opacity: 1;
+          color: #ff6b6b;
+        }
+      }
+    }
+  }
+  .feed-head {
+    position: sticky;
+    top: 40px;
+    z-index: 4;
+    background: rgba(8, 8, 12, 0.95);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    opacity: 0.8;
+    padding: 4px 6px 2px;
+    small {
+      opacity: 0.6;
+      letter-spacing: 0;
+    }
+  }
+  .feed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: 2px;
+    padding: 4px 0 8px;
+    .icon-cell {
+      padding: 4px 0;
+      cursor: pointer;
+      border-radius: 6px;
+      text-align: center;
+      .icon {
+        display: block;
+        width: 40px;
+        height: 40px;
+        margin: 0 auto;
+        background-size: cover;
+        background-position: center;
+      }
+      .il-thumb {
+        display: block;
+        width: 40px;
+        height: 40px;
+        margin: 0 auto;
+        opacity: 0.9;
+      }
+      .label {
+        display: block;
+        font-size: 10px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0 3px;
+      }
+      &:hover {
+        background: rgba(255, 0, 0, 0.25);
+      }
+      &.selected {
+        outline: 1px solid #a01414;
+        background: rgba(160, 20, 20, 0.14);
+      }
+    }
+  }
+  .feed-none {
+    padding: 14px;
+    font-size: 13px;
+    opacity: 0.6;
+    text-align: center;
+  }
+  .il-loading {
+    padding: 12px;
+    opacity: 0.7;
+  }
+  .feed-sentinel {
+    height: 2px;
   }
 }
 // the LIVE COIN — the real Token, sized like a generous seat, inert to the
@@ -3564,9 +3746,6 @@ $team-colors: (
     width: 100%;
     height: 100%;
   }
-}
-.role-form .art-door {
-  align-self: center;
 }
 // ONE plated ground for every group — the composer's own plate, promoted to
 // the shared idiom; fields inside take the column's one width
@@ -3595,25 +3774,6 @@ $team-colors: (
     width: 100%;
     box-sizing: border-box;
     margin: 0;
-  }
-}
-.role-form .fg-setup {
-  flex-direction: row;
-  justify-content: center;
-}
-// the JSON door at the bottom edge
-.role-form .forge-import {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  .imp-door {
-    opacity: 0.75;
-    &:hover,
-    &.on {
-      opacity: 1;
-    }
   }
 }
 // one plate, cells inside — the workbench night lens's own construction
@@ -3909,19 +4069,6 @@ $team-colors: (
       opacity: 1;
     }
   }
-  .wb-forge-paste {
-    flex-direction: column;
-    gap: 4px;
-    textarea {
-      width: 90% !important;
-    }
-    .paste-acts {
-      display: flex;
-      gap: 6px;
-      justify-content: center;
-    }
-  }
-
   // Our buttons, not upstream's shiny pills: small, flat, dark, hairline.
   // Pixel-sized — the app's base font is viewport-huge, so percentages lie.
   .button {
@@ -4516,8 +4663,9 @@ $team-colors: (
   // FT-1040b (user call): the forge works WHERE THE SCRIPT LIVES — it takes
   // the script view's flex slot in wb-body instead of floating over it, so
   // the modal-backdrop chrome (centering transform, drop shadow, z-index)
-  // goes. FT-1040c: the two-column body centers itself (forge-cols), so the
-  // pane keeps plain padding.
+  // goes. FT-1041b: the pane is a COLUMN that does not scroll itself — the
+  // form column and the art feed each scroll on their own, so the coin and
+  // the feed's search stay at hand however deep either side runs.
   .wb-body .role-form.forge-inline {
     position: static;
     transform: none;
@@ -4527,7 +4675,40 @@ $team-colors: (
     max-height: none;
     box-shadow: none;
     z-index: auto;
-    padding: 8px 18px 18px;
+    padding: 8px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    // FT-1041b rider (user): the forge wears the grimoire's purple, not the
+    // overlay panels' blood — it is a CONSTRUCTIVE surface, like the + that
+    // opens it.
+    border-color: $grimoire-plum;
+  }
+  // stacked (narrow): form above feed, the PANE scrolls as one again
+  @media (max-width: 1023px) {
+    .wb-body .role-form.forge-inline {
+      display: block;
+      overflow-y: auto;
+    }
+    .wb-body .role-form.forge-inline .forge-cols {
+      display: block;
+      .forge-col.fc-identity {
+        overflow: visible;
+        margin-bottom: 12px;
+      }
+      .forge-feed {
+        overflow: visible;
+      }
+      // the sticky ladder re-rungs against the pane's scrollport: the head
+      // (top 0) first, then the feed's search bar, then the group headers
+      .forge-feed .feed-top {
+        top: 42px;
+      }
+      .forge-feed .feed-head {
+        top: 82px;
+      }
+    }
   }
   // while the forge holds the pane, the sidebar stays put but visibly paused
   // (its clicks would edit the script view you cannot see)
