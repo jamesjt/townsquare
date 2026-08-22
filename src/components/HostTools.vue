@@ -462,7 +462,7 @@
             placeholder="Link to a sound"
             :title="bellUrlHint"
             v-model="bellUrlDraft"
-            @change="setBellUrl"
+            @change="commitSourceUrl('bell')"
             @keyup.enter="$event.target.blur()"
           />
         </span>
@@ -482,7 +482,93 @@
               accept="audio/*"
               hidden
               :disabled="bellUploading"
-              @change="uploadBell"
+              @change="uploadSource('bell', $event)"
+            />
+          </label>
+        </span>
+      </div>
+
+      <!-- FT-1051: THE CALL-BACK'S VOICE — the summons every player hears
+         when the storyteller calls the town back (its trigger now stands
+         above the script name; TownInfo.vue). Default is the clip that
+         ships; Custom opens the same source row the bell wears. Clicking
+         either previews it — locally, never the town. -->
+      <div class="row tw-row" title="The sound that calls the town back">
+        <span class="tw-lead">
+          <span class="label">
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="broadcast-tower"
+              title="The call-back's voice"
+            />
+          </span>
+          <span class="tw-seg" role="radiogroup" aria-label="Call-back voice">
+            <button
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.callId !== 'custom')"
+              :class="{ on: tower.callId !== 'custom' }"
+              title="The summons that ships — click plays it for you; a second click stops it"
+              @click="pickCall('default')"
+            >
+              Default
+            </button>
+            <button
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.callId === 'custom')"
+              :class="{ on: tower.callId === 'custom' }"
+              title="A sound of your own — click plays it for you; a second click stops it"
+              @click="pickCall('custom')"
+            >
+              Custom
+            </button>
+          </span>
+        </span>
+      </div>
+      <div
+        class="row tw-row tw-custom"
+        v-if="tower.callId === 'custom'"
+        title="Where the call-back's sound lives — every player's browser fetches it from here"
+      >
+        <span class="tw-lead">
+          <span class="label">
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="link"
+              title="The call-back's source"
+            />
+          </span>
+          <input
+            class="tw-url"
+            type="text"
+            :class="{ bad: callUrlState === 'bad' }"
+            placeholder="Link to a sound"
+            :title="callUrlHint"
+            v-model="callUrlDraft"
+            @change="commitSourceUrl('call')"
+            @keyup.enter="$event.target.blur()"
+          />
+        </span>
+        <span class="tools">
+          <label
+            class="tool-btn tw-upload"
+            :class="{ busy: callUploading }"
+            :title="
+              callUploading
+                ? 'Uploading…'
+                : 'Upload a sound file instead (10MB cap)'
+            "
+          >
+            <font-awesome-icon icon="file-upload" />
+            <input
+              type="file"
+              accept="audio/*"
+              hidden
+              :disabled="callUploading"
+              @change="uploadSource('call', $event)"
             />
           </label>
         </span>
@@ -612,9 +698,11 @@ import {
   // FT-1045: the bell buttons preview as they pick, and Custom brings a
   // source row — a validated link, or an upload that becomes one.
   toggleBellPreview,
-  probeBellUrl,
-  uploadBellFile,
 } from "../golem/towerBells";
+// FT-1051: the shared custom-audio machinery (one helper serving the bell
+// AND the call-back), and the call-back's own preview.
+import { probeAudioUrl, uploadAudioFile } from "../golem/customAudio";
+import { toggleCallBackPreview } from "../golem/callBack";
 
 // The four teams the setup table names, in the order every other surface in
 // this app states them (the reading order of a composition, best to worst).
@@ -690,6 +778,10 @@ export default {
       bellUrlDraft: towerState.bellUrl || "",
       bellUrlState: "",
       bellUploading: false,
+      // FT-1051: the call-back's source row — same triplet, same rules.
+      callUrlDraft: towerState.callUrl || "",
+      callUrlState: "",
+      callUploading: false,
     };
   },
   created() {
@@ -760,10 +852,11 @@ export default {
     },
     /** FT-1045: the source field's tooltip doubles as its quiet status. */
     bellUrlHint() {
-      if (this.bellUrlState === "bad")
-        return "That link would not load as audio — an unplayable source is not kept (and at day-start the town would fall back to bell One)";
-      if (this.bellUrlState === "checking") return "Checking the link…";
-      return "Link to a sound file — every player's browser fetches it from here";
+      return this.sourceHint(this.bellUrlState, "bell One");
+    },
+    /** FT-1051: the call-back field's, same wording, its own fallback. */
+    callUrlHint() {
+      return this.sourceHint(this.callUrlState, "the default call");
     },
     /** Travellers sit beyond the base count and outside distribution math. */
     coreSeats() {
@@ -904,13 +997,17 @@ export default {
     // ── FT-1020: the tower rows ──────────────────────────────────────────
     /** The tower changed — here, on the dial's anchor menu, or by a load. */
     readTower() {
-      // FT-1045: follow an outside change of the source URL (a load, another
-      // surface) unless the field holds an unsaved edit — the draft only
-      // moves when it still agrees with what the module last knew.
-      const before = this.tower.bellUrl;
+      // FT-1045/FT-1051: follow an outside change of a source URL (a load,
+      // another surface) unless the field holds an unsaved edit — a draft
+      // only moves when it still agrees with what the module last knew.
+      const bellBefore = this.tower.bellUrl;
+      const callBefore = this.tower.callUrl;
       this.tower = { ...towerState };
-      if (this.bellUrlDraft === (before || "") || !this.bellUrlDraft) {
+      if (this.bellUrlDraft === (bellBefore || "") || !this.bellUrlDraft) {
         this.bellUrlDraft = this.tower.bellUrl || "";
+      }
+      if (this.callUrlDraft === (callBefore || "") || !this.callUrlDraft) {
+        this.callUrlDraft = this.tower.callUrl || "";
       }
     },
     /** One choice made: validate, persist for THIS town, tell the dial. */
@@ -936,50 +1033,82 @@ export default {
       if (id === "custom" && !this.tower.bellUrl) return;
       toggleBellPreview(id, this.tower.bellVolume, this.grimoire.isMuted);
     },
-    /** FT-1045: the link committed (change/Enter). Validated by loading it
-     *  as audio before it is kept — a link that will not play wears the
-     *  quiet failure state and never reaches the town. */
-    async setBellUrl() {
-      const url = this.bellUrlDraft.trim();
-      if (!url) {
-        this.bellUrlState = "";
-        this.setTower("bellUrl", "");
-        return;
-      }
-      this.bellUrlState = "checking";
-      const ok = await probeBellUrl(url);
-      // a slow probe finishing after the draft moved on says nothing
-      if (this.bellUrlDraft.trim() !== url) return;
-      if (!ok) {
-        this.bellUrlState = "bad";
-        return;
-      }
-      this.bellUrlState = "ok";
-      this.setTower("bellUrl", url);
-      // let the storyteller hear exactly what the town will hear
-      toggleBellPreview("custom", this.tower.bellVolume, this.grimoire.isMuted);
+    /** FT-1051: picking the call-back's voice also PLAYS it, locally —
+     *  the same stop-on-second-click contract the bells carry. Custom with
+     *  no source yet just opens its row. */
+    pickCall(id) {
+      this.setTower("callId", id);
+      if (id === "custom" && !this.tower.callUrl) return;
+      toggleCallBackPreview(this.grimoire.isMuted);
     },
-    /** FT-1045: a sound file becomes a link — the platform's asset store
-     *  takes the bytes and the returned URL syncs like any other. */
-    async uploadBell(ev) {
-      const file = ev.target.files && ev.target.files[0];
-      ev.target.value = "";
-      if (!file || this.bellUploading) return;
-      this.bellUploading = true;
-      try {
-        const url = await uploadBellFile(file);
-        this.bellUrlDraft = url;
-        this.bellUrlState = "ok";
-        this.setTower("bellUrl", url);
+    /** The two source fields' shared tooltip wording (bellUrlHint /
+     *  callUrlHint above name their own fallback). */
+    sourceHint(state, fallbackName) {
+      if (state === "bad")
+        return `That link would not load as audio — an unplayable source is not kept (and the town would fall back to ${fallbackName})`;
+      if (state === "checking") return "Checking the link…";
+      return "Link to a sound file — every player's browser fetches it from here";
+    },
+    /** What the storyteller should hear after a source lands — the exact
+     *  sound the town will get for that surface. */
+    previewSource(which) {
+      if (which === "bell") {
         toggleBellPreview(
           "custom",
           this.tower.bellVolume,
           this.grimoire.isMuted,
         );
+      } else {
+        toggleCallBackPreview(this.grimoire.isMuted);
+      }
+    },
+    /** FT-1045/FT-1051: a link committed (change/Enter) on either source
+     *  row. Validated by loading it as audio before it is kept — a link
+     *  that will not play wears the quiet failure state and never reaches
+     *  the town. `which` is "bell" or "call". */
+    async commitSourceUrl(which) {
+      const draftKey = which + "UrlDraft";
+      const stateKey = which + "UrlState";
+      const field = which + "Url";
+      const url = this[draftKey].trim();
+      if (!url) {
+        this[stateKey] = "";
+        this.setTower(field, "");
+        return;
+      }
+      this[stateKey] = "checking";
+      const ok = await probeAudioUrl(url);
+      // a slow probe finishing after the draft moved on says nothing
+      if (this[draftKey].trim() !== url) return;
+      if (!ok) {
+        this[stateKey] = "bad";
+        return;
+      }
+      this[stateKey] = "ok";
+      this.setTower(field, url);
+      this.previewSource(which);
+    },
+    /** FT-1045/FT-1051: a sound file becomes a link — the platform's asset
+     *  store takes the bytes and the returned URL syncs like any other. */
+    async uploadSource(which, ev) {
+      const file = ev.target.files && ev.target.files[0];
+      ev.target.value = "";
+      const busyKey = which + "Uploading";
+      if (!file || this[busyKey]) return;
+      this[busyKey] = true;
+      try {
+        const url = await uploadAudioFile(
+          file,
+          which === "bell" ? "botc_bell" : "botc_call",
+        );
+        this[which + "UrlDraft"] = url;
+        this[which + "UrlState"] = "ok";
+        this.setTower(which + "Url", url);
+        this.previewSource(which);
       } catch (e) {
         flashHint(e.message || "The upload failed.");
       }
-      this.bellUploading = false;
+      this[busyKey] = false;
     },
     // ── FT-847: owned-town rename ────────────────────────────────────────
     loadTownName() {

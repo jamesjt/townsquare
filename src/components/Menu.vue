@@ -69,38 +69,14 @@
           <!-- (FT-1010: the chat bubble and the chronicle's book-with-a-skull
                stood here, FT-965/FT-886 — both merged into the Chronicles
                quill above. ui-chat.png stays in the tree.) -->
-          <!-- FT-880: CALL THE TOWN BACK — every connected client makes a
-               noise at once. During the day the town scatters into private
-               conversations and the storyteller has no way to end them.
+          <!-- FT-880: CALL THE TOWN BACK stood here (the strip is never
+               hidden by a drawer, which is why it lived in this row).
+               FT-1051 (user): it moved to the info column, ABOVE the script
+               name — TownInfo.vue's .info-call — where it reads as the
+               table's own control rather than one mark among ten. The
+               reasoning that put it here (visible mid-day, nothing open, no
+               confirm) moved with it and still holds there. -->
 
-               STORYTELLER ONLY, by `v-if`, so a player's component tree never
-               contains the control at all — there is no rule here for a
-               missing stylesheet to fail to apply. (The strip already varies
-               by viewer: the moon two lines up is a seated PLAYER's door and
-               a storyteller never gets it.)
-
-               Here rather than in the session pill, where the host's other
-               controls live, for the reason the records door moved: this is
-               wanted at exactly one moment — mid-day, nothing open — and the
-               strip is the one piece of chrome that is never hidden by a
-               drawer or a phone's orientation. A summons behind a closed
-               drawer is not a summons.
-
-               No confirm and no arm-then-press: unlike Leave there is nothing
-               to undo, and a summons that takes two clicks arrives after the
-               conversation it was meant to interrupt. -->
-          <font-awesome-icon
-            v-if="!session.isSpectator"
-            class="call-back"
-            :class="{ cooling: callBackCooling }"
-            icon="bell"
-            :title="
-              callBackCooling
-                ? 'Just called the town back'
-                : 'Call the town back — everyone hears a sound'
-            "
-            @click="callTownBack"
-          />
           <!-- FT-880: THE KEYS. Every one of this app's hotkeys has been
                undiscoverable since upstream — no screen mentions them. This is
                the door onto the list, and it is last in the row on purpose:
@@ -361,9 +337,8 @@ import {
   chooseHourMode,
   effectiveHourMode,
 } from "../golem/towerBells";
-// FT-880: the town summons — the storyteller's press plays it here too, since
-// the relay never echoes a message back to whoever sent it.
-import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
+// (FT-880's town summons lived in this strip; FT-1051 moved the trigger —
+// and its playCallBack/CALL_BACK_COOLDOWN imports — to TownInfo.vue.)
 // FT-890: leaving a town is one call, not a commit sequence copied per caller.
 import { leaveTown, resolveTownRole } from "../golem/townRoute";
 // 2026-08-19: joining a town nobody has opened yet is a wait, not an entry —
@@ -403,14 +378,10 @@ export default {
       uiHourglass,
       hourModes: HOUR_MODES,
       towerHourMode: effectiveHourMode(this.$store.state.session),
-      // FT-880: the nervous-double-press guard, held locally the same way the
-      // pill's Leave holds its two-click arm — it is about this one button's
-      // feel, not about the town's state, so it does not belong in the store.
-      callBackCooling: false,
-      callBackTimer: null,
-      // ...and the same shape for the townless table's door out — held here
-      // rather than in the store for the same reason: it is about this one
-      // button's feel, not about the town's state.
+      // (FT-880's callBackCooling/-Timer pair moved to TownInfo.vue with
+      // the summons trigger, FT-1051.)
+      // The townless table's door out — held here rather than in the store:
+      // it is about this one button's feel, not about the town's state.
       clearArmed: false,
       clearTimer: null,
       // The inline ask panel (see its markup for why it exists): null, or
@@ -434,7 +405,6 @@ export default {
   },
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTowerMode);
-    clearTimeout(this.callBackTimer);
     clearTimeout(this.clearTimer);
   },
   watch: {
@@ -473,29 +443,8 @@ export default {
       this.$store.commit("setScriptDrawerView", view);
       if (!this.modals.scriptDrawer) this.toggleModal("scriptDrawer");
     },
-    /**
-     * FT-880: ring the town.
-     *
-     * Two things happen, and the second is not decoration: the mutation is
-     * what travels (the socket plugin owns the storyteller-only guard on it),
-     * and the local play is because the relay never sends a message back to
-     * the client that sent it — without it the storyteller presses a button
-     * and gets total silence, which is indistinguishable from a broken one.
-     *
-     * The guard here is a courtesy, not a defence: the real refusals are in
-     * socket.js and the relay. This one just keeps a twitchy double-tap from
-     * chopping the clip off at half a second and starting it again.
-     */
-    callTownBack() {
-      if (this.session.isSpectator) return;
-      if (this.callBackCooling) return;
-      this.callBackCooling = true;
-      this.callBackTimer = setTimeout(() => {
-        this.callBackCooling = false;
-      }, CALL_BACK_COOLDOWN);
-      this.$store.commit("session/callBack");
-      playCallBack(this.grimoire.isMuted);
-    },
+    // (FT-880's callTownBack moved to TownInfo.vue with its trigger,
+    // FT-1051 — one owner for the button and the press.)
     // ── the inline ask ───────────────────────────────────────────────────
     /**
      * Open the panel. `onOk` receives the trimmed text in "input" mode and

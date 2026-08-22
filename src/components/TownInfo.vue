@@ -14,6 +14,32 @@
        letting the layer beneath show through this box's own transparent
        gaps once the mark exists. -->
   <ul class="info" :class="{ 'splat-live': hasFaceSplat }">
+    <!-- FT-880/FT-1051: CALL THE TOWN BACK — every connected client makes a
+         noise at once. It lived in the top strip (Menu.vue); FT-1051 (user)
+         stood it here instead, ABOVE the script name, in the phase chip's
+         own engraved-plate idiom — the table's own control, not one mark
+         among ten. Storyteller only by v-if, so a player's tree never
+         contains it. No confirm and no arm-then-press: there is nothing to
+         undo, and a summons that takes two clicks arrives after the
+         conversation it was meant to interrupt. The cooling guard is the
+         same nervous-double-press swallow it always had — a summons chopped
+         off at half a second and restarted sounds like a fault. -->
+    <li class="info-call" v-if="!session.isSpectator && !session.isEnded">
+      <button
+        type="button"
+        class="call-now"
+        :class="{ cooling: callBackCooling }"
+        :title="
+          callBackCooling
+            ? 'Just called the town back'
+            : 'Call the town back — everyone hears a sound'
+        "
+        @click="callTownBack"
+      >
+        <font-awesome-icon icon="bell" class="call-mark" />
+        Call the town back
+      </button>
+    </li>
     <li
       class="edition"
       :class="['edition-' + edition.id]"
@@ -258,6 +284,10 @@ import moonOther from "../assets/moon-other.png";
 // because this readout is their only count-row consumer today.
 import ghostCowl from "../assets/ui-ghost-cowl.png";
 import nooseIcon from "../assets/ui-noose.png";
+// FT-880/FT-1051: the town summons — trigger moved here from the strip
+// (Menu.vue). The storyteller's press plays it locally too, since the relay
+// never echoes a message back to whoever sent it.
+import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
 // FT-993: this panel no longer picks or draws the splat itself -- that
 // moved to App.vue with the visible layer. It only needs to know whether
 // one exists, to clear its own knocker background out of that layer's way
@@ -265,7 +295,18 @@ import nooseIcon from "../assets/ui-noose.png";
 
 export default {
   data() {
-    return { countIcons: COUNT_ICONS, ghostCowl, nooseIcon };
+    return {
+      countIcons: COUNT_ICONS,
+      ghostCowl,
+      nooseIcon,
+      // FT-880/FT-1051: the summons' nervous-double-press guard, moved here
+      // with its button — about this one control's feel, not town state.
+      callBackCooling: false,
+      callBackTimer: null,
+    };
+  },
+  beforeDestroy() {
+    clearTimeout(this.callBackTimer);
   },
   computed: {
     teams: function() {
@@ -380,6 +421,30 @@ export default {
      * copy — the isPhaseLive guard here is a second, cheap backstop, not
      * the thing doing the work.
      */
+    /**
+     * FT-880 (moved here by FT-1051): ring the town.
+     *
+     * Two things happen, and the second is not decoration: the mutation is
+     * what travels (the socket plugin owns the storyteller-only guard on
+     * it), and the local play is because the relay never sends a message
+     * back to the client that sent it — without it the storyteller presses
+     * a button and gets total silence, which is indistinguishable from a
+     * broken one.
+     *
+     * The guard here is a courtesy, not a defence: the real refusals are in
+     * socket.js and the relay. This one just keeps a twitchy double-tap
+     * from chopping the clip off at half a second and starting it again.
+     */
+    callTownBack() {
+      if (this.session.isSpectator) return;
+      if (this.callBackCooling) return;
+      this.callBackCooling = true;
+      this.callBackTimer = setTimeout(() => {
+        this.callBackCooling = false;
+      }, CALL_BACK_COOLDOWN);
+      this.$store.commit("session/callBack");
+      playCallBack(this.grimoire.isMuted);
+    },
     onPhaseClick() {
       if (this.isPhaseLive) this.$emit("end-phase");
     }
@@ -735,6 +800,62 @@ export default {
     background-size: 100% auto;
     position: absolute;
     top: -25%;
+  }
+
+  // FT-1051: THE SUMMONS, above the script name. Anchored to the edition
+  // badge's own TOP edge (the same `top: -25%` box li.edition sits in, see
+  // the derivation on .info-phase below) and lifted fully above itself, so
+  // it stands over the script art whatever the window size. The plate is
+  // .phase-now's engraved idiom at a step smaller — this is a control the
+  // storyteller reaches for, not the table's headline.
+  .info-call {
+    position: absolute;
+    top: -25%;
+    left: 50%;
+    transform: translate(-50%, calc(-100% - 6px));
+    font-family: PiratesBay, sans-serif;
+    letter-spacing: 1px;
+    z-index: 5;
+
+    .call-now {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font: inherit;
+      font-size: 15px;
+      color: #d8cdb4;
+      letter-spacing: inherit;
+      text-shadow: inherit;
+      white-space: nowrap;
+      border: 1px solid rgba(120, 105, 135, 0.4);
+      border-radius: 6px;
+      background: rgba(20, 16, 22, 0.9);
+      padding: 4px 12px;
+      cursor: pointer;
+      transition:
+        background 150ms,
+        border-color 150ms,
+        color 150ms;
+
+      &:hover,
+      &:focus-visible {
+        background: rgba(32, 24, 38, 0.95);
+        border-color: rgba(150, 130, 175, 0.75);
+        color: #fff;
+        outline: none;
+      }
+      // "not yet" — the cooling swallow dims like the strip's bell did
+      &.cooling {
+        color: #7a736a;
+        cursor: default;
+        pointer-events: none;
+      }
+    }
+    .call-mark {
+      width: 14px;
+      height: 14px;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+    }
   }
 
   // FT-875: the phase readout, pinned to the BOTTOM EDGE of the edition

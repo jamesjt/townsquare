@@ -1387,7 +1387,7 @@ class LiveSession {
   }
 
   /**
-   * FT-1045: send the whole tower (it is six small fields), live. ST only.
+   * FT-1045: send the whole tower (a handful of small fields), live. ST only.
    * Fired from the TOWER_EVENT listener in the plugin below — the same
    * event every tower surface already re-reads on — so any surface that
    * writes the tower inherits the delivery without knowing this exists.
@@ -1649,7 +1649,7 @@ export default (store) => {
   // event every tower surface re-reads on. A HOST broadcasts the new tower
   // live; a spectator's event (their own display pick, or a sync applying)
   // is nobody else's business and the guard drops it. Also fires on the
-  // host's own load/mount — a redundant send of six small fields, and a
+  // host's own load/mount — a redundant send of a small object, and a
   // closed socket swallows it (_send checks readyState).
   window.addEventListener(TOWER_EVENT, () => {
     if (!store.state.session.isSpectator && store.state.session.sessionId) {

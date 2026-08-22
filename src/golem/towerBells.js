@@ -36,6 +36,9 @@
 
 import bellOneSound from "../assets/bell-tolls.mp3";
 import bellTwoSound from "../assets/bell-tolls-2.mp3";
+// FT-1051: the shared custom-audio machinery (sanitizer + one-element-per-URL
+// slot) — one helper serving the bell and the call-back, not a copy.
+import { sanitizeAudioUrl, makeCustomSlot } from "./customAudio";
 
 /** The two bells the user cut for the tower (FT-979 trimmed and faded them;
  *  the full-length originals live in design/bells/), plus CUSTOM (FT-1045):
@@ -95,6 +98,12 @@ export const DEFAULT_TOWER = {
   // A key of DEFAULT_TOWER, so it persists per town and rides the sync with
   // no further plumbing (both walk these keys).
   bellUrl: "",
+  // FT-1051: the CALL-BACK's voice, riding the same shelf — "default" is the
+  // FT-880 clip that ships, "custom" plays callUrl. The keys live here (not
+  // in callBack.js) because this object IS the town's synced, per-town-
+  // persisted sound config; callBack.js reads them at play time.
+  callId: "default",
+  callUrl: "",
 };
 
 /** The volume dial's bounds, in percent — 0 is silent, 100 is the clip as cut. */
@@ -163,17 +172,14 @@ function sanitize(key, value) {
       if (!isFinite(n)) return DEFAULT_TOWER.bellVolume;
       return Math.max(BELL_VOLUME_MIN, Math.min(BELL_VOLUME_MAX, n));
     }
-    case "bellUrl": {
-      // FT-1045: a link, or nothing. Only http(s) and same-origin paths pass
-      // — a javascript: or data: URL arriving off the wire dies here (data:
-      // is also barred by size: audio data-URLs would ride every sync).
-      if (typeof value !== "string") return DEFAULT_TOWER.bellUrl;
-      const s = value.trim().slice(0, 1024);
-      if (!s) return "";
-      return /^https?:\/\//i.test(s) || s.charAt(0) === "/"
-        ? s
-        : DEFAULT_TOWER.bellUrl;
-    }
+    // FT-1045/FT-1051: a link, or nothing — the shared sanitizer (see
+    // golem/customAudio.js: http(s)/same-origin only, javascript: and data:
+    // URLs die here; data: is also barred by size, it would ride every sync).
+    case "bellUrl":
+    case "callUrl":
+      return sanitizeAudioUrl(value);
+    case "callId":
+      return value === "custom" ? "custom" : "default";
     default:
       return undefined;
   }
@@ -315,10 +321,10 @@ let unlocked = false;
 let listening = false;
 let opToken = 0;
 let lastRangAt = 0;
-/** FT-1045: which URL els.custom was built for — the one exception to
- *  "one element forever": a NEW custom link earns a new element (the old
- *  one's autoplay credit transfers with the page's unlocked state). */
-let customSrc = "";
+/** FT-1045 (impl moved to golem/customAudio.js for FT-1051): the custom
+ *  bell's one-element-per-URL slot — a NEW link earns a new element (the
+ *  page's unlocked autoplay state carries over). */
+const customBell = makeCustomSlot();
 
 /** THE elements — one per bell, forever (credit belongs to the element).
  *  CUSTOM (FT-1045) resolves through towerState.bellUrl; custom with no URL
@@ -328,12 +334,7 @@ function element(bellId) {
   if (bell.id === "custom") {
     const url = towerState.bellUrl;
     if (!url) return element(TOWER_BELLS[0].id);
-    if (!els.custom || customSrc !== url) {
-      els.custom = new Audio(url);
-      els.custom.preload = "auto";
-      customSrc = url;
-    }
-    return els.custom;
+    return customBell.get(url);
   }
   if (!els[bell.id]) {
     els[bell.id] = new Audio(bell.src);
@@ -482,7 +483,11 @@ function play(bellId, volume, isMuted) {
     // link never buys the town a silent day. Only on source failure (see
     // ringElement); and only when custom actually resolved to its own
     // element (custom with no URL already resolved to bell one above).
-    if (status === "failed" && bellId === "custom" && a === els.custom) {
+    if (
+      status === "failed" &&
+      bellId === "custom" &&
+      a === customBell.current()
+    ) {
       return ringElement(element(TOWER_BELLS[0].id), volume).then(
         (second) => second === "ok",
       );
@@ -533,6 +538,7 @@ export function stopBellPreview() {
       // never loaded; nothing to rewind
     }
   });
+  customBell.stop();
 }
 
 /**
@@ -553,64 +559,6 @@ export function toggleBellPreview(bellId, volume, isMuted) {
   return play(bellId, volume, isMuted);
 }
 
-/**
- * FT-1045: does this link actually hold audio the browser can play? Loads
- * it into a throwaway element (metadata only reaches the network, no sound)
- * and answers within 10 seconds. The row's URL field shows its quiet
- * failure state on false.
- */
-export function probeBellUrl(url) {
-  return new Promise((resolve) => {
-    const clean = sanitize("bellUrl", url);
-    if (!clean) return resolve(false);
-    let a;
-    try {
-      a = new Audio();
-    } catch (e) {
-      return resolve(false);
-    }
-    let done = false;
-    const settle = (ok) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      a.oncanplay = null;
-      a.onerror = null;
-      resolve(ok);
-    };
-    const timer = setTimeout(() => settle(false), 10 * 1000);
-    a.oncanplay = () => settle(true);
-    a.onerror = () => settle(false);
-    a.preload = "auto";
-    a.src = clean;
-    a.load();
-  });
-}
-
-/**
- * FT-1045: push a sound file to the platform's asset store and return the
- * same-origin URL it will be served from — POST /api/assets/upload, the
- * multipart endpoint every experience shares (10MB cap, audio validated by
- * magic bytes server-side). "unlisted" because the URL is handed out by the
- * tower sync, not by a gallery. Throws a message fit for the row's quiet
- * failure state; the platform requires a login for uploads in every
- * environment, so 401 gets the honest wording.
- */
-export async function uploadBellFile(file) {
-  const body = new FormData();
-  body.append("file", file, file.name || "bell");
-  body.append("kind", "botc_bell");
-  body.append("visibility", "unlisted");
-  const res = await fetch("/api/assets/upload", { method: "POST", body });
-  if (res.status === 401)
-    throw new Error(
-      "Uploading needs a golem-studios.com login — a link works without one",
-    );
-  if (res.status === 413) throw new Error("Too big — 10MB is the cap");
-  if (res.status === 415) throw new Error("That file is not audio");
-  if (!res.ok) throw new Error(`The upload failed (${res.status})`);
-  const data = await res.json();
-  const url = data && data.asset && data.asset.url;
-  if (!url) throw new Error("The upload came back without an address");
-  return url;
-}
+// FT-1051: probeBellUrl / uploadBellFile MOVED to golem/customAudio.js as
+// probeAudioUrl / uploadAudioFile — one helper serving the bell AND the
+// call-back, not a copy. HostTools imports them from there now.

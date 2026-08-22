@@ -31,6 +31,12 @@
  * and golem/iconStyle.js use for their own live panels.
  */
 import callBackSound from "../assets/call-back.mp3";
+// FT-1051: the summons can wear a storyteller-supplied voice. The CHOICE
+// (callId/callUrl) lives on towerState — the town's synced, per-town-
+// persisted sound config, the same shelf the day-start bell's custom source
+// rides — and the element machinery is golem/customAudio's shared slot.
+import { towerState } from "./towerBells";
+import { makeCustomSlot } from "./customAudio";
 
 /**
  * The nervous double-press guard. The clip is ~10s and there is only ever one
@@ -79,13 +85,28 @@ let listening = false;
  */
 let opToken = 0;
 
-/** THE element. Created once; never replaced, or the credit goes with it. */
-function element() {
+/** FT-1051: the custom voice's one-element-per-URL slot — replaced only when
+ *  the URL itself changes (the page's unlocked autoplay state carries over). */
+const customCall = makeCustomSlot();
+
+/** THE DEFAULT element. Created once; never replaced, or the credit goes
+ *  with it. */
+function defaultElement() {
   if (!el) {
     el = new Audio(callBackSound);
     el.preload = "auto";
   }
   return el;
+}
+
+/** THE element for the town's CURRENT choice — the default clip, or the
+ *  custom voice when one is set (FT-1051). Custom with no URL resolves to
+ *  the default, so no caller can ever hold a source-less summons. */
+function element() {
+  if (towerState.callId === "custom" && towerState.callUrl) {
+    return customCall.get(towerState.callUrl);
+  }
+  return defaultElement();
 }
 
 /**
@@ -166,41 +187,110 @@ export function armCallBackAudio() {
 export function playCallBack(isMuted) {
   if (isMuted) return Promise.resolve(false);
   const a = element();
+  return ringCall(a).then((status) => {
+    // FT-1051: the custom SOURCE died — the summons falls back to the clip
+    // that ships, so a rotted link never buys the town a silent call (its
+    // whole job is being heard). Only on source failure: a policy refusal
+    // would refuse the default identically, and a superseded play was
+    // replaced, not broken.
+    if (status === "failed" && a !== defaultElement()) {
+      return ringCall(defaultElement()).then((second) => second === "ok");
+    }
+    return status === "ok";
+  });
+}
+
+/**
+ * One element commanded to play. Resolves "ok", "blocked" (a policy refusal
+ * — recorded, the notice's trigger), "failed" (the SOURCE would not load or
+ * decode — FT-1051's fallback reason), or "stale" (superseded by a later
+ * operation; see opToken — neither refused nor fallen back on).
+ */
+function ringCall(a) {
   // A real summons outranks any silent unlock still in flight — it takes the
   // element, and undoes the mute that unlock may have just put on it. Without
   // this the confirming sound plays perfectly and inaudibly.
   const token = ++opToken;
   a.muted = false;
-  // rewind rather than stack: one element means the second press replaces the
-  // first play instead of doubling it
+  // rewind rather than stack: one element per source means a second press
+  // replaces the first play instead of doubling it
   try {
     a.currentTime = 0;
   } catch (e) {
     // an element that has never loaded throws on seek; play() will start it
   }
-  const p = a.play();
+  let p;
+  try {
+    p = a.play();
+  } catch (e) {
+    return Promise.resolve("failed");
+  }
   if (!p || !p.then) {
     callBackState.blocked = false;
-    return Promise.resolve(true);
+    return Promise.resolve("ok");
   }
   return p
     .then(() => {
       unlocked = true;
       callBackState.blocked = false;
       stopListening();
-      return true;
+      return "ok";
     })
-    .catch(() => {
+    .catch((err) => {
       // A play that something else has already superseded was ABORTED, not
       // refused — reporting it as refused would stand the notice back up in
       // front of a player whose sound is working.
-      if (opToken !== token) return false;
+      if (opToken !== token) return "stale";
+      const name = (err && err.name) || "";
+      if (name === "NotSupportedError" || name === "AbortError") {
+        return "failed";
+      }
       // THE FAILURE THIS MODULE EXISTS FOR. Nothing is thrown, nothing is
       // logged anywhere a player would look — so it is written down here, and
       // App.vue turns it into something they can see and act on.
       callBackState.blocked = true;
-      return false;
+      return "blocked";
     });
+}
+
+/** Is the build panel auditioning the summons right now? A FLAG, not just
+ *  `!a.paused` — the first preview click is usually also the page's first
+ *  gesture, so the silent unlock's muted play is IN FLIGHT on this very
+ *  element when the toggle reads it, and paused-alone would misread that as
+ *  "already sounding" and stop a preview that never started (the same trap
+ *  the bell row's previewingId guards; caught by the FT-1051 rig). */
+let callPreviewing = false;
+
+/**
+ * FT-1051: the build panel's source buttons preview the summons — clicking
+ * plays the CURRENT choice locally, clicking again while it still sounds
+ * STOPS it (the same stop-over-restart call the bell row made: the second
+ * click almost always means "enough"). Local-only; nothing travels.
+ */
+export function toggleCallBackPreview(isMuted) {
+  const a = element();
+  if (callPreviewing && !a.paused && !a.ended) {
+    stopCallBackPreview();
+    return Promise.resolve(false);
+  }
+  stopCallBackPreview();
+  callPreviewing = true;
+  return playCallBack(isMuted);
+}
+
+/** Both possible voices silenced — the default's element and the custom slot. */
+export function stopCallBackPreview() {
+  callPreviewing = false;
+  const d = defaultElement();
+  if (!d.paused) {
+    d.pause();
+    try {
+      d.currentTime = 0;
+    } catch (e) {
+      // never loaded; nothing to rewind
+    }
+  }
+  customCall.stop();
 }
 
 /**
