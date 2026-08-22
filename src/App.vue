@@ -41,6 +41,15 @@
       // A FACE DISC IS STANDING OVER THE HUB — see the computed. The town
       // readout answers to this and to nothing else (TownInfo.vue).
       'face-disc-open': faceDiscOpen,
+      // FT-1053: THE END-GAME CEREMONY's phase, worn on the root so the
+      // seat-level dressing (EndCeremony.vue's unscoped rules) can reach the
+      // ring — held breath / verdict / fade, plus which team the show is for.
+      'ec-active': ceremony.phase !== 'idle',
+      'ec-breath': ceremony.phase === 'breath',
+      'ec-verdict': ceremony.phase === 'verdict',
+      'ec-fade': ceremony.phase === 'fade',
+      'ec-good': ceremony.phase !== 'idle' && ceremony.winner === 'good',
+      'ec-evil': ceremony.phase !== 'idle' && ceremony.winner === 'evil',
     }"
     :style="{
       backgroundImage: grimoire.background
@@ -615,6 +624,12 @@
         <b>Tap here once.</b></span
       >
     </div>
+    <!-- FT-1053: THE END-GAME CEREMONY — mounted for the whole game (its
+         armed watch has to SEE the live game to distinguish a real ending
+         from a reload of an already-ended town), renders nothing until the
+         end broadcast lands. Before EndGameOverlay so the host's own picker
+         (z 90) stays above the show it starts. -->
+    <EndCeremony v-if="inGame" />
     <!-- FT-850: game recording + town records (see the components). -->
     <EndGameOverlay
       v-if="endGameOpen"
@@ -760,6 +775,10 @@ import FabledModal from "@/components/modals/FabledModal";
 import VoteHistoryModal from "@/components/modals/VoteHistoryModal";
 import GameStateModal from "@/components/modals/GameStateModal";
 import EndGameOverlay from "./components/EndGameOverlay";
+// FT-1053: the end-game ceremony — the component owns the trigger and the
+// dressing; the observable is what the root class binding above reads.
+import EndCeremony from "./components/EndCeremony";
+import { ceremonyState } from "./golem/endCeremony";
 import StatsOverlay from "./components/StatsOverlay";
 import NumberScrub from "./components/NumberScrub";
 // FT-880: the key list — the first surface in the app that says the hotkeys
@@ -800,6 +819,7 @@ export default {
   components: {
     NumberScrub,
     RoleHoverCard,
+    EndCeremony,
     EndGameOverlay,
     StatsOverlay,
     HotkeyHelp,
@@ -1213,6 +1233,9 @@ export default {
       // the session by the time the root component's data runs).
       endGameOpen: false,
       statsOpen: false,
+      // FT-1053: the ceremony's observable — held in data so the root class
+      // binding above re-renders on its phase walks. The module owns it.
+      ceremony: ceremonyState,
       // FT-880: the key list's own flag (the strip's question mark opens it)
       hotkeyHelpOpen: false,
       dealAt: dealTimeFor(this.$store.state.session.sessionId),

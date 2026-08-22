@@ -150,6 +150,10 @@ import {
 // FT-1020c: the ring numerals wear the carved Clocktower letter art — the
 // same PNG glyphs the entry screen's CLOCKTOWER lettering is built from.
 import { glyphFrom } from "../golem/titleFonts";
+// FT-1053: the end-game ceremony's one line into this file — while the
+// ceremony holds the hands (an evil win's "stopped dead mid-spin"), tick()
+// writes nothing, so the blades stand exactly where the spin left them.
+import { ceremonyState } from "../golem/endCeremony";
 
 /**
  * ── THE NUMERAL RING (FT-1020) ────────────────────────────────────────────────
@@ -497,6 +501,11 @@ export default {
     tick() {
       const el = this.$refs.layer;
       if (!el) return;
+      // FT-1053: the ceremony has stopped time — no writes while it holds.
+      // The frame loop keeps running (cheap), so the hands resume on their
+      // own the moment the hold lifts and the reset guard below absorbs the
+      // backward snap exactly as it does for a phase flip.
+      if (ceremonyState.holdHands) return;
       const a = this.frozen
         ? FACE_HANDS_FROZEN
         : handAngles(
@@ -856,7 +865,8 @@ $digital-y-face: -122;
 // the FT-1020c four-way halo for the ring in the paint layer.
 .tw-numeral-ink {
   color: #14100a !important;
-  text-shadow: 0 calc(1 * var(--fpx)) calc(1 * var(--fpx)) rgba(255, 250, 235, 0.45) !important;
+  text-shadow: 0 calc(1 * var(--fpx)) calc(1 * var(--fpx))
+    rgba(255, 250, 235, 0.45) !important;
 }
 
 .tw-numeral {
