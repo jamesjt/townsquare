@@ -6,7 +6,10 @@
     <!-- Golem fork: the gear is gone — the tab row IS the menu, always
          visible. Clicking a tab opens its section; clicking the open tab
          collapses back to the bare toolbar. -->
-    <div class="menu open" :class="{ collapsed: tab === null }">
+    <div
+      class="menu open"
+      :class="{ collapsed: tab === null, 'strip-width': tab === 'tower' }"
+    >
       <ul>
         <!-- Golem fork (2026-08-18, user call): the grimoire/help tabs left;
              the strip is the PLAYER surface now — script, vote history,
@@ -162,7 +165,13 @@
         <template v-if="tab === 'tower'">
           <!-- FT-1020c: the visible word is "Timer" (user call) — the tower
                naming stays internal (tab id, towerBells.js, the strip art). -->
-          <li class="headline">Timer</li>
+          <!-- FT-1044b (user): no team red/blue on this headline — the word
+               flanked by two small clocks on the menu's plain dark ground. -->
+          <li class="headline headline-plain">
+            <font-awesome-icon :icon="['fas', 'clock']" class="hl-clock" />
+            Timer
+            <font-awesome-icon :icon="['fas', 'clock']" class="hl-clock" />
+          </li>
           <li
             v-for="m in hourModes"
             :key="m.id"
@@ -862,6 +871,12 @@ export default {
     width: auto;
   }
 
+  // FT-1044b (user): opening the Timer must not widen the box — the section
+  // keeps the strip's own width instead of the 220px section default.
+  &.strip-width {
+    width: auto;
+  }
+
   a {
     color: white;
     text-decoration: none;
@@ -949,6 +964,17 @@ export default {
         rgba(0, 0, 0, 0.5) 80%,
         $demon 100%
       );
+
+      // FT-1044b (user): the Timer headline sheds the team gradient — plain
+      // dark ground, the word flanked by two small clocks.
+      &.headline-plain {
+        background: rgba(0, 0, 0, 0.5);
+        gap: 8px;
+      }
+      .hl-clock {
+        font-size: 75%;
+        opacity: 0.75;
+      }
     }
   }
 }
