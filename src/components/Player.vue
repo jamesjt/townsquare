@@ -300,7 +300,14 @@
         v-if="!showBallotVote && player.isDead"
         @click="updatePlayer('isVoteless', !player.isVoteless)"
         :title="player.isVoteless ? 'Ghost vote spent' : 'Ghost vote'"
-      ></div>
+      >
+        <!-- FT-1046c (user): the spent mark is the app's own X. -->
+        <font-awesome-icon
+          v-if="player.isVoteless"
+          icon="times"
+          class="spent-x"
+        />
+      </div>
 
       <!-- On block icon -->
       <div class="marked">
@@ -2351,27 +2358,22 @@ li.move:not(.from) .player .overlay svg.move {
     no-repeat;
   cursor: pointer;
 
-  // FT-1046: the SPENT state — the cowl stays on the seat, faded and struck
-  // through, one click from coming back. The strike is drawn as its own
-  // stroke so the cowl art keeps its alpha.
+  // FT-1046: the SPENT state — the cowl stays on the seat, faded, one click
+  // from coming back. FT-1046c (user): the mark over it is the app's own X
+  // (the workbench-close red), not a drawn strike.
   &.spent {
-    opacity: 0.35;
+    opacity: 0.5;
     filter: grayscale(0.6) drop-shadow(0 0 3px black);
+  }
 
-    &::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      /* FT-1046c (user): the strike runs bottom-left to top-right. */
-      background: linear-gradient(
-        135deg,
-        transparent 44%,
-        rgba(20, 8, 8, 0.95) 47%,
-        rgba(120, 24, 24, 0.95) 50%,
-        rgba(20, 8, 8, 0.95) 53%,
-        transparent 56%
-      );
-    }
+  .spent-x {
+    position: absolute;
+    inset: 0;
+    width: 70%;
+    height: 70%;
+    margin: auto;
+    color: rgb(163, 30, 30);
+    filter: drop-shadow(0 0 2px black);
   }
 }
 
