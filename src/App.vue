@@ -1996,6 +1996,9 @@ ul {
 #session-pill .hosting-word {
   font-style: normal;
   color: rgb(167, 143, 205);
+  /* The template's newline between "Hosting" and the town name is condensed
+     away by the compiler, so the gap has to be drawn here. */
+  margin-right: 0.35em;
 }
 
 #session-pill {

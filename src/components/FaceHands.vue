@@ -865,7 +865,13 @@ $digital-y-face: -122;
   font-weight: bold;
   font-size: calc(34 * var(--fpx));
   color: #0a0502;
-  text-shadow: 0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55);
+  /* FT-1044 (user: "a bit of a border or glow — not heavy"): a faint warm
+     halo joins the dark drop so the black ink also reads on the dial's dark
+     bands; kept dim enough not to haze on the lit face. */
+  text-shadow:
+    0 calc(2 * var(--fpx)) calc(3 * var(--fpx)) rgba(0, 0, 0, 0.55),
+    0 0 calc(3 * var(--fpx)) rgba(255, 246, 220, 0.4),
+    0 0 calc(9 * var(--fpx)) rgba(255, 246, 220, 0.22);
   /* GOLD LETTERS SEPARATE WITH DARK, not with light: a pale glow was tried
      and hazed them into the lit face. Intro.vue's `.hint` black-halo pair,
      spoken as drop-shadow so it follows the carved alpha. */
