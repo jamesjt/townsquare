@@ -52,7 +52,7 @@
             @click="toggleModal('chroniclesDrawer')"
           />
           <!-- FT-1020b: THE TOWER'S HOURGLASS — the hour display's menu
-               (Off / Clock / Digital / Show numerals), a tab section like
+               (Off / Hands / Digital / Numerals — FT-1052 toggles), a tab section like
                the sections below it: click opens, click again closes. The
                art is ui-records.png, the old town-records door's hourglass,
                freed when the quill took Chronicles (FT-1010) — and the
@@ -60,7 +60,7 @@
                voice-transcribed "hour class" was this HOURGLASS, not the
                XII that briefly anchored the menu on the dial (FaceHands.vue,
                retired). The storyteller's pick sets the TOWN's display; a
-               player's sets their own screen (towerBells.chooseHourMode). -->
+               player's sets their own screen (towerBells.toggleHourLayer). -->
           <img
             :src="uiHourglass"
             title="The tower — how the dial shows the hour"
@@ -148,8 +148,12 @@
             Timer
             <font-awesome-icon :icon="['fas', 'clock']" class="hl-clock" />
           </li>
+          <!-- FT-1052: independent toggles, not a radio — Hands, Digital and
+               Numerals each on/off in any combination; Off is the DERIVED
+               row, checked exactly when none of the three are, and clicking
+               it clears them all. -->
           <li
-            v-for="m in hourModes"
+            v-for="m in hourRows"
             :key="m.id"
             :title="m.hint"
             @click="pickHourMode(m.id)"
@@ -157,10 +161,7 @@
             {{ m.label }}
             <em>
               <font-awesome-icon
-                :icon="[
-                  'fas',
-                  towerHourMode === m.id ? 'check-square' : 'square',
-                ]"
+                :icon="['fas', hourChecked(m.id) ? 'check-square' : 'square']"
               />
             </em>
           </li>
@@ -328,14 +329,17 @@ import uiQuill from "../assets/ui-chronicle.png";
 // FT-1020b: the hourglass — the old town-records door art, back in service
 // as the tower's hour-display menu (see the strip's template note).
 import uiHourglass from "../assets/ui-records.png";
-// ...and the menu it opens: the four displays, the split between a
-// storyteller's town-wide pick and a player's own-screen one, and the event
-// that says the tower changed (another surface, or a host sync, moved it).
+// ...and the menu it opens: the three display layers (FT-1052 — independent
+// toggles, Off derived), the split between a storyteller's town-wide pick
+// and a player's own-screen one, and the event that says the tower changed
+// (another surface, or a host sync, moved it).
 import {
-  HOUR_MODES,
+  HOUR_LAYERS,
+  HOUR_OFF,
   TOWER_EVENT,
-  chooseHourMode,
-  effectiveHourMode,
+  toggleHourLayer,
+  effectiveHourFlags,
+  hourAllOff,
 } from "../golem/towerBells";
 // (FT-880's town summons lived in this strip; FT-1051 moved the trigger —
 // and its playCallBack/CALL_BACK_COOLDOWN imports — to TownInfo.vue.)
@@ -372,12 +376,13 @@ export default {
     return {
       uiScript,
       uiQuill,
-      // FT-1020b: the hourglass tab's furniture — the four modes and a
-      // snapshot of the one this screen currently shows (a plain module
-      // object is not reactive; readTowerMode refreshes it on TOWER_EVENT).
+      // FT-1020b/FT-1052: the hourglass tab's furniture — the Off row ahead
+      // of the three layer toggles, and a snapshot of the flags this screen
+      // currently shows (a plain module object is not reactive;
+      // readTowerMode refreshes it on TOWER_EVENT).
       uiHourglass,
-      hourModes: HOUR_MODES,
-      towerHourMode: effectiveHourMode(this.$store.state.session),
+      hourRows: [HOUR_OFF, ...HOUR_LAYERS],
+      towerHour: effectiveHourFlags(this.$store.state.session),
       // (FT-880's callBackCooling/-Timer pair moved to TownInfo.vue with
       // the summons trigger, FT-1051.)
       // The townless table's door out — held here rather than in the store:
@@ -420,15 +425,22 @@ export default {
       this.tab = this.tab === name ? null : name;
     },
     // ── FT-1020b: the hourglass tab ──────────────────────────────────────
-    /** The tower moved (any surface) — re-read which display this screen
-     *  shows (session passed so a storyteller's check tracks the TOWN's
-     *  mode, never a stale player-era override — FT-1020c). */
+    /** The tower moved (any surface) — re-read which layers this screen
+     *  shows (session passed so a storyteller's checks track the TOWN's
+     *  flags, never a stale player-era override — FT-1020c). */
     readTowerMode() {
-      this.towerHourMode = effectiveHourMode(this.session);
+      this.towerHour = effectiveHourFlags(this.session);
     },
-    /** One display picked. towerBells owns the host-vs-player split. */
+    /** FT-1052: is this row's check on? Off is DERIVED — checked exactly
+     *  when none of the three layers are. */
+    hourChecked(id) {
+      if (id === "off") return hourAllOff(this.towerHour);
+      return !!this.towerHour[id];
+    },
+    /** One layer toggled (or Off clearing all three). towerBells owns the
+     *  host-vs-player split. */
     pickHourMode(id) {
-      chooseHourMode(this.session, id);
+      toggleHourLayer(this.session, id);
     },
     /**
      * FT-857: the strip's script + night icons open ONE drawer on their own

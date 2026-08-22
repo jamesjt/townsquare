@@ -55,41 +55,79 @@ export const TOWER_BELLS = [
 ];
 
 /**
- * The four ways the tower can show the hour — the anchor numeral's menu and
- * the build panel's segment both read this one table.
+ * FT-1052 (user): the hour display is THREE INDEPENDENT LAYERS, not a radio
+ * — hands, digital readout, and the numeral ring each toggle on their own,
+ * any combination legal. "Off" is DERIVED: checked exactly when none of the
+ * three are on, and clicking it turns all three off. The Timer menu and the
+ * build panel's segment both read this one table; both surfaces render
+ * HOUR_OFF ahead of it.
+ *
+ * Labels are the user's (the FT-1052 rider): the analog hands toggle reads
+ * "Hands" — clearer for what it toggles than "Clock" — and the ring is plain
+ * "Numerals", matching its siblings. Internal ids keep the original names
+ * (clock/digital/numerals) so storage, sync and the flag keys stay put.
  */
-export const HOUR_MODES = [
-  {
-    id: "off",
-    label: "Off",
-    hint: "No hands, no numerals — the bare dial. The anchor numeral stays, or there would be no way back",
-  },
+export const HOUR_LAYERS = [
   {
     id: "clock",
-    label: "Clock",
+    label: "Hands",
     hint: "The analog hands, as the tower ships",
   },
   {
     id: "digital",
     label: "Digital",
-    hint: "A small readout of the game's moment — which day or night, and how long it has run — in the hands' place",
+    hint: "A small readout of the game's moment — which day or night, and how long it has run",
   },
   {
     id: "numerals",
-    label: "Show numerals",
-    // the build panel's segment cell — "Show numerals" is menu wording, and
-    // four cells wide the row has no room for a sentence
-    short: "Numerals",
-    hint: "The hands, with the dial's twelve numerals standing on their tick rays",
+    label: "Numerals",
+    hint: "The dial's twelve numerals standing on their tick rays",
   },
 ];
 
-const HOUR_MODE_IDS = HOUR_MODES.map((m) => m.id);
+/** The derived all-off row both surfaces put ahead of the three layers. */
+export const HOUR_OFF = {
+  id: "off",
+  label: "Off",
+  hint: "Nothing — the bare dial",
+};
+
+/** id → the towerState key carrying that layer's flag. */
+const HOUR_FLAG_KEYS = {
+  clock: "hourClock",
+  digital: "hourDigital",
+  numerals: "hourNumerals",
+};
+
+/**
+ * FT-1052's mechanical migration: the retired four-value enum, restated as
+ * flags. Old "numerals" meant hands + numerals (the enum conflated them);
+ * unknown values fall back to the shipped default. Used for a legacy stored
+ * town, a legacy synced host, and a legacy viewer override alike.
+ */
+function legacyHourFlags(mode) {
+  switch (mode) {
+    case "off":
+      return { hourClock: false, hourDigital: false, hourNumerals: false };
+    case "clock":
+      return { hourClock: true, hourDigital: false, hourNumerals: false };
+    case "digital":
+      return { hourClock: false, hourDigital: true, hourNumerals: false };
+    case "numerals":
+      return { hourClock: true, hourDigital: false, hourNumerals: true };
+    default:
+      return null;
+  }
+}
 
 /** What ships. `minuteTick` true is the FT-1020 change itself — the hands
  *  step now; Sweep on the build panel is the old glide, kept reachable. */
 export const DEFAULT_TOWER = {
-  hourMode: "clock",
+  // FT-1052: the three hour-display layers, each its own flag (the old
+  // four-value `hourMode` enum retired; legacyHourFlags migrates it).
+  hourClock: true,
+  hourDigital: false,
+  hourNumerals: false,
   minuteTick: true,
   bellOn: true,
   bellId: "one",
@@ -158,8 +196,9 @@ function notifyTower() {
  *  entry or a malformed sync must never bend the tower. */
 function sanitize(key, value) {
   switch (key) {
-    case "hourMode":
-      return HOUR_MODE_IDS.indexOf(value) > -1 ? value : DEFAULT_TOWER.hourMode;
+    case "hourClock":
+    case "hourDigital":
+    case "hourNumerals":
     case "minuteTick":
     case "bellOn":
       return !!value;
@@ -196,6 +235,10 @@ function readTowerForTown(townId) {
     raw = null;
   }
   if (raw && typeof raw === "object") {
+    // FT-1052: a town stored under the retired enum migrates mechanically.
+    if (!("hourClock" in raw) && "hourMode" in raw) {
+      Object.assign(raw, legacyHourFlags(raw.hourMode) || {});
+    }
     Object.keys(DEFAULT_TOWER).forEach((key) => {
       if (key in raw) out[key] = sanitize(key, raw[key]);
     });
@@ -235,7 +278,7 @@ export function setTowerField(townId, key, value) {
   notifyTower();
 }
 
-/** What rides the full gamestate sync — the whole tower, it is five fields. */
+/** What rides the full gamestate sync — the whole tower, every field. */
 export function towerSyncPayload() {
   return { ...towerState };
 }
@@ -244,72 +287,119 @@ export function towerSyncPayload() {
  *  the wire is just another storage this module refuses to trust. */
 export function applyTowerSync(data) {
   if (!data || typeof data !== "object") return;
+  // FT-1052: an older host still syncing the retired enum is migrated the
+  // same way a legacy stored town is.
+  if (!("hourClock" in data) && "hourMode" in data) {
+    data = { ...data, ...(legacyHourFlags(data.hourMode) || {}) };
+  }
   Object.keys(DEFAULT_TOWER).forEach((key) => {
     if (key in data) towerState[key] = sanitize(key, data[key]);
   });
   notifyTower();
 }
 
-/** The viewer's own display pick ("" = follow the town). */
-function readViewerHourMode() {
+/**
+ * The viewer's own display pick — FT-1052: a {clock, digital, numerals}
+ * flag set, or null to follow the town. A legacy stored enum string (the
+ * pre-1052 model) migrates on read. Persisted per browser, not per town —
+ * it is about this screen, not that place.
+ */
+function readViewerHour() {
   try {
-    const id = localStorage.getItem(VIEWER_STORAGE) || "";
-    return HOUR_MODE_IDS.indexOf(id) > -1 ? id : "";
+    const raw = localStorage.getItem(VIEWER_STORAGE);
+    if (!raw) return null;
+    if (raw.charAt(0) === "{") {
+      const o = JSON.parse(raw);
+      return {
+        clock: !!o.clock,
+        digital: !!o.digital,
+        numerals: !!o.numerals,
+      };
+    }
+    const legacy = legacyHourFlags(raw);
+    return legacy
+      ? {
+          clock: legacy.hourClock,
+          digital: legacy.hourDigital,
+          numerals: legacy.hourNumerals,
+        }
+      : null;
   } catch (e) {
-    return "";
+    return null;
   }
 }
 
-let viewerHourMode = readViewerHourMode();
+let viewerHour = readViewerHour();
 
-/** A player's local pick from the dial's anchor menu. Persisted per browser,
- *  not per town — it is about this screen, not that place. */
-export function setViewerHourMode(id) {
-  viewerHourMode = HOUR_MODE_IDS.indexOf(id) > -1 ? id : "";
+/** The town's three layer flags, as one {clock, digital, numerals} object. */
+function townHourFlags() {
+  return {
+    clock: towerState.hourClock,
+    digital: towerState.hourDigital,
+    numerals: towerState.hourNumerals,
+  };
+}
+
+/**
+ * The layers THIS screen shows, as {clock, digital, numerals}.
+ *
+ * A PLAYER's screen: their own flag set when they have made one, the town's
+ * otherwise. A STORYTELLER's screen: the town's, always — their pick IS the
+ * town's, made through the same menu.
+ *
+ * THE SESSION PARAMETER IS THE FT-1020c FIX, carried over from the enum
+ * days: the viewer override is stored per BROWSER, and a browser that ever
+ * picked as a player must not shadow the host's fresh town pick on the
+ * host's own screen — whoever's pick would WRITE the town's flags reads the
+ * town's flags back.
+ */
+export function effectiveHourFlags(session) {
+  if (session && !session.isSpectator) return townHourFlags();
+  return viewerHour ? { ...viewerHour } : townHourFlags();
+}
+
+/** Convenience for the surfaces that only care whether ANYTHING shows —
+ *  "Off is the derived state" made code. */
+export function hourAllOff(flags) {
+  return !flags.clock && !flags.digital && !flags.numerals;
+}
+
+/**
+ * FT-1052: one layer toggled from the hourglass menu or the build panel's
+ * segment — `id` is a HOUR_LAYERS id, or "off" to clear all three (the
+ * derived Off row's click). The STORYTELLER's toggle writes the town's
+ * flags (persisted per town, ridden out on the live tower frame and the
+ * full sync); a PLAYER's flips their own screen's override, starting from
+ * whatever their screen currently shows. One function so every surface
+ * carries the same split.
+ */
+export function toggleHourLayer(session, id) {
+  if (session && !session.isSpectator) {
+    const townId = session.sessionId || "";
+    if (id === "off") {
+      Object.keys(HOUR_FLAG_KEYS).forEach((layer) =>
+        setTowerField(townId, HOUR_FLAG_KEYS[layer], false),
+      );
+      return;
+    }
+    const key = HOUR_FLAG_KEYS[id];
+    if (!key) return;
+    setTowerField(townId, key, !towerState[key]);
+    return;
+  }
+  const now = effectiveHourFlags(session);
+  if (id !== "off" && !(id in now)) return;
+  const next =
+    id === "off"
+      ? { clock: false, digital: false, numerals: false }
+      : { ...now, [id]: !now[id] };
+  viewerHour = next;
   try {
-    localStorage.setItem(VIEWER_STORAGE, viewerHourMode);
+    localStorage.setItem(VIEWER_STORAGE, JSON.stringify(next));
   } catch (e) {
     // storage off: the pick still works for this session
   }
   notifyTower();
-}
-
-/**
- * The mode THIS screen shows.
- *
- * A PLAYER's screen: their own pick when they have made one, the town's
- * otherwise. A STORYTELLER's screen: the town's mode, always — their pick IS
- * the town's, made through the same menu.
- *
- * THE SESSION PARAMETER IS THE FT-1020c FIX. The viewer override is stored
- * per BROWSER (see setViewerHourMode), and a browser that ever picked a mode
- * as a player — the same person joining their own town from a second tab is
- * enough — carried that pick forever. Unparametrised, this function let that
- * stale override shadow the host's fresh town pick on the host's own screen:
- * the storyteller clicked Off, `towerState.hourMode` and the per-town storage
- * both said off, and the hands stayed up because `viewerHourMode` still said
- * clock. The split mirrors chooseHourMode's exactly: whoever's pick would
- * WRITE the town's mode reads the town's mode back.
- */
-export function effectiveHourMode(session) {
-  if (session && !session.isSpectator) return towerState.hourMode;
-  return viewerHourMode || towerState.hourMode;
-}
-
-/**
- * One of the four modes picked from the hourglass menu (FT-1020b — the
- * strip's Tower tab in Menu.vue; it stood on the dial as the XII anchor for
- * one revision). The STORYTELLER's pick is the town's — persisted per town
- * and ridden out on the next full sync, the same write the build panel's
- * segment makes; a PLAYER's is their own screen's override. One function so
- * every surface that offers the menu carries the same split.
- */
-export function chooseHourMode(session, id) {
-  if (session && !session.isSpectator) {
-    setTowerField(session.sessionId || "", "hourMode", id);
-  } else {
-    setViewerHourMode(id);
-  }
 }
 
 /* ── THE BELL ITSELF — the FT-880 mechanics, applied to two clips ──────────── */

@@ -177,7 +177,7 @@ import moonFull from "../assets/moon-full.png";
 // FT-1037 (user call): the game-start mark IS the join button's mark — the
 // figure on the road into town (Intro.vue's enter art, reused as-is).
 import uiEnter from "../assets/ui-enter.png";
-import { effectiveHourMode } from "../golem/towerBells";
+import { effectiveHourFlags, hourAllOff } from "../golem/towerBells";
 
 /** Event type → the registered FA icon that marks it. Only icons main.js
  *  already registers — this file adds none. */
@@ -250,7 +250,8 @@ export default {
     ranLabel() {
       if (this.ran == null || !this.event || this.event.t !== "phase")
         return "";
-      if (effectiveHourMode(this.$store.state.session) === "off") return "";
+      // FT-1052: "the timer is off" is now derived — no layer showing.
+      if (hourAllOff(effectiveHourFlags(this.$store.state.session))) return "";
       const m = Math.floor(this.ran / 60);
       const s = this.ran % 60;
       return m ? m + "m " + String(s).padStart(2, "0") + "s" : s + "s";

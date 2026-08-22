@@ -318,19 +318,22 @@
               title="The tower's clock"
             />
           </span>
-          <span class="tw-seg" role="radiogroup" aria-label="Hour display">
+          <!-- FT-1052: independent toggles, not a radio — any combination of
+             the three layers; Off is DERIVED (checked when none are on,
+             clicking it clears all three). -->
+          <span class="tw-seg" role="group" aria-label="Hour display">
             <button
-              v-for="m in hourModes"
+              v-for="m in hourRows"
               :key="m.id"
               type="button"
               class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.hourMode === m.id)"
-              :class="{ on: tower.hourMode === m.id }"
+              role="checkbox"
+              :aria-checked="String(hourChecked(m.id))"
+              :class="{ on: hourChecked(m.id) }"
               :title="m.hint"
-              @click="setTower('hourMode', m.id)"
+              @click="toggleHour(m.id)"
             >
-              {{ m.short || m.label }}
+              {{ m.label }}
             </button>
           </span>
         </span>
@@ -689,7 +692,11 @@ import { seatWarning } from "../golem/seatRange";
 // on the tower's own event, the same one-way shape the face lab runs on.
 import {
   TOWER_BELLS,
-  HOUR_MODES,
+  // FT-1052: the three display layers + the derived Off row.
+  HOUR_LAYERS,
+  HOUR_OFF,
+  toggleHourLayer,
+  hourAllOff,
   TOWER_EVENT,
   towerState,
   loadTowerForTown,
@@ -769,7 +776,7 @@ export default {
       // FT-1020: the tower rows' furniture, and a local snapshot of the
       // module's state (a plain module object is not reactive; the snapshot
       // is what Vue renders, refreshed on TOWER_EVENT by readTower).
-      hourModes: HOUR_MODES,
+      hourRows: [HOUR_OFF, ...HOUR_LAYERS],
       bells: TOWER_BELLS,
       tower: { ...towerState },
       // FT-1045: the custom bell's source row. The draft is what the field
@@ -1013,6 +1020,23 @@ export default {
     /** One choice made: validate, persist for THIS town, tell the dial. */
     setTower(key, value) {
       setTowerField(this.session.sessionId || "", key, value);
+    },
+    /** FT-1052: is a segment cell's check on? Off is DERIVED — on exactly
+     *  when none of the three layers are. */
+    hourChecked(id) {
+      const t = this.tower;
+      const flags = {
+        clock: t.hourClock,
+        digital: t.hourDigital,
+        numerals: t.hourNumerals,
+      };
+      if (id === "off") return hourAllOff(flags);
+      return !!flags[id];
+    },
+    /** One layer toggled (or Off clearing all three). This is the host's
+     *  surface, so the toggle always writes the TOWN's flags. */
+    toggleHour(id) {
+      toggleHourLayer(this.session, id);
     },
     /** Hear the pick before the town does. The click is itself the gesture
      *  the browser's autoplay rule wants, so this also unlocks the bell for

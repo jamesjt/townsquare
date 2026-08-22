@@ -66,22 +66,27 @@
           <template v-else>{{ spot.label }}</template>
         </span>
       </template>
-      <div
-        class="fh-part fh-hour"
-        :style="{ backgroundImage: sprite('hour') }"
-      ></div>
-      <div
-        class="fh-part fh-minute"
-        :style="{ backgroundImage: sprite('minute') }"
-      ></div>
-      <div
-        class="fh-part fh-second"
-        :style="{ backgroundImage: sprite('second') }"
-      ></div>
-      <div
-        class="fh-part fh-boss"
-        :style="{ backgroundImage: sprite('boss') }"
-      ></div>
+      <!-- FT-1052: the HANDS answer their own toggle — the layer stays up
+           for the ring alone (numerals without hands is a legal combination
+           now), so the four parts gate on the clock flag themselves. -->
+      <template v-if="showHands">
+        <div
+          class="fh-part fh-hour"
+          :style="{ backgroundImage: sprite('hour') }"
+        ></div>
+        <div
+          class="fh-part fh-minute"
+          :style="{ backgroundImage: sprite('minute') }"
+        ></div>
+        <div
+          class="fh-part fh-second"
+          :style="{ backgroundImage: sprite('second') }"
+        ></div>
+        <div
+          class="fh-part fh-boss"
+          :style="{ backgroundImage: sprite('boss') }"
+        ></div>
+      </template>
     </div>
 
     <!-- ── THE TOWER'S TOP (FT-1020, control retired FT-1020b) ──────────────
@@ -132,12 +137,12 @@ import {
   FACE_HANDS_EVENT,
 } from "../golem/faceHands";
 import {
-  HOUR_MODES,
+  HOUR_LAYERS,
   TOWER_EVENT,
   towerState,
-  effectiveHourMode,
-  setTowerField,
-  setViewerHourMode,
+  effectiveHourFlags,
+  hourAllOff,
+  toggleHourLayer,
   loadTowerForTown,
   armTowerAudio,
   ringDayStart,
@@ -227,13 +232,13 @@ export default {
       overshoot: overshootDegrees(readFaceHandsLab().overshoot),
       raf: 0,
       // ── THE TOWER'S CHOICES (FT-1020), re-read on the tower's event ───────
-      /** Which of the four displays this screen shows — the town's on a
-       *  storyteller's screen, the viewer's own pick (falling back to the
-       *  town's) on a player's (towerBells.js, FT-1020c). */
-      hourMode: effectiveHourMode(this.$store.state.session),
+      /** FT-1052: which display LAYERS this screen shows, as independent
+       *  {clock, digital, numerals} flags — the town's on a storyteller's
+       *  screen, the viewer's own set (falling back to the town's) on a
+       *  player's (towerBells.js, FT-1020c). */
+      hour: effectiveHourFlags(this.$store.state.session),
       /** Minute hand steps (the shipped tick) or creeps (the panel's Sweep). */
       minuteTick: towerState.minuteTick,
-      hourModes: HOUR_MODES,
       /** RETIRED (FT-1020b) with the XII anchor — nothing opens here now;
        *  the four-mode menu is the strip's hourglass tab (Menu.vue). */
       menuOpen: false,
@@ -276,14 +281,21 @@ export default {
       const s = this.$store && this.$store.state;
       return !!(s && s.grimoire && s.grimoire.isStatic);
     },
+    // FT-1052: the three layers render independently — digital was already
+    // its own path (#tower-top); the ring shares the hands' LAYER (it lives
+    // under the hands on purpose, FT-1029), so the layer stands for either
+    // and the hand parts gate on their own flag inside it.
     handsVisible() {
-      return this.hourMode === "clock" || this.hourMode === "numerals";
+      return this.hour.clock || this.hour.numerals;
+    },
+    showHands() {
+      return this.hour.clock;
     },
     showNumerals() {
-      return this.hourMode === "numerals";
+      return this.hour.numerals;
     },
     showDigital() {
-      return this.hourMode === "digital";
+      return this.hour.digital;
     },
     /** The digital readout's words: the phase readout's own fact, restated
      *  small — "Day 3" / "Night 3". The Math.max is TownInfo's own clamp
@@ -295,12 +307,12 @@ export default {
       const night = s.grimoire && s.grimoire.isNight;
       return (night ? "Night " : "Day ") + Math.max(this.gameDay, 1);
     },
-    /** RETIRED (FT-1020b) with the anchor it titled — see the template. */
+    /** RETIRED (FT-1020b) with the anchor it titled — see the template.
+     *  FT-1052: restated over the layer flags for the day it returns. */
     anchorTitle() {
-      const m = HOUR_MODES.find((mode) => mode.id === this.hourMode);
-      return (
-        "Hour display: " + (m ? m.label : "") + " — click to choose another"
-      );
+      const on = HOUR_LAYERS.filter((l) => this.hour[l.id]).map((l) => l.label);
+      const shown = hourAllOff(this.hour) ? "Off" : on.join(" + ");
+      return "Hour display: " + shown + " — click to choose";
     },
     /**
      * The twelve numerals of "Show numerals", I..XII on the tick rays.
@@ -438,25 +450,20 @@ export default {
     /** The tower changed — the build panel, the anchor menu, or a host sync
      *  arriving. Same one-way re-read as the lab's. */
     readTower() {
-      this.hourMode = effectiveHourMode(this.$store.state.session);
+      this.hour = effectiveHourFlags(this.$store.state.session);
       this.minuteTick = towerState.minuteTick;
       this.tick();
     },
     /**
      * RETIRED (FT-1020b): this answered the XII anchor's menu, unmounted
-     * with it. The live pick runs through towerBells' chooseHourMode —
+     * with it. The live pick runs through towerBells' toggleHourLayer —
      * Menu.vue's hourglass tab calls it — which carries the same split this
-     * held: the STORYTELLER's pick is the town's (persisted per town,
-     * ridden out on the next full sync); a PLAYER's is their own screen's
-     * override.
+     * held: the STORYTELLER's toggle is the town's (persisted per town,
+     * ridden out on the live tower frame and the full sync); a PLAYER's is
+     * their own screen's override. FT-1052 repointed it at the layer model.
      */
     pickMode(id) {
-      const session = this.$store.state.session;
-      if (!session.isSpectator) {
-        setTowerField(session.sessionId || "", "hourMode", id);
-      } else {
-        setViewerHourMode(id);
-      }
+      toggleHourLayer(this.$store.state.session, id);
       this.menuOpen = false;
     },
     sprite(part) {
