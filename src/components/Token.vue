@@ -41,10 +41,7 @@
          RoleHoverCard that the bluffs and both pickers render inside this same
          root, and the card measures itself against the viewport. -->
     <span class="icon-fit" v-if="role.id">
-      <span
-        class="icon"
-        :style="{ backgroundImage: `url(${roleIcon})` }"
-      ></span>
+      <span class="icon" :style="iconStyle"></span>
     </span>
 
     <!-- night order, reminder count and setup, set into the wheel -->
@@ -334,6 +331,35 @@ export default {
         return role.image;
       }
       return require("../assets/icons/" + (role.imageAlt || role.id) + ".png");
+    },
+    /**
+     * FT-1042: the art's FIT — how the forge placed this role's engraving on
+     * the coin. Three optional fields ride the role (snapshot semantics,
+     * like the baked icon): golemArtScale (0.4–2, default 1) and
+     * golemArtX/golemArtY (percent of the coin's width, ±50, default 0).
+     * Percent units, so every coin — seat, bluff, picker, forge preview —
+     * renders the same fit at its own size. Clamped HERE, at the render,
+     * so a hand-edited or imported role can never fling the art off-coin.
+     *
+     * Null when the role carries no adjustment: the style object then has
+     * no transform at all, and every existing role renders exactly as it
+     * always did (that absence is a hard requirement, not an optimization).
+     */
+    artTransform() {
+      const r = this.role || {};
+      const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : d);
+      const s = Math.min(2, Math.max(0.4, num(r.golemArtScale, 1)));
+      const x = Math.min(50, Math.max(-50, num(r.golemArtX, 0)));
+      const y = Math.min(50, Math.max(-50, num(r.golemArtY, 0)));
+      if (s === 1 && x === 0 && y === 0) return null;
+      return `translate(${x}%, ${y}%) scale(${s})`;
+    },
+    /** The engraved art's inline style — the image, plus the FT-1042 fit
+     *  when the role carries one. */
+    iconStyle() {
+      const style = { backgroundImage: `url(${this.roleIcon})` };
+      if (this.artTransform) style.transform = this.artTransform;
+      return style;
     },
     /**
      * FT-861: the believed character's engraved art, for the chip. Bundled

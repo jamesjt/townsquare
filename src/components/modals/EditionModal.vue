@@ -380,8 +380,41 @@
                    picked art, curved name, team rim, wake moon, setup stone.
                    Reused, not redrawn; pointer-events off so the preview
                    neither hovers a card nor clicks. -->
-              <div class="forge-coin">
+              <!-- FT-1042: the coin is a CONTROL now — drag the art to place
+                   it on the face (percent-of-coin units, so the fit travels
+                   1:1 to every token in game). The Token itself stays inert;
+                   the wrapper owns the pointer. -->
+              <div
+                class="forge-coin"
+                :class="{ placing: artDragging }"
+                title="Drag the art to place it on the coin"
+                @pointerdown="onArtDragStart"
+              >
                 <Token :role="previewRole" :hover-card="false" />
+              </div>
+              <!-- the art's dials — size scrub (percent) + a reset chip, in
+                   the forge's own chip/dial idiom -->
+              <div class="art-dials" v-if="!importOpen">
+                <span class="forge-label">Art size</span>
+                <NumberScrub
+                  class="ad-size"
+                  preset="night"
+                  :value="artSizePct"
+                  :min="40"
+                  :max="200"
+                  title="Art size, percent — drag to scrub, click to type"
+                  @input="(n) => (roleForm.artScale = n / 100)"
+                />
+                <span class="ad-unit">%</span>
+                <button
+                  type="button"
+                  class="forge-chip ad-reset"
+                  v-if="artDirty"
+                  title="Back to the stock fit — centred, full size"
+                  @click="resetArt"
+                >
+                  Reset
+                </button>
               </div>
               <template v-if="!importOpen">
                 <div class="forge-group fg-identity">
@@ -660,9 +693,12 @@
                  One live search across every group; the library's categories
                  (and the officials' editions) stand as small sticky headers
                  in the stream; the Official-art chip swaps the SOURCE.
-                 Rendered in batches — the sentinel at the bottom asks for
-                 the next slice as it scrolls into view, so first paint is
-                 instant with hundreds of icons behind it. -->
+                 FT-1042 (user call): the WHOLE feed renders at once — the
+                 sentinel/IntersectionObserver batching retired (it died
+                 whenever the workbench closed and reopened over an open
+                 forge: the observer kept watching the torn-down sentinel).
+                 The thumbs are cheap SVG data URLs and the imgs load lazily,
+                 so first paint stays light without any windowing. -->
             <div class="forge-feed" v-blood-scroll>
               <div class="feed-top">
                 <input
@@ -692,9 +728,9 @@
                 </span>
               </div>
               <template v-if="feedReady">
-                <template v-for="group in feedShownGroups">
+                <template v-for="group in feedGroups">
                   <div class="feed-head" :key="'fh-' + group.key">
-                    {{ group.label }} <small>({{ group.total }})</small>
+                    {{ group.label }} <small>({{ group.items.length }})</small>
                   </div>
                   <div class="feed-grid" :key="'fg-' + group.key">
                     <template v-if="iconTab === 'official'">
@@ -723,18 +759,22 @@
                         :title="e.n.replace(/-/g, ' ')"
                         @click="pickLibraryIcon(e)"
                       >
-                        <img class="il-thumb" :src="ilThumb(e)" alt="" />
+                        <img
+                          class="il-thumb"
+                          :src="ilThumb(e)"
+                          loading="lazy"
+                          alt=""
+                        />
                         <span class="label">{{ e.n.replace(/-/g, " ") }}</span>
                       </div>
                     </template>
                   </div>
                 </template>
-                <div class="feed-none" v-if="!feedShownGroups.length">
+                <div class="feed-none" v-if="!feedGroups.length">
                   Nothing in the art matches “{{ ilSearch.trim() }}”.
                 </div>
               </template>
               <div class="il-loading" v-else>Loading the library…</div>
-              <div class="feed-sentinel" ref="feedSentinel"></div>
             </div>
           </div>
         </div>
@@ -1148,10 +1188,6 @@ const TEAM_LABELS = {
   demon: "Demons",
   traveler: "Travellers",
 };
-// FT-1041b: the art feed renders in BATCHES — first paint is one slice, and
-// the sentinel at the feed's bottom edge asks for the next as it scrolls
-// into view. 96 fills a tall column and still paints instantly.
-const FEED_BATCH = 96;
 // The officials' editions, as the feed's sticky group headers. Anything
 // without one of the three marked editions (carousel included) is
 // Experimental — the same reading the sidebar's src:exp chip makes.
@@ -1164,6 +1200,20 @@ const FEED_EDITIONS = [
 // roles.json spells it "traveler"; the server's roleType vocabulary spells it
 // "traveller". Normalize to the app side everywhere the two meet.
 const normTeam = (t) => (t || "").replace("traveller", "traveler");
+
+// FT-1042: the art's FIT — one sanitizer pair for every door the fields come
+// through (forge open, JSON import, save). Scale is a multiplier clamped to
+// 0.4–2; offsets are percent of the coin's width clamped to ±50 (the coin's
+// own radius), so a bad import can never fling the art off-coin. Token.vue
+// clamps identically at render — belt and braces, one vocabulary.
+const sanArtScale = (v) => {
+  const n = Number(v);
+  return isFinite(n) && n ? Math.min(2, Math.max(0.4, n)) : 1;
+};
+const sanArtOffset = (v) => {
+  const n = Number(v);
+  return isFinite(n) ? Math.min(50, Math.max(-50, Math.round(n * 10) / 10)) : 0;
+};
 
 /**
  * FT-981: ONE spelling of a searchable string, for the query and for the text
@@ -1266,8 +1316,8 @@ export default {
       importOpen: false,
       // is a drag hovering the forge? (the import drop zone lights up)
       forgeDrag: false,
-      // how many feed cells are RENDERED — the sentinel grows it in batches
-      feedLimit: FEED_BATCH,
+      // FT-1042: is the pointer currently placing the art on the coin?
+      artDragging: false,
       // FT-981: the last library browse failed. Not an error banner (see
       // searchRoles) — just enough for the empty state to say why the
       // haystack is smaller than the author expects.
@@ -1400,28 +1450,20 @@ export default {
         items: list.filter((e) => e.t === t && (!q || e.n.includes(q))),
       })).filter((g) => g.items.length);
     },
-    /** The groups, truncated to the rendered window — 1.3k canvases in one
-     *  paint is a hitch, so the feed shows feedLimit cells and the sentinel
-     *  asks for more. Each group still states its TRUE total. */
-    feedShownGroups() {
-      let left = this.feedLimit;
-      const out = [];
-      for (const g of this.feedGroups) {
-        if (left <= 0) break;
-        const items = g.items.length > left ? g.items.slice(0, left) : g.items;
-        out.push({ key: g.key, label: g.label, total: g.items.length, items });
-        left -= items.length;
-      }
-      return out;
-    },
-    feedHasMore() {
-      return (
-        this.feedLimit < this.feedGroups.reduce((n, g) => n + g.items.length, 0)
-      );
-    },
     /** The officials are bundled; the library arrives as its own chunk. */
     feedReady() {
       return this.iconTab === "official" || this.ilLoaded;
+    },
+    /** FT-1042: the size scrub speaks whole percent; the form keeps the
+     *  multiplier the role stores. */
+    artSizePct() {
+      const f = this.roleForm;
+      return Math.round((f && f.artScale ? f.artScale : 1) * 100);
+    },
+    /** Does the draft wear a non-stock fit? (the Reset chip's gate) */
+    artDirty() {
+      const f = this.roleForm;
+      return !!f && (f.artScale !== 1 || f.artX !== 0 || f.artY !== 0);
     },
     /** What the coin currently wears — the feed's corner swatch. */
     currentArtSrc() {
@@ -1818,6 +1860,11 @@ export default {
         setup: f.setup,
         // a baked icon is a data: URL — Token renders it with no opt-in
         image: f.iconData || "",
+        // FT-1042: the live coin wears the draft's fit — the same fields,
+        // the same Token, so the preview IS the in-game render
+        golemArtScale: f.artScale,
+        golemArtX: f.artX,
+        golemArtY: f.artY,
         imageAlt:
           (f.icon && this.$store.getters.rolesJSONbyId.has(f.icon)
             ? f.icon
@@ -1952,7 +1999,6 @@ export default {
     this.$options.benchOnSlash = onSlash;
   },
   beforeDestroy() {
-    this.detachFeedObserver();
     if (this.$options.benchOnSlash)
       window.removeEventListener("keydown", this.$options.benchOnSlash);
     const mq = this.$options.benchMQ;
@@ -1966,14 +2012,7 @@ export default {
     "roleForm.roleType"() {
       this.rebakeForTeam();
     },
-    // FT-1041b: the feed's sentinel observer lives exactly as long as the
-    // forge does. Re-opening while already open (an official-id import
-    // rebuilds roleForm) keeps the observer it has.
-    roleForm(v, old) {
-      if (v && !old) this.$nextTick(() => this.attachFeedObserver());
-      else if (!v) this.detachFeedObserver();
-    },
-    // a new search or a source swap starts the feed from its first batch
+    // a new search or a source swap rewinds the feed to its top
     ilSearch() {
       this.resetFeed();
     },
@@ -2325,7 +2364,7 @@ export default {
       this.roleError = "";
       this.reminderDraft = "";
       // FT-1041b: every fresh open lands on the form (not import mode) with
-      // the feed rewound to its first batch
+      // the feed rewound to its top
       this.importOpen = false;
       this.resetFeed();
       // the library tab is the default view — have its chunk ready
@@ -2355,6 +2394,10 @@ export default {
           iconData: role.golemIconData || "",
           iconRef: role.golemIconRef || "",
           iconSeed: role.golemIconSeed || 0,
+          // FT-1042: the art's fit rides the role — sanitized on the way in
+          artScale: sanArtScale(role.golemArtScale),
+          artX: sanArtOffset(role.golemArtX),
+          artY: sanArtOffset(role.golemArtY),
           ...night,
           // the app-side id to replace in the script (a fork mints a new
           // library id, so the library id alone can't find the old row)
@@ -2375,6 +2418,9 @@ export default {
           iconData: "",
           iconRef: "",
           iconSeed: 0,
+          artScale: 1,
+          artX: 0,
+          artY: 0,
           ...night,
           appId: null,
         };
@@ -2387,50 +2433,53 @@ export default {
       if (this.iconTab === "official") this.openIconLibrary();
       else this.iconTab = "official";
     },
-    /** First batch, top of the feed — a new search or source starts over. */
+    /** Top of the feed — a new search or source starts the reader over.
+     *  ($el is a COMMENT node while the workbench is closed — its v-if is
+     *  the template root — and a comment has no querySelector.) */
     resetFeed() {
-      this.feedLimit = FEED_BATCH;
-      const el = this.$el && this.$el.querySelector(".forge-feed");
+      const root = this.$el;
+      const el =
+        root && root.querySelector && root.querySelector(".forge-feed");
       if (el) el.scrollTop = 0;
-      this.nudgeFeed();
     },
-    /** The sentinel at the feed's bottom edge asks for the next batch as it
-     *  comes into view. Root is the viewport — intersection accounts for
-     *  every clipping ancestor, so it works whether the feed column scrolls
-     *  itself (wide) or rides the pane's scroll (stacked). */
-    attachFeedObserver() {
-      this.detachFeedObserver();
-      const el = this.$refs.feedSentinel;
-      if (!el || typeof IntersectionObserver === "undefined") return;
-      const io = new IntersectionObserver(
-        (entries) => {
-          if (!entries.some((e) => e.isIntersecting)) return;
-          if (!this.feedHasMore) return;
-          this.feedLimit += FEED_BATCH;
-          this.nudgeFeed();
-        },
-        { rootMargin: "300px 0px" },
-      );
-      io.observe(el);
-      this.$options.feedIO = io;
+    // ── FT-1042: the art's fit — drag the coin, scrub the size ───────────
+    /** Drag the art around the coin's face. Pixel deltas become percent of
+     *  the coin's own width, so the fit stored on the role is size-blind:
+     *  the same numbers place the art identically on a 40px bluff mini and
+     *  a 172px forge preview. Clamped to ±50% — the coin's radius. */
+    onArtDragStart(e) {
+      const f = this.roleForm;
+      if (!f) return;
+      const el = e.currentTarget;
+      const w = el.offsetWidth || 1;
+      const startX = f.artX || 0;
+      const startY = f.artY || 0;
+      const px = e.clientX;
+      const py = e.clientY;
+      el.setPointerCapture(e.pointerId);
+      this.artDragging = true;
+      const onMove = (ev) => {
+        f.artX = sanArtOffset(startX + ((ev.clientX - px) / w) * 100);
+        f.artY = sanArtOffset(startY + ((ev.clientY - py) / w) * 100);
+      };
+      const onUp = () => {
+        this.artDragging = false;
+        el.removeEventListener("pointermove", onMove);
+        el.removeEventListener("pointerup", onUp);
+        el.removeEventListener("pointercancel", onUp);
+      };
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+      e.preventDefault();
     },
-    /** The observer only reports CHANGES — a sentinel still visible after a
-     *  batch lands would go quiet. Re-observing forces a fresh report, so
-     *  batches chain until the sentinel finally leaves the viewport. */
-    nudgeFeed() {
-      this.$nextTick(() => {
-        const io = this.$options.feedIO;
-        const el = this.$refs.feedSentinel;
-        if (!io || !el) return;
-        io.unobserve(el);
-        io.observe(el);
-      });
-    },
-    detachFeedObserver() {
-      if (this.$options.feedIO) {
-        this.$options.feedIO.disconnect();
-        this.$options.feedIO = null;
-      }
+    /** Back to the stock fit — centred, full size. */
+    resetArt() {
+      const f = this.roleForm;
+      if (!f) return;
+      f.artScale = 1;
+      f.artX = 0;
+      f.artY = 0;
     },
     /** Dropping a .json ANYWHERE on the forge is an import — read the file
      *  and run the same fill the paste box runs. A successful fill lands
@@ -2497,10 +2546,22 @@ export default {
       this.$options.ilBakes = new Map();
       this.ilLoaded = true;
     },
-    /** Thumbnails render once each into a non-reactive cache. */
+    /** Thumbnails build once each into a non-reactive cache.
+     *  FT-1042: an SVG data URL, not a rasterized canvas — the whole feed
+     *  renders in one pass now (no batching), and 1.3k canvas bakes in one
+     *  paint was the hitch the batching existed to dodge. Building a string
+     *  is free; the browser rasterizes each glyph only when its lazy img
+     *  nears the viewport. */
     ilThumb(entry) {
       const cache = this.$options.ilThumbs;
-      if (!cache.has(entry.n)) cache.set(entry.n, iconLib.silhouette(entry));
+      if (!cache.has(entry.n)) {
+        const svg =
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
+          '<g fill="#e8e4da">' +
+          entry.d.map((d) => `<path d="${d}"/>`).join("") +
+          "</g></svg>";
+        cache.set(entry.n, "data:image/svg+xml," + encodeURIComponent(svg));
+      }
       return cache.get(entry.n);
     },
     /** A pick bakes in the CURRENT team's tint; the ref rides the role so a
@@ -2605,6 +2666,15 @@ export default {
           appRole.golemIconRef = f.iconRef || "";
           appRole.golemIconSeed = f.iconSeed || 0;
           appRole.image = f.iconData;
+        }
+        // FT-1042: the art's fit rides the APP role, snapshot semantics like
+        // the baked icon (the script carries it whole; the library row does
+        // not). Only a non-stock fit writes fields — a role left at the
+        // stock fit serializes exactly as before.
+        if (f.artScale !== 1 || f.artX !== 0 || f.artY !== 0) {
+          appRole.golemArtScale = sanArtScale(f.artScale);
+          appRole.golemArtX = sanArtOffset(f.artX);
+          appRole.golemArtY = sanArtOffset(f.artY);
         }
         // FT-1040: the composed night action rides the APP role, snapshot
         // semantics like the baked icon — the script carries it whole, the
@@ -2940,6 +3010,21 @@ export default {
       f.otherNight = Math.abs(parsed.otherNight || 0);
       f.reminders = (parsed.reminders || []).join(", ");
       f.setup = !!parsed.setup;
+      // FT-1042: an imported role may carry the art's fit (our own exports
+      // spell it golemArt*; bare art* is accepted as a courtesy). Absent
+      // fields RESET the fit — the sanitizers' defaults — so a plain role
+      // never inherits the previous draft's placement.
+      f.artScale = sanArtScale(
+        parsed.golemArtScale !== undefined
+          ? parsed.golemArtScale
+          : parsed.artScale,
+      );
+      f.artX = sanArtOffset(
+        parsed.golemArtX !== undefined ? parsed.golemArtX : parsed.artX,
+      );
+      f.artY = sanArtOffset(
+        parsed.golemArtY !== undefined ? parsed.golemArtY : parsed.artY,
+      );
       this.roleJsonText = "";
       // FT-1041b: a successful fill lands back on the FORM, filled — import
       // is a mode, and the point of filling is to look at the result
@@ -3731,20 +3816,44 @@ $team-colors: (
     padding: 12px;
     opacity: 0.7;
   }
-  .feed-sentinel {
-    height: 2px;
-  }
 }
-// the LIVE COIN — the real Token, sized like a generous seat, inert to the
-// pointer (no hover card, no click; it is a preview, not a control)
+// the LIVE COIN — the real Token, sized like a generous seat. FT-1042: the
+// WRAPPER is a control now (drag places the art); the Token inside stays
+// inert so the preview neither hovers a card nor clicks.
 .role-form .forge-coin {
   width: 172px;
   height: 172px;
   margin: 0 auto;
-  pointer-events: none;
+  cursor: grab;
+  touch-action: none;
+  &.placing {
+    cursor: grabbing;
+  }
   .token {
     width: 100%;
     height: 100%;
+    pointer-events: none;
+  }
+}
+// FT-1042: the art's dials — the size scrub and the reset chip, one quiet
+// row under the coin
+.role-form .art-dials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  .forge-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    opacity: 0.55;
+  }
+  .ad-unit {
+    font-size: 11px;
+    opacity: 0.55;
+  }
+  .ad-reset {
+    margin-left: 4px;
   }
 }
 // ONE plated ground for every group — the composer's own plate, promoted to

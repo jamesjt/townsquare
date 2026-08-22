@@ -117,6 +117,14 @@ const customRole = {
   // composed. In this template so it survives customRolesStripped's wire
   // form (only template keys ride the numeric mapping to other clients).
   golemNight: null,
+  // FT-1042: the art's FIT on the coin — scale (0.4–2, default 1) and x/y
+  // offsets in percent of the coin's width (±50, default 0). Appended LAST
+  // so the numeric wire mapping's existing keys are unchanged; in this
+  // template so the fit rides customRolesStripped to every client — the
+  // adjustment is part of the role, 1:1 in game. Token.vue clamps at render.
+  golemArtScale: 1,
+  golemArtX: 0,
+  golemArtY: 0,
 };
 
 export default new Vuex.Store({
