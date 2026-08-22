@@ -526,6 +526,9 @@ export default {
 
 <style scoped lang="scss">
 @import "../vars.scss";
+// FT-1043: $grimoire-plum for the dirty cluster — variables/mixins only,
+// importing it adds no rules to this sheet.
+@import "../controls.scss";
 
 // the workbench's team palette (its map lives in EditionModal's scope)
 $team-colors: (
@@ -634,14 +637,16 @@ $team-colors: (
     &.nonconforming .verdict {
       color: #ff8a8a;
     }
-    // unsaved-edit controls: visible only while dirty
+    // unsaved-edit controls: visible only while dirty. FT-1043: the frame is
+    // $grimoire-plum — the standardized Save/Discard purple the forge's and
+    // the builder's plates wear; saving is constructive, not blood.
     .wb-dirty {
       display: inline-flex;
       align-items: center;
       gap: 10px;
       margin-left: 10px;
       padding: 2px 10px;
-      border: 1px solid #7d0e0e;
+      border: 1px solid $grimoire-plum;
       border-radius: 10px;
       svg {
         cursor: pointer;

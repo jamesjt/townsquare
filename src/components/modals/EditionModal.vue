@@ -111,7 +111,12 @@
         <!-- FT-1040b: while the forge holds the main pane, the sidebar's
              clicks would edit the script view you cannot see — so it stays
              put but visibly paused until the forge closes. -->
-        <aside class="wb-sidebar" :class="{ inert: !!roleForm }">
+        <!-- FT-1043: the import view borrows the same pause — its clicks
+             would edit the script view you cannot see. -->
+        <aside
+          class="wb-sidebar"
+          :class="{ inert: !!roleForm || scriptImportOpen }"
+        >
           <!-- team toggles are TRI-STATE on click (show only → hide → off);
                the + at the end forges a new role -->
           <div class="wb-team-row">
@@ -314,20 +319,126 @@
              / edit a role, the dirty Save-Discard chips); read-only there.
              FT-1040b: v-show, not v-if, while the forge borrows the pane —
              the component stays mounted, so its scroll comes back where it
-             was when Save or Discard hands the pane back. -->
-        <ScriptView
-          v-show="!roleForm"
-          :roles="scriptRoles"
-          :editable="true"
-          :dirty="scriptDirty"
-          :initial-view="wbView"
-          @view="wbView = $event"
-          @set-night="onSetNight"
-          @remove="removeRole"
-          @edit="openRoleForm"
-          @save="saveToVault"
-          @discard="discardEdits"
-        />
+             was when Save or Discard hands the pane back.
+             FT-1043: the view rides a PANE now — a column that puts the
+             BUILDER HEAD (icon, name, import door, the Save/Discard plate)
+             above it whenever the loaded script is CUSTOM. The new-script
+             flow is just this pane holding an empty script: the modal that
+             used to ask for name-and-icon first retired, because the bench
+             itself is where both live. -->
+        <div class="wb-pane" v-show="!roleForm">
+          <div class="builder-head" v-if="builderOpen">
+            <!-- the script's mark: the stock custom art until an upload or a
+                 pick replaces it. CLICK opens the official-art overlay; a
+                 DROPPED image takes the upload path directly (FT-856 inking
+                 included). -->
+            <div
+              class="bh-icon"
+              :class="{ dragover: iconDragOver }"
+              :style="builderIconStyle"
+              title="Script icon — click to pick from the official art, or drop an image to upload"
+              @click="openIconPick"
+              @dragover.prevent="iconDragOver = true"
+              @dragleave="iconDragOver = false"
+              @drop.prevent="onIconDrop"
+            ></div>
+            <input
+              ref="bhName"
+              class="bh-name"
+              v-model="builderName"
+              placeholder="Name this script…"
+              maxlength="60"
+            />
+            <!-- FT-1043: Import shares the Name line — the forge's own
+                 Name-row idiom. It swaps the pane for the import view. -->
+            <button
+              type="button"
+              class="forge-chip imp-door"
+              v-if="!scriptImportOpen"
+              title="Import a script — paste a JSON, a share link or a URL, or drop a .json file"
+              @click="scriptImportOpen = true"
+            >
+              <font-awesome-icon icon="file-code" /> Import
+            </button>
+            <!-- the standardized Save/Discard plate — the same two buttons,
+                 the same purple frame, the forge's header wears (FT-1043) -->
+            <div class="button-group acts-plate" v-if="scriptDirty">
+              <div
+                class="button"
+                title="Save this script to the vault"
+                @click="saveToVault"
+              >
+                <font-awesome-icon icon="feather-alt" /> Save
+              </div>
+              <div
+                class="button"
+                title="Discard the edits — back to the last saved state"
+                @click="discardEdits"
+              >
+                <font-awesome-icon icon="times" /> Discard
+              </div>
+            </div>
+          </div>
+          <ScriptView
+            v-show="!scriptImportOpen"
+            :roles="scriptRoles"
+            :editable="true"
+            :dirty="scriptDirty"
+            :initial-view="wbView"
+            @view="wbView = $event"
+            @set-night="onSetNight"
+            @remove="removeRole"
+            @edit="openRoleForm"
+            @save="saveToVault"
+            @discard="discardEdits"
+          />
+          <!-- FT-1043: the IMPORT view — the pane's other face, the forge's
+               import idiom at script size. It accepts everything the old
+               "Begin with" box accepted: a script JSON, a share link (lineage
+               kept — saving forks), a URL, or a dropped/uploaded file. -->
+          <div
+            class="script-import"
+            v-if="scriptImportOpen"
+            @dragover.prevent="importDragOver = true"
+            @dragleave="importDragOver = false"
+            @drop.prevent="onImportDrop"
+          >
+            <button
+              type="button"
+              class="forge-chip imp-back"
+              title="Back to the script"
+              @click="scriptImportOpen = false"
+            >
+              <font-awesome-icon icon="times" /> Back to the script
+            </button>
+            <label class="forge-label" for="si-json"
+              >Script JSON, share link, or URL</label
+            >
+            <textarea
+              id="si-json"
+              v-model="scriptImportText"
+              rows="6"
+              placeholder="Paste a script JSON, a share link, or a URL"
+            ></textarea>
+            <div class="imp-drop" :class="{ dragover: importDragOver }">
+              …or drop a .json file here — anywhere on this view works
+            </div>
+            <div class="paste-acts">
+              <div class="button" @click="openUpload">
+                <font-awesome-icon icon="file-upload" /> Upload a file
+              </div>
+              <div class="button" @click="applyScriptImport()">
+                <font-awesome-icon icon="file-code" /> Import
+              </div>
+            </div>
+            <div class="role-error" v-if="importError">{{ importError }}</div>
+            <!-- rehomed from the retired New-script modal: the links export
+                 lives with the other share-link business -->
+            <small class="ns-export" v-if="recents.length" @click="copyLinks">
+              Export my script links
+            </small>
+          </div>
+        </div>
 
         <!-- Golem fork (FT-851): the custom-role library — author a role once,
              save it to the library, and drop it into the current script as a
@@ -359,7 +470,9 @@
                 alt="N"
               />{{ forgeCap ? "ew Role" : "New Role" }}
             </h3>
-            <div class="button-group forge-acts">
+            <!-- FT-1043: the acts wear the standardized purple plate — the
+                 same piece the builder head carries -->
+            <div class="button-group forge-acts acts-plate">
               <div class="button" title="Save role" @click="saveRoleForm">
                 <font-awesome-icon icon="feather-alt" /> Save
               </div>
@@ -779,86 +892,38 @@
           </div>
         </div>
       </div>
-      <!-- FT-854 r9: the New-script overlay, rebuilt. Name required. The
-           icon WELL takes an upload or a dropped image (downscaled to 128px,
-           stored as a data URL in _meta.logo), or a pick from the official
-           art below — which got a real browser instead of a letterbox. -->
-      <div class="role-form ns-form" v-if="newScriptForm" v-blood-scroll>
-        <h3>New script</h3>
-        <div class="ns-head">
-          <div
-            class="ns-drop"
-            :class="{ has: !!newScriptForm.icon, dragover: nsDragOver }"
-            :style="nsIconStyle"
-            title="Script icon — drop an image, click to upload, or pick from the art below"
-            @click="$refs.nsUpload.click()"
-            @dragover.prevent="nsDragOver = true"
-            @dragleave="nsDragOver = false"
-            @drop.prevent="onNsDrop"
-          >
-            <span class="hint" v-if="!newScriptForm.icon"
-              >drop an image<br />or click to upload</span
+      <!-- FT-1043: the ICON OVERLAY — clicking the builder head's icon
+           floats the official-art browser (the retired New-script modal's
+           grid + search) over the bench; a pick lands on the header and the
+           overlay closes. The upload door lives here too (FT-856: an upload
+           arrives twice — inked to the official look, and untouched), and
+           dropping an image on the header icon never needs this open at
+           all. -->
+      <div class="role-form icon-overlay" v-if="iconPickOpen" v-blood-scroll>
+        <h3>Script icon</h3>
+        <div class="io-tools">
+          <div class="button" @click="$refs.nsUpload.click()">
+            <font-awesome-icon icon="file-upload" /> Upload an image
+          </div>
+          <div class="ns-style-toggle" v-if="iconUp.styled">
+            <span
+              :class="{ on: builderLogo === iconUp.styled }"
+              @click="setScriptIcon(iconUp.styled)"
+              >Inked</span
             >
             <span
-              class="ns-clear"
-              v-if="newScriptForm.icon"
-              title="Remove the icon"
-              @click.stop="newScriptForm.icon = ''"
-              >×</span
+              :class="{ on: builderLogo === iconUp.original }"
+              @click="setScriptIcon(iconUp.original)"
+              >Original</span
             >
           </div>
-          <div class="ns-fields">
-            <label>Name</label>
-            <input
-              ref="nsName"
-              class="ns-name"
-              v-model="newScriptForm.name"
-              placeholder=""
-              maxlength="60"
-              @keyup.enter="createNewScript"
-            />
-            <small class="ns-note"
-              >The icon is optional — it marks the script wherever scripts are
-              picked.</small
-            >
-            <!-- FT-856: an upload arrives twice — inked to the official
-                 look, and untouched. The pick is one click. -->
-            <div class="ns-style-toggle" v-if="newScriptForm.iconStyled">
-              <span
-                :class="{ on: newScriptForm.icon === newScriptForm.iconStyled }"
-                @click="newScriptForm.icon = newScriptForm.iconStyled"
-                >Inked</span
-              >
-              <span
-                :class="{
-                  on: newScriptForm.icon === newScriptForm.iconOriginal,
-                }"
-                @click="newScriptForm.icon = newScriptForm.iconOriginal"
-                >Original</span
-              >
-            </div>
-          </div>
-        </div>
-        <input
-          type="file"
-          ref="nsUpload"
-          accept="image/*"
-          class="ns-upload"
-          @change="onNsUpload"
-        />
-        <!-- the seed: paste a script JSON, a share link, or a URL — or
-             upload a file. Empty = a blank page. -->
-        <div class="ns-start">
-          <label>Begin with <small>(optional)</small></label>
-          <div class="ns-start-row">
-            <textarea
-              v-model="nsJsonText"
-              rows="2"
-              placeholder="Paste a script JSON, a share link, or a URL — or leave empty for a blank page"
-            ></textarea>
-            <div class="button" @click="openUpload">
-              <font-awesome-icon icon="file-upload" /> Upload
-            </div>
+          <div
+            class="button"
+            v-if="builderLogo"
+            title="Back to the stock custom-script mark"
+            @click="setScriptIcon('')"
+          >
+            <font-awesome-icon icon="undo" /> Stock mark
           </div>
         </div>
         <div class="ns-browse">
@@ -872,11 +937,8 @@
               class="icon-cell"
               v-for="official in nsIconMatches"
               :key="'ns-' + official.id"
-              :class="{ selected: newScriptForm.icon === official.id }"
-              @click="
-                newScriptForm.icon =
-                  newScriptForm.icon === official.id ? '' : official.id
-              "
+              :class="{ selected: builderLogo === official.id }"
+              @click="pickScriptIcon(official.id)"
             >
               <span
                 class="icon"
@@ -886,16 +948,9 @@
             </div>
           </div>
         </div>
-        <div class="role-error" v-if="nsError">{{ nsError }}</div>
-        <div class="ns-acts">
-          <small class="ns-export" v-if="recents.length" @click="copyLinks">
-            Export my script links
-          </small>
-          <div class="button" @click="newScriptForm = null">
-            <font-awesome-icon icon="times" /> Cancel
-          </div>
-          <div class="button ns-create" @click="createNewScript">
-            <font-awesome-icon icon="plus-circle" /> Create
+        <div class="fk-acts">
+          <div class="button" @click="iconPickOpen = false">
+            <font-awesome-icon icon="times" /> Close
           </div>
         </div>
       </div>
@@ -938,7 +993,14 @@
           <div class="button" @click="cancelFork">
             <font-awesome-icon icon="times" /> Cancel
           </div>
-          <div class="button fk-go" @click="confirmFork">
+          <!-- FT-1043: dark until the copy's name DIFFERS from the source's —
+               the field opens on the original, selected, so one keystroke
+               replaces it -->
+          <div
+            class="button fk-go"
+            :class="{ disabled: forkGoDisabled }"
+            @click="confirmFork"
+          >
             <font-awesome-icon :icon="forkForm.forking ? 'copy' : 'check'" />
             {{ forkForm.forking ? "Fork" : "Save" }}
           </div>
@@ -1030,6 +1092,8 @@
         accept="application/json"
         @change="handleUpload"
       />
+      <!-- the script-icon image intake (icon overlay's Upload button) -->
+      <input type="file" ref="nsUpload" accept="image/*" @change="onNsUpload" />
     </div>
   </Modal>
 </template>
@@ -1345,12 +1409,23 @@ export default {
         "M396 366 L 448 362 L 428 418 Z",
       // dirty tracking: the last loaded/saved state, serialized
       scriptBaseline: null,
-      // the New-script overlay
-      newScriptForm: null,
+      // FT-1043: the New-script modal retired — the pane IS the builder.
+      // What survives of it: the official-art browser, floating as the icon
+      // overlay (open/closed), its search, and the last upload's inked/
+      // original pair (the FT-856 toggle needs both at hand).
+      iconPickOpen: false,
       nsIconSearch: "",
-      nsError: "",
-      nsDragOver: false,
-      nsJsonText: "",
+      iconUp: { styled: "", original: "" },
+      // is a drag hovering the header icon? (it lights up)
+      iconDragOver: false,
+      // the stock mark a custom script wears until an upload/pick replaces it
+      edCustomArt: edCustom,
+      // FT-1043: the pane's IMPORT view — a mode, like the forge's; its
+      // paste box, its complaint, and whether a drag hovers it
+      scriptImportOpen: false,
+      scriptImportText: "",
+      importError: "",
+      importDragOver: false,
       // the "name your copy" panel — non-null while a save is waiting on a
       // name. { forking, original, name }
       forkForm: null,
@@ -1932,10 +2007,45 @@ export default {
       if (!q) return rolesJSON;
       return rolesJSON.filter((role) => role.name.toLowerCase().includes(q));
     },
-    nsIconStyle() {
-      const f = this.newScriptForm;
-      if (!f || !f.icon) return {};
-      return { backgroundImage: `url(${this.scriptLogoSrc(f.icon)})` };
+    // ── FT-1043: the builder head ────────────────────────────────────────
+    /** The head shows wherever the loaded script is CUSTOM — officials have
+     *  nothing renameable up there, and the new-script flow is just this
+     *  with an empty script. */
+    builderOpen() {
+      return this.$store.state.edition.id === "custom";
+    },
+    /** What the script's icon slot holds (edition.logo — travels in _meta). */
+    builderLogo() {
+      return this.$store.state.edition.logo || "";
+    },
+    /** The header icon: the script's own mark, or the stock custom art. */
+    builderIconStyle() {
+      const logo = this.builderLogo;
+      const src = logo ? this.scriptLogoSrc(logo) : this.edCustomArt;
+      return { backgroundImage: `url(${src})` };
+    },
+    /** The script's name, editing the store in place. setEdition closes the
+     *  modal as a side effect (upstream's flow ended there), so every write
+     *  is chased by ensureOpen — the same dance every bench mutation does. */
+    builderName: {
+      get() {
+        return this.$store.state.edition.name || "";
+      },
+      set(name) {
+        const meta = this.$store.state.edition;
+        this.$store.commit("setEdition", { ...meta, id: "custom", name });
+        this.ensureOpen();
+      },
+    },
+    /** FT-1043: the fork panel's go-button gate — dark until the copy's name
+     *  is real and differs from the source's. */
+    forkGoDisabled() {
+      const f = this.forkForm;
+      if (!f) return false;
+      const name = (f.name || "").trim();
+      if (!name) return true;
+      const orig = (f.original || "").trim().toLowerCase();
+      return f.forking && name.toLowerCase() === orig;
     },
     /** The shelf grouped by team, headers included (user call). */
     sidebarGroups() {
@@ -1983,7 +2093,8 @@ export default {
       if (!this.modals.edition || this.smallScreen) return;
       if (
         this.roleForm ||
-        this.newScriptForm ||
+        this.iconPickOpen ||
+        this.scriptImportOpen ||
         this.forkForm ||
         this.askForm ||
         this.destroyForm
@@ -2188,9 +2299,11 @@ export default {
       if (this.willFork || !name) return this.openForkForm();
       return this.commitSave(name);
     },
-    /** Open the name panel, pre-filled: a fork gets a FREE derived name (so
-     *  confirming without typing can never re-use the original's), a nameless
-     *  script gets its own blank. The field opens focused and selected. */
+    /** Open the name panel pre-filled with the ORIGINAL's name, focused and
+     *  selected — one keystroke replaces it (FT-1043; the derived "(fork)"
+     *  prefill retired with it: the go-button stays dark until the name
+     *  differs, so confirming without typing can never re-use the
+     *  original's). A nameless script gets its own blank. */
     openForkForm(forcing) {
       const original = (this.$store.state.edition.name || "").trim();
       // `forcing` is the stale-key case: the browser still holds a key, so
@@ -2201,7 +2314,7 @@ export default {
       this.forkForm = {
         forking,
         original,
-        name: forking ? this.suggestForkName(original) : original,
+        name: original,
       };
       this.$nextTick(() => {
         const el = this.$refs.forkName;
@@ -2239,6 +2352,8 @@ export default {
     confirmFork() {
       const f = this.forkForm;
       if (!f) return;
+      // FT-1043: the Enter key answers to the same gate the button shows
+      if (this.forkGoDisabled) return;
       const name = (f.name || "").trim();
       this.forkSuggestion = "";
       if (!name) {
@@ -2847,59 +2962,87 @@ export default {
         this.loadFromVault(card.id).then(() => this.ensureOpen());
       }
     },
-    /** New script: the overlay asks for a name (required) + icon (optional). */
+    /** FT-1043: New script IS the builder — no modal. An empty custom script
+     *  lands in the pane: the stock mark, a blank name focused and ready,
+     *  the night tabs live from the first moment; roles come in from the
+     *  shelf. Naming, icon and import all live on the builder head now. */
     newScript() {
-      this.nsError = "";
-      this.nsIconSearch = "";
-      this.newScriptForm = { name: "", icon: "" };
-      this.$nextTick(() => this.$refs.nsName && this.$refs.nsName.focus());
+      // hand the pane back if the forge or the import view held it
+      if (this.roleForm) this.closeRoleForm();
+      this.scriptImportOpen = false;
+      this.importError = "";
+      this.$store.commit("setCustomRoles", []);
+      this.$store.commit("setEdition", { id: "custom", name: "" });
+      this.vaultSourceId = null;
+      this.ensureOpen();
+      this.setBaseline();
+      this.$nextTick(() => this.$refs.bhName && this.$refs.bhName.focus());
+      flashHint("A blank page — name it, and add roles from the shelf");
     },
-    async createNewScript() {
-      const f = this.newScriptForm;
-      if (!f) return;
-      if (!f.name.trim()) {
-        this.nsError = "A script needs a name.";
+    // ── FT-1043: the script icon (builder head + overlay) ────────────────
+    /** Write the script's icon (edition.logo — travels in _meta on save).
+     *  Empty returns it to the stock custom mark. */
+    setScriptIcon(logo) {
+      const meta = this.$store.state.edition;
+      this.$store.commit("setEdition", {
+        ...meta,
+        id: "custom",
+        logo: logo || undefined,
+      });
+      this.ensureOpen();
+    },
+    /** The overlay's grid pick: land it and close — one click. */
+    pickScriptIcon(id) {
+      this.setScriptIcon(id);
+      this.iconPickOpen = false;
+    },
+    openIconPick() {
+      this.nsIconSearch = "";
+      this.iconPickOpen = true;
+    },
+    // ── FT-1043: the import view — the old "Begin with" in the pane ──────
+    /** ONE import door, accepting everything the retired seed box accepted:
+     *  a script JSON, a share link (lineage kept — saving forks), or a URL.
+     *  Files arrive through the drop zone / Upload and come here as text. */
+    async applyScriptImport(text) {
+      const seed = (text !== undefined ? text : this.scriptImportText).trim();
+      if (!seed) {
+        this.importError = "Paste a script first — JSON, a link, or a URL.";
         return;
       }
-      this.nsError = "";
-      // the seed: script JSON, a share link, or a URL — empty = blank page
-      const seed = (this.nsJsonText || "").trim();
+      this.importError = "";
       try {
-        if (seed) {
-          const linkId = vault.parseScriptRef(seed);
-          if (linkId) {
-            await this.loadFromVault(linkId); // keeps lineage: saving forks
-          } else if (/^https?:\/\//i.test(seed)) {
-            const res = await fetch(seed);
-            this.parseRoles(await res.json());
-            this.vaultSourceId = null;
-          } else {
-            this.parseRoles(JSON.parse(seed));
-            this.vaultSourceId = null;
-          }
+        const linkId = vault.parseScriptRef(seed);
+        if (linkId) {
+          await this.loadFromVault(linkId); // keeps lineage: saving forks
+        } else if (/^https?:\/\//i.test(seed)) {
+          const res = await fetch(seed);
+          this.parseRoles(await res.json());
+          this.vaultSourceId = null;
         } else {
-          this.$store.commit("setCustomRoles", []);
+          this.parseRoles(JSON.parse(seed));
           this.vaultSourceId = null;
         }
       } catch (e) {
-        this.nsError = "Couldn't read that seed: " + e.message;
+        this.importError = "Couldn't read that: " + e.message;
         return;
       }
-      this.$store.commit("setEdition", {
-        id: "custom",
-        name: f.name.trim(),
-        // the icon rides the edition and persists through _meta on save
-        logo: f.icon || undefined,
-      });
-      this.newScriptForm = null;
-      this.nsJsonText = "";
-      this.ensureOpen();
-      this.setBaseline();
-      flashHint(
-        seed
-          ? `${f.name.trim()} — seeded and ready`
-          : `${f.name.trim()} — a blank page. Add roles from the shelf`,
+      this.scriptImportText = "";
+      this.scriptImportOpen = false;
+      const name = this.$store.state.edition.name;
+      flashHint(name ? `${name} — imported` : "Imported");
+    },
+    /** A .json file dropped anywhere on the import view. */
+    onImportDrop(e) {
+      this.importDragOver = false;
+      const file =
+        e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.addEventListener("load", () =>
+        this.applyScriptImport(String(reader.result)),
       );
+      reader.readAsText(file);
     },
     // ── dirty tracking (Save/Discard live in the meter, only when dirty) ─
     setBaseline() {
@@ -3264,24 +3407,26 @@ export default {
     },
     onNsUpload(e) {
       const file = e.target.files && e.target.files[0];
-      if (file) this.nsIntakeFile(file);
+      if (file) this.iconIntakeFile(file);
       e.target.value = "";
     },
-    onNsDrop(e) {
-      this.nsDragOver = false;
+    /** An image dropped straight onto the builder head's icon (FT-1043) —
+     *  the upload path without opening the overlay at all. */
+    onIconDrop(e) {
+      this.iconDragOver = false;
       const file =
         e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) this.nsIntakeFile(file);
+      if (file) this.iconIntakeFile(file);
     },
     /** Downscale any dropped/uploaded image into a 128px data URL — small
      *  enough to travel inside the script's _meta — and run the FT-856
-     *  stylizer over it. Inked is the default; Original stays a click away. */
-    nsIntakeFile(file) {
+     *  stylizer over it. Inked lands on the script at once; the overlay's
+     *  toggle keeps Original a click away. */
+    iconIntakeFile(file) {
       if (!/^image\//.test(file.type)) {
-        this.nsError = "That file isn't an image.";
+        flashHint("That file isn't an image");
         return;
       }
-      this.nsError = "";
       const reader = new FileReader();
       reader.onload = () => {
         const img = new Image();
@@ -3295,9 +3440,7 @@ export default {
           const w = img.width * scale;
           const h = img.height * scale;
           g.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
-          if (!this.newScriptForm) return;
           const original = canvas.toDataURL("image/png");
-          this.$set(this.newScriptForm, "iconOriginal", original);
           let styled = "";
           try {
             // stylize from the FULL-RES source, not the 128 downscale
@@ -3305,10 +3448,13 @@ export default {
           } catch (e) {
             styled = "";
           }
-          this.$set(this.newScriptForm, "iconStyled", styled);
-          this.$set(this.newScriptForm, "icon", styled || original);
+          // the script may have changed under a slow decode — write only
+          // while the builder still holds the pane
+          if (!this.builderOpen) return;
+          this.iconUp = { original, styled };
+          this.setScriptIcon(styled || original);
         };
-        img.onerror = () => (this.nsError = "Could not read that image.");
+        img.onerror = () => flashHint("Could not read that image");
         img.src = reader.result;
       };
       reader.readAsDataURL(file);
@@ -3348,10 +3494,10 @@ export default {
       if (file && file.size) {
         const reader = new FileReader();
         reader.addEventListener("load", () => {
-          // inside the New-script overlay the upload SEEDS the paste box
-          // (Create applies it); elsewhere it loads directly, as ever
-          if (this.newScriptForm) {
-            this.nsJsonText = String(reader.result);
+          // inside the import view the upload runs the one import door
+          // (FT-1043); elsewhere it loads directly, as ever
+          if (this.scriptImportOpen) {
+            this.applyScriptImport(String(reader.result));
           } else {
             try {
               this.parseRoles(JSON.parse(reader.result));
@@ -3927,7 +4073,10 @@ $team-colors: (
   }
 }
 // a standalone chip — the workbench facet chip's plate and lit state
-.role-form .forge-chip {
+// FT-1043: the pane speaks the same chip — the builder head's Import door
+// and the import view's Back wear the forge's idiom verbatim.
+.role-form .forge-chip,
+.wb-pane .forge-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -4142,30 +4291,6 @@ $team-colors: (
       background: rgba(160, 20, 20, 0.28);
     }
   }
-  .ns-start {
-    margin-bottom: 10px;
-    label {
-      display: block;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      opacity: 0.6;
-      margin-bottom: 4px;
-    }
-    .ns-start-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-start;
-      textarea {
-        flex-grow: 1;
-        margin: 0;
-        width: auto;
-      }
-      .button {
-        flex-shrink: 0;
-      }
-    }
-  }
   .ns-export {
     margin-right: auto;
     align-self: center;
@@ -4264,6 +4389,142 @@ $team-colors: (
     min-height: 0;
     gap: 14px;
     padding-top: 8px;
+  }
+
+  // ── FT-1043: the PANE — the builder head over the script view ──────────
+  .wb-pane {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  // the head: icon, name, the import door, and the Save/Discard plate at
+  // the far right — everything the retired New-script modal asked for,
+  // living where the script lives
+  .builder-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    .bh-icon {
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-origin: content-box;
+      padding: 2px;
+      cursor: pointer;
+      transition:
+        border-color 150ms,
+        background-color 150ms;
+      &:hover,
+      &.dragover {
+        border-color: $grimoire-plum;
+        background-color: rgba(75, 53, 101, 0.22);
+      }
+    }
+    .bh-name {
+      flex: 0 1 300px;
+      min-width: 120px;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid #666;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 16px;
+      font-family: inherit;
+      &:focus {
+        outline: none;
+        border-color: $control-focus;
+      }
+    }
+    .imp-door {
+      flex: none;
+      white-space: nowrap;
+      opacity: 0.75;
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+  // ONE Save/Discard idiom (FT-1043): the purple plate, top right, worn by
+  // the forge's header and the builder's alike. $grimoire-plum because both
+  // are CONSTRUCTIVE surfaces — the same claim the + and the forge's own
+  // border already make.
+  .acts-plate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 3px 6px;
+    border: 1px solid $grimoire-plum;
+    border-radius: 8px;
+    background: rgba(75, 53, 101, 0.14);
+    .button {
+      margin: 0;
+    }
+  }
+  // the pane's IMPORT view — the forge's import idiom at script size
+  .script-import {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 12px;
+    border: 1px solid $grimoire-plum;
+    border-radius: 10px;
+    .imp-back {
+      align-self: flex-start;
+      opacity: 0.75;
+      &:hover {
+        opacity: 1;
+      }
+    }
+    .forge-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: 0.6;
+    }
+    textarea {
+      width: min(560px, 94%);
+      min-height: 130px;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid #666;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .imp-drop {
+      width: min(560px, 94%);
+      border: 2px dashed #555;
+      border-radius: 10px;
+      padding: 22px 10px;
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.6;
+      &.dragover {
+        border-color: $grimoire-plum;
+        opacity: 1;
+      }
+    }
+    .paste-acts {
+      display: flex;
+      gap: 8px;
+    }
+    .ns-export {
+      margin: 4px 0 0;
+    }
   }
 
   // ── the small-screen stand-in (see SMALL_BENCH in the script) ───────────
@@ -4889,6 +5150,11 @@ $team-colors: (
           background: rgba(150, 130, 175, 0.55);
           color: white;
         }
+        // FT-1043: dark until the copy's name differs from the source's
+        &.disabled {
+          opacity: 0.4;
+          pointer-events: none;
+        }
       }
       // ...and the delete wears the blood, overriding it (FT-970). The purple
       // means "this makes something"; nothing on this bench should be able to
@@ -4913,153 +5179,98 @@ $team-colors: (
     color: #ff9a9a;
   }
 
-  // FT-854 r9: the New-script overlay, rebuilt around the icon WELL.
-  .ns-form {
+  // FT-1043: the ICON OVERLAY — the retired New-script modal's art browser,
+  // floating alone. Purple, not blood: picking a mark is constructive.
+  .icon-overlay {
     width: min(760px, 94%);
     text-align: left;
     display: flex;
     flex-direction: column;
+    border-color: $grimoire-plum;
     h3 {
       text-align: center;
       margin: 0 0 12px;
     }
-    .ns-head {
+    .io-tools {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
-    .ns-drop {
-      position: relative;
-      width: 104px;
-      height: 104px;
-      flex-shrink: 0;
-      border: 2px dashed #555;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-      background-origin: content-box;
-      padding: 6px;
-      transition:
-        border-color 150ms,
-        background-color 150ms;
-      .hint {
-        font-size: 12px;
-        opacity: 0.55;
-        text-align: center;
-        line-height: 1.4;
-      }
-      .ns-clear {
-        position: absolute;
-        top: -8px;
-        right: -8px;
-        width: 20px;
-        height: 20px;
-        line-height: 18px;
-        text-align: center;
-        border-radius: 50%;
-        background: #000;
-        border: 1px solid #7d0e0e;
-        color: #d42020;
-        font-weight: bold;
-        &:hover {
-          color: red;
-          border-color: red;
+    // FT-856: an upload arrives twice — inked and untouched; one click apart
+    .ns-style-toggle {
+      display: inline-flex;
+      border: 1px solid #3d3d3d;
+      border-radius: 6px;
+      overflow: hidden;
+      font-size: 13px;
+      span {
+        padding: 2px 12px;
+        cursor: pointer;
+        &.on {
+          background: rgba(75, 53, 101, 0.55);
+          font-weight: bold;
+        }
+        &:not(.on):hover {
+          background: rgba(255, 255, 255, 0.08);
         }
       }
-      &.has {
-        border-style: solid;
-        border-color: #7d0e0e;
-      }
-      &.dragover,
-      &:hover {
-        border-color: #d42020;
-        background-color: rgba(160, 20, 20, 0.12);
-      }
-    }
-    .ns-fields {
-      flex-grow: 1;
-      label {
-        display: block;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        opacity: 0.6;
-        margin-bottom: 4px;
-      }
-      .ns-name {
-        width: 100%;
-        font-size: 17px;
-        padding: 7px 12px;
-        margin: 0;
-      }
-      .ns-note {
-        display: block;
-        margin-top: 6px;
-        font-size: 12px;
-        opacity: 0.55;
-      }
-      .ns-style-toggle {
-        display: inline-flex;
-        margin-top: 8px;
-        border: 1px solid #3d3d3d;
-        border-radius: 6px;
-        overflow: hidden;
-        font-size: 13px;
-        span {
-          padding: 2px 12px;
-          cursor: pointer;
-          &.on {
-            background: rgba(160, 20, 20, 0.45);
-            font-weight: bold;
-          }
-          &:not(.on):hover {
-            background: rgba(255, 255, 255, 0.08);
-          }
-        }
-      }
-    }
-    .ns-upload {
-      display: none;
     }
     .ns-browse {
       .ns-search {
         width: 100%;
         margin: 0 0 6px;
       }
+      // the grid carries its own cell dress: the .icon-picker base rules
+      // never reached the old ns-grid either (no .icon-picker ancestor), so
+      // the cells spell out block icons and small labels themselves
       .ns-grid {
         max-height: 300px;
         width: 100%;
         margin: 0;
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+        overflow-y: auto;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 4px;
         .icon-cell {
           width: auto;
+          padding: 4px 0;
+          cursor: pointer;
+          border-radius: 6px;
+          text-align: center;
           .icon {
+            display: block;
             width: 48px;
             height: 48px;
+            margin: 0 auto;
+            background-size: cover;
+            background-position: center;
+          }
+          .label {
+            display: block;
+            font-size: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 3px;
+          }
+          &:hover {
+            background: rgba(75, 53, 101, 0.35);
+          }
+          &.selected {
+            outline: 2px solid $grimoire-plum;
           }
         }
       }
     }
-    .ns-acts {
+    .fk-acts {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       margin-top: 12px;
-      .ns-create {
-        border-color: #a01414;
-        background: rgba(160, 20, 20, 0.35);
-        &:hover {
-          background: rgba(160, 20, 20, 0.55);
-          color: white;
-        }
-      }
     }
   }
 
