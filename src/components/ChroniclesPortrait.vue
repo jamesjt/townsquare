@@ -9,28 +9,53 @@
        Everything here is already public by construction — a board row is only
        ever posted at game end, when the reveal has shown every role anyway
        (see App.vue's onGameRecorded / socket.js's day-1 stash note). -->
-  <figure class="cp">
-    <div class="cp-ring">
-      <div class="cp-center">
-        <span class="cp-label">{{ label }}</span>
-        <span class="cp-alive">{{ aliveLine }}</span>
+  <!-- FT-1056: a `display: contents` wrapper — Vue 2 needs one root node,
+       but this root must never become a flex item in the drawer's
+       `.cr-portraits` row in `.cp`'s place, so it renders as if absent and
+       `.cp` (the figure) stays the actual flex child, unchanged. -->
+  <div class="cp-root">
+    <figure
+      class="cp"
+      :class="{ 'cp-large': large }"
+      :tabindex="large ? null : 0"
+      :role="large ? null : 'button'"
+      :title="large ? null : 'View larger'"
+      @click="large ? null : open()"
+      @keyup.enter="large ? null : open()"
+      @keyup.space.prevent="large ? null : open()"
+    >
+      <div class="cp-ring">
+        <div class="cp-center">
+          <span class="cp-label">{{ label }}</span>
+          <span class="cp-alive">{{ aliveLine }}</span>
+        </div>
+        <div
+          v-for="(seat, i) in board.seats"
+          :key="i + ':' + seat.name"
+          class="cp-seat"
+          :class="{ dead: seat.dead, traveler: seat.traveler }"
+          :style="seatStyle(i)"
+          :title="seatTitle(seat)"
+        >
+          <span
+            class="cp-coin"
+            :style="{ backgroundImage: `url(${iconOf(seat)})` }"
+          ></span>
+          <span class="cp-name">{{ seat.name }}</span>
+        </div>
       </div>
-      <div
-        v-for="(seat, i) in board.seats"
-        :key="i + ':' + seat.name"
-        class="cp-seat"
-        :class="{ dead: seat.dead, traveler: seat.traveler }"
-        :style="seatStyle(i)"
-        :title="seatTitle(seat)"
-      >
-        <span
-          class="cp-coin"
-          :style="{ backgroundImage: `url(${iconOf(seat)})` }"
-        ></span>
-        <span class="cp-name">{{ seat.name }}</span>
-      </div>
+    </figure>
+
+    <!-- THE LIGHTBOX — a thumbnail portrait (never a large one; `large`
+         instances render no trigger of their own) opens the same ring again
+         at overlay scale, over the app's own dark-veil idiom
+         (StatsOverlay.vue's). Click anywhere on the veil, including the
+         enlarged portrait itself, closes it — there is no inner content to
+         protect from the click. -->
+    <div v-if="isOpen" class="cp-veil" @click="close">
+      <ChroniclesPortrait :board="board" :label="label" large />
     </div>
-  </figure>
+  </div>
 </template>
 
 <script>
@@ -42,6 +67,18 @@ export default {
     board: { type: Object, required: true },
     /** What this moment is called under the ring ("Day 1" / "The end"). */
     label: { type: String, required: true },
+    /** FT-1056: the size/variant — false renders the clickable thumbnail
+     *  (the default, everywhere the portrait already appeared), true renders
+     *  the lightbox's overlay-scale ring with no click-to-open of its own. */
+    large: { type: Boolean, default: false },
+  },
+  data() {
+    return { isOpen: false };
+  },
+  beforeDestroy() {
+    // in case the drawer closes (unmounting this portrait) while the
+    // lightbox sits open — the listener must not outlive the component
+    if (this.isOpen) document.removeEventListener("keyup", this.onKeyup);
   },
   computed: {
     aliveLine() {
@@ -50,6 +87,19 @@ export default {
     },
   },
   methods: {
+    /** FT-1056: open the lightbox (thumbnail instances only — a `large`
+     *  instance never calls this, it has no trigger). */
+    open() {
+      this.isOpen = true;
+      document.addEventListener("keyup", this.onKeyup);
+    },
+    close() {
+      this.isOpen = false;
+      document.removeEventListener("keyup", this.onKeyup);
+    },
+    onKeyup(e) {
+      if (e.key === "Escape") this.close();
+    },
     /** Seat i's spot on the ring — top seat first, clockwise, the same
      *  arrangement the town square deals its chairs in. */
     seatStyle(i) {
@@ -88,11 +138,26 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-1056: the thumbnail's rank in `.cp-root` (`display: contents` — see the
+// template comment; the wrapper takes no layout box of its own).
+.cp-root {
+  display: contents;
+}
+
 .cp {
   margin: 0;
   flex: 1 1 0;
   min-width: 0;
-  max-width: 230px;
+  // FT-1056: every px size below reads off these — `.cp-large` (the lightbox
+  // instance) only has to redeclare the variables, not the rules.
+  --cp-max: 230px;
+  --cp-pad: 6px;
+  --cp-coin: 30px;
+  --cp-seat-w: 52px;
+  --cp-name-fs: 9px;
+  --cp-label-fs: 15px;
+  --cp-alive-fs: 10px;
+  max-width: var(--cp-max);
 }
 
 .cp {
@@ -101,7 +166,32 @@ export default {
   // the ring and drowned its seats — a portrait stands on its own dark plate.
   background: rgba(14, 9, 7, 0.94);
   border-radius: 8px;
-  padding: 6px;
+  padding: var(--cp-pad);
+  // FT-1056: the thumbnail is the click-to-enlarge trigger; the veil's own
+  // `large` instance overrides both back off below.
+  cursor: pointer;
+  transition: box-shadow 120ms;
+  &:hover,
+  &:focus-visible {
+    box-shadow: 0 0 0 1px rgba(216, 205, 180, 0.4);
+  }
+}
+
+// FT-1056: the lightbox's own ring — bigger throughout, and not itself a
+// click target (it renders with no trigger; see the `large` prop).
+.cp-large {
+  --cp-max: min(640px, 86vw);
+  --cp-pad: 16px;
+  --cp-coin: 68px;
+  --cp-seat-w: 108px;
+  --cp-name-fs: 16px;
+  --cp-label-fs: 30px;
+  --cp-alive-fs: 16px;
+  cursor: default;
+  &:hover,
+  &:focus-visible {
+    box-shadow: none;
+  }
 }
 
 .cp-ring {
@@ -123,12 +213,12 @@ export default {
 }
 .cp-label {
   font-family: PiratesBay, sans-serif;
-  font-size: 15px;
+  font-size: var(--cp-label-fs);
   color: #d8cdb4;
   opacity: 0.85;
 }
 .cp-alive {
-  font-size: 10px;
+  font-size: var(--cp-alive-fs);
   opacity: 0.5;
   font-variant-numeric: tabular-nums;
 }
@@ -139,7 +229,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 52px;
+  width: var(--cp-seat-w);
   cursor: default;
   // a dead seat keeps its place on the ring, drained of colour — the two
   // portraits reading visibly different is the whole point of the pair
@@ -159,20 +249,37 @@ export default {
 }
 
 .cp-coin {
-  width: 30px;
-  height: 30px;
+  width: var(--cp-coin);
+  height: var(--cp-coin);
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45) center / 85% no-repeat;
   box-shadow: inset 0 0 0 1px rgba(216, 205, 180, 0.3);
 }
 
 .cp-name {
-  max-width: 52px;
+  max-width: var(--cp-seat-w);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 9px;
+  font-size: var(--cp-name-fs);
   line-height: 1.3;
   color: #e0d8c6;
+}
+
+// FT-1056: THE LIGHTBOX VEIL — the same dark-veil idiom StatsOverlay.vue
+// wears (fixed, full-screen, centered, translucent black), ranked above the
+// Chronicles drawer (z-index 55).
+.cp-veil {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 91;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
 }
 </style>
