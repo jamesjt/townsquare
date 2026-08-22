@@ -249,16 +249,9 @@
             />
             Live list open to players
           </span>
-          <span
-            class="cr-live-opt"
-            title="Clears everyone's live tally list for this session — the permanent log keeps every row"
-            @click="clearLive"
-          >
-            <font-awesome-icon icon="trash-alt" />
-            Clear the live list<template v-if="session.voteHistory.length">
-              ({{ session.voteHistory.length }})</template
-            >
-          </span>
+          <!-- FT-1047 (user): the "Clear the live list" control retired —
+               the chronicle keeps every action; nobody needed a broadcast
+               wipe of the session mirror. clearLive() stays below, unwired. -->
         </div>
 
         <!-- ── YOUR NIGHTS (FT-1037b, user call) — the retired night
