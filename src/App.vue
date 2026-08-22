@@ -731,10 +731,10 @@ import NightSheet from "./components/NightSheet";
 // body — both RETIRED BY UNMOUNTING; their files stay in the tree.
 import ChroniclesDrawer from "./components/ChroniclesDrawer";
 // FT-1010: the game-end event the winner pick writes into the town's log.
-// FT-1037: plus the two BOARD PORTRAITS posted beside it — the day-1 ring
-// (stashed by socket.js when Day 1 broke; broadcasting it live would have
-// leaked the grimoire) and the final ring, read from the seats as they stand.
-import { encodeEvent, takeDay1Board, boardRingOf } from "./golem/chronicles";
+// FT-1037/FT-1057: plus the two BOARD PORTRAITS posted beside it — the
+// opening ring (stashed by socket.js at the deal; broadcasting it live would
+// leak the grimoire) and the final ring, read from the seats as they stand.
+import { encodeEvent, takeOpeningBoard, boardRingOf } from "./golem/chronicles";
 // FT-888: the face-disc lab — TEMPORARY, and it comes out with src/faceDisc.scss's
 // four `--fd-*-adj` reads and src/golem/faceDisc.js.
 import FaceDiscLab from "./components/FaceDiscLab";
@@ -1502,10 +1502,14 @@ export default {
       // FT-1037: THE BOARD PORTRAITS, posted first so the chapter still
       // closes on the winner's sentence. Data snapshots, not pixels: the
       // ring in seat order — name, role, alive/dead, traveler — rendered
-      // back into a mini board by the chronicles' stats tab. The day-1
-      // capture may be absent (a game that never saw Day 1 break, or a
-      // pre-FT-1037 game); the end portrait is shot here, while the roles
-      // still stand (Play again clears them later).
+      // back into a mini board by the chronicles' stats tab. FT-1057: the
+      // opening capture is now shot at the DEAL (socket.js) and held on the
+      // host — this is its publish moment, the reveal having made every
+      // role public. It may be absent (a pre-FT-1057 game, storage denied);
+      // the end portrait is shot here, while the roles still stand (Play
+      // again clears them later). This handler also runs on FT-1050's
+      // nothing-to-record end, so a game with no stats POST still publishes
+      // its stashed opening board.
       const gameChat = {
         kind: "system",
         gameId: this.$store.state.chat.gameId,
@@ -1514,15 +1518,15 @@ export default {
         phase: this.$store.state.grimoire.isNight ? "night" : "day",
         dayNumber: this.$store.state.night.day,
       };
-      const day1Ring = takeDay1Board(gameChat.gameId);
-      if (day1Ring) {
+      const openingRing = takeOpeningBoard(gameChat.gameId);
+      if (openingRing) {
         this.$store.commit("chatSay", {
           ...gameChat,
           body: encodeEvent({
             t: "board",
-            moment: "day1",
-            seats: day1Ring,
-            text: "The board, as Day 1 broke.",
+            moment: "start",
+            seats: openingRing,
+            text: "The game begins — the board as dealt.",
           }),
         });
       }

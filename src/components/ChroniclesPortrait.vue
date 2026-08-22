@@ -6,9 +6,12 @@
        screenshot: a compact ring of role coins with names, the same way the
        town square arranges its seats, small enough to stand in a stats page.
 
-       Everything here is already public by construction — a board row is only
-       ever posted at game end, when the reveal has shown every role anyway
-       (see App.vue's onGameRecorded / socket.js's day-1 stash note). -->
+       PRIVACY: a board row is only ever POSTED at game end, when the reveal
+       has shown every role anyway (App.vue's onGameRecorded). The one other
+       ring this renders is FT-1057's opening board on the HOST's own screen
+       mid-game — a synthetic row built from the host-local stash, never a
+       wire row (ChroniclesDrawer's openingRow), so nothing secret rides
+       through here that the viewer does not already hold. -->
   <!-- FT-1056: a `display: contents` wrapper — Vue 2 needs one root node,
        but this root must never become a flex item in the drawer's
        `.cr-portraits` row in `.cp`'s place, so it renders as if absent and

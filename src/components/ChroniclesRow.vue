@@ -108,10 +108,7 @@
          data, and the log shows it as the mini board it describes, right
          where it was posted. -->
     <span class="crr-board" v-if="hasBoard">
-      <ChroniclesPortrait
-        :board="event"
-        :label="event.moment === 'day1' ? 'Day 1' : 'The end'"
-      />
+      <ChroniclesPortrait :board="event" :label="boardLabel" />
     </span>
 
     <!-- ── THE GALLOWS THREAD (FT-1019) — the strand under a nomination:
@@ -289,6 +286,14 @@ export default {
         Array.isArray(this.event.seats) &&
         this.event.seats.length > 0
       );
+    },
+    /** What the portrait's moment is called under its ring. FT-1057:
+     *  `start` is the opening board; `day1` is the legacy moment older
+     *  logs hold; anything else is the end. */
+    boardLabel() {
+      if (this.event.moment === "start") return "The game begins";
+      if (this.event.moment === "day1") return "Day 1";
+      return "The end";
     },
     /** The beats after the nomination — computed only while the strand is
      *  open (the template is the only reader). */

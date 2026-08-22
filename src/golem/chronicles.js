@@ -78,10 +78,14 @@ export const EVENTS = [
   // Current mode anchors on the LAST of these (openAnchorSeq below).
   "open",
   // FT-1037: a BOARD PORTRAIT — the ring as data, not pixels; detail:
-  // { moment: "day1" | "end", seats: [{name, role, dead, traveler}] }.
-  // Captured when Day 1 breaks and at game end, but both POSTED at game
-  // end: a day-1 row broadcast mid-game would hand every player the full
-  // grimoire (roles ride the body, and system rows reach everyone).
+  // { moment: "start" | "day1" | "end", seats: [{name, role, dead,
+  // traveler}] }. FT-1057 retimed the opening capture to the DEAL — the
+  // board as the game begins, the storyteller's true view — with "day1"
+  // kept as the legacy moment older logs already hold. Captured early but
+  // POSTED at game end: an opening row broadcast mid-game would hand every
+  // player the full grimoire (roles ride the body, and system rows reach
+  // everyone). Until then the host alone sees it, rendered from the
+  // host-local stash below (peekOpeningBoard), never from the wire.
   "board",
 ];
 
@@ -327,17 +331,20 @@ export function boardRingOf(players) {
 }
 
 /**
- * FT-1037: a game's two portraits, decoded — { day1, end }, each the board
- * EVENT or null. The first day1 wins and the last end wins, so a duplicate
- * row (a re-recorded end) can never split the pair.
+ * FT-1037: a game's portraits, decoded — { start, day1, end }, each the
+ * board EVENT or null. `start` is FT-1057's opening board (the deal);
+ * `day1` is the legacy moment older logs hold. The first start/day1 wins
+ * and the last end wins, so a duplicate row (a re-recorded end) can never
+ * split the set.
  */
 export function boardsOf(rows, gameId) {
-  const out = { day1: null, end: null };
+  const out = { start: null, day1: null, end: null };
   (rows || []).forEach((row) => {
     if (row.gameId !== gameId || row.kind !== "system") return;
     const ev = decodeEvent(row.body);
     if (!ev || ev.t !== "board" || !Array.isArray(ev.seats)) return;
-    if (ev.moment === "day1" && !out.day1) out.day1 = ev;
+    if (ev.moment === "start" && !out.start) out.start = ev;
+    else if (ev.moment === "day1" && !out.day1) out.day1 = ev;
     else if (ev.moment === "end") out.end = ev;
   });
   return out;
@@ -406,36 +413,52 @@ export function touchTownSession(townId) {
 }
 
 /*
- * FT-1037: THE DAY-1 BOARD STASH — the ring captured as Day 1 breaks, held on
- * the host until game end posts it (see EVENTS's `board` note for why it is
- * not broadcast live). One entry only — a new game's capture replaces the
- * last game's orphan (an abandoned game leaves nothing behind). First write
- * wins per game, so a day counter scrubbed back to 1 cannot re-capture a
- * later board as "day 1".
+ * FT-1057: THE OPENING BOARD STASH — the ring captured AT THE DEAL (FT-1037
+ * captured it as Day 1 broke; FT-1057 retimed it to the moment the game
+ * begins, roles as dealt), held on the host until game end posts it (see
+ * EVENTS's `board` note for why it is not broadcast live). localStorage, so
+ * the host's early view survives a mid-game reload. One entry only — a new
+ * game's capture replaces the last game's orphan (an abandoned game leaves
+ * nothing behind, and `take`/`peek` match by gameId so a stale stash can
+ * never publish into the wrong game). First write wins per game, so a
+ * re-deal press cannot re-shoot a board the game already opened on.
  */
-const DAY1_KEY = "golem.boardDay1";
+const OPENING_KEY = "golem.boardOpening";
 
-export function stashDay1Board(gameId, seats) {
+export function stashOpeningBoard(gameId, seats) {
   if (!gameId || !Array.isArray(seats) || !seats.length) return;
   try {
-    const prior = JSON.parse(localStorage.getItem(DAY1_KEY)) || {};
+    const prior = JSON.parse(localStorage.getItem(OPENING_KEY)) || {};
     if (prior.gameId === gameId) return; // first write wins
-    localStorage.setItem(DAY1_KEY, JSON.stringify({ gameId, seats }));
+    localStorage.setItem(OPENING_KEY, JSON.stringify({ gameId, seats }));
   } catch (e) {
     // storage denied — the game just records with an end portrait only
   }
 }
 
-/** The stashed day-1 ring for a game, cleared on read, or null. */
-export function takeDay1Board(gameId) {
+/** The stashed opening ring for a game WITHOUT clearing it — the host's
+ *  early view reads this every render until the end publishes it. */
+export function peekOpeningBoard(gameId) {
   try {
-    const stash = JSON.parse(localStorage.getItem(DAY1_KEY)) || {};
+    const stash = JSON.parse(localStorage.getItem(OPENING_KEY)) || {};
     if (stash.gameId !== gameId || !Array.isArray(stash.seats)) return null;
-    localStorage.removeItem(DAY1_KEY);
     return stash.seats;
   } catch (e) {
     return null;
   }
+}
+
+/** The stashed opening ring for a game, cleared on read, or null. */
+export function takeOpeningBoard(gameId) {
+  const seats = peekOpeningBoard(gameId);
+  if (seats) {
+    try {
+      localStorage.removeItem(OPENING_KEY);
+    } catch (e) {
+      // storage denied — nothing to clear
+    }
+  }
+  return seats;
 }
 
 export function dayOf(createdAt) {

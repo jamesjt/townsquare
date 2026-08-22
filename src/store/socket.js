@@ -49,7 +49,7 @@ import {
   encodeEvent,
   beginTownSession,
   touchTownSession,
-  stashDay1Board,
+  stashOpeningBoard,
   boardRingOf,
 } from "../golem/chronicles";
 // FT-1005: a player wakes to their own night action. The projection is the
@@ -1739,6 +1739,18 @@ export default (store) => {
             // section on it. The gamestate sync one line up is what stamps
             // chat.gameId, so the row lands inside the game it begins.
             session.systemMessage("A game begins.", { t: "start" });
+            // FT-1057: THE OPENING BOARD — the ring as dealt, captured at
+            // this very moment, host only, STASHED rather than sent: a
+            // board row broadcast now would hand every player the grimoire
+            // (roles ride the body). The host's own chronicle renders it
+            // straight from this stash; App.vue posts it into the shared
+            // log at game end, when the reveal has made every role public.
+            // (FT-1037 captured this as Day 1 broke; the deal is the truer
+            // opening — the board before the first night touches it.)
+            stashOpeningBoard(
+              state.chat.gameId,
+              boardRingOf(state.players.players),
+            );
           }, 0);
         }
         break;
@@ -1883,20 +1895,10 @@ export default (store) => {
           // chronicles stream, not just a sentence.
           { t: "phase", night: state.grimoire.isNight, day: state.night.day },
         );
-        // FT-1037: DAY 1 BREAKS — capture the board portrait's ring, host
-        // only, stashed rather than sent: a board row broadcast now would
-        // hand every player the grimoire (roles ride the body). App.vue
-        // posts it at game end, beside the end portrait, when the roles are
-        // public anyway. First capture wins per game (the stash refuses an
-        // overwrite), so a day counter scrubbed back to 1 cannot re-shoot it.
-        if (
-          !state.session.isSpectator &&
-          !state.grimoire.isNight &&
-          state.night.day === 1 &&
-          state.chat.gameId
-        ) {
-          stashDay1Board(state.chat.gameId, boardRingOf(state.players.players));
-        }
+        // FT-1057: the board capture that lived here (FT-1037's Day-1 shot)
+        // moved to the deal itself — see the `session/distributeRoles` case
+        // above. The opening board is the game as it BEGINS, before the
+        // first night touches it.
         break;
       // FT-931: THE TOWN ENDS / PLAY AGAIN. Both mutations live at the root
       // (store/index.js — endGame also forces grimoire.isPublic, a

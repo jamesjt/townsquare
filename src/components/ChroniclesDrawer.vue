@@ -443,13 +443,19 @@
               <span class="cr-hwhen">{{ historyWhen(pickedGame) }}</span>
             </p>
 
-            <!-- THE BOARD PORTRAITS: the ring as Day 1 broke and as the
-                 game ended. Games from before the portraits existed show
-                 stats only. -->
+            <!-- THE BOARD PORTRAITS: the ring as the game began (FT-1057 —
+                 the board as dealt; "Day 1" is the legacy moment older
+                 games hold) and as it ended. Games from before the
+                 portraits existed show stats only. -->
             <div
               class="cr-portraits"
-              v-if="pickedBoards.day1 || pickedBoards.end"
+              v-if="pickedBoards.start || pickedBoards.day1 || pickedBoards.end"
             >
+              <ChroniclesPortrait
+                v-if="pickedBoards.start"
+                :board="pickedBoards.start"
+                label="The game begins"
+              />
               <ChroniclesPortrait
                 v-if="pickedBoards.day1"
                 :board="pickedBoards.day1"
@@ -571,6 +577,11 @@ import {
   openAnchorSeq,
   boardsOf,
   winnerOf,
+  // FT-1057: the host's early view of the opening board — read from the
+  // host-local stash (never the wire), shown as a synthetic stream row
+  decodeEvent,
+  encodeEvent,
+  peekOpeningBoard,
 } from "../golem/chronicles";
 // FT-1037: the stats tab's board portraits — the ring a board row carries.
 import ChroniclesPortrait from "./ChroniclesPortrait";
@@ -686,14 +697,65 @@ export default {
     anchorSeq() {
       return openAnchorSeq(this.chat.log);
     },
+    /**
+     * FT-1057 (user report): THE STORYTELLER'S EARLY VIEW — the opening
+     * board as a synthetic stream row, host only, rendered straight from
+     * the host-local stash socket.js wrote at the deal. It is NOT a log
+     * row: nothing of it ever crossed the wire, so a player's client has
+     * nothing to render even in principle. It sits just after the live
+     * game's "A game begins." row (seq +0.5 keeps every real key intact)
+     * and disappears when the end publishes the real row for everyone.
+     */
+    openingRow() {
+      if (this.session.isSpectator) return null;
+      const gameId = this.chat.gameId;
+      if (!gameId) return null;
+      const seats = peekOpeningBoard(gameId);
+      if (!seats) return null;
+      const startRow = this.chat.log.find((row) => {
+        if (row.gameId !== gameId || row.kind !== "system") return false;
+        const ev = decodeEvent(row.body);
+        return !!ev && ev.t === "start";
+      });
+      if (!startRow) return null;
+      return {
+        id: "opening:" + gameId,
+        seq: startRow.seq + 0.5,
+        kind: "system",
+        gameId,
+        senderKey: "system",
+        senderKind: "system",
+        createdAt: startRow.createdAt,
+        phase: startRow.phase,
+        dayNumber: startRow.dayNumber,
+        body: encodeEvent({
+          t: "board",
+          moment: "start",
+          seats,
+          text: "The game begins — the dealt board, your eyes only until the end.",
+        }),
+      };
+    },
     /** The Current stream: everything since the town opened this time,
-     *  narrowed to the kind of line being looked at. */
+     *  narrowed to the kind of line being looked at. FT-1057 (user report):
+     *  a FINISHED game's rows never stand here — Current is the live town
+     *  only, and History is where finished games are read. The host's
+     *  opening-board row (above) rides in beside the live game's start. */
     visible() {
       const anchor = this.anchorSeq;
-      return this.chat.log.filter((row) => {
+      const live = this.chat.gameId;
+      const rows = this.chat.log.filter((row) => {
         if (anchor && row.seq < anchor) return false;
+        if (row.gameId && row.gameId !== live) return false;
         return inFilter(row, this.filter);
       });
+      const opening = this.openingRow;
+      if (opening && inFilter(opening, this.filter)) {
+        const at = rows.findIndex((row) => row.seq > opening.seq);
+        if (at < 0) rows.push(opening);
+        else rows.splice(at, 0, opening);
+      }
+      return rows;
     },
     /** The chapters — consecutive runs of one gameId, in story order. */
     sections() {
@@ -758,10 +820,10 @@ export default {
     pickedRan() {
       return phaseDurations(this.pickedRows);
     },
-    /** The two board portraits the log holds for this game, or nulls. */
+    /** The board portraits the log holds for this game, or nulls. */
     pickedBoards() {
       const g = this.pickedGame;
-      if (!g || !g.logGameId) return { day1: null, end: null };
+      if (!g || !g.logGameId) return { start: null, day1: null, end: null };
       return boardsOf(this.pickedRows, g.logGameId);
     },
     /** Winner: the record's word first, else the chapter's own end row. */
@@ -815,6 +877,7 @@ export default {
       const boards = this.pickedBoards;
       const ring =
         (boards.end && boards.end.seats) ||
+        (boards.start && boards.start.seats) ||
         (boards.day1 && boards.day1.seats) ||
         [];
       return ring.map((s, i) => rowFor(s.name, s.role, !s.dead, i));
