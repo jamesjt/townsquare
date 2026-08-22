@@ -44,7 +44,10 @@ import bellTwoSound from "../assets/bell-tolls-2.mp3";
  *  tower so every player's client can reach the same sound. */
 export const TOWER_BELLS = [
   { id: "one", label: "Bell one", short: "One", src: bellOneSound },
-  { id: "two", label: "Bell two", short: "Two", src: bellTwoSound },
+  // FT-1048 (user): bell two's clip runs to its literal last sample (the
+  // FT-979 analysis), so it ends on a cliff — fadeTail eases its final
+  // seconds at runtime instead of re-cutting the asset.
+  { id: "two", label: "Bell two", short: "Two", src: bellTwoSound, fadeTail: 3 },
   { id: "custom", label: "A sound of your own", short: "Custom", src: "" },
 ];
 
@@ -398,10 +401,35 @@ export function armTowerAudio() {
  * split exists for FT-1045's fallback: a policy refusal would refuse any
  * bell, but a dead source deserves a second try on a bell that ships.
  */
-function ringElement(a, volume) {
+// FT-1048: a runtime fade for clips that end on a cliff — as the clip enters
+// its last `tailSeconds`, the element's volume ramps linearly to zero, and
+// re-arming (any later ring) restores it. timeupdate's ~4Hz steps are enough
+// here: the tail rides audio that is already decaying.
+function armFadeTail(a, baseVolume, tailSeconds) {
+  if (a.golemFadeHandler) {
+    a.removeEventListener("timeupdate", a.golemFadeHandler);
+    a.golemFadeHandler = null;
+  }
+  if (!tailSeconds) return;
+  const handler = () => {
+    const d = a.duration;
+    if (!d || !isFinite(d)) return;
+    const left = d - a.currentTime;
+    if (left <= tailSeconds) {
+      a.volume = Math.max(0, baseVolume * (left / tailSeconds));
+    } else if (a.volume !== baseVolume) {
+      a.volume = baseVolume;
+    }
+  };
+  a.golemFadeHandler = handler;
+  a.addEventListener("timeupdate", handler);
+}
+
+function ringElement(a, volume, fadeTail) {
   const token = ++opToken;
   a.muted = false;
   a.volume = Math.max(BELL_VOLUME_MIN, Math.min(BELL_VOLUME_MAX, volume)) / 100;
+  armFadeTail(a, a.volume, fadeTail);
   try {
     a.currentTime = 0;
   } catch (e) {
@@ -448,7 +476,8 @@ function play(bellId, volume, isMuted) {
   }
   if (isMuted) return Promise.resolve(false);
   const a = element(bellId);
-  return ringElement(a, volume).then((status) => {
+  const def = TOWER_BELLS.find((b) => b.id === bellId);
+  return ringElement(a, volume, def && def.fadeTail).then((status) => {
     // FT-1045: the custom SOURCE died — fall back to bell one, so a rotted
     // link never buys the town a silent day. Only on source failure (see
     // ringElement); and only when custom actually resolved to its own
