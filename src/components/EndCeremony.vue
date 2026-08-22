@@ -8,96 +8,129 @@
        end state today's flow already reaches. DESKTOP ONLY this pass. -->
   <div
     id="end-ceremony"
-    v-if="active"
-    :class="['ec-' + phase, 'ec-' + winner]"
+    v-if="active || bannerOn"
+    :class="rootClasses"
     @click="skip"
   >
-    <!-- the held breath: the veil deepens over everything but this show -->
-    <div class="ec-veil"></div>
+    <!-- everything the ceremony PAINTS lives in .ec-show, which is what the
+         fade phase fades — the verdict banner below stays outside it, so it
+         can persist over the settled town (FT-1053d) -->
+    <div class="ec-show" v-if="active">
+      <!-- the held breath: the veil deepens over everything but this show -->
+      <div class="ec-veil"></div>
 
-    <!-- ── EVIL: the face cracks, shatters inward, and something rises ───── -->
-    <template v-if="verdictOn && winner === 'evil'">
-      <!-- the dark hole the face leaves — under the shards, over the art -->
-      <div class="ec-hole"></div>
-      <!-- the hairline crack racing across the dial -->
-      <div class="ec-crack"></div>
-      <!-- the face itself, as clip-path shards of the REAL dial art (the
+      <!-- ── EVIL: the face cracks, shatters inward, and something rises ───── -->
+      <template v-if="verdictOn && winner === 'evil'">
+        <!-- the dark hole the face leaves — under the shards, over the art -->
+        <div class="ec-hole"></div>
+        <!-- the hairline crack racing across the dial -->
+        <div class="ec-crack"></div>
+        <!-- the face itself, as clip-path shards of the REAL dial art (the
            same background #app.in-game paints, re-declared here so each
            piece can fall on its own transform) -->
-      <div class="ec-shards">
-        <div
-          v-for="(s, i) in shards"
-          :key="'shard-' + i"
-          class="ec-shard"
-          :style="s"
-        ></div>
-      </div>
-      <!-- tentacles out of the hole — CSS-first silhouettes, layered so a
-           drawn-art pass can replace each .ec-tent-art in place -->
-      <div class="ec-tentacles">
-        <div
-          v-for="(t, i) in tentacles"
-          :key="'tent-' + i"
-          class="ec-tent"
-          :style="t"
-        >
-          <svg class="ec-tent-art" viewBox="0 0 120 320" aria-hidden="true">
-            <path
-              d="M54,320 C28,248 84,210 58,142 C46,100 68,74 60,18
-                 C59,12 66,14 65,20 C74,80 54,110 72,158
-                 C88,222 46,252 92,320 Z"
-            />
-          </svg>
+        <div class="ec-shards">
+          <div
+            v-for="(s, i) in shards"
+            :key="'shard-' + i"
+            class="ec-shard"
+            :style="s"
+          ></div>
         </div>
-      </div>
-      <!-- the red wash -->
-      <div class="ec-redwash"></div>
-      <!-- FT-1053b: THE PROCESSION — every evil seat rises centre one at a
+        <!-- FT-1053d: tentacles out of the hole — six painted SVG assets
+           (end-tentacle-*.svg: gradient-shaded violet-black bodies, one cold
+           rim light each, sucker rows, turbulence-roughened edges), placed
+           and swayed by the wrapper; the art itself carries a slower
+           counter-sway so no two read as the same motion -->
+        <div class="ec-tentacles">
+          <div
+            v-for="(t, i) in tentacles"
+            :key="'tent-' + i"
+            class="ec-tent"
+            :style="t.style"
+          >
+            <img class="ec-tent-art" :src="tentArts[t.art]" alt="" />
+          </div>
+        </div>
+        <!-- the red wash -->
+        <div class="ec-redwash"></div>
+        <!-- FT-1053b: THE PROCESSION — every evil seat rises centre one at a
            time (dead minions, living minions, the demon last), each the
            seat's REAL coin with its name plate, minions settling aside into
            the flanks while the demon ends centre-stage -->
-      <div class="ec-procession">
-        <div
-          v-for="p in procession"
-          :key="p.key"
-          class="ec-proc"
-          :class="{ 'ec-proc-demon': p.demon, 'ec-proc-dead': p.dead }"
-          :style="p.style"
-        >
-          <Token :role="p.role" />
-          <span class="ec-proc-name">{{ p.name }}</span>
+        <div class="ec-procession">
+          <div
+            v-for="p in procession"
+            :key="p.key"
+            class="ec-proc"
+            :class="{ 'ec-proc-demon': p.demon, 'ec-proc-dead': p.dead }"
+            :style="p.style"
+          >
+            <Token :role="p.role" />
+            <span class="ec-proc-name">{{ p.name }}</span>
+          </div>
         </div>
-      </div>
-    </template>
+      </template>
 
-    <!-- ── GOOD: dawn breaks over the face, the dead ascend ──────────────── -->
-    <template v-if="verdictOn && winner === 'good'">
-      <div class="ec-dawn"></div>
-      <!-- FT-1053c: each beam finds ONE good seat — alive first, then the
+      <!-- ── GOOD: dawn breaks over the face, the dead ascend ──────────────── -->
+      <template v-if="verdictOn && winner === 'good'">
+        <!-- FT-1053d: the horizon glow behind the dawn line — a warm dome
+           breathing over the top of the face, with a dusky rose spill -->
+        <div class="ec-dawn-sky"></div>
+        <div class="ec-dawn"></div>
+        <!-- FT-1053c: each beam finds ONE good seat — alive first, then the
            dead, one toll per beam, the beam's whole animation as long as the
            toll (SINGLE_TOLL_SEC). Geometry is measured px (dawn point to the
            seat's real coin box), set inline per beam. -->
-      <div class="ec-beams">
-        <div
-          v-for="(b, i) in beams"
-          :key="'beam-' + i"
-          class="ec-beam"
-          :style="b"
-        ></div>
-      </div>
-      <img
-        v-for="(g, i) in ghosts"
-        :key="'ghost-' + i"
-        class="ec-ghost"
-        :src="ghostArt"
-        alt=""
-        :style="g"
-      />
-    </template>
+        <!-- FT-1053d gave each beam a BODY: a taper-clipped shaft holding
+           streaming light and drifting dust motes, plus an impact bloom that
+           pops ON the coin at the strike moment (the reveal's overexposure
+           kiss). Children inherit the beam's own delay/duration. -->
+        <div class="ec-beams">
+          <div
+            v-for="(b, i) in beams"
+            :key="'beam-' + i"
+            class="ec-beam"
+            :style="b"
+          >
+            <div class="ec-beam-shaft">
+              <div class="ec-beam-streaks"></div>
+              <div class="ec-beam-motes"></div>
+            </div>
+            <div class="ec-beam-bloom"></div>
+          </div>
+        </div>
+        <img
+          v-for="(g, i) in ghosts"
+          :key="'ghost-' + i"
+          class="ec-ghost"
+          :src="ghostArt"
+          alt=""
+          :style="g"
+        />
+      </template>
 
-    <!-- the dawn point, as a measurable 0×0 probe: the beams' shared origin
+      <!-- the dawn point, as a measurable 0×0 probe: the beams' shared origin
          in real pixels (CSS owns the calc; JS reads the resolved box) -->
-    <div class="ec-dawn-origin" ref="dawnOrigin"></div>
+      <div class="ec-dawn-origin" ref="dawnOrigin"></div>
+    </div>
+
+    <!-- FT-1053d: THE VERDICT SHOUTS. A display-voice banner over the clock
+         face — arriving with the settle (the fade phase), standing over the
+         settled town until the next game clears isEnded. Composition call:
+         it hangs ABOVE the face centre, clearing the procession's coin line
+         (the demon stays centre-stage beneath it) and the centre stats
+         block; z-topmost in the ceremony's own stack, pointer-transparent so
+         the skip surface (the root) still takes the one click through it. -->
+    <div
+      v-if="bannerOn"
+      class="ec-banner"
+      :class="'ec-banner-' + settledWinner"
+      aria-live="polite"
+    >
+      <span class="ec-banner-text">
+        {{ settledWinner === "evil" ? "Evil wins" : "Good wins" }}
+      </span>
+    </div>
   </div>
 </template>
 
@@ -148,6 +181,15 @@ export default {
        *  elements, so skip/settle can unveil exactly what was veiled */
       veiledEls: [],
       ghostArt: require("../assets/ui-ghost-cowl.png"),
+      /** FT-1053d: the six painted tentacle assets, in generator order */
+      tentArts: [
+        require("../assets/end-tentacle-1.svg"),
+        require("../assets/end-tentacle-2.svg"),
+        require("../assets/end-tentacle-3.svg"),
+        require("../assets/end-tentacle-4.svg"),
+        require("../assets/end-tentacle-5.svg"),
+        require("../assets/end-tentacle-6.svg"),
+      ],
       noteTimers: [],
     };
   },
@@ -178,15 +220,108 @@ export default {
     gameLive() {
       return !!this.$store.state.chat.gameId && !this.isEnded;
     },
-    /** the tentacles' variety — static configs, not per-frame randomness */
+    /** the tentacles' variety — static configs, not per-frame randomness.
+     *  FT-1053d: six wrappers, one painted asset each; --tx/--ts/--tr/--td
+     *  place and stagger the rise, --wa/--wd drive the wrapper's sway and
+     *  --wa2/--wd2 the art's own slower counter-sway (two composed rotations
+     *  at different periods read as non-uniform undulation, transform-only) */
     tentacles() {
       return [
-        { "--tx": "-118", "--ts": "0.85", "--tr": "-14deg", "--td": "2.2s" },
-        { "--tx": "-52", "--ts": "1.1", "--tr": "-5deg", "--td": "1.95s" },
-        { "--tx": "18", "--ts": "0.95", "--tr": "4deg", "--td": "2.35s" },
-        { "--tx": "84", "--ts": "1.2", "--tr": "11deg", "--td": "2.05s" },
-        { "--tx": "150", "--ts": "0.8", "--tr": "19deg", "--td": "2.5s" },
+        {
+          art: 0,
+          style: {
+            "--tx": "-152",
+            "--ts": "0.8",
+            "--tr": "-15deg",
+            "--td": "2.25s",
+            "--wa": "3.4deg",
+            "--wd": "3.6s",
+            "--wa2": "1.8deg",
+            "--wd2": "5.3s",
+          },
+        },
+        {
+          art: 1,
+          style: {
+            "--tx": "-88",
+            "--ts": "1.05",
+            "--tr": "-6deg",
+            "--td": "1.95s",
+            "--wa": "2.6deg",
+            "--wd": "4.1s",
+            "--wa2": "1.4deg",
+            "--wd2": "6.1s",
+          },
+        },
+        {
+          art: 2,
+          style: {
+            "--tx": "-18",
+            "--ts": "1.2",
+            "--tr": "-1deg",
+            "--td": "2.45s",
+            "--wa": "2.2deg",
+            "--wd": "4.8s",
+            "--wa2": "1.2deg",
+            "--wd2": "6.9s",
+          },
+        },
+        {
+          art: 3,
+          style: {
+            "--tx": "44",
+            "--ts": "0.92",
+            "--tr": "6deg",
+            "--td": "2.1s",
+            "--wa": "3.1deg",
+            "--wd": "3.9s",
+            "--wa2": "1.7deg",
+            "--wd2": "5.7s",
+          },
+        },
+        {
+          art: 4,
+          style: {
+            "--tx": "104",
+            "--ts": "1.12",
+            "--tr": "12deg",
+            "--td": "2.55s",
+            "--wa": "2.4deg",
+            "--wd": "4.4s",
+            "--wa2": "1.3deg",
+            "--wd2": "6.5s",
+          },
+        },
+        {
+          art: 5,
+          style: {
+            "--tx": "162",
+            "--ts": "0.74",
+            "--tr": "18deg",
+            "--td": "2.35s",
+            "--wa": "3.8deg",
+            "--wd": "3.3s",
+            "--wa2": "2deg",
+            "--wd2": "4.9s",
+          },
+        },
       ];
+    },
+    /** FT-1053d: the standing verdict banner — up from the settle (the fade
+     *  phase) and for as long as the town stays ended. A reload of an ended
+     *  town shows it too: the banner is part of the SETTLED state, not of
+     *  the show (which never replays). Hidden through breath and verdict so
+     *  the ceremony keeps its suspense. */
+    bannerOn() {
+      return this.isEnded && (this.phase === "fade" || this.phase === "idle");
+    },
+    /** the winner as the STORE knows it — ceremonyState.winner clears at
+     *  idle, and the banner outlives the show */
+    settledWinner() {
+      return this.storeWinner();
+    },
+    rootClasses() {
+      return ["ec-" + this.phase, "ec-" + (this.winner || this.settledWinner)];
     },
   },
   watch: {
@@ -502,10 +637,24 @@ export default {
 
   &.ec-fade {
     pointer-events: none;
-    /* everything the ceremony painted lets go together */
-    opacity: 0;
-    transition: opacity 1.05s ease-out;
+    /* everything the ceremony painted lets go together — but only the show:
+       the verdict banner (a sibling of .ec-show) stands through the settle */
+    .ec-show {
+      opacity: 0;
+      transition: opacity 1.05s ease-out;
+    }
   }
+  /* FT-1053d: the standing state — the show is gone, only the banner
+     remains, and the settled town underneath is fully live */
+  &.ec-idle {
+    pointer-events: none;
+    cursor: default;
+  }
+}
+
+.ec-show {
+  position: absolute;
+  inset: 0;
 }
 
 /* the held breath — darkness soaks in over one long beat */
@@ -632,9 +781,12 @@ export default {
   }
 }
 
-/* THE TENTACLES — dark silhouettes out of the hole. Each wrapper carries the
-   placement (a face-pixel x offset, a lean, a scale, its own delay); the
-   inner .ec-tent-art is the swappable drawing. */
+/* THE TENTACLES (FT-1053d) — painted things from the deep, not shapes. Each
+   wrapper carries placement (a face-pixel x offset, a lean, a scale, its own
+   delay) plus its OWN sway amplitude/period; the art (end-tentacle-*.svg:
+   gradient body, cold rim light, suckers, turbulence-roughened edges) adds a
+   slower counter-sway of its own, so the two composed rotations undulate
+   non-uniformly — transform/opacity only, the SVG filters are static. */
 .ec-tentacles {
   position: absolute;
   left: var(--ec-cx);
@@ -645,32 +797,30 @@ export default {
 .ec-tent {
   position: absolute;
   left: calc(var(--tx) * var(--fpx));
-  bottom: calc(-90 * var(--fpx));
-  width: calc(86 * var(--fpx));
-  height: calc(300 * var(--fpx));
-  margin-left: calc(-43 * var(--fpx));
+  bottom: calc(-76 * var(--fpx));
+  width: calc(106 * var(--fpx));
+  height: calc(288 * var(--fpx));
+  margin-left: calc(-53 * var(--fpx));
   transform-origin: bottom center;
   rotate: var(--tr);
-  transform: translateY(78%) scale(var(--ts));
+  transform: translateY(82%) scale(var(--ts));
   opacity: 0;
+  /* the deep's own light: a violet occlusion glow, warmed once the red wash
+     arrives (the drop-shadow reads the art's alpha, suckers and all) */
+  filter: drop-shadow(0 0 10px rgba(70, 15, 55, 0.7));
   animation:
     ec-tent-rise 2s cubic-bezier(0.2, 0.7, 0.3, 1) var(--td) forwards,
-    ec-tent-wiggle 3.4s ease-in-out calc(var(--td) + 2s) infinite alternate;
+    ec-tent-wiggle var(--wd, 3.4s) ease-in-out calc(var(--td) + 2s) infinite
+      alternate;
+  will-change: transform, opacity;
 }
 .ec-tent-art {
   width: 100%;
   height: 100%;
   display: block;
-  path {
-    /* a FORM against the hole, not a wisp and not a neon tube — the first
-       run's bare outlines and the second's glow-stick edges were the two
-       failure modes; a near-black body with one faint cold rim is the lane
-       between them */
-    fill: #170d20;
-    stroke: rgba(150, 80, 180, 0.22);
-    stroke-width: 2;
-  }
-  filter: drop-shadow(0 0 10px rgba(70, 15, 55, 0.7));
+  transform-origin: 50% 96%;
+  animation: ec-tent-sway var(--wd2, 5.5s) ease-in-out calc(var(--td) + 2.4s)
+    infinite alternate;
 }
 @keyframes ec-tent-rise {
   to {
@@ -680,10 +830,20 @@ export default {
 }
 @keyframes ec-tent-wiggle {
   from {
-    transform: translateY(4%) scale(var(--ts)) rotate(-3.5deg) skewX(-2deg);
+    transform: translateY(4%) scale(var(--ts))
+      rotate(calc(var(--wa, 3deg) * -1)) skewX(-1.5deg);
   }
   to {
-    transform: translateY(2%) scale(var(--ts)) rotate(3.5deg) skewX(2deg);
+    transform: translateY(2%) scale(var(--ts)) rotate(var(--wa, 3deg))
+      skewX(1.5deg);
+  }
+}
+@keyframes ec-tent-sway {
+  from {
+    transform: rotate(calc(var(--wa2, 1.5deg) * -1));
+  }
+  to {
+    transform: rotate(var(--wa2, 1.5deg));
   }
 }
 
@@ -793,6 +953,33 @@ export default {
 
 /* ══ GOOD ══════════════════════════════════════════════════════════════════ */
 
+/* FT-1053d: the horizon GLOW — a warm dome breathing around the dawn line
+   (gold core, a dusky rose spill wider and fainter), screen-blended so it
+   lights the face art instead of painting over it. Static after its fade. */
+.ec-dawn-sky {
+  position: absolute;
+  left: calc(var(--ec-cx) - 420 * var(--fpx));
+  top: calc(var(--ec-cy) - 520 * var(--fpx));
+  width: calc(840 * var(--fpx));
+  height: calc(480 * var(--fpx));
+  /* every gradient reaches full transparency INSIDE its box — an ellipse
+     larger than the box clips into a hard-edged plate (first-run frame) */
+  background: radial-gradient(
+      ellipse 30% 34% at 50% 54%,
+      rgba(255, 238, 190, 0.5) 0%,
+      rgba(255, 205, 130, 0.22) 52%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse 44% 48% at 50% 54%,
+      rgba(226, 120, 90, 0.18) 0%,
+      transparent 74%
+    );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: ec-fade-in 1.7s ease-out 0.15s forwards;
+}
+
 /* the thin dawn line along the top of the face */
 .ec-dawn {
   position: absolute;
@@ -847,30 +1034,184 @@ export default {
   position: absolute;
   transform-origin: top center;
   rotate: var(--ba, 0deg);
-  /* a SHAFT of light, not a plank (first-run frame): tapered — narrow at
-     the dawn point, opening toward the seat — soft-edged by the gradient's
-     sideways falloff, and translucent through its length */
-  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
-  background: linear-gradient(
-      90deg,
-      rgba(255, 238, 190, 0) 0%,
-      rgba(255, 238, 190, 0.5) 50%,
-      rgba(255, 238, 190, 0) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(255, 240, 200, 0.05) 0%,
-      rgba(255, 236, 185, 0.22) 30%,
-      rgba(255, 232, 175, 0.18) 70%,
-      rgba(255, 246, 215, 0.55) 100%
-    );
-  filter: blur(0.6px);
   transform: scaleY(0);
   opacity: 0;
   animation-name: ec-beam-strike;
   animation-timing-function: cubic-bezier(0.3, 0.5, 0.25, 1);
   animation-fill-mode: forwards;
   will-change: transform, opacity;
+}
+/* FT-1053d: the beam's BODY — a taper-clipped shaft (narrow at the dawn
+   point, opening toward the seat) with a warm chromatic cross-section: a
+   near-white gold core falling away through pale amber fringes. The clip
+   also crops the streaming/mote children to the shaft's shape. */
+.ec-beam-shaft {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
+  background: linear-gradient(
+      90deg,
+      rgba(255, 190, 120, 0) 0%,
+      rgba(255, 196, 125, 0.14) 22%,
+      rgba(255, 238, 196, 0.34) 44%,
+      rgba(255, 250, 228, 0.44) 50%,
+      rgba(255, 238, 196, 0.34) 56%,
+      rgba(255, 196, 125, 0.14) 78%,
+      rgba(255, 190, 120, 0) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 240, 200, 0.05) 0%,
+      rgba(255, 236, 185, 0.2) 30%,
+      rgba(255, 232, 175, 0.16) 68%,
+      rgba(255, 246, 215, 0.42) 88%,
+      rgba(255, 246, 215, 0) 100%
+    );
+  filter: blur(0.6px);
+}
+/* internal streaking — long noise-modulated bands streaming DOWN the shaft
+   (the light's direction). The band pattern repeats every 10% of the double-
+   height layer and the loop translates exactly five periods, so the stream
+   is seamless; a static turbulence mask breaks the bands into volume. */
+.ec-beam-streaks {
+  position: absolute;
+  left: 0;
+  top: -100%;
+  width: 100%;
+  height: 200%;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 246, 215, 0) 0%,
+    rgba(255, 246, 215, 0.17) 2.4%,
+    rgba(255, 246, 215, 0.02) 4.4%,
+    rgba(255, 250, 230, 0.12) 7.2%,
+    rgba(255, 246, 215, 0) 10%
+  );
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='420'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.045 0.008' numOctaves='3' seed='7'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.85 0 0 0 0.15'/></filter><rect width='140' height='420' filter='url(%23n)'/></svg>");
+  mask-size: 100% 50%;
+  animation: ec-beam-stream 5.5s linear infinite;
+  animation-delay: inherit;
+  will-change: transform;
+}
+@keyframes ec-beam-stream {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(50%);
+  }
+}
+/* dust motes drifting UP inside the beam — few, small, blurred; one drift
+   per toll (duration inherited from the beam) */
+.ec-beam-motes {
+  position: absolute;
+  left: 0;
+  top: 26%;
+  width: 100%;
+  height: 74%;
+  background: radial-gradient(
+      circle 2.6px at 32% 18%,
+      rgba(255, 250, 230, 0.9),
+      transparent 70%
+    ),
+    radial-gradient(
+      circle 2px at 58% 42%,
+      rgba(255, 244, 215, 0.8),
+      transparent 70%
+    ),
+    radial-gradient(
+      circle 3px at 47% 66%,
+      rgba(255, 250, 235, 0.85),
+      transparent 70%
+    ),
+    radial-gradient(
+      circle 1.8px at 66% 82%,
+      rgba(255, 240, 210, 0.7),
+      transparent 70%
+    ),
+    radial-gradient(
+      circle 2.2px at 38% 90%,
+      rgba(255, 248, 225, 0.75),
+      transparent 70%
+    );
+  filter: blur(0.9px);
+  opacity: 0;
+  transform: translateY(14%);
+  animation-name: ec-beam-motes-drift;
+  animation-duration: inherit;
+  animation-delay: inherit;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+@keyframes ec-beam-motes-drift {
+  0% {
+    transform: translateY(14%);
+    opacity: 0;
+  }
+  34% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(-16%);
+    opacity: 0;
+  }
+}
+/* the impact bloom — a radial flare popping ON the coin at the strike beat
+   (the beam's 30% keyframe = rayLand), opening with a brief overexposure
+   kiss, then settling to a held halo for the toll's decay. It sits OUTSIDE
+   the shaft clip so the flare can spill past the taper. */
+.ec-beam-bloom {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 210%;
+  height: 30%;
+  translate: -50% 50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 250, 1) 0%,
+    rgba(255, 244, 200, 0.6) 30%,
+    rgba(255, 214, 140, 0.24) 60%,
+    transparent 100%
+  );
+  transform: scale(0.15);
+  opacity: 0;
+  animation-name: ec-beam-bloom-pop;
+  animation-duration: inherit;
+  animation-delay: inherit;
+  animation-timing-function: cubic-bezier(0.3, 0.6, 0.3, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+@keyframes ec-beam-bloom-pop {
+  0%,
+  25% {
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  30% {
+    /* the strike: the reveal's overexposure kiss */
+    transform: scale(1.28);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(0.95);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 0.4;
+  }
 }
 @keyframes ec-beam-strike {
   0% {
@@ -920,6 +1261,94 @@ export default {
   100% {
     transform: translate(-50%, -46vh) scale(1.05);
     opacity: 0;
+  }
+}
+
+/* ══ THE VERDICT BANNER (FT-1053d) ═════════════════════════════════════════
+   "GOOD WINS" / "EVIL WINS", loud — the app's display voice (PiratesBay, the
+   entry page's tower lettering), sized to the face, hung above its centre so
+   the procession's coins and the centre stats stay readable beneath it.
+   Topmost in the ceremony's own stack; pointer-transparent. */
+.ec-banner {
+  position: absolute;
+  left: var(--ec-cx);
+  top: calc(var(--ec-cy) - 148 * var(--fpx));
+  width: 0;
+  height: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.ec-banner-text {
+  position: absolute;
+  translate: -50% -50%;
+  display: block;
+  white-space: nowrap;
+  font-family: PiratesBay, sans-serif;
+  text-transform: uppercase;
+  font-size: calc(68 * var(--fpx));
+  line-height: 1;
+  letter-spacing: calc(6 * var(--fpx));
+  padding-left: calc(6 * var(--fpx)); /* re-centres the tracked line */
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  transform: scale(1.6);
+  opacity: 0;
+  animation: ec-banner-in 0.95s cubic-bezier(0.22, 0.9, 0.3, 1.05) forwards;
+  will-change: transform, opacity;
+}
+/* arriving with presence: oversized and gone → lands with a settle bounce */
+@keyframes ec-banner-in {
+  0% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(0.97);
+    opacity: 1;
+  }
+  78% {
+    transform: scale(1.025);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* GOOD: dawn-gold lettering with a warm halo and a cold blue under-glow */
+.ec-banner-good .ec-banner-text {
+  background-image: linear-gradient(
+    180deg,
+    #fffbe8 0%,
+    #ffeaa9 34%,
+    #eab659 62%,
+    #a5762c 100%
+  );
+  filter: drop-shadow(0 0 calc(12 * var(--fpx)) rgba(255, 220, 140, 0.55))
+    drop-shadow(0 0 calc(34 * var(--fpx)) rgba(120, 170, 255, 0.3))
+    drop-shadow(
+      0 calc(2 * var(--fpx)) calc(2 * var(--fpx)) rgba(30, 16, 0, 0.85)
+    );
+}
+/* EVIL: blood lettering out of the red wash, dark-cored */
+.ec-banner-evil .ec-banner-text {
+  background-image: linear-gradient(
+    180deg,
+    #ffd9c9 0%,
+    #ff7a56 30%,
+    #bb1e12 62%,
+    #4a0505 100%
+  );
+  filter: drop-shadow(0 0 calc(12 * var(--fpx)) rgba(255, 60, 30, 0.5))
+    drop-shadow(0 0 calc(36 * var(--fpx)) rgba(120, 6, 6, 0.55))
+    drop-shadow(0 calc(2 * var(--fpx)) calc(2 * var(--fpx)) rgba(0, 0, 0, 0.9));
+}
+/* motion-reduced clients get the verdict, not the entrance */
+@media (prefers-reduced-motion: reduce) {
+  .ec-banner-text {
+    animation: none;
+    transform: none;
+    opacity: 1;
   }
 }
 </style>
