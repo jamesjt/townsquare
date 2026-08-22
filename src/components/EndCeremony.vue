@@ -226,10 +226,16 @@ export default {
       return !!this.$store.state.chat.gameId && !this.isEnded;
     },
     /** the tentacles' variety — static configs, not per-frame randomness.
-     *  FT-1053d: six wrappers, one painted asset each; --tx/--ts/--tr/--td
-     *  place and stagger the rise, --wa/--wd drive the wrapper's sway and
+     *  FT-1053d: six wrappers, one painted asset each; --tx/--ts/--tr place
+     *  the rise and --wa/--wd drive the wrapper's sway once it lands, with
      *  --wa2/--wd2 the art's own slower counter-sway (two composed rotations
-     *  at different periods read as non-uniform undulation, transform-only) */
+     *  at different periods read as non-uniform undulation, transform-only).
+     *  FT-1053f: --td is now the WHIP's arrival time, not a march — the six
+     *  fire in a shuffled order (art 3, 0, 5, 1, 4, 2), each ~0.3s after the
+     *  last, so no two neighbours in the fan rise back-to-back. Art 2 is the
+     *  biggest tentacle (CONFIGS len/baseW both max in the generator) and is
+     *  seated last (3.5s) as the crescendo — see .ec-hole's ripple, timed to
+     *  land with it. */
     tentacles() {
       return [
         {
@@ -238,7 +244,7 @@ export default {
             "--tx": "-152",
             "--ts": "0.8",
             "--tr": "-15deg",
-            "--td": "2.25s",
+            "--td": "2.27s",
             "--wa": "3.4deg",
             "--wd": "3.6s",
             "--wa2": "1.8deg",
@@ -251,7 +257,7 @@ export default {
             "--tx": "-88",
             "--ts": "1.05",
             "--tr": "-6deg",
-            "--td": "1.95s",
+            "--td": "2.9s",
             "--wa": "2.6deg",
             "--wd": "4.1s",
             "--wa2": "1.4deg",
@@ -264,7 +270,7 @@ export default {
             "--tx": "-18",
             "--ts": "1.2",
             "--tr": "-1deg",
-            "--td": "2.45s",
+            "--td": "3.5s",
             "--wa": "2.2deg",
             "--wd": "4.8s",
             "--wa2": "1.2deg",
@@ -277,7 +283,7 @@ export default {
             "--tx": "44",
             "--ts": "0.92",
             "--tr": "6deg",
-            "--td": "2.1s",
+            "--td": "1.95s",
             "--wa": "3.1deg",
             "--wd": "3.9s",
             "--wa2": "1.7deg",
@@ -290,7 +296,7 @@ export default {
             "--tx": "104",
             "--ts": "1.12",
             "--tr": "12deg",
-            "--td": "2.55s",
+            "--td": "3.17s",
             "--wa": "2.4deg",
             "--wd": "4.4s",
             "--wa2": "1.3deg",
@@ -303,7 +309,7 @@ export default {
             "--tx": "162",
             "--ts": "0.74",
             "--tr": "18deg",
-            "--td": "2.35s",
+            "--td": "2.53s",
             "--wa": "3.8deg",
             "--wd": "3.3s",
             "--wa2": "2deg",
@@ -705,11 +711,27 @@ export default {
     transparent 72%
   );
   opacity: 0;
-  animation: ec-fade-in 0.9s ease-out 0.75s forwards;
+  /* FT-1053f: a brief pulse timed to the biggest tentacle's strike (art 2,
+     td 3.5s, its whip's overshoot lands ~0.35s in) — the hole thumps once as
+     it punches through, transform-only, held state unaffected after */
+  animation:
+    ec-fade-in 0.9s ease-out 0.75s forwards,
+    ec-hole-ripple 0.55s ease-out 3.85s 1;
 }
 @keyframes ec-fade-in {
   to {
     opacity: 1;
+  }
+}
+@keyframes ec-hole-ripple {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
@@ -790,12 +812,17 @@ export default {
   }
 }
 
-/* THE TENTACLES (FT-1053d) — painted things from the deep, not shapes. Each
-   wrapper carries placement (a face-pixel x offset, a lean, a scale, its own
-   delay) plus its OWN sway amplitude/period; the art (end-tentacle-*.svg:
-   gradient body, cold rim light, suckers, turbulence-roughened edges) adds a
-   slower counter-sway of its own, so the two composed rotations undulate
-   non-uniformly — transform/opacity only, the SVG filters are static. */
+/* THE TENTACLES (FT-1053d, red + whip FT-1053f) — painted things from the
+   deep, not shapes. Each wrapper carries placement (a face-pixel x offset, a
+   lean, a scale, its own arrival time) plus its OWN sway amplitude/period;
+   the art (end-tentacle-*.svg: blood-red gradient body, hot ember rim light,
+   suckers, turbulence-roughened edges) adds a slower counter-sway of its
+   own, so the two composed rotations undulate non-uniformly — transform/
+   opacity only, the SVG filters are static.
+   FT-1053f: the six no longer rise together — each WHIPS up fast, overshoots
+   past its resting height, recoils below it, then settles into the same
+   sway as before (ec-tent-whip replaces ec-tent-rise; the wiggle/sway
+   keyframes are untouched, only their start time moved to the whip's end). */
 .ec-tentacles {
   position: absolute;
   left: var(--ec-cx);
@@ -812,14 +839,14 @@ export default {
   margin-left: calc(-53 * var(--fpx));
   transform-origin: bottom center;
   rotate: var(--tr);
-  transform: translateY(82%) scale(var(--ts));
+  transform: translateY(92%) scale(calc(var(--ts) * 0.7));
   opacity: 0;
-  /* the deep's own light: a violet occlusion glow, warmed once the red wash
-     arrives (the drop-shadow reads the art's alpha, suckers and all) */
-  filter: drop-shadow(0 0 10px rgba(70, 15, 55, 0.7));
+  /* the deep's own light: a dark-red occlusion glow, matching the art's own
+     palette (the drop-shadow reads the art's alpha, suckers and all) */
+  filter: drop-shadow(0 0 10px rgba(60, 10, 10, 0.7));
   animation:
-    ec-tent-rise 2s cubic-bezier(0.2, 0.7, 0.3, 1) var(--td) forwards,
-    ec-tent-wiggle var(--wd, 3.4s) ease-in-out calc(var(--td) + 2s) infinite
+    ec-tent-whip 0.75s cubic-bezier(0.3, 0.55, 0.25, 1) var(--td) forwards,
+    ec-tent-wiggle var(--wd, 3.4s) ease-in-out calc(var(--td) + 0.75s) infinite
       alternate;
   will-change: transform, opacity;
 }
@@ -828,11 +855,33 @@ export default {
   height: 100%;
   display: block;
   transform-origin: 50% 96%;
-  animation: ec-tent-sway var(--wd2, 5.5s) ease-in-out calc(var(--td) + 2.4s)
+  animation: ec-tent-sway var(--wd2, 5.5s) ease-in-out calc(var(--td) + 1.15s)
     infinite alternate;
 }
-@keyframes ec-tent-rise {
-  to {
+/* the whip: a fast rise that flings past its resting height, recoils below
+   it, then settles — one continuous transform/opacity run per tentacle,
+   staggered entirely by each wrapper's own --td (see tentacles() above) */
+@keyframes ec-tent-whip {
+  0% {
+    transform: translateY(92%) scale(calc(var(--ts) * 0.7));
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  46% {
+    /* the strike — past the rest height, the tip flung highest */
+    transform: translateY(-7%) scale(calc(var(--ts) * 1.1)) rotate(-4deg);
+    opacity: 1;
+  }
+  68% {
+    /* the recoil — dips back below rest before settling */
+    transform: translateY(10%) scale(calc(var(--ts) * 0.96)) rotate(2deg);
+  }
+  86% {
+    transform: translateY(1%) scale(calc(var(--ts) * 1.015));
+  }
+  100% {
     transform: translateY(4%) scale(var(--ts));
     opacity: 1;
   }
