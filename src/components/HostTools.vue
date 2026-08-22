@@ -294,9 +294,11 @@
 
       <!-- ── FT-1020: THE TOWER — the storyteller's own clockworks ────────────
          Two rows: how the dial tells the game's time (the four display modes
-         and whether the minute hand ticks or sweeps), and the bell that
-         answers a day-start (on/off, which of the two bells, how loud, and a
-         listen button so the pick can be heard before the town hears it).
+         and whether the minute hand ticks or sweeps), and the town's two
+         sounds, side by side (FT-1054) — the day-break bell (on/off, which
+         of the two bells) and the call-back's own voice (default/custom).
+         Picking an option already previews it, so there is no separate
+         volume dial or listen button to wire up.
 
          The choices live in golem/towerBells.js: persisted PER TOWN under
          this town's id, and ridden out on the full gamestate sync every
@@ -365,13 +367,25 @@
           </button>
         </span>
       </div>
-      <div class="row tw-row" title="The bell that tolls when a day begins">
+      <!-- FT-1054: THE SOUNDS ROW — the day-break bell and the call-back's
+         voice sit side by side in one row, two `.tw-lead` clusters split by
+         the row's own `space-between` (the Seats/Roles two-cluster shape,
+         FT-959, restated). The icons swapped meaning here: sun leads the
+         day-break sound (the End-day chip's own glyph — TownInfo.vue — for
+         "this is what breaks the day"), and the bell — freed by the sun —
+         now leads the call-back, the sound a bell has always meant first.
+         Picking an option already previews it (FT-1045/FT-1051), so neither
+         cluster carries a volume dial or a listen button. -->
+      <div
+        class="row tw-row"
+        title="The town's two sounds — the day-break chime and the call-back's voice"
+      >
         <span class="tw-lead">
           <span class="label">
             <font-awesome-icon
               class="row-mark-fa"
-              icon="bell"
-              title="The day-start bell"
+              icon="sun"
+              title="The day-break sound"
             />
           </span>
           <span class="tw-seg" role="radiogroup" aria-label="Day-start bell">
@@ -419,22 +433,36 @@
             </button>
           </span>
         </span>
-        <span class="tw-bell-trail">
-          <NumberScrub
-            :value="tower.bellVolume"
-            :min="0"
-            :max="100"
-            title="Bell volume, in percent of the clip as cut"
-            @input="setTower('bellVolume', $event)"
-          />
-          <span class="tools">
+        <span class="tw-lead">
+          <span class="label">
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="bell"
+              title="The call-back bell"
+            />
+          </span>
+          <span class="tw-seg" role="radiogroup" aria-label="Call-back voice">
             <button
-              class="tool-btn"
               type="button"
-              title="Ring the bell now — hear the pick before the town does"
-              @click="listenBell"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.callId !== 'custom')"
+              :class="{ on: tower.callId !== 'custom' }"
+              title="The summons that ships — click plays it for you; a second click stops it"
+              @click="pickCall('default')"
             >
-              <font-awesome-icon icon="volume-up" />
+              Default
+            </button>
+            <button
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(tower.callId === 'custom')"
+              :class="{ on: tower.callId === 'custom' }"
+              title="A sound of your own — click plays it for you; a second click stops it"
+              @click="pickCall('custom')"
+            >
+              Custom
             </button>
           </span>
         </span>
@@ -491,46 +519,8 @@
         </span>
       </div>
 
-      <!-- FT-1051: THE CALL-BACK'S VOICE — the summons every player hears
-         when the storyteller calls the town back (its trigger now stands
-         above the script name; TownInfo.vue). Default is the clip that
-         ships; Custom opens the same source row the bell wears. Clicking
-         either previews it — locally, never the town. -->
-      <div class="row tw-row" title="The sound that calls the town back">
-        <span class="tw-lead">
-          <span class="label">
-            <font-awesome-icon
-              class="row-mark-fa"
-              icon="broadcast-tower"
-              title="The call-back's voice"
-            />
-          </span>
-          <span class="tw-seg" role="radiogroup" aria-label="Call-back voice">
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.callId !== 'custom')"
-              :class="{ on: tower.callId !== 'custom' }"
-              title="The summons that ships — click plays it for you; a second click stops it"
-              @click="pickCall('default')"
-            >
-              Default
-            </button>
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.callId === 'custom')"
-              :class="{ on: tower.callId === 'custom' }"
-              title="A sound of your own — click plays it for you; a second click stops it"
-              @click="pickCall('custom')"
-            >
-              Custom
-            </button>
-          </span>
-        </span>
-      </div>
+      <!-- FT-1051: THE CALL-BACK'S SOURCE — the row only Custom shows,
+         same shape as the bell's own above it. -->
       <div
         class="row tw-row tw-custom"
         v-if="tower.callId === 'custom'"
