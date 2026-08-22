@@ -2362,8 +2362,9 @@ li.move:not(.from) .player .overlay svg.move {
       content: "";
       position: absolute;
       inset: 0;
+      /* FT-1046c (user): the strike runs bottom-left to top-right. */
       background: linear-gradient(
-        45deg,
+        135deg,
         transparent 44%,
         rgba(20, 8, 8, 0.95) 47%,
         rgba(120, 24, 24, 0.95) 50%,
