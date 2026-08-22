@@ -32,14 +32,18 @@ import Vue from "vue";
 // the tower's own clips, re-voiced for the ceremony — no new audio assets.
 // A DEDICATED element per voice, never the tower's own (mutating the shared
 // bell elements' playbackRate would sour every later day-break).
-import bellOneSound from "../assets/bell-tolls.mp3";
 import bellTwoSound from "../assets/bell-tolls-2.mp3";
-import { towerState, previewBell, stopBellPreview } from "./towerBells";
+// FT-1053c: ONE strike with its decay, cut from the tower's own source wav
+// (design/bells/belltolls.wav) by claude_temp_test/2026-08-22-ft1053c-cut-
+// toll.mjs — the shipped clips carry two strikes, and the good verdict rings
+// once per ray. SINGLE_TOLL_SEC below is the cut's measured length; the ray
+// animation is timed to it.
+import singleTollSound from "../assets/bell-toll-single.mp3";
 
 /** The spy event — the rig's proof that a sound was COMMANDED, on muted and
  *  autoplay-refused clients alike (the TOWER_BELL_EVENT idiom). detail:
- *  { beat: "toll" | "dawn-bells" | "ghost-note" | "begin" | "skip" | "settle"
- *    | "reduced", winner, ... }. */
+ *  { beat: "toll" | "ray-toll" | "begin" | "skip" | "settle" | "reduced",
+ *    winner, ... }. */
 export const END_CEREMONY_EVENT = "golem:end-ceremony";
 
 /** The timeline, in ms from the ceremony's start. One table so the component,
@@ -49,7 +53,9 @@ export const CEREMONY_T = {
   /** phase 1 — the held breath: veil in, UI quiets, the hands wind up. */
   breath: 1600,
   /** phase 2 — the verdict dressing plays (all inner delays are CSS,
-   *  relative to the verdict phase mounting). */
+   *  relative to the verdict phase mounting). Evil's is a FLOOR now: the
+   *  procession (FT-1053b) stretches it with the size of the evil team —
+   *  see evilProcession below. */
   verdictEvil: 6400,
   verdictGood: 6200,
   /** phase 3 — everything the ceremony painted fades; the settled end state
@@ -58,6 +64,65 @@ export const CEREMONY_T = {
   /** a skip's fast fade — one click anywhere jumps here. */
   skipFade: 450,
 };
+
+/** The single toll's measured length (the FT-1053c cut: strike + decay,
+ *  3.98s) — the good verdict's ray animation spans exactly this, so one
+ *  bell ring IS one ray. */
+export const SINGLE_TOLL_SEC = 3.98;
+
+/**
+ * FT-1053b: THE EVIL PROCESSION's clock. Every evil seat rises centre one at
+ * a time (dead minions, living minions, the demon last), so the verdict
+ * stretches with the team — but politely: the stagger shrinks as the team
+ * grows, and verdictEvil above stays the floor. All numbers in seconds;
+ * verdictMs is what the sequencer holds the verdict phase open for.
+ */
+export function evilProcession(count) {
+  const n = Math.max(0, count);
+  const start = 3.2; // after the shatter has opened the hole
+  const entry = 2.2; // one figure's rise + hold + settle-aside
+  const stagger = n > 1 ? Math.min(1.4, Math.max(0.75, 3 / (n - 1))) : 0;
+  const total = n ? start + (n - 1) * stagger + entry : 0;
+  return {
+    start,
+    stagger,
+    entry,
+    verdictMs: Math.max(
+      CEREMONY_T.verdictEvil,
+      Math.round((total + 0.7) * 1000),
+    ),
+  };
+}
+
+/**
+ * FT-1053c: THE GOOD VERDICT's clock. One ray per good seat — alive first,
+ * then the dead (whose rays hand off into their ghosts' ascent) — one toll
+ * per ray, the ray's whole animation as long as the toll. The cadence
+ * shrinks for big casts; overlapping the tail of toll N with ray N+1 is how
+ * real bells behave. rayLand is when the beam reaches the seat (the reveal
+ * moment), a fixed fraction of the toll-long sweep.
+ */
+export function goodSequence(count, anyDeadGood) {
+  const n = Math.max(0, count);
+  const start = 1.9; // after the dawn line has drawn itself
+  const rayDur = SINGLE_TOLL_SEC;
+  const rayLand = 1.2; // scaleY reaches the seat ~30% into the toll
+  const ghostLag = 1.5; // strike, a beat, then the soul lifts
+  const cadence = n > 1 ? Math.min(1.8, Math.max(1.1, 4.8 / (n - 1))) : 0;
+  const lastRay = n ? start + (n - 1) * cadence : 0;
+  const tail = anyDeadGood ? ghostLag + 2.9 : rayDur + 0.3;
+  return {
+    start,
+    cadence,
+    rayDur,
+    rayLand,
+    ghostLag,
+    verdictMs: Math.max(
+      CEREMONY_T.verdictGood,
+      Math.round((lastRay + tail) * 1000),
+    ),
+  };
+}
 
 /**
  * The one piece of shared state. `phase` walks idle → breath → verdict →
@@ -221,18 +286,17 @@ function tollEvil(isMuted) {
   });
 }
 
-/** GOOD: the town's own day-break bells — the storyteller's pick at the
- *  town's volume, through the tower's own play path (fallbacks included). */
-function bellsGood(isMuted) {
-  spy("dawn-bells");
-  previewBell(towerState.bellId, towerState.bellVolume, isMuted);
-}
-
-/** One soft note as a ghost lifts — bell one, brightened and brief. */
-export function ghostNote(index, isMuted) {
-  spy("ghost-note", { index });
+/**
+ * GOOD (FT-1053c): one toll per ray — the single-strike cut, played as each
+ * beam leaves the dawn point, its decay spanning the beam's whole animation.
+ * (This REPLACED the FT-1053 dawn-bells + per-ghost notes: the user's own
+ * redesign — "play it once per light ray".) EndCeremony.vue schedules the
+ * calls, because the ray delays are its geometry's to own.
+ */
+export function rayToll(index, isMuted) {
+  spy("ray-toll", { index });
   if (isMuted) return;
-  voice(bellOneSound, { volume: 0.14, rate: 1.5, stopAfter: 1600 });
+  voice(singleTollSound, { volume: 0.5 });
 }
 
 /** Every voice this show started, silenced — the settle's and the skip's. */
@@ -245,7 +309,6 @@ function hushAll() {
     }
   });
   ceremonyAudio = [];
-  stopBellPreview();
 }
 
 // ── the sequencer ────────────────────────────────────────────────────────────
@@ -269,7 +332,10 @@ export function ceremonyAllowed(store) {
  * client. Idempotent against a double fire (a show already running keeps
  * running).
  */
-export function beginCeremony(winner, { isMuted = false } = {}) {
+export function beginCeremony(
+  winner,
+  { isMuted = false, evilCount = 1, goodCount = 0, anyDeadGood = false } = {},
+) {
   if (ceremonyState.phase !== "idle") return;
   ceremonyState.winner = winner === "evil" ? "evil" : "good";
   ceremonyState.phase = "breath";
@@ -286,13 +352,17 @@ export function beginCeremony(winner, { isMuted = false } = {}) {
       // the toll waits for the crack to land and the face to let go
       later(() => tollEvil(isMuted), 900);
     } else {
+      // FT-1053c: no verdict-wide bells any more — each ray brings its own
+      // toll (rayToll above, scheduled by the component with its beams)
       spinSettle();
-      later(() => bellsGood(isMuted), 300);
     }
+    // the verdict phase holds open for as long as ITS cast needs — the evil
+    // procession and the good ray-walk both stretch with the team, floored
+    // at the FT-1053 envelope (CEREMONY_T)
     const run =
       ceremonyState.winner === "evil"
-        ? CEREMONY_T.verdictEvil
-        : CEREMONY_T.verdictGood;
+        ? evilProcession(evilCount).verdictMs
+        : goodSequence(goodCount, anyDeadGood).verdictMs;
     later(() => settle(CEREMONY_T.fade), run);
   }, CEREMONY_T.breath);
 }

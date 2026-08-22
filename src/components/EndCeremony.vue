@@ -52,21 +52,37 @@
       </div>
       <!-- the red wash -->
       <div class="ec-redwash"></div>
-      <!-- the demon that stood among you — the seat's real coin, risen -->
-      <div class="ec-demon" v-if="demonRole">
-        <Token :role="demonRole" />
+      <!-- FT-1053b: THE PROCESSION — every evil seat rises centre one at a
+           time (dead minions, living minions, the demon last), each the
+           seat's REAL coin with its name plate, minions settling aside into
+           the flanks while the demon ends centre-stage -->
+      <div class="ec-procession">
+        <div
+          v-for="p in procession"
+          :key="p.key"
+          class="ec-proc"
+          :class="{ 'ec-proc-demon': p.demon, 'ec-proc-dead': p.dead }"
+          :style="p.style"
+        >
+          <Token :role="p.role" />
+          <span class="ec-proc-name">{{ p.name }}</span>
+        </div>
       </div>
     </template>
 
     <!-- ── GOOD: dawn breaks over the face, the dead ascend ──────────────── -->
     <template v-if="verdictOn && winner === 'good'">
       <div class="ec-dawn"></div>
-      <div class="ec-rays">
+      <!-- FT-1053c: each beam finds ONE good seat — alive first, then the
+           dead, one toll per beam, the beam's whole animation as long as the
+           toll (SINGLE_TOLL_SEC). Geometry is measured px (dawn point to the
+           seat's real coin box), set inline per beam. -->
+      <div class="ec-beams">
         <div
-          v-for="(r, i) in rays"
-          :key="'ray-' + i"
-          class="ec-ray"
-          :style="r"
+          v-for="(b, i) in beams"
+          :key="'beam-' + i"
+          class="ec-beam"
+          :style="b"
         ></div>
       </div>
       <img
@@ -78,6 +94,10 @@
         :style="g"
       />
     </template>
+
+    <!-- the dawn point, as a measurable 0×0 probe: the beams' shared origin
+         in real pixels (CSS owns the calc; JS reads the resolved box) -->
+    <div class="ec-dawn-origin" ref="dawnOrigin"></div>
   </div>
 </template>
 
@@ -89,7 +109,9 @@ import {
   skipCeremony,
   stopCeremony,
   ceremonyAllowed,
-  ghostNote,
+  evilProcession,
+  goodSequence,
+  rayToll,
   END_CEREMONY_EVENT,
 } from "../golem/endCeremony";
 
@@ -118,6 +140,13 @@ export default {
       armed: false,
       shards: [],
       ghosts: [],
+      /** FT-1053b: the evil team's one-at-a-time rise, marshalled at verdict */
+      procession: [],
+      /** FT-1053c: one measured beam per good seat, alive first */
+      beams: [],
+      /** the good seats veiled for the choreographed reveal — their li
+       *  elements, so skip/settle can unveil exactly what was veiled */
+      veiledEls: [],
       ghostArt: require("../assets/ui-ghost-cowl.png"),
       noteTimers: [],
     };
@@ -149,15 +178,6 @@ export default {
     gameLive() {
       return !!this.$store.state.chat.gameId && !this.isEnded;
     },
-    /** the winning demon's actual role — "the Imp stood among you". First
-     *  demon seat; absent (a no-record end with the roster gone) skips the
-     *  coin, never the ceremony. */
-    demonRole() {
-      const demon = this.$store.state.players.players.find(
-        (p) => p.role && p.role.team === "demon",
-      );
-      return demon ? demon.role : null;
-    },
     /** the tentacles' variety — static configs, not per-frame randomness */
     tentacles() {
       return [
@@ -167,18 +187,6 @@ export default {
         { "--tx": "84", "--ts": "1.2", "--tr": "11deg", "--td": "2.05s" },
         { "--tx": "150", "--ts": "0.8", "--tr": "19deg", "--td": "2.5s" },
       ];
-    },
-    /** the light — six beams fanned from above the dial's top */
-    rays() {
-      const out = [];
-      for (let i = 0; i < 6; i++) {
-        out.push({
-          "--ra": (i - 2.5) * 13 + "deg",
-          "--rd": (0.5 + i * 0.14).toFixed(2) + "s",
-          "--rw": (10 + (i % 3) * 7).toFixed(0),
-        });
-      }
-      return out;
     },
   },
   watch: {
@@ -206,21 +214,38 @@ export default {
         }
         return;
       }
-      beginCeremony(this.storeWinner(), {
+      const winner = this.storeWinner();
+      const cast = this.castCounts();
+      if (winner === "good") {
+        // FT-1053c: the choreographed reveal — good seats hide their
+        // identity NOW (synchronously, before Vue paints the end reveal
+        // this same flush), and each seat's ray strike lifts its veil
+        this.veilGoodSeats();
+      }
+      beginCeremony(winner, {
         isMuted: this.$store.state.grimoire.isMuted,
+        evilCount: cast.evil,
+        goodCount: cast.good,
+        anyDeadGood: cast.deadGood > 0,
       });
     },
     /** the verdict phase mounting is when the dressing is measured/cut —
-     *  shards off the face geometry, ghosts off the real seat boxes */
+     *  shards off the face geometry, beams/ghosts off the real seat boxes */
     phase(now) {
       if (now !== "verdict") {
-        if (now === "idle") this.clearNotes();
+        // fade or idle: pending strikes die and every veil lifts — the skip
+        // and the settle both land on the fully revealed board
+        if (now === "fade" || now === "idle") {
+          this.clearNotes();
+          this.unveilAll();
+        }
         return;
       }
       if (this.winner === "evil") {
         this.shards = this.cutShards();
+        this.procession = this.marshalProcession();
       } else {
-        this.ghosts = this.riseGhosts();
+        this.buildGoodVerdict();
       }
     },
   },
@@ -231,6 +256,7 @@ export default {
   },
   beforeDestroy() {
     this.clearNotes();
+    this.unveilAll();
     stopCeremony();
   },
   methods: {
@@ -297,36 +323,160 @@ export default {
       }
       return shards;
     },
-    /**
-     * THE DEAD RISE. Every dead GOOD seat's cowled ghost, measured off the
-     * REAL rendered seat (the coin's own box), ascending into the rays. One
-     * soft bell note per ghost, staggered with them.
-     */
-    riseGhosts() {
-      const players = this.$store.state.players.players;
-      const seats = document.querySelectorAll("#townsquare .circle > li");
-      const isMuted = this.$store.state.grimoire.isMuted;
-      const out = [];
-      players.forEach((player, i) => {
-        const team = player.role && player.role.team;
-        if (!player.isDead) return;
-        if (team !== "townsfolk" && team !== "outsider") return;
-        const li = seats[i];
-        if (!li) return;
-        const box = (li.querySelector(".token") || li).getBoundingClientRect();
-        const n = out.length;
-        const delayMs = 1400 + n * 450;
-        out.push({
-          left: (box.left + box.width / 2).toFixed(0) + "px",
-          top: box.top.toFixed(0) + "px",
-          height: Math.max(48, box.height * 0.9).toFixed(0) + "px",
-          animationDelay: (delayMs / 1000).toFixed(2) + "s",
-        });
-        this.noteTimers.push(
-          setTimeout(() => ghostNote(n, isMuted), delayMs + 350),
-        );
+    /** who stands where, team-wise — the counts the sequencer sizes both
+     *  verdicts by */
+    castCounts() {
+      let evil = 0;
+      let good = 0;
+      let deadGood = 0;
+      this.$store.state.players.players.forEach((p) => {
+        const team = p.role && p.role.team;
+        if (team === "minion" || team === "demon") evil++;
+        else if (team === "townsfolk" || team === "outsider") {
+          good++;
+          if (p.isDead) deadGood++;
+        }
       });
-      return out;
+      return { evil, good, deadGood };
+    },
+    /** every seat's li beside its player, in seat order */
+    seatRows() {
+      const players = this.$store.state.players.players;
+      const els = document.querySelectorAll("#townsquare .circle > li");
+      return players.map((player, i) => ({ player, li: els[i] || null, i }));
+    },
+    /**
+     * FT-1053b: THE PROCESSION, marshalled. Order is the user's: dead
+     * minions first, living minions, the demon(s) last — the crescendo.
+     * Minions settle aside into alternating flank slots (inner-out, a
+     * shallow arc dipping with distance); whoever comes last holds centre,
+     * which is the demon whenever one is seated. Slots/timing in face-px
+     * and seconds; the entry keyframe reads them as custom properties.
+     */
+    marshalProcession() {
+      const evil = [];
+      this.$store.state.players.players.forEach((p, i) => {
+        const team = p.role && p.role.team;
+        if (team !== "minion" && team !== "demon") return;
+        evil.push({ p, seat: i, demon: team === "demon", dead: !!p.isDead });
+      });
+      const rank = (e) => (e.demon ? 2 : e.dead ? 0 : 1);
+      evil.sort((a, b) => rank(a) - rank(b) || a.seat - b.seat);
+      const t = evilProcession(evil.length);
+      const flanks = [-105, 105, -190, 190, -275, 275, -360, 360];
+      let m = 0;
+      return evil.map((e, i) => {
+        // exactly ONE centre — the last to rise (the demon whenever one is
+        // seated; a second demon flanks like a minion rather than stacking)
+        const center = i === evil.length - 1;
+        const x = center ? 0 : flanks[m++ % flanks.length];
+        return {
+          key: "proc-" + e.seat,
+          role: e.p.role,
+          name: e.p.name || `Seat ${e.seat + 1}`,
+          dead: e.dead,
+          demon: e.demon,
+          style: {
+            "--px": x.toFixed(0),
+            "--py": center ? "0" : (26 + Math.abs(x) * 0.06).toFixed(0),
+            "--ps": center ? "1" : "0.78",
+            zIndex: center ? 3 : 2,
+            animationDelay: (t.start + i * t.stagger).toFixed(2) + "s",
+            animationDuration: t.entry.toFixed(2) + "s",
+          },
+        };
+      });
+    },
+    /**
+     * FT-1053c: THE DAWN FINDS EACH OF THE GOOD. One measured beam per good
+     * seat — dawn point to the seat's real coin box — alive seats first,
+     * then the dead; each beam brings one toll (rayToll) as it leaves, its
+     * whole animation exactly the toll's length; the seat's veil lifts (the
+     * choreographed reveal) at the beam's LANDING; a dead seat's ghost
+     * ascends a beat after its strike.
+     */
+    buildGoodVerdict() {
+      const isMuted = this.$store.state.grimoire.isMuted;
+      const rows = this.seatRows().filter(({ player }) => {
+        const team = player.role && player.role.team;
+        return team === "townsfolk" || team === "outsider";
+      });
+      const order = [
+        ...rows.filter((r) => !r.player.isDead),
+        ...rows.filter((r) => r.player.isDead),
+      ];
+      const t = goodSequence(
+        order.length,
+        order.some((r) => r.player.isDead),
+      );
+      const probe = this.$refs.dawnOrigin;
+      const o = probe
+        ? probe.getBoundingClientRect()
+        : { left: window.innerWidth / 2, top: 0 };
+      const beams = [];
+      const ghosts = [];
+      order.forEach((row, i) => {
+        const el = row.li && (row.li.querySelector(".token") || row.li);
+        if (!el) return;
+        const box = el.getBoundingClientRect();
+        const sx = box.left + box.width / 2;
+        const sy = box.top + box.height / 2;
+        const dx = sx - o.left;
+        const dy = sy - o.top;
+        const len = Math.hypot(dx, dy);
+        // a div hanging from the dawn point, rotated so its far end lands on
+        // the seat: for rotate(θ) about top-centre, (0, len) → (−sinθ·len,
+        // cosθ·len), so θ = atan2(−dx, dy)
+        const rot = (Math.atan2(-dx, dy) * 180) / Math.PI;
+        const w = Math.max(24, box.width * 0.7);
+        const delay = t.start + i * t.cadence;
+        beams.push({
+          left: (o.left - w / 2).toFixed(0) + "px",
+          top: o.top.toFixed(0) + "px",
+          width: w.toFixed(0) + "px",
+          height: len.toFixed(0) + "px",
+          "--ba": rot.toFixed(2) + "deg",
+          animationDelay: delay.toFixed(2) + "s",
+          animationDuration: t.rayDur.toFixed(2) + "s",
+        });
+        // the toll leaves with the beam; the veil lifts when the beam lands
+        this.noteTimers.push(
+          setTimeout(() => rayToll(i, isMuted), Math.round(delay * 1000)),
+        );
+        this.noteTimers.push(
+          setTimeout(
+            () => row.li && row.li.classList.remove("ec-unstruck"),
+            Math.round((delay + t.rayLand) * 1000),
+          ),
+        );
+        if (row.player.isDead) {
+          ghosts.push({
+            left: sx.toFixed(0) + "px",
+            top: box.top.toFixed(0) + "px",
+            height: Math.max(48, box.height * 0.9).toFixed(0) + "px",
+            animationDelay: (delay + t.ghostLag).toFixed(2) + "s",
+          });
+        }
+      });
+      this.beams = beams;
+      this.ghosts = ghosts;
+    },
+    /** FT-1053c: the good seats hold their pre-verdict face until their ray
+     *  lands — the veil is a class on the seat's own li */
+    veilGoodSeats() {
+      this.veiledEls = [];
+      this.seatRows().forEach(({ player, li }) => {
+        const team = player.role && player.role.team;
+        if (!li || (team !== "townsfolk" && team !== "outsider")) return;
+        li.classList.add("ec-unstruck");
+        this.veiledEls.push(li);
+      });
+    },
+    /** every veil lifts — the skip's, the settle's and the unmount's floor:
+     *  whatever happens, the board ends fully revealed */
+    unveilAll() {
+      this.veiledEls.forEach((li) => li.classList.remove("ec-unstruck"));
+      this.veiledEls = [];
     },
   },
 };
@@ -551,28 +701,93 @@ export default {
   animation: ec-fade-in 1.4s ease-in 2.7s forwards;
 }
 
-/* the demon's own coin, risen from the hole to centre */
-.ec-demon {
+/* FT-1053b: THE PROCESSION — each evil figure rises from the hole to
+   centre-stage (coin + name plate), holds its moment, then settles aside to
+   its flank slot as the next rises; the LAST figure (the demon) ends centre.
+   One keyframe serves every figure: the flank slot rides custom properties,
+   and the centre figure's slot is simply 0,0 — "slide to centre" is "stay". */
+.ec-procession {
   position: absolute;
   left: var(--ec-cx);
   top: var(--ec-cy);
-  width: calc(150 * var(--fpx));
-  height: calc(150 * var(--fpx));
-  margin: calc(-75 * var(--fpx)) 0 0 calc(-75 * var(--fpx));
-  /* the ceremony's one click is SKIP — the coin is a picture here, and
+  width: 0;
+  height: 0;
+}
+.ec-proc {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--pw, 120) * var(--fpx));
+  margin-left: calc(var(--pw, 120) / -2 * var(--fpx));
+  margin-top: calc(var(--pw, 120) / -2 * var(--fpx));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(5 * var(--fpx));
+  /* the ceremony's one click is SKIP — the coins are pictures here, and
      Token's own click handler must never fire from inside the show */
   pointer-events: none;
+  font-size: calc(12 * var(--fpx));
+  filter: drop-shadow(0 0 12px rgba(140, 16, 16, 0.65));
+  opacity: 0;
+  transform: translateY(calc(80 * var(--fpx))) scale(0.45);
+  animation: ec-proc-enter cubic-bezier(0.25, 0.7, 0.3, 1) forwards;
+  will-change: transform, opacity;
+
+  .token {
+    width: calc(var(--pw, 120) * var(--fpx));
+    height: calc(var(--pw, 120) * var(--fpx));
+    pointer-events: none;
+  }
+}
+/* the crescendo wears more: a bigger coin, a hotter halo */
+.ec-proc-demon {
+  --pw: 150;
   font-size: calc(15 * var(--fpx));
   filter: drop-shadow(0 0 18px rgba(160, 20, 20, 0.8))
     drop-shadow(0 0 46px rgba(120, 10, 10, 0.5));
-  opacity: 0;
-  transform: translateY(calc(70 * var(--fpx))) scale(0.55);
-  animation: ec-demon-rise 1.5s cubic-bezier(0.2, 0.8, 0.25, 1) 3.4s forwards;
 }
-@keyframes ec-demon-rise {
-  to {
+/* a dead minion rises anyway — but wears its death */
+.ec-proc-dead .token {
+  filter: grayscale(0.45) brightness(0.82);
+}
+.ec-proc-dead .ec-proc-name {
+  opacity: 0.7;
+}
+/* the seat plate idiom (Player.vue's .name: dark plate, black border, soft
+   shadow), team-tinted for the occasion */
+.ec-proc-name {
+  max-width: calc(170 * var(--fpx));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+  background: rgba(0, 0, 0, 0.65);
+  border: 2px solid rgba(60, 0, 0, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 0 5px black;
+  padding: calc(1 * var(--fpx)) calc(9 * var(--fpx));
+}
+@keyframes ec-proc-enter {
+  0% {
+    transform: translateY(calc(80 * var(--fpx))) scale(0.45);
+    opacity: 0;
+  }
+  25% {
+    transform: translate(0, 0) scale(1.03);
     opacity: 1;
-    transform: none;
+  }
+  55% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(
+        calc(var(--px, 0) * var(--fpx)),
+        calc(var(--py, 0) * var(--fpx))
+      )
+      scale(var(--ps, 1));
+    opacity: 1;
   }
 }
 
@@ -608,53 +823,76 @@ export default {
 
 /* the light — beams fanned from above the dial, sweeping down over it.
    screen-blended, transform+opacity only. */
-.ec-rays {
+/* FT-1053c: the dawn point, measurable — the beams' shared origin. JS reads
+   this 0×0 box's resolved position; CSS keeps sole ownership of the calc. */
+.ec-dawn-origin {
   position: absolute;
   left: var(--ec-cx);
   top: calc(var(--ec-cy) - 262 * var(--fpx));
   width: 0;
   height: 0;
+  pointer-events: none;
+}
+/* the beams — one per good seat, geometry set inline (measured px). Each
+   hangs from the dawn point, rotated so its far end lands ON its seat; the
+   animation is exactly one toll long (SINGLE_TOLL_SEC): the sweep reaches
+   the seat ~30% in (the strike — the reveal moment), then the beam holds
+   and dims with the bell's decay. */
+.ec-beams {
+  position: absolute;
+  inset: 0;
   mix-blend-mode: screen;
 }
-.ec-ray {
+.ec-beam {
   position: absolute;
-  left: calc(-0.5 * var(--rw) * var(--fpx));
-  top: 0;
-  width: calc(var(--rw) * var(--fpx));
-  height: 88vh;
   transform-origin: top center;
-  rotate: var(--ra);
+  rotate: var(--ba, 0deg);
+  /* a SHAFT of light, not a plank (first-run frame): tapered — narrow at
+     the dawn point, opening toward the seat — soft-edged by the gradient's
+     sideways falloff, and translucent through its length */
+  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
   background: linear-gradient(
-    180deg,
-    rgba(255, 240, 200, 0.55) 0%,
-    rgba(255, 232, 175, 0.28) 45%,
-    rgba(255, 226, 160, 0) 100%
-  );
+      90deg,
+      rgba(255, 238, 190, 0) 0%,
+      rgba(255, 238, 190, 0.5) 50%,
+      rgba(255, 238, 190, 0) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 240, 200, 0.05) 0%,
+      rgba(255, 236, 185, 0.22) 30%,
+      rgba(255, 232, 175, 0.18) 70%,
+      rgba(255, 246, 215, 0.55) 100%
+    );
+  filter: blur(0.6px);
   transform: scaleY(0);
   opacity: 0;
-  animation:
-    ec-ray-sweep 2.3s cubic-bezier(0.25, 0.6, 0.3, 1) var(--rd) forwards,
-    ec-ray-breathe 3.6s ease-in-out calc(var(--rd) + 2.3s) infinite alternate;
+  animation-name: ec-beam-strike;
+  animation-timing-function: cubic-bezier(0.3, 0.5, 0.25, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
 }
-@keyframes ec-ray-sweep {
+@keyframes ec-beam-strike {
   0% {
     transform: scaleY(0);
     opacity: 0;
   }
-  35% {
-    opacity: 0.95;
+  8% {
+    opacity: 0.9;
+  }
+  30% {
+    /* the strike lands — rayLand: ~1.2s of the 3.98s toll */
+    transform: scaleY(1);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scaleY(1);
+    opacity: 0.55;
   }
   100% {
+    /* held glow, dimming with the bell's decay */
     transform: scaleY(1);
-    opacity: 0.8;
-  }
-}
-@keyframes ec-ray-breathe {
-  from {
-    opacity: 0.8;
-  }
-  to {
-    opacity: 0.55;
+    opacity: 0.35;
   }
 }
 
@@ -743,16 +981,37 @@ export default {
   transition-delay: 1.6s;
 }
 
-/* ── GOOD WINS: the living good lift, warm-haloed ──────────────────────── */
-#app.ec-verdict.ec-good #townsquare .circle > li:has(.player.townsfolk),
-#app.ec-verdict.ec-good #townsquare .circle > li:has(.player.outsider) {
-  translate: 0 calc(-7 * var(--fpx));
-  transition-delay: 0.9s;
+/* ── GOOD WINS: the choreographed reveal (FT-1053c) ────────────────────────
+   Every good seat holds its PRE-VERDICT face while it waits: identity veiled
+   (the coin's icon and name arc — the seat plate stays), no lift, no halo.
+   The seat's own ray landing removes `.ec-unstruck` (EndCeremony's strike
+   timer), and everything below arrives WITH the strike — the reveal, the
+   lift and the halo are one moment now, so the old fixed transition-delays
+   came off. The end-reveal publication underneath is untouched: this only
+   choreographs WHEN each revealed face first shows. */
+#app.ec-active #townsquare .token .icon-fit,
+#app.ec-active #townsquare .token .name {
+  transition: opacity 0.7s ease;
 }
-#app.ec-verdict.ec-good #townsquare .player.townsfolk,
-#app.ec-verdict.ec-good #townsquare .player.outsider {
+#app.ec-active #townsquare li.ec-unstruck .token .icon-fit,
+#app.ec-active #townsquare li.ec-unstruck .token .name {
+  opacity: 0;
+  transition: none;
+}
+/* the living good lift, warm-haloed — struck seats only */
+#app.ec-verdict.ec-good
+  #townsquare
+  .circle
+  > li:not(.ec-unstruck):has(.player.townsfolk),
+#app.ec-verdict.ec-good
+  #townsquare
+  .circle
+  > li:not(.ec-unstruck):has(.player.outsider) {
+  translate: 0 calc(-7 * var(--fpx));
+}
+#app.ec-verdict.ec-good #townsquare li:not(.ec-unstruck) .player.townsfolk,
+#app.ec-verdict.ec-good #townsquare li:not(.ec-unstruck) .player.outsider {
   filter: drop-shadow(0 0 14px rgba(255, 214, 140, 0.7));
-  transition-delay: 0.9s;
 }
 /* the evil seats are PINNED — pressed down, dimmed, cracks spidering under
    them (a pseudo-element the li did not otherwise use) */
