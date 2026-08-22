@@ -1361,8 +1361,10 @@ export default {
 /* FT-1053e: the glyph rides the line at cap height, outside the text's
    background-clip (an img keeps its own colors + drop shadow). */
 .ec-banner-glyph {
-  width: calc(64 * var(--fpx));
-  height: calc(64 * var(--fpx));
+  /* FT-1058b (user): the good glyph was squished — the team art is wider
+     than tall, so the box fixes HEIGHT and lets width follow the art. */
+  height: calc(56 * var(--fpx));
+  width: auto;
   filter: drop-shadow(
     0 calc(2 * var(--fpx)) calc(4 * var(--fpx)) rgba(0, 0, 0, 0.8)
   );

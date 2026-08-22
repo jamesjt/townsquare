@@ -113,7 +113,10 @@
          team art the counts below and EndGameOverlay's own winner buttons
          already wear (golem/glyphs teamGlyph) — never a new pictogram for
          the same "which team" fact. -->
-    <li class="info-result" v-else>
+    <!-- FT-1058b (user): the small winner line stands down — the ceremony's
+         big centered banner (EndCeremony) says it now, for every seat. The
+         markup is unmounted, not deleted, per the house rule. -->
+    <li class="info-result" v-else-if="false">
       <span class="result-now" :class="session.winningTeam">
         <img class="result-glyph" :src="resultGlyph" alt="" />
         {{ session.winningTeam === "evil" ? "Evil wins" : "Good wins" }}
