@@ -539,7 +539,7 @@
                     <input
                       id="fg-name"
                       v-model="roleForm.name"
-                      placeholder="Role name"
+                      placeholder="New Role"
                       maxlength="40"
                     />
                     <button
