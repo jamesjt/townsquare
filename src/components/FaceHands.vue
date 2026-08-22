@@ -111,7 +111,14 @@
       <!-- the game's own moment, in the hands' place — which day or night it
            is and how long it has run. Decoration like the hands (the phase
            readout on the dial already states the same fact accessibly). -->
-      <span v-if="showDigital" class="tw-digital" aria-hidden="true">
+      <!-- FT-1055: `tw-zero` is the countdown's landed-on-zero pulse — a CSS
+           flash and nothing more; the day itself never ends on its own. -->
+      <span
+        v-if="showDigital"
+        class="tw-digital"
+        :class="{ 'tw-zero': zeroFlash }"
+        aria-hidden="true"
+      >
         {{ digitalLabel
         }}<span class="tw-digital-clock">{{ digitalClock }}</span>
       </span>
@@ -146,6 +153,13 @@ import {
   loadTowerForTown,
   armTowerAudio,
   ringDayStart,
+  // FT-1055: Tick/Sweep is personal now (the hourglass menu's row) — this
+  // screen reads its own effective pick, not the town field raw.
+  effectiveMinuteTick,
+  // FT-1055: the phase's start survives a reload (wall-clock, per town), so
+  // the day-length countdown resumes at the right remaining.
+  recordPhaseStart,
+  readPhaseStart,
 } from "../golem/towerBells";
 // FT-1020c: the ring numerals wear the carved Clocktower letter art — the
 // same PNG glyphs the entry screen's CLOCKTOWER lettering is built from.
@@ -241,8 +255,16 @@ export default {
        *  screen, the viewer's own set (falling back to the town's) on a
        *  player's (towerBells.js, FT-1020c). */
       hour: effectiveHourFlags(this.$store.state.session),
-      /** Minute hand steps (the shipped tick) or creeps (the panel's Sweep). */
-      minuteTick: towerState.minuteTick,
+      /** Minute hand steps (the shipped tick) or creeps (Sweep) — FT-1055:
+       *  this screen's own pick (the hourglass menu row), town default
+       *  otherwise. */
+      minuteTick: effectiveMinuteTick(this.$store.state.session),
+      /** FT-1055: the town's day length in minutes (0 = Off) — a reactive
+       *  snapshot of the synced tower field, refreshed on TOWER_EVENT. */
+      dayLengthMin: towerState.dayLengthMin,
+      /** FT-1055: the countdown has landed on zero — the readout wears the
+       *  pulse class while this holds; cleared by the next phase. */
+      zeroFlash: false,
       /** RETIRED (FT-1020b) with the XII anchor — nothing opens here now;
        *  the four-mode menu is the strip's hourglass tab (Menu.vue). */
       menuOpen: false,
@@ -300,6 +322,18 @@ export default {
     },
     showDigital() {
       return this.hour.digital;
+    },
+    /**
+     * FT-1055: how long the CURRENT phase is allowed to run, in ms — the
+     * town's day length while a DAY runs, 0 otherwise (nights keep counting
+     * up; no length set is today's behaviour everywhere). The countdown and
+     * the zero moment both read this one gate.
+     */
+    dayCountdownMs() {
+      const s = this.$store && this.$store.state;
+      const night = s && s.grimoire && s.grimoire.isNight;
+      if (night) return 0;
+      return (this.dayLengthMin || 0) * 60000;
     },
     /** The digital readout's words: the phase readout's own fact, restated
      *  small — "Day 3" / "Night 3". The Math.max is TownInfo's own clamp
@@ -359,7 +393,23 @@ export default {
     // catches dusk and dawn, the day number catches a second night (the flag
     // is already true when it starts).
     phaseKey(now, before) {
-      this.phaseEpoch = performance.now();
+      // FT-1055: the phase's start is remembered per town (wall-clock). A
+      // key this browser has ALREADY seen begin is not a fresh flip — it is
+      // a reload's sync re-announcing the running phase (mount stamped a
+      // provisional epoch before the sync arrived) — so its clock RESUMES;
+      // only a genuinely new key stamps and records a fresh start. Either
+      // way the zero state stands down: this phase judges its own zero.
+      const townId = this.$store.state.session.sessionId || "";
+      const back = readPhaseStart(townId, now);
+      if (back !== null) {
+        this.phaseEpoch = performance.now() - back;
+      } else {
+        this.phaseEpoch = performance.now();
+        recordPhaseStart(townId, now);
+      }
+      this._zeroFired = false;
+      this._sawCountdown = false;
+      this.zeroFlash = false;
       this.tick();
       // ── DAY BREAKS, THE BELL TOLLS (FT-1020) ──────────────────────────────
       // Night→day on the SAME counter is a genuine dawn — the one moment the
@@ -392,6 +442,26 @@ export default {
   },
   mounted() {
     this.phaseEpoch = performance.now();
+    // FT-1055: a reload mid-phase resumes the phase's own clock — the stored
+    // wall-clock start (recorded on every flip below) backdates the epoch so
+    // the countdown lands its zero at the same real moment it always would.
+    // No match (a different phase, a stale record, a fresh join) records the
+    // only start this client genuinely knows: now.
+    {
+      const townId = this.$store.state.session.sessionId || "";
+      const back = readPhaseStart(townId, this.phaseKey);
+      if (back !== null) {
+        this.phaseEpoch = performance.now() - back;
+      } else {
+        recordPhaseStart(townId, this.phaseKey);
+      }
+    }
+    // FT-1055: the zero moment's guards — fired-once per phase, and "saw the
+    // countdown actually running" (a client that arrives, or reloads, PAST
+    // zero flashes but never re-rings the moment it missed). Plain instance
+    // fields like the angle guards below: nothing renders from them.
+    this._zeroFired = false;
+    this._sawCountdown = false;
     // last-written stepped angles, for the reset guard in `tick` — plain
     // instance fields, NOT data(): they change with the writes they guard and
     // nothing renders from them.
@@ -455,7 +525,10 @@ export default {
      *  arriving. Same one-way re-read as the lab's. */
     readTower() {
       this.hour = effectiveHourFlags(this.$store.state.session);
-      this.minuteTick = towerState.minuteTick;
+      this.minuteTick = effectiveMinuteTick(this.$store.state.session);
+      // FT-1055: the day length rides the same event (a panel scrub, a sync
+      // arriving) — the loop reads the snapshot next frame.
+      this.dayLengthMin = towerState.dayLengthMin;
       this.tick();
     },
     /**
@@ -545,13 +618,46 @@ export default {
      */
     loop() {
       this.tick();
+      const elapsedMs = performance.now() - this.phaseEpoch;
+      const countdownMs = this.dayCountdownMs;
+      // ── FT-1055: THE ZERO MOMENT — once per day, on every client ─────────
+      // Watched regardless of whether THIS screen shows the digital layer:
+      // the display is personal, the bell is the town's. At zero the
+      // day-start bell machinery tolls once (its own bellOn/mute/cooldown
+      // gates apply) and the readout takes the pulse class — and NOTHING
+      // ELSE happens: no phase change, no auto-end, ever; the storyteller
+      // keeps control. `_sawCountdown` is the reload guard: only a client
+      // that watched the countdown actually running rings the crossing — one
+      // arriving past zero flashes silently (the moment already spoke).
+      if (countdownMs && !this.frozen) {
+        if (countdownMs - elapsedMs > 0) {
+          this._sawCountdown = true;
+          // a LENGTHENED day re-arms: the countdown is visibly running
+          // again, so its new zero deserves its moment (still once — after
+          // firing, only a config change can put remaining back above 0).
+          if (this._zeroFired) {
+            this._zeroFired = false;
+            this.zeroFlash = false;
+          }
+        } else if (!this._zeroFired) {
+          this._zeroFired = true;
+          this.zeroFlash = !this.isStaticNow;
+          if (this._sawCountdown) {
+            ringDayStart(this.$store.state.grimoire.isMuted);
+          }
+        }
+      } else if (this.zeroFlash) {
+        // the length went Off mid-flash — nothing left to announce
+        this.zeroFlash = false;
+      }
       // the digital readout's clock, at second-granularity — compare first so
-      // 59 of every 60 frames write nothing reactive
+      // 59 of every 60 frames write nothing reactive. FT-1055: with a day
+      // length set the same readout counts DOWN (remaining, floored at 0:00);
+      // nights — and days with no length — keep counting up.
       if (this.showDigital && !this.frozen) {
-        const total = Math.max(
-          0,
-          Math.floor((performance.now() - this.phaseEpoch) / 1000),
-        );
+        const total = countdownMs
+          ? Math.max(0, Math.ceil((countdownMs - elapsedMs) / 1000))
+          : Math.max(0, Math.floor(elapsedMs / 1000));
         const clock =
           Math.floor(total / 60) + ":" + String(total % 60).padStart(2, "0");
         if (clock !== this.digitalClock) this.digitalClock = clock;
@@ -975,6 +1081,24 @@ $digital-y-face: -122;
   font-size: calc(15 * var(--fpx));
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
+}
+
+/* FT-1055: the countdown landed on zero — the readout breathes until the
+   phase moves on (or the length comes off). A soft opacity pulse, no colour
+   change: the readout is dial paint and stays in its own ink. The loop never
+   adds the class while `#app.static` holds (isStaticNow), so the app's
+   animation kill-switch silences this too. */
+.tw-digital.tw-zero {
+  animation: tw-zero-pulse 1.1s ease-in-out infinite;
+}
+@keyframes tw-zero-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 /* THE MENU — UI chrome, not dial paint, so it speaks the app's dark-plate

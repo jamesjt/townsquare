@@ -165,6 +165,35 @@
               />
             </em>
           </li>
+          <!-- FT-1055: TICK vs SWEEP re-homed here from the build panel —
+               the minute hand's motion is personal taste, per person exactly
+               like the display toggles above (a storyteller's pick is the
+               town's default, a player's is their own screen's override —
+               towerBells.setMinuteTick carries the same split). One small
+               two-option row, radio-shaped. -->
+          <li
+            class="tw-tick-row"
+            title="How the minute hand moves — this screen's own pick"
+          >
+            <span
+              class="tw-tick-opt"
+              role="radio"
+              :aria-checked="String(menuTick)"
+              :class="{ on: menuTick }"
+              title="The minute hand steps once a minute, arriving with a short snap"
+              @click.stop="pickTick(true)"
+              >Tick</span
+            >
+            <span
+              class="tw-tick-opt"
+              role="radio"
+              :aria-checked="String(!menuTick)"
+              :class="{ on: !menuTick }"
+              title="The minute hand creeps continuously — the pre-tower glide"
+              @click.stop="pickTick(false)"
+              >Sweep</span
+            >
+          </li>
         </template>
 
         <template v-if="tab === 'grimoire'">
@@ -340,6 +369,10 @@ import {
   toggleHourLayer,
   effectiveHourFlags,
   hourAllOff,
+  // FT-1055: Tick/Sweep re-homed here from the build panel — personal taste,
+  // carried by the same host-writes-town / player-overrides-own-screen split.
+  effectiveMinuteTick,
+  setMinuteTick,
 } from "../golem/towerBells";
 // (FT-880's town summons lived in this strip; FT-1051 moved the trigger —
 // and its playCallBack/CALL_BACK_COOLDOWN imports — to TownInfo.vue.)
@@ -383,6 +416,9 @@ export default {
       uiHourglass,
       hourRows: [HOUR_OFF, ...HOUR_LAYERS],
       towerHour: effectiveHourFlags(this.$store.state.session),
+      // FT-1055: the minute hand's motion on THIS screen — refreshed with
+      // the flags above on TOWER_EVENT.
+      menuTick: effectiveMinuteTick(this.$store.state.session),
       // (FT-880's callBackCooling/-Timer pair moved to TownInfo.vue with
       // the summons trigger, FT-1051.)
       // The townless table's door out — held here rather than in the store:
@@ -430,6 +466,12 @@ export default {
      *  flags, never a stale player-era override — FT-1020c). */
     readTowerMode() {
       this.towerHour = effectiveHourFlags(this.session);
+      this.menuTick = effectiveMinuteTick(this.session);
+    },
+    /** FT-1055: one Tick/Sweep pick — towerBells owns the host-vs-player
+     *  split, exactly as pickHourMode below. */
+    pickTick(tick) {
+      setMinuteTick(this.session, tick);
     },
     /** FT-1052: is this row's check on? Off is DERIVED — checked exactly
      *  when none of the three layers are. */
@@ -935,6 +977,30 @@ export default {
       .hl-clock {
         font-size: 75%;
         opacity: 0.75;
+      }
+    }
+
+    // FT-1055: the Tick/Sweep pair — one small row, two words, the active
+    // one wearing the tower menu's own gold (FaceHands' .tw-mode.on idiom).
+    li.tw-tick-row {
+      justify-content: center;
+      gap: 10px;
+    }
+    .tw-tick-opt {
+      padding: 1px 10px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      font-size: 90%;
+      &:hover {
+        color: red;
+      }
+      &.on {
+        color: #0d0a12;
+        background: #caa662;
+        border-color: #caa662;
+        &:hover {
+          color: #0d0a12;
+        }
       }
     }
   }

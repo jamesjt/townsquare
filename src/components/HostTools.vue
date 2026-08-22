@@ -293,78 +293,87 @@
       <NightModeRow />
 
       <!-- ── FT-1020: THE TOWER — the storyteller's own clockworks ────────────
-         Two rows: how the dial tells the game's time (the four display modes
-         and whether the minute hand ticks or sweeps), and the town's two
+         Two rows: the DAY'S LENGTH (FT-1055, below), and the town's two
          sounds, side by side (FT-1054) — the day-break bell (on/off, which
          of the two bells) and the call-back's own voice (default/custom).
          Picking an option already previews it, so there is no separate
          volume dial or listen button to wire up.
 
+         THE DISPLAY ROW STOOD HERE until FT-1055 (user call: display is
+         PERSONAL now). The Off/Hands/Digital/Numerals segment and the
+         Tick/Sweep pair both live in the hourglass menu (Menu.vue's Timer
+         tab), where the storyteller sets their own screen like everyone
+         else; the town-default plumbing (DEFAULT_TOWER's flags, the sync)
+         stays under the hood, and this panel's segment methods stand down
+         below per the house never-delete rule.
+
          The choices live in golem/towerBells.js: persisted PER TOWN under
          this town's id, and ridden out on the full gamestate sync every
-         joining player already receives — never a new frame kind. The dial's
-         own anchor numeral (FaceHands.vue) opens the same four display modes
-         for players, as a local per-screen pick.
+         joining player already receives — never a new frame kind.
 
          The segments wear the panel's shared control plate (controls.scss),
          the same object NightModeRow's switches are made of. -->
+      <!-- ── FT-1055: THE DAY'S LENGTH — the sun leads, like the day-break
+         sound below (the sun is the day's own mark here). Off, or a minutes
+         value on the shared NumberScrub (the Seats row's own gesture code).
+         TOWN AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
+         every field beside it. At zero the day-start bell machinery tolls
+         once and every readout flashes — and NOTHING else happens: the day
+         NEVER auto-ends; the storyteller keeps control. -->
       <div
         class="row tw-row"
-        title="How the tower shows the hour, and how its minute hand moves"
+        title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
       >
         <span class="tw-lead">
           <span class="label">
             <font-awesome-icon
               class="row-mark-fa"
-              icon="clock"
-              title="The tower's clock"
+              icon="sun"
+              title="The day's length"
             />
           </span>
-          <!-- FT-1052: independent toggles, not a radio — any combination of
-             the three layers; Off is DERIVED (checked when none are on,
-             clicking it clears all three). -->
-          <span class="tw-seg" role="group" aria-label="Hour display">
+          <span class="tw-seg" role="radiogroup" aria-label="Day length">
             <button
-              v-for="m in hourRows"
-              :key="m.id"
               type="button"
               class="tw-opt"
-              role="checkbox"
-              :aria-checked="String(hourChecked(m.id))"
-              :class="{ on: hourChecked(m.id) }"
-              :title="m.hint"
-              @click="toggleHour(m.id)"
+              role="radio"
+              :aria-checked="String(!tower.dayLengthMin)"
+              :class="{ on: !tower.dayLengthMin }"
+              title="No day length — the readout counts up and nothing tolls"
+              @click="setTower('dayLengthMin', 0)"
             >
-              {{ m.label }}
+              Off
+            </button>
+            <button
+              type="button"
+              class="tw-opt"
+              role="radio"
+              :aria-checked="String(!!tower.dayLengthMin)"
+              :class="{ on: !!tower.dayLengthMin }"
+              title="The day gets a length — every readout counts down to it"
+              @click="setTower('dayLengthMin', dayLenDraft)"
+            >
+              Timed
             </button>
           </span>
-        </span>
-        <!-- TICK is what ships (FT-1020 — the tower keeps its own time);
-           Sweep is the old continuous creep, kept reachable. The hour hand
-           steps with the game's days either way: it has no hours to sweep. -->
-        <span class="tw-seg" role="radiogroup" aria-label="Minute hand motion">
-          <button
-            type="button"
-            class="tw-opt"
-            role="radio"
-            :aria-checked="String(tower.minuteTick)"
-            :class="{ on: tower.minuteTick }"
-            title="The minute hand steps once a minute, arriving with a short snap"
-            @click="setTower('minuteTick', true)"
+          <!-- the minutes themselves — dimmed while Off, and scrubbing it is
+             itself the "on" gesture (a length you are setting is a length
+             you want). -->
+          <span
+            class="tw-daylen"
+            :class="{ idle: !tower.dayLengthMin }"
+            title="Minutes in a day — drag sideways to scrub, click to type"
           >
-            Tick
-          </button>
-          <button
-            type="button"
-            class="tw-opt"
-            role="radio"
-            :aria-checked="String(!tower.minuteTick)"
-            :class="{ on: !tower.minuteTick }"
-            title="The minute hand creeps continuously — the pre-tower glide"
-            @click="setTower('minuteTick', false)"
-          >
-            Sweep
-          </button>
+            <NumberScrub
+              class="tw-daylen-scrub"
+              :value="tower.dayLengthMin || dayLenDraft"
+              :min="dayLenMin"
+              :max="dayLenMax"
+              title="Minutes in a day — drag sideways to scrub, click to type"
+              @input="setDayLength"
+            />
+            <span class="tw-daylen-unit">min</span>
+          </span>
         </span>
       </div>
       <!-- FT-1054: THE SOUNDS ROW — the day-break bell and the call-back's
@@ -682,7 +691,9 @@ import { seatWarning } from "../golem/seatRange";
 // on the tower's own event, the same one-way shape the face lab runs on.
 import {
   TOWER_BELLS,
-  // FT-1052: the three display layers + the derived Off row.
+  // FT-1052: the three display layers + the derived Off row. (FT-1055: the
+  // panel's display segment retired — these now serve only the stood-down
+  // methods below; the live segment is Menu.vue's hourglass tab.)
   HOUR_LAYERS,
   HOUR_OFF,
   toggleHourLayer,
@@ -691,6 +702,9 @@ import {
   towerState,
   loadTowerForTown,
   setTowerField,
+  // FT-1055: the Day length scrub's bounds.
+  DAY_LENGTH_MIN,
+  DAY_LENGTH_MAX,
   previewBell,
   // FT-1045: the bell buttons preview as they pick, and Custom brings a
   // source row — a validated link, or an upload that becomes one.
@@ -769,6 +783,12 @@ export default {
       hourRows: [HOUR_OFF, ...HOUR_LAYERS],
       bells: TOWER_BELLS,
       tower: { ...towerState },
+      // FT-1055: the Day length row's furniture — the scrub's bounds, and
+      // what the scrub shows while Off (the last set length, so Timed
+      // returns to it rather than to an arbitrary number).
+      dayLenMin: DAY_LENGTH_MIN,
+      dayLenMax: DAY_LENGTH_MAX,
+      dayLenDraft: towerState.dayLengthMin || 10,
       // FT-1045: the custom bell's source row. The draft is what the field
       // shows (it may trail towerState.bellUrl while being typed); the state
       // is the quiet validation verdict ("", "checking", "bad", "ok").
@@ -1006,13 +1026,25 @@ export default {
       if (this.callUrlDraft === (callBefore || "") || !this.callUrlDraft) {
         this.callUrlDraft = this.tower.callUrl || "";
       }
+      // FT-1055: a set length is also the number Timed returns to after Off.
+      if (this.tower.dayLengthMin > 0) {
+        this.dayLenDraft = this.tower.dayLengthMin;
+      }
     },
     /** One choice made: validate, persist for THIS town, tell the dial. */
     setTower(key, value) {
       setTowerField(this.session.sessionId || "", key, value);
     },
+    /** FT-1055: the minutes scrubbed (or typed) — a length being set is a
+     *  length wanted, so scrubbing while Off also turns the countdown on. */
+    setDayLength(n) {
+      this.dayLenDraft = n;
+      this.setTower("dayLengthMin", n);
+    },
     /** FT-1052: is a segment cell's check on? Off is DERIVED — on exactly
-     *  when none of the three layers are. */
+     *  when none of the three layers are.
+     *  (FT-1055: STOOD DOWN with the panel's display segment — the live
+     *  surface is Menu.vue's hourglass tab; kept per never-delete.) */
     hourChecked(id) {
       const t = this.tower;
       const flags = {
@@ -1024,7 +1056,8 @@ export default {
       return !!flags[id];
     },
     /** One layer toggled (or Off clearing all three). This is the host's
-     *  surface, so the toggle always writes the TOWN's flags. */
+     *  surface, so the toggle always writes the TOWN's flags.
+     *  (FT-1055: STOOD DOWN — see hourChecked above.) */
     toggleHour(id) {
       toggleHourLayer(this.session, id);
     },
@@ -1744,6 +1777,21 @@ export default {
         min-height: 40px;
         padding: 0 10px;
       }
+    }
+    // FT-1055: the Day length's minutes — the shared NumberScrub beside its
+    // unit word, dimmed while Off (the number is what Timed would return
+    // to; scrubbing it is itself the "on" gesture, so it stays live).
+    .tw-daylen {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      &.idle {
+        opacity: 0.45;
+      }
+    }
+    .tw-daylen-unit {
+      font-size: 75%;
+      opacity: 0.7;
     }
     // the volume scrub and the listen button, together on the row's right
     .tw-bell-trail {

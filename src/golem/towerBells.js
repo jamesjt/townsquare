@@ -142,7 +142,18 @@ export const DEFAULT_TOWER = {
   // persisted sound config; callBack.js reads them at play time.
   callId: "default",
   callUrl: "",
+  // FT-1055: the DAY'S LENGTH, in minutes — 0 is Off (today's behaviour: the
+  // readout counts up and nothing tolls). With a length set, every client's
+  // digital readout counts DOWN through a day, and at zero the day-start
+  // bell machinery tolls once and the readout flashes — AND NOTHING ELSE:
+  // the day never auto-ends; the human storyteller keeps control, always.
+  dayLengthMin: 0,
 };
+
+/** The Day length scrub's bounds, in minutes (0 — Off — is set by its own
+ *  button, not by the scrub). */
+export const DAY_LENGTH_MIN = 1;
+export const DAY_LENGTH_MAX = 60;
 
 /** The volume dial's bounds, in percent — 0 is silent, 100 is the clip as cut. */
 export const BELL_VOLUME_MIN = 0;
@@ -178,6 +189,12 @@ export const towerState = { ...DEFAULT_TOWER };
 
 const TOWN_STORAGE_PREFIX = "golem.tower.";
 const VIEWER_STORAGE = "golem.towerHourMode";
+// FT-1055: the viewer's own Tick/Sweep pick — per browser, like the display
+// override above it (it is about this screen's taste, not that town's rule).
+const VIEWER_TICK_STORAGE = "golem.towerMinuteTick";
+// FT-1055: when the current phase began, per town — wall-clock, so a reload
+// mid-day resumes the countdown at the right remaining instead of restarting.
+const PHASE_START_PREFIX = "golem.phaseStart.";
 
 /** A refused bell, said out loud — the FT-880 rule. Surfaced nowhere yet
  *  (the call-back's notice is App.vue's, out of this lane); recorded so a
@@ -219,6 +236,12 @@ function sanitize(key, value) {
       return sanitizeAudioUrl(value);
     case "callId":
       return value === "custom" ? "custom" : "default";
+    // FT-1055: 0 is Off; anything else clamps to the scrub's own bounds.
+    case "dayLengthMin": {
+      const n = Math.round(Number(value));
+      if (!isFinite(n) || n <= 0) return 0;
+      return Math.max(DAY_LENGTH_MIN, Math.min(DAY_LENGTH_MAX, n));
+    }
     default:
       return undefined;
   }
@@ -400,6 +423,96 @@ export function toggleHourLayer(session, id) {
     // storage off: the pick still works for this session
   }
   notifyTower();
+}
+
+/* ── TICK vs SWEEP — personal taste since FT-1055 ──────────────────────────
+   The minute hand's motion moved off the build panel into the hourglass menu
+   (Menu.vue), per person exactly like the display layers: the town field
+   `minuteTick` stays in DEFAULT_TOWER (persisted, synced — it is the default
+   a fresh screen starts from), and a viewer's own pick overrides it on that
+   screen only. The same host-vs-player split toggleHourLayer carries. */
+
+/** The viewer's stored Tick/Sweep pick: true/false, or null to follow the
+ *  town. A broken entry reads as null — the town's default. */
+function readViewerTick() {
+  try {
+    const raw = localStorage.getItem(VIEWER_TICK_STORAGE);
+    if (raw === "tick") return true;
+    if (raw === "sweep") return false;
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+let viewerTick = readViewerTick();
+
+/** The minute-hand motion THIS screen shows. A storyteller's pick IS the
+ *  town's (the FT-1020c whoever-writes-reads-back rule, restated); a player
+ *  follows their own pick, the town's default otherwise. */
+export function effectiveMinuteTick(session) {
+  if (session && !session.isSpectator) return towerState.minuteTick;
+  return viewerTick === null ? towerState.minuteTick : viewerTick;
+}
+
+/** One Tick/Sweep pick from the hourglass menu — the storyteller's writes
+ *  the town's field (persisted per town, ridden out on the sync, the fresh
+ *  screen's default); a player's is their own screen's override. */
+export function setMinuteTick(session, tick) {
+  if (session && !session.isSpectator) {
+    setTowerField(session.sessionId || "", "minuteTick", !!tick);
+    return;
+  }
+  viewerTick = !!tick;
+  try {
+    localStorage.setItem(VIEWER_TICK_STORAGE, tick ? "tick" : "sweep");
+  } catch (e) {
+    // storage off: the pick still works for this session
+  }
+  notifyTower();
+}
+
+/* ── THE PHASE'S OWN CLOCK, REMEMBERED (FT-1055) ───────────────────────────
+   FaceHands stamps `phaseEpoch` when a phase flips, and a reload used to
+   restart that count at zero — harmless for a count-up decoration, wrong for
+   a countdown that must land its zero once and only once. These two helpers
+   remember, per town, WHICH phase is running and WHEN it began (wall-clock:
+   Date.now survives a reload where performance.now cannot), so a reload
+   mid-phase resumes at the right elapsed. */
+
+/** A staleness cap: a stored start older than this is a different sitting
+ *  (a "d:1" from last week must not shorten today's day one). */
+const PHASE_START_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+/** This phase just began (or was first seen) — remember when. */
+export function recordPhaseStart(townId, phaseKey) {
+  if (!townId) return;
+  try {
+    localStorage.setItem(
+      PHASE_START_PREFIX + townId,
+      JSON.stringify({ key: phaseKey, at: Date.now() }),
+    );
+  } catch (e) {
+    // storage off: the count restarts on reload, as it always did
+  }
+}
+
+/** How long the CURRENT phase has already run, in ms — or null when the
+ *  store remembers a different phase (or nothing, or something stale). */
+export function readPhaseStart(townId, phaseKey) {
+  if (!townId) return null;
+  let raw = null;
+  try {
+    raw = JSON.parse(localStorage.getItem(PHASE_START_PREFIX + townId));
+  } catch (e) {
+    return null;
+  }
+  if (!raw || raw.key !== phaseKey) return null;
+  const elapsed = Date.now() - Number(raw.at);
+  if (!isFinite(elapsed) || elapsed < 0 || elapsed > PHASE_START_MAX_AGE_MS) {
+    return null;
+  }
+  return elapsed;
 }
 
 /* ── THE BELL ITSELF — the FT-880 mechanics, applied to two clips ──────────── */
