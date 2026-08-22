@@ -337,217 +337,273 @@
              it takes the script view's own pane instead of floating over it;
              Save or Discard brings the script view back. -->
         <div class="role-form forge-inline" v-if="roleForm" v-blood-scroll>
-          <div class="button-group forge-acts">
-            <div class="button" title="Save role" @click="saveRoleForm">
-              <font-awesome-icon icon="feather-alt" /> Save
-            </div>
-            <div class="button" title="Discard" @click="closeRoleForm">
-              <font-awesome-icon icon="times" /> Discard
-            </div>
-          </div>
-          <h3 class="almanac-title forge-title">
-            <img
-              v-if="forgeCap"
-              :src="forgeCap.src"
-              class="font-cap"
-              :style="forgeCap.style"
-              alt="N"
-            />{{ forgeCap ? "ew Role" : "New Role" }}
-          </h3>
-          <!-- paste a role JSON (or an official id) to fill the form; the
-             ghost text IS the accepted syntax, Template copies it -->
-          <div class="row">
-            <input
-              v-model="roleForm.name"
-              placeholder="Role name"
-              maxlength="40"
-            />
-          </div>
-          <div class="row team-pick">
-            <button
-              v-for="t in [
-                'townsfolk',
-                'outsider',
-                'minion',
-                'demon',
-                'traveller',
-              ]"
-              :key="t"
-              type="button"
-              class="team-btn"
-              :class="[
-                'team-' + (t === 'traveller' ? 'traveler' : t),
-                { on: roleForm.roleType === t },
-              ]"
-              @click="roleForm.roleType = t"
-            >
-              <!-- our own team art for every team (golem/glyphs); the Font
-                 Awesome branch stays as the fallback for an unknown team -->
+          <!-- FT-1040c: the title and the two acts share one line, and stay
+               reachable while the pane scrolls -->
+          <div class="forge-head">
+            <h3 class="almanac-title forge-title">
               <img
-                v-if="teamGlyph(t)"
-                class="demon-glyph"
-                :src="teamGlyph(t)"
-                alt=""
-              />
-              <font-awesome-icon
-                v-else
-                :icon="
-                  t === 'townsfolk'
-                    ? 'users'
-                    : t === 'minion'
-                    ? 'mask'
-                    : 'walking'
-                "
-              />
-              {{ t }}
-            </button>
-          </div>
-          <div class="row">
-            <textarea
-              v-model="roleForm.ability"
-              placeholder="Ability text"
-              maxlength="600"
-              rows="3"
-            ></textarea>
-          </div>
-          <!-- FT-1040: the forge speaks chips — the FT-1039 idiom, one plate,
-             lit states; the two wakes wear the night tabs' own moon phases. -->
-          <div class="wakes-block">
-            <span class="wakes-title">Wakes:</span>
-            <div class="forge-seg" role="group" aria-label="Wakes">
-              <button
-                type="button"
-                class="forge-cell"
-                :class="{ on: wakesFirstNight }"
-                :aria-pressed="wakesFirstNight ? 'true' : 'false'"
-                title="Wakes on the first night"
-                @click="wakesFirstNight = !wakesFirstNight"
-              >
-                <img class="moon" :src="moonFirstArt" alt="" /> First Night
-              </button>
-              <button
-                type="button"
-                class="forge-cell"
-                :class="{ on: wakesOtherNights }"
-                :aria-pressed="wakesOtherNights ? 'true' : 'false'"
-                title="Wakes on every night after the first"
-                @click="wakesOtherNights = !wakesOtherNights"
-              >
-                <img class="moon" :src="moonOtherArt" alt="" /> Other Nights
-              </button>
+                v-if="forgeCap"
+                :src="forgeCap.src"
+                class="font-cap"
+                :style="forgeCap.style"
+                alt="N"
+              />{{ forgeCap ? "ew Role" : "New Role" }}
+            </h3>
+            <div class="button-group forge-acts">
+              <div class="button" title="Save role" @click="saveRoleForm">
+                <font-awesome-icon icon="feather-alt" /> Save
+              </div>
+              <div class="button" title="Discard" @click="closeRoleForm">
+                <font-awesome-icon icon="times" /> Discard
+              </div>
             </div>
-            <button
-              type="button"
-              class="forge-chip"
-              :class="{ on: roleForm.setup }"
-              :aria-pressed="roleForm.setup ? 'true' : 'false'"
-              title="This character changes the game's setup"
-              @click="roleForm.setup = !roleForm.setup"
-            >
-              Affects setup
-            </button>
           </div>
-          <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character that wakes
-             composes one. Six shapes, each a one-to-one dressing of a night
-             schema field (golem/nightInfo NIGHT_SHAPES); the composed entry
-             rides the forged role and registers at script load, so its
-             checklist row, player prompt and chronicle presence are native. -->
-          <div
-            class="night-composer"
-            v-if="wakesFirstNight || wakesOtherNights"
-          >
-            <span class="nc-title">At night, this character…</span>
-            <div class="nc-shapes" role="group" aria-label="Night action">
+          <div class="role-error" v-if="roleError">{{ roleError }}</div>
+
+          <!-- FT-1040c: two columns — IDENTITY under a living coin on the
+               left, BEHAVIOR on the right. They wrap to a stack when the
+               pane runs narrow (flex-wrap, no breakpoint to maintain). -->
+          <div class="forge-cols">
+            <div class="forge-col fc-identity">
+              <!-- the LIVE COIN — the real Token component rendering the
+                   draft role exactly as the grimoire will: coin ground,
+                   picked art, curved name, team rim, wake moon, setup stone.
+                   Reused, not redrawn; pointer-events off so the preview
+                   neither hovers a card nor clicks. -->
+              <div class="forge-coin">
+                <Token :role="previewRole" :hover-card="false" />
+              </div>
               <button
-                v-for="s in nightShapes"
-                :key="s.id"
                 type="button"
-                class="forge-chip"
-                :class="{ on: roleForm.nightShape === s.id }"
-                :title="
-                  s.hint +
-                  (roleForm.nightShape === s.id ? ' (click to clear)' : '')
-                "
-                :aria-pressed="roleForm.nightShape === s.id ? 'true' : 'false'"
-                @click="pickNightShape(s.id)"
+                class="forge-chip art-door"
+                :class="{ on: artOpen }"
+                :aria-expanded="artOpen ? 'true' : 'false'"
+                title="Pick the coin's art — the icon library or an official borrow"
+                @click="toggleArtDoor"
               >
-                {{ s.label }}
+                {{ artOpen ? "Close the art shelf" : "Change art" }}
               </button>
+              <div class="forge-group fg-identity">
+                <label class="forge-label" for="fg-name">Name</label>
+                <input
+                  id="fg-name"
+                  v-model="roleForm.name"
+                  placeholder="Role name"
+                  maxlength="40"
+                />
+                <label class="forge-label">Team</label>
+                <div class="team-pick">
+                  <button
+                    v-for="t in [
+                      'townsfolk',
+                      'outsider',
+                      'minion',
+                      'demon',
+                      'traveller',
+                    ]"
+                    :key="t"
+                    type="button"
+                    class="team-btn"
+                    :class="[
+                      'team-' + (t === 'traveller' ? 'traveler' : t),
+                      { on: roleForm.roleType === t },
+                    ]"
+                    @click="roleForm.roleType = t"
+                  >
+                    <!-- our own team art for every team (golem/glyphs); the
+                       Font Awesome branch stays as the fallback -->
+                    <img
+                      v-if="teamGlyph(t)"
+                      class="demon-glyph"
+                      :src="teamGlyph(t)"
+                      alt=""
+                    />
+                    <font-awesome-icon
+                      v-else
+                      :icon="
+                        t === 'townsfolk'
+                          ? 'users'
+                          : t === 'minion'
+                          ? 'mask'
+                          : 'walking'
+                      "
+                    />
+                    {{ t }}
+                  </button>
+                </div>
+                <label class="forge-label" for="fg-ability">Ability</label>
+                <textarea
+                  id="fg-ability"
+                  v-model="roleForm.ability"
+                  placeholder="Ability text"
+                  maxlength="600"
+                  rows="4"
+                ></textarea>
+                <label class="forge-label" for="fg-author">Author</label>
+                <input
+                  id="fg-author"
+                  v-model="roleForm.authorName"
+                  placeholder="Shown beside the role in the library"
+                  maxlength="200"
+                />
+              </div>
             </div>
-            <div class="nc-dials" v-if="roleForm.nightShape === 'players'">
-              <NumberScrub
-                class="nc-count"
-                preset="night"
-                :value="roleForm.nightCount"
-                :min="1"
-                :max="3"
-                title="How many players — drag to scrub, click to type"
-                @input="(n) => (roleForm.nightCount = n)"
-              />
-              <!-- the FILLER — real only here: a PLAYER field is the one kind
+
+            <div class="forge-col fc-behavior">
+              <!-- FT-1040: the forge speaks chips — the FT-1039 idiom; the
+                   two wakes wear the night tabs' own moon phases. FT-1040c:
+                   wakes and the composer are ONE plated group. -->
+              <div class="forge-group fg-night">
+                <span class="forge-label">Wakes</span>
+                <div class="forge-seg fg-wakes" role="group" aria-label="Wakes">
+                  <button
+                    type="button"
+                    class="forge-cell"
+                    :class="{ on: wakesFirstNight }"
+                    :aria-pressed="wakesFirstNight ? 'true' : 'false'"
+                    title="Wakes on the first night"
+                    @click="wakesFirstNight = !wakesFirstNight"
+                  >
+                    <img class="moon" :src="moonFirstArt" alt="" /> First Night
+                  </button>
+                  <button
+                    type="button"
+                    class="forge-cell"
+                    :class="{ on: wakesOtherNights }"
+                    :aria-pressed="wakesOtherNights ? 'true' : 'false'"
+                    title="Wakes on every night after the first"
+                    @click="wakesOtherNights = !wakesOtherNights"
+                  >
+                    <img class="moon" :src="moonOtherArt" alt="" /> Other Nights
+                  </button>
+                </div>
+                <!-- FT-1040: THE NIGHT ACTION COMPOSER — only a character
+                   that wakes composes one. Six shapes, each a one-to-one
+                   dressing of a night schema field (golem/nightInfo
+                   NIGHT_SHAPES); the composed entry rides the forged role
+                   and registers at script load, so its checklist row, player
+                   prompt and chronicle presence are native. -->
+                <div
+                  class="night-composer"
+                  v-if="wakesFirstNight || wakesOtherNights"
+                >
+                  <span class="nc-title">At night, this character…</span>
+                  <div class="nc-shapes" role="group" aria-label="Night action">
+                    <button
+                      v-for="s in nightShapes"
+                      :key="s.id"
+                      type="button"
+                      class="forge-chip"
+                      :class="{ on: roleForm.nightShape === s.id }"
+                      :title="
+                        s.hint +
+                        (roleForm.nightShape === s.id
+                          ? ' (click to clear)'
+                          : '')
+                      "
+                      :aria-pressed="
+                        roleForm.nightShape === s.id ? 'true' : 'false'
+                      "
+                      @click="pickNightShape(s.id)"
+                    >
+                      {{ s.label }}
+                    </button>
+                  </div>
+                  <div
+                    class="nc-dials"
+                    v-if="roleForm.nightShape === 'players'"
+                  >
+                    <NumberScrub
+                      class="nc-count"
+                      preset="night"
+                      :value="roleForm.nightCount"
+                      :min="1"
+                      :max="3"
+                      title="How many players — drag to scrub, click to type"
+                      @input="(n) => (roleForm.nightCount = n)"
+                    />
+                    <!-- the FILLER — real only here: a PLAYER field is the one kind
                  the player-side machinery renders an input for (FT-1005) -->
-              <div class="forge-seg nc-by" role="group" aria-label="Who picks">
+                    <div
+                      class="forge-seg nc-by"
+                      role="group"
+                      aria-label="Who picks"
+                    >
+                      <button
+                        type="button"
+                        class="forge-cell"
+                        :class="{ on: roleForm.nightBy === 'player' }"
+                        title="The seat's own player makes this choice at night"
+                        @click="roleForm.nightBy = 'player'"
+                      >
+                        The player picks
+                      </button>
+                      <button
+                        type="button"
+                        class="forge-cell"
+                        :class="{ on: roleForm.nightBy === 'storyteller' }"
+                        title="You point for them — information you give"
+                        @click="roleForm.nightBy = 'storyteller'"
+                      >
+                        You point for them
+                      </button>
+                    </div>
+                  </div>
+                  <div class="row" v-if="roleForm.nightShape">
+                    <input
+                      v-model="roleForm.nightPrompt"
+                      class="wide"
+                      maxlength="200"
+                      placeholder="Prompt line — what the night row says"
+                    />
+                  </div>
+                </div>
+              </div>
+              <!-- reminder tokens as REAL PILLS — type + Enter mints one,
+                 click one to remove it; the stored shape stays the
+                 comma-joined string -->
+              <div class="forge-group fg-rem">
+                <span class="forge-label">Reminder tokens</span>
+                <span class="rem-pills">
+                  <button
+                    v-for="(r, i) in reminderPills"
+                    :key="'rem' + i"
+                    type="button"
+                    class="rem-pill"
+                    :title="'Remove “' + r + '”'"
+                    @click="removeReminderPill(i)"
+                  >
+                    {{ r }} <span class="rem-x">×</span>
+                  </button>
+                  <input
+                    v-model="reminderDraft"
+                    class="rem-input"
+                    maxlength="40"
+                    placeholder="Reminder token — Enter adds"
+                    @keydown.enter.prevent="addReminderPill"
+                    @blur="addReminderPill"
+                  />
+                </span>
+              </div>
+              <div class="forge-group fg-setup">
                 <button
                   type="button"
-                  class="forge-cell"
-                  :class="{ on: roleForm.nightBy === 'player' }"
-                  title="The seat's own player makes this choice at night"
-                  @click="roleForm.nightBy = 'player'"
+                  class="forge-chip"
+                  :class="{ on: roleForm.setup }"
+                  :aria-pressed="roleForm.setup ? 'true' : 'false'"
+                  title="This character changes the game's setup"
+                  @click="roleForm.setup = !roleForm.setup"
                 >
-                  The player picks
-                </button>
-                <button
-                  type="button"
-                  class="forge-cell"
-                  :class="{ on: roleForm.nightBy === 'storyteller' }"
-                  title="You point for them — information you give"
-                  @click="roleForm.nightBy = 'storyteller'"
-                >
-                  You point for them
+                  Affects setup
                 </button>
               </div>
             </div>
-            <div class="row" v-if="roleForm.nightShape">
-              <input
-                v-model="roleForm.nightPrompt"
-                class="wide"
-                maxlength="200"
-                placeholder="Prompt line — what the night row says"
-              />
-            </div>
           </div>
-          <!-- reminder tokens as REAL PILLS — type + Enter mints one, click one
-             to remove it; the stored shape stays the comma-joined string -->
-          <div class="row rem-row">
-            <span class="rem-pills">
-              <button
-                v-for="(r, i) in reminderPills"
-                :key="'rem' + i"
-                type="button"
-                class="rem-pill"
-                :title="'Remove “' + r + '”'"
-                @click="removeReminderPill(i)"
-              >
-                {{ r }} <span class="rem-x">×</span>
-              </button>
-              <input
-                v-model="reminderDraft"
-                class="rem-input"
-                maxlength="40"
-                placeholder="Reminder token — Enter adds"
-                @keydown.enter.prevent="addReminderPill"
-                @blur="addReminderPill"
-              />
-            </span>
-          </div>
-          <div class="row">
-            <input
-              v-model="roleForm.authorName"
-              placeholder="Author"
-              maxlength="200"
-            />
-          </div>
-          <div class="icon-picker">
+
+          <!-- FT-1040c: the ART SHELF — the icon library and the official
+               borrows, behind the Change-art door under the coin. Spans the
+               pane when open; a pick closes it and lands on the coin. -->
+          <div class="icon-picker" v-if="artOpen">
             <div class="ip-tabs">
               <span
                 class="wb-tab"
@@ -633,16 +689,30 @@
               <div class="il-loading" v-else>Loading the library…</div>
             </div>
           </div>
-          <div class="role-error" v-if="roleError">{{ roleError }}</div>
-          <div class="row wb-forge-paste">
-            <textarea
-              v-model="roleJsonText"
-              rows="2"
-              :placeholder="roleTemplateJson"
-            ></textarea>
-            <div class="paste-acts">
-              <div class="button" @click="fillForgeFromJson">
-                <font-awesome-icon icon="file-code" /> Fill from JSON
+          <!-- FT-1040c: the JSON path tucks behind a small door at the
+               bottom edge — paste a role JSON (or an official id) to fill
+               the form; the ghost text IS the accepted syntax. -->
+          <div class="forge-import">
+            <button
+              type="button"
+              class="forge-chip imp-door"
+              :class="{ on: importOpen }"
+              :aria-expanded="importOpen ? 'true' : 'false'"
+              title="Fill the form from a pasted role JSON or an official id"
+              @click="importOpen = !importOpen"
+            >
+              <font-awesome-icon icon="file-code" /> Import JSON
+            </button>
+            <div class="row wb-forge-paste" v-if="importOpen">
+              <textarea
+                v-model="roleJsonText"
+                rows="2"
+                :placeholder="roleTemplateJson"
+              ></textarea>
+              <div class="paste-acts">
+                <div class="button" @click="fillForgeFromJson">
+                  <font-awesome-icon icon="file-code" /> Fill from JSON
+                </div>
               </div>
             </div>
           </div>
@@ -958,6 +1028,9 @@ import {
 } from "../../golem/nightInfo";
 // FT-1040: the players shape's 1–3 count wears the night sheet's own scrub.
 import NumberScrub from "../NumberScrub";
+// FT-1040c: the forge's LIVE COIN — the real Token component renders the
+// draft role exactly as the grimoire will. Reused, never redrawn.
+import Token from "../Token";
 // The app-wide PNG-font choice — the Almanac's A wears the caps' font.
 import {
   fontState,
@@ -1117,6 +1190,7 @@ export default {
     RoleHoverCard,
     ScriptPicker,
     ScriptView,
+    Token,
   },
   data: function () {
     return {
@@ -1153,6 +1227,10 @@ export default {
       moonOtherArt: moonOther,
       nightShapes: NIGHT_SHAPES,
       reminderDraft: "",
+      // FT-1040c: the two doors — the art shelf under the coin and the JSON
+      // import at the bottom edge. Both closed on every fresh open.
+      artOpen: false,
+      importOpen: false,
       // FT-981: the last library browse failed. Not an error banner (see
       // searchRoles) — just enough for the empty state to say why the
       // haystack is smaller than the author expects.
@@ -1666,6 +1744,42 @@ export default {
         this.roleForm.firstNight = v ? this.roleForm.firstNight || 100 : 0;
       },
     },
+    /**
+     * FT-1040c: the DRAFT ROLE the live coin renders — the same shape a
+     * forged role wears in the script, rebuilt from the form on every
+     * keystroke so the preview tracks name, team, art, wakes and setup.
+     * `imageAlt` always resolves to a bundled asset (an official borrow when
+     * one is picked and known, the team-generic token otherwise), because
+     * Token's icon lookup `require`s it — an unresolvable id would throw.
+     */
+    previewRole() {
+      const f = this.roleForm;
+      if (!f) return null;
+      const team = f.roleType === "traveller" ? "traveler" : f.roleType;
+      return {
+        id: "golemforgepreview",
+        name: f.name.trim() || "New Role",
+        team,
+        ability: f.ability,
+        firstNight: f.firstNight,
+        otherNight: f.otherNight,
+        reminders: this.reminderPills,
+        setup: f.setup,
+        // a baked icon is a data: URL — Token renders it with no opt-in
+        image: f.iconData || "",
+        imageAlt:
+          (f.icon && this.$store.getters.rolesJSONbyId.has(f.icon)
+            ? f.icon
+            : null) ||
+          {
+            townsfolk: "good",
+            outsider: "outsider",
+            minion: "minion",
+            demon: "evil",
+          }[team] ||
+          "custom",
+      };
+    },
     /** FT-1040: the pill view of the stored comma-joined reminder string. */
     reminderPills() {
       if (!this.roleForm) return [];
@@ -2145,6 +2259,9 @@ export default {
       this.roleError = "";
       this.iconSearch = "";
       this.reminderDraft = "";
+      // FT-1040c: both doors start closed on every fresh open
+      this.artOpen = false;
+      this.importOpen = false;
       // the library tab is the default view — have its chunk ready
       this.openIconLibrary();
       // FT-1040: reopen the composer where it was left — the stored entry
@@ -2197,6 +2314,19 @@ export default {
         };
       }
     },
+    /** FT-1040c: the art door — the shelf opens below the columns, so bring
+     *  it to the eye; a pick closes it (see pickIcon / pickLibraryIcon). */
+    toggleArtDoor() {
+      this.artOpen = !this.artOpen;
+      if (this.artOpen) {
+        this.$nextTick(() => {
+          const el = this.$el.querySelector(".icon-picker");
+          if (el && el.scrollIntoView) {
+            el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        });
+      }
+    },
     /** FT-1040: pick a night action shape — clicking the lit one clears it
      *  (a composed action is optional; none means the fallback free box). */
     pickNightShape(id) {
@@ -2227,6 +2357,9 @@ export default {
       if (this.roleForm.icon) {
         this.roleForm.iconData = "";
         this.roleForm.iconRef = "";
+        // FT-1040c: a real pick closes the art door and lands on the coin;
+        // clearing keeps the shelf open for the next choice
+        this.artOpen = false;
       }
     },
     // ── FT-856 slice B: the new-icon library ─────────────────────────────
@@ -2281,6 +2414,8 @@ export default {
       f.iconData = await iconLib.bakeIcon(entry, f.roleType, {
         seed: f.iconSeed || 0,
       });
+      // FT-1040c: the pick closes the art door and lands on the coin
+      this.artOpen = false;
     },
     async rerollIcon() {
       const f = this.roleForm;
@@ -3368,16 +3503,117 @@ $team-colors: (
 
 // FT-1040: the forge speaks chips — the FT-1039 idiom (one plate for grouped
 // cells, standalone chips beside it, the shared lit state), scoped to the
-// forge overlay. The checkboxes these replace were retired by the same pass.
-.role-form .wakes-block {
+// forge overlay. The checkboxes these replaced were retired by that pass.
+//
+// FT-1040c: THE BEAUTY PASS — two columns under a living coin. The title and
+// the two acts share one sticky line; identity (coin, art door, name, team,
+// ability, author) on the left, behavior (wakes + composer as one plated
+// group, reminder pills, setup) on the right. The columns wrap to a stack
+// when the pane runs narrow — flex-wrap, no breakpoint to maintain.
+.role-form .forge-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  background: rgba(8, 8, 10, 0.97);
+  .forge-title {
+    margin: 0;
+  }
+  // the base .forge-acts (overlay era) floats at height 0 — in the head row
+  // it is an ordinary flex item again
+  .forge-acts {
+    position: static;
+    height: auto;
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    .button {
+      margin: 0;
+    }
+  }
+}
+.role-form .forge-cols {
+  display: flex;
   flex-wrap: wrap;
-  gap: 7px;
-  margin: 6px 0;
-  .wakes-title {
-    font-weight: bold;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  .forge-col {
+    flex: 1 1 320px;
+    min-width: 0;
+    max-width: 470px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+}
+// the LIVE COIN — the real Token, sized like a generous seat, inert to the
+// pointer (no hover card, no click; it is a preview, not a control)
+.role-form .forge-coin {
+  width: 172px;
+  height: 172px;
+  margin: 0 auto;
+  pointer-events: none;
+  .token {
+    width: 100%;
+    height: 100%;
+  }
+}
+.role-form .art-door {
+  align-self: center;
+}
+// ONE plated ground for every group — the composer's own plate, promoted to
+// the shared idiom; fields inside take the column's one width
+.role-form .forge-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid #2c2c2c;
+  border-radius: 8px;
+  text-align: left;
+  .forge-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    opacity: 0.55;
+    margin-top: 3px;
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+  input:not([type="checkbox"]),
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+}
+.role-form .fg-setup {
+  flex-direction: row;
+  justify-content: center;
+}
+// the JSON door at the bottom edge
+.role-form .forge-import {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  .imp-door {
+    opacity: 0.75;
+    &:hover,
+    &.on {
+      opacity: 1;
+    }
   }
 }
 // one plate, cells inside — the workbench night lens's own construction
@@ -3446,17 +3682,17 @@ $team-colors: (
     color: $control-on-color;
   }
 }
-// FT-1040: the night action composer — visible only while a wakes chip is lit
+// FT-1040: the night action composer — visible only while a wakes chip is
+// lit. FT-1040c: it lives INSIDE the wakes group's plate now, so it wears a
+// seam instead of its own box (one plated group, not a box in a box).
 .role-form .night-composer {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  margin: 2px 0 8px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid #2c2c2c;
-  border-radius: 8px;
+  margin: 5px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid #2c2c2c;
   .nc-title {
     font-size: 13px;
     opacity: 0.8;
@@ -3478,7 +3714,7 @@ $team-colors: (
   }
 }
 // FT-1040: reminder tokens as pills — type + Enter mints one, click removes
-.role-form .rem-row .rem-pills {
+.role-form .rem-pills {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -3517,6 +3753,8 @@ $team-colors: (
 }
 // the forge's team choice wears the workbench toggle look, not a native select
 .role-form .team-pick {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   .team-btn {
     display: inline-flex;
@@ -4278,8 +4516,8 @@ $team-colors: (
   // FT-1040b (user call): the forge works WHERE THE SCRIPT LIVES — it takes
   // the script view's flex slot in wb-body instead of floating over it, so
   // the modal-backdrop chrome (centering transform, drop shadow, z-index)
-  // goes. The overlay's 680px column survives as centered padding: the form
-  // reads the same, the pane is just its room now.
+  // goes. FT-1040c: the two-column body centers itself (forge-cols), so the
+  // pane keeps plain padding.
   .wb-body .role-form.forge-inline {
     position: static;
     transform: none;
@@ -4289,7 +4527,7 @@ $team-colors: (
     max-height: none;
     box-shadow: none;
     z-index: auto;
-    padding: 8px max(18px, calc((100% - 680px) / 2)) 18px;
+    padding: 8px 18px 18px;
   }
   // while the forge holds the pane, the sidebar stays put but visibly paused
   // (its clicks would edit the script view you cannot see)
