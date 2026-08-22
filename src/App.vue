@@ -519,8 +519,11 @@
         <template v-if="session.isSpectator">Playing in</template>
         <em v-else class="hosting-word">Hosting</em>
         <b>{{ session.sessionId }}</b>
-        · {{ session.playerCount }}
-        {{ session.playerCount === 1 ? "player" : "players" }}
+        <!-- FT-1058 (user): the count wears the storyteller purple. -->
+        <span class="player-count">
+          · {{ session.playerCount }}
+          {{ session.playerCount === 1 ? "player" : "players" }}
+        </span>
       </span>
       <!-- FT-1019: the count opens the CHRONICLES on its gallows view — the
            vote-history drawer it used to raise is retired. -->
@@ -2086,6 +2089,16 @@ ul {
   // from controls.scss) rather than the pill's usual red, which every
   // other control here wears because it names something ending or leaving.
   .play-again:hover {
+    color: $control-edge-hover;
+  }
+  // FT-1058 (user): the purple family widens — Play again and the player
+  // count wear it at rest, and Copy link's hover joins it (red stays only
+  // on the ending/leaving controls).
+  .play-again,
+  .player-count {
+    color: rgb(167, 143, 205);
+  }
+  .copylink:hover {
     color: $control-edge-hover;
   }
 
