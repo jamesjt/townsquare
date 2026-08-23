@@ -427,9 +427,20 @@
           </div>
 
           <!-- ── STATS ─────────────────────────────────────────────────── -->
+          <!-- FT-1060 (user, on a Role cell): the roster's Role column reads
+               through the icon, not the name — the same THE role hover card
+               (FT-858) every other role-bearing surface in the app shares,
+               so a rest on the icon says what the sidebar's own rows say. -->
+          <RoleHoverCard
+            v-if="rosterCardRole"
+            :role="rosterCardRole"
+            :anchor="rosterCardAnchor"
+            @dismiss="hideRosterCard"
+          />
           <div
             class="cr-log cr-hbody"
             v-blood-scroll
+            @scroll.passive="hideRosterCard"
             v-if="pickedGame && historyTab === 'stats'"
           >
             <p class="cr-hhead">
@@ -487,7 +498,20 @@
               <tbody>
                 <tr v-for="row in pickedRoster" :key="row.key">
                   <td class="cr-rname">{{ row.name }}</td>
-                  <td>{{ row.role }}</td>
+                  <td class="cr-rrole">
+                    <span
+                      v-if="row.role"
+                      class="cr-role-icon"
+                      :style="{ backgroundImage: `url(${roleIcon(row.role)})` }"
+                      role="img"
+                      :aria-label="row.roleName"
+                      @mouseenter="showRosterCard(row.role, $event)"
+                      @mouseleave="hideRosterCard"
+                    ></span>
+                    <span v-else class="cr-role-none" aria-hidden="true"
+                      >—</span
+                    >
+                  </td>
                   <td :class="row.survived ? 'lived' : 'died'">
                     {{ row.survived ? "lived" : "died" }}
                   </td>
@@ -585,6 +609,12 @@ import {
 } from "../golem/chronicles";
 // FT-1037: the stats tab's board portraits — the ring a board row carries.
 import ChroniclesPortrait from "./ChroniclesPortrait";
+// FT-1060: THE role hover card (FT-858) — the roster's Role column reads
+// through it, same as the grimoire drawer's role rows and every other
+// role-bearing surface. roleIcon is the one "what art does this role wear"
+// definition (golem/roleDrag), shared with RoleDrawer and RoleTray.
+import RoleHoverCard from "./RoleHoverCard";
+import { roleIcon as roleIconSrc } from "../golem/roleDrag";
 // FT-1037b (user call): the retired night drawer's surface, now the moon
 // cell's view — viewer-local night learnings + the live Tonight inputs.
 import ChroniclesNights from "./ChroniclesNights";
@@ -602,9 +632,19 @@ import {
 // the strip's own quill — the mark that opens this drawer leads its title
 import quill from "../assets/ui-chronicle.png";
 
+// FT-1060: RoleDrawer's own rest-before-you-raise-it delay, so the roster's
+// card behaves like every other hover card in the app.
+const ROSTER_HOVER_DELAY = 170;
+
 export default {
   name: "ChroniclesDrawer",
-  components: { CloseX, ChroniclesRow, ChroniclesPortrait, ChroniclesNights },
+  components: {
+    CloseX,
+    ChroniclesRow,
+    ChroniclesPortrait,
+    ChroniclesNights,
+    RoleHoverCard,
+  },
   mixins: [
     bottomSheet,
     rightDrawer({
@@ -646,6 +686,10 @@ export default {
       /** "town" | "platform" — which ledger the band reads (FT-1019; the
        *  platform scope is StatsOverlay's old "All towns", rehomed). */
       recordsScope: "town",
+      /** FT-1060: the roster's role hover card — which role and which icon
+       *  it is anchored to, RoleDrawer's own pair of fields. */
+      rosterCardRole: null,
+      rosterCardAnchor: null,
     };
   },
   computed: {
@@ -857,10 +901,15 @@ export default {
       );
       const rowFor = (name, roleId, survived, i) => {
         const a = aggr.get(name);
+        // FT-1060: the cell wants the ROLE (for its icon and the hover
+        // card), the name text stays for the icon's alt/aria and for an
+        // unknown id's fallback.
+        const role = this.roleOf(roleId);
         return {
           key: i + ":" + name,
           name,
-          role: this.roleNameOf(roleId),
+          role,
+          roleName: (role && role.name) || roleId || "—",
           survived,
           games: a ? a.games : "—",
           wins: a ? a.wins : "—",
@@ -1095,14 +1144,38 @@ export default {
           this.$set(this.details, record.id, { loading: false, game: null });
         });
     },
-    /** A role id's display name — the loaded edition first, the full
-     *  official library second, the raw id as the honest fallback. */
-    roleNameOf(id) {
-      if (!id) return "—";
-      const known =
+    /** A role id's role object — the loaded edition first, the full
+     *  official library second, null when neither knows it (the roster row
+     *  falls back to the raw id as its name, and a dash for its icon). */
+    roleOf(id) {
+      if (!id) return null;
+      return (
         this.$store.state.roles.get(id) ||
-        this.$store.getters.rolesJSONbyId.get(id);
-      return (known && known.name) || id;
+        this.$store.getters.rolesJSONbyId.get(id) ||
+        null
+      );
+    },
+    /** The roster's own engraving — golem/roleDrag's one definition, shared
+     *  with the grimoire drawer and the build panel's tray. */
+    roleIcon(role) {
+      return roleIconSrc(role);
+    },
+    /** FT-1060: rest on a roster icon and the hover card says what it is —
+     *  RoleDrawer's showCard, verbatim, scoped to this table. */
+    showRosterCard(role, e) {
+      if (!role) return;
+      if (!window.matchMedia("(hover: hover)").matches) return;
+      const el = e.currentTarget;
+      clearTimeout(this.$options.rosterCardTimer);
+      this.$options.rosterCardTimer = setTimeout(() => {
+        this.rosterCardAnchor = el;
+        this.rosterCardRole = role;
+      }, ROSTER_HOVER_DELAY);
+    },
+    hideRosterCard() {
+      clearTimeout(this.$options.rosterCardTimer);
+      this.rosterCardRole = null;
+      this.rosterCardAnchor = null;
     },
     recordLabel(g) {
       return startLabelOf(g.startedAt || g.endedAt) || "—";
@@ -1524,6 +1597,24 @@ export default {
   .cr-rname {
     font-family: PiratesBay, sans-serif;
     color: #d8cdb4;
+  }
+  // FT-1060: the Role cell is the icon now — RoleDrawer's own 26px, the
+  // sidebar's own size, so the roster and the drawer's rows read as one
+  // idiom. The hover card carries the name; nothing here needs to.
+  .cr-rrole {
+    vertical-align: middle;
+  }
+  .cr-role-icon {
+    display: block;
+    width: 26px;
+    height: 26px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    cursor: default;
+  }
+  .cr-role-none {
+    opacity: 0.4;
   }
   .lived {
     color: rgba(126, 214, 126, 0.85);
