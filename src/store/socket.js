@@ -181,6 +181,29 @@ class LiveSession {
         this._store.state.session.playerId,
       );
     } else {
+      // FT-1089: THE TOWN STAYS SEATED THROUGH THE HOST'S OWN RELOAD.
+      //
+      // `_players` is this socket's live-connection roster, and it is built
+      // in the constructor — so it is EMPTY on every fresh page load. The
+      // sweep in `_handlePing` vacates any claimed seat whose player is not
+      // in it, and the host's own first ping (one line below) runs that
+      // sweep before a single player has had the chance to ping the new
+      // socket. Every chair the town had claimed was therefore emptied by
+      // the reload itself: seats read "Open", `canStart` went false, and
+      // pressing Start did nothing at all — no deal, and so no bluffs and no
+      // beliefs, which is what FT-1084 looked like failing to do.
+      //
+      // Seeding the roster from the seats the store has already restored
+      // hands the decision back to the timeout that was always meant to make
+      // it: a player who is really gone stops pinging and is dropped by that
+      // same sweep two intervals later, and a player who is still here
+      // refreshes their entry long before then. No new rule about who counts
+      // as connected — the existing one simply stops being asked before
+      // anybody could answer it.
+      const now = new Date().getTime();
+      this._store.state.players.players.forEach(({ id }) => {
+        if (id && !this._players[id]) this._players[id] = now;
+      });
       this.sendGamestate();
     }
     this._ping();
