@@ -2864,6 +2864,21 @@ video#background {
   gap: 8px;
   transition: left 220ms ease;
 
+  // FT-1063d (user): the BOOK is what centres on the page — with the bell
+  // and chip in the flex flow, the column's midpoint drifted off the book.
+  // The two satellites leave the flow and hang off the book's box instead,
+  // so the container (and its 50% anchor) is exactly the book.
+  .post-bell {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+  }
+  .post-phase {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+  }
+
   &.open {
     left: 250px;
   }
