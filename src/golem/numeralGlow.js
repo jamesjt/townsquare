@@ -58,7 +58,8 @@ const NG_VAR = {
  * DIAL IS AN INTEGER (NumberScrub is an integer control): strengths are
  * hundredths of full opacity, sizes are whole face-pixels of blur.
  *
- * SHIP VALUES ARE THE FT-1046b DRESSING — the current baked text-shadow:
+ * SHIP VALUES: the user's own lab pick, baked 2026-08-22 (FT-1064) — a
+ * crisper, quieter dress than the FT-1046b step-up it replaces:
  * under-light rgba(255,250,235,.5) at 1fpx blur, dark drop rgba(0,0,0,.55)
  * at 3fpx, close halo rgba(255,246,220,.6) at 4fpx, wide breath
  * rgba(255,240,200,.35) at 12fpx. Opening the lab changes NOTHING until a
@@ -69,64 +70,64 @@ export const NUMERAL_DIALS = [
     key: "under",
     group: "Under-light",
     label: "Strength",
-    ship: 50,
+    ship: 16,
     min: 0,
     max: 100,
-    hint: "The crisp pale line under each stroke — the seat numerals' engraved trick — in hundredths (50 = shipped; 0 = none)",
+    hint: "The crisp pale line under each stroke — the seat numerals' engraved trick — in hundredths (16 = shipped; 0 = none)",
   },
   {
     key: "drop",
     group: "Dark drop",
     label: "Strength",
-    ship: 55,
+    ship: 40,
     min: 0,
     max: 100,
-    hint: "The dark shadow dropped below the ink — what cuts it out of the lit face — in hundredths (55 = shipped; 0 = none)",
+    hint: "The dark shadow dropped below the ink — what cuts it out of the lit face — in hundredths (40 = shipped; 0 = none)",
   },
   {
     key: "dropBlur",
     group: "Dark drop",
     label: "Softness",
-    ship: 3,
+    ship: 1,
     min: 0,
     max: 8,
-    hint: "How soft the dark drop's edge is, in face-pixels of blur (3 = shipped; 0 = a hard-edged copy)",
+    hint: "How soft the dark drop's edge is, in face-pixels of blur (1 = shipped; 0 = a hard-edged copy)",
   },
   {
     key: "halo",
     group: "Close halo",
     label: "Strength",
-    ship: 60,
+    ship: 0,
     min: 0,
     max: 100,
-    hint: "The warm glow hugging the strokes, in hundredths (60 = shipped; 0 = none)",
+    hint: "The warm glow hugging the strokes, in hundredths (0 = shipped; 0 = none)",
   },
   {
     key: "haloSize",
     group: "Close halo",
     label: "Size",
-    ship: 4,
+    ship: 0,
     min: 0,
     max: 10,
-    hint: "How far the close halo reaches, in face-pixels of blur (4 = shipped; 0 = off regardless of strength)",
+    hint: "How far the close halo reaches, in face-pixels of blur (0 = shipped; 0 = off regardless of strength)",
   },
   {
     key: "breath",
     group: "Wide breath",
     label: "Strength",
-    ship: 35,
+    ship: 69,
     min: 0,
     max: 100,
-    hint: "The wide faint warmth around the whole numeral, in hundredths (35 = shipped; 0 = none)",
+    hint: "The wide faint warmth around the whole numeral, in hundredths (69 = shipped; 0 = none)",
   },
   {
     key: "breathSize",
     group: "Wide breath",
     label: "Size",
-    ship: 12,
+    ship: 3,
     min: 0,
     max: 24,
-    hint: "How far the breath spreads, in face-pixels of blur (12 = shipped; 0 = off regardless of strength)",
+    hint: "How far the breath spreads, in face-pixels of blur (3 = shipped; 0 = off regardless of strength)",
   },
 ];
 

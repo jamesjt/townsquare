@@ -1049,13 +1049,13 @@ $digital-y-face: -122;
      numbers and the vars come out with the lab. */
   text-shadow:
     0 calc(1 * var(--fpx)) calc(1 * var(--fpx))
-      rgba(255, 250, 235, calc(var(--ng-under, 50) / 100)),
-    0 calc(2 * var(--fpx)) calc(var(--ng-drop-blur, 3) * var(--fpx))
-      rgba(0, 0, 0, calc(var(--ng-drop, 55) / 100)),
-    0 0 calc(var(--ng-halo-size, 4) * var(--fpx))
-      rgba(255, 246, 220, calc(var(--ng-halo, 60) / 100)),
-    0 0 calc(var(--ng-breath-size, 12) * var(--fpx))
-      rgba(255, 240, 200, calc(var(--ng-breath, 35) / 100));
+      rgba(255, 250, 235, calc(var(--ng-under, 16) / 100)),
+    0 calc(2 * var(--fpx)) calc(var(--ng-drop-blur, 1) * var(--fpx))
+      rgba(0, 0, 0, calc(var(--ng-drop, 40) / 100)),
+    0 0 calc(var(--ng-halo-size, 0) * var(--fpx))
+      rgba(255, 246, 220, calc(var(--ng-halo, 0) / 100)),
+    0 0 calc(var(--ng-breath-size, 3) * var(--fpx))
+      rgba(255, 240, 200, calc(var(--ng-breath, 69) / 100));
   /* GOLD LETTERS SEPARATE WITH DARK, not with light: a pale glow was tried
      and hazed them into the lit face. Intro.vue's `.hint` black-halo pair,
      spoken as drop-shadow so it follows the carved alpha. */
