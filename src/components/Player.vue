@@ -248,18 +248,29 @@
         ></div>
       </div>
 
-      <!-- Golem fork: ONE-TAP CLAIM — a seatless spectator sees an empty seat
-           as claimable directly; no hidden name-menu required. -->
+      <!-- Golem fork: ONE-TAP CLAIM — a spectator sees an empty seat as
+           claimable directly; no hidden name-menu required.
+           FT-1070: a SEATED player sees it too, as MOVE — the same claim ride
+           end to end (oneTapClaim → TownSquare.claimSeat → the socket's
+           claim → the host's _updateSeat), whose host side has always freed
+           the claimant's previous chair when confirming the new one. Only
+           the gate was still insisting on seatlessness; canOneTapClaim
+           dropped that clause, and the overlay just says which of the two
+           acts this click is. -->
       <div
         class="claim-overlay"
         :class="{ asking: askName }"
         v-if="canOneTapClaim"
         @click="oneTapClaim"
-        title="Take this seat"
+        :title="
+          isSeatedElsewhere
+            ? 'Move to this seat — your old chair is freed'
+            : 'Take this seat'
+        "
       >
         <template v-if="!askName">
           <font-awesome-icon icon="chair" />
-          <span>Claim</span>
+          <span>{{ isSeatedElsewhere ? "Move" : "Claim" }}</span>
         </template>
         <!-- First claim on this browser: ask the name in place, no dialog. -->
         <template v-else>
@@ -277,12 +288,26 @@
         </template>
       </div>
 
-      <!-- Claimed seat icon -->
+      <!-- Claimed seat icon.
+           FT-1070: the chair ANSWERS now — the seat menu's retirement
+           (FT-1068) orphaned "Empty seat" and "Vacate seat", and both were
+           chair acts, so the chair icon is where they live:
+             · the HOST clicks any claimed chair → the seat empties, the
+               person stays in the town as a spectator (the menu row's exact
+               call — updatePlayer('id', '', true) — and its exact guard:
+               a claimed seat in a live session, storyteller side)
+             · a seated PLAYER clicks their OWN chair → they stand up
+               (TownSquare.claimSeat sees its own seat and vacates — the
+               menu's "Vacate seat" toggle, verbatim)
+             · anyone else's chair stays furniture — no handler fires
+               (chairAct gates cursor and title the same way). -->
       <font-awesome-icon
         icon="chair"
         v-if="player.id && session.sessionId"
         class="seat"
-        :class="{ highlight: session.isRolesDistributed }"
+        :class="{ highlight: session.isRolesDistributed, actor: chairAct }"
+        :title="chairTitle"
+        @click="chairClick"
       />
 
       <!-- Ghost vote icon.
@@ -881,14 +906,32 @@ export default {
         transform: `translate(${dx}%, ${dy}%) rotate(${rot}deg) scale(${scale})`
       };
     },
-    // Golem fork: a seatless spectator looking at an unclaimed seat.
+    // Golem fork: a spectator looking at an unclaimed seat. FT-1070 dropped
+    // the "and seatless" clause: a SEATED player claiming an empty chair is
+    // the MOVE motion — the host's _updateSeat has always vacated the
+    // claimant's old seat on confirming the new one, so the whole difference
+    // was this gate (and the overlay's label, which now says "Move").
     canOneTapClaim: function() {
       return (
-        !!this.session.sessionId &&
-        this.session.isSpectator &&
-        !this.player.id &&
-        !this.players.some(p => p.id === this.session.playerId)
+        !!this.session.sessionId && this.session.isSpectator && !this.player.id
       );
+    },
+    /** FT-1070: this client already holds SOME chair — the reader that turns
+     *  an empty seat's overlay from Claim into Move. */
+    isSeatedElsewhere: function() {
+      return this.players.some(p => p.id === this.session.playerId);
+    },
+    /** FT-1070: is this chair icon an actor for THIS client — the host's
+     *  eject on any claimed seat, or a player's stand-up on their own. */
+    chairAct: function() {
+      if (!this.player.id || !this.session.sessionId) return false;
+      return !this.session.isSpectator || this.isOwnSeat;
+    },
+    chairTitle: function() {
+      if (!this.chairAct) return "";
+      return this.session.isSpectator
+        ? "Stand up — you leave this seat but stay in the town"
+        : "Empty this seat — they stay in the town";
     },
     voteLocked: function() {
       const session = this.session;
@@ -1568,6 +1611,22 @@ export default {
     claimSeat() {
       this.isMenuOpen = false;
       this.$emit("trigger", ["claimSeat"]);
+    },
+    /**
+     * FT-1070: the chair icon's one click, split by who is clicking (see the
+     * markup note). The host's branch is the menu's "Empty seat" row
+     * verbatim; the player's branch rides claimSeat, whose TownSquare half
+     * sees "own seat" and vacates — the menu's "Vacate seat" toggle. A
+     * spectator on someone ELSE'S chair falls through both guards and the
+     * click is furniture.
+     */
+    chairClick() {
+      if (!this.chairAct) return;
+      if (!this.session.isSpectator) {
+        this.updatePlayer("id", "", true);
+      } else if (this.isOwnSeat) {
+        this.claimSeat();
+      }
     },
     /**
      * Golem fork: claim in one tap — ask the player's name first (remembered
@@ -2761,6 +2820,16 @@ li.nominate .player .overlay .nominate-target {
   &.highlight {
     animation-iteration-count: 1;
     animation: redToWhite 1s normal forwards;
+  }
+  /* FT-1070: when the chair is an actor (host eject / own stand-up) it says
+   * so under the cursor — the claim overlay's own bone ink, the app's
+   * "chair as furniture you may act on" voice, not a second color. */
+  &.actor {
+    cursor: pointer;
+    transition: color 200ms;
+    &:hover {
+      color: #d8cdb4;
+    }
   }
 }
 
