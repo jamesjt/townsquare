@@ -23,8 +23,15 @@
          undo, and a summons that takes two clicks arrives after the
          conversation it was meant to interrupt. The cooling guard is the
          same nervous-double-press swallow it always had — a summons chopped
-         off at half a second and restarted sounds like a fault. -->
-    <li class="info-call" v-if="!session.isSpectator && !session.isEnded">
+         off at half a second and restarted sounds like a fault.
+
+         FT-1063 (user, "all controls for the storyteller in one place"):
+         STOOD DOWN, not deleted, per the house never-delete rule. The bell
+         moved to App.vue's `.storyteller-post` column, above the grimoire
+         book — same click handler, same cooling guard, same round plate,
+         just a different address. The script logic below (callBackCooling,
+         callTownBack) stays too, now unused here on purpose. -->
+    <li class="info-call" v-if="false">
       <!-- FT-1061 (user: "the clock face is getting really busy"): text off,
            icon only — see the CSS block below for where this control moved
            to and why. `aria-label` steps in for the vanished visible label
@@ -87,8 +94,21 @@
            disabled BUTTON was rejected on purpose: a control-sized element
            that refuses a click is worse than a small one that never
            pretended to take one, and it invites a click that can never
-           work. -->
-    <li class="info-phase" v-if="!session.isEnded">
+           work.
+
+         FT-1063 (user, "all controls for the storyteller in one place"):
+         STOOD DOWN, not deleted, per the house never-delete rule — and this
+         time for EVERY seat, not just relocated for the storyteller. The
+         PLAYER-facing readout retires entirely: the day/night already lives
+         in the digital clock and the hour hand, so a second line saying the
+         same thing had no reason to exist once it was not also carrying a
+         button (user: "just remove what the player-facing version of the
+         End-day button is"). The STORYTELLER's button half moves to
+         App.vue's `.storyteller-post` column, below the grimoire book —
+         same component :is button/span split, same isPhaseLive gating, same
+         click path (onPhaseClick -> endPhase()), same plate. Below the VI
+         numeral is empty for every seat now. -->
+    <li class="info-phase" v-if="false">
       <component
         :is="isPhaseLive ? 'button' : 'span'"
         :type="isPhaseLive ? 'button' : null"
@@ -126,8 +146,13 @@
          the same "which team" fact. -->
     <!-- FT-1058b (user): the small winner line stands down — the ceremony's
          big centered banner (EndCeremony) says it now, for every seat. The
-         markup is unmounted, not deleted, per the house rule. -->
-    <li class="info-result" v-else-if="false">
+         markup is unmounted, not deleted, per the house rule.
+
+         FT-1063: `v-else-if` -> `v-if` — its own chain partner (.info-phase,
+         just above) also stood down to `v-if="false"` this same pass, and
+         two literal `false`s back to back trips vue/no-dupe-v-else-if. Same
+         never-renders behaviour either way; only the directive changed. -->
+    <li class="info-result" v-if="false">
       <span class="result-now" :class="session.winningTeam">
         <img class="result-glyph" :src="resultGlyph" alt="" />
         {{ session.winningTeam === "evil" ? "Evil wins" : "Good wins" }}

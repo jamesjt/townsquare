@@ -441,19 +441,91 @@
     <EditionModal ref="edition" />
     <!-- FT-854: the role DRAWER + its grimoire tab (host, town on table) -->
     <RoleDrawer />
+    <!-- FT-1063 (user, "all controls for the storyteller in one place"):
+         THE STORYTELLER'S POST — every storyteller-only control at the
+         grimoire's own door, one vertical column: the summons bell above
+         the book, the book itself, the day's end below. The bell was
+         FT-1051's clock-face control (TownInfo.vue's `.info-call`, born
+         FT-880); the phase chip was FT-975's merged readout/button
+         (TownInfo.vue's `.info-phase`). Both moved here whole — same click
+         handlers, same cooling guard, same is-live gating, same dress —
+         only the address changed. TownInfo.vue's own copies stand down,
+         v-if="false", per the house never-delete rule; their script logic
+         stays there too, now dead, rather than deleted.
+
+         ONE v-if for the whole column (host + town on table) rather than
+         three separate ones — the bell and the phase chip were already
+         storyteller-only, so nesting them under the tab's own gate adds no
+         new restriction, just removes two copies of the same condition. -->
     <div
-      class="drawer-tab"
+      class="storyteller-post"
       v-if="!session.isSpectator && players.length"
       :class="{ open: modals.roleDrawer }"
-      :title="modals.roleDrawer ? 'Close the grimoire' : 'Open the grimoire'"
-      @click="$store.commit('toggleModal', 'roleDrawer')"
     >
-      <!-- OUR grimoire art (engraver-baked library books), not FA -->
-      <img
-        class="tab-book"
-        :src="modals.roleDrawer ? grimoireOpen : grimoireClosed"
-        alt="Grimoire"
-      />
+      <!-- FT-880/FT-1051/FT-1063: CALL THE TOWN BACK — icon only (FT-1061),
+           `aria-label` standing in for the vanished visible label. No
+           confirm and no arm-then-press: nothing to undo, and a summons
+           that takes two clicks arrives after the conversation it meant to
+           interrupt. -->
+      <button
+        type="button"
+        class="post-bell"
+        :class="{ cooling: callBackCooling }"
+        :title="
+          callBackCooling
+            ? 'Just called the town back'
+            : 'Call the town back — everyone hears a sound'
+        "
+        :aria-label="
+          callBackCooling
+            ? 'Just called the town back'
+            : 'Call the town back — everyone hears a sound'
+        "
+        @click="callTownBack"
+      >
+        <font-awesome-icon icon="bell" class="post-bell-mark" />
+      </button>
+      <div
+        class="drawer-tab"
+        :title="modals.roleDrawer ? 'Close the grimoire' : 'Open the grimoire'"
+        @click="$store.commit('toggleModal', 'roleDrawer')"
+      >
+        <!-- OUR grimoire art (engraver-baked library books), not FA -->
+        <img
+          class="tab-book"
+          :src="modals.roleDrawer ? grimoireOpen : grimoireClosed"
+          alt="Grimoire"
+        />
+      </div>
+      <!-- FT-975/FT-1063: the end-phase control. A real <button> —
+           "End day 3" / "End night 3" — when the checklist isn't up
+           (isPhaseLive); a plain <span>, same plate, when NightSheet's own
+           checklist card already carries its own gated "End night" button
+           (this steps back rather than doubling that control). Player-
+           facing copy retired entirely, not relocated — see TownInfo.vue's
+           own stood-down block for that half of the move. -->
+      <component
+        :is="isPhaseLive ? 'button' : 'span'"
+        :type="isPhaseLive ? 'button' : null"
+        class="post-phase"
+        :class="{ 'is-live': isPhaseLive }"
+        :title="
+          isPhaseLive
+            ? grimoire.isNight
+              ? 'End the night'
+              : 'End the day'
+            : null
+        "
+        @click="onPhaseClick"
+      >
+        <font-awesome-icon
+          v-if="!grimoire.isNight"
+          icon="sun"
+          class="post-phase-sun"
+        />
+        <img v-else class="post-phase-mark" :src="moonMark" alt="" />
+        {{ isPhaseLive ? phaseActionLabel : phaseLabel }}
+      </component>
     </div>
     <!-- FT-857: the PLAYER's script drawer (right side) — the reference sheet
          and the night order in one, sharing the workbench's ScriptView. It is
@@ -648,7 +720,7 @@
 </template>
 
 <script>
-import { mapState } from "vuex";
+import { mapState, mapGetters } from "vuex";
 import { version } from "../package.json";
 // FT-993: the centre-face splat's own picker, moved here with the element --
 // see the template's own comment on <FaceHands> for why.
@@ -761,6 +833,13 @@ import {
 } from "./golem/bloodScrollbar";
 import grimoireClosed from "./assets/grimoire-cover.png";
 import grimoireOpen from "./assets/grimoire-open.png";
+// FT-1063: the phase chip's own sun/moon marks — TownInfo.vue's imports,
+// duplicated here rather than re-exported, since the chip itself moved into
+// this file's own storyteller-post column (see .storyteller-post below).
+// Same filenames TownInfo.vue reads, so whatever art lands there shows up
+// here too without a second import to keep in sync.
+import moonFirst from "./assets/moon-first.png";
+import moonOther from "./assets/moon-other.png";
 // The Pandemonium Institute's own mark, worn by the footer credit that links
 // to their store — their game, their branding, unaltered.
 import tpiLogo from "./assets/tpi-logo.png";
@@ -801,6 +880,11 @@ import {
   armCallBackAudio,
   callBackState,
   enableCallBackSound,
+  // FT-1063: the bell itself moved here from TownInfo.vue, into the
+  // storyteller-post column beside the grimoire tab — same click, same
+  // cooling guard, same sound.
+  playCallBack,
+  CALL_BACK_COOLDOWN,
 } from "./golem/callBack";
 // the FONT LAB: per-element lettering choices (title, on-the, the dial's
 // two words, the drop-caps)
@@ -858,6 +942,36 @@ export default {
   computed: {
     ...mapState(["grimoire", "session", "modals", "scriptDrawerView", "night"]),
     ...mapState("players", ["players"]),
+    ...mapGetters("night", ["isFirstNight"]),
+    /**
+     * FT-1063: the end-phase control's own logic, moved here from
+     * TownInfo.vue (isPhaseLive/phaseActionLabel/phaseLabel/moonMark) along
+     * with its markup — the clock face's below-the-VI slot is empty for
+     * every seat now (TownInfo.vue's own copy stands down, v-if="false",
+     * per the house never-delete rule). Same four computed properties,
+     * same reads, no rule changed — only where it renders.
+     */
+    isPhaseLive() {
+      return (
+        !this.session.isSpectator &&
+        !(this.night.mode !== "off" && this.grimoire.isNight)
+      );
+    },
+    phaseActionLabel() {
+      return (
+        (this.grimoire.isNight ? "End night " : "End day ") +
+        Math.max(this.night.day, 1)
+      );
+    },
+    phaseLabel() {
+      return (
+        (this.grimoire.isNight ? "Night " : "Day ") +
+        Math.max(this.night.day, 1)
+      );
+    },
+    moonMark() {
+      return this.isFirstNight ? moonFirst : moonOther;
+    },
     // in a session (or with a town on the table): the dial letters leave
     // and the handless clock art takes the wall (user call 2026-08-18)
     inGame() {
@@ -1226,6 +1340,12 @@ export default {
       this.booted = true;
     });
   },
+  // FT-1063: the bell's cooling timer (callTownBack below) outlives a
+  // component instance only if nothing clears it — same teardown
+  // TownInfo.vue's own retired copy carried.
+  beforeDestroy() {
+    clearTimeout(this.callBackTimer);
+  },
   data() {
     return {
       booted: false,
@@ -1270,6 +1390,12 @@ export default {
       // plain module and the notice above still repaints — the same trick
       // fontState (below) uses.
       callBack: callBackState,
+      // FT-1063: the bell's own nervous-double-press guard, moved here with
+      // its button — about this one control's feel, not town state (see
+      // callTownBack below; TownInfo.vue's own copy is now dead, its block
+      // stood down).
+      callBackCooling: false,
+      callBackTimer: null,
       // the app-wide PNG-font state + the font lab panel
       fontState,
       fontDebugOpen: false,
@@ -1662,6 +1788,34 @@ export default {
       if (this.session.isEnded) return;
       if (this.$refs.nightSheet) this.$refs.nightSheet.flipPhase();
       else if (this.$refs.menu) this.$refs.menu.toggleNight();
+    },
+    /**
+     * FT-1063: the phase chip's own click, now living in this file's
+     * storyteller-post column instead of TownInfo.vue. A player's copy is a
+     * <span>, not a <button> (see the template's `component :is`), so this
+     * only ever fires from a real click on the storyteller's live copy —
+     * the isPhaseLive guard here is a cheap backstop, not the thing doing
+     * the work; endPhase() above is the one dispatch path, unchanged.
+     */
+    onPhaseClick() {
+      if (this.isPhaseLive) this.endPhase();
+    },
+    /**
+     * FT-880/FT-1051 (moved here by FT-1063): ring the town. Same two
+     * things happening as TownInfo.vue's retired copy — the mutation that
+     * travels (socket.js owns the storyteller-only guard on it) and the
+     * local play, because the relay never echoes a message back to whoever
+     * sent it.
+     */
+    callTownBack() {
+      if (this.session.isSpectator) return;
+      if (this.callBackCooling) return;
+      this.callBackCooling = true;
+      this.callBackTimer = setTimeout(() => {
+        this.callBackCooling = false;
+      }, CALL_BACK_COOLDOWN);
+      this.$store.commit("session/callBack");
+      playCallBack(this.grimoire.isMuted);
     },
     /**
      * FT-880: THE KEY TABLE — remapped whole (user's map). The letters and
@@ -2689,12 +2843,49 @@ video#background {
   }
 }
 
-.drawer-tab {
+// FT-1063: THE STORYTELLER'S POST. This selector carries what `.drawer-tab`
+// alone used to (position: fixed, the left-edge pin, the open/close slide,
+// the phone media query) — `.drawer-tab` below is now a plain flex child,
+// its own box unchanged (still the plum-framed 40x96 book), stacked between
+// the bell above it and the phase chip below by this wrapper's flex column,
+// not by its own positioning.
+.storyteller-post {
   position: fixed;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
   z-index: 21;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: left 220ms ease;
+
+  &.open {
+    left: 250px;
+  }
+
+  // The post is pinned to the middle of the left edge, which on a portrait
+  // phone is exactly where the docked build sheet's first row now starts — it
+  // sat on top of the "Seats" label. It moves up into the square, where there
+  // is nothing behind it. (Carried verbatim from `.drawer-tab`'s own
+  // pre-FT-1063 rule — the book's own reason for being here, unchanged.)
+  @media (pointer: coarse) and (orientation: portrait) {
+    top: 26%;
+
+    // …and it stays put when the grimoire opens. The 250px step is the width
+    // of the DRAWER it is stepping clear of; on a phone the grimoire is a
+    // full-width sheet across the bottom, so there is no width to step by and
+    // nothing to step clear of — the sheet rises past the post, half a screen
+    // below it. Left at 250px the post walked off a 375px screen and the one
+    // control that shuts the grimoire went with it.
+    &.open {
+      left: 0;
+    }
+  }
+}
+
+.drawer-tab {
   padding: 3px;
   background: rgba(8, 8, 10, 0.92);
   // the tab frames the grimoire cover — it takes the BOOK's plum, not the
@@ -2713,28 +2904,104 @@ video#background {
   &:hover .tab-book {
     filter: drop-shadow(0 1px 3px black) brightness(1.25);
   }
-  &.open {
-    left: 250px;
+}
+
+// FT-1063: the summons bell, riding above the book in the storyteller's
+// post — the SAME round icon-plate dress TownInfo.vue's `.call-now` wore
+// (ground/edge/hover/cooling recipe), sized down from its old 46px (a lone
+// control in a quarter of the dial) to 36px so it reads as the book's own
+// family member, not a second focal point competing with it.
+.post-bell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: PiratesBay, sans-serif;
+  color: #d8cdb4;
+  border: 1px solid rgba(120, 105, 135, 0.4);
+  border-radius: 50%;
+  background: rgba(20, 16, 22, 0.9);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    border-color 150ms,
+    color 150ms;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(32, 24, 38, 0.95);
+    border-color: rgba(150, 130, 175, 0.75);
+    color: #fff;
+    outline: none;
   }
-  transition: left 220ms ease;
+  // "not yet" — the cooling swallow dims like it always did
+  &.cooling {
+    color: #7a736a;
+    cursor: default;
+    pointer-events: none;
+  }
+}
+.post-bell-mark {
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+}
 
-  // The tab is pinned to the middle of the left edge, which on a portrait
-  // phone is exactly where the docked build sheet's first row now starts — it
-  // sat on top of the "Seats" label. It moves up into the square, where there
-  // is nothing behind it.
-  @media (pointer: coarse) and (orientation: portrait) {
-    top: 26%;
+// FT-1063: the end-phase chip, riding below the book — the SAME
+// engraved-plate dress TownInfo.vue's `.phase-now` wore (ground, edge,
+// radius, the sun/moon marks), scaled down from its dial-quadrant size (22px
+// type, 16-side padding) to fit a narrow left-edge column without reaching
+// past it at common viewports.
+.post-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: PiratesBay, sans-serif;
+  letter-spacing: 0.5px;
+  font-size: 13px;
+  color: #d8cdb4;
+  text-shadow:
+    0 2px 1px black,
+    0 -2px 1px black,
+    2px 0 1px black,
+    -2px 0 1px black;
+  border: 1px solid rgba(120, 105, 135, 0.4);
+  border-radius: 6px;
+  background: rgba(20, 16, 22, 0.9);
+  padding: 4px 8px;
+  white-space: nowrap;
+  cursor: default;
+  transition:
+    background 150ms,
+    border-color 150ms,
+    color 150ms;
 
-    // …and it stays put when the grimoire opens. The 250px step is the width
-    // of the DRAWER it is stepping clear of; on a phone the grimoire is a
-    // full-width sheet across the bottom, so there is no width to step by and
-    // nothing to step clear of — the sheet rises past the tab, half a screen
-    // below it. Left at 250px the tab walked off a 375px screen and the one
-    // control that shuts the grimoire went with it.
-    &.open {
-      left: 0;
+  // the only thing isPhaseLive changes on the plate: a pointer and the
+  // hover/focus purple this app's controls answer to everywhere, rather
+  // than the OFF-state the checklist-up copy just sits at
+  &.is-live {
+    cursor: pointer;
+    &:hover,
+    &:focus-visible {
+      background: rgba(32, 24, 38, 0.95);
+      border-color: rgba(150, 130, 175, 0.75);
+      color: #fff;
+      outline: none;
     }
   }
+}
+.post-phase-mark {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+}
+.post-phase-sun {
+  width: 13px;
+  height: 13px;
+  color: #d8b45a;
 }
 
 // in a game the hands leave the face — #app paints the handless art over
