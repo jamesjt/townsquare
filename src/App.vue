@@ -2857,9 +2857,15 @@ video#background {
   z-index: 21;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  // FT-1063b (user): the book and the End-day chip sit FLUSH with the
+  // screen's left edge; only the bell keeps floating centred over the book.
+  align-items: flex-start;
   gap: 8px;
   transition: left 220ms ease;
+
+  .post-bell {
+    align-self: center;
+  }
 
   &.open {
     left: 250px;
@@ -2968,7 +2974,10 @@ video#background {
     2px 0 1px black,
     -2px 0 1px black;
   border: 1px solid rgba(120, 105, 135, 0.4);
-  border-radius: 6px;
+  // FT-1063b (user): flush against the screen edge — no left border, no
+  // left radii; the chip grows out of the edge like the book's tab does.
+  border-left: none;
+  border-radius: 0 6px 6px 0;
   background: rgba(20, 16, 22, 0.9);
   padding: 4px 8px;
   white-space: nowrap;
