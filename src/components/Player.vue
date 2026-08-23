@@ -3546,7 +3546,10 @@ li.nominate .player .overlay .nominate-target {
    class is already storyteller-and-grimoire-only (see beliefChip), so no
    `.public` / `.spectator` guard is needed here — but the coin's chip flips
    away with the coin in the public view for the same reason. */
-.player.believing > .name {
+/* FT-1076 (user): the scan mark RETIRES — the belief CHIP on the coin
+   already says a seat is living a lie, and louder; a second signal on the
+   plate was redundant. Rule kept, unmatched, per never-delete. */
+.player.believing-retired > .name {
   border-color: #b8892f;
   box-shadow: 0 0 6px rgba(184, 137, 47, 0.55);
 }

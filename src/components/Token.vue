@@ -683,17 +683,20 @@ $blood: #970000; // our red, for the one mark that must not be missed
     left: 50%;
     // FT-1021 (user): ~50% bigger than the bluff minis and OVERLAPPING the
     // coin rather than hanging off its rim.
-    bottom: 4%;
+    // FT-1076 (user): LOUDER and clear of the name curve — the chip rises
+    // off the coin's lettering band and grows; it is the only believing
+    // signal now that the plate collar has retired.
+    bottom: 26%;
     transform: translateX(-50%);
-    width: 40%;
-    height: 40%;
+    width: 46%;
+    height: 46%;
     padding: 0;
     border: none;
     border-radius: 50%;
     background: var(--coin, url("../assets/token-golem.png")) center center /
       cover no-repeat;
-    box-shadow: 0 0 0 1.5px rgba(20, 14, 8, 0.9),
-      0 2px 4px rgba(0, 0, 0, 0.65);
+    box-shadow: 0 0 0 2px rgba(20, 14, 8, 0.95),
+      0 3px 7px rgba(0, 0, 0, 0.8);
     cursor: pointer;
     // the coin's own click opens the character picker; the chip's opens the
     // BELIEF picker, so it must never reach the coin underneath
@@ -722,7 +725,7 @@ $blood: #970000; // our red, for the one mark that must not be missed
       width: 100%;
       height: 100%;
       box-sizing: border-box;
-      border: 1.5px solid rgba(222, 208, 172, 0.7);
+      border: 2px solid rgba(222, 208, 172, 0.85);
       border-radius: 50%;
       pointer-events: none;
     }
