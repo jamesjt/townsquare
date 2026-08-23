@@ -131,27 +131,238 @@
                 All towns
               </button>
             </div>
-            <!-- THE LEDGER: this town's games, newest first. A row the log
-                 also holds is a door into its chapter. -->
+            <!-- THE LEDGER: this town's games, newest first. FT-1066 (user
+                 redesign): every row is an ACCORDION door now — a click
+                 unfolds that game's own page directly beneath the row
+                 (Stats|Messages, the exact body History always rendered,
+                 just moved here rather than steered by a dropdown further
+                 down). One row open at a time; opening another folds the
+                 first, same click folds an open one back away. -->
             <ol
               class="cr-recgames"
               v-if="recordsScope === 'town' && records.games.length"
             >
-              <!-- FT-1037: every ledger row is a door now — it picks the
-                   game in the dropdown below and opens its stats page. -->
-              <li
-                v-for="g in records.games"
-                :key="g.id"
-                class="jump"
-                title="Open this game's page"
-                @click="pickFromLedger(g)"
-              >
-                <span class="rg-when">{{ recordLabel(g) }}</span>
-                <span class="rg-script">{{ g.scriptName }}</span>
-                <span class="rg-winner" :class="g.winningTeam">{{
-                  g.winningTeam === "good" ? "Good" : "Evil"
-                }}</span>
-              </li>
+              <template v-for="g in records.games">
+                <li
+                  :key="g.id"
+                  class="jump"
+                  :class="{ open: isLedgerOpen(g) }"
+                  :data-ledger-row="g.id"
+                  :title="
+                    isLedgerOpen(g)
+                      ? 'Fold this game away'
+                      : 'Open this game\'s page'
+                  "
+                  @click="toggleLedger(g)"
+                >
+                  <span class="rg-when">{{ recordLabel(g) }}</span>
+                  <span class="rg-script">{{ g.scriptName }}</span>
+                  <span class="rg-winner" :class="g.winningTeam">{{
+                    g.winningTeam === "good" ? "Good" : "Evil"
+                  }}</span>
+                  <font-awesome-icon
+                    class="rg-chev"
+                    :class="{ open: isLedgerOpen(g) }"
+                    icon="chevron-down"
+                  />
+                </li>
+                <!-- THE UNFOLDED GAME — inline, directly under its own row. -->
+                <li
+                  v-if="isLedgerOpen(g)"
+                  :key="g.id + ':body'"
+                  class="cr-recbody"
+                >
+                  <div
+                    class="cr-filter cr-tabs"
+                    role="group"
+                    aria-label="Stats or messages"
+                  >
+                    <button
+                      class="cr-cell"
+                      :class="{ on: historyTab === 'stats' }"
+                      title="The game's record — script, winner, roster, portraits"
+                      @click="historyTab = 'stats'"
+                    >
+                      Stats
+                    </button>
+                    <button
+                      class="cr-cell"
+                      :class="{ on: historyTab === 'messages' }"
+                      title="The game's chapter — what was said and what happened"
+                      @click="historyTab = 'messages'"
+                    >
+                      Messages
+                    </button>
+                  </div>
+
+                  <!-- ── STATS ─────────────────────────────────────────────
+                       FT-1060 (user, on a Role cell): the roster's Role
+                       column reads through the icon, not the name — the
+                       same THE role hover card (FT-858) every other
+                       role-bearing surface in the app shares. -->
+                  <div
+                    class="cr-log cr-hbody"
+                    v-blood-scroll
+                    @scroll.passive="hideRosterCard"
+                    v-if="historyTab === 'stats'"
+                  >
+                    <p class="cr-hhead">
+                      <span class="cr-hscript">{{ pickedScript }}</span>
+                      <span
+                        class="rg-winner"
+                        :class="pickedWinner"
+                        v-if="pickedWinner"
+                        >{{
+                          pickedWinner === "good" ? "Good wins" : "Evil wins"
+                        }}</span
+                      >
+                      <span class="cr-hwhen">{{
+                        historyWhen(pickedGame)
+                      }}</span>
+                    </p>
+
+                    <!-- THE BOARD PORTRAITS: the ring as the game began
+                         (FT-1057 — the board as dealt; "Day 1" is the
+                         legacy moment older games hold) and as it ended.
+                         Games from before the portraits existed show stats
+                         only. -->
+                    <div
+                      class="cr-portraits"
+                      v-if="
+                        pickedBoards.start ||
+                        pickedBoards.day1 ||
+                        pickedBoards.end
+                      "
+                    >
+                      <ChroniclesPortrait
+                        v-if="pickedBoards.start"
+                        :board="pickedBoards.start"
+                        label="The game begins"
+                      />
+                      <ChroniclesPortrait
+                        v-if="pickedBoards.day1"
+                        :board="pickedBoards.day1"
+                        label="Day 1"
+                      />
+                      <ChroniclesPortrait
+                        v-if="pickedBoards.end"
+                        :board="pickedBoards.end"
+                        label="The end"
+                      />
+                    </div>
+
+                    <p
+                      class="cr-hnote"
+                      v-if="pickedDetail && pickedDetail.loading"
+                    >
+                      Consulting the archives…
+                    </p>
+                    <table class="cr-roster" v-if="pickedRoster.length">
+                      <thead>
+                        <tr>
+                          <th>Player</th>
+                          <th>Role</th>
+                          <th>Fate</th>
+                          <th
+                            title="This player's games in this town's records"
+                          >
+                            Games
+                          </th>
+                          <th>Wins</th>
+                          <th title="Games survived to the end">Lived</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="row in pickedRoster" :key="row.key">
+                          <td class="cr-rname">{{ row.name }}</td>
+                          <td class="cr-rrole">
+                            <span
+                              v-if="row.role"
+                              class="cr-role-icon"
+                              :style="{
+                                backgroundImage: `url(${roleIcon(row.role)})`,
+                              }"
+                              role="img"
+                              :aria-label="row.roleName"
+                              @mouseenter="showRosterCard(row.role, $event)"
+                              @mouseleave="hideRosterCard"
+                            ></span>
+                            <span v-else class="cr-role-none" aria-hidden="true"
+                              >—</span
+                            >
+                          </td>
+                          <td :class="row.survived ? 'lived' : 'died'">
+                            {{ row.survived ? "lived" : "died" }}
+                          </td>
+                          <td>{{ row.games }}</td>
+                          <td>{{ row.wins }}</td>
+                          <td>{{ row.survivals }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p
+                      class="cr-empty"
+                      v-else-if="!pickedDetail || !pickedDetail.loading"
+                    >
+                      No roster survives for this game.
+                    </p>
+                  </div>
+
+                  <!-- ── MESSAGES ──────────────────────────────────────── -->
+                  <template v-if="historyTab === 'messages'">
+                    <div
+                      class="cr-filter"
+                      role="group"
+                      aria-label="Which lines to show"
+                    >
+                      <button
+                        v-for="f in historyCells"
+                        :key="f.id"
+                        class="cr-cell"
+                        :class="{ on: historyFilter === f.id }"
+                        :title="f.title"
+                        @click="historyFilter = f.id"
+                      >
+                        <img
+                          v-if="f.icon"
+                          class="cr-cell-icon"
+                          :src="f.icon"
+                          alt=""
+                        />
+                        <template v-else>{{ f.label }}</template>
+                      </button>
+                    </div>
+                    <div class="cr-log cr-hbody" v-blood-scroll>
+                      <ol class="cr-rows" v-if="pickedVisibleRows.length">
+                        <li
+                          v-for="row in pickedVisibleRows"
+                          :key="row.seq"
+                          class="cr-row"
+                          :class="rowClass(row)"
+                        >
+                          <ChroniclesRow
+                            :row="row"
+                            :ran="
+                              pickedRan[row.id] != null
+                                ? pickedRan[row.id]
+                                : null
+                            "
+                            :viewer="viewer"
+                            :rows="pickedRows"
+                          />
+                        </li>
+                      </ol>
+                      <p class="cr-empty" v-else>
+                        {{
+                          pickedRows.length
+                            ? "Nothing of that kind in this game."
+                            : "Recorded before the log kept games — no messages."
+                        }}
+                      </p>
+                    </div>
+                  </template>
+                </li>
+              </template>
             </ol>
             <template v-if="records.stats && records.stats.games">
               <table
@@ -203,8 +414,9 @@
 
         <!-- ── THE FILTERS: what kind of line. One row of the plated-segment
              idiom the night sheet uses. FT-1037: the per-game chips are gone
-             — History's dropdown is where a single game is read now, and
-             Current is always the whole stream since the town opened. -->
+             — History's ledger accordion is where a single game is read now
+             (FT-1066), and Current is always the whole stream since the
+             town opened. -->
         <div
           class="cr-filter"
           role="group"
@@ -383,50 +595,14 @@
           <p class="cr-note" v-else-if="!canTalk">{{ mutedText }}</p>
         </div>
 
-        <!-- ── HISTORY — the reading room (FT-1037, user redesign): a
-             dropdown per finished game, then STATS or MESSAGES inside it.
-             Stats is what the records know (script, winner, the roster's
-             own record) plus the two board portraits when the log holds
-             them; Messages is the game's chapter, chat and events
-             filterable exactly as the live stream is. -->
+        <!-- ── HISTORY — the reading room. FT-1066 (user redesign): the
+             per-game dropdown + always-there Stats|Messages panel this block
+             used to hold RETIRED — each game's page now unfolds inline
+             under its own row in the records ledger above (see cr-recgames'
+             accordion body). What's left here stands apart from any one
+             row: the roster hover card (anchored wherever the open row's
+             card lives) and the "nothing yet" fallback. -->
         <template v-if="mode === 'history'">
-          <div class="cr-hpick" v-if="historyGames.length">
-            <select
-              class="cr-select"
-              v-model="historyPick"
-              title="Which finished game to read"
-            >
-              <option v-for="g in historyGames" :key="g.key" :value="g.key">
-                {{ historyLabel(g) }}
-              </option>
-            </select>
-          </div>
-
-          <div
-            class="cr-filter cr-tabs"
-            role="group"
-            aria-label="Stats or messages"
-            v-if="pickedGame"
-          >
-            <button
-              class="cr-cell"
-              :class="{ on: historyTab === 'stats' }"
-              title="The game's record — script, winner, roster, portraits"
-              @click="historyTab = 'stats'"
-            >
-              Stats
-            </button>
-            <button
-              class="cr-cell"
-              :class="{ on: historyTab === 'messages' }"
-              title="The game's chapter — what was said and what happened"
-              @click="historyTab = 'messages'"
-            >
-              Messages
-            </button>
-          </div>
-
-          <!-- ── STATS ─────────────────────────────────────────────────── -->
           <!-- FT-1060 (user, on a Role cell): the roster's Role column reads
                through the icon, not the name — the same THE role hover card
                (FT-858) every other role-bearing surface in the app shares,
@@ -437,142 +613,6 @@
             :anchor="rosterCardAnchor"
             @dismiss="hideRosterCard"
           />
-          <div
-            class="cr-log cr-hbody"
-            v-blood-scroll
-            @scroll.passive="hideRosterCard"
-            v-if="pickedGame && historyTab === 'stats'"
-          >
-            <p class="cr-hhead">
-              <span class="cr-hscript">{{ pickedScript }}</span>
-              <span
-                class="rg-winner"
-                :class="pickedWinner"
-                v-if="pickedWinner"
-                >{{ pickedWinner === "good" ? "Good wins" : "Evil wins" }}</span
-              >
-              <span class="cr-hwhen">{{ historyWhen(pickedGame) }}</span>
-            </p>
-
-            <!-- THE BOARD PORTRAITS: the ring as the game began (FT-1057 —
-                 the board as dealt; "Day 1" is the legacy moment older
-                 games hold) and as it ended. Games from before the
-                 portraits existed show stats only. -->
-            <div
-              class="cr-portraits"
-              v-if="pickedBoards.start || pickedBoards.day1 || pickedBoards.end"
-            >
-              <ChroniclesPortrait
-                v-if="pickedBoards.start"
-                :board="pickedBoards.start"
-                label="The game begins"
-              />
-              <ChroniclesPortrait
-                v-if="pickedBoards.day1"
-                :board="pickedBoards.day1"
-                label="Day 1"
-              />
-              <ChroniclesPortrait
-                v-if="pickedBoards.end"
-                :board="pickedBoards.end"
-                label="The end"
-              />
-            </div>
-
-            <p class="cr-hnote" v-if="pickedDetail && pickedDetail.loading">
-              Consulting the archives…
-            </p>
-            <table class="cr-roster" v-if="pickedRoster.length">
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>Role</th>
-                  <th>Fate</th>
-                  <th title="This player's games in this town's records">
-                    Games
-                  </th>
-                  <th>Wins</th>
-                  <th title="Games survived to the end">Lived</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in pickedRoster" :key="row.key">
-                  <td class="cr-rname">{{ row.name }}</td>
-                  <td class="cr-rrole">
-                    <span
-                      v-if="row.role"
-                      class="cr-role-icon"
-                      :style="{ backgroundImage: `url(${roleIcon(row.role)})` }"
-                      role="img"
-                      :aria-label="row.roleName"
-                      @mouseenter="showRosterCard(row.role, $event)"
-                      @mouseleave="hideRosterCard"
-                    ></span>
-                    <span v-else class="cr-role-none" aria-hidden="true"
-                      >—</span
-                    >
-                  </td>
-                  <td :class="row.survived ? 'lived' : 'died'">
-                    {{ row.survived ? "lived" : "died" }}
-                  </td>
-                  <td>{{ row.games }}</td>
-                  <td>{{ row.wins }}</td>
-                  <td>{{ row.survivals }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p
-              class="cr-empty"
-              v-else-if="!pickedDetail || !pickedDetail.loading"
-            >
-              No roster survives for this game.
-            </p>
-          </div>
-
-          <!-- ── MESSAGES ──────────────────────────────────────────────── -->
-          <template v-if="pickedGame && historyTab === 'messages'">
-            <div
-              class="cr-filter"
-              role="group"
-              aria-label="Which lines to show"
-            >
-              <button
-                v-for="f in historyCells"
-                :key="f.id"
-                class="cr-cell"
-                :class="{ on: historyFilter === f.id }"
-                :title="f.title"
-                @click="historyFilter = f.id"
-              >
-                <img v-if="f.icon" class="cr-cell-icon" :src="f.icon" alt="" />
-                <template v-else>{{ f.label }}</template>
-              </button>
-            </div>
-            <div class="cr-log cr-hbody" v-blood-scroll>
-              <ol class="cr-rows" v-if="pickedVisibleRows.length">
-                <li
-                  v-for="row in pickedVisibleRows"
-                  :key="row.seq"
-                  class="cr-row"
-                  :class="rowClass(row)"
-                >
-                  <ChroniclesRow
-                    :row="row"
-                    :ran="pickedRan[row.id] != null ? pickedRan[row.id] : null"
-                    :viewer="viewer"
-                    :rows="pickedRows"
-                  />
-                </li>
-              </ol>
-              <p class="cr-empty" v-else>
-                {{
-                  pickedRows.length
-                    ? "Nothing of that kind in this game."
-                    : "Recorded before the log kept games — no messages."
-                }}
-              </p>
-            </div>
-          </template>
 
           <p class="cr-empty" v-if="!historyGames.length">
             No finished games yet — History fills in as games end.
@@ -666,8 +706,9 @@ export default {
       /** FT-1037: "current" — the stream since the town opened this time —
        *  or "history", the per-game reading room. */
       mode: "current",
-      /** History's picked game (a historyGames entry key), and which of its
-       *  two pages is open. */
+      /** FT-1066: the ledger row currently unfolded (a historyGames entry
+       *  key, null = every row folded — an accordion starts closed), and
+       *  which of its two pages is open inside that row's body. */
       historyPick: null,
       historyTab: "stats",
       /** The messages page's own kind filter — separate from Current's so
@@ -1040,15 +1081,12 @@ export default {
       if (!this.target) return;
       if (!list.some((t) => t.id === this.target.id)) this.target = null;
     },
-    /** FT-1037: the dropdown always points at a real game — newest by
-     *  default, re-aimed only when its pick disappears from under it. */
+    /** FT-1066: no more forced default (an accordion starts closed) — this
+     *  only folds an open row if its game disappears from under it, e.g. a
+     *  resync while it stood unfolded. */
     historyGames(list) {
-      if (!list.length) {
+      if (this.historyPick && !list.some((e) => e.key === this.historyPick)) {
         this.historyPick = null;
-        return;
-      }
-      if (!this.historyPick || !list.some((e) => e.key === this.historyPick)) {
-        this.historyPick = list[0].key;
       }
     },
     /** FT-1037b: the moon cell's gate can close under an armed nights
@@ -1104,16 +1142,45 @@ export default {
       if (this.mode === mode) return;
       this.mode = mode;
       if (mode === "history") {
+        // FT-1066: no more auto-pick of the newest game — the accordion
+        // opens closed; a click on a ledger row is what unfolds one.
         this.loadRecords();
-        if (!this.historyPick && this.historyGames.length) {
-          this.historyPick = this.historyGames[0].key;
-        }
       } else {
         this.stuck = true;
         this.$nextTick(this.toBottom);
       }
     },
-    /** A ledger row picks its game in the dropdown and opens its stats. */
+    /** FT-1066: whether a ledger row's own game is the one unfolded. */
+    isLedgerOpen(g) {
+      const p = this.pickedGame;
+      return !!p && !!p.record && p.record.id === g.id;
+    },
+    /** A ledger row toggles its own accordion body — open if folded, folded
+     *  if already open. Picking a different row simply re-points
+     *  historyPick, which folds whichever row held it before (only one
+     *  entry can ever match). */
+    toggleLedger(g) {
+      const entry = this.historyGames.find(
+        (e) => e.record && e.record.id === g.id,
+      );
+      if (!entry) return;
+      if (this.historyPick === entry.key) {
+        this.historyPick = null;
+        return;
+      }
+      this.historyPick = entry.key;
+      this.historyTab = "stats";
+      this.$nextTick(() => this.scrollLedgerIntoView(g.id));
+    },
+    /** Scrolls a just-opened row into view — a no-op if it's already
+     *  visible, since scrollIntoView's "nearest" only moves what it must. */
+    scrollLedgerIntoView(id) {
+      const el = this.$el.querySelector(`[data-ledger-row="${id}"]`);
+      if (el) el.scrollIntoView({ block: "nearest" });
+    },
+    /** FT-1066: superseded by toggleLedger — the ledger no longer drives a
+     *  separate dropdown, so this has no caller. Left in place rather than
+     *  removed (never-delete). */
     pickFromLedger(g) {
       const entry = this.historyGames.find(
         (e) => e.record && e.record.id === g.id,
@@ -1122,7 +1189,9 @@ export default {
       this.historyPick = entry.key;
       this.historyTab = "stats";
     },
-    /** The dropdown's line for a game: when it began, on which script. */
+    /** FT-1066: the retired dropdown's line for a game — no longer called
+     *  now that the ledger's own rows are the only picker. Left in place
+     *  rather than removed (never-delete). */
     historyLabel(g) {
       const when = startLabelOf(g.at) || "—";
       return when + " — " + (g.record ? g.record.scriptName : "unrecorded");
@@ -1405,11 +1474,38 @@ export default {
           color: #fff;
         }
       }
+      // FT-1066: the row holding the open accordion body stays lit, not
+      // just on hover — it's the one thing on screen right now.
+      &.open {
+        background: rgba(216, 205, 180, 0.1);
+        .rg-when {
+          color: #fff;
+        }
+      }
     }
     &:not(.jump) {
       opacity: 0.6;
       cursor: default;
     }
+  }
+  // the accordion body is a BLOCK, not another row — override the generic
+  // `li` flex layout above via the extra class's higher specificity.
+  .cr-recbody {
+    display: block;
+    cursor: default;
+    padding: 8px 2px 4px;
+  }
+}
+// FT-1066: the ledger row's own fold/unfold chevron — same idiom as the
+// game chapters' (.cr-chev) and the records line's (.cr-records-chev).
+.rg-chev {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.55;
+  transform: rotate(-90deg);
+  transition: transform 150ms;
+  &.open {
+    transform: none;
   }
 }
 .rg-when {
