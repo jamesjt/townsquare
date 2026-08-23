@@ -33,120 +33,178 @@
          remains the ground exactly as FT-976 built it: the plate's own
          ground colour taken to near-opaque at the centre and faded to
          nothing at the rim, an edgeless ground for a circle's middle. The
-         disc is a desktop dress; the re-grounding moves NO control. -->
-    <div class="overlay">
-      <audio src="../assets/sounds/countdown.mp3" preload="auto"></audio>
+         disc is a desktop dress; the re-grounding moves NO control.
 
-      <p class="vo-nomination">
-        <em class="blue">{{ nominator.name }}</em> nominated
-        <em>{{ nominee.name }}</em>
-      </p>
+         FT-1074 — THE CARD LEARNS ITS PLACE. Two passes in one:
+         (a) HIERARCHY. The nomination line is small at the top, the tally is
+             the hero with "majority N" as its quiet subline, and the buttons
+             wear three distinct weights: ONE primary Start (the old
+             "Countdown" and "Start" pair folded — see countdown() below),
+             the execution mark with its noose, and a small quiet Cancel.
+             "Time per player" collapsed from a labeled row to a tiny scrub
+             sitting beside the primary button.
+         (b) THE DOCK. Once the vote runs — the hands sweeping — the card
+             SHRINKS AND SLIDES to the bottom of the circle as a compact
+             strip (tally + the controls legal mid-vote), so the hands sweep
+             over an open face with no text under the pivot. Transform and
+             opacity only, `mode="out-in"`: the card shrinks away downward,
+             the strip rises into its dock. When the sweep ends (or Reset is
+             pressed) the same motion runs in reverse. -->
+    <audio src="../assets/sounds/countdown.mp3" preload="auto"></audio>
+    <transition name="vo-dock" mode="out-in">
+      <div class="overlay" v-if="!isDocked" key="card">
+        <p class="vo-nomination">
+          <em class="blue">{{ nominator.name }}</em> nominated
+          <em>{{ nominee.name }}</em>
+        </p>
 
-      <!-- THE HEADLINE. The running count against the majority is the live
-           state of the nomination and the thing the whole room is watching,
-           so it is the biggest thing here rather than one more line of body
-           text. `is-majority` lights it with `control-lit`'s own colours the
-           moment the count reaches the bar — the same "this is ON" language
-           every other lit control in the app speaks. -->
-      <div class="vo-tally" :class="{ 'is-majority': hasMajority }">
-        <div class="vo-count" data-tally>
-          <span class="vo-now">{{ voters.length }}</span>
-          <span class="vo-slash">/</span>
-          <span class="vo-need">{{ majority }}</span>
+        <!-- THE HEADLINE. The running count against the majority is the live
+             state of the nomination and the thing the whole room is watching,
+             so it is the biggest thing here rather than one more line of body
+             text. `is-majority` lights it with `control-lit`'s own colours the
+             moment the count reaches the bar — the same "this is ON" language
+             every other lit control in the app speaks. -->
+        <div class="vo-tally" :class="{ 'is-majority': hasMajority }">
+          <div class="vo-count" data-tally>
+            <span class="vo-now">{{ voters.length }}</span>
+            <span class="vo-slash">/</span>
+            <span class="vo-need">{{ majority }}</span>
+          </div>
+          <div class="vo-caption">majority {{ majority }}</div>
         </div>
-        <div class="vo-caption">
-          {{ voters.length === 1 ? "vote" : "votes" }} in favor &middot;
-          majority is {{ majority }}
-        </div>
+
+        <template v-if="!session.isSpectator">
+          <div class="vo-controls vo-start-row">
+            <!-- Primary while starting is the decisive act; once a completed
+                 sweep is waiting to be recorded, "Record vote" below takes
+                 the emphasis and this demotes to a plain plate — never two
+                 primaries on one card. -->
+            <button
+              class="vo-btn vo-start"
+              :class="{ 'is-primary': !willRecord }"
+              @click="countdown"
+            >
+              {{ session.lockedVote ? "Restart the vote" : "Start the vote" }}
+            </button>
+            <!-- The app's own number control, the one the seat count and the
+                 night sheet's numbers already use — same gesture (drag
+                 sideways, or click to type). It hands back WHOLE SECONDS and
+                 `setVotingSeconds` turns that into the delta the original
+                 stepper fed `setVotingSpeed`, so the store keeps its
+                 milliseconds and the sweep reads exactly what it always did. -->
+            <span
+              class="vo-timing"
+              v-if="session.lockedVote < 1"
+              title="Time per player — seconds each seat gets before the sweep moves on"
+            >
+              <NumberScrub
+                class="vo-scrub"
+                :value="votingSeconds"
+                :min="1"
+                :max="30"
+                aria-label="Time per player, in seconds"
+                title="Time per player, in seconds — drag sideways to scrub, click to type"
+                @input="setVotingSeconds"
+              />
+              <span class="vo-unit">s</span>
+            </span>
+          </div>
+
+          <!-- ONE control for one piece of state. `control-toggle` is this
+               app's shape for a control that HOLDS a position (the build
+               panel's Duplicates wears it) — hollow and full-contrast when
+               off, lit when on, sunken in both so the shape alone says
+               "toggle" before the colour does. The noose is the seat
+               grammar's own mark for "to be executed" (ui-noose.png). -->
+          <div class="vo-controls" v-if="!isExile">
+            <button
+              class="vo-btn vo-mark"
+              :class="{ on: isMarked }"
+              :aria-pressed="String(isMarked)"
+              @click="toggleMarked"
+            >
+              <span class="vo-noose" aria-hidden="true"></span>
+              Mark for execution
+            </button>
+          </div>
+
+          <div class="vo-controls">
+            <button
+              class="vo-btn vo-finish"
+              :class="{ 'is-primary': willRecord }"
+              :title="finishTitle"
+              @click="finish"
+            >
+              {{ finishLabel }}
+            </button>
+          </div>
+        </template>
+
+        <template v-else-if="canVote">
+          <div class="vo-row">
+            <span class="vo-label"
+              >{{ session.votingSpeed / 1000 }} seconds between votes</span
+            >
+          </div>
+          <!-- My own hand is ONE piece of state with two positions, so it is one
+               segmented control — the plate on the group, `control-cell` on the
+               cells, lit on the one that is true — exactly the night-mode
+               switch's shape. Two separate pills, one of them greyed, made the
+               greyed one look broken rather than unselected. -->
+          <div class="vo-hands" role="group" aria-label="Your vote">
+            <button
+              class="vo-hand"
+              :class="{ on: !currentVote }"
+              :aria-pressed="String(!currentVote)"
+              @click="vote(false)"
+            >
+              Hand DOWN
+            </button>
+            <button
+              class="vo-hand"
+              :class="{ on: !!currentVote }"
+              :aria-pressed="String(!!currentVote)"
+              @click="vote(true)"
+            >
+              Hand UP
+            </button>
+          </div>
+        </template>
+
+        <p class="vo-hint" v-else-if="!player">
+          Please claim a seat to vote.
+        </p>
       </div>
 
-      <template v-if="!session.isSpectator">
-        <div
-          class="vo-row"
-          v-if="!session.isVoteInProgress && session.lockedVote < 1"
-        >
-          <span class="vo-label">Time per player</span>
-          <!-- The app's own number control, the one the seat count and the
-               night sheet's numbers already use — same gesture (drag
-               sideways, or click to type) in one implementation instead of a
-               second pair of +/- steppers. It hands back WHOLE SECONDS and
-               `setVotingSeconds` turns that into the delta the original
-               stepper fed `setVotingSpeed`, so the store keeps its
-               milliseconds and the sweep reads exactly what it always did. -->
-          <NumberScrub
-            class="vo-scrub"
-            :value="votingSeconds"
-            :min="1"
-            :max="30"
-            title="Drag sideways to scrub — click to type"
-            @input="setVotingSeconds"
-          />
-          <span class="vo-label">seconds</span>
+      <!-- THE DOCKED STRIP (FT-1074) — the card's mid-vote form. Tally big,
+           plus only what is legal while the hands sweep: Pause/Resume and
+           Reset for the storyteller, my own hand for a seated player. It
+           stands on a plain control plate rather than the disc or the scrim —
+           a strip at the rim wants an edge, not a halo. -->
+      <div class="overlay vo-docked" v-else key="strip">
+        <div class="vo-tally" :class="{ 'is-majority': hasMajority }">
+          <div class="vo-count" data-tally>
+            <span class="vo-now">{{ voters.length }}</span>
+            <span class="vo-slash">/</span>
+            <span class="vo-need">{{ majority }}</span>
+          </div>
         </div>
-
-        <div class="vo-controls">
+        <template v-if="!session.isSpectator">
           <button
             class="vo-btn"
-            v-if="!session.isVoteInProgress"
-            @click="countdown"
+            :class="{ disabled: !session.lockedVote }"
+            @click="pause"
           >
-            Countdown
+            {{ voteTimer ? "Pause" : "Resume" }}
           </button>
-          <button class="vo-btn" v-if="!session.isVoteInProgress" @click="start">
-            {{ session.lockedVote ? "Restart" : "Start" }}
-          </button>
-          <template v-else>
-            <button
-              class="vo-btn"
-              :class="{ disabled: !session.lockedVote }"
-              @click="pause"
-            >
-              {{ voteTimer ? "Pause" : "Resume" }}
-            </button>
-            <button class="vo-btn" @click="stop">Reset</button>
-          </template>
-        </div>
-
-        <!-- ONE control for one piece of state. `control-toggle` is this
-             app's shape for a control that HOLDS a position (the build
-             panel's Duplicates wears it) — hollow and full-contrast when
-             off, lit when on, sunken in both so the shape alone says
-             "toggle" before the colour does. -->
-        <div class="vo-controls" v-if="!isExile">
-          <button
-            class="vo-btn vo-mark"
-            :class="{ on: isMarked }"
-            :aria-pressed="String(isMarked)"
-            @click="toggleMarked"
-          >
-            Mark for execution
-          </button>
-        </div>
-
-        <div class="vo-controls">
-          <button
-            class="vo-btn vo-finish"
-            :class="{ 'is-primary': willRecord }"
-            :title="finishTitle"
-            @click="finish"
-          >
-            {{ finishLabel }}
-          </button>
-        </div>
-      </template>
-
-      <template v-else-if="canVote">
-        <div class="vo-row" v-if="!session.isVoteInProgress">
-          <span class="vo-label"
-            >{{ session.votingSpeed / 1000 }} seconds between votes</span
-          >
-        </div>
-        <!-- My own hand is ONE piece of state with two positions, so it is one
-             segmented control — the plate on the group, `control-cell` on the
-             cells, lit on the one that is true — exactly the night-mode
-             switch's shape. Two separate pills, one of them greyed, made the
-             greyed one look broken rather than unselected. -->
-        <div class="vo-hands" role="group" aria-label="Your vote">
+          <button class="vo-btn" @click="stop">Reset</button>
+        </template>
+        <div
+          class="vo-hands"
+          role="group"
+          aria-label="Your vote"
+          v-else-if="canVote"
+        >
           <button
             class="vo-hand"
             :class="{ on: !currentVote }"
@@ -164,12 +222,8 @@
             Hand UP
           </button>
         </div>
-      </template>
-
-      <p class="vo-hint" v-else-if="!player">
-        Please claim a seat to vote.
-      </p>
-    </div>
+      </div>
+    </transition>
     <transition name="blur">
       <div
         class="countdown"
@@ -205,6 +259,14 @@ export default {
      *  once. */
     isExile: function() {
       return this.nominee.role.team === "traveler";
+    },
+    /** FT-1074: the card docks — shrinks to the strip at the bottom of the
+     *  circle — for exactly as long as the sweep runs. `setVoteInProgress`
+     *  is flipped on by countdown()/start() and off by stop(), by the sweep
+     *  completing, and (for everyone) by the relay's own sync, so the strip
+     *  returns to the full card the moment the hands stand still. */
+    isDocked: function () {
+      return this.session.isVoteInProgress;
     },
     /** The bar this nomination has to clear. Same arithmetic the vote log
      *  itself uses when it records the result (session/addHistory), so the
@@ -339,6 +401,13 @@ export default {
     };
   },
   methods: {
+    /** THE ONE START (FT-1074). The card used to carry two pre-vote buttons —
+     *  "Countdown" (this method: 3-2-1-GO, then the sweep) and "Start" (the
+     *  sweep immediately, no countdown). One primary control starts a vote
+     *  now, and it is THIS flow, because the countdown is the version the
+     *  room can follow — every player gets the same three seconds of warning
+     *  before the first hand locks. start() below is unchanged and is now
+     *  reached only as this countdown's own completion. */
     countdown() {
       this.$store.commit("session/lockVote", 0);
       this.$store.commit("session/setVoteInProgress", true);
@@ -431,6 +500,13 @@ export default {
   position: absolute;
   width: 20%;
   z-index: 20;
+  // FT-1074: how far below the ring's centre the docked strip sits. #vote is
+  // flex-centred on #app with no insets, so its box centre IS the viewport
+  // centre (the disc-frame comment below walks through why); 50vh is then the
+  // circle's southern rim and the em term backs the strip off it far enough
+  // to clear the bottom seats' tokens. Read by the strip's own transform AND
+  // by both dock transitions, so the three always agree on where "docked" is.
+  --vo-dock-y: calc(50vh - 8.5em);
   display: flex;
   align-items: center;
   align-content: center;
@@ -570,13 +646,29 @@ export default {
 // pointer-events), and this block compiles after the base rule, so the
 // plate's declarations win here and only here.
 @include face-disc-gate {
-  .overlay {
+  // FT-1074: `:not(.vo-docked)` — the disc is the FULL card's dress only. The
+  // docked strip keeps its own plain plate in both registers; a face disc
+  // shrunk to a strip at the rim would be neither a disc nor a strip.
+  .overlay:not(.vo-docked) {
     @include face-disc-frame;
     // The frame is already a centring flex column; this overlay's furniture
     // is a compact cluster, not a header/band/foot spread, so it gathers at
     // the plate's centre instead of being distributed into the caps — every
     // control keeps its order and its logic. Re-grounding, not redesign.
     justify-content: center;
+
+    // The card's dock travel, restated ON TOP of the frame's own centring
+    // translate — the frame positions with `transform: translate(-50%,-50%)`,
+    // and a transition class that replaced it would teleport the card to the
+    // box's corner before animating. Same destination as the base rule below,
+    // same var, one extra leading term.
+    &.vo-dock-enter,
+    &.vo-dock-enter-from,
+    &.vo-dock-leave-to {
+      opacity: 0;
+      transform: translate(-50%, -50%) translateY(calc(var(--vo-dock-y) * 0.55))
+        scale(0.6);
+    }
   }
 
   // FT-1024b (user call): the pointer hands ride ABOVE the glass. The plate's
@@ -615,20 +707,23 @@ export default {
     gap: 0.1em;
     font-weight: bold;
   }
+  // FT-1074: the tally is the HERO now — the count grew half again and the
+  // shouting "VOTES IN FAVOR · MAJORITY IS 5" caption retired into the quiet
+  // "majority 5" subline the template renders.
   .vo-now {
-    font-size: 2.1em;
+    font-size: 3.1em;
     color: #f7f0e1;
   }
   .vo-slash {
-    font-size: 1.1em;
+    font-size: 1.5em;
     color: rgba(216, 205, 180, 0.45);
   }
   .vo-need {
-    font-size: 1.25em;
+    font-size: 1.7em;
     color: #d8cdb4;
   }
   .vo-caption {
-    margin-top: 0.35em;
+    margin-top: 0.3em;
     font-size: 0.5em;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -676,6 +771,26 @@ export default {
   }
 }
 
+// FT-1074: "Time per player 4 seconds" collapsed from its own labeled row to
+// this — the scrub and a lowercase unit, sitting beside the primary button.
+// The full name lives in the cluster's and the scrub's titles.
+.vo-timing {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 0.62em;
+  color: #cfc4ad;
+  .vo-unit {
+    margin-left: 0.12em;
+  }
+}
+// The scrub stays BESIDE the primary in both registers — on the narrow scrim
+// card the default wrap dropped it underneath, which un-collapsed the row the
+// pass had just collapsed. The pair overhangs the 15em column by a few px at
+// worst, well inside the scrim's own halo.
+.vo-controls.vo-start-row {
+  flex-wrap: nowrap;
+}
+
 .vo-controls {
   display: flex;
   align-items: center;
@@ -715,27 +830,53 @@ export default {
   }
 }
 
-// The execution mark — one control holding one position.
+// The execution mark — one control holding one position, wearing the seat
+// grammar's own noose (ui-noose.png, the same art the seat and the chronicle
+// strip use for "to be executed").
 .vo-mark {
   @include control-toggle;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}
+.vo-noose {
+  flex: none;
+  width: 1.6em;
+  height: 1.6em;
+  background: url("../assets/ui-noose.png") center center / contain no-repeat;
+  filter: drop-shadow(0 1px 1px #000);
 }
 
-// THE FINISH CONTROL. Emphatic when it will WRITE the result, plain when it
-// will only discard the nomination — and never blood, because blood is
-// `control-lit` here and this control is not a thing that is switched on. The
-// emphasis is the plate's own parchment ink promoted to the edge, so it is the
-// brightest object on the surface without introducing a colour.
-.vo-finish.is-primary {
+// THE PRIMARY WEIGHT (FT-1074: shared by "Start the vote" and "Record vote",
+// never both at once — the template demotes Start while a completed sweep
+// waits). Emphatic, and never blood, because blood is `control-lit` here and
+// this control is not a thing that is switched on. The emphasis is the
+// plate's own parchment ink promoted to the edge, so it is the brightest
+// object on the surface without introducing a colour.
+.vo-btn.is-primary {
   background: rgba(60, 50, 32, 0.88);
   border-color: rgba(216, 205, 180, 0.8);
   color: #fdf6e6;
   box-shadow: 0 0 14px rgba(216, 205, 180, 0.16);
+  font-size: 0.68em;
+  padding: 0.55em 1.3em;
 
   &:hover:not(.disabled) {
     background: rgba(84, 70, 43, 0.94);
     border-color: #efe3c6;
     color: #fff;
   }
+}
+
+// THE QUIET WEIGHT. "Cancel nomination" is the walk-away — small, dim, still
+// a plated control (it keeps hover, focus and its title), just last in the
+// room's attention. When the same button is about to WRITE the result it is
+// `.is-primary` above and none of this applies.
+.vo-finish:not(.is-primary) {
+  font-size: 0.5em;
+  color: #b3a88f;
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(216, 205, 180, 0.22);
 }
 
 // ── A PLAYER'S OWN HAND ─────────────────────────────────────────────────────
@@ -771,6 +912,82 @@ export default {
   margin: 0;
   font-size: 0.6em;
   color: #cfc4ad;
+}
+
+// ── THE DOCKED STRIP (FT-1074) ──────────────────────────────────────────────
+// The card's mid-vote form: while the hands sweep, the face stays open and
+// this compact strip sits at the bottom of the circle (--vo-dock-y, declared
+// on #vote). It comes AFTER the .overlay base rule so its declarations win:
+// the scrim's ::before stands down (`content: none`), the column becomes a
+// row, and the ground is a plain control plate — the app's engraved-plate
+// idiom at strip size, in both registers (the disc gate above never matches
+// it: `:not(.vo-docked)`).
+.vo-docked {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) translateY(var(--vo-dock-y));
+  width: auto;
+  flex-direction: row;
+  gap: 0.7em;
+  padding: 0.4em 0.9em;
+  @include control-plate;
+
+  &:before {
+    content: none;
+  }
+
+  // Tally still first, still big — for the strip. One line, no subline.
+  .vo-tally {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.12em;
+    .vo-now {
+      font-size: 1.7em;
+    }
+    .vo-slash {
+      font-size: 1em;
+    }
+    .vo-need {
+      font-size: 1.1em;
+    }
+  }
+}
+
+// ── THE DOCK TRANSITION ─────────────────────────────────────────────────────
+// Transform and opacity only, `mode="out-in"`: the full card shrinks away
+// DOWNWARD — toward the dock, so the two legs read as one journey — then the
+// strip rises the last inch into place. The desktop card's leg is restated
+// inside the disc gate above, where the frame's own centring translate has to
+// stay in the chain.
+.vo-dock-enter-active,
+.vo-dock-leave-active {
+  transition:
+    transform 240ms ease,
+    opacity 240ms ease;
+}
+.overlay:not(.vo-docked) {
+  &.vo-dock-enter,
+  &.vo-dock-enter-from,
+  &.vo-dock-leave-to {
+    opacity: 0;
+    transform: translateY(calc(var(--vo-dock-y) * 0.55)) scale(0.6);
+  }
+}
+.vo-docked {
+  &.vo-dock-enter,
+  &.vo-dock-enter-from,
+  &.vo-dock-leave-to {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(calc(var(--vo-dock-y) + 1.2em))
+      scale(0.92);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vo-dock-enter-active,
+  .vo-dock-leave-active {
+    transition: none;
+  }
 }
 
 @keyframes arrow-cw {
