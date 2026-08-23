@@ -1,6 +1,9 @@
 <template>
   <div id="vote">
-    <div class="arrows">
+    <!-- FT-1075: `vo-live` marks the hands for exactly as long as the sweep
+         runs — it is the class the gate block's z-order reads to decide who
+         stands in front, the hands (sweeping) or the card (standing). -->
+    <div class="arrows" :class="{ 'vo-live': isDocked }">
       <span class="nominee" :style="nomineeStyle"></span>
       <span class="nominator" :style="nominatorStyle"></span>
     </div>
@@ -579,14 +582,18 @@ export default {
 // (`z-index: 1`), and the scrim's `z-index: -1` is then scoped inside that
 // context: it paints under every glyph here but over both hands.
 //
-// ON THE DISC THE ORDER REVERSES (FT-1024b, user call: "the nomination hands
-// should be on top"). Under the gate the ground is the plate's glass, not the
-// scrim, and a hand dimmed to a third of its brightness by the plate's
-// brightness(0.34) stopped doing its one job — saying WHO, visibly. So inside
-// the gate block below, `.arrows` takes `z-index: 2` and rides above the
-// plate and its type both; the hands are `pointer-events: none`, so nothing
-// under them loses a click. Below the gate this paragraph's original order
-// stands untouched.
+// ON THE DISC THE ORDER REVERSES — DURING THE SWEEP (FT-1024b, user call:
+// "the nomination hands should be on top"; FT-1075, user call, scoping it:
+// "the buttons are still behind the clock hands"). Under the gate the ground
+// is the plate's glass, not the scrim, and a hand dimmed to a third of its
+// brightness by the plate's brightness(0.34) stopped doing its one job —
+// saying WHO, visibly. So inside the gate block below, `.arrows.vo-live`
+// takes `z-index: 2` and rides above the plate and its type both — but ONLY
+// while the vote runs (`vo-live` is bound to `isDocked`): a standing hand
+// lying across the Start button serves nobody, so the pre-vote card outranks
+// the hands in both registers. The hands are `pointer-events: none`, so
+// nothing under them ever loses a click. Below the gate this paragraph's
+// original order stands untouched at all times.
 .overlay {
   position: relative;
   z-index: 1;
@@ -677,7 +684,19 @@ export default {
   // overlay's own 1, so the hands paint over the plate AND its type — ruled,
   // not drifted into; the full stacking story (and why the order is the
   // opposite below the gate) is the scrim block's own comment above.
-  .arrows {
+  //
+  // FT-1075 (user call: "the buttons are still behind the clock hands")
+  // SCOPES that ruling to the sweep. `.vo-live` is bound to `isDocked` — true
+  // for exactly as long as the vote runs. While the hands SWEEP, FT-1024b
+  // stands whole: the card is the docked strip at the rim, the face is open,
+  // and a hand saying WHO votes now must not be dimmed by anything. While the
+  // hands STAND — the full card up, Start not yet pressed — they are only
+  // marking two seats, their tips do that job outside the plate's footprint,
+  // and a shaft lying across the Start button was costing a click's clarity
+  // to decorate a control. So at rest the selector no longer matches, the
+  // hands fall back to z-index auto, and the overlay's own 1 (the base-rule
+  // order below the gate, unchanged since FT-976) puts the card in front.
+  .arrows.vo-live {
     z-index: 2;
   }
 }
@@ -1035,12 +1054,20 @@ export default {
     position: absolute;
     filter: drop-shadow(0px 0px 3px #000);
   }
+  // FT-1075: the hands are OURS now — crafted SVGs in the fork's own painted
+  // language (the manicule precedent), replacing upstream's filigree PNGs
+  // (clock-small/clock-big, retired in place). Same canvas, same pivot row,
+  // same reach — each file's header states the mounting contract — so the
+  // sweep math above and every rule in this block are untouched: assets
+  // swapped, geometry kept. Blue ($townsfolk) marks the nominator, red
+  // ($demon) the nominee, the pair drawn to the tower's own gothic dial
+  // silhouettes — spearhead, tapered pierced shaft, turned boss, spade tail.
   .nominator:before {
-    background-image: url("../assets/clock-small.png");
+    background-image: url("../assets/vote-hand-nominator.svg");
     animation: arrow-ccw 1s ease-out;
   }
   .nominee:before {
-    background-image: url("../assets/clock-big.png");
+    background-image: url("../assets/vote-hand-nominee.svg");
     animation: arrow-cw 1s ease-out;
   }
 }

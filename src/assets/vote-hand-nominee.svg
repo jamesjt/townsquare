@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="67" height="832" viewBox="0 0 67 832">
+  <!-- FT-1075: the nominee's hand, in the fork's own painted language.
+       MOUNTING CONTRACT (matches the retired clock-big.png exactly, so
+       Vote.vue's sweep math is untouched): 67x832 canvas, pivot at the
+       canvas centre (33.5,416) where the boss's arbor hole sits, needle tip
+       at y=6 (the full-reach, minute-hand of the pair — this is the one
+       that sweeps the seats), counterweight tail ending at y=446.
+       Same gothic dial language as its blue partner, in the demon-red
+       ($demon #ce0100) family. -->
+  <defs>
+    <linearGradient id="shaft" x1="0" y1="6" x2="0" y2="446" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9d88"/>
+      <stop offset="0.14" stop-color="#f04432"/>
+      <stop offset="0.5" stop-color="#ce0100"/>
+      <stop offset="0.82" stop-color="#9c0301"/>
+      <stop offset="1" stop-color="#4a0301"/>
+    </linearGradient>
+    <radialGradient id="boss" cx="0.42" cy="0.38" r="0.75">
+      <stop offset="0" stop-color="#f0503c"/>
+      <stop offset="0.55" stop-color="#8f0603"/>
+      <stop offset="1" stop-color="#340404"/>
+    </radialGradient>
+  </defs>
+  <!-- body: needle point, lancet head, tapered pierced shaft, collar -->
+  <path fill="url(#shaft)" stroke="#170303" stroke-opacity="0.6" stroke-width="2" fill-rule="evenodd" d="
+    M 33.5 6
+    C 37.5 24 42.5 44 45 60
+    C 46.5 70 45 80 40.5 88
+    C 38 92.5 36.5 97 36.2 102
+    L 40.5 386
+    L 43 390
+    L 43 397
+    L 39 401
+    L 33.5 402.8
+    L 28 401
+    L 24 397
+    L 24 390
+    L 26.5 386
+    L 30 102
+    C 30.5 97 29 92.5 26.5 88
+    C 22 80 20.5 70 22 60
+    C 24.5 44 29.5 24 33.5 6
+    Z
+    M 33.5 34
+    C 35.5 46 38 58 39 66
+    C 39.8 72 38.5 78 35.5 83
+    L 33.5 86.5
+    L 31.5 83
+    C 28.5 78 27.2 72 28 66
+    C 29 58 31.5 46 33.5 34
+    Z
+    M 33.5 218
+    C 34.9 232 35.5 247 35.5 262
+    C 35.5 277 34.9 292 33.5 306
+    C 32.1 292 31.5 277 31.5 262
+    C 31.5 247 32.1 232 33.5 218
+    Z"/>
+  <!-- boss: turned disc with the arbor hole at the exact pivot (33.5,416) -->
+  <path fill="url(#boss)" stroke="#170303" stroke-opacity="0.6" stroke-width="2" fill-rule="evenodd" d="
+    M 33.5 393
+    C 46.2 393 56.5 403.3 56.5 416
+    C 56.5 428.7 46.2 439 33.5 439
+    C 20.8 439 10.5 428.7 10.5 416
+    C 10.5 403.3 20.8 393 33.5 393
+    Z
+    M 33.5 407.8
+    C 38 407.8 41.7 411.5 41.7 416
+    C 41.7 420.5 38 424.2 33.5 424.2
+    C 29 424.2 25.3 420.5 25.3 416
+    C 25.3 411.5 29 407.8 33.5 407.8
+    Z"/>
+  <!-- spade tail: the counterweight past the pivot, point at y=446 -->
+  <path fill="#3a0403" stroke="#170303" stroke-opacity="0.6" stroke-width="2" d="
+    M 33.5 446
+    C 29.2 442.6 25.4 439.6 23.3 435.8
+    C 26.3 437.9 29.7 439.2 33.5 439.2
+    C 37.3 439.2 40.7 437.9 43.7 435.8
+    C 41.6 439.6 37.8 442.6 33.5 446
+    Z"/>
+  <!-- engraved spine light -->
+  <path fill="none" stroke="#ffc9b8" stroke-opacity="0.45" stroke-width="1.4" stroke-linecap="round" d="M 32 26 C 31 60 31.6 88 31.8 106 L 32.6 214 M 32.4 312 L 33 384"/>
+  <!-- boss rim light -->
+  <path fill="none" stroke="#ff9c86" stroke-opacity="0.5" stroke-width="1.6" stroke-linecap="round" d="M 18.5 404 C 21.5 399.5 26.2 396.3 31.3 395.6"/>
+</svg>

@@ -422,6 +422,27 @@
         </div>
       </div>
 
+      <!-- FT-1075 rider: WHO STANDS WHERE, worn on the coins. For as long as
+           a nomination runs — opened to resolved or cancelled — the two
+           involved seats wear their role ON THE COIN, on every client, host
+           and player alike: who accuses whom is public. The accuser's coin
+           carries the accuse hand (the user's own art, the same bitmap as
+           the per-seat nominate mark, mirrored by side so it points at the
+           clock face), the accused's coin the noose — the app's one word
+           for "pointing" and its one word for "the block", at coin scale.
+           The accused seat that is ALREADY marked for execution keeps the
+           tally noose above instead of wearing a second one — see voteRole
+           below. Same anatomy as `.marked`: full-seat box, centered art,
+           dark halo, pointer-events none. -->
+      <div class="vote-role" v-if="voteRole">
+        <i
+          v-if="voteRole === 'accuser'"
+          class="vote-role-art vote-role-hand"
+          :class="{ mirrored: nominateMarkMirrored }"
+        ></i>
+        <i v-else class="vote-role-art vote-role-noose"></i>
+      </div>
+
       <!-- FT-923: THE BRIDGE. The plate and the add-reminder disc below are a
            real gap apart (`GAP` in measureAddAnchor) — a straight-line cursor
            move from one to the other crosses that gap's dead ground, where
@@ -803,6 +824,27 @@ export default {
       for (let i = session.voteHistory.length - 1; i >= 0; i--) {
         const entry = session.voteHistory[i];
         if (entry.nominee === name) return entry.votes.length;
+      }
+      return null;
+    },
+    /**
+     * FT-1075 rider: this seat's part in the running nomination, or null.
+     * `session.nomination` is [nominator, nominee] as seat indices, set when
+     * the nomination opens and cleared when it resolves or is cancelled —
+     * so the mark's whole lifetime is exactly the array's, on every client
+     * (the relay syncs the same state to all of them).
+     *
+     * The one carve-out: an accused seat that is ALSO the marked-for-
+     * execution seat already wears the tally noose (`.marked` above, same
+     * spot, same art) — returning null here rather than stacking a second
+     * noose on the first.
+     */
+    voteRole() {
+      const nomination = this.session.nomination;
+      if (!nomination) return null;
+      if (nomination[0] === this.index) return "accuser";
+      if (nomination[1] === this.index) {
+        return this.session.markedPlayer === this.index ? null : "accused";
       }
       return null;
     },
@@ -2897,6 +2939,52 @@ li.nominate .player .overlay .nominate-target {
 }
 .player.marked .marked {
   opacity: 0.85;
+}
+
+/* FT-1075 rider — the running nomination worn on the two coins involved.
+ * `.marked`'s anatomy exactly (that mark is this one's precedent): a full-
+ * seat box squared by its own padding, art centered by flex, the same
+ * load-bearing dark halo, pointer-events none so no click under it is lost.
+ * The art sits at 62% of the coin — big enough to read as "this seat is the
+ * accuser / this seat is on the block" at seat size, small enough that whose
+ * coin it is stays legible around it. No opacity gate: unlike `.marked`
+ * (whose visibility is a class toggle), this box only exists while
+ * `voteRole` says the seat is involved, so it simply renders at strength. */
+.player .vote-role {
+  position: absolute;
+  width: 100%;
+  top: 0;
+  filter: drop-shadow(0px 0px 6px black);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:before {
+    content: " ";
+    padding-top: 100%;
+    display: block;
+  }
+
+  .vote-role-art {
+    position: absolute;
+    width: 62%;
+    height: 62%;
+    opacity: 0.85;
+  }
+  /* the accuse hand — the user's own art, the nominate mark's exact bitmap;
+   * same native-left direction, same point-at-the-face mirror rule */
+  .vote-role-hand {
+    background: url("../assets/ui-nominate-hand.png") center center / contain
+      no-repeat;
+
+    &.mirrored {
+      transform: scaleX(-1);
+    }
+  }
+  .vote-role-noose {
+    background: url("../assets/ui-noose.png") center center / contain no-repeat;
+  }
 }
 
 /****** Seat icon ********/

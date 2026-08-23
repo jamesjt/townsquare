@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="832" viewBox="0 0 120 832">
+  <!-- FT-1075: the nominator's hand, in the fork's own painted language.
+       MOUNTING CONTRACT (matches the retired clock-small.png exactly, so
+       Vote.vue's sweep math is untouched): 120x832 canvas, pivot at the
+       canvas centre (60,416) where the boss's arbor hole sits, tip at y=90
+       (326px reach — the shorter, hour-hand of the pair), counterweight
+       tail ending at y=449. Silhouette speaks the tower's gothic dial
+       language — spearhead, tapered shaft, pierced spine, turned boss,
+       spade tail — in the town's good-blue ($townsfolk #1f65ff) family. -->
+  <defs>
+    <linearGradient id="shaft" x1="0" y1="90" x2="0" y2="449" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8fb6ff"/>
+      <stop offset="0.16" stop-color="#4380ff"/>
+      <stop offset="0.5" stop-color="#1f65ff"/>
+      <stop offset="0.82" stop-color="#1848b8"/>
+      <stop offset="1" stop-color="#0e2a6e"/>
+    </linearGradient>
+    <radialGradient id="boss" cx="0.42" cy="0.38" r="0.75">
+      <stop offset="0" stop-color="#4d82f2"/>
+      <stop offset="0.55" stop-color="#1c4bbb"/>
+      <stop offset="1" stop-color="#101f4a"/>
+    </radialGradient>
+  </defs>
+  <!-- body: spearhead, shaft (pierced), collar, tail — one path, holes evenodd -->
+  <path fill="url(#shaft)" stroke="#050a18" stroke-opacity="0.6" stroke-width="2" fill-rule="evenodd" d="
+    M 60 90
+    C 66 106 74 120 79 134
+    C 82 143 80 154 74 162
+    C 69 168 65.5 172 64.5 178
+    L 68.5 384
+    L 71 388
+    L 71 396
+    L 66 400
+    L 60 402
+    L 54 400
+    L 49 396
+    L 49 388
+    L 51.5 384
+    L 55.5 178
+    C 55 172 51 168 46 162
+    C 40 154 38 143 41 134
+    C 46 120 54 106 60 90
+    Z
+    M 60 118
+    C 63 128 68 136 70 142
+    C 71.5 147 70 152 66.5 156
+    L 60 162
+    L 53.5 156
+    C 50 152 48.5 147 50 142
+    C 52 136 57 128 60 118
+    Z
+    M 60 228
+    C 61.6 240 62.4 252 62.4 265
+    C 62.4 278 61.6 290 60 302
+    C 58.4 290 57.6 278 57.6 265
+    C 57.6 252 58.4 240 60 228
+    Z"/>
+  <!-- boss: turned disc with the arbor hole at the exact pivot (60,416) -->
+  <path fill="url(#boss)" stroke="#050a18" stroke-opacity="0.6" stroke-width="2" fill-rule="evenodd" d="
+    M 60 389
+    C 75 389 87 401 87 416
+    C 87 431 75 443 60 443
+    C 45 443 33 431 33 416
+    C 33 401 45 389 60 389
+    Z
+    M 60 406.5
+    C 65.2 406.5 69.5 410.8 69.5 416
+    C 69.5 421.2 65.2 425.5 60 425.5
+    C 54.8 425.5 50.5 421.2 50.5 416
+    C 50.5 410.8 54.8 406.5 60 406.5
+    Z"/>
+  <!-- spade tail: the counterweight past the pivot, point at y=449 -->
+  <path fill="#13275c" stroke="#050a18" stroke-opacity="0.6" stroke-width="2" d="
+    M 60 449
+    C 55 445 50.5 441.5 48 437
+    C 51.5 439.5 55.5 441 60 441
+    C 64.5 441 68.5 439.5 72 437
+    C 69.5 441.5 65 445 60 449
+    Z"/>
+  <!-- engraved spine light: a thin rise of paint down the shaft's crest -->
+  <path fill="none" stroke="#c6d9ff" stroke-opacity="0.45" stroke-width="1.6" stroke-linecap="round" d="M 58 104 C 56 150 57.2 170 57.4 182 L 58.6 224 M 58.2 308 L 59 382"/>
+  <!-- boss rim light -->
+  <path fill="none" stroke="#9dbdff" stroke-opacity="0.5" stroke-width="1.8" stroke-linecap="round" d="M 42 402 C 45.5 396.5 51 392.6 57 391.6"/>
+</svg>
