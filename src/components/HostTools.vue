@@ -326,9 +326,12 @@
       >
         <span class="tw-lead">
           <span class="label">
+            <!-- FT-1058c (user): the hourglass, not the sun — this row is
+                 about time running, and the sun belongs to the day-break
+                 sound below. -->
             <font-awesome-icon
               class="row-mark-fa"
-              icon="sun"
+              icon="hourglass-half"
               title="The day's length"
             />
           </span>
