@@ -96,6 +96,8 @@
       :title="belief.placeholder ? 'This character believes it is something else — click to set what they were told' : `Believes they are the ${belief.name} — click to change what they were told`"
       :aria-label="belief.placeholder ? 'Set what they believe they are' : `Believes they are the ${belief.name}`"
       @click.stop="$emit('set-belief')"
+      @mouseenter="$emit('belief-hover', $event)"
+      @mouseleave="$emit('belief-leave')"
     >
       <span
         class="belief-icon"

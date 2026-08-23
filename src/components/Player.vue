@@ -138,7 +138,9 @@
         @mouseenter.native="showCard"
         @mouseleave.native="hideCardSoon"
         @set-role="$emit('trigger', ['openRoleModal'])"
-        @set-belief="$emit('trigger', ['openBeliefModal'])"
+        @set-belief="hideCard(); $emit('trigger', ['openBeliefModal'])"
+        @belief-hover="showBeliefCard"
+        @belief-leave="hideBeliefCard"
       />
 
       <!-- FT-858: the seat's read is THE role hover card — the same component
@@ -151,9 +153,13 @@
            each carry the hover themselves, so being swallowed by one of them is
            the same as being caught by the coin. What the plate keeps is the
            card's preferred SIDE — see cardPrefer. -->
+      <!-- FT-1069 rider: the belief chip is a fourth way to ask for the card,
+           and the one way that asks about the LIE — resting on the chip reads
+           the BELIEVED role (beliefCardRole), every other doorway reads the
+           truth. Same single card either way. -->
       <RoleHoverCard
         v-if="cardAnchor"
-        :role="player.role"
+        :role="beliefCardRole || player.role"
         :anchor="cardAnchor"
         :prefer="cardPrefer"
         @dismiss="hideCard"
@@ -221,12 +227,25 @@
           @click="movePlayer(player)"
           title="Move player to this seat"
         />
+        <!-- FT-1069: the target pick wears the NOOSE, not the hand — picking
+             who stands trial is a gallows act, and the hand moved to the
+             nominate mark (the cowl slot) where "this player points" lives.
+             The FA glyph stays registered in main.js and its markup stays
+             here behind `showGlyphNominate`, the same way `showGlyphVotes`
+             keeps the old vote pair. -->
         <font-awesome-icon
           icon="hand-point-right"
           class="nominate"
           @click="nominatePlayer(player)"
           title="Nominate this player"
+          v-if="showGlyphNominate"
         />
+        <div
+          class="nominate-target"
+          title="Nominate this player"
+          @click="nominatePlayer(player)"
+          v-if="!showGlyphNominate"
+        ></div>
       </div>
 
       <!-- Golem fork: ONE-TAP CLAIM — a seatless spectator sees an empty seat
@@ -317,21 +336,39 @@
            like the row it replaces, and gone while a nomination is already
            running (the row's own v-if). Clicking it is the row's exact
            act — `nominatePlayer()` with no target, which arms THIS seat as
-           the NOMINATOR on TownSquare's channel; the big overlay hand on
+           the NOMINATOR on TownSquare's channel; the big overlay icon on
            the seat they point at finishes the nomination, and the armed
            seat's own X cancels, both untouched. NOT hidden on the public
            grimoire the way the cowl is: the day phase is exactly when the
-           storyteller nominates, and the menu row never hid there. -->
+           storyteller nominates, and the menu row never hid there.
+           FT-1069 (user): this mark is the HAND now, not the noose — the
+           hand is the app's "points at someone" word (the overlay's own
+           nominate glyph) and the noose is the gallows' word: it moved to
+           the target pick and the marked-for-execution seat, where the
+           gallows actually is. One hand = pointing, one noose = hanging. -->
       <div
         class="nominate-mark"
         v-if="!player.isDead && !session.isSpectator && !session.nomination"
         @click="nominatePlayer()"
         title="This player nominates — then pick who they point at"
-      ></div>
+      >
+        <font-awesome-icon icon="hand-point-right" />
+      </div>
 
-      <!-- On block icon -->
+      <!-- On block icon.
+           FT-1069 (user): "if they are actually marked for execution the
+           noose should be the indicator, not that skull, and in the middle
+           of the noose it should say how many votes they got." The skull
+           stays behind `showSkullMarked` the way every retired glyph here
+           does; the tally comes from markedVotes below and simply stays
+           off the art when no count is known. -->
       <div class="marked">
-        <font-awesome-icon icon="skull" />
+        <font-awesome-icon icon="skull" v-if="showSkullMarked" />
+        <div class="marked-noose" v-if="!showSkullMarked">
+          <span class="tally" v-if="markedVotes !== null">{{
+            markedVotes
+          }}</span>
+        </div>
       </div>
 
       <!-- FT-923: THE BRIDGE. The plate and the add-reminder disc below are a
@@ -428,7 +465,7 @@
            get rid of it?"). Its rows' jobs had been leaving one by one for
            direct affordances — the plate drag (move/swap), the one-tap
            claim, the coin's belief chip, the tray drags — and the last one
-           standing, "Nomination", is now the noose mark in the cowl's slot
+           standing, "Nomination", is now the nominate hand in the cowl's slot
            above. Markup and methods stay behind `showSeatMenu`, the same
            way this file keeps `showNightBadges`, `showSeatSplat` and
            `showBallotVote` — the whole menu is one flag away. -->
@@ -678,6 +715,46 @@ export default {
     showGlyphVotes() {
       return false;
     },
+    /** FT-1069: the overlay's white `hand-point-right` target pick, retired
+     *  in favour of the painted noose — the gallows picks who stands trial.
+     *  Flip to `true` to bring the glyph back; it stays in main.js. */
+    showGlyphNominate() {
+      return false;
+    },
+    /** FT-1069: the white skull "marked for execution" glyph, retired in
+     *  favour of the noose wearing the vote tally — flip to `true` to bring
+     *  the skull back. The icon stays registered in main.js. */
+    showSkullMarked() {
+      return false;
+    },
+    /**
+     * FT-1069: how many votes put this seat on the block — the number in the
+     * noose's loop. Null (no number shown) when this seat is not the marked
+     * one or no tally is known.
+     *
+     * TWO SOURCES, one per moment. While the nomination that marked them is
+     * still open, `session.votes` is the live count and the loop counts up
+     * as hands lock. After it closes the live array is cleared by the
+     * `nomination` mutation, so the count comes from the chronicle's own
+     * record — the newest `voteHistory` entry naming this seat as nominee
+     * (`addHistory` stores names, not indices; a name collision would read
+     * the other seat's tally, which is the record's own ambiguity, not a new
+     * one). A spectator whose vote history is switched off simply wears the
+     * noose alone.
+     */
+    markedVotes() {
+      const session = this.session;
+      if (session.markedPlayer !== this.index) return null;
+      if (session.nomination && session.nomination[1] === this.index) {
+        return session.votes.filter(Boolean).length;
+      }
+      const name = this.player.name;
+      for (let i = session.voteHistory.length - 1; i >= 0; i--) {
+        const entry = session.voteHistory[i];
+        if (entry.nominee === name) return entry.votes.length;
+      }
+      return null;
+    },
     /** FT-1068: the per-seat context menu, retired (user call). Every job
      *  it still carried lives in a direct affordance now — the nominate
      *  row became the noose mark in the cowl's slot — and the rows with no
@@ -914,6 +991,9 @@ export default {
       // FT-858: the coin the seat's hover card is pinned to; null when
       // nothing is showing
       cardAnchor: null,
+      // FT-1069 rider: the card reads THIS role instead of the seat's truth
+      // while the belief chip is the hover target; null everywhere else
+      beliefCardRole: null,
       // FT-990: which side the card tries first — "right" when the name plate
       // raised it, "auto" (lean outward, away from the ring's middle) when the
       // coin did. See showCard.
@@ -1045,6 +1125,8 @@ export default {
       // coin and the plate crossable (see hideCardSoon)
       clearTimeout(this.$options.hideTimer);
       clearTimeout(this.$options.cardTimer);
+      // FT-1069 rider: every doorway but the belief chip reads the truth
+      this.beliefCardRole = null;
       // ALREADY UP: re-anchor now, with no second wait. The delay exists to
       // stop a sweep across the square strobing cards ON; once this seat's card
       // is showing, moving between its own coin and its own plate is one
@@ -1088,6 +1170,60 @@ export default {
       clearTimeout(this.$options.cardTimer);
       clearTimeout(this.$options.hideTimer);
       this.cardAnchor = null;
+      this.beliefCardRole = null;
+    },
+    /**
+     * FT-1069 rider (user): resting on the belief chip raises THE role hover
+     * card for the BELIEVED role — the same single-card contract every other
+     * surface keeps (FT-1060 wired the chronicle roster the same way: a
+     * 170ms rest — HOVER_DELAY here is that same number — behind a
+     * `(hover: hover)` gate, so a touch scroll never strobes cards).
+     *
+     * The "?" placeholder chip has no believed role yet, so it shows no card
+     * (first guard). Clicking the chip still opens the belief modal —
+     * untouched, this is hover only.
+     *
+     * Same body as showCard past its guards, minus the plate branch: the
+     * chip is a coin-rim element, so the card leans outward like the coin's
+     * own. The chip sits INSIDE `.token`, so crossing chip→coin re-fires no
+     * mouseenter on the seat's three hover boxes — hideBeliefCard below is
+     * what hands the card back to the truth on that crossing.
+     */
+    showBeliefCard(e) {
+      const role = this.player.believedRole;
+      if (!role || !role.id) return;
+      if (!window.matchMedia("(hover: hover)").matches) return;
+      const anchor = e.currentTarget;
+      clearTimeout(this.$options.hideTimer);
+      clearTimeout(this.$options.cardTimer);
+      if (this.cardAnchor) {
+        this.beliefCardRole = role;
+        this.cardAnchor = anchor;
+        this.cardPrefer = "auto";
+        return;
+      }
+      this.$options.cardTimer = setTimeout(() => {
+        this.beliefCardRole = role;
+        this.cardAnchor = anchor;
+        this.cardPrefer = "auto";
+      }, HOVER_DELAY);
+    },
+    /**
+     * Leaving the chip UPWARD stays on the coin (no box re-entered — see
+     * showBeliefCard), so the card is handed back to the seat's truth in
+     * place. Leaving the seat entirely also fires the token's own
+     * mouseleave, whose hideCardSoon owns the actual hide.
+     */
+    hideBeliefCard() {
+      this.beliefCardRole = null;
+      if (this.cardAnchor) {
+        this.cardAnchor = this.$el.querySelector(".token") || this.cardAnchor;
+        this.cardPrefer = "auto";
+      } else {
+        // nothing up yet — a pending belief card must not pop after the
+        // cursor has already moved on
+        clearTimeout(this.$options.cardTimer);
+      }
     },
     /**
      * FT-911: where the add-reminder disc docks — beside this seat's own
@@ -2296,6 +2432,38 @@ li.move:not(.from) .player .overlay svg.move {
   pointer-events: all;
 }
 
+/* FT-1069 — THE TARGET PICK IS THE NOOSE. With a nominator armed, every seat
+ * offers this instead of the white pointing hand: choosing who stands trial
+ * is a gallows act, and the hand moved to the nominate mark where "points at"
+ * lives. Same box, same scale-in, same activation gate as the svg it
+ * replaces (`li.nominate` above keeps its svg rule for the flagged-off
+ * glyph); the paired dark halo is the vote-mark's own — a pale mark needs it
+ * to stay off a pale coin rim, and the hover deepens it the way the painted
+ * vote pair's hovers do. */
+.player .overlay .nominate-target {
+  position: absolute;
+  z-index: 2;
+  cursor: pointer;
+  width: 50%;
+  height: 60%;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 250ms;
+  transform: scale(0.2);
+  background: url("../assets/ui-noose.png") center center / contain no-repeat;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
+
+  &:hover {
+    filter: drop-shadow(0 0 7px rgba(0, 0, 0, 1));
+  }
+}
+
+li.nominate .player .overlay .nominate-target {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+
 /****** Vote icon ********/
 .player .has-vote {
   color: #fff;
@@ -2415,28 +2583,39 @@ li.move:not(.from) .player .overlay svg.move {
 
 /* FT-1068 — THE NOMINATE MARK: the cowl slot's living occupant. Same box,
  * same corner, same numbers as `.has-vote` + `.ghost-vote` above, so the two
- * swap cleanly by life state and the slot never moves. Painted art, not
- * white FA chrome: the slot's dead occupant is a baked PNG and its living
- * twin is the same material — ui-noose.png, already the app's "votes to
- * execute" mark (TownInfo's count, the chronicle rows), so the vocabulary
- * stays one noose, one meaning. Muted at rest — up to twenty of these ring
- * the dial and must not shout — and full strength under the cursor; the
- * dark halo is the same load-bearing drop-shadow that keeps every pale mark
- * off a pale coin rim. Deliberately NOT `.has-vote`: that family goes
- * `opacity: 0` on the public grimoire, and the day phase is exactly when
- * the storyteller needs this. */
+ * swap cleanly by life state and the slot never moves. Muted at rest — up to
+ * twenty of these ring the dial and must not shout — and full strength under
+ * the cursor; the dark halo is the same load-bearing drop-shadow that keeps
+ * every pale mark off a pale coin rim. Deliberately NOT `.has-vote`: that
+ * family goes `opacity: 0` on the public grimoire, and the day phase is
+ * exactly when the storyteller needs this.
+ *
+ * FT-1069 — the mark is the HAND (user: "the nominate icon shouldn't be the
+ * noose, it should be the hand"). This button says "this player POINTS at
+ * someone", and pointing is the hand's job everywhere in this app; the noose
+ * is the gallows' word and now marks the other end of the act — the target
+ * pick and the on-the-block seat. The glyph is the overlay's own
+ * `hand-point-right`, but NOT in that overlay's bare white chrome: it wears
+ * the noose bake's own bone tone (#cfc4ae — the ui-noose/ui-town/ui-alive
+ * count-icon family), so the slot stays painted-material like its dead
+ * twin, the cowl. */
 .player .nominate-mark {
   position: absolute;
   margin-top: -15%;
   right: 2px;
   width: 30px;
   height: 30px;
-  background: url("../assets/ui-noose.png") center center / contain no-repeat;
   cursor: pointer;
   z-index: 2;
   opacity: 0.35;
   filter: drop-shadow(0 0 3px black);
   transition: opacity 250ms;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    color: #cfc4ae;
+  }
 
   &:hover {
     opacity: 1;
@@ -2501,6 +2680,20 @@ li.move:not(.from) .player .overlay svg.move {
 }
 
 /****** Marked icon ******/
+/* FT-1069 — ON THE BLOCK WEARS THE NOOSE, with the vote tally in its loop
+ * (user: "in the middle of the noose it should say how many votes they
+ * got"). The skull's rules stay for the flagged-off glyph.
+ *
+ * THE TALLY SITS IN THE LOOP, NOT THE CENTER OF THE BOX: ui-noose's loop is
+ * a circle centered at (256, 352) of a 512 viewBox — x 50%, y 68.75% of the
+ * art — with an inner hole 34% of the art wide (see ui-noose.svg's
+ * geometry). The plate is a dark disc filling that hole, so the number reads
+ * against its own ground instead of against whatever coin art the hole
+ * happens to frame.
+ *
+ * OPACITY 0.85, not the skull's 0.5: the skull was a pure silhouette and
+ * could afford to whisper; a number half-dissolved into a coin face cannot
+ * be read at seat size, and the count is the point of the mark. */
 .player .marked {
   position: absolute;
   width: 100%;
@@ -2527,9 +2720,33 @@ li.move:not(.from) .player .overlay svg.move {
       fill: white;
     }
   }
+  .marked-noose {
+    position: absolute;
+    width: 60%;
+    height: 60%;
+    background: url("../assets/ui-noose.png") center center / contain
+      no-repeat;
+  }
+  .tally {
+    position: absolute;
+    left: 50%;
+    top: 68.75%;
+    transform: translate(-50%, -50%);
+    min-width: 22px;
+    height: 22px;
+    line-height: 22px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 11px;
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+  }
 }
 .player.marked .marked {
-  opacity: 0.5;
+  opacity: 0.85;
 }
 
 /****** Seat icon ********/
