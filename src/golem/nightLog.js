@@ -77,12 +77,18 @@ export const CHECK_LABELS = {
   required: "Required",
 };
 
-/** The full explanation, on the chip's tooltip — the chip is one word wide. */
+/** The full explanation, on each option's tooltip.
+ *
+ *  FT-1087: the trailing "Click for Warn." / "Click for Required." /
+ *  "Click for Optional." sentences came off. They described the ORIGINAL
+ *  control — a single chip that cycled the three states on repeated clicks
+ *  — and had already been wrong for the FT-959 segment, where every state
+ *  was one press away. On a select they would be actively misleading: what
+ *  a click does now is open the list. Nothing else in these strings moved. */
 export const CHECK_TITLES = {
-  off: "Ticking the rows is optional — the night ends without comment. Click for Warn.",
-  warn: "The night still ends with rows unticked, and the sheet says how many. Click for Required.",
-  required:
-    "Ending the night is blocked until every row is ticked. Click for Optional.",
+  off: "Ticking the rows is optional — the night ends without comment.",
+  warn: "The night still ends with rows unticked, and the sheet says how many.",
+  required: "Ending the night is blocked until every row is ticked.",
 };
 
 /**

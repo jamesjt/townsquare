@@ -31,22 +31,26 @@
           title="Night checklist"
         />
       </span>
+      <!-- FT-1087: THE TWO SEGMENTS BECAME TWO SELECTS, side by side, each
+           taking half the row's slack — see OptionSelect.vue for why the whole
+           panel changed shape. This row is the clearest case for it: the two
+           segments together painted 385px into a 364-403px row, so the
+           enforcement one WRAPPED to a second line at every width but the
+           widest disc (the measurements are in the style block below, kept
+           because they are what the wrap was). Two selects share one line at
+           every width there has ever been a measurement for.
+
+           THEY STAY SIDE BY SIDE rather than taking a row each: both settings
+           are the night checklist's — who sees it, and how hard it is enforced
+           — and neither has a word long enough to want the full width. -->
       <span class="nm-controls">
-        <span class="nm-seg" role="radiogroup" aria-label="Night sheet visibility">
-          <button
-            v-for="m in modes"
-            :key="m"
-            type="button"
-            class="nm-opt"
-            :class="{ on: mode === m }"
-            role="radio"
-            :aria-checked="String(mode === m)"
-            :title="titles[m]"
-            @click="pick(m)"
-          >
-            {{ labels[m] }}
-          </button>
-        </span>
+        <OptionSelect
+          name="night-visibility"
+          aria-label="Night sheet visibility"
+          :options="visibilityOptions"
+          :value="mode"
+          @input="pick"
+        />
 
         <!-- FT-874 tri-state (2026-08-19), FT-959 segmented (2026-08-20, user
              call: "turn the optional/required/warn option into a 3 part
@@ -64,25 +68,14 @@
              ordinary "chosen" tint every segment in this app already wears —
              see the style block below for why that stays true even now that
              three options are visible at once instead of one. -->
-        <span
-          class="nm-seg nm-seg-checks"
-          role="radiogroup"
+        <OptionSelect
+          class="nm-sel-checks"
+          name="night-checks"
           aria-label="Night checklist enforcement"
-        >
-          <button
-            v-for="c in checkModes"
-            :key="c"
-            type="button"
-            class="nm-opt"
-            :class="['chk-' + c, { on: requireChecks === c }]"
-            role="radio"
-            :aria-checked="String(requireChecks === c)"
-            :title="checkTitles[c]"
-            @click="pickCheck(c)"
-          >
-            {{ checkLabels[c] }}
-          </button>
-        </span>
+          :options="checkOptions"
+          :value="requireChecks"
+          @input="pickCheck"
+        />
       </span>
     </div>
     <small class="nm-hint">{{ hints[mode] }}</small>
@@ -103,9 +96,13 @@ import {
 // FT-936: the row label's mark — a full moon, the check knocked out to
 // transparency.
 import uiNightcheck from "../assets/ui-nightcheck.png";
+// FT-1087: the panel's shared dropdown — the script picker's own trigger,
+// opening a list of words instead of a grid of cards.
+import OptionSelect from "./OptionSelect";
 
 export default {
   name: "NightModeRow",
+  components: { OptionSelect },
   data() {
     return {
       modes: MODES,
@@ -122,7 +119,29 @@ export default {
     };
   },
   computed: {
-    ...mapState("night", ["mode", "requireChecks"])
+    ...mapState("night", ["mode", "requireChecks"]),
+    /** FT-1087: the same three positions the switch always had, as the
+     *  shared select's option list — labels and tooltips unchanged, read
+     *  from nightLog as before. */
+    visibilityOptions() {
+      return this.modes.map((m) => ({
+        value: m,
+        label: this.labels[m],
+        title: this.titles[m],
+      }));
+    },
+    /** The enforcement list. `cls` carries Warn's gold and Required's red
+     *  through to BOTH the option and the closed trigger — a colour that
+     *  only survived while the list was open would say less than the
+     *  segment did. */
+    checkOptions() {
+      return this.checkModes.map((c) => ({
+        value: c,
+        label: this.checkLabels[c],
+        title: this.checkTitles[c],
+        cls: "chk-" + c,
+      }));
+    },
   },
   methods: {
     pick(mode) {
@@ -260,15 +279,51 @@ export default {
   // The mode switch and the enforcement segment, as ONE right-hand group —
   // so the row's space-between still pins the label left and the controls
   // right, rather than stranding either switch in the middle of the row.
+  // FT-1087: and now it is the row's SLACK, not a right-hand huddle. Both
+  // children are selects that grow, so the pair fills everything the mark
+  // leaves and the row ends on the panel's own right edge — which is what
+  // retired the wrap the block above measures. `flex-wrap` is gone with the
+  // reason for it: two growing children cannot overflow the line they are
+  // measured against.
   .nm-controls {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    justify-content: flex-end;
-    gap: 5px 8px;
+    gap: 8px;
+    flex: 1 1 auto;
     min-width: 0;
   }
 
+  // WARN'S GOLD AND REQUIRED'S RED, on the shared select. `::v-deep` because
+  // the ink belongs to THIS row's setting, not to the panel's dropdown — a
+  // colour that means "enforcement" has no business being defined inside a
+  // control that also carries bells and day lengths. Same values the segment
+  // wore (see the `.nm-seg-checks` note below), now on the closed trigger's
+  // label as well as on the open list's chosen row, so the state is readable
+  // without opening anything.
+  .nm-sel-checks ::v-deep {
+    .gsel-label.chk-warn {
+      color: #ffd98a;
+    }
+    .gsel-label.chk-required {
+      color: #ff6b6b;
+    }
+    .gsel-opt.chk-warn.on {
+      color: #ffd98a;
+    }
+    .gsel-opt.chk-required.on {
+      color: #ff6b6b;
+    }
+  }
+
+  // ── FT-1087: THE SEGMENT RULES BELOW ARE STOOD DOWN ──────────────────────
+  // Both settings on this row are selects now (see the template note), so
+  // nothing in this component renders `.nm-seg` / `.nm-opt` / `.nm-seg-checks`
+  // any more. They are LEFT IN PLACE, not removed: this fork's house rule is
+  // never to delete on the way past, and the FT-1055 display segment's own
+  // methods stand down in HostTools the same way. What they say about the
+  // plate, the seam and the ink is also the record of what the select
+  // inherited — the enforcement colours a few rules up are these, moved.
+  //
   // THE SWITCH IS ONE CONTROL WITH THREE POSITIONS, and that is the whole
   // reason the plate goes HERE and not on the cells. Off / Storyteller /
   // Everyone must read as a single object a finger slides along; three plated

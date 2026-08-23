@@ -324,59 +324,54 @@
         class="row tw-row"
         title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
       >
-        <span class="tw-lead">
-          <span class="label">
-            <!-- FT-1058c (user): the hourglass, not the sun — this row is
-                 about time running, and the sun belongs to the day-break
-                 sound below. -->
-            <font-awesome-icon
-              class="row-mark-fa"
-              icon="hourglass-half"
-              title="The day's length"
-            />
-          </span>
-          <span class="tw-seg" role="radiogroup" aria-label="Day length">
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(!tower.dayLengthMin)"
-              :class="{ on: !tower.dayLengthMin }"
-              title="No day length — the readout counts up and nothing tolls"
-              @click="setTower('dayLengthMin', 0)"
-            >
-              Off
-            </button>
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(!!tower.dayLengthMin)"
-              :class="{ on: !!tower.dayLengthMin }"
-              title="The day gets a length — every readout counts down to it"
-              @click="setTower('dayLengthMin', dayLenDraft)"
-            >
-              Timed
-            </button>
-          </span>
-          <!-- the minutes themselves — dimmed while Off, and scrubbing it is
-             itself the "on" gesture (a length you are setting is a length
-             you want). -->
-          <span
-            class="tw-daylen"
-            :class="{ idle: !tower.dayLengthMin }"
+        <span class="label">
+          <!-- FT-1058c (user): the hourglass, not the sun — this row is
+               about time running, and the sun belongs to the day-break
+               sound below. -->
+          <font-awesome-icon
+            class="row-mark-fa"
+            icon="hourglass-half"
+            title="The day's length"
+          />
+        </span>
+        <!-- FT-1087: the Off/Timed segment became a select, and the row lost
+             its `.tw-lead` huddle with it. The cluster existed to keep the
+             mark, the segment and the scrub from drifting apart in a row's
+             leftover slack (FT-959's lesson); there is no leftover slack now
+             — the select IS the slack — so the three sit as the row's own
+             three children, mark left, minutes right, select filling between.
+
+             Off/Timed is a two-state setting and it stayed a DROPDOWN rather
+             than becoming a switch, deliberately: it is the only setting on
+             this panel that hands a second control (the minutes) its reason
+             to be live, and a row that reads "hourglass — Timed — 10 min"
+             left to right says that in one line. Four rows wearing the same
+             control and one wearing a switch would also be the near-miss
+             family controls.scss exists to prevent. -->
+        <OptionSelect
+          name="day-length"
+          aria-label="Day length"
+          :options="dayLengthOptions"
+          :value="tower.dayLengthMin ? 'timed' : 'off'"
+          @input="setDayMode"
+        />
+        <!-- the minutes themselves — dimmed while Off, and scrubbing it is
+           itself the "on" gesture (a length you are setting is a length
+           you want). -->
+        <span
+          class="tw-daylen"
+          :class="{ idle: !tower.dayLengthMin }"
+          title="Minutes in a day — drag sideways to scrub, click to type"
+        >
+          <NumberScrub
+            class="tw-daylen-scrub"
+            :value="tower.dayLengthMin || dayLenDraft"
+            :min="dayLenMin"
+            :max="dayLenMax"
             title="Minutes in a day — drag sideways to scrub, click to type"
-          >
-            <NumberScrub
-              class="tw-daylen-scrub"
-              :value="tower.dayLengthMin || dayLenDraft"
-              :min="dayLenMin"
-              :max="dayLenMax"
-              title="Minutes in a day — drag sideways to scrub, click to type"
-              @input="setDayLength"
-            />
-            <span class="tw-daylen-unit">min</span>
-          </span>
+            @input="setDayLength"
+          />
+          <span class="tw-daylen-unit">min</span>
         </span>
       </div>
       <!-- FT-1054: THE SOUNDS ROW — the day-break bell and the call-back's
@@ -400,50 +395,30 @@
               title="The day-break sound"
             />
           </span>
-          <span class="tw-seg" role="radiogroup" aria-label="Day-start bell">
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.bellOn)"
-              :class="{ on: tower.bellOn }"
-              title="The bell tolls at every day-start, for the whole town"
-              @click="setTower('bellOn', true)"
-            >
-              On
-            </button>
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(!tower.bellOn)"
-              :class="{ on: !tower.bellOn }"
-              title="No bell — the day breaks silently"
-              @click="setTower('bellOn', false)"
-            >
-              Off
-            </button>
-          </span>
-          <!-- FT-1045: the bell buttons PREVIEW as they pick — a click plays
-             that bell here (local only), a second click on a still-tolling
-             bell stops it. Custom opens the source row below. -->
-          <span class="tw-seg" role="radiogroup" aria-label="Which bell">
-            <button
-              v-for="b in bells"
-              :key="b.id"
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.bellId === b.id)"
-              :class="{ on: tower.bellId === b.id }"
-              :title="
-                b.label + ' — click plays it for you; a second click stops it'
-              "
-              @click="pickBell(b.id)"
-            >
-              {{ b.short }}
-            </button>
-          </span>
+          <!-- FT-1087: THE DAY-BREAK BELL IS ONE SELECT — Off / One / Two /
+             Custom — where it was two segments standing side by side, an
+             On/Off pair and a which-bell trio. That is this lane's composition
+             call, and the reason is that they were never two settings: "is
+             there a bell" and "which bell" answer one question, and answering
+             it twice is what spent four controls' worth of width and wrapped
+             this row onto a second line. Every state the pair could reach,
+             this list reaches — Off writes `bellOn` false and leaves `bellId`
+             exactly where it was, so picking a bell again returns the town to
+             the one it had.
+
+             FT-1045'S PREVIEW CONTRACT IS INTACT: picking a bell plays it here
+             (local only), picking the same one again stops it — the select
+             emits on a repeat pick precisely so it still can (see
+             OptionSelect.vue). Picking Off also stops anything still tolling,
+             which the segment never did. Custom still opens the source row
+             below. -->
+          <OptionSelect
+            name="bell-which"
+            aria-label="Day-break bell"
+            :options="bellOptions"
+            :value="bellChoice"
+            @input="pickBellChoice"
+          />
         </span>
         <span class="tw-lead">
           <span class="label">
@@ -453,30 +428,17 @@
               title="The call-back bell"
             />
           </span>
-          <span class="tw-seg" role="radiogroup" aria-label="Call-back voice">
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.callId !== 'custom')"
-              :class="{ on: tower.callId !== 'custom' }"
-              title="The summons that ships — click plays it for you; a second click stops it"
-              @click="pickCall('default')"
-            >
-              Default
-            </button>
-            <button
-              type="button"
-              class="tw-opt"
-              role="radio"
-              :aria-checked="String(tower.callId === 'custom')"
-              :class="{ on: tower.callId === 'custom' }"
-              title="A sound of your own — click plays it for you; a second click stops it"
-              @click="pickCall('custom')"
-            >
-              Custom
-            </button>
-          </span>
+          <!-- FT-1087: two words, so the select is the smaller of the row's
+             pair — but the SAME control, because a panel that says "pick one
+             of these" two different ways depending on how many there are is
+             the near-miss family controls.scss was written to end. -->
+          <OptionSelect
+            name="callback"
+            aria-label="Call-back voice"
+            :options="callOptions"
+            :value="tower.callId"
+            @input="pickCall"
+          />
         </span>
       </div>
 
@@ -659,6 +621,10 @@ import RoleActions from "./RoleActions";
 import NightModeRow from "./NightModeRow";
 // FT-874: the shared drag-scrub / click-to-type number control.
 import NumberScrub from "./NumberScrub";
+// FT-1087: the panel's shared dropdown — the script picker's own trigger
+// idiom, opening a list of words instead of a grid of cards. Every
+// multi-option setting on this panel wears it.
+import OptionSelect from "./OptionSelect";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
@@ -712,6 +678,9 @@ import {
   // FT-1045: the bell buttons preview as they pick, and Custom brings a
   // source row — a validated link, or an upload that becomes one.
   toggleBellPreview,
+  // FT-1087: picking Off on the merged bell select silences a preview that is
+  // still running — the pair of segments it replaced had no way to say that.
+  stopBellPreview,
 } from "../golem/towerBells";
 // FT-1051: the shared custom-audio machinery (one helper serving the bell
 // AND the call-back), and the call-back's own preview.
@@ -731,6 +700,7 @@ export default {
     RoleActions,
     NightModeRow,
     NumberScrub,
+    OptionSelect,
   },
   // FT-1032: WHICH FACE this panel wears. False (the build face) is every
   // path that existed before; true is App's re-entry judgement — the durable
@@ -830,6 +800,68 @@ export default {
     },
     claimedCount() {
       return this.players.filter((p) => p.id).length;
+    },
+    // ── FT-1087: the tower rows' option lists ────────────────────────────
+    /** Off / Timed, the segment's own two positions and its own two
+     *  tooltips. The VALUE is derived from the minutes, not stored: a day
+     *  length of 0 IS Off, and always was — the segment read the same field
+     *  the same way. */
+    dayLengthOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title: "No day length — the readout counts up and nothing tolls",
+        },
+        {
+          value: "timed",
+          label: "Timed",
+          title: "The day gets a length — every readout counts down to it",
+        },
+      ];
+    },
+    /** THE MERGED BELL LIST — Off, then the bells themselves. TOWER_BELLS is
+     *  still the only place the bells are named; Off is the `bellOn: false`
+     *  the On/Off segment used to own, folded in at the head of the same
+     *  list because it is the same question's fourth answer. */
+    bellOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title: "No bell — the day breaks silently",
+        },
+        ...this.bells.map((b) => ({
+          value: b.id,
+          label: b.short,
+          title:
+            b.label +
+            " — picking it plays it for you; picking it again stops it",
+        })),
+      ];
+    },
+    /** Which option the merged list is on: Off whenever the bell is off, and
+     *  the town's bell otherwise. The two fields keep their own meanings
+     *  underneath — nothing about the sync or the storage changed. */
+    bellChoice() {
+      return this.tower.bellOn ? this.tower.bellId : "off";
+    },
+    /** The call-back's two voices, the segment's own wording. */
+    callOptions() {
+      return [
+        {
+          value: "default",
+          label: "Default",
+          title:
+            "The summons that ships — picking it plays it for you; picking it again stops it",
+        },
+        {
+          value: "custom",
+          label: "Custom",
+          title:
+            "A sound of your own — picking it plays it for you; picking it again stops it",
+        },
+      ];
     },
     /** The heading's second line: finished games in this town plus the one
      *  being built now. "" (not "0 games") while gamesCount is unknown, which
@@ -1043,6 +1075,26 @@ export default {
     setDayLength(n) {
       this.dayLenDraft = n;
       this.setTower("dayLengthMin", n);
+    },
+    /** FT-1087: Off or Timed, off the row's select. Exactly what the two
+     *  segment cells wrote — 0, or the draft the scrub is showing — so the
+     *  "Timed returns to the last length you set" behaviour is unchanged. */
+    setDayMode(v) {
+      this.setTower("dayLengthMin", v === "timed" ? this.dayLenDraft : 0);
+    },
+    /** FT-1087: one pick off the merged bell list. Off is the On/Off
+     *  segment's own write (`bellOn` false, `bellId` untouched, so the town
+     *  keeps the bell it had) plus the silence a still-running preview
+     *  deserves; anything else re-arms the bell and hands the id to
+     *  `pickBell`, which owns the preview contract exactly as before. */
+    pickBellChoice(v) {
+      if (v === "off") {
+        this.setTower("bellOn", false);
+        stopBellPreview();
+        return;
+      }
+      if (!this.tower.bellOn) this.setTower("bellOn", true);
+      this.pickBell(v);
     },
     /** FT-1052: is a segment cell's check on? Off is DERIVED — on exactly
      *  when none of the three layers are.
@@ -1750,15 +1802,30 @@ export default {
     // mark + segments as ONE cluster, so the row's space-between spends its
     // slack in a single gap — the FT-959 lesson the Seats and Roles rows
     // both already carry.
+    // FT-1087: and each cluster now takes HALF the row (`flex: 1 1 0`), so
+    // the two sounds' selects meet in the middle and both end on an edge —
+    // the row's slack is spent inside the controls instead of between them.
+    // That is the same lesson one step on: FT-959 collected the loose items
+    // into two clusters so the slack pooled in one gap; there is no gap to
+    // pool now, because the controls grew into it.
     .tw-lead {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex: 1 1 0;
+      min-width: 0;
     }
     // the panel's shared segment — NightModeRow's `.nm-seg`/`.nm-opt`
     // restated, because scoped CSS cannot reach across components and the
     // mixins in controls.scss exist precisely so the restatement is two
     // includes rather than a recipe
+    // ── FT-1087: `.tw-seg` / `.tw-opt` ARE STOOD DOWN ────────────────────
+    // The Day-length, bell and call-back segments are selects now (see the
+    // template notes on each row), so this panel renders neither class any
+    // more. LEFT IN PLACE, not removed — the house rule is never to delete on
+    // the way past, and the FT-1055 display segment's own methods stand down
+    // in this same file the same way. The record of what a segment was is
+    // also the record of what OptionSelect's plate inherited.
     .tw-seg {
       @include control-plate;
       display: inline-flex;
