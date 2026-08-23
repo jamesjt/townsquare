@@ -21,8 +21,10 @@
 
       <!-- ── EVIL: the face cracks, shatters inward, and something rises ───── -->
       <template v-if="verdictOn && winner === 'evil'">
-        <!-- the dark hole the face leaves — under the shards, over the art -->
-        <div class="ec-hole"></div>
+        <!-- the dark hole the face leaves — under the shards, over the art.
+           FT-1062: its two thumps ride the hunt's measured clock (the last
+           whip's overshoot, then the swallow) via inline custom properties -->
+        <div class="ec-hole" :style="holeStyle"></div>
         <!-- the hairline crack racing across the dial -->
         <div class="ec-crack"></div>
         <!-- the face itself, as clip-path shards of the REAL dial art (the
@@ -36,11 +38,12 @@
             :style="s"
           ></div>
         </div>
-        <!-- FT-1053d: tentacles out of the hole — six painted SVG assets
-           (end-tentacle-*.svg: gradient-shaded violet-black bodies, one cold
-           rim light each, sucker rows, turbulence-roughened edges), placed
-           and swayed by the wrapper; the art itself carries a slower
-           counter-sway so no two read as the same motion -->
+        <!-- FT-1062: THE HUNT — one tentacle per good seat, measured at the
+           verdict (buildEvilVerdict). Each rises with the FT-1053f staggered
+           whip, sways, then ALL lunge at once toward their seats, seize the
+           coins, and drag them under. Art cycles the six painted assets
+           (end-tentacle-*.svg), flipped/re-scaled past six so no two read
+           identical. -->
         <div class="ec-tentacles">
           <div
             v-for="(t, i) in tentacles"
@@ -48,11 +51,25 @@
             class="ec-tent"
             :style="t.style"
           >
-            <img class="ec-tent-art" :src="tentArts[t.art]" alt="" />
+            <img
+              class="ec-tent-art"
+              :src="tentArts[t.art]"
+              :style="t.artStyle"
+              alt=""
+            />
           </div>
         </div>
         <!-- the red wash -->
         <div class="ec-redwash"></div>
+        <!-- FT-1062: THE PRIZES — one coin proxy per hunted seat (the seat's
+           real Token, the procession's idiom), appearing in the tentacle's
+           grip at tip-arrival and dragged along the seat→hole vector as its
+           tentacle retracts, shrinking and darkening as it goes under -->
+        <div class="ec-grabs">
+          <div v-for="g in grabs" :key="g.key" class="ec-grab" :style="g.style">
+            <Token :role="g.role" />
+          </div>
+        </div>
         <!-- FT-1053b: THE PROCESSION — every evil seat rises centre one at a
            time (dead minions, living minions, the demon last), each the
            seat's REAL coin with its name plate, minions settling aside into
@@ -112,6 +129,11 @@
       <!-- the dawn point, as a measurable 0×0 probe: the beams' shared origin
          in real pixels (CSS owns the calc; JS reads the resolved box) -->
       <div class="ec-dawn-origin" ref="dawnOrigin"></div>
+      <!-- FT-1062: two more probes on the same idiom — the hole's centre (the
+         tentacles' shared root) and one face-pixel × 100, so the hunt's
+         geometry is computed in real px with CSS still owning every calc -->
+      <div class="ec-hole-origin" ref="holeOrigin"></div>
+      <div class="ec-fpx-probe" ref="fpxProbe"></div>
     </div>
 
     <!-- FT-1053d: THE VERDICT SHOUTS. A display-voice banner over the clock
@@ -148,6 +170,7 @@ import {
   stopCeremony,
   ceremonyAllowed,
   evilProcession,
+  evilSequence,
   goodSequence,
   rayToll,
   END_CEREMONY_EVENT,
@@ -182,9 +205,19 @@ export default {
       procession: [],
       /** FT-1053c: one measured beam per good seat, alive first */
       beams: [],
+      /** FT-1062: one hunting tentacle per good seat, aimed at the verdict
+       *  (was a static six-config computed through FT-1053f) */
+      tentacles: [],
+      /** FT-1062: the seized coins — one proxy Token per hunted seat */
+      grabs: [],
+      /** FT-1062: the hole's thump times, on the hunt's measured clock */
+      holeStyle: {},
       /** the good seats veiled for the choreographed reveal — their li
        *  elements, so skip/settle can unveil exactly what was veiled */
       veiledEls: [],
+      /** FT-1062: the seats whose coins the deep has taken — their li
+       *  elements, so skip/settle can warm exactly what went cold */
+      takenEls: [],
       ghostArt: require("../assets/ui-ghost-cowl.png"),
       /** FT-1053d: the six painted tentacle assets, in generator order */
       tentArts: [
@@ -224,99 +257,6 @@ export default {
      *  with, and Vue's watchers only ever see the settled pair. */
     gameLive() {
       return !!this.$store.state.chat.gameId && !this.isEnded;
-    },
-    /** the tentacles' variety — static configs, not per-frame randomness.
-     *  FT-1053d: six wrappers, one painted asset each; --tx/--ts/--tr place
-     *  the rise and --wa/--wd drive the wrapper's sway once it lands, with
-     *  --wa2/--wd2 the art's own slower counter-sway (two composed rotations
-     *  at different periods read as non-uniform undulation, transform-only).
-     *  FT-1053f: --td is now the WHIP's arrival time, not a march — the six
-     *  fire in a shuffled order (art 3, 0, 5, 1, 4, 2), each ~0.3s after the
-     *  last, so no two neighbours in the fan rise back-to-back. Art 2 is the
-     *  biggest tentacle (CONFIGS len/baseW both max in the generator) and is
-     *  seated last (3.5s) as the crescendo — see .ec-hole's ripple, timed to
-     *  land with it. */
-    tentacles() {
-      return [
-        {
-          art: 0,
-          style: {
-            "--tx": "-152",
-            "--ts": "0.8",
-            "--tr": "-15deg",
-            "--td": "2.27s",
-            "--wa": "3.4deg",
-            "--wd": "3.6s",
-            "--wa2": "1.8deg",
-            "--wd2": "5.3s",
-          },
-        },
-        {
-          art: 1,
-          style: {
-            "--tx": "-88",
-            "--ts": "1.05",
-            "--tr": "-6deg",
-            "--td": "2.9s",
-            "--wa": "2.6deg",
-            "--wd": "4.1s",
-            "--wa2": "1.4deg",
-            "--wd2": "6.1s",
-          },
-        },
-        {
-          art: 2,
-          style: {
-            "--tx": "-18",
-            "--ts": "1.2",
-            "--tr": "-1deg",
-            "--td": "3.5s",
-            "--wa": "2.2deg",
-            "--wd": "4.8s",
-            "--wa2": "1.2deg",
-            "--wd2": "6.9s",
-          },
-        },
-        {
-          art: 3,
-          style: {
-            "--tx": "44",
-            "--ts": "0.92",
-            "--tr": "6deg",
-            "--td": "1.95s",
-            "--wa": "3.1deg",
-            "--wd": "3.9s",
-            "--wa2": "1.7deg",
-            "--wd2": "5.7s",
-          },
-        },
-        {
-          art: 4,
-          style: {
-            "--tx": "104",
-            "--ts": "1.12",
-            "--tr": "12deg",
-            "--td": "3.17s",
-            "--wa": "2.4deg",
-            "--wd": "4.4s",
-            "--wa2": "1.3deg",
-            "--wd2": "6.5s",
-          },
-        },
-        {
-          art: 5,
-          style: {
-            "--tx": "162",
-            "--ts": "0.74",
-            "--tr": "18deg",
-            "--td": "2.53s",
-            "--wa": "3.8deg",
-            "--wd": "3.3s",
-            "--wa2": "2deg",
-            "--wd2": "4.9s",
-          },
-        },
-      ];
     },
     /** FT-1053d: the standing verdict banner — up from the settle (the fade
      *  phase) and for as long as the town stays ended. A reload of an ended
@@ -388,12 +328,13 @@ export default {
         if (now === "fade" || now === "idle") {
           this.clearNotes();
           this.unveilAll();
+          this.warmTaken();
         }
         return;
       }
       if (this.winner === "evil") {
         this.shards = this.cutShards();
-        this.procession = this.marshalProcession();
+        this.buildEvilVerdict();
       } else {
         this.buildGoodVerdict();
       }
@@ -407,6 +348,7 @@ export default {
   beforeDestroy() {
     this.clearNotes();
     this.unveilAll();
+    this.warmTaken();
     stopCeremony();
   },
   methods: {
@@ -502,8 +444,10 @@ export default {
      * shallow arc dipping with distance); whoever comes last holds centre,
      * which is the demon whenever one is seated. Slots/timing in face-px
      * and seconds; the entry keyframe reads them as custom properties.
+     * FT-1062: the procession now follows the hunt — `start` arrives from
+     * evilSequence (the last coin swallowed), not the fixed 3.2s beat.
      */
-    marshalProcession() {
+    marshalProcession(start) {
       const evil = [];
       this.$store.state.players.players.forEach((p, i) => {
         const team = p.role && p.role.team;
@@ -512,7 +456,7 @@ export default {
       });
       const rank = (e) => (e.demon ? 2 : e.dead ? 0 : 1);
       evil.sort((a, b) => rank(a) - rank(b) || a.seat - b.seat);
-      const t = evilProcession(evil.length);
+      const t = evilProcession(evil.length, start);
       const flanks = [-105, 105, -190, 190, -275, 275, -360, 360];
       let m = 0;
       return evil.map((e, i) => {
@@ -536,6 +480,148 @@ export default {
           },
         };
       });
+    },
+    /**
+     * FT-1062: THE DEEP TAKES ITS DUE. One tentacle per good seat (alive and
+     * dead alike; travelers stand apart — the hunt takes only townsfolk and
+     * outsiders, the same net the good verdict's beams cast). Geometry is
+     * measured px, the beams' idiom: the hole centre and one face-pixel come
+     * off CSS-owned probes, each seat's coin box off its real li. Every
+     * tentacle knows its rise slot (shuffled, FT-1053f's non-marching
+     * entrance, compressed for big casts), its lunge vector (rotate/stretch
+     * from its own base to its seat's coin — transform-only), and its
+     * retraction start (a shared beat plus ~100ms of scatter). The coin
+     * proxies (grabs) ride the SAME clock and easing as their tentacle's
+     * retraction, so coin and tip travel as one gripped thing.
+     */
+    buildEvilVerdict() {
+      const rows = this.seatRows().filter(({ player }) => {
+        const team = player.role && player.role.team;
+        return team === "townsfolk" || team === "outsider";
+      });
+      const seq = evilSequence(rows.length);
+      this.procession = this.marshalProcession(seq.procStart);
+      const holeEl = this.$refs.holeOrigin;
+      const fpxEl = this.$refs.fpxProbe;
+      if (!holeEl || !fpxEl || !rows.length) {
+        // nothing to hunt (or nothing to measure): hole + procession only
+        this.tentacles = [];
+        this.grabs = [];
+        this.holeStyle = {};
+        return;
+      }
+      const hole = holeEl.getBoundingClientRect();
+      const fpx = fpxEl.getBoundingClientRect().width / 100 || 1;
+      const artH = 288 * fpx; // one tentacle's unscaled height (see .ec-tent)
+      const baseY = hole.top + 76 * fpx; // the wrappers' shared bottom edge
+      const targets = [];
+      rows.forEach((row) => {
+        const el = row.li && (row.li.querySelector(".token") || row.li);
+        if (!el) return;
+        const box = el.getBoundingClientRect();
+        targets.push({
+          row,
+          box,
+          sx: box.left + box.width / 2,
+          sy: box.top + box.height / 2,
+        });
+      });
+      // base slots left→right in the order the seats fan around the hole, so
+      // the lunges cross each other no more than the circle demands
+      targets.sort(
+        (a, b) =>
+          Math.atan2(a.sx - hole.left, baseY - a.sy) -
+          Math.atan2(b.sx - hole.left, baseY - b.sy),
+      );
+      const n = targets.length;
+      // the shuffled rise order — no two fan-neighbours back-to-back by luck,
+      // and whoever draws the LAST slot rises biggest (the crescendo the
+      // hole's first thump is timed to)
+      const order = targets.map((_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      const riseSlot = [];
+      order.forEach((t, k) => (riseSlot[t] = k));
+      const tentacles = [];
+      const grabs = [];
+      targets.forEach((t, i) => {
+        const tx = n > 1 ? -150 + (300 * i) / (n - 1) : 0;
+        const bx = hole.left + tx * fpx;
+        const dx = t.sx - bx;
+        const dy = t.sy - baseY;
+        const dist = Math.hypot(dx, dy);
+        // the risen lean, outward with the base slot (the old fan's read)
+        const lean = (tx / 150) * 14;
+        // the strike angle: for a bottom-anchored up-pointing element,
+        // rotate(θ) sends the tip along (sinθ, −cosθ) — θ = atan2(dx, −dy),
+        // brought within a half-turn of the lean so the sweep is the short way
+        let la = (Math.atan2(dx, -dy) * 180) / Math.PI;
+        while (la - lean > 180) la -= 360;
+        while (la - lean < -180) la += 360;
+        const last = riseSlot[i] === n - 1;
+        const ts = last ? 1.2 : 0.76 + ((i * 37) % 34) / 100;
+        const rt =
+          seq.grabAt + seq.holdGrip + Math.random() * seq.retractJitter;
+        tentacles.push({
+          art: i % 6,
+          // past six the assets repeat — mirrored, so the repeat hides
+          artStyle: i >= 6 ? { scale: "-1 1" } : undefined,
+          style: {
+            "--tx": tx.toFixed(0),
+            "--ts": ts.toFixed(2),
+            "--tr": lean.toFixed(1) + "deg",
+            "--td":
+              (seq.riseStart + riseSlot[i] * seq.stagger).toFixed(2) + "s",
+            "--wa": (2.2 + ((i * 13) % 17) / 10).toFixed(1) + "deg",
+            "--wd": (3.3 + ((i * 7) % 16) / 10).toFixed(1) + "s",
+            "--wa2": (1.2 + ((i * 11) % 9) / 10).toFixed(1) + "deg",
+            "--wd2": (4.9 + ((i * 17) % 21) / 10).toFixed(1) + "s",
+            "--la": la.toFixed(1) + "deg",
+            "--ls": Math.max(0.4, dist / artH).toFixed(3),
+            "--lt": seq.lungeAt.toFixed(2) + "s",
+            "--ld": seq.lungeDur.toFixed(2) + "s",
+            "--rt": rt.toFixed(2) + "s",
+            "--rd": seq.retractDur.toFixed(2) + "s",
+          },
+        });
+        const w = Math.max(36, t.box.width);
+        grabs.push({
+          key: "grab-" + t.row.i,
+          role: t.row.player.role,
+          style: {
+            left: (t.sx - w / 2).toFixed(0) + "px",
+            top: (t.sy - w / 2).toFixed(0) + "px",
+            width: w.toFixed(0) + "px",
+            height: w.toFixed(0) + "px",
+            "--gdx": (bx - t.sx).toFixed(0),
+            "--gdy": (baseY - t.sy).toFixed(0),
+            "--gt": seq.grabAt.toFixed(2) + "s",
+            "--rt": rt.toFixed(2) + "s",
+            "--rd": seq.retractDur.toFixed(2) + "s",
+          },
+        });
+        // the seat goes cold the moment its coin is torn away
+        this.noteTimers.push(
+          setTimeout(
+            () => {
+              if (t.row.li) {
+                t.row.li.classList.add("ec-taken");
+                this.takenEls.push(t.row.li);
+              }
+            },
+            Math.round(rt * 1000),
+          ),
+        );
+      });
+      this.tentacles = tentacles;
+      this.grabs = grabs;
+      this.holeStyle = {
+        "--ec-ripple-at":
+          (seq.riseStart + (n - 1) * seq.stagger + 0.35).toFixed(2) + "s",
+        "--ec-swallow-at": (seq.swallowAt - 0.2).toFixed(2) + "s",
+      };
     },
     /**
      * FT-1053c: THE DAWN FINDS EACH OF THE GOOD. One measured beam per good
@@ -628,6 +714,12 @@ export default {
       this.veiledEls.forEach((li) => li.classList.remove("ec-unstruck"));
       this.veiledEls = [];
     },
+    /** FT-1062: every taken seat warms back up — the skip's, the settle's and
+     *  the unmount's floor, the unveil's mirror on the evil side */
+    warmTaken() {
+      this.takenEls.forEach((li) => li.classList.remove("ec-taken"));
+      this.takenEls = [];
+    },
   },
 };
 </script>
@@ -711,12 +803,14 @@ export default {
     transparent 72%
   );
   opacity: 0;
-  /* FT-1053f: a brief pulse timed to the biggest tentacle's strike (art 2,
-     td 3.5s, its whip's overshoot lands ~0.35s in) — the hole thumps once as
-     it punches through, transform-only, held state unaffected after */
+  /* FT-1053f's thump, re-clocked by FT-1062: the ripple lands with the LAST
+     riser's whip overshoot and a second, bigger thump marks the swallow (the
+     tentacles plunging under with their prizes) — both times measured inline
+     (holeStyle), transform-only, held state unaffected after */
   animation:
     ec-fade-in 0.9s ease-out 0.75s forwards,
-    ec-hole-ripple 0.55s ease-out 3.85s 1;
+    ec-hole-ripple 0.55s ease-out var(--ec-ripple-at, 3.85s) 1,
+    ec-hole-swallow 0.6s ease-out var(--ec-swallow-at, 999s) 1;
 }
 @keyframes ec-fade-in {
   to {
@@ -729,6 +823,17 @@ export default {
   }
   38% {
     transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ec-hole-swallow {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.07);
   }
   100% {
     transform: scale(1);
@@ -844,10 +949,21 @@ export default {
   /* the deep's own light: a dark-red occlusion glow, matching the art's own
      palette (the drop-shadow reads the art's alpha, suckers and all) */
   filter: drop-shadow(0 0 10px rgba(60, 10, 10, 0.7));
+  /* FT-1062: four movements, one element — whip up (FT-1053f), sway, LUNGE
+     (all tentacles share one --lt), RETRACT (each its own --rt, jittered).
+     List order is priority: whichever is running latest in the list owns the
+     transform, so the sway hands off to the lunge and the lunge to the drag
+     with no extra state. The lunge/retract keyframes drive the independent
+     `rotate` property too — the sweep from the risen lean to the strike
+     vector interpolates there, on top of the in-transform scale work. */
   animation:
     ec-tent-whip 0.75s cubic-bezier(0.3, 0.55, 0.25, 1) var(--td) forwards,
     ec-tent-wiggle var(--wd, 3.4s) ease-in-out calc(var(--td) + 0.75s) infinite
-      alternate;
+      alternate,
+    ec-tent-lunge var(--ld, 0.6s) cubic-bezier(0.7, 0, 0.2, 1) var(--lt, 999s)
+      forwards,
+    ec-tent-retract var(--rd, 0.95s) cubic-bezier(0.55, 0, 0.75, 0.5)
+      var(--rt, 999s) forwards;
   will-change: transform, opacity;
 }
 .ec-tent-art {
@@ -904,6 +1020,50 @@ export default {
     transform: rotate(var(--wa2, 1.5deg));
   }
 }
+/* FT-1062 THE REACH: a beat of anticipation (the crouch back toward the
+   hole), then the strike — the whole body rotates onto its seat vector and
+   stretches until the tip lands on the coin box (--ls is measured seat
+   distance over the art's height; scaleX thins the stretched body). */
+@keyframes ec-tent-lunge {
+  0% {
+    rotate: var(--tr);
+    transform: translateY(4%) scale(var(--ts));
+  }
+  26% {
+    rotate: var(--tr);
+    transform: translateY(15%) scale(calc(var(--ts) * 0.9));
+  }
+  100% {
+    rotate: var(--la, 0deg);
+    transform: scaleY(var(--ls, 1)) scaleX(calc(var(--ts) * 0.8));
+  }
+}
+/* FT-1062 THE DRAG: the tentacle hauls its prize home along the same vector
+   — scaleY collapsing toward the hole, thickening as it shortens, gone under
+   at the end. The grab's keyframes (ec-grab-drag) mirror these fractions
+   exactly, so the coin rides the tip. */
+@keyframes ec-tent-retract {
+  0% {
+    rotate: var(--la, 0deg);
+    transform: scaleY(var(--ls, 1)) scaleX(calc(var(--ts) * 0.8));
+    opacity: 1;
+  }
+  60% {
+    rotate: var(--la, 0deg);
+    transform: scaleY(calc(var(--ls, 1) * 0.4)) scaleX(calc(var(--ts) * 0.9));
+    opacity: 1;
+  }
+  85% {
+    rotate: var(--la, 0deg);
+    transform: scaleY(calc(var(--ls, 1) * 0.12)) scaleX(calc(var(--ts) * 0.95));
+    opacity: 1;
+  }
+  100% {
+    rotate: var(--la, 0deg);
+    transform: scaleY(calc(var(--ls, 1) * 0.05)) scaleX(var(--ts));
+    opacity: 0;
+  }
+}
 
 /* the red wash */
 .ec-redwash {
@@ -917,6 +1077,85 @@ export default {
   );
   opacity: 0;
   animation: ec-fade-in 1.4s ease-in 2.7s forwards;
+}
+
+/* FT-1062: THE PRIZES — one proxy coin per hunted seat (the seat's real
+   Token), popping into the tentacle's grip at tip-arrival (--gt), then
+   dragged along the seat→base vector (--gdx/--gdy, measured px) on the SAME
+   clock and easing as its tentacle's retraction — coin and tip travel as one
+   gripped thing, the coin shrinking and darkening as it goes under. */
+.ec-grabs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ec-grab {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 0 10px rgba(140, 16, 16, 0.6));
+  animation:
+    ec-grab-seize 0.14s ease-out var(--gt, 999s) forwards,
+    ec-grab-drag var(--rd, 0.95s) cubic-bezier(0.55, 0, 0.75, 0.5)
+      var(--rt, 999s) forwards;
+  will-change: transform, opacity;
+
+  .token {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+}
+/* the seizure: the coin jolts into the grip */
+@keyframes ec-grab-seize {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/* the drag home — fractions mirror ec-tent-retract's scaleY collapse
+   (translate fraction = 1 − scale fraction), so the coin tracks the tip */
+@keyframes ec-grab-drag {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  60% {
+    transform: translate(
+        calc(var(--gdx, 0) * 0.6px),
+        calc(var(--gdy, 0) * 0.6px)
+      )
+      scale(0.55);
+    opacity: 1;
+    filter: brightness(0.55);
+  }
+  85% {
+    transform: translate(
+        calc(var(--gdx, 0) * 0.88px),
+        calc(var(--gdy, 0) * 0.88px)
+      )
+      scale(0.25);
+    opacity: 1;
+    filter: brightness(0.3);
+  }
+  100% {
+    transform: translate(
+        calc(var(--gdx, 0) * 0.95px),
+        calc(var(--gdy, 0) * 0.95px)
+      )
+      scale(0.12);
+    opacity: 0;
+    filter: brightness(0.2);
+  }
 }
 
 /* FT-1053b: THE PROCESSION — each evil figure rises from the hole to
@@ -1076,6 +1315,25 @@ export default {
   top: calc(var(--ec-cy) - 262 * var(--fpx));
   width: 0;
   height: 0;
+  pointer-events: none;
+}
+/* FT-1062: the hunt's probes, same idiom — the hole centre (the tentacles'
+   shared root) and one face-pixel × 100, both read by buildEvilVerdict */
+.ec-hole-origin {
+  position: absolute;
+  left: var(--ec-cx);
+  top: var(--ec-cy);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.ec-fpx-probe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(100 * var(--fpx));
+  height: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 /* the beams — one per good seat, geometry set inline (measured px). Each
@@ -1469,11 +1727,16 @@ export default {
   transition: filter 1.3s ease;
 }
 
-/* ── EVIL WINS: the good seats go cold ─────────────────────────────────── */
-#app.ec-verdict.ec-evil #townsquare .player.townsfolk,
-#app.ec-verdict.ec-evil #townsquare .player.outsider {
+/* ── EVIL WINS: each good seat goes cold AS ITS COIN IS TAKEN ────────────
+   FT-1062: the blanket 1.1s dimming became per-seat — EndCeremony adds
+   `.ec-taken` to a seat's li the moment its tentacle starts the drag, and
+   the cold snaps in faster than the phase-wide transitions (the theft is a
+   moment, not a mood). Keyed on ec-evil (not ec-verdict) so the taken seats
+   stay cold through the fade and only warm at the settle. */
+#app.ec-active.ec-evil #townsquare li.ec-taken .player.townsfolk,
+#app.ec-active.ec-evil #townsquare li.ec-taken .player.outsider {
   filter: grayscale(1) brightness(0.5);
-  transition-delay: 1.1s;
+  transition: filter 0.5s ease;
 }
 /* ...and the winners burn a little */
 #app.ec-verdict.ec-evil #townsquare .player.minion,

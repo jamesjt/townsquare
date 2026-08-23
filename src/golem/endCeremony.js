@@ -71,15 +71,55 @@ export const CEREMONY_T = {
 export const SINGLE_TOLL_SEC = 3.98;
 
 /**
+ * FT-1062: THE HUNT's clock — one tentacle per good seat. The rises keep the
+ * FT-1053f staggered whip (compressed as the cast grows), then EVERY tentacle
+ * lunges at once (one shared strike beat), grips its seat's coin, and drags
+ * it under with a slight per-tentacle jitter on the retraction (robotic sync
+ * reads dead; ~100ms of scatter reads alive). The procession waits for the
+ * last prize to go under. All numbers in seconds, relative to the verdict
+ * phase mounting; the component and the sequencer both read this one table.
+ */
+export function evilSequence(goodCount) {
+  const n = Math.max(0, goodCount);
+  const riseStart = 1.8; // after the shatter has opened the hole
+  const whip = 0.75; // one tentacle's whip-up (FT-1053f, kept)
+  const stagger = n > 1 ? Math.min(0.28, Math.max(0.1, 1.6 / (n - 1))) : 0;
+  const lastRise = riseStart + (n ? (n - 1) * stagger : 0) + whip;
+  const lungeAt = lastRise + 0.35; // a breath, then the simultaneous strike
+  const lungeDur = 0.6; // the reach: anticipation crouch + fast strike
+  const grabAt = lungeAt + lungeDur; // tip-arrival — the coins are seized
+  const holdGrip = 0.12; // the grip holds a beat before the drag
+  const retractDur = 0.95; // seat → hole, coin in tow
+  const retractJitter = 0.1; // the scatter on each retraction's start
+  const swallowAt = grabAt + holdGrip + retractJitter + retractDur;
+  // no good seats to hunt (an all-evil oddity): the old FT-1053b start
+  const procStart = n ? swallowAt + 0.3 : 3.2;
+  return {
+    riseStart,
+    whip,
+    stagger,
+    lungeAt,
+    lungeDur,
+    grabAt,
+    holdGrip,
+    retractDur,
+    retractJitter,
+    swallowAt,
+    procStart,
+  };
+}
+
+/**
  * FT-1053b: THE EVIL PROCESSION's clock. Every evil seat rises centre one at
  * a time (dead minions, living minions, the demon last), so the verdict
  * stretches with the team — but politely: the stagger shrinks as the team
  * grows, and verdictEvil above stays the floor. All numbers in seconds;
  * verdictMs is what the sequencer holds the verdict phase open for.
+ * FT-1062: `start` is now a parameter — the procession follows the hunt
+ * (evilSequence's procStart), not a fixed beat after the shatter.
  */
-export function evilProcession(count) {
+export function evilProcession(count, start = 3.2) {
   const n = Math.max(0, count);
-  const start = 3.2; // after the shatter has opened the hole
   const entry = 2.2; // one figure's rise + hold + settle-aside
   const stagger = n > 1 ? Math.min(1.4, Math.max(0.75, 3 / (n - 1))) : 0;
   const total = n ? start + (n - 1) * stagger + entry : 0;
@@ -286,6 +326,15 @@ function tollEvil(isMuted) {
   });
 }
 
+/** FT-1062: the lunge's accent — the deep PULLS. Bell two dropped to a
+ *  rumble (rate 0.35, pitch unpreserved — the same clip the sour toll rides,
+ *  no new audio assets), faded out under the drag. */
+function lungeRumble(isMuted) {
+  spy("lunge");
+  if (isMuted) return;
+  voice(bellTwoSound, { volume: 0.4, rate: 0.35, sour: true, stopAfter: 2400 });
+}
+
 /**
  * GOOD (FT-1053c): one toll per ray — the single-strike cut, played as each
  * beam leaves the dawn point, its decay spanning the beam's whole animation.
@@ -351,6 +400,12 @@ export function beginCeremony(
       ceremonyState.holdHands = true;
       // the toll waits for the crack to land and the face to let go
       later(() => tollEvil(isMuted), 900);
+      // FT-1062: the rumble lands ON the simultaneous strike beat — the same
+      // evilSequence clock the component aims its tentacles by
+      if (goodCount > 0) {
+        const hunt = evilSequence(goodCount);
+        later(() => lungeRumble(isMuted), Math.round(hunt.lungeAt * 1000));
+      }
     } else {
       // FT-1053c: no verdict-wide bells any more — each ray brings its own
       // toll (rayToll above, scheduled by the component with its beams)
@@ -361,7 +416,7 @@ export function beginCeremony(
     // at the FT-1053 envelope (CEREMONY_T)
     const run =
       ceremonyState.winner === "evil"
-        ? evilProcession(evilCount).verdictMs
+        ? evilProcession(evilCount, evilSequence(goodCount).procStart).verdictMs
         : goodSequence(goodCount, anyDeadGood).verdictMs;
     later(() => settle(CEREMONY_T.fade), run);
   }, CEREMONY_T.breath);
