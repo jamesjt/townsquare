@@ -1,32 +1,36 @@
-<!-- FT-1069 rider: the nominate mark's ACCUSING HAND — a manicule, the
-     medieval margin-mark for "look at THIS one": cuff, fist, upright thumb,
-     one bold index. Structural trace of Phosphor's hand-pointing-fill
-     (knuckle scallops carried on the silhouette edge, index ~45% of the
-     hand) turned to the manicule's pointing-right pose, with the forearm
-     cuff so it reads as a GESTURE, not a glove — and the thumb standing up,
-     which is the single trait that makes a 30px blob read as a hand.
-     Sized to survive ~30px on a seat: the index is ~5px thick there, the
-     three curled fingers are receding bumps on the outline, and the shallow
-     valleys between them vanish cleanly at rest the way ui-noose's coil
-     gaps do. Built from overlapping primitives (the noose's own idiom).
-     Single tone #cfc4ae — the ui-noose/ui-town count-icon family's bone —
-     and the same swappable-art pattern as end-tentacle-*.svg: replace this
-     file and the seat mark wears the new hand with zero code. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="28 54 484 380">
+<!-- FT-1069c rider: the nominate mark tries again. The user's read on the
+     first cut (a manicule: fist, cuff, upright thumb): "don't love this,
+     make something closer to this" — with a reference of a hand seen from
+     the BACK, one long index leading a horizontal point, the other three
+     fingers folded UNDER in a smooth receding knuckle curve, and the thumb
+     lying LOW and tucked along that fold, not standing up. The whole gesture
+     reads flat and elongated, not a tall fist with a finger stuck on.
+     Rebuilt to that character, same pointing-right direction as before, from
+     overlapping primitives (the noose's own idiom): a two-segment tapered
+     capsule for the index (thick at the root, narrowing to the tip — the
+     "elegant" proportion the manicule lacked), three shrinking circles
+     for the folded knuckles peeking below it, a low rotated capsule for the
+     tucked thumb, and a palm/cuff pair anchoring it all to the wrist. If the
+     knuckle curve mushes at 30px, the fix is fewer/bigger circles, not a
+     smaller silhouette. Single tone #cfc4ae — the ui-noose/ui-town
+     count-icon family's bone — carried in-file, same swappable-art pattern
+     as end-tentacle-*.svg: replace this file and the seat mark wears the
+     new hand with zero code. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 280">
   <g fill="#cfc4ae">
-    <!-- the cuff: a tall bar hard against the hand — no forearm; the hand
-         itself is the mass (the FA construction, which is why it reads) -->
-    <rect x="48" y="150" width="78" height="250" rx="26"/>
-    <!-- the fist: tall, so the index launches from its TOP -->
-    <rect x="142" y="165" width="203" height="250" rx="64"/>
-    <!-- the index, extended to accuse, off the fist's top-right -->
-    <rect x="300" y="166" width="200" height="86" rx="43"/>
-    <!-- the thumb: thick, curling up from the fist's top-left -->
-    <rect x="165" y="85" width="95" height="150" rx="44"
-          transform="rotate(18 212 160)"/>
-    <!-- three curled fingers: the fist's right edge, stacked under the index -->
-    <circle cx="342" cy="285" r="34"/>
-    <circle cx="336" cy="335" r="32"/>
-    <circle cx="326" cy="383" r="30"/>
+    <!-- cuff: the wrist mass, hard against the palm -->
+    <rect x="20" y="105" width="80" height="130" rx="26"/>
+    <!-- palm: connects cuff, index root and the folded knuckles -->
+    <rect x="70" y="78" width="130" height="140" rx="45"/>
+    <!-- thumb: low and tucked along the fold, not upright -->
+    <rect x="72" y="198" width="110" height="46" rx="23"
+          transform="rotate(-6 127 221)"/>
+    <!-- three folded fingers: a smooth receding knuckle curve under the index -->
+    <circle cx="195" cy="185" r="50"/>
+    <circle cx="262" cy="202" r="42"/>
+    <circle cx="320" cy="214" r="33"/>
+    <!-- index: one long extended finger, tapered root to tip -->
+    <rect x="108" y="68" width="230" height="58" rx="29"/>
+    <rect x="310" y="78" width="185" height="38" rx="19"/>
   </g>
 </svg>
