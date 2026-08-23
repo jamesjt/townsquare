@@ -25,6 +25,13 @@
          same nervous-double-press swallow it always had — a summons chopped
          off at half a second and restarted sounds like a fault. -->
     <li class="info-call" v-if="!session.isSpectator && !session.isEnded">
+      <!-- FT-1061 (user: "the clock face is getting really busy"): text off,
+           icon only — see the CSS block below for where this control moved
+           to and why. `aria-label` steps in for the vanished visible label
+           (title alone is a mouse-only disclosure; a bare icon button with
+           neither would have no accessible name at all) — same wording as
+           the tooltip, so a screen reader and a mouse hover say the same
+           thing. -->
       <button
         type="button"
         class="call-now"
@@ -34,10 +41,14 @@
             ? 'Just called the town back'
             : 'Call the town back — everyone hears a sound'
         "
+        :aria-label="
+          callBackCooling
+            ? 'Just called the town back'
+            : 'Call the town back — everyone hears a sound'
+        "
         @click="callTownBack"
       >
         <font-awesome-icon icon="bell" class="call-mark" />
-        Call the town back
       </button>
     </li>
     <li
@@ -488,6 +499,27 @@ export default {
   align-content: center;
   justify-content: center;
   flex-wrap: wrap;
+
+  // FT-1061: THE DIAL'S MEASURED CENTRE, reproduced locally rather than
+  // inherited. FaceHands.vue computes this exact point as --fh-cx/--fh-cy on
+  // its own #face-hands-root -- but that element and this one (.info) are
+  // SIBLINGS under #app (App.vue mounts <FaceHands> and <TownInfo>
+  // separately), and a custom property set inline on one element's own node
+  // does not cascade sideways to a sibling's subtree, only down its own.
+  // --face-cx / --face-cy / --fpx (measured before the art-offset
+  // correction, published on #app itself -- FaceHands.vue's own comment
+  // block on "THE PIVOT") and --fh-centre-x / --fh-centre-y (the face lab's
+  // nudge, published on document.documentElement by
+  // golem/faceHands.js#publishFaceHandsLab -- an ANCESTOR of everything, so
+  // already inherited here) are all already in scope; only the measured
+  // art-vs-dial offset constants (-11, -20 face-px) needed restating to
+  // land on the SAME point the numeral ring is centred on.
+  --ti-dial-cx: calc(
+    var(--face-cx) + (-11 + var(--fh-centre-x, 0)) * var(--fpx)
+  );
+  --ti-dial-cy: calc(
+    var(--face-cy) + (-20 + var(--fh-centre-y, 0)) * var(--fpx)
+  );
   // THE KNOCKER, unconditional again (FT-993): shown whenever no game has
   // dealt a splat yet -- during setup, on the index page's own preview of
   // this panel if any, and for a spectator who has not yet learned a game
@@ -805,52 +837,48 @@ export default {
     top: -25%;
   }
 
-  // FT-1051: THE SUMMONS, above the script name. Anchored to the edition
-  // badge's own TOP edge (the same `top: -25%` box li.edition sits in, see
-  // the derivation on .info-phase below) and lifted fully above itself, so
-  // it stands over the script art whatever the window size. The plate is
-  // .phase-now's engraved idiom at a step smaller — this is a control the
-  // storyteller reaches for, not the table's headline.
+  // FT-1051: THE SUMMONS. ORIGINALLY above the script name — anchored to
+  // the edition badge's own TOP edge, lifted fully above itself, clearing
+  // FaceHands' digital readout by 36 face-px (FT-1059). SUPERSEDED BELOW
+  // (FT-1061): that whole derivation described a slot this control no
+  // longer occupies. Kept rather than rewritten, per the house rule — the
+  // history of why it once stood there is still true, just not where it
+  // stands now.
   //
-  // FT-1059: A SECOND OCCUPANT MOVED INTO THIS AIRSPACE AFTER THIS RULE WAS
-  // WRITTEN. FaceHands' digital readout (`.tw-digital`, FT-1052/1055) sits
-  // centred on the dial at a FIXED FACE-PIXEL offset above the measured
-  // centre — a geometric anchor shared with the numeral ring, not something
-  // this button should perturb. Nobody checked the two against each other
-  // when the digital readout landed, and with Digital on they sandwiched:
-  // measured overlap at 1440x900 (claude_temp_test/2026-08-22-ft1059-shots.mjs)
-  // was ~20px of the button's own bottom edge into the readout's top line.
-  // FIXED HERE, not in FaceHands: this button already floats freely via its
-  // own transform in `.info`'s local space, while the readout's -122 offset
-  // is load-bearing for the ring/numerals system around it. `--fpx` (App.vue)
-  // is the SAME face-pixel unit that system speaks, inherited down into this
-  // scoped stylesheet from #app — so the extra clearance is expressed in it,
-  // not a bare px guess, and it scales with the dial exactly as the readout
-  // does. 36 face-px leaves a clear gap at every viewport this was checked
-  // at, never a hairline one.
+  // FT-1061 (user: "the clock face is getting really busy"): TWO CONTROLS
+  // SWAPPED SLOTS. This one drops its label and becomes a bare icon, and
+  // moves INTO the phase chip's old position — `.info-phase`'s own
+  // pre-FT-1061 top/left/transform, copied verbatim below. The phase chip
+  // itself relocates to the dial's six-o'clock spot; see its own block
+  // just below for where and why. Nothing about `.call-now`'s BEHAVIOUR
+  // moved: same click handler, same cooling guard, same host-only v-if,
+  // same tooltip text (now doubling as `aria-label` in the template, since
+  // the visible label is gone).
   .info-call {
     position: absolute;
-    top: -25%;
+    top: 50%;
     left: 50%;
-    transform: translate(-50%, calc(-100% - 6px - 36 * var(--fpx)));
+    transform: translate(-50%, calc(-50% + 105px));
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
     z-index: 5;
 
+    // FT-1061: A ROUND, ICON-ONLY PLATE — the engraved-control feel kept
+    // (same ground/edge/hover/cooling recipe `.call-now` always wore), but
+    // circular and sized as a touch target (46px — clears the WCAG 44px
+    // minimum) rather than a pill wrapping text that no longer exists.
     .call-now {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
       font: inherit;
-      font-size: 15px;
       color: #d8cdb4;
-      letter-spacing: inherit;
-      text-shadow: inherit;
-      white-space: nowrap;
       border: 1px solid rgba(120, 105, 135, 0.4);
-      border-radius: 6px;
+      border-radius: 50%;
       background: rgba(20, 16, 22, 0.9);
-      padding: 4px 12px;
+      width: 46px;
+      height: 46px;
+      padding: 0;
       cursor: pointer;
       transition:
         background 150ms,
@@ -871,9 +899,12 @@ export default {
         pointer-events: none;
       }
     }
+    // FT-1061: ~1.9x the old 14px mark — an icon carrying the whole
+    // control's meaning alone needs to read at a glance, not just confirm
+    // a label that used to sit beside it.
     .call-mark {
-      width: 14px;
-      height: 14px;
+      width: 26px;
+      height: 26px;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
     }
   }
@@ -901,25 +932,48 @@ export default {
   // no longer shifts where that stack's own vertical centering lands —
   // restoring the stats block to its pre-FT-862 position, which already
   // cleared the badge.
-  // FT-975 (correction pass): THIS BOX IS NOW THE OLD BUTTON'S BOX, not the
-  // old readout's. Measured off the pristine app at 1280x800 before any of
-  // this landed (claude_temp_test/2026-08-20-ft975-evidence): `.info` (this
-  // element's own parent) sits centred on #app's own centre at every size
-  // (its 20%/20% box, static-positioned by the flex-centred layout #app
-  // gives every un-inset absolute child) — and NightSheet's day pill, ALSO
-  // un-inset and static-positioned the same way, sat on that exact same
-  // centre before its own `transform: translateY(105px)` moved it down.
-  // `top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 105px))`
-  // reproduces that precisely: centre on `.info`'s own centre (== the
-  // button's pre-transform centre, by construction), then the identical
-  // 105px. The label line that used to live under the edition badge
-  // (`top: calc(-25% + min(200px,100%))`) is gone — that was the readout's
-  // slot, and the readout is not a separate line any more, it IS this.
+  // FT-975 (correction pass): THIS BOX WAS THE OLD BUTTON'S BOX (its
+  // `top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 105px))`)
+  // — centred on `.info`'s own centre, which sits on #app's own centre at
+  // every size (claude_temp_test/2026-08-20-ft975-evidence). SUPERSEDED
+  // BELOW (FT-1061): that box now belongs to `.info-call`, the bell —
+  // see its own block above. Kept, not rewritten, per the house rule.
+  //
+  // FT-1061 (user: "the clock face is getting really busy"): OFF THE
+  // STATS STACK, ONTO THE DIAL. This control moves to the six-o'clock
+  // spot below the VI numeral — the same face-pixel coordinate system
+  // FaceHands' numeral ring and digital readout use, not a percentage of
+  // `.info`'s own box, so it scales with the dial and stays put at every
+  // viewport exactly as they do. `--ti-dial-cx`/`--ti-dial-cy` (declared on
+  // `.info` above) are the measured dial centre; VI (numeral 6 of 12) sits
+  // at that centre + 196 face-px straight down (FaceHands.vue's
+  // NUMERAL_RADIUS_FACE, angle 180deg — six o'clock is x=0 by construction).
+  //
+  // 420 FACE-PX, NOT SOMETHING CLOSER TO THE RIM — MEASURED, not the first
+  // guess. The outer bronze rim is a circle at ~238 face-px (App.vue's
+  // `--face-r`), and VI's own bottom edge lands only ~17 face-px past its
+  // 196 centre — a control dropped straight after the rim (measured at
+  // 1280x800, claude_temp_test/2026-08-22-ft1061-shots.mjs: rim edge at
+  // screen y=590.75, this element's own box is 42.8px tall) lands ON TOP
+  // OF THE PLAYER RING, not past it: TownSquare seats its own seven coins
+  // no further out than face-radius ~347 (measured centre-to-centre) with
+  // a name label riding another ~40px past THAT — so the entire band from
+  // the rim's edge to a seat's own name tag is claimed the moment a town
+  // has any players in it, with no gap in it wide enough for this
+  // control's own height. 420 face-px is where it clears the SEAT COIN'S
+  // own circle by a real margin (~19px at 1280x800) — the rounder, more
+  // visually loud of the two things below it. It still sits close enough
+  // to graze an "Open"/name label's own box at some player counts; `.info`
+  // outranks the seat ring in the stack (z-index 2 vs the ring's auto —
+  // FT-975's own note on this same file), so where that happens this
+  // control's own plate paints OVER the label, not through it — reported
+  // here rather than chased further, since clearing it outright would push
+  // the control's own box past the 800px test viewport's bottom edge.
   .info-phase {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, calc(-50% + 105px));
+    left: var(--ti-dial-cx);
+    top: calc(var(--ti-dial-cy) + 420 * var(--fpx));
+    transform: translate(-50%, -50%);
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
 
