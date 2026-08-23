@@ -44,9 +44,28 @@
       @click="toggle"
       @keydown="onKey"
     >
-      <span class="gsel-label" :class="current ? current.cls : ''">{{
-        currentLabel
-      }}</span>
+      <!-- FT-1088: THE WIDTH IS FIXED TO THE WIDEST OPTION, not the current one.
+           `.gsel-label-wrap` stacks the real label under one hidden sizer span
+           PER OPTION (below) on the same CSS grid cell — `grid-area: 1 / 1`
+           overlaps them, and an `auto` grid track sizes to the largest of
+           everything it holds, visible or not (`visibility: hidden` still
+           counts; only `display: none` would not). That makes the trigger's
+           width the max-content width across the WHOLE option list, always,
+           so it cannot drift when the value changes and cannot go stale when
+           the option list does either — there is no "longest so far" to
+           recompute, because every option is always in the stack. -->
+      <span class="gsel-label-wrap">
+        <span class="gsel-label" :class="current ? current.cls : ''">{{
+          currentLabel
+        }}</span>
+        <span
+          v-for="o in options"
+          :key="'sizer-' + String(o.value)"
+          class="gsel-sizer"
+          aria-hidden="true"
+          >{{ o.label }}</span
+        >
+      </span>
       <font-awesome-icon icon="chevron-down" class="caret" />
     </button>
     <div
@@ -219,10 +238,18 @@ export default {
 
 .gsel {
   position: relative;
-  // THE POINT OF THE CONTROL: it takes the row's slack. A segment was as wide
-  // as its own words and left the rest of the row empty; this fills it, so a
-  // column of rows has one right edge instead of five.
-  flex: 1 1 auto;
+  // FT-1088 (user call: "much wider than their contents... less wide and
+  // fewer rows"). `flex: 1 1 auto` WAS the point of the control — filling a
+  // row's slack so a column of rows shared one right edge instead of a
+  // segment's own word-width. It also meant a one-word trigger ("Off") ate
+  // however much slack its row happened to have, which read as an oversized
+  // box around three letters. The row now does the "share one edge" job
+  // itself (HostTools/NightModeRow cluster the mark with the select and let
+  // the ROW's own space-between find the edge), so the control goes back to
+  // sizing itself — `flex: 0 1 auto` is grow:0 (no more eating slack) with
+  // shrink:1 kept, so a genuinely tight width can still compress it rather
+  // than overflow.
+  flex: 0 1 auto;
   min-width: 0;
 
   .trigger {
@@ -231,9 +258,9 @@ export default {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    width: 100%;
-    // the script picker's own trigger padding and type, lifted verbatim so
-    // the two controls sit in one column at the same height
+    // no more `width: 100%` — the trigger sizes to its content
+    // (`.gsel-label-wrap` below) rather than to a parent that no longer hands
+    // it the row's full slack.
     padding: 4px 10px;
     font-family: inherit;
     font-size: 90%;
@@ -241,10 +268,29 @@ export default {
     text-align: left;
     cursor: pointer;
 
+    // THE SIZER STACK (see the template note by `.gsel-label-wrap`): an
+    // `auto` grid track sizes to the largest thing it holds, and every
+    // option's label is stacked in it — visible one on top, the rest
+    // `visibility: hidden` underneath — so the column is always exactly as
+    // wide as the widest option, never wider, never the current pick's own
+    // (possibly shorter) width.
+    .gsel-label-wrap {
+      position: relative;
+      display: grid;
+      min-width: 0;
+      > * {
+        grid-area: 1 / 1;
+      }
+    }
     .gsel-label {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .gsel-sizer {
+      visibility: hidden;
+      white-space: nowrap;
+      pointer-events: none;
     }
     .caret {
       opacity: 0.7;

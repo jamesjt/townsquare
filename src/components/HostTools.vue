@@ -324,37 +324,43 @@
         class="row tw-row"
         title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
       >
-        <span class="label">
-          <!-- FT-1058c (user): the hourglass, not the sun — this row is
-               about time running, and the sun belongs to the day-break
-               sound below. -->
-          <font-awesome-icon
-            class="row-mark-fa"
-            icon="hourglass-half"
-            title="The day's length"
+        <!-- FT-1088: mark + select back into ONE `.tw-lead` cluster (the
+             sounds row's own grouping below, restated here) — FT-1087 had
+             pulled them apart because the select grew to fill the row on
+             its own; it no longer does (see OptionSelect.vue's `flex: 0 1
+             auto`), so an un-clustered mark would sit flush against a
+             content-width select with nothing pinning them together. The
+             row's `space-between` now does what it always did on the
+             Seats/Roles rows: this cluster flush left, the minutes flush
+             right, one gap between them instead of the select ballooning
+             into it.
+
+             Off/Timed stayed a DROPDOWN rather than a switch, deliberately:
+             it is the only setting on this panel that hands a second control
+             (the minutes) its reason to be live, and a row that reads
+             "hourglass — Timed — 10 min" left to right says that in one
+             line. Four rows wearing the same control and one wearing a
+             switch would also be the near-miss family controls.scss exists
+             to prevent. -->
+        <span class="tw-lead">
+          <span class="label">
+            <!-- FT-1058c (user): the hourglass, not the sun — this row is
+                 about time running, and the sun belongs to the day-break
+                 sound below. -->
+            <font-awesome-icon
+              class="row-mark-fa"
+              icon="hourglass-half"
+              title="The day's length"
+            />
+          </span>
+          <OptionSelect
+            name="day-length"
+            aria-label="Day length"
+            :options="dayLengthOptions"
+            :value="tower.dayLengthMin ? 'timed' : 'off'"
+            @input="setDayMode"
           />
         </span>
-        <!-- FT-1087: the Off/Timed segment became a select, and the row lost
-             its `.tw-lead` huddle with it. The cluster existed to keep the
-             mark, the segment and the scrub from drifting apart in a row's
-             leftover slack (FT-959's lesson); there is no leftover slack now
-             — the select IS the slack — so the three sit as the row's own
-             three children, mark left, minutes right, select filling between.
-
-             Off/Timed is a two-state setting and it stayed a DROPDOWN rather
-             than becoming a switch, deliberately: it is the only setting on
-             this panel that hands a second control (the minutes) its reason
-             to be live, and a row that reads "hourglass — Timed — 10 min"
-             left to right says that in one line. Four rows wearing the same
-             control and one wearing a switch would also be the near-miss
-             family controls.scss exists to prevent. -->
-        <OptionSelect
-          name="day-length"
-          aria-label="Day length"
-          :options="dayLengthOptions"
-          :value="tower.dayLengthMin ? 'timed' : 'off'"
-          @input="setDayMode"
-        />
         <!-- the minutes themselves — dimmed while Off, and scrubbing it is
            itself the "on" gesture (a length you are setting is a length
            you want). -->
@@ -1799,20 +1805,25 @@ export default {
       color: rgb(154, 146, 133);
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
     }
-    // mark + segments as ONE cluster, so the row's space-between spends its
+    // mark + select as ONE cluster, so the row's space-between spends its
     // slack in a single gap — the FT-959 lesson the Seats and Roles rows
     // both already carry.
-    // FT-1087: and each cluster now takes HALF the row (`flex: 1 1 0`), so
-    // the two sounds' selects meet in the middle and both end on an edge —
-    // the row's slack is spent inside the controls instead of between them.
-    // That is the same lesson one step on: FT-959 collected the loose items
-    // into two clusters so the slack pooled in one gap; there is no gap to
-    // pool now, because the controls grew into it.
+    // FT-1087 had each cluster take HALF the row (`flex: 1 1 0`) so the two
+    // sounds' selects met in the middle and both ended on an edge — the
+    // row's slack was spent inside the controls instead of between them.
+    // FT-1088 UNDOES THAT: a select no longer grows to fill whatever it is
+    // given (OptionSelect.vue), so a cluster that still claimed half the row
+    // would just be dead space trailing a content-width select. `flex: 0 1
+    // auto` lets each cluster size to its own mark+select instead, and the
+    // ROW's own space-between goes back to spending the slack as ONE gap
+    // between clusters — the day-length row (mark+select vs. minutes) and
+    // the sounds row (bell cluster vs. call-back cluster) both read that way
+    // now, the same shape Seats/Roles have always used.
     .tw-lead {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex: 1 1 0;
+      flex: 0 1 auto;
       min-width: 0;
     }
     // the panel's shared segment — NightModeRow's `.nm-seg`/`.nm-opt`

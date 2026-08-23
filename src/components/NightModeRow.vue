@@ -276,20 +276,24 @@ export default {
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
 
-  // The mode switch and the enforcement segment, as ONE right-hand group —
-  // so the row's space-between still pins the label left and the controls
-  // right, rather than stranding either switch in the middle of the row.
-  // FT-1087: and now it is the row's SLACK, not a right-hand huddle. Both
-  // children are selects that grow, so the pair fills everything the mark
-  // leaves and the row ends on the panel's own right edge — which is what
-  // retired the wrap the block above measures. `flex-wrap` is gone with the
-  // reason for it: two growing children cannot overflow the line they are
-  // measured against.
+  // The mode switch and the enforcement select, as ONE right-hand group — the
+  // row's space-between pins the label left and this group right.
+  // FT-1088: NEITHER SELECT GROWS ANY MORE (OptionSelect.vue's own change —
+  // a one-word trigger no longer eats a row's slack to look four times its
+  // own width). That drops this group's width from the segments' 385px
+  // (measured below) to two content-sized triggers — "Everyone"/"Required"
+  // are the widest options either list holds, maybe 90-110px apiece — which
+  // clears even the narrowest 364px row with room to spare, so the group
+  // never needs its own second line any more. `min-width: 0` stays as the
+  // narrow-width backstop; `flex-wrap` on the group is dead weight now (its
+  // job was the width fight this comment used to document) but is left in
+  // place rather than trimmed on the way past.
   .nm-controls {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
     min-width: 0;
   }
 
