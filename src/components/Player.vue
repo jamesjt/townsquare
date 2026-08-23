@@ -367,18 +367,19 @@
            grimoire the way the cowl is: the day phase is exactly when the
            storyteller nominates, and the menu row never hid there.
            FT-1069 (user): this mark is the HAND now, not the noose — the
-           hand is the app's "points at someone" word (the overlay's own
-           nominate glyph) and the noose is the gallows' word: it moved to
-           the target pick and the marked-for-execution seat, where the
-           gallows actually is. One hand = pointing, one noose = hanging. -->
+           hand is the app's "points at someone" word and the noose is the
+           gallows' word: it moved to the target pick and the
+           marked-for-execution seat, where the gallows actually is. One
+           hand = pointing, one noose = hanging. And it is OUR hand, not
+           Font Awesome's — ui-nominate-hand.svg, a crafted manicule in the
+           seat-mark family's own bone (see the asset's header; replace the
+           file to replace the hand, zero code). -->
       <div
         class="nominate-mark"
         v-if="!player.isDead && !session.isSpectator && !session.nomination"
         @click="nominatePlayer()"
         title="This player nominates — then pick who they point at"
-      >
-        <font-awesome-icon icon="hand-point-right" />
-      </div>
+      ></div>
 
       <!-- On block icon.
            FT-1069 (user): "if they are actually marked for execution the
@@ -2653,28 +2654,26 @@ li.nominate .player .overlay .nominate-target {
  * noose, it should be the hand"). This button says "this player POINTS at
  * someone", and pointing is the hand's job everywhere in this app; the noose
  * is the gallows' word and now marks the other end of the act — the target
- * pick and the on-the-block seat. The glyph is the overlay's own
- * `hand-point-right`, but NOT in that overlay's bare white chrome: it wears
- * the noose bake's own bone tone (#cfc4ae — the ui-noose/ui-town/ui-alive
- * count-icon family), so the slot stays painted-material like its dead
- * twin, the cowl. */
+ * pick and the on-the-block seat. The hand is CRAFTED, not Font Awesome —
+ * ui-nominate-hand.svg, an accusing manicule judged at true size against the
+ * FA glyph (see the asset's header). The tone rides IN the asset (#cfc4ae,
+ * exactly as ui-noose.svg carries its own bone) so a replacement art file
+ * needs zero code and keeps its own paint; this rule keeps the MATERIAL
+ * behavior — the load-bearing dark halo, muted at rest, full strength under
+ * the cursor. */
 .player .nominate-mark {
   position: absolute;
   margin-top: -15%;
   right: 2px;
   width: 30px;
   height: 30px;
+  background: url("../assets/ui-nominate-hand.svg") center center / contain
+    no-repeat;
   cursor: pointer;
   z-index: 2;
   opacity: 0.35;
   filter: drop-shadow(0 0 3px black);
   transition: opacity 250ms;
-
-  svg {
-    width: 100%;
-    height: 100%;
-    color: #cfc4ae;
-  }
 
   &:hover {
     opacity: 1;

@@ -1,0 +1,32 @@
+<!-- FT-1069 rider: the nominate mark's ACCUSING HAND — a manicule, the
+     medieval margin-mark for "look at THIS one": cuff, fist, upright thumb,
+     one bold index. Structural trace of Phosphor's hand-pointing-fill
+     (knuckle scallops carried on the silhouette edge, index ~45% of the
+     hand) turned to the manicule's pointing-right pose, with the forearm
+     cuff so it reads as a GESTURE, not a glove — and the thumb standing up,
+     which is the single trait that makes a 30px blob read as a hand.
+     Sized to survive ~30px on a seat: the index is ~5px thick there, the
+     three curled fingers are receding bumps on the outline, and the shallow
+     valleys between them vanish cleanly at rest the way ui-noose's coil
+     gaps do. Built from overlapping primitives (the noose's own idiom).
+     Single tone #cfc4ae — the ui-noose/ui-town count-icon family's bone —
+     and the same swappable-art pattern as end-tentacle-*.svg: replace this
+     file and the seat mark wears the new hand with zero code. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="28 54 484 380">
+  <g fill="#cfc4ae">
+    <!-- the cuff: a tall bar hard against the hand — no forearm; the hand
+         itself is the mass (the FA construction, which is why it reads) -->
+    <rect x="48" y="150" width="78" height="250" rx="26"/>
+    <!-- the fist: tall, so the index launches from its TOP -->
+    <rect x="142" y="165" width="203" height="250" rx="64"/>
+    <!-- the index, extended to accuse, off the fist's top-right -->
+    <rect x="300" y="166" width="200" height="86" rx="43"/>
+    <!-- the thumb: thick, curling up from the fist's top-left -->
+    <rect x="165" y="85" width="95" height="150" rx="44"
+          transform="rotate(18 212 160)"/>
+    <!-- three curled fingers: the fist's right edge, stacked under the index -->
+    <circle cx="342" cy="285" r="34"/>
+    <circle cx="336" cy="335" r="32"/>
+    <circle cx="326" cy="383" r="30"/>
+  </g>
+</svg>
