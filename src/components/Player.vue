@@ -301,11 +301,19 @@
                menu's "Vacate seat" toggle, verbatim)
              · anyone else's chair stays furniture — no handler fires
                (chairAct gates cursor and title the same way). -->
+      <!-- FT-1073c (user): the chair and the accusing hand can't share a
+           side — the chair takes the OPPOSITE of the hand's pointing side
+           (hand left → chair right, and vice versa; pure geometry, so it
+           holds even while the hand itself is hidden). -->
       <font-awesome-icon
         icon="chair"
         v-if="player.id && session.sessionId"
         class="seat"
-        :class="{ highlight: session.isRolesDistributed, actor: chairAct }"
+        :class="{
+          highlight: session.isRolesDistributed,
+          actor: chairAct,
+          'chair-right': !nominateMarkMirrored,
+        }"
         :title="chairTitle"
         @click="chairClick"
       />
@@ -2895,6 +2903,11 @@ li.nominate .player .overlay .nominate-target {
 .player .seat {
   position: absolute;
   left: 2px;
+  /* FT-1073c: opposite the hand — see the template note. */
+  &.chair-right {
+    left: auto;
+    right: 2px;
+  }
   margin-top: -15%;
   color: #fff;
   filter: drop-shadow(0 0 3px black);
