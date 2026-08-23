@@ -166,104 +166,114 @@
         {{ edition.name }}
         {{ edition.author ? "by " + edition.author : "" }}
       </span>
-      <!-- Golem fork: our own count art (golem/glyphs), not Font Awesome —
-           the town, the living, the dead, the votes those hands can cast.
+      <!-- FT-1071: THE PLATE HUGS THE STATS. The dark ground used to ride the
+           row <li> itself — but that box is width: 100% of `.info` (the flex
+           line), so the pill spanned the whole row whatever the stats
+           measured: the "broad dark ground" the user called LOUD. This
+           wrapper shrink-wraps the stats alone (the .meta edition line stays
+           outside it, on its own flex line as before), and the ground rides
+           it instead — see `.stat-plate` in the CSS below, whose numbers the
+           stats-plate lab's `--sp-*` dials tune live. -->
+      <span class="stat-plate">
+        <!-- Golem fork: our own count art (golem/glyphs), not Font Awesome —
+             the town, the living, the dead, the votes those hands can cast.
 
-           FT-863: the native `title` box is gone — it either never showed
-           (mobile has no hover to trigger it) or showed the browser's own
-           unstyled tooltip, which reads as a bug next to everything else
-           here wearing the fork's own chrome. `.tip` is a light,
-           purpose-built readout for a ONE-LINE label — RoleHoverCard's
-           dark-plate idiom (rgba(10,4,4,.97) ground, #400 border, black
-           glow), not RoleHoverCard itself: that component carries an icon,
-           an ability paragraph and tag chips built for a ROLE, which is the
-           wrong shape for "Alive" in eight point type. `tabindex` + a real
-           `aria-label` (not the bare word — the number too, since the label
-           overrides the span's own text for anyone not reading it visually)
-           puts the count in front of keyboard and screen-reader users the
-           same as a mouse. -->
-      <span class="stat players" tabindex="0" :aria-label="'In the town: ' + players.length">
-        {{ players.length }}
-        <img class="count-icon" :src="countIcons.town" alt="" />
-        <span class="tip" role="tooltip">In the town</span>
-      </span>
-      <span class="stat alive" tabindex="0" :aria-label="'Alive: ' + teams.alive">
-        {{ teams.alive }}
-        <!-- FT-975 (correction pass, user call): THE HEART READS RED NOW.
-             countIcons.alive (ui-alive.png) is the shared "bone tone, one
-             light origin, film grain" family (golem/glyphs.js) — an <img>
-             can only ever show that native beige, a CSS `filter` glow
-             around it (below) was never the shape itself. `.count-icon
-             -mask` swaps the paint source: the <img> stays for layout
-             (hidden, not removed — the box it reserves is what `.alive
-             ::before` fills), and a masked ::before shows the SAME PNG's
-             alpha as a stencil over a flat #ff4a50 fill — the digit's own
-             red, already authored and reviewed here, not $demon (#ce0100):
-             that exact hex is the DEMON team's own colour three rows below
-             in this same panel, and reusing it on "alive" would read as
-             "this is about the demon" the instant both are on screen
-             together. -->
-        <!-- A SPAN, not an <img> (fix 2026-08-20, user: "seems like we lost the
-             heart symbol"). The recolour was written as `::before` on the
-             image — and a replaced element does not render pseudo-elements,
-             so the mask layer never painted while the image itself stayed
-             `visibility: hidden`. The heart was not lost; it was covered by
-             nothing. A span is not replaced, so it carries the mask itself. -->
-        <span
-          class="count-icon count-icon-masked"
-          :style="{ '--count-mask': 'url(' + countIcons.alive + ')' }"
-          aria-hidden="true"
-        ></span>
-        <span class="tip" role="tooltip">Alive</span>
-      </span>
-      <!-- FT-998 (user call): the DEAD count is gone — it said nothing "in the
-           town" and "alive" didn't already say between them. Its slot counts
-           GHOST VOTES LEFT instead: dead players whose one ghost vote is still
-           unspent (isDead && !isVoteless — the same pair of flags Vote.vue
-           locks a dead hand with and the seat's own ghost-vote mark reads).
-           The icon is the cowl, which has meant "unspent ghost vote" app-wide
-           since the seat mark started wearing it (254a674). -->
-      <span class="stat ghost" tabindex="0" :aria-label="'Ghost votes left: ' + teams.ghostVotes">
-        {{ teams.ghostVotes }}
-        <img class="count-icon" :src="ghostCowl" alt="" />
-        <span class="tip" role="tooltip">Ghost votes left</span>
-      </span>
-      <!-- FT-863: "votes" is not "in town" or "alive" restated — it is ALIVE
-           PLUS every dead player still holding a vote token, so on a fresh,
-           undamaged town it prints the same digit as the other three (the
-           actual bug report: "why does the last one say 7"). The gallows
-           stays — recolouring it away from its Menu-strip twin (which opens
-           the vote-history drawer, unrelated) and giving it its own gold,
-           token-coloured glow is the fix, not a new pictogram: this fork's
-           own vote token (assets/vote-golem.png) IS gold but reads as a
-           featureless blob at 17px (no internal contrast to survive the
-           downscale — checked in claude_temp_test/count-icon-compare-40.png
-           before choosing this over swapping the source image), so tinting
-           the readable gallows silhouette beats replacing it with a blurrier
-           "distinct" mark. The tooltip does the rest: it says what the
-           strip's identical-looking icon does not — "available", not
-           "history". -->
-      <!-- OVERRULED 2026-08-19 by the user, who looked at the shipped version
-           and said "still not sure what this means... available votes?". The
-           reasoning above is sound about the ART and wrong about the answer:
-           a tooltip cannot rescue a glyph that reads as the wrong thing, and
-           the gallows reads as execution because that is what it opens from
-           the strip. This number is how many HANDS can still be raised, so it
-           wears the hand the seats themselves vote with — already in the app
-           (Player.vue's vote overlay) and unmistakable at 17px. -->
-      <!-- FT-998 (user call, superseding the hand above the same way the hand
-           superseded the gallows): "votes available" is out — the number that
-           matters at a glance is VOTES TO EXECUTE, the majority a nomination
-           has to clear. Same arithmetic as Vote.vue's `majority` (non-exile
-           branch: ceil of the living / 2, off the same isDead filter its
-           players/alive getter uses) — mirrored, never a second rule. The
-           icon is the fork's own baked noose (ui-noose.png; source SVG sits
-           next to it), and the digit dropped its gold: the gold hand measured
-           1.06:1 against the face art on FT-993. -->
-      <span class="stat execute" tabindex="0" :aria-label="'Votes to execute: ' + teams.execute">
-        {{ teams.execute }}
-        <img class="count-icon" :src="nooseIcon" alt="" />
-        <span class="tip" role="tooltip">Votes to execute</span>
+             FT-863: the native `title` box is gone — it either never showed
+             (mobile has no hover to trigger it) or showed the browser's own
+             unstyled tooltip, which reads as a bug next to everything else
+             here wearing the fork's own chrome. `.tip` is a light,
+             purpose-built readout for a ONE-LINE label — RoleHoverCard's
+             dark-plate idiom (rgba(10,4,4,.97) ground, #400 border, black
+             glow), not RoleHoverCard itself: that component carries an icon,
+             an ability paragraph and tag chips built for a ROLE, which is the
+             wrong shape for "Alive" in eight point type. `tabindex` + a real
+             `aria-label` (not the bare word — the number too, since the label
+             overrides the span's own text for anyone not reading it visually)
+             puts the count in front of keyboard and screen-reader users the
+             same as a mouse. -->
+        <span class="stat players" tabindex="0" :aria-label="'In the town: ' + players.length">
+          {{ players.length }}
+          <img class="count-icon" :src="countIcons.town" alt="" />
+          <span class="tip" role="tooltip">In the town</span>
+        </span>
+        <span class="stat alive" tabindex="0" :aria-label="'Alive: ' + teams.alive">
+          {{ teams.alive }}
+          <!-- FT-975 (correction pass, user call): THE HEART READS RED NOW.
+               countIcons.alive (ui-alive.png) is the shared "bone tone, one
+               light origin, film grain" family (golem/glyphs.js) — an <img>
+               can only ever show that native beige, a CSS `filter` glow
+               around it (below) was never the shape itself. `.count-icon
+               -mask` swaps the paint source: the <img> stays for layout
+               (hidden, not removed — the box it reserves is what `.alive
+               ::before` fills), and a masked ::before shows the SAME PNG's
+               alpha as a stencil over a flat #ff4a50 fill — the digit's own
+               red, already authored and reviewed here, not $demon (#ce0100):
+               that exact hex is the DEMON team's own colour three rows below
+               in this same panel, and reusing it on "alive" would read as
+               "this is about the demon" the instant both are on screen
+               together. -->
+          <!-- A SPAN, not an <img> (fix 2026-08-20, user: "seems like we lost the
+               heart symbol"). The recolour was written as `::before` on the
+               image — and a replaced element does not render pseudo-elements,
+               so the mask layer never painted while the image itself stayed
+               `visibility: hidden`. The heart was not lost; it was covered by
+               nothing. A span is not replaced, so it carries the mask itself. -->
+          <span
+            class="count-icon count-icon-masked"
+            :style="{ '--count-mask': 'url(' + countIcons.alive + ')' }"
+            aria-hidden="true"
+          ></span>
+          <span class="tip" role="tooltip">Alive</span>
+        </span>
+        <!-- FT-998 (user call): the DEAD count is gone — it said nothing "in the
+             town" and "alive" didn't already say between them. Its slot counts
+             GHOST VOTES LEFT instead: dead players whose one ghost vote is still
+             unspent (isDead && !isVoteless — the same pair of flags Vote.vue
+             locks a dead hand with and the seat's own ghost-vote mark reads).
+             The icon is the cowl, which has meant "unspent ghost vote" app-wide
+             since the seat mark started wearing it (254a674). -->
+        <span class="stat ghost" tabindex="0" :aria-label="'Ghost votes left: ' + teams.ghostVotes">
+          {{ teams.ghostVotes }}
+          <img class="count-icon" :src="ghostCowl" alt="" />
+          <span class="tip" role="tooltip">Ghost votes left</span>
+        </span>
+        <!-- FT-863: "votes" is not "in town" or "alive" restated — it is ALIVE
+             PLUS every dead player still holding a vote token, so on a fresh,
+             undamaged town it prints the same digit as the other three (the
+             actual bug report: "why does the last one say 7"). The gallows
+             stays — recolouring it away from its Menu-strip twin (which opens
+             the vote-history drawer, unrelated) and giving it its own gold,
+             token-coloured glow is the fix, not a new pictogram: this fork's
+             own vote token (assets/vote-golem.png) IS gold but reads as a
+             featureless blob at 17px (no internal contrast to survive the
+             downscale — checked in claude_temp_test/count-icon-compare-40.png
+             before choosing this over swapping the source image), so tinting
+             the readable gallows silhouette beats replacing it with a blurrier
+             "distinct" mark. The tooltip does the rest: it says what the
+             strip's identical-looking icon does not — "available", not
+             "history". -->
+        <!-- OVERRULED 2026-08-19 by the user, who looked at the shipped version
+             and said "still not sure what this means... available votes?". The
+             reasoning above is sound about the ART and wrong about the answer:
+             a tooltip cannot rescue a glyph that reads as the wrong thing, and
+             the gallows reads as execution because that is what it opens from
+             the strip. This number is how many HANDS can still be raised, so it
+             wears the hand the seats themselves vote with — already in the app
+             (Player.vue's vote overlay) and unmistakable at 17px. -->
+        <!-- FT-998 (user call, superseding the hand above the same way the hand
+             superseded the gallows): "votes available" is out — the number that
+             matters at a glance is VOTES TO EXECUTE, the majority a nomination
+             has to clear. Same arithmetic as Vote.vue's `majority` (non-exile
+             branch: ceil of the living / 2, off the same isDead filter its
+             players/alive getter uses) — mirrored, never a second rule. The
+             icon is the fork's own baked noose (ui-noose.png; source SVG sits
+             next to it), and the digit dropped its gold: the gold hand measured
+             1.06:1 against the face art on FT-993. -->
+        <span class="stat execute" tabindex="0" :aria-label="'Votes to execute: ' + teams.execute">
+          {{ teams.execute }}
+          <img class="count-icon" :src="nooseIcon" alt="" />
+          <span class="tip" role="tooltip">Votes to execute</span>
+        </span>
       </span>
     </li>
     <li class="teams-row" v-if="players.length - teams.traveler >= 5">
@@ -271,35 +281,39 @@
            workbench wear (golem/glyphs) — and the same "tint the digit in
            the team's own colour" idiom ScriptView's composition meter
            already wears (.wb-meter .chip), not a new convention -->
-      <span class="stat townsfolk" tabindex="0" :aria-label="'Townsfolk: ' + teams.townsfolk">
-        {{ teams.townsfolk }}
-        <img class="team-glyph" :src="teamGlyph('townsfolk')" alt="" />
-        <span class="tip" role="tooltip">Townsfolk</span>
-      </span>
-      <span class="stat outsider" tabindex="0" :aria-label="'Outsiders: ' + teams.outsider">
-        {{ teams.outsider }}
-        <img class="team-glyph" :src="teamGlyph('outsider')" alt="" />
-        <span class="tip" role="tooltip">Outsiders</span>
-      </span>
-      <span class="stat minion" tabindex="0" :aria-label="'Minions: ' + teams.minion">
-        {{ teams.minion }}
-        <img class="team-glyph" :src="teamGlyph('minion')" alt="" />
-        <span class="tip" role="tooltip">Minions</span>
-      </span>
-      <span class="stat demon" tabindex="0" :aria-label="'Demons: ' + teams.demon">
-        {{ teams.demon }}
-        <img class="team-glyph" :src="teamGlyph('demon')" alt="" />
-        <span class="tip" role="tooltip">Demons</span>
-      </span>
-      <span v-if="teams.traveler" class="stat traveler" tabindex="0" :aria-label="'Travellers: ' + teams.traveler">
-        {{ teams.traveler }}
-        <img class="team-glyph" :src="teamGlyph('traveler')" alt="" />
-        <span class="tip" role="tooltip">Travellers</span>
-      </span>
-      <span v-if="grimoire.isNight" class="stat night" tabindex="0" aria-label="Night phase">
-        Night phase
-        <img class="count-icon" :src="countIcons.night" alt="" />
-        <span class="tip" role="tooltip">Night phase</span>
+      <!-- FT-1071: the same shrink-wrap plate as the counts row above — the
+           ground hugs these five, not the flex line's full width -->
+      <span class="stat-plate">
+        <span class="stat townsfolk" tabindex="0" :aria-label="'Townsfolk: ' + teams.townsfolk">
+          {{ teams.townsfolk }}
+          <img class="team-glyph" :src="teamGlyph('townsfolk')" alt="" />
+          <span class="tip" role="tooltip">Townsfolk</span>
+        </span>
+        <span class="stat outsider" tabindex="0" :aria-label="'Outsiders: ' + teams.outsider">
+          {{ teams.outsider }}
+          <img class="team-glyph" :src="teamGlyph('outsider')" alt="" />
+          <span class="tip" role="tooltip">Outsiders</span>
+        </span>
+        <span class="stat minion" tabindex="0" :aria-label="'Minions: ' + teams.minion">
+          {{ teams.minion }}
+          <img class="team-glyph" :src="teamGlyph('minion')" alt="" />
+          <span class="tip" role="tooltip">Minions</span>
+        </span>
+        <span class="stat demon" tabindex="0" :aria-label="'Demons: ' + teams.demon">
+          {{ teams.demon }}
+          <img class="team-glyph" :src="teamGlyph('demon')" alt="" />
+          <span class="tip" role="tooltip">Demons</span>
+        </span>
+        <span v-if="teams.traveler" class="stat traveler" tabindex="0" :aria-label="'Travellers: ' + teams.traveler">
+          {{ teams.traveler }}
+          <img class="team-glyph" :src="teamGlyph('traveler')" alt="" />
+          <span class="tip" role="tooltip">Travellers</span>
+        </span>
+        <span v-if="grimoire.isNight" class="stat night" tabindex="0" aria-label="Night phase">
+          Night phase
+          <img class="count-icon" :src="countIcons.night" alt="" />
+          <span class="tip" role="tooltip">Night phase</span>
+        </span>
       </span>
     </li>
   </ul>
@@ -830,9 +844,44 @@ export default {
   // the history (plate added FT-975, removed FT-993, faint ground reinstated
   // here on the user's clarification). One pill per stat row; the two sit
   // close enough that their blurred edges read as one piece of glass.
+  //
+  // FT-1071: THE PLATE QUIETS, HUGS, AND GROWS DIALS. Three moves at once:
+  // - The ground rides `.stat-plate` (the template's new shrink-wrap span)
+  //   instead of the row <li> — the li is width: 100% of the flex line, so
+  //   even FT-1020's tightened inset left a band as wide as `.info` itself,
+  //   whatever the stats measured. Now the pill's box IS the stats' box.
+  // - Quieter ship numbers: inset -2px/-3px -> -1px all round, ground
+  //   rgba(10,5,7,.4) -> .26, radius 999px -> 12px (identical pill shape at
+  //   this row height — restated inside the lab dial's 0-24 range so Reset
+  //   and ship agree on one number).
+  // - Every number the eye judges rides a `--sp-*` custom property with the
+  //   ship value as its fallback — src/golem/statsPlate.js publishes them
+  //   from the stats-plate lab (Sp, behind devLabs); a dial sitting on ship
+  //   publishes NOTHING, so this block alone IS the shipped look.
   li.counts-row,
   li.teams-row {
     position: relative;
+    // FT-1071: the frost trade. This drop-shadow (restated from the shared
+    // `li` rule above, unchanged) makes the row a BACKDROP ROOT — a
+    // backdrop-filter inside a filtered ancestor samples only within that
+    // ancestor, so the lab's glass dial would frost nothing but the row's
+    // own transparent box. While the glass dial is off (ship) nothing is
+    // published and this is byte-for-byte the shared rule; with glass on,
+    // the lab publishes `none` here so the frost can reach the face art.
+    // The type and icons keep their own text-shadows and per-icon filters
+    // either way, so the trade is nearly invisible.
+    filter: var(--sp-row-filter, drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)));
+  }
+  .stat-plate {
+    position: relative;
+    // its own stacking context, so the ::before's z-index: -1 stays inside
+    // this box whether or not the row above keeps its filter
+    z-index: 0;
+    // the li's own flex recipe, restated — the stats lay out exactly as
+    // they did when they were the li's direct children
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     &::before {
       content: "";
       position: absolute;
@@ -841,11 +890,19 @@ export default {
       // content, and 14px of side reach plus a 6px blur read as a shadow
       // hanging past the last icon. Tighter reach, tighter blur.
       // FT-1020 (user: "tighter on the stats... less padding left and right")
-      inset: -2px -3px;
+      // FT-1071: tighter again (1px all round), on the shrink-wrapped box.
+      inset: calc(var(--sp-pad, 1) * -1px);
       z-index: -1;
-      border-radius: 999px;
-      background: rgba(10, 5, 7, 0.4);
+      border-radius: calc(var(--sp-radius, 12) * 1px);
+      background: rgba(
+        var(--sp-ground, 10, 5, 7),
+        calc(var(--sp-alpha, 26) / 100)
+      );
       filter: blur(4px);
+      // ship publishes nothing: the property is absent, the fallback is
+      // `none`, and no backdrop layer exists at all (the performance rule)
+      backdrop-filter: var(--sp-glass, none);
+      -webkit-backdrop-filter: var(--sp-glass, none);
       pointer-events: none;
     }
   }

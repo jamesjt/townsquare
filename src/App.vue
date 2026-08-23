@@ -312,6 +312,12 @@
          src/golem/numeralGlow.js. Behind `devLabs` from the start, for the
          column's shared reason. -->
     <NumeralGlowLab v-if="devLabs" />
+    <!-- THE STATS-PLATE LAB (Sp) — one notch below the numeral lab, same
+         column, same shell. The dark pill under the clock face's centre
+         stats: ground opacity and tint, real backdrop glass, padding and
+         corner radius. See src/golem/statsPlate.js. Behind `devLabs` from
+         the start, for the column's shared reason. -->
+    <StatsPlateLab v-if="devLabs" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
       <div
@@ -824,6 +830,9 @@ import VeilLab from "./components/VeilLab";
 // FT-1049: the numeral-glow lab — TEMPORARY, and it comes out with
 // FaceHands.vue's `var(--ng-*)` reads and src/golem/numeralGlow.js.
 import NumeralGlowLab from "./components/NumeralGlowLab";
+// FT-1071: the stats-plate lab — TEMPORARY, and it comes out with
+// TownInfo.vue's `var(--sp-*)` reads and src/golem/statsPlate.js.
+import StatsPlateLab from "./components/StatsPlateLab";
 // FT-1015: the baked veil refracts, so its displacement filter mounts at boot
 import { bootVeilGlass } from "./golem/veilGlass";
 import {
@@ -937,6 +946,7 @@ export default {
     GhostLab,
     VeilLab,
     NumeralGlowLab,
+    StatsPlateLab,
     Gradients,
   },
   computed: {
