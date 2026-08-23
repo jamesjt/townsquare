@@ -309,6 +309,26 @@
         />
       </div>
 
+      <!-- FT-1068: THE NOMINATE MARK — the cowl slot's LIVING occupant.
+           The seat menu is retired (see the flag below); its "Nomination"
+           row survives as this mark, worn exactly where the dead wear the
+           ghost-vote cowl — that corner is free on a living seat, and
+           ghosts cannot nominate anyway (user call). Storyteller only,
+           like the row it replaces, and gone while a nomination is already
+           running (the row's own v-if). Clicking it is the row's exact
+           act — `nominatePlayer()` with no target, which arms THIS seat as
+           the NOMINATOR on TownSquare's channel; the big overlay hand on
+           the seat they point at finishes the nomination, and the armed
+           seat's own X cancels, both untouched. NOT hidden on the public
+           grimoire the way the cowl is: the day phase is exactly when the
+           storyteller nominates, and the menu row never hid there. -->
+      <div
+        class="nominate-mark"
+        v-if="!player.isDead && !session.isSpectator && !session.nomination"
+        @click="nominatePlayer()"
+        title="This player nominates — then pick who they point at"
+      ></div>
+
       <!-- On block icon -->
       <div class="marked">
         <font-awesome-icon icon="skull" />
@@ -352,7 +372,7 @@
            day it is wanted back. -->
       <div
         class="name"
-        @click="isMenuOpen = !isMenuOpen"
+        @click="showSeatMenu && (isMenuOpen = !isMenuOpen)"
         @mouseenter="nameHover = true"
         @mouseleave="nameHover = false"
         :class="{ active: isMenuOpen }"
@@ -404,8 +424,16 @@
         <span class="icon"></span>
       </div>
 
+      <!-- FT-1068: THE SEAT MENU IS RETIRED (user call: "can we finally
+           get rid of it?"). Its rows' jobs had been leaving one by one for
+           direct affordances — the plate drag (move/swap), the one-tap
+           claim, the coin's belief chip, the tray drags — and the last one
+           standing, "Nomination", is now the noose mark in the cowl's slot
+           above. Markup and methods stay behind `showSeatMenu`, the same
+           way this file keeps `showNightBadges`, `showSeatSplat` and
+           `showBallotVote` — the whole menu is one flag away. -->
       <transition name="fold">
-        <ul class="menu" v-if="isMenuOpen">
+        <ul class="menu" v-if="showSeatMenu && isMenuOpen">
           <!-- THE SEAT'S OWN EDIT FIELD, never prompt(). A browser dialog is
                silently auto-dismissed in dialog-less contexts (driven panes,
                embeds) and returns empty, which made every dialog-backed
@@ -648,6 +676,14 @@ export default {
      *  retired in favour of our own painted pair — flip this to `true` to
      *  bring the glyphs back. Both icons stay registered in main.js. */
     showGlyphVotes() {
+      return false;
+    },
+    /** FT-1068: the per-seat context menu, retired (user call). Every job
+     *  it still carried lives in a direct affordance now — the nominate
+     *  row became the noose mark in the cowl's slot — and the rows with no
+     *  other home are named in the FT-1068 hand-off. Flip to `true` to
+     *  bring the whole menu back, plate-toggle and all. */
+    showSeatMenu() {
       return false;
     },
     index: function() {
@@ -2374,6 +2410,36 @@ li.move:not(.from) .player .overlay svg.move {
     margin: auto;
     color: rgb(163, 30, 30);
     filter: drop-shadow(0 0 2px black);
+  }
+}
+
+/* FT-1068 — THE NOMINATE MARK: the cowl slot's living occupant. Same box,
+ * same corner, same numbers as `.has-vote` + `.ghost-vote` above, so the two
+ * swap cleanly by life state and the slot never moves. Painted art, not
+ * white FA chrome: the slot's dead occupant is a baked PNG and its living
+ * twin is the same material — ui-noose.png, already the app's "votes to
+ * execute" mark (TownInfo's count, the chronicle rows), so the vocabulary
+ * stays one noose, one meaning. Muted at rest — up to twenty of these ring
+ * the dial and must not shout — and full strength under the cursor; the
+ * dark halo is the same load-bearing drop-shadow that keeps every pale mark
+ * off a pale coin rim. Deliberately NOT `.has-vote`: that family goes
+ * `opacity: 0` on the public grimoire, and the day phase is exactly when
+ * the storyteller needs this. */
+.player .nominate-mark {
+  position: absolute;
+  margin-top: -15%;
+  right: 2px;
+  width: 30px;
+  height: 30px;
+  background: url("../assets/ui-noose.png") center center / contain no-repeat;
+  cursor: pointer;
+  z-index: 2;
+  opacity: 0.35;
+  filter: drop-shadow(0 0 3px black);
+  transition: opacity 250ms;
+
+  &:hover {
+    opacity: 1;
   }
 }
 
