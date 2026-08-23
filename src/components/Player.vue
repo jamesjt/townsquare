@@ -370,16 +370,28 @@
            hand is the app's "points at someone" word and the noose is the
            gallows' word: it moved to the target pick and the
            marked-for-execution seat, where the gallows actually is. One
-           hand = pointing, one noose = hanging. And it is OUR hand, not
-           Font Awesome's — ui-nominate-hand.svg, a crafted manicule in the
-           seat-mark family's own bone (see the asset's header; replace the
-           file to replace the hand, zero code). -->
+           hand = pointing, one noose = hanging.
+           FT-1069d (user): and it is the user's OWN hand now — a real
+           accusing pointing-hand silhouette they supplied, run through the
+           same stylize/bake treatment an uploaded custom icon gets
+           (`stylizeIcon(src, { tint: "neutral" })`, see
+           claude_temp_test/2026-08-22-ft1069d-bake-hand.mjs for the exact
+           port), replacing the earlier geometric manicule. ui-nominate-hand.svg
+           stays on disk (never-delete) but is retired; the mark now reads
+           ui-nominate-hand.png. The art always points at the clock face:
+           the inner `.nominate-mark-art` element carries the image and the
+           mirror (the outer div — box, halo, hit target — never moves). -->
       <div
         class="nominate-mark"
         v-if="!player.isDead && !session.isSpectator && !session.nomination"
         @click="nominatePlayer()"
         title="This player nominates — then pick who they point at"
-      ></div>
+      >
+        <i
+          class="nominate-mark-art"
+          :class="{ mirrored: nominateMarkMirrored }"
+        ></i>
+      </div>
 
       <!-- On block icon.
            FT-1069 (user): "if they are actually marked for execution the
@@ -791,6 +803,43 @@ export default {
     },
     index: function() {
       return this.players.indexOf(this.player);
+    },
+    /**
+     * FT-1069d (user): the nominate hand must always point TOWARD the clock
+     * face, not off the ring into empty margin. The art's native direction
+     * is LEFT (see ui-nominate-hand.png's header), so this flags seats that
+     * need a mirror (`scaleX(-1)`, applied to the art only — the mark's box
+     * and halo stay put, per the user's own instruction).
+     *
+     * The seat's clock angle comes straight out of TownSquare's own
+     * `on-circle` mixin (TownSquare.vue): seat `$i` (1-based DOM position,
+     * i.e. `this.index + 1`) sits at `$rot = $i * (360 / playerCount)`
+     * degrees, rotated CLOCKWISE from 12 o'clock — that mixin comment is
+     * where "seat 1 sits just right of 12, the highest seat takes 12"
+     * comes from, and this computed reads the identical formula rather
+     * than re-deriving it.
+     *
+     * From that angle, standard clock trig gives the seat's x-offset from
+     * the circle's centre as `sin(angle)`: positive = right half (points
+     * LEFT, native, no mirror), negative = left half (points RIGHT,
+     * mirrored). The user's rule folds 12 and 6 o'clock (`sin` = 0, exactly
+     * on the vertical midline) into the mirrored group explicitly, so
+     * those two are checked first rather than left to a `sin <= 0` alone —
+     * floating point could otherwise land either side of zero.
+     */
+    nominateMarkMirrored() {
+      const n = this.players.length;
+      if (!n) return false;
+      const angle = (360 / n) * (this.index + 1);
+      const theta = ((angle % 360) + 360) % 360;
+      const EPS = 1e-6;
+      if (
+        Math.abs(theta) < EPS ||
+        Math.abs(theta - 180) < EPS ||
+        Math.abs(theta - 360) < EPS
+      )
+        return true; // 12 o'clock or 6 o'clock — mirror, per the user's rule
+      return Math.sin((theta * Math.PI) / 180) < 0; // left half of the ring
     },
     /**
      * FT-1025: is this the seat I (a player) have claimed? Same three-part
@@ -2654,21 +2703,25 @@ li.nominate .player .overlay .nominate-target {
  * noose, it should be the hand"). This button says "this player POINTS at
  * someone", and pointing is the hand's job everywhere in this app; the noose
  * is the gallows' word and now marks the other end of the act — the target
- * pick and the on-the-block seat. The hand is CRAFTED, not Font Awesome —
- * ui-nominate-hand.svg, an accusing manicule judged at true size against the
- * FA glyph (see the asset's header). The tone rides IN the asset (#cfc4ae,
- * exactly as ui-noose.svg carries its own bone) so a replacement art file
- * needs zero code and keeps its own paint; this rule keeps the MATERIAL
- * behavior — the load-bearing dark halo, muted at rest, full strength under
- * the cursor. */
+ * pick and the on-the-block seat.
+ *
+ * FT-1069d — the hand is now the USER'S OWN ART, baked. ui-nominate-hand.svg
+ * (a crafted manicule) is retired for ui-nominate-hand.png: the user's
+ * supplied pointing-hand silhouette, background-trimmed and run through
+ * `stylizeIcon(src, { tint: "neutral" })` — the exact same treatment the
+ * app gives an uploaded custom icon (EditionModal.vue's upload handler) —
+ * so the mark wears the family's painted/grained material instead of a
+ * flat single tone. The box stays THIS div's job (position, size, the
+ * load-bearing dark halo, muted-at-rest / full-strength-on-hover) — the
+ * bitmap and its point-at-the-face MIRROR live on the `.nominate-mark-art`
+ * child below, so the outer hit target and halo never move when the art
+ * flips. */
 .player .nominate-mark {
   position: absolute;
   margin-top: -15%;
   right: 2px;
   width: 30px;
   height: 30px;
-  background: url("../assets/ui-nominate-hand.svg") center center / contain
-    no-repeat;
   cursor: pointer;
   z-index: 2;
   opacity: 0.35;
@@ -2677,6 +2730,24 @@ li.nominate .player .overlay .nominate-target {
 
   &:hover {
     opacity: 1;
+  }
+}
+
+/* FT-1069d — the art layer, separated from `.nominate-mark` above purely so
+ * the point-at-the-face mirror (`scaleX(-1)`, applied by Player.vue's
+ * `nominateMarkMirrored` computed) only ever flips the bitmap, never the
+ * box/halo it sits inside. The art's native direction is LEFT (the user's
+ * supplied hand points left); seats on the ring's right half keep that
+ * (native, no class); seats on the left half plus the 12 and 6 o'clock
+ * seats get `.mirrored`. */
+.player .nominate-mark-art {
+  position: absolute;
+  inset: 0;
+  background: url("../assets/ui-nominate-hand.png") center center / contain
+    no-repeat;
+
+  &.mirrored {
+    transform: scaleX(-1);
   }
 }
 
