@@ -118,16 +118,40 @@
                panel's Duplicates wears it) — hollow and full-contrast when
                off, lit when on, sunken in both so the shape alone says
                "toggle" before the colour does. The noose is the seat
-               grammar's own mark for "to be executed" (ui-noose.png). -->
+               grammar's own mark for "to be executed" (ui-noose.png).
+
+               FT-1083 (user: there is no way to call an execution off). The
+               undo was ALREADY here — a second press of this toggle runs
+               `removeMarked` — and that is exactly the complaint: it was
+               invisible. A toggle tells you what it HOLDS; it does not tell
+               you what pressing it DOES, and "call off the hanging" is not a
+               thing a storyteller should have to discover.
+
+               So the label follows the state, the way `finishLabel` above
+               already does on this same card and for the same reason: the
+               control says which of two genuinely different things the next
+               press performs. Marked, it reads "Cancel execution" and its
+               noose is struck through; unmarked, "Mark for execution" and the
+               noose is whole. Still ONE control — FT-976 folded the original
+               "Mark" / "Clear mark" pair into this toggle precisely because
+               two buttons for one boolean left the dead one looking broken,
+               and a second "cancel" button sitting greyed out whenever nobody
+               is marked would rebuild that mistake. `aria-pressed` continues
+               to carry the held position for a screen reader. -->
           <div class="vo-controls" v-if="!isExile">
             <button
               class="vo-btn vo-mark"
               :class="{ on: isMarked }"
               :aria-pressed="String(isMarked)"
+              :title="markTitle"
               @click="toggleMarked"
             >
-              <span class="vo-noose" aria-hidden="true"></span>
-              Mark for execution
+              <span
+                class="vo-noose"
+                :class="{ 'is-struck': isMarked }"
+                aria-hidden="true"
+              ></span>
+              {{ markLabel }}
             </button>
           </div>
 
@@ -227,15 +251,42 @@
         </div>
       </div>
     </transition>
+    <!-- THE COUNTDOWN, IN THE TOWER'S OWN NUMERALS (FT-1083, user call).
+         Upstream counted in big saturated blue-then-red arabic digits that
+         belonged to no other surface in this fork, and drew them BEHIND the
+         clock hands. Both are answered here.
+
+         THE NUMERALS. Three beats, three roman numerals — III, II, I — in
+         the dial's own lettering: Times bold with FaceHands' `.tw-numeral`
+         dressing (the FT-1064 bake, still reading its `--ng-*` dials so the
+         ring and the countdown can never drift apart). They are NOT the
+         ring's ink, though: the twelve numerals are near-black paint on the
+         face and these are lit ember-gold, because the eye has to tell "this
+         is the countdown" from "this is the clock" instantly, at a glance,
+         with both on screen at once. Separation is by DARK, per FT-1031's
+         finding — a warm glyph on a warm lit face needs a black halo, not a
+         pale one; the ember breath is the last layer, wide and faint.
+
+         GO KEEPS ITS BEAT and its heat — same material, the blood ink this
+         app already spends on the decisive act, and the only beat that grows
+         on the way out rather than settling.
+
+         THE ORDER — the user's explicit ask, "the numbers should be above
+         the hands". `.countdown` takes `z-index: 3`, which clears BOTH the
+         overlay's 1 and `.arrows.vo-live`'s 2 (the FT-1075 gate rule below).
+         It disturbs nothing that rule governs: the countdown exists for
+         exactly the three seconds `isVoteInProgress && !lockedVote` is true —
+         after Start, before the first hand locks — the card is already docked
+         at the rim by then, and this layer takes no clicks. -->
     <transition name="blur">
       <div
         class="countdown"
         v-if="session.isVoteInProgress && !session.lockedVote"
       >
-        <span>3</span>
-        <span>2</span>
-        <span>1</span>
-        <span>GO</span>
+        <span class="vo-beat">III</span>
+        <span class="vo-beat">II</span>
+        <span class="vo-beat">I</span>
+        <span class="vo-beat vo-beat-go">GO</span>
         <audio
           :autoplay="!grimoire.isMuted"
           src="../assets/sounds/countdown.mp3"
@@ -310,6 +361,18 @@ export default {
     },
     isMarked: function() {
       return this.session.markedPlayer === this.session.nomination[1];
+    },
+    /** FT-1083: what the next press of the mark toggle will DO — the same
+     *  label-follows-state rule `finishLabel` above states at length, applied
+     *  to the other control on this card that performs two different acts
+     *  from one button. */
+    markLabel: function () {
+      return this.isMarked ? "Cancel execution" : "Mark for execution";
+    },
+    markTitle: function () {
+      return this.isMarked
+        ? "Call it off — clear this seat's execution mark"
+        : "Mark this seat to be executed at the end of the day";
     },
     /** The scrub's unit is whole seconds; the store's is milliseconds and
      *  stays that way (the sweep's own setInterval reads it directly). A
@@ -833,7 +896,15 @@ export default {
   white-space: nowrap;
   transition: color 150ms, border-color 150ms, background 150ms;
 
-  &:hover:not(.disabled) {
+  // FT-1083: `:not(.on)` — a LIT control keeps its lit dress under the
+  // cursor. Measured while proving this lane: `.vo-btn:hover:not(.disabled)`
+  // outranks `.vo-mark.on` on specificity, so pressing the execution mark
+  // repainted it straight back to the plate it already wore — and since your
+  // pointer is by definition still on the button you just pressed, the lit
+  // state was invisible at the exact moment it was earned. That is half of
+  // why the mark read as having no undo: it did not visibly read as having a
+  // DO either. `.on` appears on no other `.vo-btn`, so nothing else moves.
+  &:hover:not(.disabled):not(.on) {
     color: #fff;
     @include control-plate-hover;
   }
@@ -863,13 +934,44 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
+
+  // The lit control still answers the pointer — it just answers in its own
+  // colour rather than reverting to the unlit plate: the same blood, one step
+  // brighter. (`control-lit`'s ground and edge, lifted.)
+  &.on:hover {
+    background: rgba(178, 26, 26, 0.46);
+    border-color: #d97e7e;
+    color: #fff;
+  }
 }
 .vo-noose {
   flex: none;
+  position: relative;
   width: 1.6em;
   height: 1.6em;
   background: url("../assets/ui-noose.png") center center / contain no-repeat;
   filter: drop-shadow(0 1px 1px #000);
+
+  // FT-1083: STRUCK THROUGH while a seat is marked — the mark's own art
+  // cancelled, which is the universal reading of a bar drawn across a sign
+  // and needs no legend. It is the lit control's own rose ($control-on-color,
+  // what the button's type is wearing at that moment) over a black keyline,
+  // so the bar reads on the noose's pale rope AND on the dark ground behind
+  // it. Drawn on the icon, not the label: the word already changed.
+  &.is-struck:after {
+    content: "";
+    position: absolute;
+    left: -0.06em;
+    right: -0.06em;
+    top: 50%;
+    height: 0.13em;
+    transform: translateY(-50%) rotate(-32deg);
+    border-radius: 0.07em;
+    background: $control-on-color;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.8),
+      0 0 4px rgba(0, 0, 0, 0.7);
+  }
 }
 
 // THE PRIMARY WEIGHT (FT-1074: shared by "Start the vote" and "Record vote",
@@ -1084,6 +1186,15 @@ export default {
   }
 }
 
+// ── THE UPSTREAM DIGIT ART — NO LONGER REACHED, AND LEFT IN PLACE ───────────
+// FT-1083 retired these: the two keyframes below and the four `.countdown
+// span` rules at the foot of this file dressed upstream's arabic 3-2-1-GO —
+// 8em bold in the inherited body face, blurred in from 1.5x and colour-shifted
+// to $townsfolk (or $demon for GO) at the 90% mark. The markup now renders
+// `.vo-beat` spans and the `.countdown .vo-beat` block that follows overrides
+// every property these set, so nothing here paints. Kept per the house
+// never-delete rule; they are the last description of the look this replaced,
+// and whoever removes them should do it deliberately.
 @keyframes countdown {
   0% {
     transform: scale(1.5);
@@ -1134,6 +1245,18 @@ export default {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  // FT-1083 (user: "the numbers should be above the hands"). The three
+  // siblings under #vote paint in a ruled order, not a drifted one: the card
+  // is 1, the sweeping hands are 2 (`.arrows.vo-live`, inside the face-disc
+  // gate above — FT-1024b put them over the plate, FT-1075 scoped that to the
+  // sweep), and the countdown is 3, over both, in both registers. It cannot
+  // reach across FT-1075's ruling because it does not coexist with either
+  // state it governs: `isVoteInProgress && !lockedVote` is true only for the
+  // three seconds between Start and the first locked hand — the card has
+  // already docked to the rim, the sweep has not begun — and this layer takes
+  // no clicks (`pointer-events: none` above), so nothing beneath it ever
+  // loses one.
+  z-index: 3;
   audio {
     height: 0;
     width: 0;
@@ -1156,6 +1279,176 @@ export default {
   }
   span:nth-child(4) {
     animation: countdown-go 1100ms normal forwards 3000ms;
+  }
+}
+
+// ── THE COUNTDOWN, IN OUR NUMERALS (FT-1083) ────────────────────────────────
+// Written AFTER the block above so its declarations win — the same ordering
+// the docked strip uses to stand down the card's scrim. `.countdown .vo-beat`
+// is (0,2,0) against the retired `.countdown span`'s (0,1,1), and the
+// per-beat `.vo-beat:nth-child(n)` is (0,3,0) against (0,2,1), so every
+// property upstream set is overridden rather than merely added to.
+//
+// THE MATERIAL is FaceHands' `.tw-numeral`, quoted rather than re-invented:
+// Times bold, sized in FACE-PIXELS (--fpx, published on #app) because this
+// stands on the painted dial and has to hold its proportion of the face at
+// every window size, and the same shadow stack — including the live `--ng-*`
+// reads, so a turn of the numeral-glow lab moves the ring and the countdown
+// together and they can never drift into two dressings.
+//
+// WHAT IS DELIBERATELY DIFFERENT IS THE INK. The twelve ring numerals are
+// near-black paint (#0a0502); these are lit ember-gold. That is the whole
+// point of the pass — with both on the face at once the eye must separate
+// "this is the countdown" from "this is the clock" with no thought at all,
+// and hue does that faster than size. The radii are scaled with the glyph
+// (~3.5x the ring's 34fpx), since a 3-face-pixel breath that reads as a halo
+// on a small numeral is invisible on a large one.
+//
+// AND IT SEPARATES WITH DARK. FT-1031's finding on the carved glyphs governs
+// here too: a warm letter on a warm lit face wants a black halo, never a pale
+// one, or it hazes into the paint. The dark drop and the tight black keyline
+// do the cutting-out; the ember breath is last, wide and faint, and is glow
+// rather than legibility.
+$vo-beat-size: 118; // the beat's cap size in face-pixels — judged on the face
+.countdown .vo-beat {
+  position: absolute;
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: calc(#{$vo-beat-size} * var(--fpx));
+  line-height: 1;
+  letter-spacing: calc(4 * var(--fpx));
+  // letter-spacing adds a trailing gap after the LAST glyph, which widens the
+  // box and so shifts "III" a couple of face-pixels left of the pivot; the
+  // negative margin takes that gap back out of the box's own width.
+  margin-right: calc(-4 * var(--fpx));
+  color: #ffc25a;
+  opacity: 0;
+  // FaceHands' `.tw-numeral` stack, radii scaled to this glyph, then the
+  // three layers this size actually needs. First shot of the pass wore the
+  // ring's own radii and read FLAT on the lit centre of the face: a 5fpx dark
+  // halo that cuts a 34fpx numeral out cleanly is invisible around a 118fpx
+  // one. So the dark goes in three steps — a hard contour hugging the
+  // letterform, a tight halo, then a mid-range wash that takes the ochre down
+  // for a glyph's width all around — and only then the two ember layers,
+  // which are heat, not legibility. Warm-on-warm always separates with dark.
+  text-shadow:
+    0 calc(3 * var(--fpx)) calc(3 * var(--fpx))
+      rgba(255, 250, 235, calc(var(--ng-under, 16) / 100)),
+    0 calc(-3 * var(--fpx)) calc(3 * var(--fpx))
+      rgba(10, 5, 2, calc(var(--ng-top, 0) / 100)),
+    0 calc(7 * var(--fpx)) calc(var(--ng-drop-blur, 1) * 4 * var(--fpx))
+      rgba(0, 0, 0, calc(var(--ng-drop, 40) / 100)),
+    0 0 calc(2 * var(--fpx)) rgba(8, 4, 1, 0.95),
+    0 0 calc(5 * var(--fpx)) rgba(8, 4, 1, 0.9),
+    0 0 calc(10 * var(--fpx)) rgba(20, 8, 2, 0.62),
+    0 0 calc(28 * var(--fpx)) rgba(255, 170, 60, 0.72),
+    0 0 calc(62 * var(--fpx)) rgba(255, 108, 16, 0.5);
+}
+
+// GO is the release, not a count: hot ember rather than the counts' gold, and
+// the only beat that GROWS on the way out instead of settling. Ember, not the
+// pale salmon the first shot produced — a light red on a lit ochre face reads
+// as washed-out gold, which is the one thing this beat must not read as.
+.countdown .vo-beat-go {
+  color: #ff6a3c;
+  text-shadow:
+    0 calc(3 * var(--fpx)) calc(3 * var(--fpx))
+      rgba(255, 236, 226, calc(var(--ng-under, 16) / 100)),
+    0 calc(7 * var(--fpx)) calc(var(--ng-drop-blur, 1) * 4 * var(--fpx))
+      rgba(0, 0, 0, calc(var(--ng-drop, 40) / 100)),
+    0 0 calc(2 * var(--fpx)) rgba(8, 2, 1, 0.95),
+    0 0 calc(5 * var(--fpx)) rgba(8, 2, 1, 0.9),
+    0 0 calc(10 * var(--fpx)) rgba(22, 4, 2, 0.64),
+    0 0 calc(30 * var(--fpx)) rgba(240, 70, 32, 0.72),
+    0 0 calc(66 * var(--fpx)) rgba(190, 18, 8, 0.55);
+}
+
+// TRANSFORM AND OPACITY ONLY — no blur filter, no animated colour, the
+// discipline the dock transition above already keeps. A beat lands slightly
+// over its size and settles, holds, then lets go a hair smaller: the same
+// shape as a struck bell.
+@keyframes vo-beat {
+  0% {
+    opacity: 0;
+    transform: scale(1.34);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  30% {
+    transform: scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.93);
+  }
+}
+
+@keyframes vo-beat-go {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  16% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  34% {
+    transform: scale(1);
+  }
+  68% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+// The cadence is untouched — 1100ms a beat, one second apart, GO on the
+// third — because countdown() upstairs waits exactly 4000ms before starting
+// the sweep and the audio track is cut to the same bar.
+.countdown .vo-beat:nth-child(1) {
+  animation: vo-beat 1100ms normal forwards;
+}
+.countdown .vo-beat:nth-child(2) {
+  animation: vo-beat 1100ms normal forwards 1000ms;
+}
+.countdown .vo-beat:nth-child(3) {
+  animation: vo-beat 1100ms normal forwards 2000ms;
+}
+.countdown .vo-beat:nth-child(4) {
+  animation: vo-beat-go 1100ms normal forwards 3000ms;
+}
+
+// Reduced motion keeps the COUNT — it is information, not decoration — and
+// drops the scale, so each numeral simply appears and goes.
+@media (prefers-reduced-motion: reduce) {
+  @keyframes vo-beat {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    10%,
+    80% {
+      opacity: 1;
+    }
+  }
+  @keyframes vo-beat-go {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    10%,
+    80% {
+      opacity: 1;
+    }
   }
 }
 </style>
