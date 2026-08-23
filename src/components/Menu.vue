@@ -598,6 +598,16 @@ export default {
      */
     distributeRoles() {
       if (this.session.isSpectator) return;
+      // FT-1084: THE DEAL WRITES THE LIES TOO — the demon's three bluffs
+      // and every believing seat's believed character, chosen here from the
+      // characters this script is not using. It runs BEFORE the mutation
+      // below and that ordering is the whole delivery story: the socket
+      // plugin's handlers for both fields stay silent until roles are
+      // distributed, so nothing leaves early and the deal one line later
+      // carries the finished set down the private paths it already had.
+      // Defaults only — the storyteller changes either afterwards exactly
+      // as before, and the next deal rolls a fresh set.
+      this.$store.dispatch("players/dealLies");
       this.$store.commit("session/distributeRoles", true);
       // FT-999 (user call, 2026-08-20): a game STARTS with the grimoire
       // revealed — dealing is the moment the storyteller starts running the

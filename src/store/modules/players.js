@@ -1,3 +1,7 @@
+// FT-1084: the deal chooses the demon's three bluffs and every believing
+// seat's believed character. Pure picker; this module only commits it.
+import { chooseLies } from "../../golem/dealLies";
+
 const NEWPLAYER = {
   name: "",
   id: "",
@@ -102,6 +106,39 @@ const actions = {
     }
     commit("set", players);
     commit("setBluff");
+  },
+  /**
+   * FT-1084: THE DEAL WRITES THE LIES TOO.
+   *
+   * Dealing already handed every seat a character and carried the two lies
+   * to the clients entitled to them (FT-1073); it never CHOSE the lies, so
+   * a fresh game opened with three blank bluff coins and a Drunk wearing the
+   * "?" placeholder. This fills both from the same not-in-play pool —
+   * golem/dealLies.js holds the whole decision and explains it.
+   *
+   * DEFAULTS, NOT LOCKS. Each is the same field the storyteller's own
+   * surfaces write (the drawer's bluff slots, the seat's belief chip), set
+   * through the same two mutations, so changing one afterwards works
+   * exactly as it did — and the next deal rolls a new set over the top.
+   *
+   * CALLED BEFORE `session/distributeRoles`, deliberately: both mutations
+   * below are watched by the socket plugin, and both of its handlers are
+   * silent until roles are distributed. So the choosing makes no wire
+   * traffic of its own — the deal a beat later sends the finished set, down
+   * the one proven private path each of them already had.
+   */
+  dealLies({ state, commit, rootState }) {
+    if (rootState.session.isSpectator) return;
+    const { bluffs, beliefs } = chooseLies({
+      players: state.players,
+      roles: rootState.roles,
+    });
+    beliefs.forEach(({ index, role }) => {
+      const player = state.players[index];
+      if (!player) return;
+      commit("update", { player, property: "believedRole", value: role });
+    });
+    bluffs.forEach((role, index) => commit("setBluff", { index, role }));
   }
 };
 
