@@ -515,6 +515,35 @@ export function readPhaseStart(townId, phaseKey) {
   return elapsed;
 }
 
+/**
+ * ── FT-1059: THE STAMP OUTLIVES THE GAME IT TIMED ────────────────────────
+ * `readPhaseStart` matches on (townId, phaseKey) alone, and a FRESH GAME in
+ * the same town starts its own phase one at the exact same key the last
+ * game's did — "d:0" every time, since App.vue's `playAgain` resets the day
+ * counter to 0. Reported bug: a brand new game opened its Day 1 readout at
+ * 197 minutes. Reproduced (claude_temp_test/2026-08-22-ft1059-shots.mjs):
+ * start a game, end it, Play again — the new game's FaceHands remounts,
+ * asks `readPhaseStart(town, "d:0")`, and gets back the FIRST game's mount
+ * timestamp, because nothing between games ever told this module the old
+ * phase was done. The elapsed the readout counts from is real, just from
+ * the wrong game.
+ *
+ * `playAgain` calls this alongside its `night/setDay(0)` reset — the same
+ * "session state that outlived the game it was counting" fix, applied to
+ * the OTHER place a day count lives. A cleared entry makes the next
+ * `readPhaseStart` for this town return null, so the remounting FaceHands
+ * takes the `mounted()` fallback: stamp NOW and record it — a genuinely
+ * fresh start, the way a town's very first game already got one.
+ */
+export function clearPhaseStart(townId) {
+  if (!townId) return;
+  try {
+    localStorage.removeItem(PHASE_START_PREFIX + townId);
+  } catch (e) {
+    // storage off: there was never a stamp to leak
+  }
+}
+
 /* ── THE BELL ITSELF — the FT-880 mechanics, applied to two clips ──────────── */
 
 const GESTURES = ["pointerdown", "touchend", "keydown"];

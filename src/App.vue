@@ -791,6 +791,10 @@ import HotkeyHelp from "./components/HotkeyHelp";
 // (End game / Play again), or a re-entered town greets its host as "running"
 // forever. EndGameOverlay's own clear only runs when the record POST lands.
 import { markDealt, dealTimeFor, clearDealt } from "./golem/stats";
+// FT-1059: clearPhaseStart joins Play again's day-counter reset — the phase
+// clock's own wall-clock stamp is the OTHER piece of session state that
+// outlives the game it was timing (see towerBells.js's header on the fix).
+import { clearPhaseStart } from "./golem/towerBells";
 // FT-880: the town summons. App owns only the two ends a player sees — the
 // gesture that buys autoplay credit, and the notice when it was not enough.
 import {
@@ -1578,6 +1582,14 @@ export default {
       // The counter lives in the NIGHT module (`night.day`), which is what
       // `toggleNight` bumps — not in session, where the ended flag sits.
       this.$store.commit("night/setDay", 0);
+      // FT-1059: the phase clock's own wall-clock stamp is session state
+      // too, keyed on (town, phaseKey) — and the fresh game's first phase
+      // lands on the exact same key ("d:0") the last game's did. Left
+      // alone, FaceHands' remount would read the OLD game's stamp back and
+      // open the new Day 1 already however many minutes stale — reported
+      // as a fresh game showing "197:42". Clearing it here is what makes
+      // the next mount take its fallback: stamp now, a genuinely new start.
+      clearPhaseStart(this.session.sessionId);
       this.dealAt = null;
       // FT-1032: Play again means the LAST game is over for good — the deal
       // stash goes with it (belt beside onGameRecorded's clear, and the

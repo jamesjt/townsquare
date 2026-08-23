@@ -275,13 +275,37 @@ export default {
     };
   },
   computed: {
-    /** The phase, as the pair whose CHANGE marks a new one. Watched below. */
+    /**
+     * The phase, as the pair whose CHANGE marks a new one. Watched below.
+     *
+     * FT-1059: `isEnded` rides along as a THIRD field, appended (not
+     * prepended — the watcher's dawn-bell check reads `.charAt(0)`, which
+     * must stay the day/night letter). Play again resets the day counter to
+     * 0 (App.vue), and a fresh game's very first phase is "d:0" — the EXACT
+     * key a town's first game already used. On its own that is not a KEY
+     * CHANGE the watcher below would ever see (Vue watches fire on a
+     * different value, and "d:0" equals "d:0"), so nothing would re-stamp
+     * the phase clock and a replayed town's Day 1 would silently inherit
+     * the FIRST game's start — reported as a fresh game opening at 197
+     * minutes. `isEnded` is the one flag GUARANTEED to flip true then false
+     * across every End game → Play again cycle (the button is v-if'd on it
+     * being true, and `playAgain` clears it), so folding it in forces this
+     * computed to change at exactly that moment, which is what makes the
+     * watcher's existing reset logic run at all.
+     */
     phaseKey() {
       const s = this.$store && this.$store.state;
-      if (!s) return "0:0";
+      if (!s) return "0:0:0";
       const night = s.night || {};
       const grimoire = s.grimoire || {};
-      return (grimoire.isNight ? "n" : "d") + ":" + (night.day || 0);
+      const session = s.session || {};
+      return (
+        (grimoire.isNight ? "n" : "d") +
+        ":" +
+        (night.day || 0) +
+        ":" +
+        (session.isEnded ? "1" : "0")
+      );
     },
     /** The game's day counter, as the readout states it. */
     gameDay() {
@@ -306,6 +330,19 @@ export default {
     isStaticNow() {
       const s = this.$store && this.$store.state;
       return !!(s && s.grimoire && s.grimoire.isStatic);
+    },
+    /**
+     * FT-1059: THE TOWN ENDED — the phase that was running when it did stays
+     * whatever it was; nothing will ever flip it again this game (Play again
+     * is a fresh mount, not a phase change). Before this flag existed the
+     * digital readout kept counting real seconds forever past the end — an
+     * ended town's clock climbing (or, with a day length set, sitting at a
+     * long-since-crossed zero re-flashing) with no phase left for it to be
+     * timing. `loop()` reads this the same way it reads `frozen`/`isStaticNow`.
+     */
+    isEnded() {
+      const s = this.$store && this.$store.state;
+      return !!(s && s.session && s.session.isEnded);
     },
     // FT-1052: the three layers render independently — digital was already
     // its own path (#tower-top); the ring shares the hands' LAYER (it lives
@@ -629,7 +666,12 @@ export default {
       // keeps control. `_sawCountdown` is the reload guard: only a client
       // that watched the countdown actually running rings the crossing — one
       // arriving past zero flashes silently (the moment already spoke).
-      if (countdownMs && !this.frozen) {
+      //
+      // FT-1059: `!this.isEnded` joins the gate — an ended town's phase will
+      // never flip again (Play again is a fresh mount, not a phase change),
+      // so a bell tolling or a pulse starting after the game is over would be
+      // announcing a moment that no longer means anything.
+      if (countdownMs && !this.frozen && !this.isEnded) {
         if (countdownMs - elapsedMs > 0) {
           this._sawCountdown = true;
           // a LENGTHENED day re-arms: the countdown is visibly running
@@ -647,14 +689,18 @@ export default {
           }
         }
       } else if (this.zeroFlash) {
-        // the length went Off mid-flash — nothing left to announce
+        // the length went Off mid-flash, or the game just ended — either way
+        // nothing left to announce
         this.zeroFlash = false;
       }
       // the digital readout's clock, at second-granularity — compare first so
       // 59 of every 60 frames write nothing reactive. FT-1055: with a day
       // length set the same readout counts DOWN (remaining, floored at 0:00);
-      // nights — and days with no length — keep counting up.
-      if (this.showDigital && !this.frozen) {
+      // nights — and days with no length — keep counting up. FT-1059: an
+      // ENDED town's readout STOPS — it holds whatever it last read rather
+      // than climbing (or re-flashing a long-crossed zero) forever after the
+      // game is over; see the isEnded computed above.
+      if (this.showDigital && !this.frozen && !this.isEnded) {
         const total = countdownMs
           ? Math.max(0, Math.ceil((countdownMs - elapsedMs) / 1000))
           : Math.max(0, Math.floor(elapsedMs / 1000));

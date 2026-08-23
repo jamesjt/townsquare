@@ -811,11 +811,28 @@ export default {
   // it stands over the script art whatever the window size. The plate is
   // .phase-now's engraved idiom at a step smaller — this is a control the
   // storyteller reaches for, not the table's headline.
+  //
+  // FT-1059: A SECOND OCCUPANT MOVED INTO THIS AIRSPACE AFTER THIS RULE WAS
+  // WRITTEN. FaceHands' digital readout (`.tw-digital`, FT-1052/1055) sits
+  // centred on the dial at a FIXED FACE-PIXEL offset above the measured
+  // centre — a geometric anchor shared with the numeral ring, not something
+  // this button should perturb. Nobody checked the two against each other
+  // when the digital readout landed, and with Digital on they sandwiched:
+  // measured overlap at 1440x900 (claude_temp_test/2026-08-22-ft1059-shots.mjs)
+  // was ~20px of the button's own bottom edge into the readout's top line.
+  // FIXED HERE, not in FaceHands: this button already floats freely via its
+  // own transform in `.info`'s local space, while the readout's -122 offset
+  // is load-bearing for the ring/numerals system around it. `--fpx` (App.vue)
+  // is the SAME face-pixel unit that system speaks, inherited down into this
+  // scoped stylesheet from #app — so the extra clearance is expressed in it,
+  // not a bare px guess, and it scales with the dial exactly as the readout
+  // does. 36 face-px leaves a clear gap at every viewport this was checked
+  // at, never a hairline one.
   .info-call {
     position: absolute;
     top: -25%;
     left: 50%;
-    transform: translate(-50%, calc(-100% - 6px));
+    transform: translate(-50%, calc(-100% - 6px - 36 * var(--fpx)));
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
     z-index: 5;
