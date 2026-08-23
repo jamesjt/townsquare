@@ -82,6 +82,14 @@
     </svg>
     <div class="edition" :class="[`edition-${role.edition}`, role.team]"></div>
 
+    <!-- FT-1080: STOOD DOWN, NOT REMOVED. Nothing passes `belief` any more —
+         Player.vue docks the chip beside the coin instead, because a chip
+         inside `.token` cannot out-rank the seat's `.shroud`: `.token` opens a
+         stacking context (`transform` in Player.vue, `filter` here), so the
+         `z-index: 4` below is spent inside the coin and the shroud swallowed
+         the pointer over the chip's on-coin half. Everything here still works
+         the moment a consumer passes `belief` again; the seat is simply not
+         that consumer. See Player.vue's `.belief-dock` for the whole note. -->
     <!-- FT-861: THE BELIEF CHIP — what this seat's player was TOLD they are,
          pinned to the coin's bottom edge (the moon took the top). The truth
          stays the whole coin; the lie is a chip on its rim, which is the right
@@ -687,6 +695,12 @@ $blood: #970000; // our red, for the one mark that must not be missed
   // the wheel's bottom edge — half on the rim, half proud of it, so it reads as
   // pinned TO the coin rather than as part of the face. The team's colour is a
   // hairline on its collar, the same whisper the big coin's rim carries.
+  //
+  // FT-1080: unreferenced while the seat docks its own chip (see the template
+  // note above and Player.vue's `.belief-dock`). This block is `scoped`, so it
+  // could never have styled markup Player.vue renders — the seat carries its
+  // own copy of these declarations, and this one waits here for the day the
+  // coin wears a chip again.
   .belief-chip {
     position: absolute;
     // FT-1021: ~50% bigger than the bluff minis, overlapping the coin.

@@ -129,20 +129,104 @@
            for every seat in the room. The seat keeps ONE card, with one
            guard and one anchor; the coin just becomes a third way to ask
            for it. -->
+      <!-- FT-1080: `belief` IS NO LONGER PASSED, and that is the whole fix —
+           see the belief dock below. Token.vue still takes the prop and still
+           carries the chip's markup, computed and styles; nothing there was
+           thrown away, it simply has no consumer while the chip is docked at
+           seat level. -->
       <Token
         :role="player.role"
         :hover-card="false"
-        :belief="beliefChip"
-        :belief-side="nominateMarkMirrored ? 'left' : 'right'"
         :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
         @dragstart.native="onRoleDragStart"
         @mouseenter.native="showCard"
         @mouseleave.native="hideCardSoon"
         @set-role="$emit('trigger', ['openRoleModal'])"
-        @set-belief="hideCard(); $emit('trigger', ['openBeliefModal'])"
-        @belief-hover="showBeliefCard"
-        @belief-leave="hideBeliefCard"
       />
+
+      <!-- FT-1080 — THE BELIEF CHIP'S DOCK, and why the chip had to leave the
+           coin (user: "it kind of does already, but only if my mouse comes in
+           from the left side — so the hover state for the drunk is overriding
+           the hover of their belief?").
+           MEASURED, not argued (claude_temp_test/2026-08-23-ft1080-probe.mjs).
+           `elementFromPoint` over five points of the chip's own rect, before:
+
+             seat            centre  north   east            west
+             #0 chip-right   shroud  shroud  belief-chip     shroud
+             #3 chip-left    shroud  shroud  shroud          belief-chip
+
+           Only the sliver hanging clear of the coin answered — which is
+           exactly "it works from one side". The cause is stacking, not
+           geometry: `.player .token` carries `transform: perspective(400px)
+           rotateY(0deg)` (and Token's own `filter: drop-shadow`), each of
+           which opens a STACKING CONTEXT, so the chip's `z-index: 4` is spent
+           inside the coin and can never out-rank `.shroud` — a SIBLING of the
+           coin, `z-index: 2`, and a live pointer target across the coin's top
+           45%. No z-index inside `.token` can reach past it.
+
+           Raising `.token` instead would have put the coin's art over the
+           shroud's veil (the veil is `.shroud`'s own `:before`/`:after`, so it
+           rides whatever the shroud rides), which is why the chip moves rather
+           than the coin.
+
+           THE DOCK reproduces `.token`'s PADDING BOX exactly — inset by the
+           coin's own 3px transparent border, square — so every percentage in
+           the chip's geometry means what it meant inside the coin, and the
+           chip lands pixel-identically. It takes no pointer itself; the chip
+           does.
+
+           `z-index: 2` + sitting after `<Token>` in the DOM is deliberate: it
+           clears `.shroud`/`.life`/`.token` (which come earlier) and still
+           loses to `.overlay` and the nominate mark (same z, later in the
+           DOM), which is precisely where the chip already stood.
+
+           The `draggable` pair is not decoration: FT-1022 recorded that a
+           coin-drag begun ON the chip worked because the chip was a DESCENDANT
+           of `.token` and the browser's search for a drag source walks up its
+           own ancestors only. A sibling has to carry its own — the same pair
+           `.shroud` carries, for the same reason. -->
+      <div class="belief-dock" v-if="beliefChip">
+        <button
+          v-if="beliefChip.id || beliefChip.placeholder"
+          type="button"
+          class="belief-chip"
+          :class="[
+            beliefChip.team,
+            nominateMarkMirrored ? 'chip-left' : 'chip-right'
+          ]"
+          :title="
+            beliefChip.placeholder
+              ? 'This character believes it is something else — click to set what they were told'
+              : `Believes they are the ${beliefChip.name} — click to change what they were told`
+          "
+          :aria-label="
+            beliefChip.placeholder
+              ? 'Set what they believe they are'
+              : `Believes they are the ${beliefChip.name}`
+          "
+          :draggable="
+            String(!!player.role.id && (!session.isSpectator || !isOwnSeat))
+          "
+          @dragstart="onRoleDragStart"
+          @click.stop="
+            hideCard();
+            $emit('trigger', ['openBeliefModal']);
+          "
+          @mouseenter="showBeliefCard"
+          @mouseleave="hideBeliefCard"
+        >
+          <span
+            class="belief-icon"
+            :class="{ unset: beliefChip.placeholder }"
+            :style="
+              beliefChip.placeholder
+                ? null
+                : { backgroundImage: `url(${beliefIcon})` }
+            "
+            >{{ beliefChip.placeholder ? "?" : "" }}</span
+          >
+        </button>
+      </div>
 
       <!-- FT-858: the seat's read is THE role hover card — the same component
            the Almanac workbench's shelf and the grimoire drawer use
@@ -933,6 +1017,26 @@ export default {
       return null;
     },
     /**
+     * FT-1080: the believed character's engraved art, for the chip the seat
+     * now docks itself. Bundled icons only (a chip renders at ~50px — a remote
+     * image would be a smudge and would need the opt-in), falling back the way
+     * the night sheet's rows do. Same body as Token.vue's own `beliefIcon`,
+     * which stays where it is against the day the coin carries a chip again.
+     */
+    beliefIcon() {
+      const role = this.beliefChip;
+      if (!role || !role.id) return "";
+      if (role.golemIconData) return role.golemIconData;
+      // the static `../assets/icons/` prefix is what webpack builds its
+      // require context from — only the leaf may be dynamic
+      const file = (role.imageAlt || role.id) + ".png";
+      try {
+        return require("../assets/icons/" + file);
+      } catch (e) {
+        return require("../assets/icons/custom.png");
+      }
+    },
+    /**
      * FT-1006: does this seat's menu carry the belief doorway? Two ways in,
      * and they are different questions: the character DEMANDS a lie (schema —
      * a freshly seated Drunk has no belief yet and needs one), or a lie is
@@ -1334,9 +1438,16 @@ export default {
      *
      * Same body as showCard past its guards, minus the plate branch: the
      * chip is a coin-rim element, so the card leans outward like the coin's
-     * own. The chip sits INSIDE `.token`, so crossing chip→coin re-fires no
-     * mouseenter on the seat's three hover boxes — hideBeliefCard below is
-     * what hands the card back to the truth on that crossing.
+     * own.
+     *
+     * FT-1080 amends what this note used to say. The chip WAS inside `.token`,
+     * so crossing chip→coin re-fired no mouseenter and hideBeliefCard alone
+     * had to hand the card back. The chip is now a SIBLING of the coin (see
+     * the belief dock in the template), so that crossing does fire the coin's
+     * own `showCard` — which clears `beliefCardRole` and re-anchors by itself.
+     * hideBeliefCard still hands back, and now also arms the same soft hide
+     * every other hover box arms, because leaving the seat FROM the chip no
+     * longer passes through the coin's mouseleave.
      */
     showBeliefCard(e) {
       const role = this.player.believedRole;
@@ -1358,16 +1469,24 @@ export default {
       }, HOVER_DELAY);
     },
     /**
-     * Leaving the chip UPWARD stays on the coin (no box re-entered — see
-     * showBeliefCard), so the card is handed back to the seat's truth in
-     * place. Leaving the seat entirely also fires the token's own
-     * mouseleave, whose hideCardSoon owns the actual hide.
+     * Leaving the chip hands the card back to the seat's TRUTH, anchored on
+     * the coin.
+     *
+     * FT-1080: and arms the same soft hide the coin and the plate arm. The
+     * chip used to sit inside `.token`, so any exit from it also crossed the
+     * coin's own mouseleave and that timer got set for free; docked beside the
+     * coin it does not, and an exit straight off the chip's outward half would
+     * otherwise leave the truth card up with nothing left to take it down.
+     * `showCard` cancels the timer the instant the cursor lands on the coin,
+     * so the chip→coin crossing costs nothing (that is the same grace the
+     * coin↔plate gap already rides — see hideCardSoon).
      */
     hideBeliefCard() {
       this.beliefCardRole = null;
       if (this.cardAnchor) {
         this.cardAnchor = this.$el.querySelector(".token") || this.cardAnchor;
         this.cardPrefer = "auto";
+        this.hideCardSoon();
       } else {
         // nothing up yet — a pending belief card must not pop after the
         // cursor has already moved on
@@ -1821,7 +1940,10 @@ export default {
    wherever the character was picked up. */
 .player.role-armed {
   .life,
-  .token {
+  .token,
+  /* FT-1080: the chip used to sit inside `.token` and so shared this glow's
+     silhouette for free; docked beside the coin it has to be named. */
+  > .belief-dock {
     filter: drop-shadow(0 0 7px rgba(255, 80, 80, 0.95));
   }
   > .name {
@@ -2435,6 +2557,151 @@ html.veil-glass .circle .player .shroud:before {
   transform: perspective(400px) rotateY(-180deg);
 }
 
+/****** FT-1080 — THE BELIEF DOCK AND THE CHIP IT HOLDS ******/
+/* The chip's LOOK is unchanged from FT-861/1021/1079b and the rules below are
+ * that look, moved out of Token.vue's `.token { .belief-chip }` nesting so a
+ * chip standing beside the coin still wears it. Token.vue's own copy is
+ * `scoped`, so it could not have reached this markup — and it is kept there,
+ * untouched, for the day the coin carries its own chip again.
+ *
+ * WHY IT LIVES OUT HERE AT ALL is in the template's own note: `.token` opens a
+ * stacking context, so nothing inside it can out-rank `.shroud`, and the chip
+ * spent its `z-index: 4` on a context that could not reach the pointer.
+ *
+ * ONE THING DOES CHANGE, and it is the price of the fix: on a DEAD seat the
+ * chip now stands proud of the veil instead of under it. That is the right way
+ * round — the veil says "this seat is dead", the chip says "this seat does not
+ * know what it is", and the second is a storyteller's mark, not part of the
+ * coin's death. It is also unavoidable: an element the veil paints over is an
+ * element the veil's own div can take the pointer from. */
+
+/* the coin's own transparent 3px border is what the 6px/3px inset is: the dock
+ * is `.token`'s PADDING box, which is the box every percentage below was
+ * written against. */
+.player > .belief-dock {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: calc(100% - 6px);
+  aspect-ratio: 1;
+  /* the dock is a frame of reference, never a target — only the chip takes
+     the pointer */
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Token.vue keeps this red as `$blood`; vars.scss does not carry it, so the
+ * one rule that needs it names it here. */
+$belief-blood: #970000;
+
+/* FT-861: THE BELIEF CHIP. A smaller coin struck in the same metal, set into
+ * the wheel's edge — half on the rim, half proud of it, so it reads as pinned
+ * TO the coin rather than as part of the face. The team's colour is a hairline
+ * on its collar, the same whisper the big coin's rim carries. */
+.player > .belief-dock > .belief-chip {
+  position: absolute;
+  /* FT-1021: ~50% bigger than the bluff minis, overlapping the coin.
+     FT-1079b (user): the chip hangs HALF OFF THE COIN'S SIDE — centred it
+     covered the art and the name. The side is the seat's own place on the ring
+     (12, 6 and the left arc hang LEFT; every other seat hangs RIGHT), so the
+     chip always leans toward the board's outside. */
+  bottom: 30%;
+  width: 44%;
+  height: 44%;
+  &.chip-left {
+    left: -12%;
+  }
+  &.chip-right {
+    right: -12%;
+  }
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--coin, url("../assets/token-golem.png")) center center /
+    cover no-repeat;
+  box-shadow:
+    0 0 0 2px rgba(20, 14, 8, 0.95),
+    0 3px 7px rgba(0, 0, 0, 0.8);
+  cursor: pointer;
+  /* the dock is see-through to the pointer; the chip is not */
+  pointer-events: auto;
+  transition:
+    transform 150ms ease-out,
+    box-shadow 150ms ease-out;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    transform: scale(1.12);
+    box-shadow:
+      0 0 0 1.5px #{$belief-blood},
+      0 2px 6px rgba(0, 0, 0, 0.75);
+  }
+
+  /* the collar's whisper of team colour, drawn as a ring on the chip's edge */
+  @mixin chip-collar($color) {
+    &:after {
+      border-color: rgba($color, 0.85);
+    }
+  }
+  &:after {
+    content: " ";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 2px solid rgba(222, 208, 172, 0.85);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  &.townsfolk {
+    @include chip-collar($townsfolk);
+  }
+  &.outsider {
+    @include chip-collar($outsider);
+  }
+  &.minion {
+    @include chip-collar($minion);
+  }
+  &.demon {
+    @include chip-collar($demon);
+  }
+  &.traveler {
+    @include chip-collar($traveler);
+  }
+
+  /* The chip is under half the coin across, so its art gets nearly the whole
+     face — at 78% the engraving read as a smudge. It also carries the big
+     coin's own lift off centre, so the two read as the same object struck at
+     two sizes. Inside `.token` this layer used to inherit its box from
+     `.token span`; it restated every one of those declarations even then, so
+     it needs nothing from the coin here. */
+  .belief-icon.unset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: PiratesBay, sans-serif;
+    font-size: 120%;
+    color: #d8cdb4;
+    text-shadow: 0 1px 2px black;
+  }
+
+  .belief-icon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-position: center 47%;
+    background-repeat: no-repeat;
+    background-size: 88%;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+  }
+}
+
 /****** Player choice icons *******/
 .player .overlay {
   width: 100%;
@@ -2854,7 +3121,11 @@ li.nominate .player .overlay .nominate-target {
     }
   }
 
-  .player.you.#{$name} .token {
+  // FT-1080: `> .belief-dock` rides along because the chip used to sit inside
+  // `.token` and shared this glow's silhouette; docked beside the coin it has
+  // to be named to keep the same look.
+  .player.you.#{$name} .token,
+  .player.you.#{$name} > .belief-dock {
     animation: #{$name}-glow 5s ease-in-out infinite;
   }
 }
@@ -2868,7 +3139,8 @@ li.nominate .player .overlay .nominate-target {
 // the fallback for a seat with no team yet. NO `border-radius` here either —
 // this is the rule that was still clipping the teeth after the mixin above
 // dropped its own.
-.player.you .token {
+.player.you .token,
+.player.you > .belief-dock {
   animation: townsfolk-glow 5s ease-in-out infinite;
 }
 
