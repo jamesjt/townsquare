@@ -445,14 +445,19 @@ function readViewerTick() {
   }
 }
 
+// FT-1061b: no longer read (tick is unconditional) — kept for the standing
+// setMinuteTick plumbing below, per the never-delete rule.
+// eslint-disable-next-line no-unused-vars
 let viewerTick = readViewerTick();
 
 /** The minute-hand motion THIS screen shows. A storyteller's pick IS the
  *  town's (the FT-1020c whoever-writes-reads-back rule, restated); a player
  *  follows their own pick, the town's default otherwise. */
-export function effectiveMinuteTick(session) {
-  if (session && !session.isSpectator) return towerState.minuteTick;
-  return viewerTick === null ? towerState.minuteTick : viewerTick;
+export function effectiveMinuteTick() {
+  // FT-1061b (user): Sweep retired — the tick IS the tower's motion, for
+  // every screen. The choice plumbing below stands down in place (the menu
+  // row is unmounted; stored/synced picks are simply no longer read).
+  return true;
 }
 
 /** One Tick/Sweep pick from the hourglass menu — the storyteller's writes

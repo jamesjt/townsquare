@@ -171,7 +171,11 @@
                town's default, a player's is their own screen's override —
                towerBells.setMinuteTick carries the same split). One small
                two-option row, radio-shaped. -->
+          <!-- FT-1061b (user): "remove the tick vs sweep option, only have
+               tick" — the row is unmounted; effectiveMinuteTick answers
+               tick unconditionally now. Markup kept per the house rule. -->
           <li
+            v-if="false"
             class="tw-tick-row"
             title="How the minute hand moves — this screen's own pick"
           >
