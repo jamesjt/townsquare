@@ -852,8 +852,14 @@ export default {
 // The execution mark — one control holding one position, wearing the seat
 // grammar's own noose (ui-noose.png, the same art the seat and the chronicle
 // strip use for "to be executed").
+// FT-1082b (user): the mark button WEARS ITS HOVER AT REST — the purple
+// plate that used to appear only under the cursor is now its resting dress,
+// so the decisive act reads as decisive before you reach for it.
 .vo-mark {
   @include control-toggle;
+  background: $control-bg-hover;
+  border-color: $control-edge-hover;
+  color: #fff;
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
@@ -949,8 +955,14 @@ export default {
   width: auto;
   flex-direction: row;
   gap: 0.7em;
-  padding: 0.4em 0.9em;
+  // FT-1082b (user): the docked strip is LOUDER — the purple plate the mark
+  // button wears, a heavier ground and a lit edge, so a strip at the rim
+  // still reads as the town's live tally.
+  padding: 0.55em 1.1em;
   @include control-plate;
+  background: $control-bg-hover;
+  border-color: $control-edge-hover;
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(150, 130, 175, 0.35);
 
   &:before {
     content: none;
