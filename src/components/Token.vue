@@ -92,7 +92,7 @@
       v-if="belief && (belief.id || belief.placeholder)"
       type="button"
       class="belief-chip"
-      :class="belief.team"
+      :class="[belief.team, beliefSide === 'left' ? 'chip-left' : 'chip-right']"
       :title="belief.placeholder ? 'This character believes it is something else — click to set what they were told' : `Believes they are the ${belief.name} — click to change what they were told`"
       :aria-label="belief.placeholder ? 'Set what they believe they are' : `Believes they are the ${belief.name}`"
       @click.stop="$emit('set-belief')"
@@ -208,6 +208,15 @@ export default {
      * turns it off: the shroud and the life token cover the coin's top half,
      * so the seat owns the hover for its whole box instead (Player.vue).
      */
+    /**
+     * FT-1079b (user): which side of the coin the belief chip hangs half off.
+     * "left" for seats at 12, 6 and the board's left arc; "right" otherwise.
+     * The seat computes it (Player.vue owns the ring geometry).
+     */
+    beliefSide: {
+      type: String,
+      default: "right"
+    },
     hoverCard: {
       type: Boolean,
       default: true
@@ -680,16 +689,20 @@ $blood: #970000; // our red, for the one mark that must not be missed
   // hairline on its collar, the same whisper the big coin's rim carries.
   .belief-chip {
     position: absolute;
-    left: 50%;
-    // FT-1021 (user): ~50% bigger than the bluff minis and OVERLAPPING the
-    // coin rather than hanging off its rim.
-    // FT-1076 (user): LOUDER and clear of the name curve — the chip rises
-    // off the coin's lettering band and grows; it is the only believing
-    // signal now that the plate collar has retired.
-    bottom: 26%;
-    transform: translateX(-50%);
-    width: 46%;
-    height: 46%;
+    // FT-1021: ~50% bigger than the bluff minis, overlapping the coin.
+    // FT-1079b (user): the chip hangs HALF OFF THE COIN'S SIDE — centred it
+    // covered the art and the name. The side is the seat's own place on the
+    // ring (12, 6 and the left arc hang LEFT; every other seat hangs RIGHT),
+    // so the chip always leans toward the board's outside.
+    bottom: 30%;
+    width: 44%;
+    height: 44%;
+    &.chip-left {
+      left: -12%;
+    }
+    &.chip-right {
+      right: -12%;
+    }
     padding: 0;
     border: none;
     border-radius: 50%;
@@ -707,7 +720,7 @@ $blood: #970000; // our red, for the one mark that must not be missed
     &:hover,
     &:focus-visible {
       outline: none;
-      transform: translateX(-50%) scale(1.12);
+      transform: scale(1.12);
       box-shadow: 0 0 0 1.5px #{$blood}, 0 2px 6px rgba(0, 0, 0, 0.75);
     }
 

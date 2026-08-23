@@ -133,6 +133,7 @@
         :role="player.role"
         :hover-card="false"
         :belief="beliefChip"
+        :belief-side="nominateMarkMirrored ? 'left' : 'right'"
         :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
         @dragstart.native="onRoleDragStart"
         @mouseenter.native="showCard"
