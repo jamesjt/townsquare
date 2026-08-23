@@ -1565,6 +1565,10 @@ export default {
 // the two portraits stand side by side; a lone one stands centred
 .cr-portraits {
   display: flex;
+  // FT-1057b (user): the opening and final boards STACK — side by side they
+  // fought for the drawer's width and the labels collided with the seats.
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 12px;
   margin: 2px 0 8px;
