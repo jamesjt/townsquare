@@ -33,6 +33,7 @@
 /** Storage keys. New — no browser holds a value under them yet. */
 const NG_STORAGE = {
   under: "golem.ngUnder",
+  top: "golem.ngTop",
   drop: "golem.ngDrop",
   dropBlur: "golem.ngDropBlur",
   halo: "golem.ngHalo",
@@ -45,6 +46,7 @@ const NG_STORAGE = {
  *  FaceHands.vue's `.tw-numeral` text-shadow and nowhere else. */
 const NG_VAR = {
   under: "--ng-under",
+  top: "--ng-top",
   drop: "--ng-drop",
   dropBlur: "--ng-drop-blur",
   halo: "--ng-halo",
@@ -74,6 +76,19 @@ export const NUMERAL_DIALS = [
     min: 0,
     max: 100,
     hint: "The crisp pale line under each stroke — the seat numerals' engraved trick — in hundredths (16 = shipped; 0 = none)",
+  },
+  // FT-1065 (user: "make them look sunken in the face instead of the glow"):
+  // the engraved read's missing half — the under-light is the cavity's lit
+  // bottom edge; this is the dark TOP edge the light never reaches. Turn it
+  // up (and the glows down) and the letters sit IN the face.
+  {
+    key: "top",
+    group: "Top shade",
+    label: "Strength",
+    ship: 0,
+    min: 0,
+    max: 100,
+    hint: "The dark upper edge of the carved cavity — the sunken read's other half — in hundredths (0 = shipped; pair with Under-light, glows down)",
   },
   {
     key: "drop",

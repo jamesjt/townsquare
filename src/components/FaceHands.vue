@@ -1050,6 +1050,11 @@ $digital-y-face: -122;
   text-shadow:
     0 calc(1 * var(--fpx)) calc(1 * var(--fpx))
       rgba(255, 250, 235, calc(var(--ng-under, 16) / 100)),
+    /* FT-1065: the engraved read's dark TOP edge (0 = shipped, lab-only
+       until baked) — pairs with the under-light for a sunken-in-the-face
+       look. */
+      0 calc(-1 * var(--fpx)) calc(1 * var(--fpx))
+      rgba(10, 5, 2, calc(var(--ng-top, 0) / 100)),
     0 calc(2 * var(--fpx)) calc(var(--ng-drop-blur, 1) * var(--fpx))
       rgba(0, 0, 0, calc(var(--ng-drop, 40) / 100)),
     0 0 calc(var(--ng-halo-size, 0) * var(--fpx))
