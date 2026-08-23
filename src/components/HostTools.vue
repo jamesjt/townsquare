@@ -92,118 +92,160 @@
       <div class="ht-running" v-if="reentry">
         Game running — {{ phaseLine }}
       </div>
-      <!-- the row carries the claimed count as a `title` as well as on the line,
-         because the disc folds the visible copy away for room (see the styles)
-         and the number must stay reachable there -->
-      <div class="row" v-if="!reentry" :title="seatsHint">
-        <!-- FT-959 (user call): "make it more clear that the chain is tied to
-           the 7". `.ht-seat-lead` groups the mark, the scrub and its implied
-           counts on the row's LEFT; `.ht-seat-trail` groups the claimed count
-           and the shuffle on the RIGHT. Two clusters instead of five loose
-           items means the row's own `space-between` now spends its slack in
-           ONE gap, between the clusters, instead of splitting it five ways —
-           which is the "excess space" the row used to read as (see the style
-           block below for the measured before/after).
+      <!-- ── FT-1090: THE CAST LINE ─────────────────────────────────────
+         ONE row for the two questions that are the same question — how many
+         are playing, and who they are (user-approved plan: "seat/team counts
+         + shuffle on the left, 'N / M assigned' + the four role buttons on
+         the right… they say the same kind of thing — the cast").
 
-           THE PLATE (`.ht-seat-readout`) is what ties the number to its
-           counts specifically, inside the lead cluster — not the mark, which
-           stays a separate small icon the way every other row's mark does.
-           A shared `control-plate` is this app's OWN vocabulary for "these
-           read as one object" (see controls.scss's own reasoning on
-           `.nm-seg`: "three plated buttons... read as three buttons" without
-           one shared plate around them) — so wrapping the scrub and the
-           composition readout in the panel's one shared plate is reusing the
-           app's existing idiom, not inventing a new one. A connective glyph
-           or bracket was the other option on the table; the plate was picked
-           because it is already how every other "this is one control" claim
-           on this panel is made. -->
-        <span class="ht-seat-lead">
-          <span class="label">
-            <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
-          </span>
-          <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
-            <!-- the number is a SCRUBBER: drag it sideways to set the count
-               (user call — the +/- pair retired). FT-874: extracted into
-               NumberScrub so the night sheet's own number fields run the SAME
-               gesture code — see that component for the full history. -->
-            <span class="stepper">
-              <NumberScrub
-                class="seat-scrub-ctl"
-                :value="players.length"
-                :min="0"
-                :max="20"
-                @input="setSeatCount"
-              />
+         TWO HALVES, EACH ITS OWN WRAP UNIT. `.ht-cast-half` is what makes the
+         merge safe at every width: the row breaks BETWEEN the halves before
+         it breaks inside one, so a narrow panel gets exactly the two lines it
+         had before — seats above, roles below — never the shuffle stranded
+         under a role button. Where they share a line the row's own
+         `space-between` splits them, the same two-cluster shape FT-959 gave
+         each of these rows separately.
+
+         The seat half keeps the row's old `title` (it carries the claimed
+         count, which the disc folds away — see the styles); the role half is
+         a separate claim and carries none.
+
+         `row-gap: 0` on this row (styles below) is the other half of "the
+         merge never costs": a wrapped line has no `min-height` floor of its
+         own, so two wrapped halves stand exactly as tall as their content and
+         strictly shorter than the two 34px-floored rows they replace. -->
+      <div class="row ht-cast" v-if="!reentry">
+        <span class="ht-cast-half ht-cast-seats" :title="seatsHint">
+          <!-- FT-959 (user call): "make it more clear that the chain is tied to
+             the 7". `.ht-seat-lead` groups the mark, the scrub and its implied
+             counts on the row's LEFT; `.ht-seat-trail` groups the claimed count
+             and the shuffle on the RIGHT. Two clusters instead of five loose
+             items means the row's own `space-between` now spends its slack in
+             ONE gap, between the clusters, instead of splitting it five ways —
+             which is the "excess space" the row used to read as (see the style
+             block below for the measured before/after).
+
+             THE PLATE (`.ht-seat-readout`) is what ties the number to its
+             counts specifically, inside the lead cluster — not the mark, which
+             stays a separate small icon the way every other row's mark does.
+             A shared `control-plate` is this app's OWN vocabulary for "these
+             read as one object" (see controls.scss's own reasoning on
+             `.nm-seg`: "three plated buttons... read as three buttons" without
+             one shared plate around them) — so wrapping the scrub and the
+             composition readout in the panel's one shared plate is reusing the
+             app's existing idiom, not inventing a new one. A connective glyph
+             or bracket was the other option on the table; the plate was picked
+             because it is already how every other "this is one control" claim
+             on this panel is made. -->
+          <span class="ht-seat-lead">
+            <span class="label">
+              <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
             </span>
-            <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition
-               the seat count implies, right of the number that decides it.
-               Drag the scrub and the four counts move with it, which is the
-               whole reason it belongs on this row and not on another one.
+            <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
+              <!-- the number is a SCRUBBER: drag it sideways to set the count
+                 (user call — the +/- pair retired). FT-874: extracted into
+                 NumberScrub so the night sheet's own number fields run the SAME
+                 gesture code — see that component for the full history. -->
+              <span class="stepper">
+                <NumberScrub
+                  class="seat-scrub-ctl"
+                  :value="players.length"
+                  :min="0"
+                  :max="20"
+                  @input="setSeatCount"
+                />
+              </span>
+              <!-- FT-888 (user call): WHAT THIS MANY SEATS MAKES — the composition
+                 the seat count implies, right of the number that decides it.
+                 Drag the scrub and the four counts move with it, which is the
+                 whole reason it belongs on this row and not on another one.
 
-               It is the SAME OBJECT the town readout above the clock face
-               already renders (TownInfo's second line): the same
-               `gameJSON[nonTravelers-5]` table, the same golem/glyphs team
-               art, the same "tint the digit in the team's own colour" idiom.
-               Not a second implementation of a readout this app already has.
+                 It is the SAME OBJECT the town readout above the clock face
+                 already renders (TownInfo's second line): the same
+                 `gameJSON[nonTravelers-5]` table, the same golem/glyphs team
+                 art, the same "tint the digit in the team's own colour" idiom.
+                 Not a second implementation of a readout this app already has.
 
-               THESE ARE IMPLIED COUNTS, NOT ASSIGNED ONES, and the
-               distinction is deliberate: this row is where the seat count is
-               set, so the useful answer here is "and that means 5/0/1/1".
-               What has actually been dealt is the Roles row's job, one line
-               down. Two rows disagreeing about what "2 outsiders" means would
-               be worse than not showing it. THE SHARED PLATE does not blur
-               this: it ties the counts to the NUMBER that implies them, on
-               THIS row only, and says nothing about assignment — the Roles
-               row's own value keeps its own separate look below.
+                 THESE ARE IMPLIED COUNTS, NOT ASSIGNED ONES, and the
+                 distinction is deliberate: this row is where the seat count is
+                 set, so the useful answer here is "and that means 5/0/1/1".
+                 What has actually been dealt is the Roles row's job, one line
+                 down. Two rows disagreeing about what "2 outsiders" means would
+                 be worse than not showing it. THE SHARED PLATE does not blur
+                 this: it ties the counts to the NUMBER that implies them, on
+                 THIS row only, and says nothing about assignment — the Roles
+                 row's own value keeps its own separate look below.
 
-               Below five non-travellers there is no official composition to
-               state, so nothing is stated — same gate TownInfo uses. -->
-            <span class="ht-comp" v-if="composition" :title="compHint">
-              <span
-                v-for="t in COMP_TEAMS"
-                :key="t"
-                class="stat"
-                :class="t"
-                :title="TEAM_LABELS[t] + ': ' + composition[t]"
-              >
-                {{ composition[t] }}
-                <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+                 Below five non-travellers there is no official composition to
+                 state, so nothing is stated — same gate TownInfo uses. -->
+              <span class="ht-comp" v-if="composition" :title="compHint">
+                <span
+                  v-for="t in COMP_TEAMS"
+                  :key="t"
+                  class="stat"
+                  :class="t"
+                  :title="TEAM_LABELS[t] + ': ' + composition[t]"
+                >
+                  {{ composition[t] }}
+                  <img class="team-glyph" :src="teamGlyph(t)" alt="" />
+                </span>
               </span>
             </span>
           </span>
-        </span>
-        <span class="ht-seat-trail">
-          <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
-             shift-clicking START does the filling now, so there is one dev
-             gesture instead of two. devFillSeats itself is kept below.) -->
-          <small class="claimed">{{ claimedCount }} claimed</small>
-          <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
-             ALWAYS rendered — appearing icons shove the row (user call);
-             unusable states grey out instead. -->
-          <!-- (trash retired — scrub the count to 0 instead; user call) -->
-          <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
-             control plate (2026-08-19, user call: "and this shuffle
-             button?"). It was a bare <svg> with no box at all — the only
-             control on the panel with nothing under it — which is why it
-             read as loose furniture beside the plated buttons one row down.
-             Same 34x30 plate as RoleActions' three now, from the one
-             `control-icon-btn` mixin.
+          <span class="ht-seat-trail">
+            <!-- (the shift-click-to-fill shortcut left this line 2026-08-18 —
+               shift-clicking START does the filling now, so there is one dev
+               gesture instead of two. devFillSeats itself is kept below.) -->
+            <small class="claimed">{{ claimedCount }} claimed</small>
+            <!-- FT-847 follow-up: relocated from the retired Players toolbar tab.
+               ALWAYS rendered — appearing icons shove the row (user call);
+               unusable states grey out instead. -->
+            <!-- (trash retired — scrub the count to 0 instead; user call) -->
+            <!-- SHUFFLE SEAT ORDER. A real <button> wearing the panel's shared
+               control plate (2026-08-19, user call: "and this shuffle
+               button?"). It was a bare <svg> with no box at all — the only
+               control on the panel with nothing under it — which is why it
+               read as loose furniture beside the plated buttons one row down.
+               Same 34x30 plate as RoleActions' three now, from the one
+               `control-icon-btn` mixin.
 
-             `:disabled` rather than a `.disabled` class: the plate's own
-             disabled state comes with the mixin, the button stops taking
-             clicks by itself, and it drops out of the tab order — which the
-             old opacity-plus-pointer-events pair never did. -->
-          <span class="tools">
-            <button
-              class="tool-btn"
-              type="button"
-              :disabled="players.length <= 2"
-              @click="randomizeSeatings"
-              title="Shuffle seat order"
-            >
-              <font-awesome-icon icon="random" />
-            </button>
+               `:disabled` rather than a `.disabled` class: the plate's own
+               disabled state comes with the mixin, the button stops taking
+               clicks by itself, and it drops out of the tab order — which the
+               old opacity-plus-pointer-events pair never did. -->
+            <span class="tools">
+              <button
+                class="tool-btn"
+                type="button"
+                :disabled="players.length <= 2"
+                @click="randomizeSeatings"
+                title="Shuffle seat order"
+              >
+                <font-awesome-icon icon="random" />
+              </button>
+            </span>
           </span>
+        </span>
+        <!-- ── THE ROLE HALF (FT-1090, moved here from its own row) ──────────
+           FT-854: the role DRAWER replaced the overlay.
+           FT-959 (user call): "the '0/7 assigned' value should sit with its
+           mark rather than adrift." The mark and the value are ONE cluster
+           (`.ht-role-lead`), so RoleActions reads as its own group beside
+           them. RoleActions is HELD — its internal Deal/Shuffle/Duplicates/
+           Retract grouping is untouched.
+
+           Deal / Shuffle / Dupes sit INLINE with the count on every width
+           (user call 2026-08-18) — the tray below carries only characters. -->
+        <span class="ht-cast-half ht-cast-roles">
+          <span class="ht-role-lead">
+            <span class="label">
+              <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
+            </span>
+            <span class="value" @click="toggleModal('roleDrawer')">
+              {{ rolesAssigned }} / {{ players.length }} assigned
+            </span>
+          </span>
+          <RoleActions />
         </span>
       </div>
       <!-- FT-895 (user call: "a script should carry a minimum and maximum number
@@ -263,121 +305,132 @@
         />
       </div>
 
-      <!-- FT-854: the role DRAWER replaced the overlay -->
-      <!-- FT-959 (user call): "the '0/7 assigned' value should sit with its
-         mark rather than adrift." Same fix as the Seats row above: the mark
-         and the value become ONE cluster (`.ht-role-lead`), so the row's
-         `space-between` has exactly two things to split — this cluster and
-         RoleActions' own `.role-acts` group — instead of stranding the value
-         in the middle of the row's full slack. RoleActions is HELD (its
-         internal Deal/Shuffle/Duplicates/Retract grouping is untouched); it
-         already reads as one family via its own shared plate and 6px gap —
-         what it lacked was room of its own to read as a group IN, which
-         merging the leading pair now gives it. -->
-      <div class="row" v-if="!reentry">
-        <span class="ht-role-lead">
-          <span class="label">
-            <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
-          </span>
-          <span class="value" @click="toggleModal('roleDrawer')">
-            {{ rolesAssigned }} / {{ players.length }} assigned
-          </span>
-        </span>
-        <!-- Deal / Shuffle / Dupes sit INLINE with the count on every width
-           (user call 2026-08-18) — the tray below carries only characters -->
-        <RoleActions />
-      </div>
+      <!-- (FT-1090: the ROLES ROW stood here. Its mark, its "N / M assigned"
+         value and RoleActions all moved up into the cast line above — see
+         the `.ht-cast-roles` half — so the two halves of one statement share
+         one line instead of two. Nothing was dropped on the way.) -->
 
-      <!-- FT-860: the night sheet's three-state switch. Its own component so
-         the setting travels with the rest of the night code. -->
-      <NightModeRow />
+      <!-- ── FT-1090: THE SETTINGS LINE ───────────────────────────────
+         The four controls that answer "how does this game run" — who can see
+         the night checklist, how hard it is enforced, how long a day is, and
+         how many minutes that is — on ONE line where they fit, in TWO PAIRS
+         where they do not.
 
-      <!-- ── FT-1020: THE TOWER — the storyteller's own clockworks ────────────
-         Two rows: the DAY'S LENGTH (FT-1055, below), and the town's two
-         sounds, side by side (FT-1054) — the day-break bell (on/off, which
-         of the two bells) and the call-back's own voice (default/custom).
-         Picking an option already previews it, so there is no separate
-         volume dial or listen button to wire up.
+         WHY THE PAIRS ARE THE WRAP UNIT, and this is the whole rule: each
+         pair is a mark and the controls that mark speaks for. `.night-mode`
+         is one flex child (the moon, visibility, enforcement) and
+         `.ht-set-pair` is the other (the hourglass, day length, minutes), so
+         a narrow panel drops the SECOND pair whole onto its own line, under
+         its own mark. It can never orphan "10 min" beneath a moon — which is
+         the one wrong answer here, because a stray number under the wrong
+         mark reads as that mark's setting.
 
-         THE DISPLAY ROW STOOD HERE until FT-1055 (user call: display is
-         PERSONAL now). The Off/Hands/Digital/Numerals segment and the
-         Tick/Sweep pair both live in the hourglass menu (Menu.vue's Timer
-         tab), where the storyteller sets their own screen like everyone
-         else; the town-default plumbing (DEFAULT_TOWER's flags, the sync)
-         stays under the hood, and this panel's segment methods stand down
-         below per the house never-delete rule.
+         NightModeRow is embedded rather than restated: the night settings and
+         their wording still travel with the rest of the night code, and its
+         own `.nm-hint` sentence still folds away on the disc exactly as it
+         did when it was a row of its own (FT-888).
 
-         The choices live in golem/towerBells.js: persisted PER TOWN under
-         this town's id, and ridden out on the full gamestate sync every
-         joining player already receives — never a new frame kind.
+         `row-gap: 0` (styles below): the wrapped two-pair form must cost no
+         more than the two rows it replaced — a wrapped line carries no
+         `min-height` floor, so it is strictly cheaper. -->
+      <div class="row ht-settings">
+        <!-- FT-860: the night sheet's three-state switch. Its own component so
+           the setting travels with the rest of the night code. -->
+        <NightModeRow />
 
-         The segments wear the panel's shared control plate (controls.scss),
-         the same object NightModeRow's switches are made of. -->
-      <!-- ── FT-1055: THE DAY'S LENGTH — the sun leads, like the day-break
-         sound below (the sun is the day's own mark here). Off, or a minutes
-         value on the shared NumberScrub (the Seats row's own gesture code).
-         TOWN AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
-         every field beside it. At zero the day-start bell machinery tolls
-         once and every readout flashes — and NOTHING else happens: the day
-         NEVER auto-ends; the storyteller keeps control. -->
-      <div
-        class="row tw-row"
-        title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
-      >
-        <!-- FT-1088: mark + select back into ONE `.tw-lead` cluster (the
-             sounds row's own grouping below, restated here) — FT-1087 had
-             pulled them apart because the select grew to fill the row on
-             its own; it no longer does (see OptionSelect.vue's `flex: 0 1
-             auto`), so an un-clustered mark would sit flush against a
-             content-width select with nothing pinning them together. The
-             row's `space-between` now does what it always did on the
-             Seats/Roles rows: this cluster flush left, the minutes flush
-             right, one gap between them instead of the select ballooning
-             into it.
+        <!-- ── FT-1020: THE TOWER — the storyteller's own clockworks ────────────
+           Two rows: the DAY'S LENGTH (FT-1055, below), and the town's two
+           sounds, side by side (FT-1054) — the day-break bell (on/off, which
+           of the two bells) and the call-back's own voice (default/custom).
+           Picking an option already previews it, so there is no separate
+           volume dial or listen button to wire up.
 
-             Off/Timed stayed a DROPDOWN rather than a switch, deliberately:
-             it is the only setting on this panel that hands a second control
-             (the minutes) its reason to be live, and a row that reads
-             "hourglass — Timed — 10 min" left to right says that in one
-             line. Four rows wearing the same control and one wearing a
-             switch would also be the near-miss family controls.scss exists
-             to prevent. -->
-        <span class="tw-lead">
-          <span class="label">
-            <!-- FT-1058c (user): the hourglass, not the sun — this row is
-                 about time running, and the sun belongs to the day-break
-                 sound below. -->
-            <font-awesome-icon
-              class="row-mark-fa"
-              icon="hourglass-half"
-              title="The day's length"
+           THE DISPLAY ROW STOOD HERE until FT-1055 (user call: display is
+           PERSONAL now). The Off/Hands/Digital/Numerals segment and the
+           Tick/Sweep pair both live in the hourglass menu (Menu.vue's Timer
+           tab), where the storyteller sets their own screen like everyone
+           else; the town-default plumbing (DEFAULT_TOWER's flags, the sync)
+           stays under the hood, and this panel's segment methods stand down
+           below per the house never-delete rule.
+
+           The choices live in golem/towerBells.js: persisted PER TOWN under
+           this town's id, and ridden out on the full gamestate sync every
+           joining player already receives — never a new frame kind.
+
+           The segments wear the panel's shared control plate (controls.scss),
+           the same object NightModeRow's switches are made of. -->
+        <!-- ── FT-1055: THE DAY'S LENGTH — the sun leads, like the day-break
+           sound below (the sun is the day's own mark here). Off, or a minutes
+           value on the shared NumberScrub (the Seats row's own gesture code).
+           TOWN AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
+           every field beside it. At zero the day-start bell machinery tolls
+           once and every readout flashes — and NOTHING else happens: the day
+           NEVER auto-ends; the storyteller keeps control. -->
+        <!-- FT-1090: the day's length is the SECOND PAIR on the settings
+             line now rather than a row of its own — mark, select and minutes
+             in one `.ht-set-pair`, which is also the unit the line wraps by.
+             The three read left to right as one sentence ("hourglass —
+             Timed — 10 min"), which is what the old row's own
+             `space-between` was pulling apart into two far-flung halves. -->
+        <span
+          class="ht-set-pair tw-day"
+          title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
+        >
+          <!-- FT-1088: mark + select back into ONE `.tw-lead` cluster (the
+               sounds row's own grouping below, restated here) — FT-1087 had
+               pulled them apart because the select grew to fill the row on
+               its own; it no longer does (see OptionSelect.vue's `flex: 0 1
+               auto`), so an un-clustered mark would sit flush against a
+               content-width select with nothing pinning them together. The
+               row's `space-between` now does what it always did on the
+               Seats/Roles rows: this cluster flush left, the minutes flush
+               right, one gap between them instead of the select ballooning
+               into it.
+
+               Off/Timed stayed a DROPDOWN rather than a switch, deliberately:
+               it is the only setting on this panel that hands a second control
+               (the minutes) its reason to be live, and a row that reads
+               "hourglass — Timed — 10 min" left to right says that in one
+               line. Four rows wearing the same control and one wearing a
+               switch would also be the near-miss family controls.scss exists
+               to prevent. -->
+          <span class="tw-lead">
+            <span class="label">
+              <!-- FT-1058c (user): the hourglass, not the sun — this row is
+                   about time running, and the sun belongs to the day-break
+                   sound below. -->
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="hourglass-half"
+                title="The day's length"
+              />
+            </span>
+            <OptionSelect
+              name="day-length"
+              aria-label="Day length"
+              :options="dayLengthOptions"
+              :value="tower.dayLengthMin ? 'timed' : 'off'"
+              @input="setDayMode"
             />
           </span>
-          <OptionSelect
-            name="day-length"
-            aria-label="Day length"
-            :options="dayLengthOptions"
-            :value="tower.dayLengthMin ? 'timed' : 'off'"
-            @input="setDayMode"
-          />
-        </span>
-        <!-- the minutes themselves — dimmed while Off, and scrubbing it is
-           itself the "on" gesture (a length you are setting is a length
-           you want). -->
-        <span
-          class="tw-daylen"
-          :class="{ idle: !tower.dayLengthMin }"
-          title="Minutes in a day — drag sideways to scrub, click to type"
-        >
-          <NumberScrub
-            class="tw-daylen-scrub"
-            :value="tower.dayLengthMin || dayLenDraft"
-            :min="dayLenMin"
-            :max="dayLenMax"
+          <!-- the minutes themselves — dimmed while Off, and scrubbing it is
+             itself the "on" gesture (a length you are setting is a length
+             you want). -->
+          <span
+            class="tw-daylen"
+            :class="{ idle: !tower.dayLengthMin }"
             title="Minutes in a day — drag sideways to scrub, click to type"
-            @input="setDayLength"
-          />
-          <span class="tw-daylen-unit">min</span>
+          >
+            <NumberScrub
+              class="tw-daylen-scrub"
+              :value="tower.dayLengthMin || dayLenDraft"
+              :min="dayLenMin"
+              :max="dayLenMax"
+              title="Minutes in a day — drag sideways to scrub, click to type"
+              @input="setDayLength"
+            />
+            <span class="tw-daylen-unit">min</span>
+          </span>
         </span>
       </div>
       <!-- FT-1054: THE SOUNDS ROW — the day-break bell and the call-back's
@@ -2043,6 +2096,87 @@ export default {
     }
   }
 
+  // ── FT-1090: THE TWO MERGED LINES ─────────────────────────────────────────
+  //
+  // The cast line (seats + roles) and the settings line (night + day length)
+  // are ordinary `.row`s — everything above still applies to them — plus one
+  // rule each: they wrap by HALF / by PAIR rather than by control, and a wrap
+  // costs them nothing.
+  //
+  // WHY `row-gap: 0` IS LOAD-BEARING AND NOT COSMETIC. `.row`'s own `gap: 14px`
+  // (4px 8px on the disc) applies in BOTH axes, so a wrapped row would pay
+  // vertical gap that two separate rows never paid — and the whole point of
+  // this pass is to hand height to the character tray. Zeroed, the wrapped form
+  // is strictly cheaper than the rows it replaced, because a wrapped LINE has
+  // no `min-height` of its own: the 34px floor belongs to the row, and a merged
+  // row pays it once instead of twice.
+  //
+  // WHAT IT IS WORTH, measured (7 seats, tray full; rig:
+  // `claude_temp_test/2026-08-23-ft1090-{measure,fit}.mjs`). A merged line only
+  // buys the tray a whole row's height where its two parts SHARE a line, and
+  // whether they do is pure arithmetic against the band's width:
+  //
+  //                       band   cast needs   settings needs   tray before/after
+  //   1642x780 (floor)   403.4       693.6            529.4      51.4 ->  53.1
+  //   1920x1080            481       693.6            529.4     106.6 -> 108.3
+  //   2560x1440          636.1       693.6            529.4 ✓   217.0 -> 255.8
+  //   3440x1440            828       693.6 ✓          529.4 ✓   353.7 -> 424.7
+  //
+  // So the settings line lands one whole row of height from 2560 up and the
+  // cast line from ~3440; below that both wrap and the merge is a wash (+1.7px)
+  // — never a cost. The controls simply do not fit: at 1920 the settings line's
+  // four selects and scrub paint 437.5px on their own, and the two marks take
+  // the remaining 44 to the pixel, which leaves nothing for the gaps. Shrinking
+  // them to close a 48px gap would mean shortening the words the FT-1088 pass
+  // deliberately sized these controls to hold, so it was not done.
+  .ht-cast,
+  .ht-settings {
+    flex-wrap: wrap;
+    row-gap: 0;
+    align-items: center;
+  }
+
+  // A HALF IS ONE WRAP UNIT, and that falls out of how flex sizes it rather
+  // than needing to be forbidden: a half's hypothetical size is its MAX-CONTENT
+  // width — what it would paint on one line, wrapping or not, the same fact
+  // NightModeRow's own note records — so the row runs out of line and breaks
+  // BETWEEN the halves first. A half only wraps inside itself when it alone is
+  // wider than the panel, which is the PHONE, where the seat scrub, the counts,
+  // the claimed line and the shuffle genuinely do not fit one line — and where
+  // wrapping inside is exactly what the Seats row did before this merge.
+  .ht-cast-half {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    row-gap: 0;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  // THE SETTINGS PAIRS. `.night-mode` is NightModeRow's own ROOT element, which
+  // is why it can be addressed from here at all — a child component's root
+  // carries the parent's scope id and nothing below it does (that component's
+  // own note explains what it therefore has to restate). Both pairs size to
+  // their content and neither grows, so the row's `space-between` spends the
+  // slack as ONE gap between the pairs.
+  .ht-settings {
+    > .night-mode,
+    > .ht-set-pair {
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    // the second pair — hourglass, Off/Timed, and the minutes — reading left to
+    // right as one sentence instead of as two halves of a `space-between`
+    > .ht-set-pair {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      row-gap: 0;
+    }
+  }
+
   .start {
     margin-top: 10px;
     font-family: PiratesBay, sans-serif;
@@ -2292,6 +2426,19 @@ export default {
       > .row {
         flex-wrap: wrap;
         gap: 4px 8px;
+      }
+
+      // FT-1090: …AND THE TWO MERGED ROWS KEEP THEIR ZERO ROW-GAP THROUGH IT.
+      // The rule above sets `gap` in both axes, which would hand the cast and
+      // settings lines back the 4px of vertical gap the merge exists to save.
+      // Restated here rather than fought with `!important`.
+      > .row.ht-cast,
+      > .row.ht-settings {
+        row-gap: 0;
+      }
+      // a half closes up to the disc's own 8px like every row on the panel
+      .ht-cast-half {
+        gap: 8px;
       }
 
       // THE CLAIMED COUNT FOLDS INTO THE ROW'S TOOLTIP — a JUDGEMENT CALL, and

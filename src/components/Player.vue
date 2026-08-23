@@ -815,6 +815,11 @@ import { isBelieving } from "../golem/belief";
 // FT-1006: which CHARACTERS come with a lie attached (the Drunk, the
 // Lunatic…) — the schema gate for the seat menu's belief doorway below.
 import { believesOther } from "../golem/nightInfo";
+// FT-1090: the seat coin drags with the character's own face under the
+// pointer, the same ghost the tray and the drawer hang there. `warmRoleIcon`
+// is the seat's half of the deal — Token.vue resolves the coin's art itself,
+// so nothing else on this seat would have warmed the ghost in time.
+import { startSeatRoleDrag, warmRoleIcon } from "../golem/roleDrag";
 import { mapGetters, mapState } from "vuex";
 
 // how long the cursor has to rest on a seat before its card appears — enough
@@ -1306,6 +1311,18 @@ export default {
     },
     "players.length"() {
       this.$nextTick(this.measureAddAnchor);
+    },
+    // FT-1090: the drag ghost is built from a DECODED image or it is not built
+    // at all (see roleDrag.js's stage note — an undecoded one makes
+    // `setDragImage` a silent no-op, which is the bug this lane fixed). Every
+    // other surface warms its ghost by asking roleDrag for the art it paints;
+    // the seat coin asks Token.vue instead, so it warms explicitly here — on
+    // mount and on every re-cast, long before a pointer can go down on it.
+    "player.role.id": {
+      immediate: true,
+      handler() {
+        warmRoleIcon(this.player.role);
+      }
     }
   },
   methods: {
@@ -1664,9 +1681,21 @@ export default {
         value: {}
       });
     },
+    /**
+     * FT-1090 (user: "same when I drag a role off a player coin"): the seat's
+     * drag now carries the character's face under the pointer, like the tray's
+     * and the drawer's always meant to.
+     *
+     * THE PAYLOAD IS UNCHANGED AND THAT IS DELIBERATE. `golem/from` with the
+     * seat index, `effectAllowed = "move"` — the exact two lines that stood
+     * here — because roleUnseat.js's document listener arms on that TYPE being
+     * present in `dataTransfer.types` and Player.onRoleDrop reads that value to
+     * decide a swap. The ghost is added beside them, never in place of them;
+     * `startSeatRoleDrag` writes them itself so the seat and the tray share one
+     * definition of the ghost rather than two copies of it.
+     */
     onRoleDragStart(e) {
-      e.dataTransfer.setData("golem/from", String(this.index));
-      e.dataTransfer.effectAllowed = "move";
+      startSeatRoleDrag(this.player.role, this.index, e);
     },
     /**
      * FT-966: the name plate's own drag-start. A DISTINCT dataTransfer type
