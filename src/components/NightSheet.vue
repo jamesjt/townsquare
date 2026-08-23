@@ -401,6 +401,63 @@
         />
         {{ flipLabel }}
       </button>
+
+      <!-- FT-1067 (user): "below end night button... a button to change the
+           timer for how long the day will start at for a countdown" — the
+           storyteller sets the NEXT day's length right here, mid-checklist,
+           without leaving the sheet for the Tower panel. It reads and writes
+           the SAME synced tower field the panel row does (golem/towerBells.js
+           via setTower/readTower above) — one source of truth, two doors:
+           changing it here changes the panel row's own live value too.
+
+           Kept quiet on purpose (a side control, not the main action): the
+           row dims to match the checklist's own muted furniture (`.ns-day`'s
+           idiom) and only comes to full ink under the pointer/keyboard. -->
+      <div
+        class="ns-daylen-row"
+        title="How long the next day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
+      >
+        <font-awesome-icon class="ns-daylen-mark" icon="hourglass-half" />
+        <span class="ns-daylen-seg" role="radiogroup" aria-label="Day length">
+          <button
+            type="button"
+            class="ns-daylen-opt"
+            role="radio"
+            :aria-checked="String(!tower.dayLengthMin)"
+            :class="{ on: !tower.dayLengthMin }"
+            title="No day length — the readout counts up and nothing tolls"
+            @click="setTower('dayLengthMin', 0)"
+          >
+            Off
+          </button>
+          <button
+            type="button"
+            class="ns-daylen-opt"
+            role="radio"
+            :aria-checked="String(!!tower.dayLengthMin)"
+            :class="{ on: !!tower.dayLengthMin }"
+            title="The day gets a length — every readout counts down to it"
+            @click="setTower('dayLengthMin', dayLenDraft)"
+          >
+            Timed
+          </button>
+        </span>
+        <span
+          class="ns-daylen-min"
+          :class="{ idle: !tower.dayLengthMin }"
+          title="Minutes in the next day — drag sideways to scrub, click to type"
+        >
+          <NumberScrub
+            class="ns-daylen-scrub"
+            :value="tower.dayLengthMin || dayLenDraft"
+            :min="dayLenMin"
+            :max="dayLenMax"
+            title="Minutes in the next day — drag sideways to scrub, click to type"
+            @input="setDayLength"
+          />
+          <span class="ns-daylen-unit">min</span>
+        </span>
+      </div>
     </template>
 
     <!-- (THE DISC'S SIZE LAB used to stand here, as `#night-lab`. It moved to
@@ -438,6 +495,20 @@ import NumberScrub from "./NumberScrub";
 // keep in sync.
 import moonFirst from "../assets/moon-first.png";
 import moonOther from "../assets/moon-other.png";
+// FT-1067 (user): the day this night ends into gets its own control here,
+// below the flip button — the SAME synced tower field the Tower panel's row
+// (HostTools.vue) writes. towerState is the single copy (a plain module
+// object, not reactive on its own); both surfaces keep a local snapshot and
+// refresh it on TOWER_EVENT, the one-way pattern HostTools already runs.
+// Nothing here re-derives or re-persists — setTowerField and the scrub's
+// bounds are the panel row's own functions, imported, not restated.
+import {
+  DAY_LENGTH_MIN,
+  DAY_LENGTH_MAX,
+  TOWER_EVENT,
+  towerState,
+  setTowerField,
+} from "../golem/towerBells";
 
 export default {
   name: "NightSheet",
@@ -446,8 +517,27 @@ export default {
     return {
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
-      flashing: {}
+      flashing: {},
+      // FT-1067: the day-length control's furniture — same shape as
+      // HostTools' own (tower snapshot + the last-set minutes, so Timed
+      // returns to it rather than an arbitrary number). No new persistence:
+      // this is a read of the one towerState the panel row already owns.
+      tower: { ...towerState },
+      dayLenMin: DAY_LENGTH_MIN,
+      dayLenMax: DAY_LENGTH_MAX,
+      dayLenDraft: towerState.dayLengthMin || 10
     };
+  },
+  created() {
+    // FT-1067: follow the tower from wherever else it changes (the panel
+    // row, the dial's own menu) — this sheet never boots it (loadTowerForTown
+    // is HostTools'/FaceHands' job on their own mount; by the time a night
+    // sheet can show, a build or a reload has already run one of those).
+    this.readTower();
+    window.addEventListener(TOWER_EVENT, this.readTower);
+  },
+  beforeDestroy() {
+    window.removeEventListener(TOWER_EVENT, this.readTower);
   },
   computed: {
     ...mapState(["grimoire", "session", "night", "roles"]),
@@ -674,6 +764,27 @@ export default {
      */
     setDay(day) {
       this.$store.commit("night/setDay", day);
+    },
+    // ── FT-1067: the day-length control — HostTools' tw-row methods,
+    // restated for this surface, not duplicated logic. All three touch
+    // nothing but towerState (via setTowerField) and this component's own
+    // display snapshot.
+    /** The tower changed — here or on the panel row. */
+    readTower() {
+      this.tower = { ...towerState };
+      if (this.tower.dayLengthMin > 0) {
+        this.dayLenDraft = this.tower.dayLengthMin;
+      }
+    },
+    /** One field written for THIS town — the panel row's own call. */
+    setTower(key, value) {
+      setTowerField(this.session.sessionId || "", key, value);
+    },
+    /** The minutes scrubbed (or typed) — scrubbing while Off also turns the
+     *  countdown on, same as the panel row. */
+    setDayLength(n) {
+      this.dayLenDraft = n;
+      this.setTower("dayLengthMin", n);
     },
     /** Patch `told` by merging over the row's CURRENT told, so setting one
      *  field (a number) never clobbers another already on the entry (a
@@ -1419,6 +1530,84 @@ $ns-team-colors: (
       min-height: 48px;
     }
   }
+}
+
+// FT-1067: THE DAY-LENGTH ROW — one line, under the flip button, quiet by
+// construction. Same three-piece shape as the Tower panel's own tw-row
+// (mark, Off|Timed segment, minutes scrub) at a smaller scale — this is a
+// side control on a checklist, not a panel row of its own.
+.ns-daylen-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-shrink: 0;
+  font-size: 80%;
+  // quiet until it matters: dimmed at rest, like the progress readout
+  // above (.phase-progress), full ink once the pointer or keyboard is on it
+  opacity: 0.6;
+  transition: opacity 150ms;
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+}
+
+.ns-daylen-mark {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  color: rgb(154, 146, 133);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.ns-daylen-seg {
+  @include control-plate;
+  display: inline-flex;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.ns-daylen-opt {
+  @include control-cell;
+  font-size: 90%;
+  padding: 2px 6px;
+  &:hover {
+    color: #ff8a8a;
+  }
+  &.on {
+    background: $control-on-bg;
+    font-weight: bold;
+  }
+  @media (pointer: coarse) {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+}
+
+// the minutes scrub, dimmed further while Off (the number is what Timed
+// would return to; scrubbing it is itself the "on" gesture — the panel
+// row's own rule, restated).
+.ns-daylen-min {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  &.idle {
+    opacity: 0.55;
+  }
+  .num-scrub-box {
+    width: 30px;
+    padding: 0 3px;
+    @media (pointer: coarse) {
+      width: 42px;
+    }
+  }
+}
+
+.ns-daylen-unit {
+  font-size: 85%;
+  opacity: 0.7;
 }
 
 // ── the checklist ───────────────────────────────────────────────────────────
