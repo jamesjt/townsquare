@@ -381,8 +381,13 @@
            ui-nominate-hand.png. The art always points at the clock face:
            the inner `.nominate-mark-art` element carries the image and the
            mirror (the outer div — box, halo, hit target — never moves). -->
+      <!-- FT-1073b (user): the mark sits on the SIDE it points FROM — a
+           left-pointing hand on the coin's left, a right-pointing one on
+           the right (the outer box carries the side; the inner art the
+           flip). -->
       <div
         class="nominate-mark"
+        :class="{ 'points-right': nominateMarkMirrored }"
         v-if="!player.isDead && !session.isSpectator && !session.nomination"
         @click="nominatePlayer()"
         title="This player nominates — then pick who they point at"
@@ -2719,12 +2724,20 @@ li.nominate .player .overlay .nominate-target {
 .player .nominate-mark {
   position: absolute;
   margin-top: -15%;
-  right: 2px;
-  width: 30px;
-  height: 30px;
+  /* FT-1073b: the box rides the side the hand points FROM — left-pointing
+     (native) sits left; the mirrored right-pointer keeps the right. */
+  left: 2px;
+  &.points-right {
+    left: auto;
+    right: 2px;
+  }
+  /* FT-1073b (user: "a bit less subtle"): the mark grows and stands
+     brighter at rest — 30px/0.35 read as a smudge on the ring. */
+  width: 36px;
+  height: 36px;
   cursor: pointer;
   z-index: 2;
-  opacity: 0.35;
+  opacity: 0.62;
   filter: drop-shadow(0 0 3px black);
   transition: opacity 250ms;
 
