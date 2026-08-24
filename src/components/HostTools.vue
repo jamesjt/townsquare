@@ -322,188 +322,54 @@
          the `.ht-cast-roles` half — so the two halves of one statement share
          one line instead of two. Nothing was dropped on the way.) -->
 
-      <!-- ── FT-1090: THE SETTINGS LINE, FT-1098: AND THE SOUNDS ROW JOINS IT ──
-         All six controls that answer "how does this game run" — who sees the
-         night checklist, how hard it is enforced, how long a day is, how many
-         minutes that is, the day-break bell, the call-back's voice — on ONE
-         line where they fit, wrapping by WHOLE UNIT (a mark and the controls
-         it speaks for) rather than by control, so a narrow panel never orphans
-         a stray select beneath the wrong mark.
+      <!-- ── FT-1099 (user's own pairing, superseding FT-1098's bin-pack) ──────
+         `flex-wrap` bin-packing four units greedily in DOM order (FT-1098)
+         paired whichever two happened to fit a line — at the disc's 2560
+         width that meant night-mode+day-length, at the floor/1920 it meant
+         day-length+bell, never the storyteller's own read of "the night
+         checklist goes with the day-break bell; the day's length goes with
+         the call-back voice". This pass names those two pairs directly
+         instead of leaving it to arithmetic: `.ht-set-line1` always holds
+         NightModeRow + the day-break bell select, `.ht-set-line2` always
+         holds the day-length pair + the call-back select, and each line is
+         forced to its own full-width row (see `.ht-set-line`'s `flex-basis:
+         100%` below) so the pairing holds at every width rather than only
+         the ones where the sums happen to work out.
 
-         FT-1098 (user correction): the day-length pair used to be this row's
-         only partner for NightModeRow, and their combined ~529px (see the
-         style block's own superseded table below) never fits below 2560px
-         wide — so below that the pair dropped alone onto its own line with
-         nothing else to fill it (measured 236.6px of timer sitting in a
-         364-481px band, a 35-51% empty right half — the bug this pass
-         fixes). FOUR marks were always going to want more than TWO can pair
-         up cleanly at every width, so the sounds row's own two clusters
-         (previously a separate `.tw-row` a line down, always fine on their
-         own) are folded IN here instead of solving the day-length pair's
-         problem alone. `flex-wrap` then bin-packs whichever units fit a
-         line, greedily, in DOM order — measured (7 seats, disc floor
-         1642x780 unless stated; rig: `claude_temp_test/2026-08-23-ft1098-
-         measure.mjs`):
+         Component widths are unchanged from FT-1098's own measurement (7
+         seats; rig: `claude_temp_test/2026-08-23-ft1099-measure.mjs`):
 
-           night-mode 284.8-286.8 · day-length 236.6 · day-break-bell / call-back 146.8 each
+           night-mode 284.8-286.8 · day-length 236.6 · bell / call-back 146.8 each
 
-           disc floor  403.4   night-mode alone (71%) / day-length+bell (97%) / call-back alone (36%)
-           disc 1920   481.0   night-mode alone (59%) / day-length+bell (81%) / call-back alone (31%)
-           disc 2560   636.1   night-mode+day-length (83%, same pairing as before this pass) / bell+call-back (47%, unchanged)
-           rect 1280    364    night-mode alone (79%) / day-length alone (65%) / bell+call-back (83%)
-
-         Every disc width now gets a full pair sharing at least one line at
-         81-97% fill; only the single smallest control (call-back) is ever
-         left to stand alone there, at a fraction of the width the WHOLE
-         day-length pair used to sit alone in. The rectangle (not a disc
-         width, and not the shape the user's screenshot showed) is the one
-         case day-length still stands alone — its own 65% fill is still
-         better than the 224.7-in-370px reading a first hand-estimate of
-         this design predicted, because the row's real gap (8px) and content
-         widths differ slightly from that estimate; left as read rather than
-         chased further, since the disc is what this correction is about.
+         Line 1 (night-mode + bell, ~447.6 + gap) clears 1920 (481px) and
+         2560 (636.1px) on one line; only the disc FLOOR (403.4px) is
+         narrower than the pair's own width, where the bell wraps beneath
+         NightModeRow rather than reaching sideways for the day-length pair
+         instead — see the style block for the exact rule and the measured
+         proof under `claude_temp_test/2026-08-23-ft1099-shots/`. Line 2
+         (day-length + call-back, ~397.4 + gap) fits one line at all three.
 
          NightModeRow is embedded rather than restated: the night settings and
          their wording still travel with the rest of the night code, and its
          own `.nm-hint` sentence still folds away on the disc exactly as it
          did when it was a row of its own (FT-888).
 
-         `row-gap: 0` (styles below): the wrapped form must cost no more than
-         the two rows it replaces — a wrapped line carries no `min-height` of
-         its own, so it is strictly cheaper. -->
+         `row-gap: 0` (styles below) still holds: two forced-full-width lines
+         inside ONE wrapped `.row` cost the same as the old bin-pack's own
+         wrapped lines did — no fresh row-to-row gap is paid for naming the
+         pairing explicitly. -->
       <div class="row ht-settings">
-        <!-- FT-860: the night sheet's three-state switch. Its own component so
-           the setting travels with the rest of the night code. -->
-        <NightModeRow />
+        <span class="ht-set-line ht-set-line1">
+          <!-- FT-860: the night sheet's three-state switch. Its own component so
+             the setting travels with the rest of the night code. -->
+          <NightModeRow />
 
-        <!-- ── FT-1020: THE TOWER — the storyteller's own clockworks ────────────
-           Two rows: the DAY'S LENGTH (FT-1055, below), and the town's two
-           sounds, side by side (FT-1054) — the day-break bell (on/off, which
-           of the two bells) and the call-back's own voice (default/custom).
-           Picking an option already previews it, so there is no separate
-           volume dial or listen button to wire up.
-
-           THE DISPLAY ROW STOOD HERE until FT-1055 (user call: display is
-           PERSONAL now). The Off/Hands/Digital/Numerals segment and the
-           Tick/Sweep pair both live in the hourglass menu (Menu.vue's Timer
-           tab), where the storyteller sets their own screen like everyone
-           else; the town-default plumbing (DEFAULT_TOWER's flags, the sync)
-           stays under the hood, and this panel's segment methods stand down
-           below per the house never-delete rule.
-
-           The choices live in golem/towerBells.js: persisted PER TOWN under
-           this town's id, and ridden out on the full gamestate sync every
-           joining player already receives — never a new frame kind.
-
-           The segments wear the panel's shared control plate (controls.scss),
-           the same object NightModeRow's switches are made of. -->
-        <!-- ── FT-1055: THE DAY'S LENGTH — the sun leads, like the day-break
-           sound below (the sun is the day's own mark here). Off, or a minutes
-           value on the shared NumberScrub (the Seats row's own gesture code).
-           TOWN AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
-           every field beside it. At zero the day-start bell machinery tolls
-           once and every readout flashes — and NOTHING else happens: the day
-           NEVER auto-ends; the storyteller keeps control. -->
-        <!-- FT-1090: the day's length is the SECOND PAIR on the settings
-             line now rather than a row of its own — mark, select and minutes
-             in one `.ht-set-pair`, which is also the unit the line wraps by.
-             The three read left to right as one sentence ("hourglass —
-             Timed — 10 min"), which is what the old row's own
-             `space-between` was pulling apart into two far-flung halves. -->
-        <span
-          class="ht-set-pair tw-day"
-          title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
-        >
-          <!-- FT-1088: mark + select back into ONE `.tw-lead` cluster (the
-               sounds row's own grouping below, restated here) — FT-1087 had
-               pulled them apart because the select grew to fill the row on
-               its own; it no longer does (see OptionSelect.vue's `flex: 0 1
-               auto`), so an un-clustered mark would sit flush against a
-               content-width select with nothing pinning them together. The
-               row's `space-between` now does what it always did on the
-               Seats/Roles rows: this cluster flush left, the minutes flush
-               right, one gap between them instead of the select ballooning
-               into it.
-
-               Off/Timed stayed a DROPDOWN rather than a switch, deliberately:
-               it is the only setting on this panel that hands a second control
-               (the minutes) its reason to be live, and a row that reads
-               "hourglass — Timed — 10 min" left to right says that in one
-               line. Four rows wearing the same control and one wearing a
-               switch would also be the near-miss family controls.scss exists
-               to prevent. -->
-          <span class="tw-lead">
-            <span class="label">
-              <!-- FT-1058c (user): the hourglass, not the sun — this row is
-                   about time running, and the sun belongs to the day-break
-                   sound below. -->
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="hourglass-half"
-                title="The day's length"
-              />
-            </span>
-            <OptionSelect
-              name="day-length"
-              aria-label="Day length"
-              :options="dayLengthOptions"
-              :value="tower.dayLengthMin ? 'timed' : 'off'"
-              @input="setDayMode"
-            />
-          </span>
-          <!-- the minutes themselves — dimmed while Off, and scrubbing it is
-             itself the "on" gesture (a length you are setting is a length
-             you want). -->
-          <span
-            class="tw-daylen"
-            :class="{ idle: !tower.dayLengthMin }"
-            title="Minutes in a day — drag sideways to scrub, click to type"
-          >
-            <NumberScrub
-              class="tw-daylen-scrub"
-              :value="tower.dayLengthMin || dayLenDraft"
-              :min="dayLenMin"
-              :max="dayLenMax"
-              title="Minutes in a day — drag sideways to scrub, click to type"
-              @input="setDayLength"
-            />
-            <span class="tw-daylen-unit">min</span>
-          </span>
-        </span>
-
-        <!-- FT-1054: THE SOUNDS PAIR — the day-break bell and the call-back's
-           voice, two `.tw-lead` clusters (the Seats/Roles two-cluster shape,
-           FT-959, restated). The icons swapped meaning here: sun leads the
-           day-break sound (the End-day chip's own glyph — TownInfo.vue — for
-           "this is what breaks the day"), and the bell — freed by the sun —
-           now leads the call-back, the sound a bell has always meant first.
-           Picking an option already previews it (FT-1045/FT-1051), so neither
-           cluster carries a volume dial or a listen button.
-
-           FT-1098: folded into `.ht-settings` (see the row's own comment
-           above) rather than kept as its own `.row tw-row` a line down — the
-           pair still reads the same "sun — bell choice" / "bell — voice"
-           sentences it always did, it just now shares the wrapping line's
-           bin-pack with the other two units instead of always getting a
-           fresh row to itself. -->
-        <span class="tw-lead">
-          <span class="label">
-            <font-awesome-icon
-              class="row-mark-fa"
-              icon="sun"
-              title="The day-break sound"
-            />
-          </span>
           <!-- FT-1087: THE DAY-BREAK BELL IS ONE SELECT — Off / One / Two /
              Custom — where it was two segments standing side by side, an
-             On/Off pair and a which-bell trio. That is this lane's composition
-             call, and the reason is that they were never two settings: "is
-             there a bell" and "which bell" answer one question, and answering
-             it twice is what spent four controls' worth of width and wrapped
-             this row onto a second line. Every state the pair could reach,
-             this list reaches — Off writes `bellOn` false and leaves `bellId`
-             exactly where it was, so picking a bell again returns the town to
-             the one it had.
+             On/Off pair and a which-bell trio. Every state the pair could
+             reach, this list reaches — Off writes `bellOn` false and leaves
+             `bellId` exactly where it was, so picking a bell again returns
+             the town to the one it had.
 
              FT-1045'S PREVIEW CONTRACT IS INTACT: picking a bell plays it here
              (local only), picking the same one again stops it — the select
@@ -511,33 +377,95 @@
              OptionSelect.vue). Picking Off also stops anything still tolling,
              which the segment never did. Custom still opens the source row
              below. -->
-          <OptionSelect
-            name="bell-which"
-            aria-label="Day-break bell"
-            :options="bellOptions"
-            :value="bellChoice"
-            @input="pickBellChoice"
-          />
-        </span>
-        <span class="tw-lead">
-          <span class="label">
-            <font-awesome-icon
-              class="row-mark-fa"
-              icon="bell"
-              title="The call-back bell"
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="sun"
+                title="The day-break sound"
+              />
+            </span>
+            <OptionSelect
+              name="bell-which"
+              aria-label="Day-break bell"
+              :options="bellOptions"
+              :value="bellChoice"
+              @input="pickBellChoice"
             />
           </span>
-          <!-- FT-1087: two words, so the select is the smaller of the row's
-             pair — but the SAME control, because a panel that says "pick one
-             of these" two different ways depending on how many there are is
-             the near-miss family controls.scss was written to end. -->
-          <OptionSelect
-            name="callback"
-            aria-label="Call-back voice"
-            :options="callOptions"
-            :value="tower.callId"
-            @input="pickCall"
-          />
+        </span>
+
+        <span class="ht-set-line ht-set-line2">
+          <!-- ── FT-1055: THE DAY'S LENGTH — Off, or a minutes value on the
+             shared NumberScrub (the Seats row's own gesture code). TOWN
+             AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
+             every field beside it. At zero the day-start bell machinery
+             tolls once and every readout flashes — and NOTHING else
+             happens: the day NEVER auto-ends; the storyteller keeps
+             control. Mark, select and minutes read left to right as one
+             sentence ("hourglass — Timed — 10 min") in one `.ht-set-pair`. -->
+          <span
+            class="ht-set-pair tw-day"
+            title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
+          >
+            <span class="tw-lead">
+              <span class="label">
+                <!-- FT-1058c (user): the hourglass, not the sun — this row is
+                     about time running, and the sun belongs to the day-break
+                     sound above. -->
+                <font-awesome-icon
+                  class="row-mark-fa"
+                  icon="hourglass-half"
+                  title="The day's length"
+                />
+              </span>
+              <OptionSelect
+                name="day-length"
+                aria-label="Day length"
+                :options="dayLengthOptions"
+                :value="tower.dayLengthMin ? 'timed' : 'off'"
+                @input="setDayMode"
+              />
+            </span>
+            <!-- the minutes themselves — dimmed while Off, and scrubbing it is
+               itself the "on" gesture (a length you are setting is a length
+               you want). -->
+            <span
+              class="tw-daylen"
+              :class="{ idle: !tower.dayLengthMin }"
+              title="Minutes in a day — drag sideways to scrub, click to type"
+            >
+              <NumberScrub
+                class="tw-daylen-scrub"
+                :value="tower.dayLengthMin || dayLenDraft"
+                :min="dayLenMin"
+                :max="dayLenMax"
+                title="Minutes in a day — drag sideways to scrub, click to type"
+                @input="setDayLength"
+              />
+              <span class="tw-daylen-unit">min</span>
+            </span>
+          </span>
+
+          <!-- FT-1051: THE CALL-BACK VOICE — the same merged-select shape as
+             the bell above it (two words, so it is the smaller control, but
+             the SAME kind of control). -->
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="bell"
+                title="The call-back bell"
+              />
+            </span>
+            <OptionSelect
+              name="callback"
+              aria-label="Call-back voice"
+              :options="callOptions"
+              :value="tower.callId"
+              @input="pickCall"
+            />
+          </span>
         </span>
       </div>
 
@@ -2279,28 +2207,42 @@ export default {
     min-width: 0;
   }
 
-  // THE SETTINGS LINE'S FOUR UNITS. `.night-mode` is NightModeRow's own ROOT
-  // element, which is why it can be addressed from here at all — a child
-  // component's root carries the parent's scope id and nothing below it does
-  // (that component's own note explains what it therefore has to restate).
-  // FT-1098 added the two sounds `.tw-lead` clusters to this list (they used
-  // to belong to a separate `.tw-row`, an ordinary `.row` with no rules of
-  // its own beyond the base ones) — restated here rather than left to
-  // `.tw-lead`'s own base rule a few hundred lines up so the four units this
-  // row wraps by are named in one place. None of the four grows, so the
-  // row's `space-between` spends whatever slack a line has as gaps BETWEEN
-  // whichever units land on it, never inside one.
+  // THE SETTINGS LINE'S TWO PAIRS (FT-1099, superseding FT-1098's bin-pack —
+  // see the template's own comment for why). `.ht-set-line` is the wrap unit
+  // now, not the individual mark+control units it holds: `flex: 1 1 100%`
+  // forces each line to its own full-width row regardless of how much slack
+  // a given width leaves, so the storyteller's own pairing (night-checklist
+  // + day-break bell on line one, day-length + call-back on line two) holds
+  // at every size instead of only the ones a four-way bin-pack happened to
+  // land that way. `.night-mode` is NightModeRow's own ROOT element, which is
+  // why it can be addressed from here at all — a child component's root
+  // carries the parent's scope id and nothing below it does (that
+  // component's own note explains what it therefore has to restate).
   .ht-settings {
-    > .night-mode,
-    > .ht-set-pair,
-    > .tw-lead {
+    > .ht-set-line {
+      flex: 1 1 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      row-gap: 0;
+      min-width: 0;
+    }
+    // each line's own units — a mark+control cluster on the left, a second
+    // one on the right — content-width and never stretched, the row's own
+    // `space-between`-spends-the-gap-between-clusters shape (FT-959)
+    // restated one level deeper.
+    .night-mode,
+    .ht-set-pair,
+    .tw-lead {
       flex: 0 1 auto;
       min-width: 0;
     }
     // the day-length pair — hourglass, Off/Timed, and the minutes — reading
     // left to right as one sentence instead of as two halves of a
     // `space-between`
-    > .ht-set-pair {
+    .ht-set-pair {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
@@ -2608,6 +2550,11 @@ export default {
       }
       // a half closes up to the disc's own 8px like every row on the panel
       .ht-cast-half {
+        gap: 8px;
+      }
+      // FT-1099: each settings LINE closes up the same way — the pairing
+      // itself never changes, only how tight its own two clusters sit.
+      .ht-set-line {
         gap: 8px;
       }
 
