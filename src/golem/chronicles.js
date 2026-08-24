@@ -87,6 +87,29 @@ export const EVENTS = [
   // everyone). Until then the host alone sees it, rendered from the
   // host-local stash below (peekOpeningBoard), never from the wire.
   "board",
+  // FT-1101: A NIGHT'S ACTIONS AS ONE BLOCK; detail: { day, lines: [{ seat,
+  // name, roleName, chose: [names], said, learned }], private? }.
+  //
+  // IT HAS TWO LIVES, and they are the FT-1057 board's exactly:
+  //
+  //   DURING PLAY it is never a log row at all. Each client builds its own
+  //   block SYNTHETICALLY from data it already holds and nobody else's — the
+  //   storyteller from night.entries (host-local, never broadcast), a player
+  //   from night/myEntries (their own seat's rows, delivered per-seat on the
+  //   direct lane by FT-1005 and projected on the way in). Those blocks carry
+  //   `private: true` and cannot reach anyone else even in principle: no
+  //   frame is sent, so there is nothing on the wire to intercept.
+  //
+  //   AT GAME END the host publishes one real system row per night, and the
+  //   night joins the rest of the finished game's record — public, like the
+  //   revealed grimoire beside it (user call: "then when the game ends it
+  //   becomes visible to everyone"). App.vue's onGameRecorded is the moment,
+  //   beside the board portraits it already publishes there.
+  //
+  // What NEVER rides either life is the storyteller's lie mark: what a seat
+  // was TOLD is the record, and whether the storyteller knew it was false
+  // stays theirs. See nightLog's chronicleLineOf.
+  "nights",
 ];
 
 /** Event → stored body. `text` is required; detail keys ride beside it. */

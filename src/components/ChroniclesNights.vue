@@ -14,72 +14,15 @@
        same commits (night/playerAction), same echo round trip, same schema
        reads. Only the room it stands in changed. -->
   <div class="cn-body">
+    <!-- FT-1101: the live block's CONTROLS moved out to NightCall.vue, which
+         now stands in two rooms — here, where it always was, and pinned at
+         the foot of the chronicles stream, because a player looking at the
+         messages had no way to learn the night wanted them (the user's Imp).
+         Same commits, same echo, same schema reads; only the room count
+         changed. -->
     <section v-if="tonight" class="nd-tonight">
       <h4>Tonight — Night {{ night.day }}</h4>
-      <div class="nd-row nd-live">
-        <span class="nd-role">{{ tonight.role.name }}</span>
-        <span class="nd-line">{{ tonight.line }}</span>
-        <!-- their OWN choices — only the fields the schema says the player
-             fills (playerSlots); the storyteller's pointings never render
-             an input here -->
-        <div class="nd-input" v-if="tonight.slots">
-          <span class="nd-your">{{
-            tonight.slots > 1 ? "Your choices:" : "Your choice:"
-          }}</span>
-          <SeatPicker
-            v-for="slot in tonight.slots"
-            :key="'t' + slot"
-            class="nd-pick"
-            :players="players"
-            :picked-seat="slotValue(slot - 1)"
-            :title="
-              'Your own pick (' +
-              slot +
-              ' of ' +
-              tonight.slots +
-              ') — the storyteller sees it as yours'
-            "
-            @pick="(seat) => pickSeat(slot - 1, seat)"
-          />
-        </div>
-        <!-- the universal fallback where no control was ever designed for
-             this character: their choice in their own words -->
-        <div class="nd-input" v-else-if="tonight.freeText">
-          <input
-            type="text"
-            class="nd-free"
-            placeholder="Your choice, in your own words"
-            spellcheck="false"
-            maxlength="280"
-            :value="freeTextValue"
-            @input="typeText($event.target.value)"
-            @blur="flushText"
-          />
-        </div>
-        <!-- what the storyteller has answered so far — everything on the
-             row except whether it was a lie, live as they fill it -->
-        <template v-if="tonightRow">
-          <span
-            class="nd-told"
-            :class="pingClass(tonightRow)"
-            v-if="tonightRow.ping !== null"
-          >
-            {{ tonightRow.ping ? "Yes" : "No" }}
-          </span>
-          <span
-            class="nd-told"
-            v-if="tonightRow.number !== null && tonightRow.number !== undefined"
-          >
-            {{ tonightRow.number }}
-          </span>
-          <span class="nd-told" v-if="tonightRow.characterName">{{
-            tonightRow.characterName
-          }}</span>
-          <span class="nd-text" v-if="tonightRow.text">{{
-            tonightRow.text
-          }}</span>
-        </template>
-      </div>
+      <NightCall :action="tonight" :row="tonightRow" :day="night.day" />
     </section>
 
     <p class="nd-empty" v-if="!nights.length && !tonight">
@@ -112,29 +55,15 @@
 
 <script>
 import { mapGetters, mapState } from "vuex";
-import SeatPicker from "./SeatPicker";
-// FT-1005: the same schema the storyteller's checklist reads — the player's
-// own row renders from the identical entry, minus the lie mark (which never
-// reaches this client at all).
-import {
-  playerSlots,
-  fieldsFor,
-  lineFor,
-  deadStillWakes,
-} from "../golem/nightInfo";
-import { reminderFor } from "../golem/nightLog";
+import NightCall from "./NightCall";
+// FT-1101: "is the night asking this seat for anything tonight?" is now ONE
+// definition in golem/nightLog (the FT-1005 computed, lifted out unchanged),
+// because the pinned band in the stream asks the same question this view does.
+import { tonightActionFor } from "../golem/nightLog";
 
 export default {
   name: "ChroniclesNights",
-  components: { SeatPicker },
-  data() {
-    return {
-      // FT-1005: the free-text draft — local while typing (the input cannot
-      // ride the wire round trip per keystroke), sent debounced and on blur.
-      // null = not dirty, show what the host holds.
-      textDraft: null,
-    };
-  },
+  components: { NightCall },
   computed: {
     ...mapGetters({ myEntries: "night/myEntries" }),
     ...mapState(["grimoire", "night", "session"]),
@@ -159,27 +88,13 @@ export default {
      * "the night action for what they believe they are". No Drunk handling.
      */
     tonight() {
-      if (!this.grimoire.isNight) return null;
-      if (!this.night.playerNight.live) return null;
-      const me = this.me;
-      const role = me && me.role && me.role.id ? me.role : null;
-      if (!role) return null;
-      const first = this.night.day <= 1;
-      if (!(role[first ? "firstNight" : "otherNight"] > 0)) return null;
-      if (me.isDead && !deadStillWakes(role, null)) return null;
-      const slots = playerSlots(role.id);
-      const { known } = fieldsFor(role.id);
-      return {
-        role,
-        slots,
-        // the same two texts the checklist row shows: our line where one is
-        // written, the shipped reminder where none is
-        line: lineFor(role.id, first) || reminderFor(role, first),
-        // the universal fallback: a character nobody designed controls for
-        // states their choice in words — never a picker whose slots would
-        // mean something else
-        freeText: !known,
-      };
+      return tonightActionFor({
+        isNight: this.grimoire.isNight,
+        // the HOST's sharing verdict, never this browser's own mode default
+        live: this.night.playerNight.live,
+        day: this.night.day,
+        me: this.me,
+      });
     },
     /** Tonight's delivered row for this action, if the host has written or
      *  echoed anything yet. */
@@ -192,12 +107,6 @@ export default {
             (!r.roleId || r.roleId === this.tonight.role.id),
         ) || null
       );
-    },
-    /** The free box shows the local draft while typing, the host's echo
-     *  otherwise. */
-    freeTextValue() {
-      if (this.textDraft !== null) return this.textDraft;
-      return this.tonightRow ? this.tonightRow.playerText : "";
     },
     /** Their own rows, newest night first — minus tonight's live row, which
      *  renders in the Tonight section above rather than twice. */
@@ -218,57 +127,10 @@ export default {
     pingClass(row) {
       return { yes: row.ping === true, no: row.ping === false };
     },
-    /**
-     * FT-1005: the picker shows what the HOST recorded — the echo, never
-     * local optimism. A pick answers back in one round trip (the host
-     * re-sends this seat's rows on every action frame, applied or refused),
-     * so the control settles on the truth even when a storyteller-entered
-     * value stood and the pick was refused.
-     */
-    slotValue(i) {
-      const row = this.tonightRow;
-      if (row && Number.isInteger(row.targets[i])) return row.targets[i];
-      return -1;
-    },
-    /** One pick, up the wire. The commit is the event (the callBack idiom);
-     *  socket.js sends it direct to the host and stamps our playerId. */
-    pickSeat(i, seat) {
-      if (!this.tonight) return;
-      const targets = new Array(this.tonight.slots).fill(null);
-      targets[i] = Number.isInteger(seat) ? seat : -1;
-      this.$store.commit("night/playerAction", {
-        roleId: this.tonight.role.id,
-        targets,
-      });
-    },
-    typeText(value) {
-      this.textDraft = value;
-      clearTimeout(this._textTimer);
-      this._textTimer = setTimeout(this.flushText, 400);
-    },
-    flushText() {
-      clearTimeout(this._textTimer);
-      if (this.textDraft === null || !this.tonight) return;
-      this.$store.commit("night/playerAction", {
-        roleId: this.tonight.role.id,
-        text: this.textDraft,
-      });
-      // the draft stays on screen until the host's echo carries the same
-      // words back — see the watcher below
-    },
   },
-  watch: {
-    /** FT-1005: hand the free box back to the echo once it caught up. */
-    tonightRow(row) {
-      if (
-        this.textDraft !== null &&
-        row &&
-        (row.playerText || "") === this.textDraft.slice(0, 280)
-      ) {
-        this.textDraft = null;
-      }
-    },
-  },
+  // FT-1101: the live block's own methods (slotValue / pickSeat / typeText /
+  // flushText) and the free-text echo watcher went with the markup to
+  // NightCall.vue — the component that now owns the controls in both rooms.
 };
 </script>
 
@@ -291,6 +153,13 @@ export default {
 // FT-1005: TONIGHT — the live action block. Same row furniture as the
 // history below, with a gold seam on the accent edge: this is the one row
 // the player is standing IN, not reading back.
+//
+// FT-1101: the inner rules below (.nd-live, .nd-line, .nd-input, .nd-your,
+// .nd-free) now dress markup that lives in NightCall.vue, and a scoped sheet
+// does not reach into a child — the values were COPIED there with the markup
+// and these are inert. Left standing rather than removed: they are the
+// original of what NightCall now carries, and nothing here is load-bearing.
+// The `h4` rule above them is still this component's own.
 .nd-tonight {
   margin-bottom: 14px;
   h4 {

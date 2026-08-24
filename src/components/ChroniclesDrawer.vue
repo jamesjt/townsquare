@@ -544,6 +544,25 @@
           <p class="cr-empty" v-if="!sections.length">{{ emptyText }}</p>
         </div>
 
+        <!-- ── THE NIGHT'S CALL (FT-1101) — pinned between the stream and
+             the composer, on EVERY filter, whenever the night is asking
+             this seat for something.
+
+             The user's report from a live 8-seat game was "the Imp isn't
+             given an option to kill someone". The controls were real and
+             correct; they stood behind the moon filter cell, in a drawer
+             whose default view is the message stream, with nothing anywhere
+             saying the night wanted them. So the call now stands where the
+             player already is — at the foot of the messages, above the box
+             they type into, unmissable and un-scrollable-away. -->
+        <NightCall
+          v-if="nightCall"
+          pinned
+          :action="nightCall"
+          :row="nightCallRow"
+          :day="night.day"
+        />
+
         <!-- ── THE COMPOSER — lifted whole from the chat drawer: chips for
              who this goes to (Room resting, whisper armed in purple), the
              entry, and the refusal line when the store never took it.
@@ -624,7 +643,7 @@
 </template>
 
 <script>
-import { mapState } from "vuex";
+import { mapGetters, mapState } from "vuex";
 import CloseX from "./CloseX";
 import ChroniclesRow from "./ChroniclesRow";
 import rightDrawer from "../golem/rightDrawer";
@@ -658,6 +677,16 @@ import { roleIcon as roleIconSrc } from "../golem/roleDrag";
 // FT-1037b (user call): the retired night drawer's surface, now the moon
 // cell's view — viewer-local night learnings + the live Tonight inputs.
 import ChroniclesNights from "./ChroniclesNights";
+// FT-1101: the night's own two halves in this drawer — the CALL (the pinned
+// band at the stream's foot, so a player reading the messages cannot miss
+// that the night wants them) and the BLOCK (a night's actions as one
+// synthetic stream row, private to its owner until the game ends).
+import NightCall from "./NightCall";
+import {
+  nightBlocksOf,
+  nightBlockText,
+  tonightActionFor,
+} from "../golem/nightLog";
 import uiNight from "../assets/ui-night.png";
 // FT-1019: the filter cells wear the doors' own icons — the gallows keeps
 // the retired vote-history door's art, talk keeps the chat door's.
@@ -683,6 +712,7 @@ export default {
     ChroniclesRow,
     ChroniclesPortrait,
     ChroniclesNights,
+    NightCall,
     RoleHoverCard,
   },
   mixins: [
@@ -735,6 +765,10 @@ export default {
   },
   computed: {
     ...mapState(["chat", "grimoire", "session", "night"]),
+    // FT-1101: this viewer's OWN night rows — the getter that has always
+    // scoped a player to their own seat (night/myEntries). The stream's
+    // night blocks read it, so no wider source is ever in reach here.
+    ...mapGetters({ myEntries: "night/myEntries" }),
     ...mapState("players", ["players"]),
     /** FT-1019: what kind of line the stream shows — one of golem/
      *  chronicles' FILTERS, held in the ROOT STORE so the V hotkey can arm
@@ -834,12 +868,17 @@ export default {
         if (row.gameId && row.gameId !== live) return false;
         return inFilter(row, this.filter);
       });
-      const opening = this.openingRow;
-      if (opening && inFilter(opening, this.filter)) {
-        const at = rows.findIndex((row) => row.seq > opening.seq);
-        if (at < 0) rows.push(opening);
-        else rows.splice(at, 0, opening);
-      }
+      // FT-1057's opening board and FT-1101's night blocks are both SYNTHETIC
+      // — rows this client computes from what it alone holds, spliced into
+      // the stream at the seq they belong to. Neither ever crossed the wire.
+      const synthetic = this.openingRow ? [this.openingRow] : [];
+      synthetic.push(...this.nightBlockRows);
+      synthetic.forEach((extra) => {
+        if (!inFilter(extra, this.filter)) return;
+        const at = rows.findIndex((row) => row.seq > extra.seq);
+        if (at < 0) rows.push(extra);
+        else rows.splice(at, 0, extra);
+      });
       return rows;
     },
     /** The chapters — consecutive runs of one gameId, in story order. */
@@ -1001,12 +1040,131 @@ export default {
       }
       return cells;
     },
-    /** FT-1037b: the moon cell's gate — the retired strip door's
-     *  `showNightInfo` rule, verbatim. */
+    /**
+     * FT-1037b: the moon cell's gate — the retired strip door's
+     * `showNightInfo` rule.
+     *
+     * FT-1101 CORRECTED THE AUTHORITY IT ASKS, which is the literal reason
+     * the user's Imp had no kill option. The old test was
+     * `this.night.mode !== "everyone"`, and on a PLAYER's client
+     * `night.mode` is that browser's OWN saved setting (persistence.js reads
+     * golem.nightMode at boot, before any town is known) — not the town's.
+     * So a player whose browser had ever saved "storyteller" or "off" — one
+     * evening spent hosting is enough — lost the entire night surface in
+     * every town they joined afterwards, silently and permanently, while the
+     * host was sharing normally. Measured both ways in a real hosted game:
+     * host "everyone" + a saved "storyteller" hid the cell; host
+     * "storyteller" + the default showed it.
+     *
+     * `playerNight.live` is the HOST's own verdict, delivered per seat with
+     * the rows (socket.js sendNightRows), which is the only authority that
+     * was ever meant to answer this.
+     */
     canSeeNights() {
-      if (this.night.mode !== "everyone") return false;
       if (!this.session.isSpectator) return false;
+      if (!this.night.playerNight.live) return false;
       return seatOf(this.$store.state) >= 0;
+    },
+    /**
+     * FT-1101: IS THE NIGHT ASKING THIS SEAT FOR SOMETHING RIGHT NOW?
+     * The nights view's own question (ChroniclesNights), asked here so the
+     * pinned band can stand at the foot of the stream — one definition in
+     * golem/nightLog so the two rooms cannot disagree.
+     */
+    nightCall() {
+      if (!this.session.isSpectator) return null;
+      if (this.mode !== "current") return null;
+      return tonightActionFor({
+        isNight: this.grimoire.isNight,
+        live: this.night.playerNight.live,
+        day: this.night.day,
+        me:
+          this.players.find((p) => p.id && p.id === this.session.playerId) ||
+          null,
+      });
+    },
+    /** This seat's delivered row for tonight's call, or null before the host
+     *  has echoed anything. The echo is the truth; nothing is optimistic. */
+    nightCallRow() {
+      if (!this.nightCall) return null;
+      return (
+        this.myEntries.find(
+          (r) =>
+            r.day === this.night.day &&
+            (!r.roleId || r.roleId === this.nightCall.role.id),
+        ) || null
+      );
+    },
+    /**
+     * FT-1101: THE NIGHT AS STREAM ROWS — one synthetic block per night,
+     * built from data this client ALREADY HOLDS and nobody else's.
+     *
+     *   the storyteller  night.entries — their own log, host-local, never
+     *                    broadcast (FT-860)
+     *   a player         night/myEntries — their own seat's rows, delivered
+     *                    per seat on the direct lane and projected on the way
+     *                    in (FT-1005)
+     *
+     * PRIVACY IS STRUCTURAL, not a filter: nothing new goes on the wire, so
+     * there is no frame carrying another seat's night content for anyone to
+     * receive. It is FT-1057's opening-board pattern exactly — a row that is
+     * not a log row until the end publishes it.
+     *
+     * Silent once the game has ENDED: App.vue's onGameRecorded posts the real
+     * rows then, public like the rest of the finished record, and a synthetic
+     * copy standing beside a published one would say the night twice.
+     */
+    nightBlockRows() {
+      if (this.mode !== "current") return [];
+      if (this.session.isEnded) return [];
+      if (this.night.mode === "off") return [];
+      const gameId = this.chat.gameId;
+      if (!gameId) return [];
+      const own = this.session.isSpectator;
+      if (own && !this.night.playerNight.live) return [];
+      const blocks = nightBlocksOf(own ? this.myEntries : this.night.entries, {
+        own,
+      });
+      if (!blocks.length) return [];
+      // WHERE A NIGHT'S BLOCK STANDS: immediately after that night's own
+      // "Night N falls." row, so the actions sit inside the night they
+      // happened in. +0.6 keeps every real seq intact and clears the opening
+      // board's +0.5 (a different anchor row, but the margin is free).
+      const anchors = new Map();
+      this.chat.log.forEach((row) => {
+        if (row.gameId !== gameId || row.kind !== "system") return;
+        const ev = decodeEvent(row.body);
+        if (ev && ev.t === "phase" && ev.night) anchors.set(ev.day, row);
+      });
+      const out = [];
+      blocks.forEach((block) => {
+        const anchor = anchors.get(block.day);
+        if (!anchor) return;
+        out.push({
+          id: "nights:" + gameId + ":" + block.day,
+          seq: anchor.seq + 0.6,
+          kind: "system",
+          gameId,
+          senderKey: "system",
+          senderKind: "system",
+          createdAt: anchor.createdAt,
+          phase: "night",
+          dayNumber: block.day,
+          body: encodeEvent({
+            t: "nights",
+            day: block.day,
+            lines: block.lines,
+            // WHO ELSE is entitled to this block, said to the reader in
+            // front of it — the seat and the storyteller are both entitled
+            // and neither sentence fits the other.
+            privacy: own
+              ? "Only you and the storyteller see this, until the game ends."
+              : "Only you and each player's own seat see these, until the game ends.",
+            text: nightBlockText(block.day, block.lines),
+          }),
+        });
+      });
+      return out;
     },
     /** History's Messages page filters LOG rows only — the nights view is
      *  Current's (a live, viewer-local surface, not a game's chapter). */

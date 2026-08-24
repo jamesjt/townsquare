@@ -29,7 +29,18 @@
 // FT-1040: a FORGED role's composed action names its player slots outright —
 // its count comes from the registered schema entry, never from reminder prose
 // (a forged role has none to parse).
-import { authoredNightFor, FIELD_TYPES } from "./nightInfo";
+// FT-1101: ...and the four the shared `tonightActionFor` below asks about a
+// character — whether it wakes when dead, whether anyone designed its
+// controls, how many of its choices are the PLAYER's own, and our own
+// instruction line for it.
+import {
+  authoredNightFor,
+  FIELD_TYPES,
+  deadStillWakes,
+  fieldsFor,
+  playerSlots,
+  lineFor,
+} from "./nightInfo";
 
 const LOG_KEY = "golem.nightLog";
 const MODE_KEY = "golem.nightMode";
@@ -399,6 +410,130 @@ export function projectEntriesFor(entries, playerId, seat) {
     })
     .filter((e) => !e.shownRoleId || e.shownRoleId === e.roleId)
     .map(projectPlayerRow);
+}
+
+/**
+ * FT-1101: ONE NIGHT ACTION, AS A SENTENCE'S WORTH OF PARTS.
+ *
+ * The chronicle needs the same row the sheet holds said in the reader's
+ * language: who acted, as what, what they chose, and what they were given.
+ * Kept as PARTS rather than a finished string so the surface decides the
+ * punctuation — and so a published row can be re-rendered later by a build
+ * that words it differently.
+ *
+ * Reads a FULL log entry (nested `told`) or an already-projected player row
+ * (flat), the same either-shape contract projectPlayerRow has, because the
+ * storyteller's copy and the player's copy of the same action are exactly
+ * those two shapes.
+ *
+ * WHAT IS DELIBERATELY NOT HERE:
+ *   · `isFalseInfo` — the storyteller's private judgement that what they said
+ *     was a lie. It is not part of what HAPPENED, and it stays theirs even
+ *     after the reveal makes everything else public.
+ *   · `done` — walk-the-list bookkeeping, never information.
+ * Neither can arrive on a player's copy at all (projectPlayerRow drops them);
+ * dropping them here means the STORYTELLER's copy cannot leak them into a
+ * published row either.
+ *
+ * @param own true when this is the reader's own action — the line says "You".
+ */
+export function chronicleLineOf(entry, { own = false } = {}) {
+  const told = entry.told || entry;
+  const chose = (
+    Array.isArray(entry.targetNames) ? entry.targetNames : []
+  ).filter(Boolean);
+  const learned = [];
+  if (told.ping === true) learned.push("Yes");
+  else if (told.ping === false) learned.push("No");
+  if (told.number !== null && told.number !== undefined && told.number !== "")
+    learned.push(String(told.number));
+  if (told.characterName) learned.push(told.characterName);
+  if (told.text) learned.push(told.text);
+  return {
+    seat: entry.seat,
+    name: own ? "You" : entry.seatName || "Seat " + ((entry.seat || 0) + 1),
+    roleName: entry.roleName || "",
+    chose,
+    said: entry.playerText || "",
+    learned: learned.join(" · "),
+  };
+}
+
+/**
+ * FT-1101: A NIGHT'S ACTIONS AS ONE BLOCK PER NIGHT (user call: "maybe as a
+ * single block of night actions" rather than a row per action).
+ *
+ * Rows with nothing in them yet are dropped — a night log entry is born the
+ * moment the storyteller first touches the row, often with no content at all,
+ * and a chronicle line saying a character acted and doing nothing else is
+ * noise in a stream people read under time pressure.
+ *
+ * @returns [{ day, lines }] ascending by night.
+ */
+export function nightBlocksOf(entries, { own = false } = {}) {
+  const byDay = new Map();
+  (entries || []).forEach((entry) => {
+    const line = chronicleLineOf(entry, { own });
+    if (!line.chose.length && !line.learned && !line.said) return;
+    const day = entry.day || 0;
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(line);
+  });
+  return [...byDay.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([day, lines]) => ({
+      day,
+      lines: lines.sort((a, b) => a.seat - b.seat),
+    }));
+}
+
+/**
+ * The one-sentence fallback every EV1 event must carry — what a surface that
+ * has never heard of a night block still shows (see chronicles.js's envelope
+ * note on why `text` is always present).
+ */
+export function nightBlockText(day, lines) {
+  const n = (lines || []).length;
+  return "Night " + day + " — " + n + (n === 1 ? " action." : " actions.");
+}
+
+/**
+ * FT-1101: TONIGHT'S OWN ACTION FOR THIS SEAT, or null when there is none.
+ *
+ * Lifted out of ChroniclesNights (FT-1005's `tonight` computed) unchanged in
+ * behaviour, because two surfaces now ask the same question: the nights view
+ * that has always rendered the inputs, and the drawer's pinned call band that
+ * makes the night impossible to miss. One definition, so the two can never
+ * disagree about whether a player is being asked for something.
+ *
+ * BELIEF IS CORRECT BY CONSTRUCTION: `me.role` on a player's client is only
+ * ever the character they were TOLD they are (FT-1006 dealt the belief; the
+ * truth never crossed the wire), so this IS "the night action for what they
+ * believe they have". No Drunk handling.
+ *
+ * `live` is the HOST's sharing verdict (playerNight.live), never this
+ * browser's own saved night mode — see FT-1101's gate note in
+ * ChroniclesDrawer.
+ */
+export function tonightActionFor({ isNight, live, day, me }) {
+  if (!isNight || !live) return null;
+  const role = me && me.role && me.role.id ? me.role : null;
+  if (!role) return null;
+  const first = day <= 1;
+  if (!(role[first ? "firstNight" : "otherNight"] > 0)) return null;
+  if (me.isDead && !deadStillWakes(role, null)) return null;
+  const { known } = fieldsFor(role.id);
+  return {
+    role,
+    slots: playerSlots(role.id),
+    // the same two texts the checklist row shows: our line where one is
+    // written, the shipped reminder where none is
+    line: lineFor(role.id, first) || reminderFor(role, first),
+    // the universal fallback: a character nobody designed controls for states
+    // their choice in words — never a picker whose slots would mean
+    // something else
+    freeText: !known,
+  };
 }
 
 /** The whole stash — a plain {sessionId: {day, entries}} map, safely parsed. */

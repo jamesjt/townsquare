@@ -34,7 +34,12 @@
                which is death's mark and must not promise one. -->
           <!-- FT-1032 (user call): night falls under the full moon, day
                breaks under the sun. -->
-          <img v-if="isPhaseNight" class="crr-moon" :src="moonFull" alt="" />
+          <img
+            v-if="isPhaseNight || hasNights"
+            class="crr-moon"
+            :src="moonFull"
+            alt=""
+          />
           <font-awesome-icon
             v-else-if="isPhaseDay"
             icon="sun"
@@ -109,6 +114,38 @@
          where it was posted. -->
     <span class="crr-board" v-if="hasBoard">
       <ChroniclesPortrait :board="event" :label="boardLabel" />
+    </span>
+
+    <!-- ── A NIGHT'S ACTIONS (FT-1101) — one block per night, each line
+         naming who acted, as what, what they chose and what they were given.
+         While the game runs this row is SYNTHETIC and reaches only the seat
+         whose actions they were and the storyteller (`private`); at game end
+         the host publishes the real row and the night joins the finished
+         record everyone can read. -->
+    <span class="crr-nights" v-if="hasNights">
+      <span class="crr-nights-lines">
+        <span class="crr-nights-line" v-for="(line, i) in event.lines" :key="i">
+          <span class="crr-nights-who"
+            >{{ line.name
+            }}<span class="crr-nights-role" v-if="line.roleName">
+              ({{ line.roleName }})</span
+            ></span
+          >
+          <span class="crr-nights-chose" v-if="line.chose.length"
+            >chose <b>{{ line.chose.join(" and ") }}</b></span
+          >
+          <span class="crr-nights-said" v-if="line.said">{{ line.said }}</span>
+          <span class="crr-nights-given" v-if="line.learned"
+            >given <b>{{ line.learned }}</b></span
+          >
+        </span>
+      </span>
+      <!-- `privacy` is the SENTENCE, not a flag: the storyteller and the seat
+           are both entitled readers of this block and the two are owed
+           different words. A published row carries none. -->
+      <span class="crr-nights-privacy" v-if="event.privacy">{{
+        event.privacy
+      }}</span>
     </span>
 
     <!-- ── THE GALLOWS THREAD (FT-1019) — the strand under a nomination:
@@ -196,6 +233,9 @@ const EV_ICONS = {
   // the open line is quiet news, and a board row's real face is its portrait.
   open: null,
   board: null,
+  // FT-1101: a night block wears the full moon, like the night falling above
+  // it — the <img> branch in the template, not an FA glyph.
+  nights: null,
 };
 
 export default {
@@ -276,6 +316,17 @@ export default {
         !!this.event &&
         this.event.t === "nomination" &&
         Array.isArray(this.event.voters)
+      );
+    },
+    /** FT-1101: is this a night-block row with actions actually aboard? An
+     *  empty block never renders — nightBlocksOf drops a night nobody did
+     *  anything in, and a row that arrived empty says nothing worth a line. */
+    hasNights() {
+      return (
+        !!this.event &&
+        this.event.t === "nights" &&
+        Array.isArray(this.event.lines) &&
+        this.event.lines.length > 0
       );
     },
     /** FT-1037: is this a board row with a ring actually aboard? */
@@ -567,5 +618,61 @@ export default {
   display: flex;
   justify-content: center;
   margin: 4px 0 2px;
+}
+
+// FT-1101: THE NIGHT'S BLOCK — one indented strand under the night's own
+// sentence, the gallows thread's shape (a rail on the left, lines stacked
+// against it) because it is the same kind of thing: what followed the row
+// above it.
+.crr-nights {
+  display: block;
+  margin: 2px 0 4px 18px;
+  padding-left: 8px;
+  border-left: 2px solid rgba(178, 143, 47, 0.45);
+}
+
+.crr-nights-lines {
+  display: block;
+}
+
+.crr-nights-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+  padding: 1px 0;
+  font-size: 95%;
+}
+
+.crr-nights-who {
+  font-weight: bold;
+}
+
+.crr-nights-role {
+  font-weight: normal;
+  opacity: 0.65;
+}
+
+.crr-nights-chose {
+  opacity: 0.85;
+}
+
+.crr-nights-said {
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.crr-nights-given {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 9px;
+  padding: 0 8px;
+  font-weight: bold;
+}
+
+.crr-nights-privacy {
+  display: block;
+  font-size: 85%;
+  opacity: 0.5;
+  padding-top: 2px;
 }
 </style>
