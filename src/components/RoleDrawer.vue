@@ -615,6 +615,12 @@ export default {
           });
         }
       });
+      // FT-1102 (user): DEALING writes the lies too, not only Start game.
+      // The demon bluffs and every believing seat's belief are part of a
+      // dealt board, so the storyteller sees them the moment the roles land
+      // — Menu.distributeRoles still dispatches this as well, and a second
+      // run simply rolls a fresh set over the top (defaults, never locks).
+      this.$store.dispatch("players/dealLies");
     },
     /** Reshuffle the SEATED roles among their own chairs. */
     shuffleSeated() {
