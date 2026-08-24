@@ -313,6 +313,13 @@ export default {
     }
     &:focus-visible {
       @include control-focus-ring;
+      // FT-1108 (user: purple not red, same shared styling on all of
+      // them). The shared ring is the app's blood red and it fires the
+      // whole time the list is open, so every open dropdown wore a red
+      // outline. Overridden HERE rather than in controls.scss: that token
+      // is worn by every plated control in the app, and this change is
+      // about the dropdowns.
+      outline-color: rgba(150, 130, 175, 0.9);
     }
     &:disabled {
       @include control-disabled;
@@ -337,8 +344,12 @@ export default {
     max-height: 48vh;
     overflow-y: auto;
     padding: 4px;
-    background: rgba(10, 4, 4, 0.95);
-    border: 2px solid #400;
+    // FT-1108 (user): ground and edge come off the blood accent and onto
+    // the grimoire's plum — the edge this panel's own buttons already
+    // wear. Red is the blood in this fork; purple is the book, and a list
+    // of settings belongs to the book.
+    background: rgba(12, 8, 16, 0.96);
+    border: 2px solid rgba(120, 105, 135, 0.55);
     border-radius: 8px;
     box-shadow: 0 0 12px black;
     z-index: 20;
@@ -357,12 +368,19 @@ export default {
       // hover AND keyboard-active are the same state on this control — the
       // pointer moves `activeIndex`, so there is only ever one highlighted row
       &.active {
-        border-color: #630;
-        background: rgba(255, 0, 0, 0.08);
+        // FT-1108: the row under the pointer, in plum rather than blood
+        border-color: rgba(150, 130, 175, 0.55);
+        background: rgba(150, 130, 175, 0.12);
       }
       // the chosen one, in the panel's own "this is on" ink
+      // `control-lit` is the app's shared ON state and it is RED — right
+      // everywhere else, wrong here now the whole control reads plum. The
+      // three values are restated in purple rather than the shared mixin
+      // being repainted under every other control wearing it. (FT-1108.)
       &.on {
-        @include control-lit;
+        background: rgba(96, 74, 128, 0.42);
+        border-color: rgba(167, 143, 205, 0.85);
+        color: #ece4f8;
         font-weight: bold;
       }
       @media (pointer: coarse) {

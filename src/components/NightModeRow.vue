@@ -309,7 +309,15 @@ export default {
   // wore (see the `.nm-seg-checks` note below), now on the closed trigger's
   // label as well as on the open list's chosen row, so the state is readable
   // without opening anything.
-  .nm-sel-checks ::v-deep {
+  // ── FT-1108: THE ENFORCEMENT INKS ARE STOOD DOWN ─────────────────────────
+  // The user, pointing at five of these dropdowns at once: "lets make these
+  // purple not red. for all of them, same shared styling." Required's #ff6b6b
+  // was the loudest red left on any of them, and warn's gold beside it meant
+  // this one select did not look like the other four. The rules are LEFT IN
+  // PLACE behind a dead selector rather than deleted (house rule): the record
+  // of what enforcement used to colour is worth keeping, and if the state
+  // needs a cue again it should be a MARK, not a second palette.
+  .nm-sel-checks--retired-ft1108 ::v-deep {
     .gsel-label.chk-warn {
       color: #ffd98a;
     }

@@ -1169,6 +1169,19 @@ $ns-team-colors: (
       // THE PRIMARY BUTTON — End night, in the bottom cap.
       > .phase-flip.bottom {
         @include face-disc-foot;
+        // FT-1108 (user): "end night button doesn't need to be that wide it
+        // should fit within the disc". The mixin sizes the foot button to
+        // 0.95 of the disc's HORIZONTAL RADIUS — but the button sits near the
+        // bottom of the circle, where the chord is far shorter than the
+        // radius, so a button that fits by that rule still hangs out over
+        // both curves. It has two words on it and needs none of that width:
+        // it sizes to its own label now, with the old width kept as the
+        // ceiling so it can never grow back past the disc.
+        width: auto;
+        max-width: calc(0.95 * var(--fd-rx));
+        align-self: center;
+        padding-left: 24px;
+        padding-right: 24px;
       }
 
 
