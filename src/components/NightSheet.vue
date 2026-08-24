@@ -217,17 +217,35 @@
               />
 
               <template v-for="(field, fi) in extraFieldsFor(row).fields">
-                <button
+                <!-- FT-1114 (user): "the yes, no can't be a tri-state
+                     toggle. it needs to be a selector drop down or the user
+                     might see the state. while the storyteller is cycling the
+                     info."
+
+                     THE CYCLE WAS A LEAK. Every click of the old button wrote
+                     `told.ping` straight through, and that write reaches the
+                     seat it is about — so a storyteller who meant NO and
+                     clicked twice showed the player YES on the way there.
+                     Nothing was wrong with the value that landed; the player
+                     simply saw the one before it.
+
+                     A dropdown has no way there: the list is a local view, and
+                     exactly one value is ever written — the one that was
+                     chosen. Reusing the panel's own OptionSelect rather than
+                     rolling a third control, so this row also inherits the
+                     plum the settings dropdowns just took. -->
+                <OptionSelect
                   v-if="kindOf(field) === 'boolean'"
                   :key="'f' + fi"
-                  type="button"
-                  class="ns-told"
+                  class="ns-told-sel"
                   :class="pingClass(row)"
+                  name="ns-ping"
+                  aria-label="What you told them"
+                  :options="pingOptions"
+                  :value="pingValue(row)"
                   :title="pingHint(row)"
-                  @click="cyclePing(row)"
-                >
-                  {{ pingLabel(row) }}
-                </button>
+                  @input="v => setPing(row, v)"
+                />
 
                 <NumberScrub
                   v-else-if="kindOf(field) === 'number'"
@@ -495,6 +513,9 @@ import CharacterPicker from "./CharacterPicker";
 // FT-874: the shared drag-scrub / click-to-type number control (also used by
 // HostTools' Seats row) — replaces a bare <input type="number">.
 import NumberScrub from "./NumberScrub";
+// FT-1114: the shared dropdown, taking the yes/no row's old cycling button —
+// see that element's own note for why a cycle could not stay.
+import OptionSelect from "./OptionSelect";
 // FT-874: the phase button's moon mark — same two filenames TownInfo.vue and
 // RoleHoverCard already import, so whatever art lands there (an art lane is
 // redrawing these in place) shows up here too without a second import to
@@ -518,7 +539,7 @@ import {
 
 export default {
   name: "NightSheet",
-  components: { SeatPicker, CharacterPicker, NumberScrub },
+  components: { SeatPicker, CharacterPicker, NumberScrub, OptionSelect },
   data() {
     return {
       // FT-874: rows the "end night" button just pointed at because the
@@ -529,6 +550,14 @@ export default {
       // returns to it rather than an arbitrary number). No new persistence:
       // this is a read of the one towerState the panel row already owns.
       tower: { ...towerState },
+      // FT-1114: the yes/no row's three positions. "" is null — nothing
+      // signalled yet — and it stays first so the list reads in the order the
+      // row fills: unanswered, then the two answers.
+      pingOptions: [
+        { value: "", label: "—", title: "Nothing signalled yet" },
+        { value: "yes", label: "Yes", title: "You told them YES", cls: "ns-ping-yes" },
+        { value: "no", label: "No", title: "You told them NO", cls: "ns-ping-no" },
+      ],
       dayLenMin: DAY_LENGTH_MIN,
       dayLenMax: DAY_LENGTH_MAX,
       dayLenDraft: towerState.dayLengthMin || 10
@@ -865,7 +894,23 @@ export default {
         ? base + " — their own pick, entered by the player"
         : base;
     },
-    /** null → yes → no → null. */
+    /**
+     * FT-1114: the three positions, as a list rather than a cycle. `null` is
+     * carried as "" because OptionSelect's value is a string/number/boolean —
+     * `pingValue` and `setPing` are the only two places that know it.
+     */
+    pingValue(row) {
+      const p = this.entryFor(row).told.ping;
+      return p === null ? "" : p ? "yes" : "no";
+    },
+    setPing(row, v) {
+      this.writeTold(row, { ping: v === "" ? null : v === "yes" });
+    },
+    /**
+     * FT-1114: STOOD DOWN, not deleted (house rule). The cycle is what leaked
+     * intermediate values to the seat being asked; nothing renders this now.
+     * null → yes → no → null.
+     */
     cyclePing(row) {
       const p = this.entryFor(row).told.ping;
       const next = p === null ? true : p === true ? false : null;
@@ -1972,6 +2017,23 @@ $ns-team-colors: (
     color: #d4af55;
   }
 
+  // FT-1114: the yes/no control is a dropdown now (see its own note in the
+  // template). Its ink rides the option classes, so the two answers still
+  // read green and red on the closed trigger as well as in the open list —
+  // the same idiom the enforcement row used before it joined the shared look.
+  .ns-told-sel ::v-deep {
+    .gsel-label.ns-ping-yes,
+    .gsel-opt.ns-ping-yes.on {
+      color: #7ed67e;
+    }
+    .gsel-label.ns-ping-no,
+    .gsel-opt.ns-ping-no.on {
+      color: #ff8a8a;
+    }
+  }
+
+  // FT-1114: STOOD DOWN with the button it dressed. Left in place per the
+  // house rule — the record of what the row looked like as a cycle.
   .ns-told {
     height: 30px;
     min-width: 46px;
