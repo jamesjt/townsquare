@@ -197,7 +197,10 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    // FT-1100: 10px -> 6px, matching HostTools' own `.tw-lead` — this gap is
+    // the one BETWEEN the mark and the controls it labels, which is inside a
+    // cluster, not between two.
+    gap: 6px;
     min-height: 34px;
 
     // ON THE DISC THE PANEL'S ROWS ALL CLOSE UP TO 8px (HostTools' own
@@ -207,7 +210,9 @@ export default {
     // also bought the two pixels the plates cost.
     @include face-disc-build-gate {
       .host-tools & {
-        gap: 4px 8px;
+        // FT-1100: the column gap follows `.tw-lead` to 6px here too; the 4px
+        // row gap is untouched.
+        gap: 4px 6px;
       }
     }
   }

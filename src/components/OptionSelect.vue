@@ -257,11 +257,19 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    // FT-1100: THE CHROME COMES DOWN, THE WORDS DO NOT. A closed trigger spent
+    // 45.6px on everything that is not its label — 4px of border, 20px of side
+    // padding, an 8px gap and a 13.6px caret — and the settings line carries
+    // THREE of them, so a third of the disc's 403.4px band was going on box
+    // rather than on words. 8 -> 6 here and 10 -> 7 below, with the caret a
+    // size smaller (see `.caret`), gives back ~10px per control. The label
+    // itself is untouched: FT-1088's size-to-the-widest-option rule still
+    // holds, so no option can be clipped by this.
+    gap: 6px;
     // no more `width: 100%` — the trigger sizes to its content
     // (`.gsel-label-wrap` below) rather than to a parent that no longer hands
     // it the row's full slack.
-    padding: 4px 10px;
+    padding: 4px 7px;
     font-family: inherit;
     font-size: 90%;
     color: white;
@@ -294,7 +302,9 @@ export default {
     }
     .caret {
       opacity: 0.7;
-      font-size: 75%;
+      // FT-1100: 75% -> 62%. The caret is a hint that the control opens, not a
+      // second thing to read; at 75% it painted 13.6px wide beside a 90% label.
+      font-size: 62%;
       flex-shrink: 0;
       transition: transform 150ms;
     }

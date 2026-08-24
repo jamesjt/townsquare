@@ -1869,9 +1869,18 @@ export default {
     // far less, and the freed width is pure slack for the row (never a cost —
     // every wrap threshold documented elsewhere in this file assumed the wider
     // box). Left-aligned, same edge the text always sat on.
+    // FT-1100: …AND THE BOX GOES TOO. 30px was the mark era's own first cut at
+    // "less than the 55px the word needed"; the marks that actually landed are
+    // 22px baked art and 18px Font Awesome glyphs, so this box carried 8-12px
+    // of blank on the right of EVERY row on the panel — the "huge amount of
+    // padding" the storyteller could see on the settings lines (measured at the
+    // disc floor: the bell's lead spent 30px of a 403.4px band on an 18px
+    // glyph). `auto` hugs the mark. Nothing moves: every mark is the FIRST
+    // thing in its row and they all still start on the same left edge — the box
+    // only ever ended somewhere the eye could not see.
     .label {
       opacity: 0.7;
-      width: 30px;
+      width: auto;
       display: flex;
       align-items: center;
       justify-content: flex-start;
@@ -1908,6 +1917,19 @@ export default {
       height: 18px;
       color: rgb(154, 146, 133);
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+      // FT-1100: AND THE WIDTH HAS TO WIN. Font Awesome injects its own
+      // stylesheet at RUNTIME, after this file's, and it carries
+      // `.svg-inline--fa.fa-w-16 { width: 1em }` — two classes against this
+      // rule's one, so `width: 18px` above has never applied. The glyphs were
+      // painting 30px wide and 18px tall, with the ink drawn 18x18 in the
+      // middle of that box (preserveAspectRatio) and 6px of nothing on each
+      // side. Matching its two classes here takes the width back without an
+      // `!important` and without touching the ink: the mark is exactly as big
+      // as it always looked.
+      &.svg-inline--fa {
+        width: 18px;
+        height: 18px;
+      }
     }
     // mark + select as ONE cluster, so the row's space-between spends its
     // slack in a single gap — the FT-959 lesson the Seats and Roles rows
@@ -1923,10 +1945,14 @@ export default {
     // between clusters — the day-length row (mark+select vs. minutes) and
     // the sounds row (bell cluster vs. call-back cluster) both read that way
     // now, the same shape Seats/Roles have always used.
+    // FT-1100: 8px -> 6px. INSIDE a cluster is now tighter than BETWEEN
+    // clusters (the row's own 8px on the disc), which is the hierarchy the
+    // cluster shape was always claiming — a mark and its control are one
+    // object, two clusters are two.
     .tw-lead {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex: 0 1 auto;
       min-width: 0;
     }
