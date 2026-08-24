@@ -107,8 +107,15 @@ export const CHECK_TITLES = {
  *
  * Note what "everyone" does and does not open up. The CHECKLIST — the ordered
  * list of who acts tonight — is storyteller information in every mode: the
- * order names the characters in play. "Everyone" adds exactly one thing, a
- * per-seat read of a player's OWN entries. It never widens the sheet.
+ * order names the characters in play. "Everyone" adds exactly one thing and
+ * never widens the sheet.
+ *
+ * FT-1107 rider (user) narrowed that one thing further. It used to be "a
+ * per-seat read of a player's OWN entries"; that read now happens in
+ * "storyteller" mode too, because a player's own night is theirs whoever
+ * typed it. What "everyone" adds is THE ASK — the night's prompt standing on
+ * the clock face, and the player's own picks travelling back. Only "off"
+ * withholds the rows, because in "off" there are none.
  */
 export const DEFAULT_MODE = "everyone";
 
@@ -127,14 +134,22 @@ export const MODE_LABELS = {
  */
 export const MODE_HINTS = {
   off: "No sheet, no log.",
-  storyteller: "Only you see it.",
+  // FT-1107 rider: "Only you see it" was true when the setting withheld the
+  // rows as well as the prompt, and became a lie the moment the two were
+  // split. What "Storyteller" now means is that you do the asking.
+  storyteller: "Only you are asked.",
   everyone: "Players read their own notes.",
 };
 
 /** The full explanation, on each option's tooltip. */
 export const MODE_TITLES = {
   off: "No night sheet and no log.",
-  storyteller: "You get the checklist. Players see nothing of it at all.",
+  // FT-1107 rider (user): "if it is set to storyteller only for night actions
+  // the user doesn't see the action menu at night, but they still see the log
+  // if the story teller fills it in." The setting governs THE ASK, not THE
+  // RECORD — see socket.js sendNightRows for the two gates.
+  storyteller:
+    "You get the checklist. Players are not asked, but still read their own night.",
   everyone:
     "You still own the checklist — a player can read their OWN night notes, and nothing of any other seat.",
 };
@@ -505,6 +520,12 @@ export function nightBlockText(day, lines) {
  * that has always rendered the inputs, and the drawer's pinned call band that
  * makes the night impossible to miss. One definition, so the two can never
  * disagree about whether a player is being asked for something.
+ *
+ * FT-1107: BOTH OF THOSE ROOMS HAVE STOOD DOWN and the ask moved onto the
+ * clock face, which is not one component — the hub words it (TownInfo) and
+ * every seat can take the pick (Player). So this function is now called from
+ * exactly one place, the `night/myCall` getter, and every surface reads that.
+ * The rule is unchanged and one level higher: one definition, no disagreement.
  *
  * BELIEF IS CORRECT BY CONSTRUCTION: `me.role` on a player's client is only
  * ever the character they were TOLD they are (FT-1006 dealt the belief; the

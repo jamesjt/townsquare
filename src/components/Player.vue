@@ -22,7 +22,16 @@
           'role-armed': roleArmed,
           // FT-861: this seat does not know what it is. The storyteller's
           // scan mark — see the amber name plate at the bottom of this file.
-          believing: !!beliefChip
+          believing: !!beliefChip,
+          // FT-1107: the night is asking this client to point at players, and
+          // this coin is one of the ones it can point at / has been pointed
+          // at. Worn on the seat rather than only on the overlay so the coin
+          // itself can answer (the gold ring below is `.player.night-chosen`,
+          // not a border on a transparent disc laid over it — a ring drawn on
+          // the overlay would sit at the disc's own square edge, not the
+          // coin's).
+          'night-target': nightPickable,
+          'night-chosen': nightSlot >= 0
         },
         player.role.team
       ]"
@@ -371,6 +380,45 @@
             <font-awesome-icon icon="check" />
           </span>
         </template>
+      </div>
+
+      <!-- ── FT-1107 (user): THE NIGHT'S OWN CLICK ON THIS COIN ───────────
+           "The interaction should happen on the clock face."
+
+           While the night is asking THIS client to choose players, every
+           coin on the ring becomes a target and this is the thing that takes
+           the tap. It is the `.claim-overlay` idiom directly above, for the
+           same reason that one exists: a seat is a stack of live boxes (the
+           shroud, the life token, the chair, the accusing hand, the coin
+           itself), and the only way to be certain a night pick cannot fire
+           one of them by accident is for the pick to physically cover them
+           all. A whole-coin disc at a higher z-index than any of them means
+           a tap at night reaches exactly one handler — this one — and there
+           is no ordering question to get wrong later.
+
+           That is also why it is not a modifier on `onLifeClick`: the
+           accusing hand and the vote buttons are SIBLINGS of the shroud, not
+           inside it, so a guard added there would have left them live.
+
+           It renders only while the night is actually asking (`nightPickable`
+           — false for the storyteller, false for a seat that does not wake
+           tonight, false in a town that is not sharing the night, false for
+           a character whose answer is words rather than seats), so outside
+           that moment the seat behaves exactly as it always has.
+
+           A tap on an UNCLAIMED chair is a night pick and not a seat claim
+           for as long as it is up. That is the right way round: a player who
+           is mid-answer is far likelier to be pointing at an empty chair's
+           character than to be changing seats at three in the morning, and
+           the claim is one click away again the moment the ask closes. -->
+      <div
+        class="night-pick"
+        :class="{ picked: nightSlot >= 0 }"
+        v-if="nightPickable"
+        :title="nightPickTitle"
+        @click.stop="nightPick"
+      >
+        <span class="np-mark" v-if="nightPickMark">{{ nightPickMark }}</span>
       </div>
 
       <!-- Claimed seat icon.
@@ -854,6 +902,15 @@ export default {
     ...mapState("players", ["players"]),
     ...mapState(["grimoire", "session"]),
     ...mapGetters({ nightOrder: "players/nightOrder" }),
+    // FT-1107: THE NIGHT'S ASK, AND WHAT THIS CLIENT HAS ANSWERED SO FAR.
+    // Both are store getters, shared verbatim with the clock-face panel that
+    // words the ask (TownInfo -> NightCall) — a seat and the hub cannot
+    // disagree about whether the night wants something, because neither of
+    // them decides it.
+    ...mapGetters({
+      nightCall: "night/myCall",
+      nightTargets: "night/myCallTargets",
+    }),
     /** Retired with the night checklist (user call 2026-08-18) — flip to
      *  `this.grimoire.isNightOrder` to bring the seat badges back. */
     showNightBadges() {
@@ -1147,6 +1204,47 @@ export default {
       return this.session.isSpectator
         ? "Stand up — you leave this seat but stay in the town"
         : "Empty this seat — they stay in the town";
+    },
+    /**
+     * FT-1107: IS THIS SEAT A COIN THE NIGHT WANTS TAPPED RIGHT NOW?
+     *
+     * True on EVERY seat while this client is being asked for player picks —
+     * including their own chair and including the dead. Which targets a
+     * character may legally take is a storyteller's adjudication, not a
+     * client's: the Imp may star-pass onto itself, a Fortune Teller may ask
+     * about themselves, and half the interesting rulings in this game are
+     * about a pick someone thought was illegal. The host's merge is the
+     * authority (night/applyPlayerAction), and a refused pick simply never
+     * comes back lit.
+     *
+     * `slots` is the gate rather than the call itself: a character whose
+     * choice is words (`freeText`) has nothing to point at, and its player
+     * must not be given a ring of live coins that record nothing.
+     */
+    nightPickable() {
+      const call = this.nightCall;
+      return !!(call && call.slots > 0);
+    },
+    /** The slot this seat is sitting in, or -1. The HOST's record, never a
+     *  local guess — an unanswered or refused tap leaves the coin dark. */
+    nightSlot() {
+      if (!this.nightPickable) return -1;
+      return this.nightTargets.indexOf(this.index);
+    },
+    /** FT-1107: the order mark a picked coin wears — "1"/"2" while the
+     *  character has more than one choice to make, and nothing at all when it
+     *  has one, where a numeral would be answering a question nobody asked. */
+    nightPickMark() {
+      if (this.nightSlot < 0) return "";
+      const call = this.nightCall;
+      return call && call.slots > 1 ? String(this.nightSlot + 1) : "";
+    },
+    nightPickTitle() {
+      if (!this.nightPickable) return "";
+      const who = this.player.name || "seat " + (this.index + 1);
+      return this.nightSlot >= 0
+        ? "You chose " + who + " — tap again to take it back"
+        : "Choose " + who;
     },
     voteLocked: function() {
       const session = this.session;
@@ -1645,6 +1743,49 @@ export default {
       }
       this.toggleStatus();
     },
+    /**
+     * FT-1107: TAP A COIN, CHOOSE A PLAYER — the night's own click.
+     *
+     * ONE CLICK PER SLOT, and the same coin again gives it back. Which slot a
+     * tap lands in is read off the HOST's record, so the holes matter: the
+     * first empty slot takes it, which keeps a storyteller-entered pick in
+     * place (their entry stands — night/applyPlayerAction's ownership rule)
+     * and fills the player's own around it. With every slot full a tap
+     * REPLACES the last one rather than doing nothing — a Fortune Teller who
+     * picked wrong on their second choice should be able to fix it by
+     * pointing somewhere else, not by first un-picking.
+     *
+     * NOTHING IS OPTIMISTIC. This commits and stops; the coin lights when the
+     * host's echo comes back saying it did. That is what makes a refusal
+     * (a slot the storyteller owns) read correctly instead of lighting a coin
+     * that was never recorded.
+     *
+     * `targets` is slot-aligned with `null` for "leave alone" — the wire
+     * shape FT-1005 defined, unchanged, so the host merge is untouched.
+     */
+    nightPick() {
+      const call = this.nightCall;
+      if (!call || !call.slots) return;
+      const cur = this.nightTargets;
+      const targets = new Array(call.slots).fill(null);
+      const at = cur.indexOf(this.index);
+      if (at >= 0) {
+        targets[at] = -1;
+      } else {
+        let slot = -1;
+        for (let i = 0; i < call.slots; i++) {
+          if (!Number.isInteger(cur[i]) || cur[i] < 0) {
+            slot = i;
+            break;
+          }
+        }
+        targets[slot < 0 ? call.slots - 1 : slot] = this.index;
+      }
+      this.$store.commit("night/playerAction", {
+        roleId: call.role.id,
+        targets,
+      });
+    },
     /** FT-1006: open the belief picker for this seat — the same modal the
      *  coin's chip opens, reachable before any chip exists. */
     setBelief() {
@@ -1978,6 +2119,106 @@ export default {
   > .name {
     border-color: #a01414;
     color: #ff8a8a;
+  }
+}
+
+/* ── FT-1107: THE NIGHT'S PICK, WORN ON THE COIN ─────────────────────────
+   Two marks, and they are deliberately different in kind.
+
+   OFFERED (`.night-target`) is a hover state and almost nothing else. Every
+   coin on the ring is a target while the ask is up, so anything permanent
+   here would light the whole clock at once and say nothing — the instruction
+   on the face already says "tap a player". What a mouse needs is to know the
+   coin under it is live, and that is the ring below.
+
+   CHOSEN (`.night-chosen`) is permanent, and it is GOLD — the same
+   #b28f2f/#e2be62 seam the night's own live row and the face panel's chips
+   wear, so a lit coin and its named chip in the hub read as one act. Not
+   red: red is blood, the demon, the bluffs mask and `control-lit` in this
+   app, and a Fortune Teller pointing at a friend is none of those. */
+.player.night-target > .night-pick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* SQUARE, NOT THE WHOLE SEAT. `.player` is taller than it is wide — the
+     name plate hangs below the coin — so a 100%-height box with a 50% radius
+     is an ELLIPSE laid over the coin AND the plate under it. Measured on the
+     first pass and visibly wrong: the ring cut through "Open" on two seats.
+     The coin is the square at the top of the seat (`.token` / `.life` are
+     both `width: 100%` and square), so this is too. */
+  aspect-ratio: 1 / 1;
+  /* above every live box on the seat — the shroud (2), the coin (2), the
+     chair and hand marks (3), the claim overlay (10). See the markup note:
+     covering them is how a night pick is kept from firing a nomination or a
+     vote, rather than by a guard in each of their handlers. */
+  z-index: 12;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 0 rgba(226, 190, 98, 0);
+  transition:
+    box-shadow 150ms,
+    background 150ms;
+
+  &:hover {
+    background: rgba(226, 190, 98, 0.14);
+    box-shadow: inset 0 0 0 3px rgba(226, 190, 98, 0.85);
+  }
+}
+
+/* THE CHOSEN COIN. The ring is drawn on the SEAT, not on the overlay above
+   it, because the overlay is a square box with a radius and the coin is the
+   round thing the eye is actually reading — a glow that tracks the coin's own
+   silhouette is the difference between "this coin is picked" and "a circle
+   has been drawn near this coin". */
+.player.night-chosen {
+  /* the two faces of the coin, and only those — the shroud is a rectangle
+     covering the coin's top 45% and glowing it draws a box, not a coin */
+  > .token,
+  > .life {
+    filter: drop-shadow(0 0 6px rgba(226, 190, 98, 0.95));
+  }
+  > .night-pick {
+    box-shadow: inset 0 0 0 3px #e2be62;
+    background: rgba(226, 190, 98, 0.1);
+  }
+}
+
+/* the slot number, and ONLY when the character has more than one choice to
+   make (nightPickMark) — a lone "1" on a Monk's single pick is a numeral
+   answering a question nobody asked */
+.player .night-pick .np-mark {
+  position: absolute;
+  top: 4%;
+  right: 4%;
+  min-width: 1.35em;
+  height: 1.35em;
+  padding: 0 0.2em;
+  border-radius: 1em;
+  background: #e2be62;
+  color: #1a1208;
+  font-family: PiratesBay, sans-serif;
+  font-size: 75%;
+  line-height: 1.35em;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* A touch screen never enters :hover, so the offer has to show itself —
+   dimly, because the whole ring is offered at once. The same trade the claim
+   overlay makes just below. */
+@media (hover: none) {
+  .player.night-target > .night-pick {
+    box-shadow: inset 0 0 0 2px rgba(226, 190, 98, 0.4);
+    &:active {
+      background: rgba(226, 190, 98, 0.22);
+    }
+  }
+  .player.night-chosen > .night-pick {
+    box-shadow: inset 0 0 0 3px #e2be62;
   }
 }
 

@@ -1344,6 +1344,26 @@ class LiveSession {
     if (this._isSpectator) return;
     const { night, players } = this._store.state;
     const live = night.mode === "everyone";
+    // FT-1107 rider (user, verbatim): "if it is set to storyteller only for
+    // night actions the user doesn't see the action menu at night, but they
+    // still see the log if the story teller fills it in."
+    //
+    // TWO GATES, NOT ONE. `live` is THE ASK — whether this seat gets the
+    // night's prompt on the clock face at all — and only "everyone" turns it
+    // on. `share` is THE RECORD, and it is on in every mode but "off",
+    // because a Storyteller-only town still has a storyteller writing this
+    // seat's row and that row is the player's own night. Until now the two
+    // were the same flag, so choosing "Storyteller" took a player's log away
+    // along with their prompt.
+    //
+    // "off" is the one mode that sends nothing: it means no sheet and no log,
+    // so there is nothing to record and nothing to share.
+    //
+    // The PRIVACY is unchanged and does not depend on which gate is open:
+    // projectEntriesFor scopes to this seat's own rows and strips the lie
+    // mark and the walk-the-list tick, and every seat gets its own direct
+    // frame — never a broadcast.
+    const share = night.mode !== "off";
     const message = {};
     players.players.forEach((player, seat) => {
       if (!player.id) return;
@@ -1352,7 +1372,7 @@ class LiveSession {
         "night",
         {
           live,
-          rows: live ? projectEntriesFor(night.entries, player.id, seat) : [],
+          rows: share ? projectEntriesFor(night.entries, player.id, seat) : [],
         },
       ];
     });

@@ -58,7 +58,12 @@ import {
   makeEntry,
   // FT-1005: the player-safe projection, shared with the socket layer's
   // sender so the wire shape and the client state shape cannot drift.
-  projectPlayerRow
+  projectPlayerRow,
+  // FT-1101: THE one definition of "is the night asking this seat for
+  // something". FT-1107 puts it behind the getters below so the clock face,
+  // the seats and the chronicles all read the same answer rather than each
+  // rebuilding the call from root state.
+  tonightActionFor
 } from "../../golem/nightLog";
 // FT-861: what a seat IS versus what its player is TOLD it is.
 import { beliefOf, isBelieving } from "../../golem/belief";
@@ -244,6 +249,12 @@ const getters = {
     // host-projected rows, already sanitised on the way into the store. The
     // host's own sharing mode gated the send, so no further mode check
     // belongs here — a player's local mode is a different browser's setting.
+    //
+    // FT-1107 rider (user): the town's visibility setting governs THE ASK,
+    // not THE RECORD. On "Storyteller" the host sends this seat's rows all
+    // the same and only `live` goes false, so a player who was never asked
+    // still reads what the storyteller entered for them. Only "off" — no
+    // sheet, no log — sends nothing at all. See socket.js sendNightRows.
     if (rootState.session.isSpectator) return state.playerNight.rows;
     if (state.mode !== "everyone") return [];
     const { playerId, claimedSeat } = rootState.session;
@@ -269,6 +280,71 @@ const getters = {
       // keys FT-1005 added (targets for the player's own pickers, roleId to
       // match the live row, playerText — their own words).
       .map(projectPlayerRow);
+  },
+
+  /**
+   * FT-1107: IS THE NIGHT ASKING **THIS CLIENT** FOR SOMETHING RIGHT NOW?
+   *
+   * The same question ChroniclesDrawer and ChroniclesNights each asked for
+   * themselves, asked ONCE here instead — because FT-1107 moved the asking
+   * onto the clock face, and the clock face is not one component: the ask
+   * itself renders in the town readout (TownInfo) while the picking happens
+   * on the seats (Player). Two components reconstructing "am I being asked"
+   * from root state is exactly the drift the FT-1101 fold was about, one
+   * level up.
+   *
+   * `tonightActionFor` stays the definition; this getter only feeds it the
+   * four things it wants, from the one place that holds them all.
+   *
+   * STORYTELLER NEVER: the host runs the checklist, they are not asked by it.
+   *
+   * `live` is the HOST's sharing verdict (playerNight.live, delivered with
+   * the rows), never this browser's own saved night mode — see the FT-1101
+   * note in ChroniclesDrawer for the bug that rule came from. This is THE
+   * ask gate, and it is the only thing the town's "Storyteller" visibility
+   * setting switches off: a player in a Storyteller-only town is not asked,
+   * and still reads whatever the storyteller entered on their behalf
+   * (FT-1107 rider — see sendNightRows, which shares the ROWS in every mode
+   * but "off").
+   */
+  myCall(state, getters, rootState) {
+    if (!rootState.session.isSpectator) return null;
+    return tonightActionFor({
+      isNight: rootState.grimoire.isNight,
+      live: state.playerNight.live,
+      day: state.day,
+      me:
+        rootState.players.players.find(
+          (p) => p.id && p.id === rootState.session.playerId,
+        ) || null,
+    });
+  },
+
+  /**
+   * FT-1107: this seat's delivered row for tonight's call, or null before the
+   * host has echoed anything. The echo is the truth — a pick is not "made"
+   * until the host says so, which is what keeps a refused pick (a slot the
+   * storyteller filled themselves) from sticking on a coin.
+   */
+  myCallRow(state, getters) {
+    const call = getters.myCall;
+    if (!call) return null;
+    return (
+      getters.myEntries.find(
+        (r) => r.day === state.day && (!r.roleId || r.roleId === call.role.id),
+      ) || null
+    );
+  },
+
+  /**
+   * FT-1107: the seats this client has picked tonight, in slot order, as the
+   * HOST recorded them. `-1` is an empty slot and is kept in place — the slot
+   * a coin lands in is the first empty one, so the holes matter.
+   */
+  myCallTargets(state, getters) {
+    const row = getters.myCallRow;
+    if (!row || !Array.isArray(row.targets)) return [];
+    return row.targets;
   },
 
   /** How much of tonight the storyteller has walked. */

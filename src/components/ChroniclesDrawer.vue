@@ -555,8 +555,23 @@
              saying the night wanted them. So the call now stands where the
              player already is — at the foot of the messages, above the box
              they type into, unmissable and un-scrollable-away. -->
+        <!-- FT-1107 (user): STOOD DOWN, not deleted — the house rule.
+             "oh seems you're only putting it in the chronicle... The
+             interaction should happen on the clock face. not in the chat,
+             the chronicle should just record what was done."
+
+             The band above was right that the player needed to be told the
+             night wanted them and wrong about where. The ask now stands on
+             the town square itself — TownInfo's hub words it, the coins take
+             the pick (Player.vue's night-pick overlay) — so this room goes
+             back to being what its name says: the RECORD. The per-night
+             chronicle block (nightBlockRows, below) is untouched and keeps
+             doing exactly that.
+
+             The markup, the `pinned` dress in NightCall.vue and the
+             nightCall/nightCallRow computeds below all stay where they are. -->
         <NightCall
-          v-if="nightCall"
+          v-if="false"
           pinned
           :action="nightCall"
           :row="nightCallRow"
@@ -682,11 +697,12 @@ import ChroniclesNights from "./ChroniclesNights";
 // that the night wants them) and the BLOCK (a night's actions as one
 // synthetic stream row, private to its owner until the game ends).
 import NightCall from "./NightCall";
-import {
-  nightBlocksOf,
-  nightBlockText,
-  tonightActionFor,
-} from "../golem/nightLog";
+// FT-1107: `tonightActionFor` is no longer imported here — not retired, MOVED
+// BEHIND A GETTER. The function is untouched in golem/nightLog and is still
+// the one definition of "is the night asking this seat"; it is just called in
+// one place now (night/myCall) because the clock face needs the same answer
+// in two components at once. This file reads that getter instead.
+import { nightBlocksOf, nightBlockText } from "../golem/nightLog";
 import uiNight from "../assets/ui-night.png";
 // FT-1019: the filter cells wear the doors' own icons — the gallows keeps
 // the retired vote-history door's art, talk keeps the chat door's.
@@ -1059,10 +1075,20 @@ export default {
      * `playerNight.live` is the HOST's own verdict, delivered per seat with
      * the rows (socket.js sendNightRows), which is the only authority that
      * was ever meant to answer this.
+     *
+     * FT-1107 rider (user): "if it is set to storyteller only for night
+     * actions the user doesn't see the action menu at night, but they still
+     * see the log if the story teller fills it in." So `live` — which is the
+     * town's ASK verdict — stopped being the right test the moment the ask
+     * moved off this drawer entirely. This cell is the RECORD, and a player
+     * in a Storyteller-only town has one as soon as their storyteller writes
+     * a row for them. The real fix is host-side (sendNightRows now shares a
+     * seat's rows in every mode but "off"); this reads whether any arrived.
      */
     canSeeNights() {
       if (!this.session.isSpectator) return false;
-      if (!this.night.playerNight.live) return false;
+      const { live, rows } = this.night.playerNight;
+      if (!live && !rows.length) return false;
       return seatOf(this.$store.state) >= 0;
     },
     /**
@@ -1070,30 +1096,23 @@ export default {
      * The nights view's own question (ChroniclesNights), asked here so the
      * pinned band can stand at the foot of the stream — one definition in
      * golem/nightLog so the two rooms cannot disagree.
+     *
+     * FT-1107: …and the ONE definition moved again, from the helper into the
+     * store (`night/myCall`), because the clock face asks the same question
+     * from two components at once — the hub that words the ask and every
+     * seat that can take the pick. What is left here is the drawer's own
+     * qualifier (History is a reading room, so never in it) on top of that
+     * one answer. The band this fed has stood down; see the template.
      */
     nightCall() {
-      if (!this.session.isSpectator) return null;
       if (this.mode !== "current") return null;
-      return tonightActionFor({
-        isNight: this.grimoire.isNight,
-        live: this.night.playerNight.live,
-        day: this.night.day,
-        me:
-          this.players.find((p) => p.id && p.id === this.session.playerId) ||
-          null,
-      });
+      return this.$store.getters["night/myCall"];
     },
     /** This seat's delivered row for tonight's call, or null before the host
      *  has echoed anything. The echo is the truth; nothing is optimistic. */
     nightCallRow() {
       if (!this.nightCall) return null;
-      return (
-        this.myEntries.find(
-          (r) =>
-            r.day === this.night.day &&
-            (!r.roleId || r.roleId === this.nightCall.role.id),
-        ) || null
-      );
+      return this.$store.getters["night/myCallRow"];
     },
     /**
      * FT-1101: THE NIGHT AS STREAM ROWS — one synthetic block per night,
@@ -1117,11 +1136,25 @@ export default {
     nightBlockRows() {
       if (this.mode !== "current") return [];
       if (this.session.isEnded) return [];
-      if (this.night.mode === "off") return [];
       const gameId = this.chat.gameId;
       if (!gameId) return [];
       const own = this.session.isSpectator;
-      if (own && !this.night.playerNight.live) return [];
+      // FT-1107 rider: TWO GATES, ONE PER READER, and neither is the one that
+      // used to stand here.
+      //
+      // The storyteller reads their OWN log, so their own "off" is the right
+      // question to ask them. A PLAYER's `night.mode` is their own browser's
+      // saved setting and says nothing whatsoever about the town they joined
+      // (the FT-1101 bug in canSeeNights above, one room over) — an evening
+      // spent hosting with the sheet off would have silently emptied their
+      // chronicle in every town afterwards.
+      //
+      // And a player's own gate is no longer `live`: the town's visibility
+      // setting governs the ASK, not the RECORD, so a seat in a
+      // Storyteller-only town reads whatever their storyteller entered for
+      // them. There is nothing left to test — an empty `myEntries` is
+      // already the answer, in every mode, for every reason.
+      if (!own && this.night.mode === "off") return [];
       const blocks = nightBlocksOf(own ? this.myEntries : this.night.entries, {
         own,
       });

@@ -58,6 +58,34 @@
         <font-awesome-icon icon="bell" class="call-mark" />
       </button>
     </li>
+    <!-- ── FT-1107 (user): THE NIGHT ASKS ON THE CLOCK FACE ──────────────
+         "The interaction should happen on the clock face. not in the chat,
+         the chronicle should just record what was done."
+
+         This is the hub the phase readout stood in until FT-1063 emptied it
+         (`.info-phase` above, stood down for every seat) — the one place on
+         the square a player is already looking, dead centre of the ring
+         whose coins are the control. The ask lands here; the picking happens
+         on the seats themselves (Player.vue's night-pick overlay); the
+         storyteller's answer comes back to this same spot.
+
+         IT HANGS BELOW THE HUB rather than nesting in the flex line above.
+         `.info` is a 20%-square box holding the edition badge and two rows
+         of counts, and a three-line ask wedged into it would push those
+         around every dusk. Anchored under the hub the ask has the width of
+         the ring's inside to use and nothing above it moves at all — see
+         `.info-night` in the CSS below.
+
+         WHO SEES IT: only the seat being asked, and only while it is being
+         asked. The whole condition is `night/myCall` — one getter, shared
+         with the seats, and null for the storyteller, for a seat whose
+         character does not wake tonight, and for every seat in a town whose
+         storyteller is not sharing the night. Nothing new crosses the wire
+         for it: the question is built from `me.role`, which this client was
+         dealt, and the answer from this seat's own delivered rows. -->
+    <li class="info-night" v-if="myCall">
+      <NightCall face :action="myCall" :row="myCallRow" :day="night.day" />
+    </li>
     <li
       class="edition"
       :class="['edition-' + edition.id]"
@@ -346,7 +374,13 @@ import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
 // one exists, to clear its own knocker background out of that layer's way
 // -- see hasFaceSplat below.
 
+// FT-1107: the night's own ask, in its clock-face dress. One component with
+// the band form the chronicles used to carry — see NightCall.vue's header for
+// why that band stood down and this took its place.
+import NightCall from "./NightCall";
+
 export default {
+  components: { NightCall },
   data() {
     return {
       countIcons: COUNT_ICONS,
@@ -458,7 +492,11 @@ export default {
     },
     ...mapState(["edition", "grimoire", "night", "session"]),
     ...mapState("players", ["players"]),
-    ...mapGetters("night", ["isFirstNight"])
+    // FT-1107: `myCall` is "the night is asking THIS client for something"
+    // and `myCallRow` is the storyteller's echo of what they answered — both
+    // straight off the store, so this panel holds no copy of the question and
+    // cannot disagree with the seats that answer it.
+    ...mapGetters("night", ["isFirstNight", "myCall", "myCallRow"])
   },
   methods: {
     teamGlyph,
@@ -614,6 +652,81 @@ export default {
       opacity: 0;
       // no hover targets and no tooltips under an opaque plate
       pointer-events: none;
+    }
+  }
+
+  // ── FT-1107: WHERE THE NIGHT'S ASK STANDS ────────────────────────────
+  //
+  // Out of the flex line, under the hub. `.info` is a 20%-square box and its
+  // two count rows are the town's permanent furniture; an ask that joined
+  // that line would shove them down every dusk and pull them back every
+  // dawn. Absolutely positioned against `.info` (which is itself positioned,
+  // so this is anchored on the hub, not on the window), it appears and
+  // disappears without moving a single thing above it.
+  //
+  // The width is the ring's inside, near enough — wide enough for a full
+  // instruction line at two lines, narrow enough to clear the coins left and
+  // right at every viewport this square is playable at.
+  //
+  // POINTER-EVENTS ARE OFF except on the free-text box. Everything here is
+  // words; the CONTROL is the ring of coins, and an invisible rectangle of
+  // text laid over the bottom of the clock would eat clicks meant for the
+  // seats behind it. The one exception is the input a control-less character
+  // types into, which has to take a caret.
+  .info-night {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 355px;
+    max-width: 78vw;
+    display: block;
+    font-weight: normal;
+    text-shadow: none;
+    filter: none;
+    pointer-events: none;
+    z-index: 3;
+
+    // `::v-deep` because the input belongs to NightCall's template and so
+    // wears NightCall's scope id, not this file's — a plain descendant
+    // selector here would never match it.
+    ::v-deep input {
+      pointer-events: auto;
+    }
+
+    // ── ON A SMALL SCREEN THE ASK LEAVES THE HUB ──────────────────────
+    //
+    // Under the hub is the right place only while the ring is big enough
+    // for there to BE an under-the-hub. On a phone the ring is 355px of a
+    // 375px window: the seat at six o'clock sits about 150px below the
+    // dial's centre, and the ask landed on top of it — character name
+    // behind a coin, instruction behind a name plate (measured at
+    // 375x812, first pass; the screenshot is in this task's shots).
+    //
+    // The room a phone does have is the band UNDER the ring, which is
+    // empty on every screen this square is played on in portrait. So the
+    // ask stands there instead, above the session pill, still on the town
+    // square and still nowhere near a drawer.
+    //
+    // THE QUERY IS SIZE, NOT POINTER, deliberately — the rest of this file
+    // gates phone layout on `pointer: coarse`, which is right for rules
+    // about TOUCH. This one is about whether the ring left any room, and a
+    // narrow desktop window has exactly the same problem with a mouse.
+    @media (max-width: 760px), (max-height: 620px) {
+      position: fixed;
+      top: auto;
+      bottom: 66px;
+      width: min(92vw, 355px);
+      max-width: none;
+
+      // …and the bottom of a phone is also where every drawer comes up as a
+      // sheet. The ask steps aside for it rather than floating over it: a
+      // player with the chronicles open is reading, not answering, and the
+      // ask is back the moment they close it. Opacity, not display, so it
+      // rides the fade #app already gives its children.
+      #app.sheet-up & {
+        opacity: 0;
+      }
     }
   }
 

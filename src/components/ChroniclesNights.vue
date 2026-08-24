@@ -20,7 +20,25 @@
          messages had no way to learn the night wanted them (the user's Imp).
          Same commits, same echo, same schema reads; only the room count
          changed. -->
-    <section v-if="tonight" class="nd-tonight">
+    <!-- FT-1107 (user): STOOD DOWN, not deleted — the house rule. "The
+         interaction should happen on the clock face. not in the chat, the
+         chronicle should just record what was done."
+
+         This was the ORIGINAL room for the night's controls (FT-1005) and
+         the last one still holding a copy of them. It goes for the same
+         reason the drawer's pinned band did, plus one of its own: with the
+         ask standing on the town square there must be exactly ONE place to
+         answer it, or a player who finds this one will wonder which of the
+         two the storyteller is actually reading.
+
+         What is left in this view is the whole point of it — the record,
+         night by night, of what this seat did and was told. Tonight's own
+         row is part of that record and now appears in the list below like
+         every other night's (see `nights`), rather than being held out for a
+         live section that no longer renders.
+
+         The `tonight` / `tonightRow` computeds stay below, unused. -->
+    <section v-if="false" class="nd-tonight">
       <h4>Tonight — Night {{ night.day }}</h4>
       <NightCall :action="tonight" :row="tonightRow" :day="night.day" />
     </section>
@@ -108,13 +126,18 @@ export default {
         ) || null
       );
     },
-    /** Their own rows, newest night first — minus tonight's live row, which
-     *  renders in the Tonight section above rather than twice. */
+    /**
+     * Their own rows, newest night first.
+     *
+     * FT-1107: EVERY row now, tonight's included. The exclusion that stood
+     * here kept tonight's live row out of the list because the Tonight
+     * section above rendered it — and that section has stood down, so
+     * without this the night in progress would be the one night a player
+     * could not read back. The record is complete or it is not a record.
+     */
     nights() {
-      const liveId = this.tonightRow ? this.tonightRow.id : null;
       const byDay = new Map();
       this.myEntries.forEach((row) => {
-        if (liveId && row.id === liveId) return;
         if (!byDay.has(row.day)) byDay.set(row.day, []);
         byDay.get(row.day).push(row);
       });
