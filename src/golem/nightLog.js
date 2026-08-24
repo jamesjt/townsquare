@@ -359,6 +359,13 @@ export function makeEntry({
     // the storyteller's mark that the delivered information was FALSE
     // (drunk, poisoned, a Recluse read). With `told` this recovers the truth.
     isFalseInfo: false,
+    // FT-1121: WHO SET THAT MARK — "" (nobody; it follows the truth oracle's
+    // own verdict, golem/nightTruth) or "storyteller" (a hand on the mask,
+    // and from then on the hand wins). The key exists here rather than being
+    // added on first click for the reason stated at the top of makeEntry:
+    // Vue 2 cannot see keys added later. It is storyteller-only data and is
+    // absent from projectPlayerRow's whitelist, exactly like isFalseInfo.
+    lieBy: "",
     // the storyteller's walk-the-list checkmark
     done: false,
     // last write, so a replay can order rows inside one night

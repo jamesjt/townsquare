@@ -358,13 +358,44 @@
                 &ldquo;{{ entryFor(row).playerText }}&rdquo;
               </span>
 
+              <!-- FT-1121: THE GRIMOIRE'S OWN ANSWER, beside the row.
+                   Storyteller-only like everything else in this component,
+                   and shown ONLY where golem/nightTruth can actually compute
+                   it — an uncomputable row shows nothing at all rather than
+                   an empty slot that would read as "no evil neighbours".
+
+                   It exists so a storyteller lies ON PURPOSE. The mask a few
+                   pixels to its right says WHETHER what they gave was false;
+                   this says WHAT WOULD HAVE BEEN TRUE, and it is deliberately
+                   the quieter of the two — sage rather than gold, because
+                   gold on this row means "not true" (see .ns-lie's colour
+                   note) and this is the opposite statement. The word
+                   "poisoned" / "drunk" rides it when the seat is impaired, so
+                   a lit mask beside it reads as correct play rather than as a
+                   mistake. -->
+              <span
+                v-if="truthOf(row).known"
+                class="ns-oracle"
+                :class="{ differs: verdictFor(row).differs === true }"
+                :title="truthHint(row)"
+              >
+                <span class="ns-oracle-tag">truth</span>
+                <span class="ns-oracle-val">{{ truthOf(row).display }}</span>
+                <span class="ns-oracle-imp" v-if="impairedOf(row)">{{
+                  impairedOf(row)
+                }}</span>
+              </span>
+
               <span
                 v-if="extraFieldsFor(row).mayBeFalse"
                 class="ns-lie"
-                :class="{ on: entryFor(row).isFalseInfo }"
+                :class="{
+                  on: lieOn(row),
+                  byhand: entryFor(row).lieBy === 'storyteller',
+                }"
                 tabindex="0"
                 role="checkbox"
-                :aria-checked="String(entryFor(row).isFalseInfo)"
+                :aria-checked="String(lieOn(row))"
                 :title="lieHint(row)"
                 @click="toggleLie(row)"
                 @keyup.enter="toggleLie(row)"
@@ -508,6 +539,13 @@ import { extraFields, renderableType, labelFor } from "../golem/nightInfo";
 // FT-986: the seat pickers' own colour reads WHAT THE VIEWER IS TOLD, never
 // what they are — see believedAlignment's own header for why.
 import { believedAlignment } from "../golem/belief";
+// FT-1121: THE TRUTH ORACLE. Reads `player.role` — the grimoire's truth —
+// which only this client holds, and is imported HERE and nowhere else on
+// purpose: this component mounts for the storyteller alone (App.vue's
+// !isSpectator gate, the file header above) and no store getter reads that
+// module, so an oracle verdict cannot be computed anywhere a player can see.
+// See nightTruth's own HOST-SIDE section.
+import { lieVerdictFor, impairmentOf } from "../golem/nightTruth";
 import SeatPicker from "./SeatPicker";
 import CharacterPicker from "./CharacterPicker";
 // FT-874: the shared drag-scrub / click-to-type number control (also used by
@@ -659,6 +697,34 @@ export default {
       if (this.isStoryteller) return "storyteller";
       return believedAlignment(this.viewerPlayer);
     },
+    /**
+     * FT-1121: TONIGHT'S TRUTH, ROW BY ROW — keyed by the same render key the
+     * rows carry. One pass over the roster rather than a call per template
+     * binding (the mark, the chip and two tooltips all want the same verdict),
+     * and it re-derives itself whenever the grimoire or the log moves: a seat
+     * dying, the herring being dragged, a target being pointed at.
+     *
+     * NOT STORED, and that is the whole override story — see `lieOn` below.
+     *
+     * The `isStoryteller` guard is belt-and-braces, not the gate: this
+     * component never mounts for a player and `roster` answers [] to one
+     * anyway. It is here so that the one place in the fork that reads true
+     * roles states its own condition rather than inheriting it.
+     */
+    verdicts() {
+      const out = {};
+      if (!this.isStoryteller) return out;
+      const rows = this.roster;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        out[row.key] = lieVerdictFor({
+          players: this.players,
+          row,
+          entry: this.entryFor(row),
+        });
+      }
+      return out;
+    },
     /** The script's characters, for CharacterPicker's option list (a public
      *  fact — every player already knows the script from the Almanac). */
     scriptRoles() {
@@ -787,12 +853,63 @@ export default {
         told: { ping: null, number: null, characterId: "", characterName: "", text: "" },
         // FT-1034 (user call): the Drunk's information is a lie by default —
         // a performance row starts with the marker lit.
+        //
+        // FT-1121: THIS DEFAULT NEVER SURVIVED FIRST TOUCH, and finding that
+        // out is part of this card. It lives only on the UNWRITTEN stand-in;
+        // the moment the storyteller typed anything, night/write built a real
+        // entry from makeEntry (isFalseInfo: false) and the lit mask went
+        // dark. So the answer to "is the Drunk default overridable today" was
+        // "it is not a default, it is a placeholder". It is a real one now:
+        // `lieOn()` reads the derived verdict, whose floor IS row.isPerformance
+        // (see nightTruth's lieVerdictFor), and that floor holds for the whole
+        // life of the row. The line below is kept, unread, so the stand-in
+        // still describes the same row the derived state draws.
         isFalseInfo: !!row.isPerformance,
+        // FT-1121: nobody has taken the mask by hand — see lieOn/toggleLie.
+        lieBy: "",
         done: false
       };
     },
+    /**
+     * FT-1121: writes now also KEEP THE STORED MARK HONEST.
+     *
+     * The lie mark is DERIVED for display (lieOn), but it is also a stored
+     * field two other surfaces read — golem/chronicle copies it onto a night
+     * event and ChronicleDrawer renders it as the word "false" — and
+     * golem/nightLog's entry shape depends on it ("`told` is the delivered
+     * information and `isFalseInfo` marks it as a lie; the truth is
+     * recoverable from the pair"). A derived-only mark would leave that stored
+     * pair unrecoverable.
+     *
+     * So every write that is not itself about the mark stamps the verdict as
+     * of the post-patch row. That lands on exactly the write that matters —
+     * the storyteller setting what they told — and it never happens on a row
+     * the storyteller has taken by hand (`lieBy`), which is what makes the
+     * override stick through later edits.
+     *
+     * A grimoire change AFTER the last write (a seat dying, the herring
+     * dragged elsewhere) leaves the stored value one beat behind while the
+     * LIVE mask stays right, because the mask re-derives and the record does
+     * not. That is the correct direction for a record of what a storyteller
+     * did at the time, and the next touch of the row restamps it.
+     */
     write(row, patch) {
-      this.$store.dispatch("night/write", { row, patch });
+      const next = { ...patch };
+      const entry = this.entryFor(row);
+      const byHand = entry.lieBy === "storyteller";
+      if (!byHand && !("isFalseInfo" in next) && !("lieBy" in next)) {
+        const merged = {
+          ...entry,
+          ...next,
+          told: { ...entry.told, ...(next.told || {}) },
+        };
+        next.isFalseInfo = lieVerdictFor({
+          players: this.players,
+          row,
+          entry: merged,
+        }).auto;
+      }
+      this.$store.dispatch("night/write", { row, patch: next });
     },
     /**
      * FT-882: the day counter, moved by hand.
@@ -849,17 +966,111 @@ export default {
     toggleDone(row) {
       this.write(row, { done: !this.entryFor(row).done });
     },
+    /**
+     * FT-1121: this row's verdict — the true answer, whether what was told
+     * differs from it, and the mark's derived state. Never null: an
+     * uncomputable row answers `known: false` and everything below reads that
+     * as "say nothing".
+     */
+    verdictFor(row) {
+      return (
+        this.verdicts[row.key] || {
+          truth: { known: false, display: "", why: "" },
+          differs: null,
+          auto: false,
+        }
+      );
+    },
+    /** FT-1121: the true answer for this row, or an unknown. */
+    truthOf(row) {
+      return this.verdictFor(row).truth;
+    },
+    /**
+     * FT-1121: IS THE MASK LIT?
+     *
+     * A hand on the mask wins, always and for good — that is the whole of
+     * `lieBy`. With no hand on it the mark follows the oracle: lit when what
+     * was told differs from the grimoire's own answer, and lit on a
+     * performance row whatever the value (see nightTruth's lieVerdictFor for
+     * why those are two different claims). A row the oracle cannot compute
+     * and that nobody has touched is never lit.
+     */
+    lieOn(row) {
+      const entry = this.entryFor(row);
+      if (entry.lieBy === "storyteller") return !!entry.isFalseInfo;
+      return this.verdictFor(row).auto;
+    },
+    /**
+     * FT-1121: clicking the mask sets it BY HAND, and a hand-set mask stops
+     * following the oracle — auto-lighting must never fight a storyteller who
+     * has already answered the question.
+     *
+     * Clicking it back to whatever the oracle says releases it to auto again
+     * (`lieBy` clears), so there is a way home from an override without a
+     * third control on a row that has no room for one.
+     */
     toggleLie(row) {
-      this.write(row, { isFalseInfo: !this.entryFor(row).isFalseInfo });
+      const next = !this.lieOn(row);
+      const auto = this.verdictFor(row).auto;
+      this.write(row, {
+        isFalseInfo: next,
+        lieBy: next === auto ? "" : "storyteller",
+      });
     },
     /** FT-874 (2026-08-19): the liar mark says which of its two states it is
      *  in, in words. The glyph is identical in both — brightness is the only
      *  visual difference — so the hover text carries the state as well as the
-     *  action, the way every other two-state control on this row does. */
+     *  action, the way every other two-state control on this row does.
+     *
+     *  FT-1121: ...and now says WHY it is in that state — set by hand, lit
+     *  because the row is a performance, or lit because what was told differs
+     *  from the grimoire. A mark that sets itself has to be able to say so. */
     lieHint(row) {
-      return this.entryFor(row).isFalseInfo
-        ? "Marked FALSE — what you told them was a lie. Click to unmark."
-        : "Mark what you told them FALSE (drunk, poisoned, a misread)";
+      const entry = this.entryFor(row);
+      const on = this.lieOn(row);
+      if (entry.lieBy === "storyteller") {
+        return on
+          ? "Marked FALSE by you — this stays marked whatever the grimoire says. Click to unmark."
+          : "Unmarked by you — this stays unmarked whatever the grimoire says. Click to mark.";
+      }
+      if (!on) {
+        const truth = this.truthOf(row);
+        return truth.known
+          ? "What you told them matches the grimoire. Click to mark it FALSE anyway."
+          : "Mark what you told them FALSE (drunk, poisoned, a misread)";
+      }
+      const reason = row.isPerformance
+        ? "they are not really the " + row.role.name
+        : "it differs from the grimoire (" + this.truthOf(row).display + ")";
+      return "FALSE — set on its own because " + reason + ". Click to unmark.";
+    },
+    /**
+     * FT-1121: the word for how this seat is impaired — "poisoned", "drunk",
+     * or "". It rides the true answer as a quiet note, never the mark: it is
+     * the context that makes a lit mask read as "yes, correctly lying" rather
+     * than as an accusation. Read off the seat's own reminder tokens, which
+     * are the only place this app records the state at all.
+     */
+    impairedOf(row) {
+      return impairmentOf(this.players[row.seat]);
+    },
+    /** FT-1121: what the true-answer chip explains about itself on hover —
+     *  the rule that produced it, and the impairment when there is one. */
+    truthHint(row) {
+      const truth = this.truthOf(row);
+      if (!truth.known) return "";
+      const impaired = this.impairedOf(row);
+      return (
+        "The grimoire's own answer: " +
+        truth.display +
+        ". " +
+        truth.why +
+        (impaired
+          ? " This seat is " +
+            impaired +
+            " — false information here is you playing correctly."
+          : "")
+      );
     },
     setNote(row, text) {
       this.writeTold(row, { text });
@@ -2132,6 +2343,55 @@ $ns-team-colors: (
     }
   }
 
+  // FT-1121: THE GRIMOIRE'S OWN ANSWER. Sage, not gold and not purple, and
+  // the choice follows this sheet's existing line rather than adding to it:
+  // purple is CHROME (things you press), gold is WHAT IS NOT TRUE (.ns-lie,
+  // .ns-truth, .ns-player-said). This is the one thing on the row that IS
+  // true, so it takes neither, and it stays a shade under both so a scan
+  // finds the lit mask first.
+  //
+  // A LABEL AND A VALUE, not a bare number: "1" alone beside a number scrub
+  // showing "2" reads as a second input. The tag says which of the two is
+  // being claimed.
+  .ns-oracle {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    flex-shrink: 0;
+    max-width: 190px;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1;
+    color: #8fbfa8;
+    cursor: default;
+  }
+  .ns-oracle-tag {
+    font-size: 9.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    opacity: 0.55;
+  }
+  .ns-oracle-val {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  // the impairment note — quieter again, and italic, because it is a fact
+  // about the SEAT rather than part of the answer
+  .ns-oracle-imp {
+    font-size: 10.5px;
+    font-style: italic;
+    opacity: 0.65;
+  }
+  // the told answer and the truth have parted company: the mask beside this
+  // is lit, and a hairline pairs the two so the eye reads them together
+  // rather than hunting for the reason
+  .ns-oracle.differs {
+    color: #a8d6bd;
+    border-left: 2px solid rgba(143, 191, 168, 0.45);
+    padding-left: 6px;
+  }
+
   // FT-862: the lie flag shares the same box treatment and height as every
   // other action control, not a bare floating glyph at a different weight.
   // FT-874: the note-toggle this was paired with is gone — the verb plus
@@ -2219,6 +2479,16 @@ $ns-team-colors: (
         border-color: #b8892f;
         background: rgba(184, 137, 47, 0.24);
       }
+    }
+    // FT-1121: PINNED BY HAND — this mask has stopped following the truth
+    // oracle. Said with the smallest mark there is (a firmer edge) because it
+    // is not a third STATE of the mark, it is a fact about why the mark is
+    // where it is; the sentence rides the tooltip (lieHint).
+    &.byhand {
+      border-color: rgba(150, 130, 175, 0.62);
+    }
+    &.on.byhand {
+      border-color: #b8892f;
     }
   }
 
