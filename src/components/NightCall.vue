@@ -42,7 +42,24 @@
        One component, three dresses, ONE question — `night/myCall` — so the
        face and the seats can never disagree about whether this player is
        being asked. -->
-  <div class="nc" :class="{ pinned, face }">
+  <!-- ── FT-1113 (user): THE ASK TAKES THE MIDDLE ─────────────────────────
+
+       "Move the ask to the middle and let the counts yield while you're
+       being asked. Make the answer the loudest thing on the face. But keep
+       the name chips. make them blue though."
+
+       FT-1107 hung this form BELOW the counts — deliberately, so nothing
+       above it moved at dusk. The cost was that the one thing the player
+       must ACT on sat underneath a stack of storyteller bookkeeping, at the
+       narrowest part of the disc. It stands in the dial's own centre now
+       (TownInfo owns the move; see `.info-night` there), and the two things
+       that changed HERE are hierarchy, not position:
+
+         `told`   once the storyteller's answer has landed, the instruction
+                  that got the player this far steps back — it is spent, and
+                  the answer is the whole point of the turn.
+         the chips wear the townsfolk blue instead of the coin's gold. -->
+  <div class="nc" :class="{ pinned, face, told: face && answer.length > 0 }">
     <!-- ── THE FACE FORM (FT-1107) ─────────────────────────────────────── -->
     <template v-if="face">
       <span class="nf-role">{{ action.role.name }}</span>
@@ -352,6 +369,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-1113: the team palette, for the chips' blue — `$townsfolk` is the ONE
+// blue this fork has and it is already on this very panel (TownInfo's
+// townsfolk count and glyph wear it), so the chips take it rather than
+// inventing a second one.
+@import "../vars.scss";
+
 // FT-1101: the FT-1005 nights-view furniture (.nd-row + the .nd-tonight
 // overrides), moved here WHOLE with the markup it dresses. Scoped styles do
 // not reach into a child component, so the look had to travel with the
@@ -527,6 +550,29 @@ export default {
   font-weight: bold;
 }
 
+// ── FT-1113: THE HIERARCHY INVERTS ONCE THE ANSWER LANDS ─────────────────
+//
+// Reading order and visual order stop agreeing here, on purpose. The role,
+// the ability line and the instruction come FIRST because that is the order
+// a player needs them in — who am I, what do I do, do it — and each one is
+// spent the moment it has been read. The answer comes LAST in the markup and
+// is the entire point of the turn, so once it exists the three lines above it
+// stand back and let it be the loudest thing on the dial.
+//
+// The character's NAME does not dim: it is the only line that says whose
+// answer this is, and an unlabelled "Yes" glowing on a clock face is a riddle.
+// The two that do dim are both instructions, and an instruction that has
+// already been followed is the cheapest ink on the face.
+.nc.face.told {
+  .nf-line {
+    opacity: 0.55;
+  }
+  .nf-ask {
+    opacity: 0.6;
+    font-weight: normal;
+  }
+}
+
 .nf-chosen {
   display: flex;
   flex-wrap: wrap;
@@ -535,41 +581,104 @@ export default {
   margin-top: 1px;
 }
 
-// a picked seat's NAME, dressed as the coin's own gold ring is (Player.vue's
-// `.night-picked`) so the chip and the lit coin read as the same act
+// a picked seat's NAME.
+//
+// IT USED TO BE GOLD, dressed as the coin's own lit ring is (Player.vue's
+// `.night-picked`) so the chip and the lit coin read as the same act. FT-1113
+// (user: "keep the name chips. make them blue though") takes the blue, and
+// the pairing with the coin is what it costs — written down rather than left
+// to be rediscovered as a bug. What it buys is separation: the instruction
+// above these is gold, the answer below them is green or red, and a third
+// gold thing between two loud ones was the one row on the face with no colour
+// of its own.
+//
+// THE BLUE IS `$townsfolk` (#1f65ff, src/vars.scss) — the fork's only blue,
+// and one already on this panel: TownInfo's own townsfolk count and glyph
+// wear it, four lines under where these chips now stand. Not a new value.
+//
+// The NAME stays white rather than taking the blue as ink. #1f65ff is a
+// saturated mid-blue, and a seat's name at 78% type is the one thing on this
+// row that has to be read rather than recognised; the ring and the wash carry
+// the colour, the way `.button.townsfolk` (App.vue) has always put white type
+// on this same blue.
 .nf-chip {
   font-size: 78%;
   padding: 0 7px;
   border-radius: 9px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(226, 190, 98, 0.75);
-  color: #f0dcae;
+  background: rgba($townsfolk, 0.32);
+  border: 1px solid rgba($townsfolk, 0.9);
+  color: #fff;
 }
 
+// ── FT-1113: THE ANSWER IS THE LOUDEST THING ON THE FACE ─────────────────
+//
+// It was 90%-ish bold text in a small dark pill under the chips, and it is
+// the whole reason the player was asked anything: the Fortune Teller's "Yes",
+// the Empath's number, the character an Undertaker was shown. It is now the
+// biggest and brightest element in the composition — bigger than the role
+// name (118%), which was the previous top of the type scale.
+//
+// PIRATESBAY, because this app's display face is what it already reaches for
+// when an element is meant to be READ FROM ACROSS THE TABLE (the role name
+// right above it, the Start and End-night buttons, the winner banner). A
+// 230% Roboto Condensed is merely large; the display face is the app saying
+// "this one".
+//
+// THE COLOUR LANGUAGE IS UNTOUCHED — #7ed67e for yes and #ff8a8a for no are
+// the exact hexes the band form has carried since FT-1005, and they stay to
+// the byte. What is added is a HALO in each answer's own colour, which is how
+// everything else on this dial (the count glyphs, the team digits) says
+// "bright" against hand-painted art that varies underneath.
 .nf-told {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px;
-  margin-top: 2px;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-top: 4px;
 
   // restated rather than inherited: the band's `.nd-told` is nested inside
   // `.nd-row`, which the face form does not have
   .nd-told {
-    padding: 0 10px;
-    border-radius: 9px;
+    font-family: PiratesBay, sans-serif;
+    letter-spacing: 1px;
+    font-size: 230%;
+    line-height: 1.1;
+    padding: 0 12px;
+    border-radius: 10px;
     font-weight: bold;
-    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    background: rgba(0, 0, 0, 0.42);
+    text-shadow:
+      0 0 5px black,
+      0 0 12px black;
     &.yes {
       color: #7ed67e;
+      text-shadow:
+        0 0 5px black,
+        0 0 14px rgba(126, 214, 126, 0.75);
     }
     &.no {
       color: #ff8a8a;
+      text-shadow:
+        0 0 5px black,
+        0 0 14px rgba(255, 138, 138, 0.75);
     }
+    // THE ONE ANSWER THAT DOES NOT GROW. A character's own free words are a
+    // sentence, not a token — set at 230% display type it wraps to three
+    // lines and pushes itself off the dial. It keeps the old pill, one step
+    // up in size, and the loudness rule is answered by the fact that nothing
+    // else on the face is a sentence either.
     &.words {
+      font-family: inherit;
+      letter-spacing: normal;
+      font-size: 95%;
       font-weight: normal;
       font-style: italic;
-      font-size: 85%;
+      padding: 0 10px;
+      text-shadow:
+        0 0 4px black,
+        0 0 10px black;
     }
   }
 }

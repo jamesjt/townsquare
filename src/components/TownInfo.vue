@@ -13,7 +13,10 @@
        the same dial point. `splat-live` (hasFaceSplat below) clears it,
        letting the layer beneath show through this box's own transparent
        gaps once the mark exists. -->
-  <ul class="info" :class="{ 'splat-live': hasFaceSplat }">
+  <ul
+    class="info"
+    :class="{ 'splat-live': hasFaceSplat, 'night-asking': !!myCall }"
+  >
     <!-- FT-880/FT-1051: CALL THE TOWN BACK — every connected client makes a
          noise at once. It lived in the top strip (Menu.vue); FT-1051 (user)
          stood it here instead, ABOVE the script name, in the phase chip's
@@ -75,6 +78,23 @@
          around every dusk. Anchored under the hub the ask has the width of
          the ring's inside to use and nothing above it moves at all — see
          `.info-night` in the CSS below.
+
+         ── FT-1113 (user): AND BELOW THE HUB WAS THE WRONG HALF OF IT. ──
+
+         "Move the ask to the middle and let the counts yield while you're
+         being asked."
+
+         The paragraph above solved the right problem the timid way. Nothing
+         above the ask moved — because the ask went and stood at the NARROW
+         end of the dial, underneath a stack of storyteller bookkeeping, and
+         the one thing on this square the player has to act on ended up
+         beneath the four numbers they do not. The disc is widest at its
+         centre and that is also where an instruction line and a row of name
+         chips have the most room, so the centre is the geometrically right
+         home and not merely the prettier one.
+
+         The counts still do not get pushed around — see `.info.night-asking`
+         in the CSS below for what "yield" turned out to mean.
 
          WHO SEES IT: only the seat being asked, and only while it is being
          asked. The whole condition is `night/myCall` — one getter, shared
@@ -655,6 +675,60 @@ export default {
     }
   }
 
+  // ── FT-1113: THE COUNTS YIELD WHILE THIS SEAT IS BEING ASKED ─────────
+  //
+  // "let the counts yield while you're being asked" (user). YIELD, not go
+  // away: this is the fourth surface in the fork to stand something down
+  // rather than unmount it (the disc gate right above, `.info-phase`, the
+  // retired winner line), and it is the same move for the same reason —
+  // every one of these numbers is back the instant the ask is.
+  //
+  // WHAT "YIELD" TURNED OUT TO MEAN: FADE IN PLACE, KEEPING THE BOX. The two
+  // count rows are the only IN-FLOW children `.info` has (the edition badge
+  // and the ask are both absolutely positioned), and `.info` is a flex box
+  // with `align-content: center` — so collapsing them, or moving them, or
+  // giving them `display: none`, all re-run that centring against a changed
+  // set of children. A player is asked on many nights; that transition runs
+  // over and over, and any of those three would have it settle from a
+  // different place each time. Fading leaves every box exactly where it was,
+  // so there is nothing left that CAN drift or jump: the only property
+  // animating is opacity, the ask is anchored on the dial rather than on
+  // anything that moved, and the return is the same 240ms backwards.
+  //
+  // ALL THE WAY TO ZERO, not to a ghost. A part-faded row of digits under a
+  // 230% answer is worse than no row at all — it reads as a rendering fault
+  // rather than as furniture standing back, and the ask needs clean ground
+  // under it more than the counts need to be half-legible.
+  //
+  // POINTER-EVENTS GO WITH THE OPACITY, because each stat carries a hover
+  // tooltip and a focus ring, and an invisible row that still answers the
+  // mouse pops a black plate out of an empty dial.
+  //
+  // THE STORYTELLER'S OWN CENTRE NEVER DOES THIS. `myCall` is null for them,
+  // for a seat whose character does not wake tonight, and for every seat in a
+  // town whose storyteller is not sharing the night — so this class is on the
+  // one client that is actually being asked for something, and every other
+  // screen in the town keeps its counts all night.
+  // AND THE SCRIPT BADGE YIELDS WITH THEM, which the user's sentence did not
+  // name and the first pass therefore did not do. Shot at both viewports with
+  // only the counts faded (claude_temp_test/2026-08-24-ft1113-middle-shots,
+  // first run): `li.edition` is a 220x200 box at `top: -25%` of a 20%-square
+  // `.info`, so it does not sit NEAR the middle — it IS the middle, and Trouble
+  // Brewing's logo painted straight through the ability line and the name chips.
+  // It belongs to the same class as the counts by every test that matters: it
+  // is permanent furniture, it is storyteller bookkeeping (which script is
+  // running), it is not the thing being asked, and it is back the instant the
+  // ask is. Clearing the counts and leaving the loudest object in the middle
+  // exactly where it was would have answered the words and missed the point.
+  &.night-asking {
+    li.counts-row,
+    li.teams-row,
+    li.edition {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
   // ── FT-1107: WHERE THE NIGHT'S ASK STANDS ────────────────────────────
   //
   // Out of the flex line, under the hub. `.info` is a 20%-square box and its
@@ -673,11 +747,34 @@ export default {
   // text laid over the bottom of the clock would eat clicks meant for the
   // seats behind it. The one exception is the input a control-less character
   // types into, which has to take a caret.
+  //
+  // ── FT-1113 (user): AND IT STANDS IN THE MIDDLE NOW ──────────────────
+  //
+  // `top: 100%` put it BELOW the hub — which is `.info`'s bottom edge, a box
+  // whose own placement is a flex artefact rather than a fact about the dial.
+  // It lands on the DIAL'S MEASURED CENTRE instead, off the same two custom
+  // properties `.info-phase` has used since FT-1061 (`--ti-dial-cx` /
+  // `--ti-dial-cy`, declared at the top of this rule): the exact point the
+  // numeral ring is drawn around, so the ask is centred on the clock rather
+  // than on a box that happens to sit near it, and it tracks the face at
+  // every viewport the way the numerals and the hands do.
+  //
+  // THE WIDTH IS UNCHANGED AND IT DID NOT NEED TO CHANGE — it got roomier
+  // for free. 355px is a chord of ±177.5px, and this now sits where the
+  // half-chord is the full radius: 211.6px at 1280x800 (`--face-r` 238 x
+  // `--fpx` 0.889), 285.6px at 1920x1080. Below the hub the same box was
+  // measuring itself against a chord ~150px down, which is the narrow part.
+  //
+  // TWO STACKED TRANSFORMS WOULD HAVE BEEN A BUG, so there is one:
+  // `translate(-50%, -50%)` centres the box on that point in both axes. The
+  // phone branch below restates `left`/`transform` rather than inheriting
+  // them, because a `position: fixed` box resolves those percentages against
+  // the viewport and not against `.info`.
   .info-night {
     position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    left: var(--ti-dial-cx);
+    top: var(--ti-dial-cy);
+    transform: translate(-50%, -50%);
     width: 355px;
     max-width: 78vw;
     display: block;
@@ -716,6 +813,12 @@ export default {
       position: fixed;
       top: auto;
       bottom: 66px;
+      // FT-1113: restated, not inherited. The desktop rule above now anchors
+      // on the dial's own centre and translates in BOTH axes; a fixed box
+      // resolves `left: 50%` against the viewport, and a Y translate on a
+      // bottom-anchored box would lift it half its own height off the mark.
+      left: 50%;
+      transform: translateX(-50%);
       width: min(92vw, 355px);
       max-width: none;
 
@@ -974,6 +1077,13 @@ export default {
   li.counts-row,
   li.teams-row {
     position: relative;
+    // FT-1113: the yield's own ease. Declared on the rows themselves rather
+    // than inside `.night-asking`, so the fade runs in BOTH directions — a
+    // transition that only exists on the away-class snaps back on the return,
+    // which is the drift-and-jump this whole treatment is avoiding. 240ms is
+    // NightCall's own arrival, near enough, and well inside the second the
+    // night backdrop takes to fall.
+    transition: opacity 240ms ease;
     // FT-1071: the frost trade. This drop-shadow (restated from the shared
     // `li` rule above, unchanged) makes the row a BACKDROP ROOT — a
     // backdrop-filter inside a filtered ancestor samples only within that
@@ -1021,6 +1131,9 @@ export default {
   }
 
   li.edition {
+    // FT-1113: the same ease the count rows carry, on the element rather than
+    // on the away-class, so the badge fades back as smoothly as it faded out
+    transition: opacity 240ms ease;
     width: 220px;
     height: 200px;
     max-width: 100%;
