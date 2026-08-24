@@ -740,21 +740,43 @@
                   </div>
                 </div>
                 <!-- reminder tokens as REAL PILLS — type + Enter mints one,
-                 click one to remove it; the stored shape stays the
-                 comma-joined string -->
+                 the × removes it. FT-1120: the pill's NAME is a control now,
+                 not just a label: clicking it opens that token's deal rule,
+                 and a token the deal will place wears a mark. The pills ARE
+                 the stored shape (see THE FORGE'S REMINDER ENTRY). -->
                 <div class="forge-group fg-rem">
                   <span class="forge-label">Reminder tokens</span>
-                  <span class="rem-pills">
-                    <button
+                  <span class="rem-pills" ref="remPills">
+                    <span
                       v-for="(r, i) in reminderPills"
                       :key="'rem' + i"
-                      type="button"
                       class="rem-pill"
-                      :title="'Remove “' + r + '”'"
-                      @click="removeReminderPill(i)"
+                      :class="{ dealt: !!r.deal, editing: dealPop === i }"
                     >
-                      {{ r }} <span class="rem-x">×</span>
-                    </button>
+                      <button
+                        type="button"
+                        class="rem-name"
+                        :aria-expanded="dealPop === i ? 'true' : 'false'"
+                        :title="dealSummary(r)"
+                        @click="toggleDealPop(i, $event)"
+                      >
+                        <font-awesome-icon
+                          v-if="r.deal"
+                          icon="hand-point-right"
+                          class="rem-mark"
+                        />
+                        {{ r.name }}
+                      </button>
+                      <button
+                        type="button"
+                        class="rem-x"
+                        :title="'Remove “' + r.name + '”'"
+                        :aria-label="'Remove ' + r.name"
+                        @click="removeReminderPill(i)"
+                      >
+                        ×
+                      </button>
+                    </span>
                     <input
                       v-model="reminderDraft"
                       class="rem-input"
@@ -764,6 +786,74 @@
                       @blur="addReminderPill"
                     />
                   </span>
+                  <!-- THE DEAL POPOVER — hangs off the pill it was opened
+                   from (the tail points at it), and IN FLOW rather than
+                   absolutely positioned: the identity column is its own
+                   `overflow-y: auto` scroll box and the reminder group is the
+                   last thing in it, so a floating panel would be clipped by
+                   the scroller exactly where it is always opened. In flow the
+                   column simply grows and scrolls to it. -->
+                  <div class="rem-pop" v-if="openDealPill" ref="remPop">
+                    <span class="rem-tail" :style="{ left: dealTailX + 'px' }"
+                      >▲</span
+                    >
+                    <span class="rem-pop-title">{{ openDealPill.name }}</span>
+                    <button
+                      type="button"
+                      class="forge-chip rem-pop-toggle"
+                      :class="{ on: !!openDealPill.deal }"
+                      :aria-pressed="openDealPill.deal ? 'true' : 'false'"
+                      title="The deal hands this token out when the roles land — nobody has to place it"
+                      @click="toggleDealRule"
+                    >
+                      <font-awesome-icon icon="hand-point-right" />
+                      The deal places this
+                    </button>
+                    <div class="rem-pop-rows" v-if="openDealPill.deal">
+                      <label class="rem-pop-row">
+                        <span class="rem-pop-lbl">How many seats</span>
+                        <NumberScrub
+                          class="rem-seats"
+                          preset="night"
+                          :value="openDealPill.deal.seats"
+                          :min="1"
+                          :max="20"
+                          title="How many chairs get one — drag to scrub, click to type"
+                          @input="(n) => setDeal('seats', n)"
+                        />
+                      </label>
+                      <div class="rem-pop-row">
+                        <span class="rem-pop-lbl">Who can get it</span>
+                        <OptionSelect
+                          name="rem-eligible"
+                          aria-label="Who can get this token"
+                          title="Which players are in the draw"
+                          :options="dealEligibleOptions"
+                          :value="openDealPill.deal.eligible"
+                          @input="(v) => setDeal('eligible', v)"
+                        />
+                      </div>
+                      <div class="rem-pop-row">
+                        <span class="rem-pop-lbl">This role's own seat</span>
+                        <OptionSelect
+                          name="rem-self"
+                          aria-label="This role's own seat"
+                          title="Whether the player holding this role is in the draw"
+                          :options="dealSelfOptions"
+                          :value="openDealPill.deal.self"
+                          @input="(v) => setDeal('self', v)"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      class="forge-chip rem-pop-done"
+                      title="Close"
+                      @click="closeDealPop"
+                    >
+                      <font-awesome-icon icon="check" /> Done
+                    </button>
+                  </div>
                 </div>
               </template>
 
@@ -1113,10 +1203,17 @@ import * as roleLib from "../../golem/roles";
 import * as towns from "../../golem/towns";
 import { flashHint } from "../../golem/hint";
 // FT-1117: a role's reminder entry is a plain string OR `{ name, deal }` (a
-// character declaring the deal should place the token itself). The Forge's
-// own storage shape is a comma-joined string of NAMES, so every place it
-// reads a role's reminders goes through this reader.
-import { reminderNames } from "../../golem/dealReminders";
+// character declaring the deal should place the token itself). `reminderName`
+// / `reminderNames` / `reminderDeal` are THE readers for both shapes — every
+// place the Forge touches a role's reminders goes through one of them, so
+// there is never a second interpretation of the data to keep in step.
+// FT-1120 makes the Forge AUTHOR the object form; see THE FORGE'S REMINDER
+// ENTRY below.
+import {
+  reminderNames,
+  reminderName,
+  reminderDeal,
+} from "../../golem/dealReminders";
 import bloodA from "../../assets/blood/blood-A.png";
 // FT-854: THE shared script picker + its art — the same component the host
 // panel renders (user-directed: one component, both surfaces).
@@ -1163,6 +1260,10 @@ import {
 } from "../../golem/nightInfo";
 // FT-1040: the players shape's 1–3 count wears the night sheet's own scrub.
 import NumberScrub from "../NumberScrub";
+// FT-1120: the deal popover's two pickers. The panel's OWN dropdown — the one
+// every multi-option setting in the app wears (OptionSelect.vue) — rather than
+// a fourth recipe for "pick one of these" inside the Forge.
+import OptionSelect from "../OptionSelect";
 // FT-1040c: the forge's LIVE COIN — the real Token component renders the
 // draft role exactly as the grimoire will. Reused, never redrawn.
 import Token from "../Token";
@@ -1255,6 +1356,99 @@ const ROLE_TEMPLATE = {
   reminders: [],
   setup: false,
 };
+// ── FT-1120: THE FORGE'S REMINDER ENTRY ─────────────────────────────────────
+//
+// FT-1117 let a character DECLARE that the deal should place one of its
+// reminder tokens — `{ name, deal: { seats, eligible, self } }` in place of the
+// bare `"Red herring"`. The Fortune Teller says it in roles.json and the deal
+// obeys. The Forge could not SAY it, and worse, could not carry it: its pill
+// list was a comma-joined STRING of names, and a string cannot hold a rule.
+// Three paths destroyed one: the form's save (split the string back apart), the
+// JSON import, and forking an existing role — which is why forking the Fortune
+// Teller gave you a copy that kept the token and lost the herring.
+//
+// THE PILL LIST IS THE STORAGE SHAPE NOW. `roleForm.reminders` is an array of
+// `{ name, deal }` — `deal` null for the plain-string majority — and the
+// comma-joined string is no longer a store at all. Where a joined string is
+// still wanted (the shelf's search index) it is RENDERED from the entries with
+// `reminderNames`; nothing parses one back into structure.
+//
+// A PILL WITH NO RULE SERIALISES AS A BARE STRING, byte for byte what the Forge
+// has always written. An author who never opens the popover authors exactly
+// what every existing role authors, so there is no migration and no new shape
+// in the common case.
+//
+// ONLY `reminders` CARRIES RULES, never `remindersGlobal` — dealReminders.js's
+// deliberate FT-1117 call (a global reminder is offered whether or not its role
+// is in play, so `self`, "the role's own seat", has no referent). The Forge has
+// no remindersGlobal field at all, so the control cannot appear there; this
+// note is here so that stays a decision rather than an accident if one is ever
+// added.
+
+/** The rule's own defaults, matching dealReminders.js's reader exactly. */
+const DEAL_DEFAULTS = { seats: 1, eligible: "any", self: "allow" };
+/** Who may receive it — the author's words for `deal.eligible`. */
+const DEAL_ELIGIBLE = [
+  { value: "any", label: "Anyone" },
+  { value: "good", label: "Good players" },
+  { value: "evil", label: "Evil players" },
+  { value: "townsfolk", label: "Townsfolk" },
+  { value: "outsider", label: "Outsiders" },
+  { value: "minion", label: "Minions" },
+  { value: "demon", label: "Demons" },
+];
+/** Whether the role's own chair is in the draw — the author's words for
+ *  `deal.self`. "Only them" is how a marker that belongs on its owner's own
+ *  seat is written. */
+const DEAL_SELF = [
+  { value: "allow", label: "Can receive it" },
+  { value: "exclude", label: "Never" },
+  { value: "only", label: "Only them" },
+];
+/** The most seats one rule may claim — the town's own upper bound, so the
+ *  number box cannot author a rule the deal could never satisfy. */
+const DEAL_SEATS_MAX = 20;
+
+/** An authored rule, bounded and defaulted. Anything unrecognised falls back
+ *  to the default rather than travelling on into the role's data. */
+const normalizeDeal = (deal) => {
+  const d = deal || {};
+  const seats = Math.floor(Number(d.seats));
+  const eligible = DEAL_ELIGIBLE.some((o) => o.value === d.eligible)
+    ? d.eligible
+    : DEAL_DEFAULTS.eligible;
+  const self = DEAL_SELF.some((o) => o.value === d.self)
+    ? d.self
+    : DEAL_DEFAULTS.self;
+  return {
+    seats: Number.isFinite(seats)
+      ? Math.min(DEAL_SEATS_MAX, Math.max(1, seats))
+      : DEAL_DEFAULTS.seats,
+    eligible,
+    self,
+  };
+};
+
+/** A stored reminder entry (either shape) → the Forge's editable pill. */
+const toReminderPill = (entry) => {
+  const deal = reminderDeal(entry);
+  return { name: reminderName(entry), deal: deal ? normalizeDeal(deal) : null };
+};
+
+/** A whole `role.reminders` array → pills. Tolerates a non-array (an imported
+ *  role may spell it anything at all). */
+const toReminderPills = (list) =>
+  Array.isArray(list) ? list.map(toReminderPill) : [];
+
+/** A pill → what the role actually stores: a BARE STRING unless it carries a
+ *  rule. This is the line that keeps the ruleless majority byte-identical. */
+const fromReminderPill = (pill) => {
+  if (!pill) return "";
+  return pill.deal
+    ? { name: pill.name, deal: { ...pill.deal } }
+    : pill.name || "";
+};
+
 const TEAM_LABELS = {
   townsfolk: "Townsfolk",
   outsider: "Outsiders",
@@ -1345,6 +1539,7 @@ export default {
   components: {
     Modal,
     NumberScrub,
+    OptionSelect,
     RoleHoverCard,
     ScriptPicker,
     ScriptView,
@@ -1384,6 +1579,10 @@ export default {
       moonOtherArt: moonOther,
       nightShapes: NIGHT_SHAPES,
       reminderDraft: "",
+      // FT-1120: which reminder pill's deal rule is open, -1 for none, and
+      // where its tail points (pixels from the pill row's left edge).
+      dealPop: -1,
+      dealTailX: 0,
       // FT-1041b: import is a MODE — true swaps the form column for the
       // paste-or-drop view; false brings the form back. Closed on every
       // fresh open. (The FT-1040c art door retired: the feed is always open.)
@@ -1944,7 +2143,9 @@ export default {
         ability: f.ability,
         firstNight: f.firstNight,
         otherNight: f.otherNight,
-        reminders: this.reminderPills,
+        // FT-1120: the preview coin carries what the role would STORE, so a
+        // rule-bearing token previews as the object the deal reads.
+        reminders: this.reminderPills.map(fromReminderPill),
         setup: f.setup,
         // a baked icon is a data: URL — Token renders it with no opt-in
         image: f.iconData || "",
@@ -1966,13 +2167,24 @@ export default {
           "custom",
       };
     },
-    /** FT-1040: the pill view of the stored comma-joined reminder string. */
+    /** FT-1040 / FT-1120: the reminder pills. They used to be a VIEW over a
+     *  comma-joined string; they are the storage now, so this is the array
+     *  itself and the string form is only ever rendered back out of it. */
     reminderPills() {
-      if (!this.roleForm) return [];
-      return this.roleForm.reminders
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      return (this.roleForm && this.roleForm.reminders) || [];
+    },
+    /** FT-1120: the pill whose deal rule is open, or null. */
+    openDealPill() {
+      const pills = this.reminderPills;
+      return this.dealPop >= 0 && this.dealPop < pills.length
+        ? pills[this.dealPop]
+        : null;
+    },
+    dealEligibleOptions() {
+      return DEAL_ELIGIBLE;
+    },
+    dealSelfOptions() {
+      return DEAL_SELF;
     },
     wakesOtherNights: {
       get() {
@@ -2127,6 +2339,8 @@ export default {
     this.$options.benchOnSlash = onSlash;
   },
   beforeDestroy() {
+    // FT-1120: the deal popover's click-out listener, if one is open
+    document.removeEventListener("mousedown", this.onDealPopDown);
     if (this.$options.benchOnSlash)
       window.removeEventListener("keydown", this.$options.benchOnSlash);
     const mq = this.$options.benchMQ;
@@ -2495,6 +2709,8 @@ export default {
     openRoleForm(role) {
       this.roleError = "";
       this.reminderDraft = "";
+      // FT-1120: a fresh open never inherits the last role's open rule panel
+      this.closeDealPop();
       // FT-1041b: every fresh open lands on the form (not import mode) with
       // the feed rewound to its top
       this.importOpen = false;
@@ -2519,11 +2735,13 @@ export default {
           ability: role.ability,
           firstNight: role.firstNight || 0,
           otherNight: role.otherNight || 0,
-          // FT-1117: names only — the form's pills are text. A role forked
-          // from one that DECLARES an auto-dealt reminder keeps the token and
-          // loses the rule, because the Forge has no control for the rule yet.
-          // Giving it one is its own lane; this line is where it will land.
-          reminders: reminderNames(role.reminders).join(", "),
+          // FT-1120: THE FORK KEEPS THE RULE. This line used to be
+          // `reminderNames(role.reminders).join(", ")` — names only, because
+          // the form's pills were text — so forking the Fortune Teller gave
+          // you a copy that kept "Red herring" and quietly lost the herring.
+          // The pills carry the whole entry now, so a fork carries the whole
+          // declaration.
+          reminders: toReminderPills(role.reminders),
           setup: !!role.setup,
           authorName: localStorage.getItem("golem.playerName") || "",
           icon: role.golemIcon || "",
@@ -2547,7 +2765,7 @@ export default {
           ability: "",
           firstNight: 0,
           otherNight: 0,
-          reminders: "",
+          reminders: [],
           setup: false,
           authorName: localStorage.getItem("golem.playerName") || "",
           icon: "",
@@ -2642,25 +2860,103 @@ export default {
     pickNightShape(id) {
       this.roleForm.nightShape = this.roleForm.nightShape === id ? "" : id;
     },
-    /** FT-1040: the reminder pills — a live view over the stored
-     *  comma-joined string, which stays the storage shape. */
+    /** FT-1040 / FT-1120: the reminder pills. Each pill is `{name, deal}` and
+     *  the pill list IS the storage — a fresh one carries no rule, which is
+     *  what makes it serialise as the bare string it always did. */
     addReminderPill() {
       const token = this.reminderDraft.trim().replace(/,/g, "");
       if (!token) return;
-      const list = this.reminderPills.concat(token);
-      this.roleForm.reminders = list.join(", ");
+      this.roleForm.reminders = this.reminderPills.concat({
+        name: token,
+        deal: null,
+      });
       this.reminderDraft = "";
     },
     removeReminderPill(i) {
       const list = this.reminderPills.slice();
       list.splice(i, 1);
-      this.roleForm.reminders = list.join(", ");
+      this.roleForm.reminders = list;
+      // the open rule belonged to a pill that no longer exists (or has
+      // shuffled down one), so the panel closes rather than re-pointing
+      this.closeDealPop();
+    },
+    // ── FT-1120: the deal rule, authored on the pill ─────────────────────
+    /** What the pill's tooltip says — the rule in the author's own words, or
+     *  the invitation to make one. */
+    dealSummary(pill) {
+      if (!pill || !pill.deal) return `“${pill.name}” — set how it is dealt`;
+      const d = pill.deal;
+      const who = (DEAL_ELIGIBLE.find((o) => o.value === d.eligible) || {})
+        .label;
+      const self = (DEAL_SELF.find((o) => o.value === d.self) || {}).label;
+      const seats = d.seats === 1 ? "1 seat" : `${d.seats} seats`;
+      return `The deal places “${pill.name}” on ${seats} — ${who}; this role's own seat: ${self}`;
+    },
+    /** Click a pill's name: open its rule, or close it if it is already the
+     *  open one. The tail is pointed at the pill it came from. */
+    toggleDealPop(i, e) {
+      if (this.dealPop === i) {
+        this.closeDealPop();
+        return;
+      }
+      this.dealPop = i;
+      const row = this.$refs.remPills;
+      const pill = e && e.currentTarget && e.currentTarget.parentElement;
+      if (row && pill) {
+        this.dealTailX = Math.max(
+          6,
+          pill.offsetLeft - row.offsetLeft + pill.offsetWidth / 2 - 6,
+        );
+      }
+      // click-out, the dropdown's own contract (OptionSelect.doOpen) — the
+      // pickers INSIDE the panel are inside its DOM, so their menus do not
+      // count as a click outside
+      document.addEventListener("mousedown", this.onDealPopDown);
+    },
+    closeDealPop() {
+      this.dealPop = -1;
+      document.removeEventListener("mousedown", this.onDealPopDown);
+    },
+    onDealPopDown(e) {
+      const pop = this.$refs.remPop;
+      const row = this.$refs.remPills;
+      const inside = (el) => el && el.contains && el.contains(e.target);
+      if (!inside(pop) && !inside(row)) this.closeDealPop();
+    },
+    /** The one toggle. ON mints the rule at its defaults (1 seat / anyone /
+     *  the owner may receive it — dealReminders.js's own defaults, so an
+     *  untouched rule and an absent field mean the same thing); OFF drops it
+     *  and the token goes back to being a plain string. */
+    toggleDealRule() {
+      const pill = this.openDealPill;
+      if (!pill) return;
+      this.setPill(this.dealPop, {
+        ...pill,
+        deal: pill.deal ? null : { ...DEAL_DEFAULTS },
+      });
+    },
+    /** Write one field of the open rule. */
+    setDeal(key, value) {
+      const pill = this.openDealPill;
+      if (!pill || !pill.deal) return;
+      this.setPill(this.dealPop, {
+        ...pill,
+        deal: normalizeDeal({ ...pill.deal, [key]: value }),
+      });
+    },
+    /** Replace one pill — a new array, so the form's own watchers (and the
+     *  live preview coin) see the change the way Vue 2 needs them to. */
+    setPill(i, pill) {
+      const list = this.reminderPills.slice();
+      list.splice(i, 1, pill);
+      this.roleForm.reminders = list;
     },
     closeRoleForm() {
       this.roleForm = null;
       this.roleError = "";
       this.importOpen = false;
       this.forgeDrag = false;
+      this.closeDealPop();
     },
     /** Click an icon to select it; click again to clear (icon is optional).
      *  FT-1041b: the pick lands on the coin immediately — the feed stays
@@ -2753,10 +3049,14 @@ export default {
       const f = this.roleForm;
       // a token still sitting in the pill input counts — Enter was implied
       this.addReminderPill();
+      // FT-1120: THE SPLIT THAT DESTROYED THE RULE IS GONE. The pills are the
+      // storage, so the save serialises them rather than re-parsing a string:
+      // a ruleless pill comes out as the bare string it always was, and a
+      // rule-bearing one as `{name, deal}` — the shape dealReminders.js reads.
       const reminders = f.reminders
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+        .map(fromReminderPill)
+        .filter((r) => (typeof r === "string" ? r : r.name));
+      const reminderTexts = reminderNames(reminders);
       // honest inline validation, mirroring the server's bounds
       const nightsOk = [f.firstNight, f.otherNight].every(
         (n) => Number.isInteger(n) && n >= 0 && n <= 200,
@@ -2773,7 +3073,7 @@ export default {
         ? "Night positions are whole numbers 0–200."
         : reminders.length > 20
         ? "At most 20 reminder tokens."
-        : reminders.some((r) => r.length > 40)
+        : reminderTexts.some((r) => r.length > 40)
         ? "Reminder tokens are limited to 40 characters."
         : "";
       if (problem) {
@@ -3191,8 +3491,11 @@ export default {
       if (parsed.ability) f.ability = String(parsed.ability).slice(0, 600);
       f.firstNight = Math.abs(parsed.firstNight || 0);
       f.otherNight = Math.abs(parsed.otherNight || 0);
-      // FT-1117: an imported role may spell its reminders either way
-      f.reminders = reminderNames(parsed.reminders).join(", ");
+      // FT-1117 / FT-1120: an imported role may spell its reminders either
+      // way, and an imported RULE is kept — this used to keep the names and
+      // drop the declaration.
+      f.reminders = toReminderPills(parsed.reminders);
+      this.closeDealPop();
       f.setup = !!parsed.setup;
       // FT-1042: an imported role may carry the art's fit (our own exports
       // spell it golemArt*; bare art* is accepted as a courtesy). Absent
@@ -4172,7 +4475,11 @@ $team-colors: (
     margin: 0;
   }
 }
-// FT-1040: reminder tokens as pills — type + Enter mints one, click removes
+// FT-1040: reminder tokens as pills — type + Enter mints one, the × removes.
+// FT-1120: the pill is TWO controls in one plate now — the name opens that
+// token's deal rule, the × still removes it — so the box moved from the button
+// to the wrapper and the two children sit inside it unplated. The look is
+// unchanged for a pill nobody has given a rule.
 .role-form .rem-pills {
   display: flex;
   flex-wrap: wrap;
@@ -4182,32 +4489,112 @@ $team-colors: (
   .rem-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 9px;
     background: rgba(0, 0, 0, 0.45);
     border: 1px solid #3d3d3d;
     border-radius: 10px;
     color: rgba(255, 255, 255, 0.85);
-    font-family: inherit;
     font-size: 12px;
-    cursor: pointer;
-    .rem-x {
-      opacity: 0.6;
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: 0;
+      color: inherit;
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      &:focus-visible {
+        @include control-focus-ring;
+      }
     }
-    &:hover {
-      border-color: #a01414;
-      .rem-x {
+    .rem-name {
+      padding: 2px 3px 2px 9px;
+    }
+    .rem-x {
+      padding: 2px 8px 2px 4px;
+      opacity: 0.6;
+      &:hover {
         color: #ff8a8a;
         opacity: 1;
       }
     }
-    &:focus-visible {
-      @include control-focus-ring;
+    // THE MARK a rule-bearing pill wears: the chip family's own lit state
+    // (`$control-on-*`, the same blood the wakes cells and the Affects-setup
+    // chip light up in) plus the hand the popover's toggle wears, so the pill
+    // and the control that set it say the same thing with the same glyph.
+    // Not a new idiom — the one this file already uses for "this one is on".
+    &.dealt {
+      border-color: $control-on-edge;
+      background: $control-on-bg;
+      color: $control-on-color;
+    }
+    .rem-mark {
+      font-size: 10px;
+      opacity: 0.85;
+    }
+    &:hover {
+      border-color: #a01414;
+    }
+    // the pill whose rule is open — the panel below is about THIS one
+    &.editing {
+      border-color: rgba(150, 130, 175, 0.9);
     }
   }
   .rem-input {
     flex: 1;
     min-width: 150px;
+  }
+}
+// FT-1120: THE DEAL POPOVER — one toggle, and the rule's three questions when
+// it is on. In flow beneath the pill row (see the template note: the identity
+// column is a scroll box, so a floating panel opened at its foot would be
+// clipped), with a tail pointing at the pill it belongs to.
+.role-form .rem-pop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  background: rgba(12, 9, 14, 0.96);
+  border: 1px solid $grimoire-plum;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  .rem-tail {
+    position: absolute;
+    top: -10px;
+    color: $grimoire-plum;
+    font-size: 12px;
+    line-height: 1;
+    pointer-events: none;
+  }
+  .rem-pop-title {
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .rem-pop-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+  }
+  .rem-pop-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+  }
+  .rem-pop-lbl {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .rem-pop-done {
+    align-self: flex-end;
   }
 }
 // the forge's team choice wears the workbench toggle look, not a native select
