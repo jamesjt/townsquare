@@ -594,9 +594,11 @@
       >
         <!-- FT-1034 (user call): the host's word wears the storyteller's
              purple. -->
-        <template v-if="session.isSpectator">Playing in</template>
+        <template v-if="session.isSpectator">Playing in&nbsp;</template>
         <em v-else class="hosting-word">Hosting</em>
-        <b>{{ session.sessionId }}</b>
+        <!-- FT-1105 (user): the TOWN NAME wears the purple for a player;
+             the count beside it stands down to plain ink. -->
+        <b class="town-word">{{ session.sessionId }}</b>
         <!-- FT-1058 (user): the count wears the storyteller purple. -->
         <span class="player-count">
           · {{ session.playerCount }}
@@ -813,6 +815,10 @@ import ChroniclesDrawer from "./components/ChroniclesDrawer";
 // opening ring (stashed by socket.js at the deal; broadcasting it live would
 // leak the grimoire) and the final ring, read from the seats as they stand.
 import { encodeEvent, takeOpeningBoard, boardRingOf } from "./golem/chronicles";
+// FT-1101: the night log as chronicle lines — the storyteller's own entries,
+// grouped one block per night, published into the town's log when the game
+// ends (see onGameRecorded).
+import { nightBlocksOf, nightBlockText } from "./golem/nightLog";
 // FT-888: the face-disc lab — TEMPORARY, and it comes out with src/faceDisc.scss's
 // four `--fd-*-adj` reads and src/golem/faceDisc.js.
 import FaceDiscLab from "./components/FaceDiscLab";
@@ -1658,6 +1664,33 @@ export default {
         phase: this.$store.state.grimoire.isNight ? "night" : "day",
         dayNumber: this.$store.state.night.day,
       };
+      // FT-1101: THE NIGHTS GO PUBLIC — one row per night, posted first so
+      // they stand before the boards and the winner's sentence, in the order
+      // the nights were played.
+      //
+      // This is the FT-1057 shape exactly: private while the game runs (each
+      // client renders its own synthetic block from data only it holds — the
+      // storyteller from this very log, a player from their own delivered
+      // rows), published here, where the reveal has already made the whole
+      // grimoire public. User's call: "when the game ends it becomes visible
+      // to everyone, like the rest of the finished game's record."
+      //
+      // The lie mark never rides along — chronicleLineOf does not carry it.
+      // What a seat was TOLD is the record; whether the storyteller knew it
+      // was false stays theirs.
+      nightBlocksOf(this.$store.state.night.entries).forEach((block) => {
+        this.$store.commit("chatSay", {
+          ...gameChat,
+          phase: "night",
+          dayNumber: block.day,
+          body: encodeEvent({
+            t: "nights",
+            day: block.day,
+            lines: block.lines,
+            text: nightBlockText(block.day, block.lines),
+          }),
+        });
+      });
       const openingRing = takeOpeningBoard(gameChat.gameId);
       if (openingRing) {
         this.$store.commit("chatSay", {
@@ -2274,9 +2307,17 @@ ul {
   // FT-1058 (user): the purple family widens — Play again and the player
   // count wear it at rest, and Copy link's hover joins it (red stays only
   // on the ending/leaving controls).
-  .play-again,
-  .player-count {
+  .play-again {
     color: rgb(167, 143, 205);
+  }
+  // FT-1105 (user): a PLAYER pill puts the purple on the TOWN NAME and
+  // leaves the count in plain ink. The host keeps their purple on the word
+  // Hosting, so on both pills the colour marks the same thing: whose town.
+  .town-word {
+    color: rgb(167, 143, 205);
+  }
+  .player-count {
+    color: #e8ddd0;
   }
   .copylink:hover {
     color: $control-edge-hover;

@@ -387,21 +387,10 @@
            on, and the sentence would have cost the tray height the chip on
            the build panel just gave back. The count rides the tooltip
            (flipHint). -->
-      <button
-        type="button"
-        class="phase-flip bottom"
-        :class="{ ready: allChecked, blocked: !canFlip, warn: warnUnchecked }"
-        :title="flipHint"
-        @click="flipPhase"
-      >
-        <font-awesome-icon icon="check" v-if="allChecked" />
-        <font-awesome-icon
-          icon="exclamation-triangle"
-          v-else-if="warnUnchecked"
-        />
-        {{ flipLabel }}
-      </button>
-
+      <!-- FT-1105 (user): the timer sits ABOVE the flip button now — the
+           storyteller sets the coming day's clock, then ends the night.
+           Its label names the day it will govern ("Day 3 timer").
+      -->
       <!-- FT-1067 (user): "below end night button... a button to change the
            timer for how long the day will start at for a countdown" — the
            storyteller sets the NEXT day's length right here, mid-checklist,
@@ -418,6 +407,7 @@
         title="How long the next day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
       >
         <font-awesome-icon class="ns-daylen-mark" icon="hourglass-half" />
+        <span class="ns-daylen-title">{{ dayTimerLabel }}</span>
         <span class="ns-daylen-seg" role="radiogroup" aria-label="Day length">
           <button
             type="button"
@@ -458,6 +448,22 @@
           <span class="ns-daylen-unit">min</span>
         </span>
       </div>
+
+      <button
+        type="button"
+        class="phase-flip bottom"
+        :class="{ ready: allChecked, blocked: !canFlip, warn: warnUnchecked }"
+        :title="flipHint"
+        @click="flipPhase"
+      >
+        <font-awesome-icon icon="check" v-if="allChecked" />
+        <font-awesome-icon
+          icon="exclamation-triangle"
+          v-else-if="warnUnchecked"
+        />
+        {{ flipLabel }}
+      </button>
+
     </template>
 
     <!-- (THE DISC'S SIZE LAB used to stand here, as `#night-lab`. It moved to
@@ -635,6 +641,13 @@ export default {
      * user call. The atmosphere the old pair carried stays on the marks and
      * the title (flipHint below), which cost nothing to keep.
      */
+    /** FT-1105 (user): the timer names the day it governs — the night sets
+     *  the clock for the day it is about to become. Same counter the phase
+     *  readout uses (night.day, floored at 1); during a night the coming
+     *  day is that number, so no arithmetic is needed here. */
+    dayTimerLabel() {
+      return "Day " + Math.max(this.night.day, 1) + " timer";
+    },
     flipLabel() {
       // FT-1002 (user call): while required rows still block the flip, the
       // button says what actually finishes the night — the CHECKS — instead
@@ -1554,6 +1567,11 @@ $ns-team-colors: (
   }
 }
 
+.ns-daylen-title {
+  font-family: PiratesBay, sans-serif;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
 .ns-daylen-mark {
   flex-shrink: 0;
   width: 12px;
