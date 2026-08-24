@@ -34,6 +34,10 @@ import { offerHostTakeover, takeoverSuffix } from "../golem/hostTakeover";
 // voice; `gameIdFor` derives the game a line belongs to from the deal moment
 // the host already stashes (golem/stats), so no new per-game identity is minted.
 import { chatErrorText, gameIdFor } from "../golem/chat";
+// FT-1105: the DURABLE deal marker — see `_isDealt` below. The stash is the
+// host's own record of when this town was dealt (golem/stats.js), and it is
+// already the thing App.vue trusts for "a game is underway here".
+import { dealTimeFor } from "../golem/stats";
 // FT-1020: the storyteller's tower (hour display, hand motion, day-start
 // bell) rides the full gamestate sync. FT-1045 adds one live frame on top:
 // a tower CHANGE now broadcasts as it happens (see TOWER_EVENT below) —
@@ -798,6 +802,19 @@ class LiveSession {
       this._refreshGrimoire();
     } else {
       this._send("player", { index, property, value });
+      // FT-1105: A CHAIR THAT JUST CHANGED HANDS NEEDS ITS CHARACTER FIRST.
+      // The bluffs line below has been here since 2026-08-19 and was right as
+      // far as it went — but the cluster it feeds is anchored to the seat
+      // whose CHARACTER is a demon (golem/bluffs.js's demonSeatIndex), and
+      // nothing sent that character to a player who claimed their chair after
+      // the deal. They held three bluffs and an empty seat, so the anchor
+      // found no demon and both the cluster and its mask stayed out of the
+      // DOM — the user's report. `_sendBelief` is the existing per-seat
+      // primitive for exactly this (a character reaching one chair, privately,
+      // as the belief the seat is meant to hold), and it carries that seat's
+      // bluffs with it, so the line below is now a harmless repeat of a frame
+      // it already sent rather than the only delivery.
+      if (property === "id" && value) this._sendBelief(player, index);
       // 2026-08-19: a chair that just changed hands may be the demon's. The
       // new holder gets the three, or an empty set if it is any other seat.
       if (property === "id" && value) this.sendBluffs(value);
@@ -1071,6 +1088,40 @@ class LiveSession {
   }
 
   /**
+   * FT-1105: HAS THIS TOWN BEEN DEALT? The one question four private senders
+   * below (`_sendBelief`, `sendBluffs`, `sendGrimoire`, `_syncGrimoireGrant`)
+   * all need, and all of them used to ask it of the wrong flag.
+   *
+   * `session.isRolesDistributed` is a TWO-SECOND PULSE, not a state: Menu.vue
+   * commits it true to run the deal animation and commits it false again two
+   * seconds later (the fork has said so in three other places already —
+   * App.vue's `showHostTools`, golem/stats.js's header, TownSquare's
+   * `townLive`). Read as "the game has started" it is true for two seconds per
+   * game and false for the rest of it, so every private per-seat delivery
+   * AFTER the deal was dropped in silence: a demon claiming their chair a
+   * minute in got no character and no bluffs, which is the bug this fixes.
+   *
+   * THE PULSE STAYS AS THE FIRST TEST and that ordering is load-bearing. The
+   * stash is stamped by App.vue on this very mutation from a subscriber
+   * registered AFTER the socket plugin's, so at the instant the deal itself
+   * sends, the stash is still empty and only the pulse is true.
+   *
+   * THE STASH IS THE RIGHT DURABLE ANSWER rather than "does any seat hold a
+   * role": a storyteller assigns characters in the build panel long before
+   * pressing Start, and a roster test would start pushing characters at
+   * players mid-build — the exact leak the original guard exists to prevent.
+   * `dealTimeFor` is host-side, per town, survives the host's own reload, and
+   * is cleared when the game is recorded or abandoned (golem/stats.js), so it
+   * closes again between games with no extra bookkeeping.
+   */
+  _isDealt() {
+    const { session } = this._store.state;
+    return (
+      !!session.isRolesDistributed || !!dealTimeFor(session.sessionId || "")
+    );
+  }
+
+  /**
    * FT-861: hand ONE seat's player the character they believe they have.
    *
    * The private twin of distributeRoles, for everything that happens after the
@@ -1086,7 +1137,7 @@ class LiveSession {
   _sendBelief(player, index) {
     if (this._isSpectator) return;
     if (!player || !player.id) return;
-    if (!this._store.state.session.isRolesDistributed) return;
+    if (!this._isDealt()) return;
     this._sendDirect(player.id, "player", {
       index,
       property: "role",
@@ -1131,7 +1182,7 @@ class LiveSession {
     if (this._isSpectator) return;
     // Nothing is dealt yet: pushing characters at players mid-build is how the
     // town learns the grimoire early (the same guard `_sendBelief` carries).
-    if (!this._store.state.session.isRolesDistributed) return;
+    if (!this._isDealt()) return;
     const bluffs = this._store.state.players.bluffs || [];
     const ids = [];
     for (let i = 0; i < BLUFF_COUNT; i++) {
@@ -1194,7 +1245,7 @@ class LiveSession {
   sendGrimoire(playerId) {
     if (this._isSpectator) return;
     if (!playerId) return;
-    if (!this._store.state.session.isRolesDistributed) return;
+    if (!this._isDealt()) return;
     const grant = (this._store.state.session.grimoireGrants || {})[playerId];
     if (!grant) {
       this._sendDirect(playerId, "grimoire", false);
@@ -1219,7 +1270,7 @@ class LiveSession {
    */
   _syncGrimoireGrant(playerId) {
     if (this._isSpectator || !playerId) return;
-    if (!this._store.state.session.isRolesDistributed) return;
+    if (!this._isDealt()) return;
     const grant = (this._store.state.session.grimoireGrants || {})[playerId];
     if (grant && !grant.pinned) {
       // the commit's subscriber sends the revoke frame
