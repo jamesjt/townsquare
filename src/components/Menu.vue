@@ -608,6 +608,13 @@ export default {
       // Defaults only — the storyteller changes either afterwards exactly
       // as before, and the next deal rolls a fresh set.
       this.$store.dispatch("players/dealLies");
+      // FT-1117: ...and every reminder a seated character declares as
+      // auto-dealt — the Fortune Teller's red herring lands on a good seat
+      // here instead of being hunted down in the picker after every deal.
+      // Grimoire-only: `reminders` never leaves this browser (socket.js's
+      // sendPlayer drops the property), so the ordering note above does not
+      // apply to it — there is no wire path to be early or late for.
+      this.$store.dispatch("players/dealReminders");
       this.$store.commit("session/distributeRoles", true);
       // FT-999 (user call, 2026-08-20): a game STARTS with the grimoire
       // revealed — dealing is the moment the storyteller starts running the

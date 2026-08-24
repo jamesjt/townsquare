@@ -1112,6 +1112,11 @@ import * as vault from "../../golem/scripts";
 import * as roleLib from "../../golem/roles";
 import * as towns from "../../golem/towns";
 import { flashHint } from "../../golem/hint";
+// FT-1117: a role's reminder entry is a plain string OR `{ name, deal }` (a
+// character declaring the deal should place the token itself). The Forge's
+// own storage shape is a comma-joined string of NAMES, so every place it
+// reads a role's reminders goes through this reader.
+import { reminderNames } from "../../golem/dealReminders";
 import bloodA from "../../assets/blood/blood-A.png";
 // FT-854: THE shared script picker + its art — the same component the host
 // panel renders (user-directed: one component, both surfaces).
@@ -1868,7 +1873,10 @@ export default {
           e.searchName +
           " " +
           normalizeSearch(
-            (e.ability || "") + " " + (e.reminders || []).join(" "),
+            // FT-1117: `reminderNames` because an entry may be an authored
+            // object now — a raw join would index the shelf on "[object
+            // Object]" and quietly stop finding "herring".
+            (e.ability || "") + " " + reminderNames(e.reminders).join(" "),
           );
         e.tags = this.entryTags(e);
       });
@@ -2511,7 +2519,11 @@ export default {
           ability: role.ability,
           firstNight: role.firstNight || 0,
           otherNight: role.otherNight || 0,
-          reminders: (role.reminders || []).join(", "),
+          // FT-1117: names only — the form's pills are text. A role forked
+          // from one that DECLARES an auto-dealt reminder keeps the token and
+          // loses the rule, because the Forge has no control for the rule yet.
+          // Giving it one is its own lane; this line is where it will land.
+          reminders: reminderNames(role.reminders).join(", "),
           setup: !!role.setup,
           authorName: localStorage.getItem("golem.playerName") || "",
           icon: role.golemIcon || "",
@@ -3179,7 +3191,8 @@ export default {
       if (parsed.ability) f.ability = String(parsed.ability).slice(0, 600);
       f.firstNight = Math.abs(parsed.firstNight || 0);
       f.otherNight = Math.abs(parsed.otherNight || 0);
-      f.reminders = (parsed.reminders || []).join(", ");
+      // FT-1117: an imported role may spell its reminders either way
+      f.reminders = reminderNames(parsed.reminders).join(", ");
       f.setup = !!parsed.setup;
       // FT-1042: an imported role may carry the art's fit (our own exports
       // spell it golemArt*; bare art* is accepted as a courtesy). Absent

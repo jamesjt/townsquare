@@ -67,17 +67,27 @@
 <script>
 import Modal from "./Modal";
 import { mapMutations, mapState } from "vuex";
+// FT-1117: a reminder entry may be a plain string or an authored object.
+import { reminderName } from "../../golem/dealReminders";
 
 /**
  * Helper function that maps a reminder name with a role-based object that provides necessary visual data.
  * @param role The role for which the reminder should be generated
  * @return {function(*): {image: string|string[]|string|*, role: *, name: *, imageAlt: string|*}}
+ *
+ * FT-1117: an authored reminder is a plain string OR `{ name, deal }` — a
+ * character may declare that the deal places the token itself (the Fortune
+ * Teller's red herring). `reminderName` is the one reader for both shapes, so
+ * an entry carrying a rule still offers the same tile in this picker; only
+ * where it CAME from differs. The object this builds is also, deliberately,
+ * the object golem/dealReminders.js builds — a dealt token and a hand-placed
+ * one are the same thing on the seat.
  */
-const mapReminder = ({ id, image, imageAlt }) => name => ({
+const mapReminder = ({ id, image, imageAlt }) => entry => ({
   role: id,
   image,
   imageAlt,
-  name
+  name: reminderName(entry)
 });
 
 export default {

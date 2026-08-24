@@ -59,8 +59,11 @@ function poolTeam(role) {
 
 /** Fisher-Yates. The `sort(() => Math.random() - 0.5)` this fork uses elsewhere
  *  is a biased shuffle; it does not matter for reordering seats, and it does
- *  matter here, where the FIRST element off the list is the whole draw. */
-function shuffled(list) {
+ *  matter here, where the FIRST element off the list is the whole draw.
+ *
+ *  FT-1117: exported, because the deal's OTHER chooser (golem/dealReminders.js,
+ *  which picks the red herring's seat) draws the same way for the same reason. */
+export function shuffled(list) {
   const out = list.slice();
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

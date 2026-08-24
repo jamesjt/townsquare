@@ -1,6 +1,10 @@
 // FT-1084: the deal chooses the demon's three bluffs and every believing
 // seat's believed character. Pure picker; this module only commits it.
 import { chooseLies } from "../../golem/dealLies";
+// FT-1117: ...and the deal places every reminder a character DECLARES as
+// auto-dealt (the Fortune Teller's red herring is the first). Same shape:
+// pure picker, this module only commits it.
+import { chooseDealtReminders } from "../../golem/dealReminders";
 
 const NEWPLAYER = {
   name: "",
@@ -139,6 +143,36 @@ const actions = {
       commit("update", { player, property: "believedRole", value: role });
     });
     bluffs.forEach((role, index) => commit("setBluff", { index, role }));
+  },
+  /**
+   * FT-1117: THE DEAL PLACES THE DEALT REMINDERS.
+   *
+   * The red herring was a sticker the storyteller hunted down in the picker
+   * after every single deal — but it is not a note they write, it is a
+   * decision the rules oblige them to make the moment the roles land, exactly
+   * like the demon's bluffs above. Now the character declares it (roles.json's
+   * Fortune Teller carries `{ name: "Red herring", deal: {...} }`) and
+   * golem/dealReminders.js reads the declaration. Nothing here knows what a
+   * Fortune Teller is.
+   *
+   * DEFAULTS, NOT LOCKS — the same contract dealLies has. The token lands on
+   * the same `reminders` field the picker writes, through the same mutation,
+   * so the storyteller moves it (drag, FT-1117) or removes it (click) exactly
+   * as they always could, and the next deal draws a fresh seat.
+   *
+   * NO WIRE TRAFFIC, BY THE OLDEST GUARD IN THE FILE. socket.js's `sendPlayer`
+   * drops `reminders` before it looks at anything else, so a dealt token is
+   * grimoire furniture on the host's screen and nowhere else — the same as a
+   * hand-placed one has always been.
+   */
+  dealReminders({ state, commit, rootState }) {
+    if (rootState.session.isSpectator) return;
+    const changes = chooseDealtReminders({ players: state.players });
+    changes.forEach(({ index, reminders }) => {
+      const player = state.players[index];
+      if (!player) return;
+      commit("update", { player, property: "reminders", value: reminders });
+    });
   }
 };
 

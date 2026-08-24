@@ -83,7 +83,14 @@
     "otherNight": 54,
     "otherNightReminder": "The Fortune Teller points to two players. Show the head signal (nod 'yes', shake 'no') for whether one of those players is the Demon.",
     "reminders": [
-      "Red herring"
+      {
+        "name": "Red herring",
+        "deal": {
+          "seats": 1,
+          "eligible": "good",
+          "self": "allow"
+        }
+      }
     ],
     "setup": false,
     "ability": "Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you."

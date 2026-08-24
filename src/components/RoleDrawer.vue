@@ -621,6 +621,10 @@ export default {
       // — Menu.distributeRoles still dispatches this as well, and a second
       // run simply rolls a fresh set over the top (defaults, never locks).
       this.$store.dispatch("players/dealLies");
+      // FT-1117: ...and the reminders the dealt characters declare — the red
+      // herring is part of a dealt board too, and a re-deal from here re-draws
+      // its seat rather than stacking a second one beside the first.
+      this.$store.dispatch("players/dealReminders");
     },
     /** Reshuffle the SEATED roles among their own chairs. */
     shuffleSeated() {

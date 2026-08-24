@@ -4,7 +4,7 @@
       ref="player"
       class="player"
       @dragover.prevent
-      @drop="onRoleDrop($event); onPlayerDrop($event)"
+      @drop="onRoleDrop($event); onPlayerDrop($event); onReminderDrop($event)"
       :class="[
         {
           dead: player.isDead,
@@ -826,26 +826,36 @@
       <!-- FT-869: `--ri`/`--rn` are this reminder's index and this seat's
            total reminder count — the CSS fan below reads them to spread
            reminders left/right of the seat instead of stacking them toward
-           the ring's centre (see the `.reminder:not(.add)` rule). -->
+           the ring's centre (see the `.reminder:not(.add)` rule).
+
+           FT-1117: and a token now MOVES. The storyteller picks it up and
+           carries it to another chair — the deal places the red herring, and
+           the storyteller is the one who decides it belongs somewhere else.
+           Only the storyteller: `draggable` is off for a spectator, and
+           onReminderDrop bails for one as well, so a player cannot lift a
+           token off the grimoire even with a hand-built drag.
+
+           THE MOUSEDOWN IS NOT DECORATION. `.reminder`'s click REMOVES the
+           token, so a click arriving at the end of a drag deletes the very
+           thing that was just carried across the ring. `@mousedown` opens a
+           fresh gesture (it always fires before `dragstart`), `@dragstart`
+           marks that this gesture became a drag, and the click handler
+           swallows exactly the click that follows one. No timer, no guessing
+           at how long a drag's trailing click takes to arrive. -->
       <div
         class="reminder"
         :key="reminder.role + ' ' + reminder.name"
         v-for="(reminder, ri) in player.reminders"
         :class="[reminder.role]"
         :style="{ '--ri': ri, '--rn': player.reminders.length }"
+        :draggable="String(!session.isSpectator)"
+        @mousedown="reminderDragged = false"
+        @dragstart="onReminderDragStart(ri, $event)"
         @click="removeReminder(reminder)"
       >
         <span
           class="icon"
-          :style="{
-            backgroundImage: `url(${
-              reminder.image && grimoire.isImageOptIn
-                ? reminder.image
-                : require('../assets/icons/' +
-                    (reminder.imageAlt || reminder.role) +
-                    '.png')
-            })`
-          }"
+          :style="{ backgroundImage: `url(${reminderIcon(reminder)})` }"
         ></span>
         <span class="text">{{ reminder.name }}</span>
       </div>
@@ -871,7 +881,13 @@ import { believesOther } from "../golem/nightInfo";
 // pointer, the same ghost the tray and the drawer hang there. `warmRoleIcon`
 // is the seat's half of the deal — Token.vue resolves the coin's art itself,
 // so nothing else on this seat would have warmed the ghost in time.
-import { startSeatRoleDrag, warmRoleIcon } from "../golem/roleDrag";
+import {
+  startSeatRoleDrag,
+  warmRoleIcon,
+  // FT-1117: a reminder token drags too, on the same pre-warmed ghost stage
+  setDragImageSrc,
+  warmIconSrc,
+} from "../golem/roleDrag";
 import { mapGetters, mapState } from "vuex";
 
 // how long the cursor has to rest on a seat before its card appears — enough
@@ -1403,7 +1419,11 @@ export default {
       // all measured off the rendered name plate. Null until mounted (or
       // if the plate can't be found), which the disc's CSS reads the same
       // way cardAnchor's absence already does: nothing to show yet.
-      addAnchor: null
+      addAnchor: null,
+      // FT-1117: this gesture on a reminder became a DRAG, so the click that
+      // may follow it is the drag's own tail and must not remove the token.
+      // Cleared by the next mousedown on a reminder — see the template note.
+      reminderDragged: false
     };
   },
   mounted() {
@@ -2009,9 +2029,92 @@ export default {
       this.openEdit("name", this.player.name);
     },
     removeReminder(reminder) {
+      // FT-1117: the click at the end of a drag is the drag's tail, not a
+      // request to bin the token that was just carried here. The flag is left
+      // standing rather than cleared — the next mousedown on a reminder opens
+      // the next gesture and clears it, so a plain click is never swallowed.
+      if (this.reminderDragged) return;
       const reminders = [...this.player.reminders];
       reminders.splice(this.player.reminders.indexOf(reminder), 1);
       this.updatePlayer("reminders", reminders, true);
+    },
+    /**
+     * FT-1117: the face a reminder token wears — the role's own art under the
+     * grimoire's image opt-in, otherwise the bundled icon for `imageAlt` (a
+     * custom note's "custom", the good/evil markers' own) falling back to the
+     * role id. Lifted out of the template because the DRAG needs the identical
+     * URL: the ghost under the pointer has to be the token that was picked up,
+     * and two copies of this expression would eventually disagree.
+     */
+    reminderIcon(reminder) {
+      const src =
+        reminder.image && this.grimoire.isImageOptIn
+          ? reminder.image
+          : require("../assets/icons/" +
+              (reminder.imageAlt || reminder.role) +
+              ".png");
+      // ASKING FOR THE ART IS ALSO WHAT WARMS ITS DRAG GHOST — roleIcon()'s own
+      // arrangement, for roleIcon()'s own reason: `setDragImage` snapshots on
+      // the spot, and an <img> whose src was assigned microseconds earlier has
+      // no bitmap to snapshot, so the browser silently keeps its default ghost
+      // (roleDrag.js's stage note is the full autopsy). A token is painted a
+      // render before it can be grabbed, so by the time a pointer goes down on
+      // it the ghost is decoded and standing by.
+      warmIconSrc(src);
+      return src;
+    },
+    /**
+     * FT-1117: pick a reminder token up off this chair.
+     *
+     * `golem/reminder-from` + `golem/reminder-at` — a DISTINCT pair, never
+     * `golem/from`, for the reason FT-966 wrote down when the name plate got
+     * its own type: `golem/from` is what golem/roleUnseat.js's document
+     * listener watches to CLEAR a chair's character on a drop outside the ring.
+     * A reminder dropped on empty ground must do nothing at all, and the way
+     * that is guaranteed is that roleUnseat never sees our type in `types` —
+     * not a flag it has to check and skip.
+     *
+     * The index rides along because a seat can hold two tokens with the same
+     * name; the drop lifts the one that was actually grabbed, not the first
+     * match by name.
+     */
+    onReminderDragStart(ri, e) {
+      if (this.session.isSpectator) return;
+      this.reminderDragged = true;
+      e.dataTransfer.setData("golem/reminder-from", String(this.index));
+      e.dataTransfer.setData("golem/reminder-at", String(ri));
+      e.dataTransfer.effectAllowed = "move";
+      setDragImageSrc(this.reminderIcon(this.player.reminders[ri]), e);
+    },
+    /**
+     * FT-1117: a reminder token landed on THIS chair. Reads only its own
+     * dataTransfer types, so it shares the seat's `@drop` with the character
+     * drag and the name-plate drag without any of the three being able to
+     * mistake another's payload for its own.
+     */
+    onReminderDrop(e) {
+      if (this.session.isSpectator) return;
+      const from = e.dataTransfer.getData("golem/reminder-from");
+      if (from === "") return;
+      const fromIndex = Number(from);
+      if (fromIndex === this.index) return;
+      const at = Number(e.dataTransfer.getData("golem/reminder-at"));
+      const source = this.players[fromIndex];
+      if (!source || !source.reminders) return;
+      const token = source.reminders[at];
+      if (!token) return;
+      const left = [...source.reminders];
+      left.splice(at, 1);
+      this.$store.commit("players/update", {
+        player: source,
+        property: "reminders",
+        value: left,
+      });
+      this.$store.commit("players/update", {
+        player: this.player,
+        property: "reminders",
+        value: [...this.player.reminders, token],
+      });
     },
     updatePlayer(property, value, closeMenu = false) {
       if (
@@ -3881,6 +3984,11 @@ li.nominate .player .overlay .nominate-target {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   transition: all 200ms;
   cursor: pointer;
+  // FT-1117: a token is dragged from chair to chair now, and a mousedown that
+  // starts by selecting its label is a mousedown the drag has to fight for.
+  // Nothing here was ever meant to be selectable text.
+  user-select: none;
+  -webkit-user-select: none;
 
   .text {
     line-height: 90%;

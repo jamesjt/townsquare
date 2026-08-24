@@ -144,9 +144,22 @@ export const warmRoleIcon = (role) => {
  * browser's own default ghost is a better answer than nothing. Warming it
  * here means the next drag of that character has one.
  */
-export const setRoleDragImage = (role, e) => {
-  if (!role || !e || !e.dataTransfer) return false;
-  const img = warmIcon(iconSrc(role));
+export const setRoleDragImage = (role, e) => setDragImageSrc(iconSrc(role), e);
+
+/**
+ * FT-1117: the same ghost, for a surface that resolves its OWN art rather than
+ * a role's — a REMINDER token, whose face is `assets/icons/{imageAlt||role}.png`
+ * (or the role's own image under the grimoire's opt-in) and is therefore
+ * already a URL by the time the drag starts.
+ *
+ * This is the whole of `setRoleDragImage` with the role lookup lifted out, and
+ * `setRoleDragImage` now calls it — one definition of "warm it, refuse it if it
+ * is not decoded, hand it to setDragImage centred". Rolling a second copy for
+ * the reminder is exactly how the cold-cache no-op FT-1090 paid for comes back.
+ */
+export const setDragImageSrc = (src, e) => {
+  if (!src || !e || !e.dataTransfer) return false;
+  const img = warmIcon(src);
   if (!img || !img.complete || !img.naturalWidth) return false;
   try {
     e.dataTransfer.setDragImage(img, GHOST_PX / 2, GHOST_PX / 2);
@@ -155,6 +168,13 @@ export const setRoleDragImage = (role, e) => {
     // older engines keep the default ghost — harmless
     return false;
   }
+};
+
+/** FT-1117: warm an arbitrary icon URL's ghost off the drag's critical path —
+ *  the reminder's counterpart to `warmRoleIcon`. Called as a seat paints its
+ *  tokens, so the first drag of one already has a decoded bitmap. */
+export const warmIconSrc = (src) => {
+  if (src) warmIcon(src);
 };
 
 /**
