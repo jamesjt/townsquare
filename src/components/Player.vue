@@ -800,9 +800,13 @@
               </li>
             </template>
           </template>
+          <!-- FT-1112: the row disappears on ANOTHER chair once this client
+               holds a seat and the game is underway — the same rule the
+               one-tap overlay obeys, and the host enforces. The player's OWN
+               row (Vacate) stays: standing up is always allowed. -->
           <li
             @click="claimSeat"
-            v-if="session.isSpectator"
+            v-if="session.isSpectator && !(seatMoveLocked && !isOwnSeat)"
             :class="{ disabled: player.id && player.id !== session.playerId }"
           >
             <font-awesome-icon icon="chair" />
@@ -900,7 +904,9 @@ export default {
   },
   computed: {
     ...mapState("players", ["players"]),
-    ...mapState(["grimoire", "session"]),
+    // FT-1112: `chat` joins them for one field — `chat.gameId`, the town's
+    // current game as the storyteller named it (see gameUnderway below).
+    ...mapState(["grimoire", "session", "chat"]),
     ...mapGetters({ nightOrder: "players/nightOrder" }),
     // FT-1107: THE NIGHT'S ASK, AND WHAT THIS CLIENT HAS ANSWERED SO FAR.
     // Both are store getters, shared verbatim with the clock-face panel that
@@ -1185,13 +1191,52 @@ export default {
     // was this gate (and the overlay's label, which now says "Move").
     canOneTapClaim: function() {
       return (
-        !!this.session.sessionId && this.session.isSpectator && !this.player.id
+        !!this.session.sessionId &&
+        this.session.isSpectator &&
+        !this.player.id &&
+        !this.seatMoveLocked
       );
     },
     /** FT-1070: this client already holds SOME chair — the reader that turns
      *  an empty seat's overlay from Claim into Move. */
     isSeatedElsewhere: function() {
       return this.players.some(p => p.id === this.session.playerId);
+    },
+    /**
+     * FT-1112: IS A GAME UNDERWAY IN THIS TOWN — asked of the TOWN, not of
+     * this browser.
+     *
+     * `chat.gameId` is the town's current game, named by the storyteller and
+     * carried to every client on the ordinary full sync (socket.js's
+     * `sendGamestate`, FT-965). It is derived from the host's deal stash, so
+     * it appears the moment characters are dealt, is the same string on every
+     * client in the room, survives a reload on either side, and goes null
+     * again when the game is recorded or the host plays again.
+     *
+     * The two things it is deliberately NOT:
+     *   · `session.isRolesDistributed` — a two-second animation pulse on the
+     *     storyteller's client alone, never rebroadcast. It is false here for
+     *     the entire game.
+     *   · `dealTimeFor(sessionId)` — the host's own localStorage. A player's
+     *     browser has never written it, so it is always null on the client
+     *     this gate has to work on.
+     * Both are readings of the wrong party's state, which is precisely the
+     * class of bug this fork has already been bitten by twice.
+     */
+    gameUnderway() {
+      return !!(this.chat && this.chat.gameId);
+    },
+    /**
+     * FT-1112: this client holds a chair and the game has started, so moving
+     * to another one is not on offer. The host refuses the claim outright
+     * (socket.js's `_updateSeat`); this is the surface half of the same rule
+     * — a button that exists and then does nothing is worse than no button.
+     *
+     * A SEATLESS client is never locked: taking a free chair mid-game is how
+     * a dropped player rejoins, and the host allows it for the same reason.
+     */
+    seatMoveLocked() {
+      return this.gameUnderway && this.isSeatedElsewhere;
     },
     /** FT-1070: is this chair icon an actor for THIS client — the host's
      *  eject on any claimed seat, or a player's stand-up on their own. */

@@ -1026,6 +1026,47 @@ class LiveSession {
     const players = this._store.state.players.players;
     // remove previous seat
     const oldIndex = players.findIndex(({ id }) => id === value);
+    // FT-1112: ONCE THE TOWN IS DEALT, A PLAYER STAYS IN THEIR CHAIR.
+    //
+    // A seat move is a claim like any other, and the two lines below are what
+    // makes it one: the claimant's OLD chair is emptied and they are written
+    // into the new one. Mid-game that quietly re-deals the town — the
+    // characters do not follow (they are per-seat, socket.js's `_sendBelief`),
+    // so whoever holds each chair afterwards is holding somebody else's
+    // character. A tester clicking a neighbouring coin out of curiosity is the
+    // whole reported bug, and it costs the storyteller the game.
+    //
+    // REFUSED HERE, AT THE HOST, because the host is the only party that can
+    // actually refuse: a player's own client can be told not to offer the
+    // button (Player.vue's `canOneTapClaim` reads the same boundary off
+    // `chat.gameId`, the town's game marker the host itself syncs), but a
+    // claim frame put on the wire by hand would otherwise still be honoured.
+    // A UI gate is a suggestion; this is the rule.
+    //
+    // NARROW BY CONSTRUCTION — only a claimant who ALREADY HOLDS A SEAT naming
+    // a DIFFERENT one is turned away:
+    //   · `oldIndex < 0` (holds nothing) still passes — that is how a player
+    //     whose socket died gets back into their game, and how a latecomer
+    //     fills an empty chair. Locking that out would strand people outside
+    //     their own town.
+    //   · `index < 0` (the Leave door) still passes — standing up is not a
+    //     move, and a player must always be able to stop playing.
+    //   · the STORYTELLER is not here at all: their Move/Swap/Empty tools go
+    //     out as `players/move`, `players/swap` and `sendPlayer`, none of
+    //     which pass through this method. Their table, their arrangement.
+    //
+    // `_isDealt` is FT-1105's durable marker (the deal pulse OR the host's
+    // per-town deal stash), not the two-second `isRolesDistributed` pulse, so
+    // it holds for the whole game and survives the host reloading.
+    //
+    // The refusal ANSWERS: a lightweight resync to that one claimant — the
+    // idiom this file already uses to put a client's roster straight
+    // (`players/add`|`set`|`clear` above) — so a client that had painted the
+    // move optimistically is corrected by the truth rather than by silence.
+    if (index >= 0 && oldIndex >= 0 && oldIndex !== index && this._isDealt()) {
+      this.sendGamestate(value, true);
+      return;
+    }
     if (oldIndex >= 0 && oldIndex !== index) {
       this._store.commit("players/update", {
         player: players[oldIndex],
