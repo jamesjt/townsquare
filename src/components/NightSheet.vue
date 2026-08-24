@@ -1177,11 +1177,32 @@ $ns-team-colors: (
         // both curves. It has two words on it and needs none of that width:
         // it sizes to its own label now, with the old width kept as the
         // ceiling so it can never grow back past the disc.
-        width: auto;
-        max-width: calc(0.95 * var(--fd-rx));
-        align-self: center;
-        padding-left: 24px;
-        padding-right: 24px;
+        // ONE OBJECT WITH START GAME (user: "night end can share the
+        // position and size of start game?"). Every value below is HostTools'
+        // `.start-dock` / `.start` restated — the same width expression, the
+        // same zeroed top margin, the same type size, padding, border weight
+        // and radius. Both buttons ride the same `face-disc-foot` translate
+        // already, so matching the box is what makes them land in the same
+        // place at the same size: the storyteller sees ONE primary button in
+        // the disc's foot that changes its word, not two buttons that
+        // resemble each other.
+        //
+        // The width expression is HostTools' own, comments and all: a floor
+        // of 150px because below it the label wraps, and 0.583 of the disc's
+        // HORIZONTAL radius above it. Its bottom corners are the binding
+        // measure against the arc, and that pair of numbers is what was
+        // solved to clear it. Copied rather than shared because the two
+        // components cannot reach each other's scoped CSS; if a third foot
+        // button ever appears, this belongs in faceDisc.scss.
+        //
+        // COLOUR IS NOT COPIED. End night keeps its own purple plate — the
+        // shared thing here is the geometry, not the skin.
+        width: max(150px, 0.583 * var(--fd-rx));
+        margin-top: 0;
+        font-size: 100%;
+        padding: 4px 14px;
+        border-width: 3px;
+        border-radius: 10px;
       }
 
 
