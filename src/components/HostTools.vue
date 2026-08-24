@@ -24,14 +24,19 @@
            input below) is left in place, unwired, for whichever surface should
            own renaming. -->
       <h3 v-if="!renaming" :title="headTitle">
-        <!-- FT-1095 (user call): "the town icon joins the name" — the
-             picked script's own mark, immediately left of it. The SAME art
-             the script picker's trigger wears (ScriptPicker.vue's `.icon`),
-             found off the identical `scriptCards` list the picker itself
-             reads (see `headerScriptIcon` below) rather than a second
-             derivation of "the edition's icon" that could disagree with it. -->
-        <img class="ht-town-icon" :src="headerScriptIcon" alt="" />
-        {{ townName }}
+        <!-- FT-1095 (user call): "the town icon joins the name" — a mark
+             immediately left of it. FT-1098 (user correction): this wore the
+             picked SCRIPT's own mark at first, which reads as "which edition
+             is loaded" — the wrong statement for a heading that names the
+             TOWN. `uiTown` is static art (see the import above), not a
+             derivation off `scriptCards`/`pickedScriptId` the way
+             `headerScriptIcon` was — nothing about the town's own mark
+             should follow whichever script gets picked. `headerScriptIcon`
+             stands down (never-delete) rather than being removed. -->
+        <img class="ht-town-icon" :src="uiTown" alt="" />
+        <!-- FT-1098: the name is its own grid cell now, not a bare text node
+             beside the icon — see `h3`'s own grid rule below for why. -->
+        <span class="ht-town-name">{{ townName }}</span>
         <!-- FT-959 (user call): copy the town's own link, right beside its
              name. The session pill (App.vue's copyPillLink) already does
              this EXACT job — same URL, same copied-tick feedback — so this
@@ -317,29 +322,55 @@
          the `.ht-cast-roles` half — so the two halves of one statement share
          one line instead of two. Nothing was dropped on the way.) -->
 
-      <!-- ── FT-1090: THE SETTINGS LINE ───────────────────────────────
-         The four controls that answer "how does this game run" — who can see
-         the night checklist, how hard it is enforced, how long a day is, and
-         how many minutes that is — on ONE line where they fit, in TWO PAIRS
-         where they do not.
+      <!-- ── FT-1090: THE SETTINGS LINE, FT-1098: AND THE SOUNDS ROW JOINS IT ──
+         All six controls that answer "how does this game run" — who sees the
+         night checklist, how hard it is enforced, how long a day is, how many
+         minutes that is, the day-break bell, the call-back's voice — on ONE
+         line where they fit, wrapping by WHOLE UNIT (a mark and the controls
+         it speaks for) rather than by control, so a narrow panel never orphans
+         a stray select beneath the wrong mark.
 
-         WHY THE PAIRS ARE THE WRAP UNIT, and this is the whole rule: each
-         pair is a mark and the controls that mark speaks for. `.night-mode`
-         is one flex child (the moon, visibility, enforcement) and
-         `.ht-set-pair` is the other (the hourglass, day length, minutes), so
-         a narrow panel drops the SECOND pair whole onto its own line, under
-         its own mark. It can never orphan "10 min" beneath a moon — which is
-         the one wrong answer here, because a stray number under the wrong
-         mark reads as that mark's setting.
+         FT-1098 (user correction): the day-length pair used to be this row's
+         only partner for NightModeRow, and their combined ~529px (see the
+         style block's own superseded table below) never fits below 2560px
+         wide — so below that the pair dropped alone onto its own line with
+         nothing else to fill it (measured 236.6px of timer sitting in a
+         364-481px band, a 35-51% empty right half — the bug this pass
+         fixes). FOUR marks were always going to want more than TWO can pair
+         up cleanly at every width, so the sounds row's own two clusters
+         (previously a separate `.tw-row` a line down, always fine on their
+         own) are folded IN here instead of solving the day-length pair's
+         problem alone. `flex-wrap` then bin-packs whichever units fit a
+         line, greedily, in DOM order — measured (7 seats, disc floor
+         1642x780 unless stated; rig: `claude_temp_test/2026-08-23-ft1098-
+         measure.mjs`):
+
+           night-mode 284.8-286.8 · day-length 236.6 · day-break-bell / call-back 146.8 each
+
+           disc floor  403.4   night-mode alone (71%) / day-length+bell (97%) / call-back alone (36%)
+           disc 1920   481.0   night-mode alone (59%) / day-length+bell (81%) / call-back alone (31%)
+           disc 2560   636.1   night-mode+day-length (83%, same pairing as before this pass) / bell+call-back (47%, unchanged)
+           rect 1280    364    night-mode alone (79%) / day-length alone (65%) / bell+call-back (83%)
+
+         Every disc width now gets a full pair sharing at least one line at
+         81-97% fill; only the single smallest control (call-back) is ever
+         left to stand alone there, at a fraction of the width the WHOLE
+         day-length pair used to sit alone in. The rectangle (not a disc
+         width, and not the shape the user's screenshot showed) is the one
+         case day-length still stands alone — its own 65% fill is still
+         better than the 224.7-in-370px reading a first hand-estimate of
+         this design predicted, because the row's real gap (8px) and content
+         widths differ slightly from that estimate; left as read rather than
+         chased further, since the disc is what this correction is about.
 
          NightModeRow is embedded rather than restated: the night settings and
          their wording still travel with the rest of the night code, and its
          own `.nm-hint` sentence still folds away on the disc exactly as it
          did when it was a row of its own (FT-888).
 
-         `row-gap: 0` (styles below): the wrapped two-pair form must cost no
-         more than the two rows it replaced — a wrapped line carries no
-         `min-height` floor, so it is strictly cheaper. -->
+         `row-gap: 0` (styles below): the wrapped form must cost no more than
+         the two rows it replaces — a wrapped line carries no `min-height` of
+         its own, so it is strictly cheaper. -->
       <div class="row ht-settings">
         <!-- FT-860: the night sheet's three-state switch. Its own component so
            the setting travels with the rest of the night code. -->
@@ -439,20 +470,22 @@
             <span class="tw-daylen-unit">min</span>
           </span>
         </span>
-      </div>
-      <!-- FT-1054: THE SOUNDS ROW — the day-break bell and the call-back's
-         voice sit side by side in one row, two `.tw-lead` clusters split by
-         the row's own `space-between` (the Seats/Roles two-cluster shape,
-         FT-959, restated). The icons swapped meaning here: sun leads the
-         day-break sound (the End-day chip's own glyph — TownInfo.vue — for
-         "this is what breaks the day"), and the bell — freed by the sun —
-         now leads the call-back, the sound a bell has always meant first.
-         Picking an option already previews it (FT-1045/FT-1051), so neither
-         cluster carries a volume dial or a listen button. -->
-      <div
-        class="row tw-row"
-        title="The town's two sounds — the day-break chime and the call-back's voice"
-      >
+
+        <!-- FT-1054: THE SOUNDS PAIR — the day-break bell and the call-back's
+           voice, two `.tw-lead` clusters (the Seats/Roles two-cluster shape,
+           FT-959, restated). The icons swapped meaning here: sun leads the
+           day-break sound (the End-day chip's own glyph — TownInfo.vue — for
+           "this is what breaks the day"), and the bell — freed by the sun —
+           now leads the call-back, the sound a bell has always meant first.
+           Picking an option already previews it (FT-1045/FT-1051), so neither
+           cluster carries a volume dial or a listen button.
+
+           FT-1098: folded into `.ht-settings` (see the row's own comment
+           above) rather than kept as its own `.row tw-row` a line down — the
+           pair still reads the same "sun — bell choice" / "bell — voice"
+           sentences it always did, it just now shares the wrapping line's
+           bin-pack with the other two units instead of always getting a
+           fresh row to itself. -->
         <span class="tw-lead">
           <span class="label">
             <font-awesome-icon
@@ -704,6 +737,19 @@ import grimoireClosed from "../assets/grimoire-cover.png";
 import uiSeat from "../assets/ui-seat.png";
 import uiRole from "../assets/ui-role.png";
 import uiScript from "../assets/ui-script.png";
+// FT-1098 (user correction): the header wore the SCRIPT's own mark
+// (headerScriptIcon, below — Trouble Brewing's blood splat and so on,
+// whichever edition happened to be picked) where it should have worn the
+// TOWN's. Two town-ish candidates live in this folder — `ui-town.png` (two
+// plain house silhouettes, the counts row's own `COUNT_ICONS.town` art via
+// golem/glyphs) and `ui-enter.png` (a clocktower + path + a walking figure,
+// the re-entry face's mark). Picked ui-town: at header size (1.15em, ~26px
+// on the disc per the FT-1095 note below) `ui-enter`'s clock hands and
+// figure are fine enough detail to smear into noise, where `ui-town`'s two
+// bold triangles and door-slits still read as "a town" — the same "reads at
+// a glyph, not an illustration" bar every other row-mark on this panel
+// already clears.
+import uiTown from "../assets/ui-town.png";
 // DEV shift-Start (2026-08-19): the same transient hint EditionModal, Menu and
 // EndGameOverlay use to say something when a click can't do what it looks
 // like it should — used below so a shift-click that genuinely can't proceed
@@ -803,6 +849,8 @@ export default {
       uiSeat,
       uiRole,
       uiScript,
+      // FT-1098: the header's own mark — the TOWN's, not the script's.
+      uiTown,
       // FT-847: owned-town rename state.
       renaming: false,
       renameDraft: "",
@@ -1093,7 +1141,14 @@ export default {
      *  by the SAME `pickedScriptId` the picker's own trigger uses, so the
      *  header and the picker can never disagree about which mark is "the"
      *  script's. Falls back to the vault's plain mark for the one paint
-     *  before a card list exists. */
+     *  before a card list exists.
+     *
+     *  STOOD DOWN (FT-1098, user correction): the heading wears the town's
+     *  own static mark now (`uiTown`, imported above), not this. Left in
+     *  place per the house never-delete rule — the record of what "the
+     *  script's icon, from the picker's own list" derives to is worth
+     *  keeping even unread, and it is exactly the derivation a script-picker
+     *  trigger elsewhere on this panel still wants. */
     headerScriptIcon() {
       const card = this.scriptCards.find((c) => c.id === this.pickedScriptId);
       return (card && card.icon) || edCustom;
@@ -1673,12 +1728,44 @@ export default {
     }
   }
 
+  // FT-1098 (user correction): "the name sits left of the disc's axis". A
+  // flex row's `justify-content: center` centres the WHOLE h3 BOX (icon +
+  // name + button) as one unit, and — measured — that box's own centre WAS
+  // exactly on the disc's (0.0px off at all four widths below). The name's
+  // own text run inside it was not: the icon (`.ht-town-icon`, 1.15em, ~31px
+  // on the disc) and the copy-link button (`.ht-copy-link`, font-size 55% of
+  // that, ~15-17px) are not the same width, so the run sat off the box's own
+  // centre by half their difference — measured onto the disc's axis as an
+  // 8.1px offset, constant across every width tested (a fixed em-vs-button
+  // gap, not something that grows with the panel). RIGHT of axis by the raw
+  // number, not left — a bigger left-hand icon pushes the row's total width
+  // out further on the left than the button balances on the right, so the
+  // fixed-width run after it lands right of centre — but a few pixels either
+  // way reads the same to an eye scanning a whole panel, and the fix removes
+  // the offset outright rather than arguing its sign. Measured (7 seats,
+  // rig: `claude_temp_test/2026-08-23-ft1098-measure{,-before-only}.mjs`,
+  // `disc centre` = `.host-tools`'s own box centre, the point `--face-cx`
+  // and its dial actually place):
+  //
+  //                        disc centre   h3 box centre   name-run centre
+  //   before  rect 1280         640.0           640.0             648.1
+  //   before  disc floor        812.0           812.0             820.1
+  //   before  disc 1920         951.0           951.0             959.1
+  //   before  disc 2560        1271.0          1271.0            1279.1
+  //   after   every width tested: disc / h3 box / name-run all equal, 0.0px apart
+  //
+  // A THREE-COLUMN GRID fixes the axis structurally rather than by eye: the
+  // two flanking columns are pinned to the SAME width (the icon's own
+  // 1.15em, wide enough to hold the smaller button too), so the middle
+  // column is the only one free to size to its content — centring it
+  // centres the town's name itself, not a lopsided box built around it.
   h3 {
     margin: 0;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1.15em auto 1.15em;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
+    justify-items: center;
+    column-gap: 8px;
     cursor: default;
 
     // only an OWNED town can be renamed — the pencil and the pointer both
@@ -2158,13 +2245,15 @@ export default {
   //   2560x1440          636.1       693.6            529.4 ✓   217.0 -> 255.8
   //   3440x1440            828       693.6 ✓          529.4 ✓   353.7 -> 424.7
   //
-  // So the settings line lands one whole row of height from 2560 up and the
-  // cast line from ~3440; below that both wrap and the merge is a wash (+1.7px)
-  // — never a cost. The controls simply do not fit: at 1920 the settings line's
-  // four selects and scrub paint 437.5px on their own, and the two marks take
-  // the remaining 44 to the pixel, which leaves nothing for the gaps. Shrinking
-  // them to close a 48px gap would mean shortening the words the FT-1088 pass
-  // deliberately sized these controls to hold, so it was not done.
+  // SUPERSEDED BY FT-1098 for `.ht-settings` alone (the "cast needs"/"693.6"
+  // row above is the SEATS+ROLES line, `.ht-cast`, and is UNTOUCHED by this —
+  // only the "settings needs 529.4" figure describes a shape this pass
+  // changed). That 529.4 was night-mode + day-length only, the shape before
+  // the sounds row folded in — see the settings line's own template comment
+  // for the four-unit numbers this pass measured instead, and why "the
+  // day-length pair alone in an empty band" was the bug being fixed rather
+  // than a width this table's old prescription (widen the band, or shrink the
+  // controls) would have solved.
   .ht-cast,
   .ht-settings {
     flex-wrap: wrap;
@@ -2190,20 +2279,27 @@ export default {
     min-width: 0;
   }
 
-  // THE SETTINGS PAIRS. `.night-mode` is NightModeRow's own ROOT element, which
-  // is why it can be addressed from here at all — a child component's root
-  // carries the parent's scope id and nothing below it does (that component's
-  // own note explains what it therefore has to restate). Both pairs size to
-  // their content and neither grows, so the row's `space-between` spends the
-  // slack as ONE gap between the pairs.
+  // THE SETTINGS LINE'S FOUR UNITS. `.night-mode` is NightModeRow's own ROOT
+  // element, which is why it can be addressed from here at all — a child
+  // component's root carries the parent's scope id and nothing below it does
+  // (that component's own note explains what it therefore has to restate).
+  // FT-1098 added the two sounds `.tw-lead` clusters to this list (they used
+  // to belong to a separate `.tw-row`, an ordinary `.row` with no rules of
+  // its own beyond the base ones) — restated here rather than left to
+  // `.tw-lead`'s own base rule a few hundred lines up so the four units this
+  // row wraps by are named in one place. None of the four grows, so the
+  // row's `space-between` spends whatever slack a line has as gaps BETWEEN
+  // whichever units land on it, never inside one.
   .ht-settings {
     > .night-mode,
-    > .ht-set-pair {
+    > .ht-set-pair,
+    > .tw-lead {
       flex: 0 1 auto;
       min-width: 0;
     }
-    // the second pair — hourglass, Off/Timed, and the minutes — reading left to
-    // right as one sentence instead of as two halves of a `space-between`
+    // the day-length pair — hourglass, Off/Timed, and the minutes — reading
+    // left to right as one sentence instead of as two halves of a
+    // `space-between`
     > .ht-set-pair {
       display: flex;
       align-items: center;
