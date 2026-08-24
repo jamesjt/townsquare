@@ -599,8 +599,14 @@
         <!-- FT-1105 (user): the TOWN NAME wears the purple for a player;
              the count beside it stands down to plain ink. -->
         <b class="town-word">{{ session.sessionId }}</b>
-        <!-- FT-1058 (user): the count wears the storyteller purple. -->
-        <span class="player-count">
+        <!-- FT-1106 (user): a PLAYER's pill names the seat they are sitting
+             in, not how many chairs are full — the count is a storyteller's
+             number, and a player already sees the table. The host's pill keeps
+             the count, which is the one it was built for. -->
+        <span class="player-count" v-if="session.isSpectator && ownName">
+          · as {{ ownName }}
+        </span>
+        <span class="player-count" v-else-if="!session.isSpectator">
           · {{ session.playerCount }}
           {{ session.playerCount === 1 ? "player" : "players" }}
         </span>
@@ -987,6 +993,18 @@ export default {
     },
     moonMark() {
       return this.isFirstNight ? moonFirst : moonOther;
+    },
+    /**
+     * FT-1106: the name on the chair THIS client is sitting in, or "" when it
+     * holds none yet. Matched on the seat's own `id` against `playerId` — the
+     * same identity Player.vue's `you` class uses, rather than the optimistic
+     * local `claimedSeat` the storyteller has not confirmed.
+     */
+    ownName() {
+      const id = this.session.playerId;
+      if (!id) return "";
+      const seat = this.players.find((p) => p.id && p.id === id);
+      return (seat && seat.name) || "";
     },
     // in a session (or with a town on the table): the dial letters leave
     // and the handless clock art takes the wall (user call 2026-08-18)
