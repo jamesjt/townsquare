@@ -24,6 +24,13 @@
            input below) is left in place, unwired, for whichever surface should
            own renaming. -->
       <h3 v-if="!renaming" :title="headTitle">
+        <!-- FT-1095 (user call): "the town icon joins the name" — the
+             picked script's own mark, immediately left of it. The SAME art
+             the script picker's trigger wears (ScriptPicker.vue's `.icon`),
+             found off the identical `scriptCards` list the picker itself
+             reads (see `headerScriptIcon` below) rather than a second
+             derivation of "the edition's icon" that could disagree with it. -->
+        <img class="ht-town-icon" :src="headerScriptIcon" alt="" />
         {{ townName }}
         <!-- FT-959 (user call): copy the town's own link, right beside its
              name. The session pill (App.vue's copyPillLink) already does
@@ -1081,6 +1088,16 @@ export default {
       if (this.vaultPickedId) return this.vaultPickedId;
       return this.edition.isOfficial ? this.edition.id : null;
     },
+    /** FT-1095: the header's copy of the picked script's icon — found off
+     *  `scriptCards` (the SAME list ScriptPicker itself renders from) keyed
+     *  by the SAME `pickedScriptId` the picker's own trigger uses, so the
+     *  header and the picker can never disagree about which mark is "the"
+     *  script's. Falls back to the vault's plain mark for the one paint
+     *  before a card list exists. */
+    headerScriptIcon() {
+      const card = this.scriptCards.find((c) => c.id === this.pickedScriptId);
+      return (card && card.icon) || edCustom;
+    },
     canStart() {
       return (
         this.coreSeats.length > 0 &&
@@ -1672,6 +1689,25 @@ export default {
         color: red;
       }
     }
+  }
+
+  // FT-1095: THE TOWN'S MARK, immediately left of its name. `em`, NOT A
+  // FIXED PIXEL — the h3 this rides in front of is NOT one size: 26.96px on
+  // the desktop disc (`--fpx` scaling) against 11.98px on a phone (measured,
+  // both at 7 seats — `claude_temp_test/2026-08-23-ft1095-fontcheck.mjs`), a
+  // 2.25x spread the header text itself already lives with. A flat 28px
+  // (what the script picker's own trigger icon wears, ScriptPicker.vue's
+  // `.icon`) matched the disc and swamped the phone — the name stopped
+  // being the header's focus there. 1.15em keeps the SAME ratio to the name
+  // at both ends instead of the same pixel count at one of them, and it is
+  // close to the picker's own 30px at the disc's own size (26.96 * 1.15 =
+  // 31px) — the two read as kin without literally sharing a constant.
+  .ht-town-icon {
+    width: 1.15em;
+    height: 1.15em;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
 
   // FT-959: COPY THE TOWN LINK, next to its name. Styled BARE — no
@@ -2296,7 +2332,24 @@ export default {
     // wrapper that takes the flex basis; growing content inside it does not
     // grow the cap, it bleeds down into the band instead.
     > .ht-head {
-      @include face-disc-head;
+      // FT-1095 (user call): "lift the header — it sits low in the disc's
+      // cap today". THIS PANEL'S OWN OVERRIDE, not a change to
+      // `$face-disc-geo-town`: that map's `head-dy: -20px` is shared with
+      // the night checklist and the votes disc (NightSheet.vue, Vote.vue),
+      // neither of which this pass touches. `face-disc-head`'s own `$dy`
+      // param exists for exactly this ("for a surface whose furniture is a
+      // different size"), so this reads it directly rather than
+      // `--fd-head-dy`, and `--fd-head-adj` (the lab's own per-surface
+      // dial) still applies on top — the mixin adds it whichever way `$dy`
+      // arrives.
+      //
+      // 6px further up than the shared -20px. The clearance table above
+      // (FT-888, 2-geo bake) says the host panel's header can afford it —
+      // it is the surface with the MOST room of the three: +29.9px inside
+      // the rim at the disc's own floor (1642x780) and +61.1px at
+      // 1920x1080, against the night checklist's +3.4 / +39.6 at those same
+      // two sizes. A further 6px leaves it comfortably clear at both.
+      @include face-disc-head($dy: calc(#{$face-disc-head-dy} - 6px));
       // the flex basis IS the cap; a margin would sit outside it and push the
       // band off centre, which is the one thing the arithmetic cannot take
       margin: 0;
@@ -2418,6 +2471,27 @@ export default {
       > .ht-running,
       > .ht-rebuild {
         flex-shrink: 0;
+      }
+
+      // FT-1095 (user call): "lift the rows too — tighten the gap between
+      // the header and the first row". A negative top margin on the band's
+      // own FIRST child (`.ht-cast` while building, `.ht-running` on
+      // re-entry — the two are mutually exclusive `v-if`s, so exactly one
+      // is ever first) is ordinary flex-column arithmetic, not a transform:
+      // it pulls that row up, and because nothing after it holds a fixed
+      // position of its own, every row below follows by the same amount —
+      // the same "string and can" a negative margin always is inside a
+      // column flex container.
+      //
+      // THE BAND'S OWN HEIGHT DOES NOT CHANGE (the flex-basis two rules up
+      // is untouched), so the 14px this opens at the top is not freed from
+      // nothing — it is HANDED to the bottom of the same box, where the
+      // tray (`.role-tray`, RoleTray.vue's own `flex: 1 1 auto`) is the one
+      // child that grows to take it. Same rule FT-1090's own band extension
+      // paid out on the other edge: a pixel freed in the band is a pixel
+      // the tray gets, never a gap left standing.
+      > :first-child {
+        margin-top: -14px;
       }
 
       // THE ROWS WRAP RATHER THAN OVERFLOW, for the size where even the folds
