@@ -503,17 +503,30 @@ export default {
 
 // ── FT-1107: THE FACE FORM — the ask, standing on the clock face ─────────
 //
-// It has NO FRAME. Every other panel in this app that carries a control also
-// carries a plate to sit it on, and the reason is always the same: the panel
-// is a thing laid over the town. This one is not laid over the town — it IS
-// the town centre, in the hub the phase readout used to fill, and a bordered
-// card there reads as a dialog someone dropped on the clock. The words float
-// on the dial the way the dial's own numerals do, with a text shadow doing
-// the legibility work a ground would otherwise do (the plate under it is
-// hand-painted art and varies; a shadow tracks it, a fixed tint does not).
+// It had NO FRAME, and the reasoning ran: every other panel in this app that
+// carries a control also carries a plate, because a panel is a thing laid
+// OVER the town — and this one is not laid over the town, it IS the town
+// centre, so a bordered card there would read as a dialog dropped on the
+// clock. The words floated on the dial the way the dial's own numerals do,
+// with a text shadow doing the legibility work a ground would otherwise do.
 //
-// WIDTH AND PLACEMENT ARE NOT HERE. TownInfo.vue owns where this stands,
-// because that is a fact about the clock face, not about the ask.
+// ── FT-1125 (user): AND IT HAS ONE NOW, BECAUSE THE PLATE IS NOT A CARD ──
+//
+// "visually it still doesn't show the disc for the player? only the
+// storyteller?" The premise above was right about BORDERED CARDS and wrong
+// about this face: the storyteller's checklist stands in this exact spot on a
+// FACE DISC — a plate laid ON the dial, same centre, same border-radius as
+// the art it sits on (src/faceDisc.scss) — which is the opposite object from
+// a card floating over it. The player got nothing behind their ask, which is
+// the asymmetry the user was pointing at.
+//
+// THE TEXT SHADOW STAYS. It is no longer the only thing doing the work, but
+// the plate is glass rather than a fill (its own tint is zero — see that
+// file's tint block), so the hand-painted art still varies underneath and a
+// shadow still tracks it where a fixed ground would not.
+//
+// WIDTH, PLACEMENT AND NOW THE PLATE ARE NOT HERE. TownInfo.vue owns all
+// three, because they are facts about the clock face, not about the ask.
 .nc.face {
   display: flex;
   flex-direction: column;

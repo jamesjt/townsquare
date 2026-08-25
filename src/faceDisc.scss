@@ -227,6 +227,100 @@ $face-disc-geo-entry: (
   foot-dy: 10px
 );
 
+// ── AND A THIRD PLATE: THE NIGHT'S ASK (FT-1125) ────────────────────────────
+//
+// "visually it still doesn't show the disc for the player? only the
+// storyteller?" (user). The storyteller's checklist has sat on a plate since
+// FT-882; the ask FT-1113 stood in the same place was painted straight onto
+// the art with nothing behind it. This is the plate it stands on.
+//
+// IT IS A SMALLER MEMBER OF THE SAME FAMILY, NOT THE SAME PLATE, and the two
+// reasons are both measured rather than felt.
+//
+//   WHAT IT HOLDS. The town plate is sized for a scrolling checklist of one
+//   row per waking character. The ask is a character name, one ability line,
+//   one instruction, a row of name chips and an answer — 81px tall at three
+//   lines, about 180px with chips and a 230% answer under them. A 421x457
+//   plate under that is mostly empty glass, and a frame far larger than its
+//   content reads as a dialog dropped on the clock, which is the exact thing
+//   FT-1107 filed this surface to stop being.
+//
+//   WHAT IT MAY NOT COVER. The player's control IS the ring of coins, so
+//   their plate has a constraint the storyteller's does not. Measured in a
+//   live 8-seat town (claude_temp_test/2026-08-24-ft1125-disc-measure.mjs —
+//   nearest point of each seat's own box to the dial centre):
+//
+//                                1280x800   1920x1080
+//     nearest coin TOKEN           226.8       316.9
+//     nearest coin incl. NAME      203.1       290.4
+//     the TOWN plate's rx          228.5       302.6   ← crosses both at
+//                                                        1280, the name at 1920
+//
+//   So the town plate does not clear the ring, and putting the ask on it
+//   would lay glass over the very coins the ask tells the player to tap.
+//
+// THE SIZE IS A FRACTION OF THE FACE, not a pixel offset like the two maps
+// above, and that is the whole reason `scale` exists. A -35px offset is 12% of
+// the radius at 1920 and 17% at 1280 — a plate that changes proportion with the
+// window, which is what every other number in this file was written to avoid.
+//
+// ── AND THE FRACTION IS SWEPT, NOT CHOSEN ──────────────────────────────────
+// Two clearances move in opposite directions as the plate grows, and both were
+// read off a live town with the ask driven to its FULLEST state — role name, a
+// wrapped ability line, the instruction, two name chips and a 230% answer,
+// which is 192.5px tall at 1280x800 (rig:
+// claude_temp_test/2026-08-24-ft1125-disc-sweep.mjs; positive = inside).
+//
+//   1280x800 — the size that binds. The 1920 column clears everywhere by 30px
+//   or more and never chose anything.
+//
+//     scale       rx      ry     band    the ask's worst    the nearest
+//                                        corner v. the rim  seat's own box
+//     0.78/0.85  179.8   165.0   293.0        -0.39            +24.04
+//     0.80/0.87  184.1   169.2   299.8        +1.16            +19.80
+//     0.82/0.89  188.3   173.5   306.7        +2.58            +15.56
+//     0.84/0.90  190.4   177.7   310.2        +4.02            +12.49   ← ships
+//     0.86/0.92  194.6   181.9   317.1        +5.40             +8.24
+//     0.88/0.94  198.8   186.2   324.0        +6.82             +4.01
+//
+// 0.78/0.85 WAS THE FIRST ANSWER AND IT WAS WRONG BY 1.1px, which is worth
+// keeping because of WHY: the content was 1.1px taller than the band the
+// plate's own maths reserves, so its corner left the rim. The rule the table
+// is actually solving is `band height >= content height`, and at 0.84 the band
+// is 206.1px against that 192.5px — 13.6px of headroom for a longer answer —
+// while the nearest seat still keeps 12.5px of air.
+//
+// THE CORNER CLEARANCE GROWS SLOWLY ON PURPOSE and it is not a weak column:
+// the ask's width is the band (see TownInfo), so the content grows WITH the
+// plate and its corner keeps pace. A row of +4 is a corner sitting inside the
+// band's own allowance, not a near miss.
+//
+// The ellipse itself is the town plate's, held: 0.90/0.84 is 1.071, against
+// 1.085 for the town plate at 1280x800.
+//
+// X AND Y ARE THE TOWN MAP'S, to the pixel, and deliberately: the two plates
+// are CONCENTRIC, so a player who has seen the storyteller's screen is looking
+// at one object at two sizes rather than at two circles that nearly agree. It
+// costs the ask 6.2px of leftward travel from the numeral ring's own measured
+// centre (`--ti-dial-cx`, FT-1113) — worth naming, because the ask is now
+// centred on ITS OWN PLATE, which is the only rule a plated surface can have.
+//
+// NO HEADER AND NO FOOT. This surface has neither — it is one centred column,
+// so `face-disc-head` and `face-disc-foot` are never included from it. The two
+// dy values are the town set all the same, so the map stays a complete
+// description of a plate rather than a partial one with holes.
+$face-disc-geo-ask: (
+  ns: "ask",
+  x: -16px,
+  y: -19px,
+  r: 0px,
+  scale: 0.84,
+  scale-x: 0.9,
+  width: 0px,
+  head-dy: -20px,
+  foot-dy: 14px,
+);
+
 // WHERE THE CAP FURNITURE SITS, as the `var()` FALLBACKS the two furniture
 // mixins carry. The frame publishes `--fd-head-dy` / `--fd-foot-dy` off whichever
 // map it was given, so these two only stand in for a header or a button drawn
@@ -387,22 +481,56 @@ $face-disc-foot-dy: 14px;
 // pair, so `face-disc-head` and `face-disc-foot` keep reading the plain names and
 // stay surface-agnostic. Same trick for `--fd-radius`, which ::before and ::after
 // also read.
+// ── AND A MAP MAY NOW ASK FOR A FRACTION OF THE FACE (FT-1125) ──────────────
+// Two OPTIONAL keys, and a map WITHOUT them emits the identical declaration it
+// always did — checked as a STRING and not assumed, because "x 1 is a no-op" is
+// true of the arithmetic and not of the bytes, and the town and entry plates
+// must not move by so much as a rounding step for a third plate's sake.
+// (Proof: compile this file at HEAD and here against the same three includes
+// and diff — claude_temp_test/2026-08-24-ft1125-disc-sass/.)
+//
+//   scale     the VERTICAL radius as a fraction of the face's own, as an extra
+//             factor on the `--face-r x --fpx` term.
+//   scale-x   the HORIZONTAL radius likewise, REPLACING the "--fd-r plus a
+//             baked px width" base. A px offset is a different PROPORTION at
+//             every window size; a plate that is a fifth smaller than the
+//             town's has to shrink by the same fraction at every size, or it is
+//             a different ellipse on every screen.
+//
+// BOTH ARE FOLDED IN AS INTERPOLATED TERMS rather than as `@if` branches around
+// the whole declaration, and that is what buys the byte-identity: one
+// declaration, at the indent and with the line breaks it has always had, and an
+// EMPTY string where a map asks for nothing. A branch would have had to restate
+// the calc, and a restated calc is a differently-wrapped calc.
+//
+// The map's own `r` / `width` px offsets and both lab `-adj` reads survive
+// intact on the end of either form, so zero still means "what ships".
 @mixin face-disc-frame($geo: $face-disc-geo-town) {
   $ns: map-get($geo, ns);
+  $scale: if(map-has-key($geo, scale), map-get($geo, scale), 1);
+  $scale-x: if(map-has-key($geo, scale-x), map-get($geo, scale-x), null);
+  $scale-term: if($scale == 1, "", " * #{$scale}");
+  $rx-base: if(
+    $scale-x == null,
+    "var(--fd-r)",
+    "var(--face-r, 238) * #{$scale-x} * var(--fpx, 1px)"
+  );
   // --fd-r AND --fd-d KEEP THEIR MEANINGS: the VERTICAL radius and the VERTICAL
   // diameter. They are read outside this file (HostTools' own body height is
   // `calc(var(--fd-d) - 2 * var(--fd-caph) + 22px)`), and both of those reads
   // are vertical quantities, so widening the disc must not move them.
   --fd-r: calc(
-    var(--face-r, 238) * var(--fpx, 1px) + #{map-get($geo, r)} +
+    var(--face-r, 238)#{$scale-term} * var(--fpx, 1px) + #{map-get($geo, r)} +
       var(--fd-#{$ns}-r-adj, 0px)
   );
   --fd-d: calc(2 * var(--fd-r));
   // THE HORIZONTAL PAIR, and the only thing the Width scrub touches. The map's
   // `width` is the BAKED half-width — 17px on the entry plate, 18px in town —
-  // so at rest --fd-rx is --fd-r plus that one term and nothing else.
+  // so at rest --fd-rx is --fd-r plus that one term and nothing else. A map
+  // with its own `scale-x` (the ask's) replaces that base outright, so its two
+  // radii are independent fractions of the face rather than one plus an offset.
   --fd-rx: calc(
-    var(--fd-r) + #{map-get($geo, width)} + var(--fd-#{$ns}-width-adj, 0px)
+    #{$rx-base} + #{map-get($geo, width)} + var(--fd-#{$ns}-width-adj, 0px)
   );
   --fd-dx: calc(2 * var(--fd-rx));
   --fd-cap: #{$face-disc-cap};
@@ -841,12 +969,26 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
   //
   // The outer halo is pulled back too (32px/0.46 -> 16px/0.30). A wide glow
   // around a pane reads as the pane EMITTING light, which glass does not do.
+  //
+  // ── THE HAIRLINE IS A TOKEN NOW (FT-1125) ────────────────────────────────
+  // `--fd-edge-color` names the shipped literal as its own `var()` fallback,
+  // exactly as `--fd-tint-rgb` does above, so with nobody setting it this
+  // declaration computes byte-for-byte what it computed before — the town
+  // plate, the build panel and both entry panels are untouched and none of
+  // them sets it.
+  //
+  // WHAT SETS IT is the night's ask (TownInfo.vue's `.info-night`), whose rim
+  // carries the asked seat's BELIEVED alignment. A plate's edge is the one
+  // part of this material that a surface can honestly own — it is where the
+  // object meets the table — and the alternative was for that surface to
+  // restate all six shadow layers to change one of them, which is the drift
+  // this whole file exists to end.
   box-shadow:
     inset 4px 5px 8px -5px rgba(250, 246, 255, 0.82),
     inset -4px -5px 9px -6px rgba(0, 0, 0, 0.7),
-    inset 0 0 0 1px #4b3565,
+    inset 0 0 0 1px var(--fd-edge-color, #4b3565),
     0 0 0 1px rgba(150, 120, 60, 0.22),
-    0 0 16px rgba(112, 74, 172, 0.3),
+    0 0 16px var(--fd-edge-glow, rgba(112, 74, 172, 0.3)),
     0 0 24px rgba(0, 0, 0, 0.66);
 
   // ── THE GROUND ─────────────────────────────────────────────────────────────

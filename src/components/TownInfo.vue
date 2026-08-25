@@ -103,7 +103,19 @@
          storyteller is not sharing the night. Nothing new crosses the wire
          for it: the question is built from `me.role`, which this client was
          dealt, and the answer from this seat's own delivered rows. -->
-    <li class="info-night" v-if="myCall">
+    <!-- ── FT-1125 (user): AND IT STANDS ON A DISC LIKE THE STORYTELLER'S ──
+         "visually it still doesn't show the disc for the player? only the
+         storyteller?… you can make the rim the blood crimson if the user is
+         evil or the blue for good."
+
+         FT-1113 put the ask in the middle and painted it straight onto the
+         art. The storyteller's checklist, in that same place, has sat on a
+         plate since FT-882. This element is that plate now — a smaller
+         member of the same family, concentric with the storyteller's, its
+         rim carrying the alignment this seat BELIEVES it holds. Geometry in
+         src/faceDisc.scss ($face-disc-geo-ask); the rim colour in the CSS
+         below; where the belief comes from in viewerAlignment. -->
+    <li class="info-night" :class="askRimClass" v-if="myCall">
       <NightCall face :action="myCall" :row="myCallRow" :day="night.day" />
     </li>
     <li
@@ -398,6 +410,10 @@ import { playCallBack, CALL_BACK_COOLDOWN } from "../golem/callBack";
 // the band form the chronicles used to carry — see NightCall.vue's header for
 // why that band stood down and this took its place.
 import NightCall from "./NightCall";
+// FT-1125: the ask's plate carries the asked seat's alignment on its rim, and
+// it must be the alignment that seat BELIEVES it holds — see viewerAlignment
+// below, and golem/belief.js's own header for why the truth is never read here.
+import { believedAlignment } from "../golem/belief";
 
 export default {
   components: { NightCall },
@@ -509,6 +525,45 @@ export default {
      */
     hasFaceSplat() {
       return !!this.grimoire.faceSplatSeed;
+    },
+    /**
+     * FT-1125: THIS CLIENT'S OWN SEAT, when the viewer is a player rather
+     * than the storyteller — the same `players.find(p => p.id ===
+     * session.playerId)` lookup Vote.vue / Player.vue / NightSheet.vue
+     * already use to find "me" among the ring. Null for the storyteller,
+     * who has no seat of their own.
+     */
+    viewerPlayer() {
+      if (!this.session.isSpectator) return null;
+      return this.players.find((p) => p.id === this.session.playerId) || null;
+    },
+    /**
+     * FT-1125: THE COLOUR OF THE ASK'S RIM — 'good' | 'evil' | null.
+     *
+     * IT READS THE BELIEF AND NEVER THE TRUTH, and that is the whole reason
+     * this card was not a one-line style change. `believedAlignment()`
+     * (golem/belief.js) resolves `believedRole` before `role`, so a Drunk —
+     * who was told they are a Townsfolk — gets a BLUE rim, and a Lunatic —
+     * told they are the Demon — gets a CRIMSON one. A rim that answered with
+     * the seat's TRUE team would tell a Drunk, through the chrome, the one
+     * thing the storyteller is keeping from them. Same rule, same helper and
+     * the same reasoning as NightSheet's own seat pickers (FT-986).
+     *
+     * ON A PLAYER'S OWN CLIENT THE TRUTH IS NOT EVEN PRESENT — a lie is
+     * delivered as that seat's `role` (socket.js's `_sendBelief`), so this
+     * would read correctly here by accident. It is written to read correctly
+     * on ANY client because a rule that holds by accident is not a rule.
+     *
+     * NULL IS A REAL ANSWER, not a bug: an open chair, or a game that has not
+     * distributed roles, has no belief to read, and an unrimmed plate is
+     * right there rather than a guessed colour.
+     */
+    viewerAlignment() {
+      return believedAlignment(this.viewerPlayer);
+    },
+    /** The rim class, or nothing at all when there is no belief to read. */
+    askRimClass() {
+      return this.viewerAlignment ? "viewer-" + this.viewerAlignment : null;
     },
     ...mapState(["edition", "grimoire", "night", "session"]),
     ...mapState("players", ["players"]),
@@ -829,6 +884,104 @@ export default {
       // rides the fade #app already gives its children.
       #app.sheet-up & {
         opacity: 0;
+      }
+    }
+  }
+
+  // ── FT-1125 (user): THE ASK STANDS ON A DISC, AND THE RIM IS THE SEAT'S ──
+  //
+  // "visually it still doesn't show the disc for the player? only the
+  // storyteller?" — and the element they pointed at was the storyteller's own
+  // `.night-sheet`, which has been a plate laid on the dial since FT-882. The
+  // ask stood in the same place with nothing behind it.
+  //
+  // IT IS THE SAME SYSTEM, NOT A SECOND CIRCLE. `face-disc-frame` is the one
+  // definition of what a plate on this face IS — the centre, the radius off
+  // `--face-r`, the border-radius, the glass — and this surface takes it whole
+  // off its own geometry map ($face-disc-geo-ask, src/faceDisc.scss) rather
+  // than hand-rolling a round panel that would drift from the other three the
+  // first time any of them was touched.
+  //
+  // A SMALLER PLATE, AND THE MEASUREMENT IS IN THAT MAP. The short version:
+  // the storyteller's plate holds a scrolling checklist and the player's holds
+  // five short lines, and — the binding constraint — the PLAYER'S CONTROL IS
+  // THE RING, so their plate may not lay glass over the coins the ask is
+  // telling them to tap. The town plate's horizontal radius (228.5px at
+  // 1280x800) already crosses the nearest coin (226.8px to the token, 203.1px
+  // to its name plate); at 0.84/0.90 of the face this one clears that same
+  // seat's full box by 12.5px there and 42.3px at 1920x1080 — measured with
+  // the ask driven to its FULLEST, chips and a 230% answer and all. The sweep
+  // those two fractions came off is in faceDisc.scss beside the map.
+  //
+  // BELOW THE GATE NOTHING HERE APPLIES, which is the same rule the other
+  // three surfaces keep: a phone has no room for a 330px circle, and the ask
+  // stays the frameless words on the art that FT-1107 made it.
+  @include face-disc-gate {
+    .info-night {
+      @include face-disc-frame($face-disc-geo-ask);
+      // The frame lays out a column from the top, for a header/band/foot
+      // surface. This one is a single centred group and has neither cap
+      // occupied, so it centres in the plate instead.
+      justify-content: center;
+
+      // THE CONTENT IS THE PLATE'S OWN BAND, capped at the width it already
+      // had. `--fd-band` is the chord of this ellipse at the band's height
+      // (the maths lives in faceDisc.scss, and it is what stops the corners
+      // of a rectangle being sheared by the rim) — 292.9px at 1280x800,
+      // 395.6px at 1920x1080. FT-1113's 355px stands as the CEILING rather
+      // than being replaced by it: that number is a line-length decision
+      // about how much instruction reads on one line, and a plate arriving is
+      // no reason for the ask to get wider on a big screen than it is today.
+      > .nc {
+        width: min(355px, var(--fd-band));
+      }
+
+      // ── THE RIM CARRIES THE SEAT'S ALIGNMENT ──────────────────────────
+      //
+      // "you can make the rim the blood crimson 800000 I think if the user is
+      // evil or the blue for good" (user).
+      //
+      // WHICH ALIGNMENT IS THE ENTIRE POINT — see `viewerAlignment` in the
+      // script above. It is the one this seat BELIEVES it holds, so a Drunk
+      // gets blue and a Lunatic gets crimson; a rim reading the truth would
+      // out the storyteller's deception through the chrome.
+      //
+      // TWO PROPERTIES, NOT SIX SHADOW LAYERS RESTATED. `--fd-edge-color` and
+      // `--fd-edge-glow` are tokens the shared plate reads with its own
+      // shipped literals as fallbacks (faceDisc.scss), so a plate nobody has
+      // rimmed is byte-identical to the three that were here before this
+      // card. The `border` on top of them is what makes it a RIM rather than
+      // a hairline: at 1px the alignment would be a thread nobody reads
+      // across a table, and this is the one mark on the face that answers
+      // "whose ask is this".
+      //
+      // NEITHER IS SET WHEN THERE IS NO BELIEF TO READ. An open chair or an
+      // undistributed game leaves the plate wearing the grimoire's own plum
+      // edge — a neutral plate, never a guessed side.
+      &.viewer-good,
+      &.viewer-evil {
+        --fd-edge-color: var(--ask-rim);
+        --fd-edge-glow: var(--ask-rim-glow);
+        border: 2px solid var(--ask-rim);
+      }
+      // $townsfolk (#1f65ff) is the fork's ONE blue and it is already on this
+      // very panel — the townsfolk count and glyph wear it, and FT-1113 put it
+      // on the name chips inside this same plate. Not a second blue.
+      &.viewer-good {
+        --ask-rim: #{$townsfolk};
+        --ask-rim-glow: #{rgba($townsfolk, 0.45)};
+      }
+      // …and the crimson is the USER'S OWN NUMBER, given in the request. It is
+      // deliberately not `$demon` (#ce0100): that is the bright team red the
+      // role lists and the winner banner wear, and a rim in it reads as an
+      // alert rather than as an edge. #800000 is dark enough to be a material
+      // and saturated enough to be unmistakably the other side. It lives here
+      // rather than in vars.scss because vars.scss is the six-line TEAM
+      // palette and this is not a team colour; if a second surface ever wants
+      // it, that is the moment it moves.
+      &.viewer-evil {
+        --ask-rim: #800000;
+        --ask-rim-glow: #{rgba(#800000, 0.62)};
       }
     }
   }
