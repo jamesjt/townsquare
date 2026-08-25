@@ -50,7 +50,26 @@
         </span>
         <!-- unsaved edits: Save / Discard appear ONLY when dirty
              (user call — the actions row lost its Save button) -->
-        <span class="wb-dirty" v-if="editable && dirty">
+        <!-- FT-1127 (user: "seems we have two save discards? which one is
+             real?"). BOTH were real — this pair and the builder header's
+             labelled plate call the same two handlers, `saveToVault` and
+             `discardEdits`, one through an emit and one directly. Nothing
+             chose between them, so the answer to "which is real" was "both,
+             identically", which is the worst answer a duplicated control can
+             give.
+
+             This one is the elder. It was added when the actions row had no
+             Save button at all; FT-1043 then gave the header its standard
+             Save/Discard plate and nobody retired this. The plate wins: it
+             carries WORDS, it sits with the other script actions, and it is
+             the same object the forge's own header wears — while this pair
+             is two bare glyphs living in a row of team counts, which is a
+             place for reading, not for pressing.
+
+             Stood down rather than deleted, per the house rule; the emits and
+             the styling below stay intact, so restoring it is this one
+             condition. -->
+        <span class="wb-dirty" v-if="false && editable && dirty">
           <font-awesome-icon
             icon="undo"
             class="discard"
