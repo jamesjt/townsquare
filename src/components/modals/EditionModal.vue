@@ -519,6 +519,40 @@
                   @input="(n) => (roleForm.artScale = n / 100)"
                 />
                 <span class="ad-unit">%</span>
+                <!-- FT-1126 (user: "we need a offset X and offset Y controls
+                     for the icons there. or did you put them somewhere
+                     else?"). They were somewhere else: `artX`/`artY` have
+                     existed since the dials landed, but the ONLY way to set
+                     them was to drag the art on the coin above. A drag is a
+                     fine way to find a position and a poor way to say one —
+                     it cannot be nudged by a tenth, typed, repeated across
+                     two roles, or read back. So the two offsets get dials
+                     beside the size, bound to the same fields the drag
+                     writes: whichever you use, the other shows the result.
+                     Bounds are the sanitizer's own (±50% of the coin), so a
+                     dial can only ask for what the model already accepts. -->
+                <span class="forge-label ad-gap">X</span>
+                <NumberScrub
+                  class="ad-off"
+                  preset="night"
+                  :value="artOffX"
+                  :min="-50"
+                  :max="50"
+                  title="Art offset across, percent of the coin — drag to scrub, click to type"
+                  @input="(n) => (roleForm.artX = n)"
+                />
+                <span class="ad-unit">%</span>
+                <span class="forge-label ad-gap">Y</span>
+                <NumberScrub
+                  class="ad-off"
+                  preset="night"
+                  :value="artOffY"
+                  :min="-50"
+                  :max="50"
+                  title="Art offset down, percent of the coin — drag to scrub, click to type"
+                  @input="(n) => (roleForm.artY = n)"
+                />
+                <span class="ad-unit">%</span>
                 <button
                   type="button"
                   class="forge-chip ad-reset"
@@ -1743,6 +1777,21 @@ export default {
     artSizePct() {
       const f = this.roleForm;
       return Math.round((f && f.artScale ? f.artScale : 1) * 100);
+    },
+    /**
+     * FT-1126: the two offsets, read for the dials. Rounded to whole percent
+     * for the readout because the drag writes tenths and a scrubbing dial
+     * that reads "-12.3" is harder to aim than one that reads "-12"; the
+     * stored value keeps whatever precision the drag gave it until a dial is
+     * actually touched.
+     */
+    artOffX() {
+      const f = this.roleForm;
+      return Math.round((f && f.artX) || 0);
+    },
+    artOffY() {
+      const f = this.roleForm;
+      return Math.round((f && f.artY) || 0);
     },
     /** Does the draft wear a non-stock fit? (the Reset chip's gate) */
     artDirty() {
@@ -4337,6 +4386,12 @@ $team-colors: (
     text-transform: uppercase;
     letter-spacing: 1.4px;
     opacity: 0.55;
+  }
+  // FT-1126: the X and Y labels sit closer to their own dial than to the
+  // pair before them, so the row reads as three groups rather than seven
+  // loose things.
+  .ad-gap {
+    margin-left: 6px;
   }
   .ad-unit {
     font-size: 11px;
