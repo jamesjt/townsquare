@@ -204,8 +204,24 @@ export default {
 }
 
 .num-scrub-label {
-  border: 1px solid transparent;
-  background: transparent;
+  // FT-1170 (user): "Lets make number inputs like those more clearly an
+  // input, including for number of chairs" — then, on being offered a
+  // stepper: "no stepper is bad. just the border people can learn the number
+  // scrub part."
+  //
+  // So the RESTING state wears the box it always had when you clicked into
+  // it. It was a bare number on the background, indistinguishable from the
+  // label beside it, and the only hint that it could be changed was the
+  // cursor — which nobody sees until they are already over it, i.e. after
+  // they have guessed. The border is the affordance; the drag is the thing
+  // you learn once and then know, which is the user's own call and the
+  // reason there are no arrows here.
+  //
+  // Same values the type-in field carries below, so the resting box and the
+  // editing box are the same object rather than two that resemble each
+  // other, and the only thing that changes on click is the caret.
+  border: 1px solid rgba(120, 105, 135, 0.3);
+  background: rgba(0, 0, 0, 0.25);
   cursor: ew-resize;
   user-select: none;
   touch-action: none;
