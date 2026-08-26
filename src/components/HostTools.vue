@@ -229,17 +229,22 @@
               <!-- FT-1132 (user): this button and the role randomiser beside
                    it wear the SAME glyph and their titles read alike, so
                    there was no way to tell which one you were about to press.
-                   This one moves the PEOPLE — `players/randomize` reorders
-                   the roster itself, so everyone changes chair and carries
-                   whatever they are holding with them. The other leaves
-                   everyone seated and redistributes the roles. Both titles
-                   now say which is which, in the user's own words. -->
+                   Both titles now say which is which, in the user's own words.
+
+                   FT-1133 (user): ...and the title said the wrong thing about
+                   this one. It used to read "everyone moves chair, keeping
+                   what they hold", which was an accurate description of a
+                   bug: the shuffle reordered the roster and carried each
+                   person's character along with them, so who held what never
+                   changed. It now moves the PEOPLE and leaves every character
+                   on its own chair, which is the only version of this button
+                   that does anything a storyteller wants. -->
               <button
                 class="tool-btn"
                 type="button"
                 :disabled="players.length <= 2"
                 @click="randomizeSeatings"
-                title="Shuffle players' seats — everyone moves chair, keeping what they hold"
+                title="Shuffle who sits where — the people change chair, the characters stay on theirs"
               >
                 <font-awesome-icon icon="random" />
               </button>
@@ -838,8 +843,18 @@ export default {
     window.removeEventListener(TOWER_EVENT, this.readTower);
   },
   computed: {
-    ...mapState(["edition", "session", "grimoire"]),
+    // FT-1133: `chat` is here for `gameUnderway` alone — `chat.gameId` is the
+    // town's current game, and the one reader in this app that answers "is a
+    // game underway HERE" the same way on every client (see Player.vue's own
+    // note under FT-1112 for why the two obvious alternatives are wrong).
+    ...mapState(["edition", "session", "grimoire", "chat"]),
     ...mapState("players", ["players"]),
+    /** FT-1133: is a game underway in this town — the same reader the seat
+     *  lock uses, so the shuffle's warning and that lock can never disagree
+     *  about when the game started. */
+    gameUnderway() {
+      return !!(this.chat && this.chat.gameId);
+    },
     /** FT-847: the edit key when this hosted town is OURS (else falsy). */
     ownedKey() {
       return (
@@ -1405,8 +1420,35 @@ export default {
     // FT-847 follow-up: relocated from the retired Players toolbar tab.
     // No confirm: shuffling seats during setup is the point of the button,
     // and it is undone by pressing it again. (user call 2026-08-18)
+    //
+    // FT-1133: ...and that user call is about SETUP, which is left exactly as
+    // it was — confirm-free, one click, press it again to re-roll. What earns
+    // a question is pressing it AFTER the deal, and only then.
+    //
+    // WARNED, NOT REFUSED. FT-1112 froze the seating mid-game for PLAYERS and
+    // deliberately left the storyteller's own arrangement tools free; refusing
+    // here would be the first time this fork takes the table away from the
+    // person whose table it is. But a shuffle is indiscriminate by definition
+    // — you cannot shuffle toward an outcome you wanted — so the only reason
+    // to press it mid-game is that you meant the other button, and the cost of
+    // that misclick is every character in the game changing hands at once.
+    // A dialog turns a one-click accident into a decision, and says the one
+    // consequence in the words it actually happens in. The storyteller who
+    // means it still gets it, and the wire is correct when they do
+    // (socket.js's reseatPlayers) — the dialog is the manners, not the rule.
     randomizeSeatings() {
       if (this.players.length <= 2) return;
+      if (
+        this.gameUnderway &&
+        !confirm(
+          "The game is underway. Shuffling now moves the players only — " +
+            "every character stays on its own chair, so everyone ends up " +
+            "holding whoever's character they sit down in front of. " +
+            "Shuffle anyway?",
+        )
+      ) {
+        return;
+      }
       this.$store.dispatch("players/randomize");
     },
     clearAllPlayers() {

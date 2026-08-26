@@ -1129,6 +1129,70 @@ class LiveSession {
   }
 
   /**
+   * FT-1133: THE SEATS WERE SHUFFLED — put every client straight.
+   *
+   * The shuffle moves the PEOPLE between chairs and leaves everything the
+   * chair holds where it is (players.js's `randomize`). Before the deal that
+   * is a pure renaming and the broadcast below is the whole job. After it,
+   * chairs have changed hands, and a chair changing hands is the one event
+   * this file has always had to be careful about: a character is delivered
+   * per SEAT, privately, so nothing about a shuffle is visible to the wire
+   * unless it is said here.
+   *
+   * FOUR THINGS ARE SAID, in this order:
+   *
+   * 1. THE SEATING, to everyone. Names, ids, pronouns and shrouds, on the
+   *    ordinary lightweight sync — the same frame `players/set` has always
+   *    answered with. It also rebuilds `_gamestate`, which step 2 reads.
+   *
+   * 2. A MOVER'S OLD CHARACTER, taken off the mover's own client. This is the
+   *    frame with no substitute: the lightweight sync carries a roleId only
+   *    for a traveler's chair, and the receiver deliberately leaves a
+   *    non-traveler role standing when none arrives (`_updateGamestate`). So
+   *    without this, a player who moved keeps painting the character they
+   *    were dealt onto a chair somebody else is now sitting in — and step 3
+   *    would hand them a second one, leaving two characters on one screen and
+   *    two clients believing they hold the same character. That is worse than
+   *    the bug being fixed, which is why it is sent FIRST and to the mover
+   *    alone. The value is not a blanket clear but exactly what EVERY client
+   *    is entitled to hold at that index — a traveler's id, a revealed id
+   *    after the game ends, otherwise nothing — read off the gamestate step 1
+   *    just rebuilt, so a mover leaving a traveler's chair does not blank it.
+   *
+   * 3. THE CHARACTER NOW UNDER THEM, to each seated player. `_sendBelief` is
+   *    the existing per-seat primitive for precisely this, and it carries that
+   *    seat's bluffs with it — so the demon's chair changing hands moves the
+   *    three in BOTH directions (the new holder is sent them, the old holder
+   *    is sent an empty set) with no bluff logic here at all. Silent before
+   *    the deal by its own guard.
+   *
+   * 4. THE GRANTS AND THE NIGHT ROWS, re-cut. A grimoire grant is keyed to a
+   *    PERSON and omits that person's own seat, which just moved; night rows
+   *    are delivered per seat. Both are re-sent rather than reasoned about.
+   *
+   * @param moves [{ id, from, to }] for every seated person who changed chair.
+   */
+  reseatPlayers({ moves } = {}) {
+    if (this._isSpectator) return;
+    this.sendGamestate("", true);
+    if (!this._isDealt()) return;
+    (moves || []).forEach(({ id, from }) => {
+      if (!id || !(from >= 0)) return;
+      const seat = this._gamestate[from];
+      this._sendDirect(id, "player", {
+        index: from,
+        property: "role",
+        value: (seat && seat.roleId) || "",
+      });
+    });
+    this._store.state.players.players.forEach((player, index) => {
+      this._sendBelief(player, index);
+    });
+    this._refreshGrimoire();
+    this.sendNightRows();
+  }
+
+  /**
    * FT-1105: HAS THIS TOWN BEEN DEALT? The one question four private senders
    * below (`_sendBelief`, `sendBluffs`, `sendGrimoire`, `_syncGrimoireGrant`)
    * all need, and all of them used to ask it of the wrong flag.
@@ -2151,6 +2215,12 @@ export default (store) => {
       case "players/clear":
       case "players/add":
         session.sendGamestate("", true);
+        break;
+      // FT-1133: a roster change where the CHAIRS changed hands. It sends the
+      // same lightweight sync the three cases above do, and then the per-seat
+      // frames that only this change needs — see reseatPlayers.
+      case "players/reseat":
+        session.reseatPlayers(payload);
         break;
       case "players/update":
         if (payload.property === "pronouns") {

@@ -217,10 +217,25 @@ export function viewerOf(state) {
  * where.
  */
 export function seatOf(state) {
-  if (state.session.claimedSeat >= 0) return state.session.claimedSeat;
-  return state.players.players.findIndex(
+  // FT-1133: THE HOST-CONFIRMED SEAT FIRST, the local note second.
+  //
+  // These two were the other way round, and the two orders are identical
+  // right up until the seating changes UNDER this client — which the seat
+  // shuffle now does by design, and the storyteller's Move and Swap have
+  // always done. `claimedSeat` is this browser's own note of where it sat
+  // down and nothing ever revises it; the id match is where the roster the
+  // host just sent actually says this player is sitting. Preferring the note
+  // meant a moved player's chat lines carried the seat number of a chair
+  // somebody else was now in.
+  //
+  // The note is still the answer in the one case it was written for: a fresh
+  // claim that the host has not confirmed yet, where the roster holds no
+  // matching id and the search below returns -1.
+  const seated = state.players.players.findIndex(
     (p) => p.id && p.id === state.session.playerId,
   );
+  if (seated >= 0) return seated;
+  return state.session.claimedSeat >= 0 ? state.session.claimedSeat : -1;
 }
 
 /**

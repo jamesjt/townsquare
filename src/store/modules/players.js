@@ -79,12 +79,78 @@ const getters = {
 };
 
 const actions = {
+  /**
+   * FT-1133: THE SHUFFLE MOVES THE PEOPLE, NOT THE GAME.
+   *
+   * User, verbatim: "shouldn't it just shuffle which seat each player is in,
+   * not move the roles at all?"
+   *
+   * It should, and it did not. The roster ARRAY is the seating — index i IS
+   * chair i — and one object per chair carried BOTH the human and everything
+   * the chair holds. So reordering the array (the stood-down code below) moved
+   * each person together with their character, their reminders and their
+   * shroud: the person-to-character pairing was the one thing a shuffle could
+   * never change, which is the one job a storyteller wants from the button.
+   *
+   * TWO SIDES, and the split is the whole fix:
+   *   · THE PERSON travels — `name`, `id`, `pronouns`. Who they are, what to
+   *     call them, and which browser is holding this chair. Nothing here is a
+   *     fact about the game.
+   *   · THE CHAIR stays — `role`, `believedRole`, `reminders`, `isDead`,
+   *     `isVoteless`. Every one of these is a game fact laid out on the table:
+   *     the character in front of that chair, the lie that chair is told, the
+   *     stickers beside it, its shroud and its spent vote. A shuffle is people
+   *     standing up and sitting down somewhere else; the table does not move.
+   *
+   * The chair keeps anything ADDED LATER too (the spread below), which is the
+   * safer default of the two — a new field on a seat is far more likely to be
+   * a game fact than a new piece of identity.
+   *
+   * BEFORE THE DEAL THIS IS INDISTINGUISHABLE from what the button always did,
+   * because every field on the chair side is empty. That is the point: the two
+   * only diverge once characters are laid out, and there the new one is the
+   * useful one.
+   *
+   * `moves` is the seating CHANGE, not just its result: which seated person
+   * came from which chair. socket.js's `reseatPlayers` needs the old index to
+   * take a mover's stale character off their own client — see its note.
+   */
   randomize({ state, commit }) {
-    const players = state.players
-      .map(a => [Math.random(), a])
-      .sort((a, b) => a[0] - b[0])
-      .map(a => a[1]);
-    commit("set", players);
+    // (the roster-array shuffle stood down here 2026-08-25 — kept for the
+    //  record. It is the same shuffle, applied one level too high up:
+    //    const players = state.players
+    //      .map(a => [Math.random(), a])
+    //      .sort((a, b) => a[0] - b[0])
+    //      .map(a => a[1]);
+    //    commit("set", players);
+    //  Everything the chair holds rode along with the person.)
+    const seats = state.players;
+    // Lift the PEOPLE off the chairs and shuffle those alone (Fisher-Yates —
+    // a uniform permutation, unlike sorting on a random key).
+    const people = seats.map(({ name, id, pronouns }) => ({
+      name,
+      id,
+      pronouns
+    }));
+    for (let i = people.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const held = people[i];
+      people[i] = people[j];
+      people[j] = held;
+    }
+    // ...and sit them back down. The chair is spread FIRST so the three person
+    // fields land on top of it; everything else the seat was holding is
+    // untouched, in the chair it was already in.
+    const players = seats.map((seat, index) => ({ ...seat, ...people[index] }));
+    // WHO WENT WHERE — claimed chairs only; an empty chair has no client to
+    // correct. `seats` is still the OLD order at this point.
+    const moves = [];
+    people.forEach((person, to) => {
+      if (!person.id) return;
+      const from = seats.findIndex(({ id }) => id && id === person.id);
+      if (from >= 0 && from !== to) moves.push({ id: person.id, from, to });
+    });
+    commit("reseat", { players, moves });
   },
   clearRoles({ state, commit, rootState }) {
     let players;
@@ -184,6 +250,24 @@ const mutations = {
   },
   set(state, players = []) {
     state.players = players;
+  },
+  /**
+   * FT-1133: the seat shuffle's own mutation. It sets the roster exactly as
+   * `set` does — it exists so the socket layer can tell THIS roster change
+   * apart from every other one and answer it properly.
+   *
+   * `set` is answered by a lightweight gamestate broadcast, and that broadcast
+   * carries names, ids, pronouns and shrouds but NOT a seat's character. That
+   * is right for every other `set` (nobody's character moved) and wrong for
+   * this one, where a chair changing hands is exactly what happened — see
+   * socket.js's `reseatPlayers`.
+   *
+   * `moves` rides on the payload rather than the state because it describes
+   * the CHANGE; by the time the subscriber reads the roster it is already the
+   * new seating, and the old chair of each mover is unrecoverable from it.
+   */
+  reseat(state, { players } = {}) {
+    if (players) state.players = players;
   },
   /**
   The update mutation also has a property for isFromSockets
