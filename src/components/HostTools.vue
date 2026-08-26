@@ -355,6 +355,18 @@
                    storyteller's own Move and Swap are deliberate, aimed acts
                    on ONE seat. A shuffle cannot be aimed at all, which is
                    exactly why it belongs to setup and nowhere else. -->
+              <!-- FT-1196 (user): "the first shuffle button needs a label, and
+                   maybe they both need a qualifier on what they shuffle?" This
+                   was the ONLY unlabeled action on the panel after FT-1175
+                   labeled RoleActions' four — and it shared FA `random` with
+                   the roles shuffle one row down, so the panel's two most
+                   consequential randomisers were told apart by tooltip alone.
+                   Now: the word says WHAT it shuffles ("Shuffle people" here,
+                   "Shuffle roles" there — the user's own vocabulary, and the
+                   titles' own), and the mark is ui-seat's chair over an
+                   opposed pair of arrows (baked, FT-1194's recipe), so
+                   icons-only mode still tells chair from coin. Same
+                   icon+`.ra-name` dress as RoleActions' buttons. -->
               <button
                 class="tool-btn"
                 type="button"
@@ -366,7 +378,13 @@
                     : 'Shuffle who sits where — the people change chair, the characters stay on theirs'
                 "
               >
-                <font-awesome-icon icon="random" />
+                <!-- <font-awesome-icon icon="random" /> — FT-1196: both shuffles wore it -->
+                <img
+                  class="tool-glyph"
+                  :src="uiShufflePlayer"
+                  alt="Shuffle people"
+                />
+                <span class="ra-name" v-if="!iconsOnly">Shuffle people</span>
               </button>
             </span>
           </span>
@@ -822,6 +840,11 @@ import grimoireClosed from "../assets/grimoire-cover.png";
 import uiSeat from "../assets/ui-seat.png";
 import uiRole from "../assets/ui-role.png";
 import uiScript from "../assets/ui-script.png";
+// FT-1196: the people shuffle wears its own baked mark — ui-seat's chair over
+// an opposed pair of arrows (the exchange gesture, distinct from the seat
+// menu's single-arrow moves) — instead of sharing FA `random` with the roles
+// shuffle one row down. Same recipe and geometry family as ui-move-player.
+import uiShufflePlayer from "../assets/ui-shuffle-player.png";
 // FT-1098 (user correction): the header wore the SCRIPT's own mark
 // (headerScriptIcon, below — Trouble Brewing's blood splat and so on,
 // whichever edition happened to be picked) where it should have worn the
@@ -969,6 +992,8 @@ export default {
       uiSeat,
       uiRole,
       uiScript,
+      // FT-1196: the people shuffle's own mark
+      uiShufflePlayer,
       // FT-1098: the header's own mark — the TOWN's, not the script's.
       uiTown,
       // FT-847: owned-town rename state.
@@ -2613,6 +2638,34 @@ export default {
       gap: 10px;
       .tool-btn {
         @include control-icon-btn;
+        // FT-1196: the shuffle's baked mark, at RoleActions' own img size so
+        // the two shuffles' plates match glyph-for-glyph.
+        .tool-glyph {
+          width: 16px;
+          height: 16px;
+          object-fit: contain;
+        }
+        // FT-1196: A LABELLED BUTTON IS NO LONGER A SQUARE — RoleActions'
+        // own rule (see its FT-1175 note), restated here because a scoped
+        // style cannot cross components: the mixin's fixed width becomes a
+        // minimum, the box sizes to its word, and the word's `v-if`
+        // (icons-only) is the single source of truth via `:has()`.
+        &:has(.ra-name) {
+          width: auto;
+          min-width: 34px;
+          padding: 0 9px;
+          gap: 6px;
+          @media (pointer: coarse) {
+            min-width: 42px;
+          }
+        }
+        // The word beside the mark — `.ra-name`'s dress from RoleActions,
+        // restated for the same scoped-style reason.
+        .ra-name {
+          font-size: 80%;
+          letter-spacing: 0.2px;
+          white-space: nowrap;
+        }
       }
     }
     .value {

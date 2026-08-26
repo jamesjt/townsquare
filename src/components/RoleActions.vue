@@ -22,14 +22,26 @@
       <img :src="dealGlyph" alt="Deal" />
       <span class="ra-name" v-if="!iconsOnly">Deal</span>
     </button>
+    <!-- FT-1196 (user): "maybe they both need a qualifier on what they
+         shuffle?" — this and the Seats row's shuffle wore the SAME crossing
+         -arrows glyph and the same bare idea of "Shuffle", so two different
+         dangerous actions looked like the same button. Both now say WHAT they
+         shuffle ("Shuffle roles" here, "Shuffle people" on the Seats row) and
+         wear the seat menu's own person-vs-character art (FT-1194's chair and
+         toothed coin) over an opposed pair of arrows — the exchange gesture,
+         distinct from the moves' single aimed arrow. The coin here is the same
+         coin the Roles row-mark and Change role wear, so icons-only mode still
+         tells the two shuffles apart. The old FA `random` stands down in
+         place. -->
     <button
       class="ra-act"
       :disabled="seatedCount < 2"
       title="Shuffle the roles among the seats — nobody moves chair, the characters do"
       @click.stop="shuffle"
     >
-      <font-awesome-icon icon="random" />
-      <span class="ra-name" v-if="!iconsOnly">Shuffle</span>
+      <!-- <font-awesome-icon icon="random" /> — FT-1196: both shuffles wore it -->
+      <img :src="shuffleRoleGlyph" alt="Shuffle roles" />
+      <span class="ra-name" v-if="!iconsOnly">Shuffle roles</span>
     </button>
     <!-- DUPES. The mark is `copy` — two of the same sheet, one behind the
          other, which is the thing this setting allows: one character sitting
@@ -94,6 +106,10 @@
 <script>
 import { mapState } from "vuex";
 import dealGlyph from "../assets/ui-deal.png";
+// FT-1196: the roles shuffle wears its own baked mark — ui-role's toothed coin
+// over an opposed pair of arrows — instead of sharing FA `random` with the
+// Seats row's people shuffle.
+import shuffleRoleGlyph from "../assets/ui-shuffle-role.png";
 // FT-1175: the personal "icons only" preference — the same snapshot-plus-event
 // pattern HostTools uses (the module object is not reactive, so each surface
 // holds its own copy and refreshes it on the event).
@@ -104,6 +120,7 @@ export default {
   data() {
     return {
       dealGlyph,
+      shuffleRoleGlyph,
       prefs: { ...prefsState }
     };
   },
