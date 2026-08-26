@@ -828,6 +828,12 @@
            reminders left/right of the seat instead of stacking them toward
            the ring's centre (see the `.reminder:not(.add)` rule).
 
+           FT-1167: `reminderStyle` still carries those two properties (the CSS
+           rule is the fallback for the first frame, before anything has been
+           measured) and adds the MEASURED placement on top — see
+           `measureReminderAnchor` for why a percentage of the seat cannot get
+           this right.
+
            FT-1117: and a token now MOVES. The storyteller picks it up and
            carries it to another chair — the deal places the red herring, and
            the storyteller is the one who decides it belongs somewhere else.
@@ -847,7 +853,7 @@
         :key="reminder.role + ' ' + reminder.name"
         v-for="(reminder, ri) in player.reminders"
         :class="[reminder.role]"
-        :style="{ '--ri': ri, '--rn': player.reminders.length }"
+        :style="reminderStyle(ri)"
         :draggable="String(!session.isSpectator)"
         @mousedown="reminderDragged = false"
         @dragstart="onReminderDragStart(ri, $event)"
@@ -1420,6 +1426,10 @@ export default {
       // if the plate can't be found), which the disc's CSS reads the same
       // way cardAnchor's absence already does: nothing to show yet.
       addAnchor: null,
+      // FT-1167: the measured coin-relative placement the reminder fan hangs
+      // off (see measureReminderAnchor). Null until the first measurement, and
+      // the FT-869 stylesheet rule draws that frame.
+      reminderAnchor: null,
       // FT-1117: this gesture on a reminder became a DRAG, so the click that
       // may follow it is the drag's own tail and must not remove the token.
       // Cleared by the next mousedown on a reminder — see the template note.
@@ -1427,23 +1437,23 @@ export default {
     };
   },
   mounted() {
-    this.measureAddAnchor();
-    window.addEventListener("resize", this.measureAddAnchor);
-    window.addEventListener("orientationchange", this.measureAddAnchor);
+    this.remeasureSeat();
+    window.addEventListener("resize", this.remeasureSeat);
+    window.addEventListener("orientationchange", this.remeasureSeat);
     // Catches what a resize event misses: this seat's own box can change
     // size without the WINDOW resizing (the zoom slider, a seat count
     // change reflowing every coin — see TownSquare.vue's measureBluffAnchor,
     // which documents the identical gap for the demon's bluffs).
     if (typeof ResizeObserver !== "undefined") {
-      this._addRO = new ResizeObserver(() => this.measureAddAnchor());
+      this._addRO = new ResizeObserver(() => this.remeasureSeat());
       this._addRO.observe(this.$el);
     }
   },
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
     clearTimeout(this.$options.hideTimer);
-    window.removeEventListener("resize", this.measureAddAnchor);
-    window.removeEventListener("orientationchange", this.measureAddAnchor);
+    window.removeEventListener("resize", this.remeasureSeat);
+    window.removeEventListener("orientationchange", this.remeasureSeat);
     if (this._addRO) this._addRO.disconnect();
   },
   watch: {
@@ -1470,10 +1480,27 @@ export default {
     // height — but a seat count change can also re-seat this <li> at a new
     // clock position, which changes `side`).
     "grimoire.zoom"() {
-      this.$nextTick(this.measureAddAnchor);
+      this.$nextTick(this.remeasureSeat);
     },
     "players.length"() {
-      this.$nextTick(this.measureAddAnchor);
+      this.$nextTick(this.remeasureSeat);
+    },
+    // FT-1167: a token arriving on a seat that had none is the one case with
+    // nothing rendered to measure from — the anchor is read off a real
+    // reminder box, so the first one has to land before it can be placed.
+    // Measured on the very next tick, which is before the browser paints, so
+    // there is no visible settle.
+    "player.reminders": {
+      deep: true,
+      handler() {
+        this.$nextTick(this.measureReminderAnchor);
+      },
+    },
+    // FT-1167: the checklist disc IS the plate the fan has to clear, and it
+    // only exists at night — so the swing has to be re-solved the moment the
+    // night opens or closes.
+    "grimoire.isNight"() {
+      this.$nextTick(this.measureReminderAnchor);
     },
     // FT-1090: the drag ghost is built from a DECODED image or it is not built
     // at all (see roleDrag.js's stage note — an undecoded one makes
@@ -1489,6 +1516,14 @@ export default {
     }
   },
   methods: {
+    /** FT-1167: both of this seat's measured anchors answer to the same
+     *  events — a window resize, an orientation change, the zoom slider, a
+     *  seat count change, and the seat's own box changing size under the
+     *  ResizeObserver. One handler so a listener added is a listener removed. */
+    remeasureSeat() {
+      this.measureAddAnchor();
+      this.measureReminderAnchor();
+    },
     /**
      * FT-858: rest on a seat and it tells you what its character does.
      * FT-990: THE COIN ASKS TOO (user call: "at some point we lost the hover on
@@ -1538,14 +1573,16 @@ export default {
       // The COIN asks to lean OUTWARD instead — it is IN the ring, and a fixed
       // side would lay the card across the seats next door.
       //
-      // MEASURED, and it does not currently change anything: the card is up to
-      // 460px wide and the ring's outer edge is close to the window edge, so
-      // "outward" does not FIT at either 1280x800 or 1920x1080 and the card's
-      // own placement falls back to whichever side has room — inward, both
-      // sides of the ring, for either preference. It is kept because it is the
-      // correct request for a coin in a ring (it is what RoleHoverCard's own
-      // note recommends for one), and it starts mattering the moment the card
-      // is narrower or the window wider. It is not doing work today.
+      // FT-1167 rider (user): "think we can always have role hovers show on the
+      // outside of the coin, left if left side right if right if there is room
+      // for them there?" It used to ask for "auto", which leans away from the
+      // middle of the WINDOW. That is nearly the ring's own outward direction
+      // and not quite: the ring is centred on `#townsquare`, not on the window,
+      // and for the 12 and 6 o'clock chairs the window's centre line falls
+      // straight through the coin, so those two seats' cards flipped sides on a
+      // pixel. `seatOutwardSide` asks the SEAT instead — its own rotation, the
+      // same reading `measureAddAnchor` and the reminder fan already take — so
+      // the answer is the ring's geometry rather than a proxy for it.
       //
       // Either way the card is anchored to the COIN element rather than to
       // whichever of the three boxes caught the pointer: the shroud is a squat
@@ -1553,7 +1590,7 @@ export default {
       const anchor = fromPlate
         ? e.currentTarget
         : this.$el.querySelector(".token") || e.currentTarget;
-      const prefer = fromPlate ? "right" : "auto";
+      const prefer = fromPlate ? "right" : this.seatOutwardSide();
       // a pending hide is abandoned — this is what makes the gap between the
       // coin and the plate crossable (see hideCardSoon)
       clearTimeout(this.$options.hideTimer);
@@ -1743,6 +1780,269 @@ export default {
       // rebuild the plate-to-disc span without a second, driftable copy of
       // this constant.
       this.addAnchor = { side, size, top, left, gap: GAP };
+    },
+
+    /**
+     * FT-1167 (user): "the reminder tokens need to be toward the clock face
+     * with minimal overlay with the player coin, basically only their gears
+     * should be touching."
+     *
+     * WHERE THEY WERE. FT-869 pinned a reminder at `margin-top: 68%` of the
+     * seat's own width — a percentage of the seat, resolved in the <li>'s own
+     * pre-rotation frame. Measured on a live 8-seat ring at 1920x1080
+     * (claude_temp_test/2026-08-25-ft1167-reminders.mjs): the token's rim was
+     * 43px to 82px INSIDE the coin's rim, i.e. the token sat squarely on the
+     * character art, which is the report.
+     *
+     * WHY NO PERCENTAGE CAN FIX IT. The seat's `.player` is TALLER than it is
+     * wide (the coin, plus the name plate under it) and it counter-rotates
+     * about its OWN centre — the on-circle mixin's `> * { rotate($rot * -1deg)
+     * }`. The coin is not at that centre, so as the seat travels round the
+     * clock the coin ORBITS the player's centre while a reminder, being nearly
+     * square, spins in place. The gap between them therefore swings by roughly
+     * the name plate's own height at every seat count: measured across one
+     * 8-seat ring the coin-to-token distance ran 26.7px to 65.8px — a 39px
+     * spread on a 146px coin, and the plate is about 39px tall. TownSquare.vue
+     * met the same wobble from the other side and wrote it down there: "seats
+     * are not even equidistant from that hub — 96px to 126px away across one
+     * 15-seat town". A single constant can put the WORST seat on the rim, but
+     * only by leaving the best one floating 40px clear.
+     *
+     * SO IT IS MEASURED, the same answer FT-911 gave for the plus disc one
+     * method up. Everything below is in the <li>'s own untransformed frame,
+     * which is the frame `top`/`left` are resolved in:
+     *
+     *   · a rendered reminder's centre is read straight off `offsetLeft`/
+     *     `offsetTop` — those ignore transforms, so they ARE local
+     *   · the coin's centre is that point plus the screen-space vector to the
+     *     coin, rotated back by the seat's own angle. `matrix(a, b, c, d, …)`
+     *     is a=cos, b=sin, so R(-angle)·(x, y) = (a·x + b·y, -b·x + a·y). The
+     *     <li>'s origin never enters it: it cancels in the difference.
+     *   · INWARD is local +y by construction — the <li> is the spoke, its
+     *     bottom pinned to the hub (`transform-origin: 0 100%`), so "down the
+     *     li" is "toward the clock face" at every clock position. That part of
+     *     FT-869's reasoning was right and is unchanged.
+     *
+     * The radius is then the only number that matters: coin radius + token
+     * radius + a hair, which is two rims kissing — "only their gears touching",
+     * literally. The fan stays a straight line across the seat, exactly as
+     * FT-869 drew it; only its distance from the coin changes.
+     */
+    measureReminderAnchor() {
+      const li = this.$el;
+      const rem = li.querySelector(".reminder:not(.add)");
+      const token = li.querySelector(".player .token");
+      if (!rem || !token) {
+        this.reminderAnchor = null;
+        return;
+      }
+      const w = rem.offsetWidth;
+      const h = rem.offsetHeight;
+      const tb = token.getBoundingClientRect();
+      const rb = rem.getBoundingClientRect();
+      if (!w || !h || !tb.width) {
+        this.reminderAnchor = null;
+        return;
+      }
+      let a = 1;
+      let b = 0;
+      const matrix = /matrix\(([^)]+)\)/.exec(getComputedStyle(li).transform);
+      if (matrix) {
+        const parts = matrix[1].split(",").map(Number);
+        a = parts[0]; // cos
+        b = parts[1]; // sin
+      }
+      const dx = tb.left + tb.width / 2 - (rb.left + rb.width / 2);
+      const dy = tb.top + tb.height / 2 - (rb.top + rb.height / 2);
+      const cx = rem.offsetLeft + w / 2 + (a * dx + b * dy);
+      const cy = rem.offsetTop + h / 2 + (-b * dx + a * dy);
+      const coinR = Math.min(tb.width, tb.height) / 2;
+      // A HAIR, PROPORTIONAL. 4% of the coin's radius is ~3px on a 6-seat
+      // town's coins and ~1.7px on a 20-seat ring's — a fixed pixel value
+      // reads as a gutter on one and disappears on the other.
+      const pad = coinR * 0.04;
+      /**
+       * THE FAN'S STEP, in the two ratios the stylesheet has always drawn.
+       * Desktop spaced tokens 60% of a seat apart while sizing them 50% of a
+       * seat — 1.2 token-widths, a tenth of a token of daylight between
+       * neighbours. A coarse pointer packed them tighter on purpose (20%
+       * spacing at 34% size — 0.59, deliberately overlapping) because a
+       * 12-seat phone ring has seats only 60px apart. Read off the MEASURED
+       * token width, so each mode keeps the fan it was tuned with.
+       */
+      const coarse =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(pointer: coarse)").matches;
+      const radius = coinR + h / 2 + pad;
+      const step = w * (coarse ? 0.59 : 1.2);
+      /**
+       * THE FAN IS AN ARC, NOT A LINE (FT-1167). FT-869 spread the tokens
+       * along the seat's own horizontal, which put the middle one on the coin's
+       * rim and the outer ones progressively further off it — with the fan now
+       * SITTING on that rim, a straight line would mean only the middle token
+       * actually touched gears. Every token rides the same circle instead, so
+       * "only their gears are touching" is true of all of them, and a fan pulls
+       * its ends tangentially IN rather than out: `radius·sin(i·spread)` is
+       * always less than `i·step`, which is the difference between clearing a
+       * neighbouring seat's tokens and not on a crowded ring.
+       *
+       * `spread` is the same spacing the line used, expressed as the angle that
+       * walks it round the circle. Capped at 55 degrees a step so a seat with
+       * many tokens fans rather than wraps.
+       */
+      const spread = Math.min(step / radius, (55 * Math.PI) / 180);
+      const swing = this.reminderSwing({
+        a,
+        b,
+        radius,
+        spread,
+        tokenR: h / 2,
+        coinScreenX: tb.left + tb.width / 2,
+        coinScreenY: tb.top + tb.height / 2,
+      });
+      this.reminderAnchor = { cx, cy, w, h, radius, spread, swing };
+    },
+
+    /**
+     * FT-1167: THE PLATE IN THE MIDDLE GETS A VOTE.
+     *
+     * Straight inward is the right answer until the ring is small enough that
+     * inward means UNDER the checklist disc. Measured on the same rig: with
+     * the night sheet up, a 5-seat ring at 1920x1080 put the token's near edge
+     * 69px inside the disc's rim — most of the token swallowed — where the old
+     * placement, sitting on the coin, cleared it by 1px. The disc is opaque and
+     * stacks above the ring (z-index 19 against the seat's 3), so that is not a
+     * near miss, it is the token gone.
+     *
+     * SO THE FAN SLIDES ROUND THE COIN'S OWN RIM. The token stays exactly as
+     * tangent as it was — the radius never changes, which is the user's actual
+     * rule ("only their gears should be touching") — and the whole fan rotates
+     * rigidly about the coin's centre until it clears the plate. Rigid, so
+     * whatever angle it lands on, the fan is as evenly spaced as the ideal one:
+     * the same freedom-removing trick TownSquare.vue's bluff column uses, and
+     * for the same reason.
+     *
+     * Beside the coin is the worst it can get: at 90 degrees the token sits at
+     * the coin's own distance from the hub, and the coin is on the ring, so it
+     * clears whatever the coin clears. If nothing in the sweep clears (a
+     * viewport where the plate has eaten the ring outright), straight inward is
+     * kept — a token overlapping a plate still reads as that seat's; one flung
+     * to a corner does not, which is the call the FT-891 pass already made for
+     * the bluffs.
+     */
+    reminderSwing(g) {
+      const plate = this.centrePlateRect();
+      if (!plate) return 0;
+      const n = Math.max(1, (this.player.reminders || []).length);
+      const clears = (phi) => {
+        for (let i = 0; i < n; i++) {
+          const t = phi + (i - (n - 1) / 2) * g.spread;
+          const fx = g.radius * Math.sin(t);
+          const fy = g.radius * Math.cos(t);
+          // … and carried into screen space by the seat's own rotation, which
+          // is where the plate's box was measured
+          const sx = g.coinScreenX + (g.a * fx - g.b * fy);
+          const sy = g.coinScreenY + (g.b * fx + g.a * fy);
+          const dx = sx - plate.cx;
+          const dy = sy - plate.cy;
+          const d = Math.hypot(dx, dy) || 1;
+          // the ellipse's own radius along this bearing
+          const rim = 1 / Math.hypot(dx / d / plate.rx, dy / d / plate.ry);
+          if (d - g.tokenR < rim) return false;
+        }
+        return true;
+      };
+      if (clears(0)) return 0;
+      // 5 degrees at a time, one side preferred over the other so that every
+      // seat on the ring swings the SAME way round its own coin — a ring where
+      // half the tokens sat clockwise and half anticlockwise would read as a
+      // fault rather than a rule.
+      const STEP = Math.PI / 36;
+      for (let k = 1; k <= 20; k++) {
+        if (clears(k * STEP)) return k * STEP;
+        if (clears(-k * STEP)) return -k * STEP;
+      }
+      return 0;
+    },
+
+    /**
+     * FT-1167 rider: WHICH WAY IS AWAY FROM THE CLOCK FACE, for this chair.
+     *
+     * Read off the seat's own rotation matrix, never re-derived from a bounding
+     * box — the reasoning is written out in full in TownSquare.vue's bluff
+     * anchor and holds here too: `.circle`'s box is wider than it is tall, is
+     * not centred on the true rotation hub, and the on-circle mixin's per-seat
+     * nudge means seats are not even equidistant from it. The <li>'s matrix is
+     * the ground truth. `matrix(a, b, c, d, …)` maps the seat's local "straight
+     * up" — outward, since the un-rotated <li>'s top edge is the point farthest
+     * from the hub — to screen (-c, -d), so `-c` is how far outward points to
+     * the right of the screen.
+     *
+     * THE 12 AND 6 O'CLOCK CHAIRS GET LEFT. Outward there is straight up or
+     * straight down: there is no side, so the threshold resolves both to left
+     * and they stay there. Consistent beats correct-by-a-pixel — it is the
+     * argument RoleHoverCard's own `prefer` note already makes for the name
+     * plate, and it is the rule `measureAddAnchor` picked for the plus disc on
+     * the same two chairs, so the card and the disc agree.
+     *
+     * A PREFERENCE, NOT A PROMISE. The card tries this side first and falls
+     * back to the other, then to above/below, when the window edge leaves no
+     * room — RoleHoverCard.place owns that and is untouched.
+     */
+    seatOutwardSide() {
+      let ox = 0;
+      const matrix = /matrix\(([^)]+)\)/.exec(
+        getComputedStyle(this.$el).transform,
+      );
+      if (matrix) {
+        const parts = matrix[1].split(",").map(Number);
+        ox = -parts[2]; // -c
+      }
+      return ox > 0.05 ? "right" : "left";
+    },
+    /** FT-1167: the round plate at the ring's centre, in screen pixels — the
+     *  night checklist when it is up, the town readout otherwise. Both are
+     *  centred on the dial and both are drawn as a disc on desktop
+     *  (`face-disc-frame`), so one ellipse describes either. */
+    centrePlateRect() {
+      const el =
+        document.querySelector(".night-sheet.has-list") ||
+        document.querySelector("ul.info");
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      if (!box.width || !box.height) return null;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.display === "none") return null;
+      return {
+        cx: box.left + box.width / 2,
+        cy: box.top + box.height / 2,
+        rx: box.width / 2,
+        ry: box.height / 2,
+      };
+    },
+
+    /**
+     * FT-1167: the placement `measureReminderAnchor` solved, per token.
+     * `--ri`/`--rn` ride along unchanged so the FT-869 stylesheet rule still
+     * draws the first frame (and any browser where the measurement bails).
+     */
+    reminderStyle(ri) {
+      const style = { "--ri": ri, "--rn": this.player.reminders.length };
+      const anchor = this.reminderAnchor;
+      if (!anchor) return style;
+      const n = this.player.reminders.length;
+      // this token's own place on the arc: the fan's spread, plus whatever
+      // swing the plate in the middle forced on the whole fan (reminderSwing).
+      // Angle 0 is straight inward — down the seat's own spoke.
+      const t = anchor.swing + (ri - (n - 1) / 2) * anchor.spread;
+      const x = anchor.cx + anchor.radius * Math.sin(t);
+      const y = anchor.cy + anchor.radius * Math.cos(t);
+      style.left = `${x - anchor.w / 2}px`;
+      style.top = `${y - anchor.h / 2}px`;
+      // the stylesheet does its own offsetting in margins; the measured
+      // placement is absolute, so they would otherwise be applied twice
+      style.margin = "0";
+      return style;
     },
     changePronouns() {
       if (this.session.isSpectator && this.player.id !== this.session.playerId)
@@ -2279,11 +2579,31 @@ export default {
    on the face already says "tap a player". What a mouse needs is to know the
    coin under it is live, and that is the ring below.
 
-   CHOSEN (`.night-chosen`) is permanent, and it is GOLD — the same
-   #b28f2f/#e2be62 seam the night's own live row and the face panel's chips
-   wear, so a lit coin and its named chip in the hub read as one act. Not
-   red: red is blood, the demon, the bluffs mask and `control-lit` in this
-   app, and a Fortune Teller pointing at a friend is none of those. */
+   CHOSEN (`.night-chosen`) is permanent, and it is PURPLE.
+
+   IT WAS GOLD (the #b28f2f/#e2be62 seam the night's own live row and the face
+   panel's chips wear) until FT-1167 — user: "for the player select things like
+   the fortune teller lets make the selection rings not gold, maybe make them
+   purple instead? they need to stand out more."
+
+   GOLD HAD RUN OUT OF ROOM on this surface. The seat's name plate accent, the
+   scan collar, the night sheet's truth chips and its `.ns-player-said` line
+   are all warm gold already, and the clock face itself is a gold-lit dial — a
+   gold ring on a gold coin on a gold face is the one combination that cannot
+   shout. Purple is the storyteller's own colour everywhere else in the fork
+   (controls.scss's `$control-edge-hover`, the grimoire's plum, every dropdown
+   since FT-1108) and it is unused on the seat, so it lands on empty ground:
+   the seat's other marks are a red glow (a character in hand), a blue glow
+   (you), a grey shroud (dead), a white noose (on the block) and the hand art
+   (nominating). None of them is purple, and none of them is near it.
+
+   #a78fcd IS NOT A NEW COLOUR. It is the border OptionSelect paints on the
+   option that is CHOSEN (`.gsel-opt.on`, FT-1108) — the brightest purple the
+   fork already owns, and already the one that means "this is the one picked".
+   A picked coin says the same word in the same ink.
+
+   Still not red: red is blood, the demon, the bluffs mask and `control-lit` in
+   this app, and a Fortune Teller pointing at a friend is none of those. */
 .player.night-target > .night-pick {
   position: absolute;
   top: 0;
@@ -2306,14 +2626,14 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 0 rgba(226, 190, 98, 0);
+  box-shadow: inset 0 0 0 0 rgba(167, 143, 205, 0);
   transition:
     box-shadow 150ms,
     background 150ms;
 
   &:hover {
-    background: rgba(226, 190, 98, 0.14);
-    box-shadow: inset 0 0 0 3px rgba(226, 190, 98, 0.85);
+    background: rgba(167, 143, 205, 0.14);
+    box-shadow: inset 0 0 0 3px rgba(167, 143, 205, 0.85);
   }
 }
 
@@ -2327,11 +2647,18 @@ export default {
      covering the coin's top 45% and glowing it draws a box, not a coin */
   > .token,
   > .life {
-    filter: drop-shadow(0 0 6px rgba(226, 190, 98, 0.95));
+    /* 6px -> 9px with the colour change. "They need to stand out more" is the
+       actual ask, and a ring alone is a 3px line on a busy gear rim; the halo
+       is what carries at a glance across a 20-seat ring, where a coin is 84px
+       wide. The two together are what separate CHOSEN from merely HOVERED. */
+    filter: drop-shadow(0 0 9px rgba(167, 143, 205, 0.95));
   }
   > .night-pick {
-    box-shadow: inset 0 0 0 3px #e2be62;
-    background: rgba(226, 190, 98, 0.1);
+    /* 3px -> 4px: the hover ring is 3px, so a chosen coin that also drew 3px
+       said the same thing twice. Thicker, opaque, and haloed is chosen;
+       thinner and translucent is offered. */
+    box-shadow: inset 0 0 0 4px #a78fcd;
+    background: rgba(167, 143, 205, 0.14);
   }
 }
 
@@ -2346,8 +2673,13 @@ export default {
   height: 1.35em;
   padding: 0 0.2em;
   border-radius: 1em;
-  background: #e2be62;
-  color: #1a1208;
+  /* FT-1167: the slot number takes the ring's own colour, so "1" and "2" read
+     as parts of the same mark rather than a gold badge stuck to a purple ring.
+     The ink under it is the near-black plum the dropdowns sit on, not the old
+     warm near-black — 11.9:1 against #a78fcd, so a numeral at 75% of a seat
+     coin's font size is still solid at 20 seats. */
+  background: #a78fcd;
+  color: #160f22;
   font-family: PiratesBay, sans-serif;
   font-size: 75%;
   line-height: 1.35em;
@@ -2360,13 +2692,13 @@ export default {
    overlay makes just below. */
 @media (hover: none) {
   .player.night-target > .night-pick {
-    box-shadow: inset 0 0 0 2px rgba(226, 190, 98, 0.4);
+    box-shadow: inset 0 0 0 2px rgba(167, 143, 205, 0.4);
     &:active {
-      background: rgba(226, 190, 98, 0.22);
+      background: rgba(167, 143, 205, 0.22);
     }
   }
   .player.night-chosen > .night-pick {
-    box-shadow: inset 0 0 0 3px #e2be62;
+    box-shadow: inset 0 0 0 4px #a78fcd;
   }
 }
 
@@ -4176,7 +4508,18 @@ li.nominate .player .overlay .nominate-target {
    `--ri` (this reminder's index) and `--rn` (this seat's reminder count)
    come from the template's `v-for`. A lone reminder (`--rn: 1`) still
    centres under the seat exactly as before — the fan only opens for two or
-   more, so the common case looks unchanged. */
+   more, so the common case looks unchanged.
+
+   FT-1167: THE MARGINS BELOW ARE THE FALLBACK NOW, not the placement. A
+   percentage of the seat cannot hold a constant distance from the coin — the
+   coin orbits the player's own centre as the seat travels round the clock (the
+   full derivation, with the measured 39px swing, is on `measureReminderAnchor`
+   in the script block), so the real `top`/`left` are measured per seat and
+   arrive as an inline style that outranks everything here. What stays load
+   bearing in this rule is the rest of it: `position: absolute`, the size, the
+   z-index that keeps a token off the back of its own name plate, and the whole
+   coarse-pointer block. The margins draw the first frame and any browser where
+   the measurement bails. */
 #townsquare .circle li .reminder:not(.add) {
   position: absolute;
   top: 0;

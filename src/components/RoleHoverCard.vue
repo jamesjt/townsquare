@@ -34,12 +34,23 @@
            gesturing at. The name takes the team's own ink, then the glyph and
            the word, so a reader gets the fact three ways: colour for the
            glance, mark for the scan, word for certainty. -->
-      <b class="rhc-name">{{ role.name }}</b>
-      <span class="rhc-team">
-        <span class="rhc-dot">·</span>
-        <img class="rhc-team-mark" v-if="teamMark" :src="teamMark" alt="" />{{
-          teamLabel
-        }}
+      <!-- FT-1167 (user): "the role icon and team should be inline and bigger".
+           THE FIRST HALF WAS NOT TRUE YET. `.rhc-team` asked for
+           `display: inline` and never got it: `.txt` is a flex COLUMN, so the
+           name and the team span were two flex items — two rows — and a flex
+           item's `display: inline` is blockified before it ever paints
+           (measured: computed `display` came back `block`). One wrapper makes
+           them a single flex item, and inside it the two are genuinely inline,
+           which is what the request says and what the FT-1171 note already
+           claimed. -->
+      <span class="rhc-head">
+        <b class="rhc-name">{{ role.name }}</b>
+        <span class="rhc-team">
+          <span class="rhc-dot">·</span>
+          <img class="rhc-team-mark" v-if="teamMark" :src="teamMark" alt="" />{{
+            teamLabel
+          }}
+        </span>
       </span>
       <span class="ability" v-if="abilityText">{{ abilityText }}</span>
       <!-- the role's tags as chips (team rides the border, so it stays off
@@ -143,6 +154,13 @@ export default {
      * call 2026-08-19): it sits below the ring rather than in it, so there is
      * no neighbour to lie across, and a consistent side is easier to read than
      * one that flips depending on where the chair happens to sit.
+     *
+     * FT-1167: a SEAT now passes "left" or "right" outright, read off its own
+     * place on the ring (Player.vue's `seatOutwardSide`) rather than leaving it
+     * to "auto" to infer from the window's midline — the ring is not centred on
+     * the window, and the 12 and 6 o'clock chairs sit ON that midline, so their
+     * cards used to flip sides on a pixel. "auto" is unchanged and still what
+     * every other consumer takes.
      *
      * Either way the fallback is the other side, and then above/below — a
      * preference, never a promise to place off-screen.
@@ -318,8 +336,16 @@ export default {
       const rect = this.anchorRect();
       if (!rect) return;
       this.hoist();
+      // FT-1167: the stylesheet's own width cap, captured BEFORE this method
+      // has ever written an inline one — after that, computed style reports
+      // whatever was last set and the true cap is gone.
+      if (this._naturalMax === undefined) {
+        const declared = parseFloat(getComputedStyle(el).maxWidth);
+        this._naturalMax = isNaN(declared) ? Infinity : declared;
+      }
       const run = () => {
         const m = 8;
+        let cap = null;
         const box = el.getBoundingClientRect();
         const w = box.width;
         const h = box.height;
@@ -328,8 +354,37 @@ export default {
         const clamp = (v, max) => Math.min(Math.max(v, m), Math.max(m, max));
         let left;
         let top;
-        const fitsRight = rect.right + GAP + w <= vw - m;
-        const fitsLeft = rect.left - GAP - w >= m;
+        /**
+         * FT-1167: "IF THERE IS ROOM" MEANS ROOM FOR A READABLE CARD, not room
+         * for this card at its widest.
+         *
+         * The old test asked whether the card's own natural width fitted, whole.
+         * MEASURED against a seat in the ring
+         * (claude_temp_test/2026-08-25-ft1167-hovercard.mjs): the 9 o'clock
+         * chair at 1920x1080 has 439.6px of window OUTSIDE it and the card's cap
+         * is 460px — so "outward" failed by TWENTY PIXELS, the card fell back
+         * inward, and 97.4% of it landed on the clock face. That is the user's
+         * report ("role hovers show on the outside of the coin… if there is
+         * room for them there"), and it was one whole-width test away.
+         *
+         * So a side counts as having room when it can hold the card at
+         * `MIN_SIDE`, and the card then takes the room that is actually there.
+         * MIN_SIDE is 330 because that is the narrowest this card already
+         * accepts elsewhere — the phone rule at the bottom of this file sizes it
+         * `max(42vw, 330px)` — so nothing here invents a new idea of "narrow
+         * but readable".
+         *
+         * IT IS STILL NOT A PROMISE. 330 is a floor, not a squeeze: where the
+         * margin is genuinely smaller (the same seat at 1280x800 has 259.6px)
+         * the side is refused exactly as before and the card falls back to the
+         * other side, then to above/below. And the cap is never RAISED — a side
+         * with acres of room still draws the card at its own natural width.
+         */
+        const MIN_SIDE = 330;
+        const roomRight = vw - m - (rect.right + GAP);
+        const roomLeft = rect.left - GAP - m;
+        const fitsRight = roomRight >= Math.min(w, MIN_SIDE);
+        const fitsLeft = roomLeft >= Math.min(w, MIN_SIDE);
         // An anchor in the MIDDLE of the screen (the host panel's role tray,
         // the town centre) is surrounded by things the card would cover — the
         // ring of seats and the tray itself. Push the card right out to the
@@ -357,7 +412,21 @@ export default {
               : cx >= vw / 2
               ? fitsRight
               : !fitsLeft;
-          left = useRight ? rect.right + GAP : rect.left - GAP - w;
+          // FT-1167: the chosen side's own room becomes the card's cap, so a
+          // margin 20px short of its natural width narrows it rather than
+          // sending it across the ring. `naturalMax` is the stylesheet's own
+          // cap, read once before anything inline is set, so this only ever
+          // narrows — a roomy side still draws the card the size it was.
+          // Skipped where the stylesheet has no cap (the phone rules at the
+          // bottom of this file set `max-width: none`), which is also the case
+          // that must not be second-guessed here.
+          const room = useRight ? roomRight : roomLeft;
+          if (isFinite(this._naturalMax) && room < this._naturalMax) {
+            cap = Math.floor(room);
+          }
+          left = useRight
+            ? rect.right + GAP
+            : rect.left - GAP - Math.min(w, room);
           top = clamp(rect.top + rect.height / 2 - h / 2, vh - h - m);
         } else {
           // stacked: centred on the anchor, above it when there is room
@@ -368,6 +437,7 @@ export default {
               : clamp(rect.bottom + GAP, vh - h - m);
         }
         this.style = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px` };
+        if (cap !== null) this.style.maxWidth = `${cap}px`;
       };
       run();
       requestAnimationFrame(run);
@@ -406,39 +476,79 @@ $team-colors: (
       // FT-1171 (user): the NAME takes the team's ink too. The border already
       // carried it, but a border colour is read by comparison — you need a
       // second card open to know what it means. On the name it is a fact you
-      // can read from one card. Not the raw token: these run from #1f65ff to
-      // #ce0100 and the darkest of them is unreadable as type on this ground,
-      // so each is lightened toward its own hue rather than any of them being
-      // nudged toward a shared safe grey, which would cost the distinction
-      // the colour exists for.
+      // can read from one card.
+      //
+      // FT-1167 (user): "the role name text is the wrong color". It was
+      // `mix(white, $color, 32%)` — a third of the way to white, on the theory
+      // that the darkest token could not be read as type on this ground. That
+      // theory was not measured, and it is wrong. The name is 22px BOLD, which
+      // is LARGE TEXT by WCAG's own definition (>= 18.66px bold), and large
+      // text answers to 3:1, not 4.5:1. Against this card's ground, #0a0404,
+      // the RAW tokens measure:
+      //
+      //   fabled     #ffe91f   16.29:1
+      //   outsider   #46d5ff   11.76:1
+      //   minion     #ff6900    7.09:1
+      //   traveler   #cc04ff    4.85:1
+      //   townsfolk  #1f65ff    4.26:1
+      //   demon      #ce0100    3.49:1   ← the floor, and still over the bar
+      //
+      // So every one of them passes as it is, and the wash was buying nothing
+      // except the loss of the very thing the colour is for: a reader has to
+      // tell a Minion from a Demon at a glance, and 32% white pulls six hues a
+      // third of the way toward each other.
+      //
+      // LEGIBILITY IS BOUGHT WITH A HALO INSTEAD OF WITH HUE. The card's ground
+      // is 0.97 alpha, so whatever it is lying over shows faintly through it; a
+      // dark shadow under the glyphs holds the letterform's edge against that
+      // without touching the colour. Weight and size were already doing their
+      // share.
       .rhc-name {
-        color: mix(white, $color, 32%);
+        color: $color;
+        text-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.95),
+          0 0 6px rgba(0, 0, 0, 0.8);
       }
     }
   }
 
-  // FT-1171: the team, in a mark and a word, after the name. Quiet — the name
-  // is the heading and this is its qualifier, so it takes the ability line's
-  // size and sits at the name's baseline rather than starting a line of its
-  // own.
+  // FT-1171: the team, in a mark and a word, after the name.
+  //
+  // FT-1167 (user): "the role icon and team should be inline and bigger". They
+  // were 13px type and a 14px mark at 0.72 — sized as a footnote, which is what
+  // FT-1171's own note called them ("quiet… its qualifier"). Wrong weighting:
+  // after the character's name, its team is the next thing anyone wants off
+  // this card. 17px against the ability line's 19px and the name's 22px bold
+  // puts it in the reading order it belongs in — plainly a qualifier, plainly
+  // not a footnote — without giving the line a second heading. Inline after the
+  // name is kept: that part was right.
+  // FT-1167: the name and its team on ONE line — this is the flex item, and
+  // its two children are ordinary inline content inside it. `baseline` is not
+  // set anywhere: the team's own `vertical-align` on the mark does that work,
+  // and inline layout already sits the two texts on a shared baseline.
+  .rhc-head {
+    display: block;
+  }
   .rhc-team {
     display: inline;
-    margin-left: 7px;
-    font-size: 13px;
+    margin-left: 8px;
+    font-size: 17px;
     font-weight: normal;
-    opacity: 0.72;
+    opacity: 0.85;
     white-space: nowrap;
   }
   .rhc-dot {
-    margin-right: 6px;
+    margin-right: 7px;
     opacity: 0.55;
   }
   .rhc-team-mark {
-    width: 14px;
-    height: 14px;
+    // the mark carries the same fact as the word and reads slower, so it is
+    // sized a step ABOVE the type rather than to its cap height
+    width: 20px;
+    height: 20px;
     object-fit: contain;
-    vertical-align: -2px;
-    margin-right: 5px;
+    vertical-align: -4px;
+    margin-right: 6px;
   }
   background: rgba(10, 4, 4, 0.97);
   border: 2px solid #400;
@@ -519,11 +629,26 @@ $team-colors: (
       width: 54px;
       height: 54px;
     }
+    // FT-1167: 17 -> 19px. The name carries the team's raw colour now (see the
+    // `.rhc-name` note above) and WCAG's 3:1 bar for LARGE text starts at
+    // 18.66px bold — at 17px this card was asking the demon's #ce0100 to clear
+    // 4.5:1 on a near-black ground, which it does not. Two pixels puts the
+    // compact card back on the same rule the full one passes.
     .txt b {
-      font-size: 17px;
+      font-size: 19px;
     }
     .txt .ability {
       font-size: 15px;
+    }
+    // a step down with everything else on this card, so the team stays a
+    // qualifier rather than tying with the name
+    .rhc-team {
+      font-size: 14px;
+    }
+    .rhc-team-mark {
+      width: 16px;
+      height: 16px;
+      vertical-align: -3px;
     }
   }
 }
@@ -539,11 +664,26 @@ $team-colors: (
       height: 68px;
       align-self: center;
     }
+    // FT-1167: 17 -> 19px. The name carries the team's raw colour now (see the
+    // `.rhc-name` note above) and WCAG's 3:1 bar for LARGE text starts at
+    // 18.66px bold — at 17px this card was asking the demon's #ce0100 to clear
+    // 4.5:1 on a near-black ground, which it does not. Two pixels puts the
+    // compact card back on the same rule the full one passes.
     .txt b {
-      font-size: 17px;
+      font-size: 19px;
     }
     .txt .ability {
       font-size: 15px;
+    }
+    // a step down with everything else on this card, so the team stays a
+    // qualifier rather than tying with the name
+    .rhc-team {
+      font-size: 14px;
+    }
+    .rhc-team-mark {
+      width: 16px;
+      height: 16px;
+      vertical-align: -3px;
     }
   }
 }

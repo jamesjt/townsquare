@@ -68,12 +68,16 @@
       </span>
       <font-awesome-icon icon="chevron-down" class="caret" />
     </button>
+    <!-- FT-1167: `hoist` moves this list to <body> the moment it opens — see
+         the prop's own note below for why one caller needs it. -->
     <div
       class="gsel-menu"
+      :class="{ hoisted: hoist }"
       role="listbox"
       :id="listId"
       :aria-label="ariaLabel"
       v-if="open"
+      ref="menu"
     >
       <div
         v-for="(o, i) in options"
@@ -114,6 +118,38 @@ export default {
      *  chosen option has no title of its own. */
     title: { type: String, default: "" },
     disabled: { type: Boolean, default: false },
+    /** FT-1167 (user: "the yes, no for story teller is getting clipped").
+     *
+     *  THE LIST LEAVES THE SHEET. Measured, not assumed
+     *  (claude_temp_test/2026-08-25-ft1167-clipprobe.mjs): with the yes/no
+     *  dropdown open on a night-checklist row, the ONE ancestor that shears it
+     *  is `ul.ns-rows` — the checklist's own scrolling band, `overflow: auto`
+     *  on both axes — and the list's bottom row hung 49px past it at both
+     *  1920x1080 and 1280x800. The disc around it (`.night-sheet`, `overflow:
+     *  hidden`, `border-radius: 50%`) does NOT clip it: every side of the menu
+     *  measured comfortably inside that box. Nor was it merely a visual crop —
+     *  `elementFromPoint` at the "No" row's own centre came back as furniture
+     *  BELOW the sheet, so the last option was unclickable as well as unseen.
+     *
+     *  The band has to scroll (it is the checklist), so there is no
+     *  containment to fix; the popup has to leave. That is exactly what the
+     *  two pickers standing on the SAME row already do — SeatPicker and
+     *  CharacterPicker hoist their lists to `document.body` via
+     *  `golem/floatingPicker`, for this precise container — so this is the
+     *  sheet's existing answer, worn by a third control, rather than a new
+     *  technique.
+     *
+     *  OFF BY DEFAULT. The panel's other five dropdowns (HostTools,
+     *  NightModeRow, EditionModal) sit in containers that do not clip them and
+     *  style their options through `::v-deep`, which a hoisted list is by
+     *  definition out of reach of. Opting in per caller keeps this change to
+     *  the one control that reported the bug.
+     *
+     *  A HOISTED LIST TRACKS ITS TRIGGER (`placeMenu` on scroll-capture and
+     *  resize) and CLOSES when the trigger is scrolled more than half out of
+     *  view — a list left pointing at a row that has scrolled away is a worse
+     *  bug than the clipping it was fixing. */
+    hoist: { type: Boolean, default: false },
   },
   data() {
     return {
@@ -141,6 +177,10 @@ export default {
   },
   beforeDestroy() {
     this.stopWatching();
+    // a hoisted list is no longer this component's DOM child, so the teardown
+    // that removes the component's own tree would leave it stranded on <body>
+    const menu = this.$refs.menu;
+    if (menu && menu.parentElement === document.body) menu.remove();
   },
   methods: {
     optId(i) {
@@ -155,6 +195,7 @@ export default {
       this.activeIndex = i < 0 ? 0 : i;
       this.open = true;
       document.addEventListener("mousedown", this.onDocDown);
+      if (this.hoist) this.$nextTick(this.mountMenu);
     },
     close() {
       this.open = false;
@@ -162,10 +203,111 @@ export default {
     },
     stopWatching() {
       document.removeEventListener("mousedown", this.onDocDown);
+      // capture phase: a scroll inside `.ns-rows` does not bubble to window,
+      // and that band is the very thing this list had to escape
+      window.removeEventListener("scroll", this.onTrack, true);
+      window.removeEventListener("resize", this.onTrack);
     },
     onDocDown(e) {
       const root = this.$refs.root;
-      if (root && !root.contains(e.target)) this.close();
+      const menu = this.$refs.menu;
+      // the hoisted list is NOT inside `root` any more, so a mousedown on one
+      // of its own options would otherwise read as a click-out and close the
+      // list before the option's click could land
+      if (root && root.contains(e.target)) return;
+      if (menu && menu.contains(e.target)) return;
+      this.close();
+    },
+
+    // ── FT-1167: THE HOISTED LIST (see the `hoist` prop's note) ────────────
+    /** Move the list to <body> and start tracking the trigger. */
+    mountMenu() {
+      const menu = this.$refs.menu;
+      if (!menu) return;
+      if (menu.parentElement !== document.body) document.body.appendChild(menu);
+      window.addEventListener("scroll", this.onTrack, true);
+      window.addEventListener("resize", this.onTrack);
+      this.placeMenu();
+      // the list's natural height isn't known until it has laid out once —
+      // `golem/floatingPicker`'s positionPopup hits the same snag, same fix
+      requestAnimationFrame(this.placeMenu);
+    },
+    /** Reposition, or close if the trigger has been scrolled out from under
+     *  it. Half the trigger still showing counts as still there. */
+    onTrack() {
+      if (!this.open) return;
+      if (!this.triggerVisible()) {
+        this.close();
+        return;
+      }
+      this.placeMenu();
+    },
+    triggerVisible() {
+      const root = this.$refs.root;
+      if (!root) return false;
+      const r = root.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      // the window, narrowed by every clipping ancestor — the same walk the
+      // diagnosis rig made, run live
+      let top = 0;
+      let left = 0;
+      let right = window.innerWidth;
+      let bottom = window.innerHeight;
+      let el = root.parentElement;
+      while (el && el !== document.documentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.overflowX !== "visible" || cs.overflowY !== "visible") {
+          const b = el.getBoundingClientRect();
+          top = Math.max(top, b.top);
+          left = Math.max(left, b.left);
+          right = Math.min(right, b.right);
+          bottom = Math.min(bottom, b.bottom);
+        }
+        el = el.parentElement;
+      }
+      const showingH = Math.min(r.bottom, bottom) - Math.max(r.top, top);
+      const showingW = Math.min(r.right, right) - Math.max(r.left, left);
+      return showingH >= r.height / 2 && showingW >= r.width / 2;
+    },
+    /** Fixed to the trigger's own rect, flipping up when there is no room
+     *  below — the shape `positionPopup` already draws for the two pickers on
+     *  the same row, with the width pinned to the trigger so the list still
+     *  reads as that control's own. */
+    placeMenu() {
+      const root = this.$refs.root;
+      const menu = this.$refs.menu;
+      if (!root || !menu) return;
+      const rect = root.getBoundingClientRect();
+      const box = menu.getBoundingClientRect();
+      const margin = 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // prefer downward unless there plainly isn't room and the other side has
+      // more — a merely tight fit should not make the list jump sides
+      const openDown =
+        spaceBelow >= Math.min(box.height, 160) || spaceBelow >= spaceAbove;
+      const maxH = Math.max(
+        96,
+        (openDown ? spaceBelow : spaceAbove) - margin * 2,
+      );
+      const width = Math.max(
+        rect.width,
+        Math.min(box.width || rect.width, window.innerWidth - margin * 2),
+      );
+      const left = Math.min(
+        Math.max(rect.left, margin),
+        Math.max(margin, window.innerWidth - width - margin),
+      );
+      menu.style.left = `${left}px`;
+      menu.style.width = `${width}px`;
+      menu.style.maxHeight = `${maxH}px`;
+      if (openDown) {
+        menu.style.top = `${rect.bottom + 4}px`;
+        menu.style.bottom = "auto";
+      } else {
+        menu.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+        menu.style.top = "auto";
+      }
     },
     choose(o) {
       this.close();
@@ -331,63 +473,86 @@ export default {
   &.open .trigger .caret {
     transform: rotate(180deg);
   }
+}
 
-  // The list. The script picker's own popup chrome (ground, blood edge,
-  // radius, shadow, z-index) — it hangs from the trigger's own width rather
-  // than the picker's centred sheet, because a word does not need 560px.
-  .gsel-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    min-width: max-content;
-    max-height: 48vh;
-    overflow-y: auto;
-    padding: 4px;
-    // FT-1108 (user): ground and edge come off the blood accent and onto
-    // the grimoire's plum — the edge this panel's own buttons already
-    // wear. Red is the blood in this fork; purple is the book, and a list
-    // of settings belongs to the book.
-    background: rgba(12, 8, 16, 0.96);
-    border: 2px solid rgba(120, 105, 135, 0.55);
-    border-radius: 8px;
-    box-shadow: 0 0 12px black;
-    z-index: 20;
+// The list. The script picker's own popup chrome (ground, blood edge,
+// radius, shadow, z-index) — it hangs from the trigger's own width rather
+// than the picker's centred sheet, because a word does not need 560px.
+//
+// FT-1167: IT IS A TOP-LEVEL RULE NOW, not a `.gsel` descendant. When `hoist`
+// is set the menu is moved to <body> (see the prop's note in the script block)
+// and `.gsel` stops being its DOM ancestor — and a SCOPED rule only carries
+// its `[data-v-…]` attribute on the LAST compound selector, so
+// `.gsel .gsel-menu[data-v-…]` would have stopped matching the moment it
+// moved. Written flat, the attribute rides `.gsel-menu` itself and the rule
+// follows the element wherever it goes. `.sp-list` (SeatPicker) is written
+// flat for exactly this reason and was the precedent.
+.gsel-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: max-content;
+  max-height: 48vh;
+  overflow-y: auto;
+  padding: 4px;
+  // FT-1108 (user): ground and edge come off the blood accent and onto
+  // the grimoire's plum — the edge this panel's own buttons already
+  // wear. Red is the blood in this fork; purple is the book, and a list
+  // of settings belongs to the book.
+  background: rgba(12, 8, 16, 0.96);
+  border: 2px solid rgba(120, 105, 135, 0.55);
+  border-radius: 8px;
+  box-shadow: 0 0 12px black;
+  z-index: 20;
 
-    .gsel-opt {
-      padding: 5px 8px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      font-size: 85%;
-      white-space: nowrap;
-      // the panel centres its text; a list of choices reads down a left edge,
-      // and the closed trigger above it already does
-      text-align: left;
-      cursor: pointer;
+  // FT-1167: HOISTED, the list is a child of <body> and its own rect is set in
+  // JS (`placeMenu`), so it needs the fixed positioning that rect is expressed
+  // in and a z-index that stands above the sheet it just left. Both values are
+  // `.sp-list`'s — the seat picker on the very same row is the same object in
+  // the same place, and there is no reason for two hoisted lists on one row to
+  // sit on different layers. `right: auto` because the flat rule above pins
+  // both edges for the ordinary in-flow case, and a hoisted list is placed by
+  // `left` + `width` instead.
+  &.hoisted {
+    position: fixed;
+    right: auto;
+    z-index: 60;
+  }
 
-      // hover AND keyboard-active are the same state on this control — the
-      // pointer moves `activeIndex`, so there is only ever one highlighted row
-      &.active {
-        // FT-1108: the row under the pointer, in plum rather than blood
-        border-color: rgba(150, 130, 175, 0.55);
-        background: rgba(150, 130, 175, 0.12);
-      }
-      // the chosen one, in the panel's own "this is on" ink
-      // `control-lit` is the app's shared ON state and it is RED — right
-      // everywhere else, wrong here now the whole control reads plum. The
-      // three values are restated in purple rather than the shared mixin
-      // being repainted under every other control wearing it. (FT-1108.)
-      &.on {
-        background: rgba(96, 74, 128, 0.42);
-        border-color: rgba(167, 143, 205, 0.85);
-        color: #ece4f8;
-        font-weight: bold;
-      }
-      @media (pointer: coarse) {
-        min-height: 40px;
-        display: flex;
-        align-items: center;
-      }
+  .gsel-opt {
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 85%;
+    white-space: nowrap;
+    // the panel centres its text; a list of choices reads down a left edge,
+    // and the closed trigger above it already does
+    text-align: left;
+    cursor: pointer;
+
+    // hover AND keyboard-active are the same state on this control — the
+    // pointer moves `activeIndex`, so there is only ever one highlighted row
+    &.active {
+      // FT-1108: the row under the pointer, in plum rather than blood
+      border-color: rgba(150, 130, 175, 0.55);
+      background: rgba(150, 130, 175, 0.12);
+    }
+    // the chosen one, in the panel's own "this is on" ink
+    // `control-lit` is the app's shared ON state and it is RED — right
+    // everywhere else, wrong here now the whole control reads plum. The
+    // three values are restated in purple rather than the shared mixin
+    // being repainted under every other control wearing it. (FT-1108.)
+    &.on {
+      background: rgba(96, 74, 128, 0.42);
+      border-color: rgba(167, 143, 205, 0.85);
+      color: #ece4f8;
+      font-weight: bold;
+    }
+    @media (pointer: coarse) {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
     }
   }
 }

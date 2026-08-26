@@ -295,6 +295,7 @@
                   class="ns-told-sel"
                   :class="pingClass(row)"
                   name="ns-ping"
+                  hoist
                   aria-label="What you told them"
                   :options="pingOptions"
                   :value="pingValue(row)"
@@ -2444,6 +2445,13 @@ $ns-team-colors: (
   // template). Its ink rides the option classes, so the two answers still
   // read green and red on the closed trigger as well as in the open list —
   // the same idiom the enforcement row used before it joined the shared look.
+  //
+  // FT-1167: this block now dresses the CLOSED TRIGGER ONLY. The open list is
+  // hoisted to <body> and is no longer a descendant of `.ns-told-sel`, so the
+  // `.gsel-opt` half below can never match again — the same fate `.sp-list`
+  // met, and it is restated in the unscoped block at the bottom of this file
+  // for the same reason. Left standing rather than cut: it is the record of
+  // where these two colours were declared before the list moved.
   .ns-told-sel ::v-deep {
     .gsel-label.ns-ping-yes,
     .gsel-opt.ns-ping-yes.on {
@@ -2943,5 +2951,27 @@ $ns-team-colors: (
       box-shadow: inset 0 0 0 1px var(--ns-viewer-color, #a01414);
     }
   }
+}
+
+// ── FT-1167: AND THE YES/NO LIST, WHICH IS HOISTED NOW TOO ─────────────────
+// The row's dropdown (OptionSelect with `hoist`) leaves the sheet the instant
+// it opens, for the reason written on that prop: the checklist band
+// (`ul.ns-rows`, `overflow: auto`) was shearing its bottom row off — 49px past
+// the band's edge at both viewports, with the "No" option unclickable as well
+// as unseen. From that moment the list is a child of <body>, exactly like the
+// two pickers above, so the scoped `.ns-told-sel ::v-deep .gsel-opt…` rule
+// that used to carry these two colours cannot reach it. Same colours, restated
+// here — green for the yes it told them, red for the no.
+//
+// `.ns-ping-yes` / `.ns-ping-no` are this sheet's own option classes (they are
+// declared in `pingOptions`, in this file, and appear nowhere else), so
+// reaching them globally carries the same absence of collision risk `.sp-*`
+// and `.cp-*` do. `:root` prefixed and the class doubled for the same
+// specificity reason as every rule above it.
+:root .gsel-menu .gsel-opt.ns-ping-yes.on {
+  color: #7ed67e;
+}
+:root .gsel-menu .gsel-opt.ns-ping-no.on {
+  color: #ff8a8a;
 }
 </style>
