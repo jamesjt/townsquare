@@ -332,6 +332,16 @@
                    the mask rather than anything the pixels' darkness says. -->
               <img class="enter-mark" :src="uiEnter" alt="" />
             </button>
+            <!-- FT-1189 (user): "add a label below that". The door was a mark
+                 and a `title`, which is a name you only meet by hovering a
+                 control you have not decided to press yet — and on a touch
+                 screen it is a name that does not exist at all. The word says
+                 what the mark means, and dims with the door when there is
+                 nothing yet to enter, so the disabled state reads as "not
+                 yet" rather than as a picture that ignores you. -->
+            <span class="enter-label" :class="{ disabled: !canJoin }"
+              >Enter the town</span
+            >
           </div>
           </div>
         </div>
@@ -1767,8 +1777,30 @@ export default {
     // see the note there for what measuring the alternative found.
     .enter-dock {
       display: flex;
+      // FT-1189: the door and its word are one object now, so the dock stacks
+      // them and centres the pair — the door's own centring inside this box
+      // (measured, see the note above) is unchanged, it simply centres a
+      // taller stack.
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 6px;
+    }
+
+    // FT-1189: the door's own word. Quiet — the mark is the control and this
+    // names it, so it takes the panel's small type rather than competing with
+    // the field labels above it.
+    .enter-label {
+      font-size: 12px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      opacity: 0.75;
+      white-space: nowrap;
+      transition: opacity 150ms;
+
+      &.disabled {
+        opacity: 0.3;
+      }
     }
 
     button.enter-door {
