@@ -63,6 +63,50 @@ const DROP_PATH =
   "C15 21.1 11.6 24 7.5 24 C3.4 24 0 21.1 0 17.2 " +
   "C0 15 1.2 12.8 2.9 10.2 C4.8 7.3 6.9 4.2 7.5 0 Z";
 
+// ── THE BULB'S ANCHOR IS NOT THE BULB'S ART (FT-1142) ────────────────────
+//
+// `drip-bulb.png` is a SQUARE 86x86 canvas whose ink is a narrow column
+// running its full height (measured: ink spans x 26..47, y 0..84). The
+// <image> draws it `xMidYMid meet` inside a K.w x K.h box — 22 x 102 at the
+// calibrated dials — so the square fits by WIDTH, the art comes out only
+// K.w tall, and `meet` CENTRES it, leaving ~40px of transparent box above
+// and below the drip.
+//
+// The travel maths used to end the BOX at the track's bottom, which put the
+// visible drip 40px short of it at full scroll (user, 2026-08-25: "stopping
+// too high above the bottom of the scroll area"). The two things were
+// conflated: where the anchor sits (must span the true track) and where the
+// art hangs relative to that anchor (must not move). These helpers separate
+// them — the art's offset from its anchor is untouched; only the anchor's
+// end-of-travel changes.
+const BULB_SPRITE = { w: 86, h: 86, inkBottom: 85 };
+
+/** Where the bulb's ART sits inside its K.w x K.h image box. */
+function bulbArtBox(K) {
+  const scale = Math.min(K.w / BULB_SPRITE.w, K.h / BULB_SPRITE.h);
+  const top = (K.h - BULB_SPRITE.h * scale) / 2;
+  const bottom = top + BULB_SPRITE.inkBottom * scale;
+  // `below` is the transparent box the art does NOT fill — the shortfall
+  return { top, bottom, below: K.h - bottom };
+}
+
+/**
+ * The anchor's travel, such that at FULL SCROLL the drip's art — not its
+ * box — kisses the track's bottom edge. `dy` still lifts the whole drip
+ * (it aligns the bulb to the trail), and the travel still compensates for
+ * it; what is new is the `+ below` term.
+ */
+function dripTravel(trackH, K) {
+  return trackH - K.h - K.dy + bulbArtBox(K).below;
+}
+
+/** Where the art's CENTRE sits relative to the anchor — the grab offset a
+ *  drag must use, so dragging to the track's ends reaches both ends. */
+function dripGrabOffset(K) {
+  const art = bulbArtBox(K);
+  return K.dy + (art.top + art.bottom) / 2;
+}
+
 let uid = 0;
 
 function makeSvg(id) {
@@ -128,9 +172,10 @@ function update(el) {
   s.svg.setAttribute("height", el.clientHeight);
 
   const K = dripKnobs;
-  // dy lifts the bulb (trail alignment) — the travel compensates so the
-  // bulb's tip still reaches the track bottom at full scroll
-  const travel = el.clientHeight - K.h - K.dy;
+  // dy lifts the bulb (trail alignment) and the box letterboxes the art —
+  // dripTravel() compensates for BOTH, so the drip's own tip (not the
+  // transparent box around it) reaches the track bottom at full scroll
+  const travel = dripTravel(el.clientHeight, K);
   const y = (el.scrollTop / maxScroll) * travel;
 
   // liquid: velocity stretches the drop; it relaxes back round
@@ -268,9 +313,14 @@ export default {
       hit.style.cursor = "grabbing";
       const rect = track.getBoundingClientRect();
       const maxScroll = el.scrollHeight - el.clientHeight;
-      const travel = el.clientHeight - dripKnobs.h - dripKnobs.dy;
+      const travel = dripTravel(el.clientHeight, dripKnobs);
+      // grab the DRIP, not the box around it: the pointer holds the art's
+      // centre, so dragging to either end of the track reaches that end
+      // (half the box was ~11px off the art's centre, and against the
+      // corrected travel that left the last ~1.5% unreachable)
+      const grab = dripGrabOffset(dripKnobs);
       const seek = ev => {
-        const y = ev.clientY - rect.top - dripKnobs.h / 2;
+        const y = ev.clientY - rect.top - grab;
         el.scrollTop = Math.max(0, Math.min(1, y / travel)) * maxScroll;
       };
       seek(e);
