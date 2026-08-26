@@ -30,6 +30,12 @@
           alt="Night checklist"
           title="Night checklist"
         />
+        <!-- FT-1168: this row's own name, beside its mark, unless the corner
+             cog's "Icons only" is on. Read straight from golem/prefs rather
+             than passed down as a prop: this component is embedded by the
+             build panel but owns its own row, and a prop would mean the panel
+             had to know that a personal setting reaches inside here. -->
+        <span class="row-name" v-if="!iconsOnly">Night checklist</span>
       </span>
       <!-- FT-1087: THE TWO SEGMENTS BECAME TWO SELECTS, side by side, each
            taking half the row's slack — see OptionSelect.vue for why the whole
@@ -99,12 +105,24 @@ import uiNightcheck from "../assets/ui-nightcheck.png";
 // FT-1087: the panel's shared dropdown — the script picker's own trigger,
 // opening a list of words instead of a grid of cards.
 import OptionSelect from "./OptionSelect";
+// FT-1168: does this row wear its name beside its mark? A PERSONAL setting
+// (the corner cog), read-only here — see golem/prefs for the line between a
+// browser's own settings and the town's, which is what this row sets.
+import { PREFS_EVENT, prefsState } from "../golem/prefs";
 
 export default {
   name: "NightModeRow",
   components: { OptionSelect },
+  mounted() {
+    window.addEventListener(PREFS_EVENT, this.readPrefs);
+  },
+  beforeDestroy() {
+    window.removeEventListener(PREFS_EVENT, this.readPrefs);
+  },
   data() {
     return {
+      // a plain module object is not reactive; readPrefs refreshes this
+      prefs: { ...prefsState },
       modes: MODES,
       labels: MODE_LABELS,
       hints: MODE_HINTS,
@@ -120,6 +138,10 @@ export default {
   },
   computed: {
     ...mapState("night", ["mode", "requireChecks"]),
+    /** FT-1168: marks alone, or marks with their names. */
+    iconsOnly() {
+      return this.prefs.setupIconsOnly;
+    },
     /** FT-1087: the same three positions the switch always had, as the
      *  shared select's option list — labels and tooltips unchanged, read
      *  from nightLog as before. */
@@ -144,6 +166,10 @@ export default {
     },
   },
   methods: {
+    /** FT-1168: the corner cog wrote — re-read this row's dress. */
+    readPrefs() {
+      this.prefs = { ...prefsState };
+    },
     pick(mode) {
       this.$store.commit("night/setMode", mode);
     },
@@ -269,6 +295,10 @@ export default {
     text-align: left;
     white-space: nowrap;
     flex: 0 0 auto;
+    // FT-1168: it holds a mark AND (unless icons-only is on) this row's name,
+    // so it lays its pair out the way HostTools' own `.label` lays out its.
+    display: flex;
+    align-items: center;
   }
   // THE MARK ITSELF — HostTools.vue's own `.row-mark` recipe, restated here
   // because a parent's scoped styles reach a child's ROOT and nothing inside
@@ -279,6 +309,14 @@ export default {
     object-fit: contain;
     display: block;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+  // FT-1168: the row's name beside its mark — HostTools' own `.row-name`
+  // recipe, restated here for the same reason `.row-mark` above is: a
+  // parent's scoped styles reach a child's ROOT and nothing inside it.
+  .row-name {
+    margin-left: 6px;
+    white-space: nowrap;
+    font-size: 90%;
   }
 
   // The mode switch and the enforcement select, as ONE right-hand group — the
@@ -293,9 +331,26 @@ export default {
   // narrow-width backstop; `flex-wrap` on the group is dead weight now (its
   // job was the width fight this comment used to document) but is left in
   // place rather than trimmed on the way past.
+  // FT-1168: `flex-wrap` came back into service. The comment above records it
+  // as dead weight, which was true while the label was a bare 22px mark; with
+  // the row's NAME beside that mark (icons-only off) the label is 150px, and
+  // 150 + 6 + 234 = 390 against the rectangle's 364px row — measured, rig
+  // `claude_temp_test/2026-08-25-ft1168-measure.mjs`. So the enforcement
+  // select drops to its own line again at the rectangle, exactly as the
+  // FT-959 table above says it did, and stands on one line at every disc
+  // width (390 ≤ 481 at 1920). Turning icons-only ON returns the row to 262px
+  // and one line, which is the whole point of that setting.
+  //
+  // `justify-content: flex-end` is the one thing added: two stacked selects
+  // of different widths were ragged on their left edge, which read as two
+  // loose controls rather than the one right-hand group the row's own
+  // space-between puts them in. Right-aligned they share an edge with each
+  // other and with the row. No effect on the single-line case — the group is
+  // shrink-to-fit there and has no slack to distribute.
   .nm-controls {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
     flex: 0 1 auto;
     flex-wrap: wrap;

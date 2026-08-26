@@ -132,6 +132,18 @@
             "
             @click="clearTable"
           />
+          <!-- FT-1168: YOUR OWN SETTINGS, and the house's mark. See the
+               `settings-marks` note on the entry strip below — the pair is
+               identical in both rows on purpose, because a personal setting
+               is personal on every screen this app has. -->
+          <font-awesome-icon
+            class="settings-cog"
+            :class="{ on: tab === 'settings' }"
+            icon="cog"
+            title="Your settings — this browser, every town"
+            @click="setTab('settings')"
+          />
+          <img class="golem-mark" :src="uiGolem" alt="Golem" title="Golem" />
         </li>
 
         <!-- FT-1159 (user call, 2026-08-25): THE ENTRY SCREEN'S RECORDS MARK —
@@ -161,6 +173,38 @@
             title="Chronicle — every town's games (C)"
             @click="openRecords"
           />
+          <!-- ── FT-1168 (user): TWO MARKS IN THE CORNER ──────────────────
+               "add two things to the top right menu. A settings icon, and
+               the golem favicon."
+
+               THE COG IS A DOOR, ONTO PERSONAL SETTINGS. Not the town's:
+               everything behind it belongs to the human at this browser and
+               follows them into every town they visit (see golem/prefs.js for
+               the line between the two surfaces, and the build panel's Game
+               settings tab for the other side of it). It is in BOTH strips —
+               this one and the in-game one above — because that is the whole
+               claim: a personal setting is not something you go into a town
+               to change.
+
+               THE GOLEM MARK IS A MARK, NOT A DOOR. It is the platform's own
+               favicon (src/assets/golem-mark.png, the 180px cut of
+               client/public/brand/apple-touch-icon.png — the same golem head
+               the site's tab wears, taken at that size because the 32px and
+               64px cuts smear at the strip's 26px on a 2x screen). This fork
+               is served from its OWN subdomain (deploy/Caddyfile.botc-snippet
+               — botc.<site> beside the main site), so a click could only mean
+               "leave for the main site", which nobody asked for and which
+               would be a door out of a running game sitting one pixel from
+               the Chronicle. It carries a title and nothing else until
+               somebody says where it should go. -->
+          <font-awesome-icon
+            class="settings-cog"
+            :class="{ on: tab === 'settings' }"
+            icon="cog"
+            title="Your settings — this browser, every town"
+            @click="setTab('settings')"
+          />
+          <img class="golem-mark" :src="uiGolem" alt="Golem" title="Golem" />
         </li>
 
         <!-- FT-1020b: the hourglass's own section — the four hour displays,
@@ -226,6 +270,83 @@
               @click.stop="pickTick(false)"
               >Sweep</span
             >
+          </li>
+        </template>
+
+        <!-- ── FT-1168: THE PERSONAL SETTINGS ────────────────────────────
+             The cog's own section, built out of this menu's existing
+             furniture and nothing new: a plain headline (the Timer tab's
+             `headline-plain`, flanked by its own mark), then rows in the
+             menu's one row shape — word on the left, state on the right,
+             the check idiom Night order and the Timer's layers already use.
+
+             THREE SETTINGS, THREE GROUPS, because they are three unrelated
+             questions and a flat list of six rows would read as one. The
+             small dim group labels are the app's own `label` treatment (see
+             the ask panel's, and the build panel's row labels).
+
+             THE WORDS STAY HERE, ALWAYS — icons-only does not reach into
+             this menu, and that is a deliberate call, not an oversight. A
+             settings menu is where somebody goes precisely because they do
+             not remember; stripping its labels would turn the one surface
+             that explains the app into the one that needs explaining. What
+             the user asked for was a cleaner SETUP PANEL — a surface used
+             constantly, whose marks are learned by the tenth game — and
+             that is exactly where the setting is applied. -->
+        <template v-if="tab === 'settings'">
+          <li class="headline headline-plain">
+            <font-awesome-icon :icon="['fas', 'cog']" class="hl-clock" />
+            Your settings
+            <font-awesome-icon :icon="['fas', 'cog']" class="hl-clock" />
+          </li>
+          <li class="sub-headline">Setup</li>
+          <li
+            title="Show the setup panel's settings as marks alone, with no names beside them"
+            @click="toggleIconsOnly"
+          >
+            Icons only
+            <em>
+              <font-awesome-icon
+                :icon="[
+                  'fas',
+                  prefs.setupIconsOnly ? 'check-square' : 'square',
+                ]"
+              />
+            </em>
+          </li>
+          <li class="sub-headline">Control scheme</li>
+          <li
+            v-for="s in controlSchemes"
+            :key="s.id"
+            :title="s.title"
+            @click="pickScheme(s.id)"
+          >
+            {{ s.label }}
+            <em>
+              <font-awesome-icon
+                :icon="[
+                  'fas',
+                  prefs.controlScheme === s.id ? 'check-square' : 'square',
+                ]"
+              />
+            </em>
+          </li>
+          <li class="sub-headline">Grimoire size</li>
+          <li
+            v-for="g in grimoireSizes"
+            :key="g.id"
+            :title="g.title"
+            @click="pickGrimoireSize(g.id)"
+          >
+            {{ g.label }}
+            <em>
+              <font-awesome-icon
+                :icon="[
+                  'fas',
+                  prefs.grimoireSize === g.id ? 'check-square' : 'square',
+                ]"
+              />
+            </em>
           </li>
         </template>
 
@@ -391,6 +512,20 @@ import uiQuill from "../assets/ui-chronicle.png";
 // FT-1020b: the hourglass — the old town-records door art, back in service
 // as the tower's hour-display menu (see the strip's template note).
 import uiHourglass from "../assets/ui-records.png";
+// FT-1168: the platform's own favicon, standing in the corner as a mark —
+// see the entry strip's note for which cut this is and why it does not click.
+import uiGolem from "../assets/golem-mark.png";
+// FT-1168: THIS PERSON'S SETTINGS — a browser's own, never a town's. The
+// module owns the stash, the clamping and the event; this menu is the only
+// surface that WRITES them, and each of the three has its own reader
+// elsewhere (the build panel's marks, FT-1169's schemes, App's post column).
+import {
+  CONTROL_SCHEMES,
+  GRIMOIRE_SIZES,
+  PREFS_EVENT,
+  prefsState,
+  setPref,
+} from "../golem/prefs";
 // ...and the menu it opens: the three display layers (FT-1052 — independent
 // toggles, Off derived), the split between a storyteller's town-wide pick
 // and a player's own-screen one, and the event that says the tower changed
@@ -447,6 +582,14 @@ export default {
       // currently shows (a plain module object is not reactive;
       // readTowerMode refreshes it on TOWER_EVENT).
       uiHourglass,
+      // FT-1168: the corner's house mark, and the cog's own section — the
+      // two option lists plus a snapshot of the saved prefs (a plain module
+      // object is not reactive; readPrefs refreshes it on PREFS_EVENT, the
+      // same shape `towerHour` above already runs on).
+      uiGolem,
+      controlSchemes: CONTROL_SCHEMES,
+      grimoireSizes: GRIMOIRE_SIZES,
+      prefs: { ...prefsState },
       hourRows: [HOUR_OFF, ...HOUR_LAYERS],
       towerHour: effectiveHourFlags(this.$store.state.session),
       // FT-1055: the minute hand's motion on THIS screen — refreshed with
@@ -476,9 +619,14 @@ export default {
     // panel's segment, a host's sync arriving — and the check here must
     // follow all of them.
     window.addEventListener(TOWER_EVENT, this.readTowerMode);
+    // FT-1168: the same one-way shape for the personal prefs — this menu
+    // writes them, and every surface (including this one) re-reads on the
+    // event rather than holding a second copy that could drift.
+    window.addEventListener(PREFS_EVENT, this.readPrefs);
   },
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTowerMode);
+    window.removeEventListener(PREFS_EVENT, this.readPrefs);
     clearTimeout(this.clearTimer);
   },
   watch: {
@@ -524,6 +672,27 @@ export default {
      *  host-vs-player split. */
     pickHourMode(id) {
       toggleHourLayer(this.session, id);
+    },
+    // ── FT-1168: the cog's section ───────────────────────────────────────
+    /** A pref changed anywhere — re-read the snapshot this menu renders. */
+    readPrefs() {
+      this.prefs = { ...prefsState };
+    },
+    toggleIconsOnly() {
+      setPref("setupIconsOnly", !this.prefs.setupIconsOnly);
+    },
+    /** FT-1168 persists the CHOICE; FT-1169 builds what the three schemes
+     *  actually do. Picking one today changes what golem/prefs reports and
+     *  nothing on the board — deliberately, so that lane has one stash to
+     *  read instead of inventing a second. */
+    pickScheme(id) {
+      setPref("controlScheme", id);
+    },
+    /** Small or large for the storyteller's post — the grimoire book, the
+     *  End-day button under it and the summons bell above it, which are one
+     *  column and scale as one (App.vue's `.storyteller-post`). */
+    pickGrimoireSize(id) {
+      setPref("grimoireSize", id);
     },
     /**
      * FT-857: the strip's script + night icons open ONE drawer on their own
@@ -1038,6 +1207,23 @@ export default {
       }
     }
 
+    // FT-1168: A GROUP LABEL inside the cog's section — the three settings
+    // are three unrelated questions and want naming apart. Not a `.headline`:
+    // that is the SECTION's own title (one per tab, gradient or plain), and a
+    // second one three rows down would read as a second tab having opened.
+    // This is the app's small dim `label` treatment instead — the ask panel's
+    // and the build panel's rows wear the same one.
+    li.sub-headline {
+      justify-content: flex-start;
+      min-height: 0;
+      padding: 6px 10px 1px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: 0.45;
+      cursor: default;
+    }
+
     // FT-1055: the Tick/Sweep pair — one small row, two words, the active
     // one wearing the tower menu's own gold (FaceHands' .tw-mode.on idiom).
     li.tw-tick-row {
@@ -1140,6 +1326,28 @@ export default {
 }
 .player-strip img:hover {
   filter: drop-shadow(0 1px 2px black) brightness(1.3);
+}
+/* FT-1168: THE COG IS OPEN — the tower menu's own gold (`.tw-tick-opt.on`),
+   not a new colour. The strip has never marked which section is showing,
+   which was fine while the only one was the Timer's four rows; a settings
+   menu is somewhere you leave open while you look at what it changed, and a
+   door with no lit state means hunting for the one that is. */
+.menu ul li.tabs.player-strip svg.settings-cog.on {
+  color: #caa662;
+}
+.menu ul li.tabs.player-strip svg.settings-cog.on:hover {
+  color: #e2c98a;
+}
+/* THE HOUSE MARK TAKES NO CLICKS. It sits in a row of doors and is not one
+   (see the entry strip's note), so it sheds the pointer and the hover lift
+   the art in this strip otherwise carries — the only two things that would
+   promise it does something. It keeps the 26px box and the drop shadow, so
+   it still reads as part of the set rather than as a stray sticker. */
+.player-strip img.golem-mark {
+  cursor: default;
+}
+.player-strip img.golem-mark:hover {
+  filter: drop-shadow(0 1px 2px black);
 }
 
 /* THE INLINE ASK. It is a child of the strip in the DOM but it belongs to the

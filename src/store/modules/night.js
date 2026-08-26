@@ -25,8 +25,10 @@
  *                  the storyteller as the authority the rest of this sheet
  *                  already treats them as. There is no undo behind the
  *                  delete; the surface that offers it confirms first.
- *   requireChecks  FT-874: a standing setting, like `mode` — how hard the
- *                  checklist is enforced when the night ends. TRI-STATE:
+ *   requireChecks  FT-874: a TOWN setting, like `mode` (FT-1168 moved both off
+ *                  the standing keys they were born on and onto the town's own
+ *                  per-host stash) — how hard the checklist is enforced when
+ *                  the night ends. TRI-STATE:
  *                  off (silent) | warn (ends, and says what was skipped) |
  *                  required (blocked until every row is ticked). Read by
  *                  NightSheet's `canFlip` and `warnUnchecked`; set from the
@@ -80,8 +82,9 @@ const state = () => ({
   mode: DEFAULT_MODE,
   day: 0,
   entries: [],
-  // FT-874: "required" by default — a checklist nobody is asked to finish has
-  // no teeth. The escape is unconditional and one tap per row (tick it, move
+  // FT-874 shipped this "required"; FT-1168 (user call) makes a fresh town
+  // "warn" — the list still says what was skipped, and the button still works.
+  // The escape was already unconditional and one tap per row (tick it, move
   // on); see NightSheet's flipPhase/flashUnchecked.
   //
   // TRI-STATE since 2026-08-19 (user call): off | warn | required. See

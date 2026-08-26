@@ -43,11 +43,23 @@ import {
 } from "./nightInfo";
 
 const LOG_KEY = "golem.nightLog";
+// FT-1168: THE TWO CHECKLIST SETTINGS BELONG TO A TOWN, not to a browser.
+//
+// Both of these were STANDING settings — one value carried into every town you
+// ever hosted. The build panel's new Game settings tab is defined as "this
+// town's rules, remembered per user that hosts on it", and these two are the
+// first rows in it, so they move onto the same per-town idiom the night LOG
+// beside them has always used: one localStorage key holding a {town: value}
+// map, written by the browser that is hosting. That browser IS the "per user"
+// half of the rule — localStorage is not shared between people — and the town
+// id is the "per town" half.
+//
+// The key names still say "night" rather than "town" because they are the
+// night code's own stash; the map's KEYS are what changed, not the owner.
 const MODE_KEY = "golem.nightMode";
-// FT-874: "how hard the checklist is enforced when the night ends" — a
-// standing setting like MODE_KEY above, not per-town log data. The key name
-// predates the setting going tri-state (it was a boolean, "Require checks");
-// the values it holds are CHECK_MODES below.
+// FT-874: "how hard the checklist is enforced when the night ends". The key
+// name predates the setting going tri-state (it was a boolean, "Require
+// checks"); the values it holds are CHECK_MODES below.
 const REQUIRE_CHECKS_KEY = "golem.nightRequireChecks";
 
 /** The three visibility states of the night sheet, in toggle order. */
@@ -72,9 +84,18 @@ export const MODES = ["off", "storyteller", "everyone"];
  */
 export const CHECK_MODES = ["off", "warn", "required"];
 
-/** A fresh town's setting. Unchanged from FT-874's boolean default (ON): a
- *  checklist nobody is asked to finish has no teeth. */
-export const DEFAULT_CHECK_MODE = "required";
+/**
+ * A fresh town's setting.
+ *
+ * FT-1168 (user call: "Checklist settings: default this to everyone, warn, not
+ * required"): WARN, where FT-874's boolean default was ON and this therefore
+ * read `required`. It lands the default on the middle state this file's own
+ * note above already calls "the honest default position of every stop-control
+ * on this fork" — the list still means something, and ending a night early is
+ * still a storyteller deciding to move their own table on rather than a button
+ * refusing to work.
+ */
+export const DEFAULT_CHECK_MODE = "warn";
 
 /**
  * The chip's own word, which is the ONLY thing that says which state this is
@@ -594,19 +615,47 @@ export function saveLog(sessionId, day, entries) {
   }
 }
 
-/** The saved visibility mode (a town setting that outlives one session). */
-export function loadMode() {
-  const m = localStorage.getItem(MODE_KEY);
+/**
+ * FT-1168: one town's stored value out of a {town: value} map.
+ *
+ * THE EMPTY TOWN ID IS A REAL KEY HERE, unlike in loadLog/saveLog above. A
+ * grimoire run in person has no town and still has a night checklist, so ""
+ * gets its own slot rather than being refused — otherwise the one setup that
+ * cannot sync anything would also be the one that cannot remember anything.
+ */
+function readSettingMap(key) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(key));
+    return raw && typeof raw === "object" ? raw : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeSetting(key, townId, value) {
+  const map = readSettingMap(key);
+  map[townId || ""] = value;
+  try {
+    localStorage.setItem(key, JSON.stringify(map));
+  } catch (e) {
+    // a full quota costs the setting, never the game
+  }
+}
+
+/** This town's saved visibility mode, or null if it has never been set —
+ *  the store's own DEFAULT_MODE applies in that case. */
+export function loadMode(townId) {
+  const m = readSettingMap(MODE_KEY)[townId || ""];
   return MODES.includes(m) ? m : null;
 }
 
-export function saveMode(mode) {
-  if (MODES.includes(mode)) localStorage.setItem(MODE_KEY, mode);
+export function saveMode(townId, mode) {
+  if (MODES.includes(mode)) writeSetting(MODE_KEY, townId, mode);
 }
 
 /**
- * The saved enforcement setting, or null if never set — the store's own
- * default applies in that case, same idiom as loadMode().
+ * This town's saved enforcement setting, or null if never set — the store's
+ * own default applies in that case, same idiom as loadMode().
  *
  * A stored "1" / "0" is FT-874's BOOLEAN, written before this went tri-state.
  * It is read across rather than migrated (we are in dev; there is no stored
@@ -614,15 +663,15 @@ export function saveMode(mode) {
  * as `required`, and the old OFF asked nothing, so it reads as `off`. The
  * warn state simply had no boolean to come from.
  */
-export function loadRequireChecks() {
-  const v = localStorage.getItem(REQUIRE_CHECKS_KEY);
-  if (v === null) return null;
+export function loadRequireChecks(townId) {
+  const v = readSettingMap(REQUIRE_CHECKS_KEY)[townId || ""];
+  if (v === undefined || v === null) return null;
   if (v === "1") return "required";
   if (v === "0") return "off";
   return CHECK_MODES.includes(v) ? v : null;
 }
 
-export function saveRequireChecks(checkMode) {
+export function saveRequireChecks(townId, checkMode) {
   if (CHECK_MODES.includes(checkMode))
-    localStorage.setItem(REQUIRE_CHECKS_KEY, checkMode);
+    writeSetting(REQUIRE_CHECKS_KEY, townId, checkMode);
 }

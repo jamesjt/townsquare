@@ -14,8 +14,31 @@ const {
   saveMode,
   // FT-874: the "require every row ticked before the night can end" setting.
   loadRequireChecks,
-  saveRequireChecks
+  saveRequireChecks,
+  // FT-1168: ...and what a town that has never set either of them gets, so a
+  // hop between towns RESETS rather than carrying the last town's rules over.
+  DEFAULT_MODE,
+  DEFAULT_CHECK_MODE
 } = require("../golem/nightLog");
+
+/**
+ * FT-1168: STAND ONE TOWN'S NIGHT SETTINGS UP — the log, who is asked, and how
+ * hard the checklist is enforced.
+ *
+ * Called from two places for one reason: boot (whatever town the URL named)
+ * and every later hop between towns. It always COMMITS all three, never only
+ * the ones it found — a town with nothing stored gets the defaults, which is
+ * what stops the last town's rules from following you into the next one. That
+ * failure mode is the whole reason these three moved off standing keys.
+ */
+function applyTownNight(store, townId) {
+  store.commit("night/setMode", loadMode(townId) || DEFAULT_MODE);
+  store.commit(
+    "night/setRequireChecks",
+    loadRequireChecks(townId) || DEFAULT_CHECK_MODE
+  );
+  store.commit("night/setLog", loadLog(townId) || { day: 0, entries: [] });
+}
 
 module.exports = store => {
   const updatePagetitle = isPublic =>
@@ -158,17 +181,12 @@ module.exports = store => {
   }
 
   /**** FT-860: night sheet + log ****/
-  // The mode is a standing setting, so it is read before any town is known.
-  const savedMode = loadMode();
-  if (savedMode) store.commit("night/setMode", savedMode);
-  // FT-874: same idiom — a standing setting, read before any town is known.
-  const savedRequireChecks = loadRequireChecks();
-  if (savedRequireChecks !== null)
-    store.commit("night/setRequireChecks", savedRequireChecks);
-  // The log belongs to a TOWN — read whichever one the block above restored.
-  // (setSessionId's own handler below catches every later hop between towns.)
-  const bootLog = loadLog(store.state.session.sessionId);
-  if (bootLog) store.commit("night/setLog", bootLog);
+  // FT-1168: all THREE of these belong to a town now — the log, who is asked
+  // (mode) and how hard the list is enforced. Read whichever town the block
+  // above restored; setSessionId's own handler below catches every later hop.
+  // An in-person grimoire has no town and reads the "" slot, which is a real
+  // key for the two settings (see nightLog's own note) and none for the log.
+  applyTownNight(store, store.state.session.sessionId);
 
   // listen to mutations
   store.subscribe(({ type, payload }, state) => {
@@ -318,10 +336,9 @@ module.exports = store => {
           );
           // FT-860: a town carries its own night log — hopping to another
           // town must never show the last one's. An unknown town starts clean.
-          store.commit(
-            "night/setLog",
-            loadLog(state.session.sessionId) || { day: 0, entries: [] }
-          );
+          // FT-1168: and its own checklist settings, for the same reason and
+          // by the same rule — the Game settings tab is about THIS town.
+          applyTownNight(store, state.session.sessionId);
         } else {
           localStorage.removeItem("session");
         }
@@ -332,11 +349,22 @@ module.exports = store => {
       // has to write too or a reload would lose which night it is.
       // FT-882: removeEntry joins them — a deleted row has to leave the stash
       // as well, or a reload brings it straight back.
+      // FT-1168: THE HOST WRITES, NOBODY ELSE.
+      //
+      // Both of these also arrive on a PLAYER's client over the wire (see
+      // socket.js's own `night/setMode` case) — that is the host telling the
+      // table what the night is, not this browser choosing anything. Writing
+      // it would mean the same person, hosting that town themselves later,
+      // silently inheriting the previous storyteller's rules as if they had
+      // set them, which is exactly the confusion the per-town-per-host key
+      // exists to prevent. The spectator flag is the discriminator.
       case "night/setMode":
-        saveMode(state.night.mode);
+        if (!state.session.isSpectator)
+          saveMode(state.session.sessionId, state.night.mode);
         break;
       case "night/setRequireChecks":
-        saveRequireChecks(state.night.requireChecks);
+        if (!state.session.isSpectator)
+          saveRequireChecks(state.session.sessionId, state.night.requireChecks);
         break;
       case "toggleNight":
       case "night/setDay":

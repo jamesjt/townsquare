@@ -8,6 +8,13 @@
       static: grimoire.isStatic,
       booting: !booted,
       'in-game': inGame,
+      // FT-1168 (user): GRIMOIRE SIZE — a PERSONAL setting off the corner
+      // cog, not a town's. It scales the storyteller's post, which is the
+      // grimoire book, the End-day button below it and the summons bell
+      // above it: one column since FT-1063, so one size for all three. The
+      // class rides #app because `.storyteller-post` is `position: fixed`
+      // and has no styling ancestor of its own to hang a modifier on.
+      'grimoire-lg': prefs.grimoireSize === 'large',
       // The build panel and the ring are both centred, which is fine on a
       // screen wide enough for the panel to nest inside the ring and impossible
       // on a portrait phone, where they are the same size. The phone layout
@@ -887,6 +894,10 @@ import { COINS, coinChoice, applyCoin } from "./golem/coinArt";
 // FT-949: the drop-outside-to-unseat target, installed once here so it works
 // for the whole session — see the module for why it moved out of RoleTray.
 import { installRoleUnseat } from "./golem/roleUnseat";
+// FT-1168: this browser's own settings. Only one of the three is painted from
+// this file — grimoire size, which scales the storyteller's post below — but
+// the root class binding is where it has to land, so the snapshot lives here.
+import { PREFS_EVENT, prefsState } from "./golem/prefs";
 const coinThumbs = require.context("./assets/coins", false, /.png$/);
 import Intro from "./components/Intro";
 import ReferenceModal from "./components/modals/ReferenceModal";
@@ -1353,6 +1364,10 @@ export default {
     // FT-949: the seat-unassign drop target — for the whole session, not just
     // while the build panel is up. See golem/roleUnseat.js.
     installRoleUnseat(this.$store);
+    // FT-1168: follow this browser's own settings (grimoire size is the one
+    // this file paints). The corner cog writes; everyone re-reads on the
+    // event — the same one-way shape the tower's own surfaces run on.
+    window.addEventListener(PREFS_EVENT, this.readPrefs);
     // (The legacy webkit blood scrollbar — the --sb-trail writer and its
     // droplet spawner — was KILLED 2026-08-17 by user order. The only blood
     // scrollbar is the v-blood-scroll overlay directive.)
@@ -1398,6 +1413,7 @@ export default {
   // TownInfo.vue's own retired copy carried.
   beforeDestroy() {
     clearTimeout(this.callBackTimer);
+    window.removeEventListener(PREFS_EVENT, this.readPrefs);
   },
   data() {
     return {
@@ -1422,6 +1438,11 @@ export default {
       // FT-1053: the ceremony's observable — held in data so the root class
       // binding above re-renders on its phase walks. The module owns it.
       ceremony: ceremonyState,
+      // FT-1168: this browser's own settings, mirrored here for the same
+      // reason `ceremony` is — the root class binding has to re-render when
+      // one changes. golem/prefs owns the stash; the corner cog is the only
+      // writer; readPrefs (mounted) keeps this copy honest.
+      prefs: { ...prefsState },
       // FT-880: the key list's own flag (the strip's question mark opens it)
       hotkeyHelpOpen: false,
       dealAt: dealTimeFor(this.$store.state.session.sessionId),
@@ -1522,6 +1543,11 @@ export default {
     };
   },
   methods: {
+    /** FT-1168: a personal setting changed (the corner cog is the only
+     *  writer) — re-read the snapshot the root class binding renders. */
+    readPrefs() {
+      this.prefs = { ...prefsState };
+    },
     /** Face lab: shift the background PAINT and remember it. */
     setBgOff(axis, px) {
       // H ranges wider than the two nudges: X/Y move the paint a few pixels,
@@ -3132,6 +3158,67 @@ video#background {
   width: 13px;
   height: 13px;
   color: #d8b45a;
+}
+
+// ── FT-1168 (user): GRIMOIRE SIZE — LARGE ────────────────────────────────
+// "Grimoire Size: Small, large (this affects the storytellers grimoire size,
+// the end day and bell button size)". All three of those are this one column
+// (FT-1063 put them there), so this is one modifier, not three settings.
+//
+// SMALL IS UNTOUCHED. Every value above stands exactly as it did — a browser
+// that never opens the cog cannot tell this landed. Everything below is the
+// same numbers at 1.5x, written out rather than run through a transform:
+// `scale()` would blur the book's raster cover and the FA glyphs, and — worse
+// — a scaled element keeps its ORIGINAL box for layout, so the bell and the
+// chip (which hang off the book's box with `calc(100% + 8px)`) would have
+// grown into each other while the gaps stayed where the small sizes put them.
+//
+// The gaps grow with the rest, so the column reads as the same object at a
+// different size rather than as three controls that drifted apart.
+#app.grimoire-lg {
+  .storyteller-post {
+    gap: 12px;
+
+    .post-bell {
+      bottom: calc(100% + 12px);
+    }
+    .post-phase {
+      top: calc(100% + 12px);
+    }
+  }
+
+  .drawer-tab {
+    padding: 5px;
+    border-radius: 0 12px 12px 0;
+    .tab-book {
+      width: 60px;
+      height: 72px;
+    }
+  }
+
+  .post-bell {
+    width: 54px;
+    height: 54px;
+  }
+  .post-bell-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .post-phase {
+    font-size: 19px;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 0 9px 9px 0;
+  }
+  .post-phase-mark {
+    width: 21px;
+    height: 21px;
+  }
+  .post-phase-sun {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 // in a game the hands leave the face — #app paints the handless art over

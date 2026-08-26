@@ -92,6 +92,56 @@
          reason. A wrapper that only one layout can see costs the other three
          nothing. -->
     <div class="ht-body">
+      <!-- ── FT-1168 (user): TWO TABS, UNDER THE TOWN'S NAME ─────────────────
+           "Add a tabs for in setup below the town name. One for script setup
+           and one for game settings."
+
+           WHAT EACH ONE HOLDS is the user's own list, and every row below is
+           MOVED, not rebuilt — same components, same handlers, same styles,
+           same order within each tab:
+
+             Script setup   chairs · script · the roles row (assigned count,
+                            Deal, Shuffle, Duplicates, Retract) · the tray you
+                            drag characters out of onto a chair
+             Game settings  the night checklist · the day bell · the day's
+                            length · the call-back voice
+
+           WHY THE SPLIT IS THE RIGHT ONE: the left tab is what you do ONCE,
+           in order, on the way to pressing Start; the right tab is what this
+           TOWN is like, which you set and then rarely touch. They were
+           interleaved down one column, so the panel read as ten unrelated
+           rows rather than two short jobs.
+
+           IT IS THE BAND'S FIRST CHILD, NOT THE HEAD'S. `.ht-head` is a FIXED
+           slice of the disc (see the disc rules — a cap sized by `fd-caph`,
+           where a second line of type is already folded away into the
+           heading's tooltip), and the panel's disc arithmetic is measured for
+           exactly three children: cap, band, cap. A fourth would push the band
+           off centre. As the band's first row the strip sits immediately below
+           the name in every layout the panel has — the disc, the rectangle and
+           both phone sheets — which is where the user put it.
+
+           NOT SHOWN ON THE RE-ENTRY FACE. That face has no setup to tab
+           between: it greets a host whose game is already running, and the
+           settings rows below it stay reachable (`reentry ||`) exactly as they
+           were before this pass, because a storyteller mid-game still owns the
+           checklist, the bell and the clock. -->
+      <div class="ht-tabs" v-if="!reentry" role="tablist">
+        <button
+          v-for="t in setupTabs"
+          :key="t.id"
+          type="button"
+          class="ht-tab"
+          :class="{ on: setupTab === t.id }"
+          role="tab"
+          :aria-selected="String(setupTab === t.id)"
+          :title="t.title"
+          @click="setupTab = t.id"
+        >
+          <font-awesome-icon :icon="['fas', t.icon]" class="ht-tab-mark" />
+          {{ t.label }}
+        </button>
+      </div>
       <!-- ── FT-1032: THE GREETING LINE ─────────────────────────────────────
          The re-entry face's one statement: a game is running here, and this
          is its moment. The wording is TownInfo/FaceHands' own phase idiom
@@ -126,7 +176,9 @@
          merge never costs": a wrapped line has no `min-height` floor of its
          own, so two wrapped halves stand exactly as tall as their content and
          strictly shorter than the two 34px-floored rows they replace. -->
-      <div class="row ht-cast" v-if="!reentry">
+      <!-- FT-1168: `scriptTab` is `!reentry && setupTab === 'script'` — the
+           gate this row already had, narrowed by which tab is showing. -->
+      <div class="row ht-cast" v-if="scriptTab">
         <span class="ht-cast-half ht-cast-seats" :title="seatsHint">
           <!-- FT-959 (user call): "make it more clear that the chain is tied to
              the 7". `.ht-seat-lead` groups the mark, the scrub and its implied
@@ -150,8 +202,16 @@
              because it is already how every other "this is one control" claim
              on this panel is made. -->
           <span class="ht-seat-lead">
+            <!-- FT-1168 (user): "if not include the name of the settings
+                 after its icon" — every mark on this panel can wear its own
+                 word, and the corner cog's "Icons only" takes them all off
+                 at once. The word goes INSIDE `.label`, after the mark, so
+                 the pair is one flex item and the row's space-between still
+                 sees one cluster on the left (the FT-959 lesson) rather than
+                 a mark and a word it can push apart. -->
             <span class="label">
               <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
+              <span class="row-name" v-if="!iconsOnly">Seats</span>
             </span>
             <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
               <!-- the number is a SCRUBBER: drag it sideways to set the count
@@ -285,6 +345,7 @@
           <span class="ht-role-lead">
             <span class="label">
               <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
+              <span class="row-name" v-if="!iconsOnly">Roles</span>
             </span>
             <span class="value" @click="toggleModal('roleDrawer')">
               {{ rolesAssigned }} / {{ players.length }} assigned
@@ -317,14 +378,14 @@
          knows what it holds, so the line says which team is short and by how
          much. The derivation is golem/seatRange — shared, so no second
          surface can disagree about what this script plays. -->
-      <small class="hint seat-warn" v-if="!reentry && seatWarn">
+      <small class="hint seat-warn" v-if="scriptTab && seatWarn">
         {{ seatWarn.reason }}
         <span class="plays" v-if="seatWarn.plays">{{ seatWarn.plays }}</span>
       </small>
 
       <!-- the SHARED script picker (user call): pick right here, with the
          script's OWN art on the trigger; the Almanac card opens the forge -->
-      <div class="row" v-if="!reentry">
+      <div class="row" v-if="scriptTab">
         <span class="label">
           <!-- ui-script.png is the SAME file the top strip's own script door
              wears (Menu.vue) — not a new asset. It bakes flat neutral grey
@@ -341,6 +402,7 @@
             alt="Script"
             title="Script"
           />
+          <span class="row-name" v-if="!iconsOnly">Script</span>
         </span>
         <ScriptPicker
           class="ht-script-picker"
@@ -391,7 +453,10 @@
          inside ONE wrapped `.row` cost the same as the old bin-pack's own
          wrapped lines did — no fresh row-to-row gap is paid for naming the
          pairing explicitly. -->
-      <div class="row ht-settings">
+      <!-- FT-1168: `settingsTab` is `reentry || setupTab === 'settings'` —
+           the tab when the panel is building, and unconditional on the
+           re-entry face, which is exactly where this row already stood. -->
+      <div class="row ht-settings" v-if="settingsTab">
         <span class="ht-set-line ht-set-line1">
           <!-- FT-860: the night sheet's three-state switch. Its own component so
              the setting travels with the rest of the night code. -->
@@ -417,6 +482,7 @@
                 icon="sun"
                 title="The day-break sound"
               />
+              <span class="row-name" v-if="!iconsOnly">Day bell</span>
             </span>
             <OptionSelect
               name="bell-which"
@@ -451,6 +517,7 @@
                   icon="hourglass-half"
                   title="The day's length"
                 />
+                <span class="row-name" v-if="!iconsOnly">Day timer</span>
               </span>
               <OptionSelect
                 name="day-length"
@@ -490,6 +557,7 @@
                 icon="bell"
                 title="The call-back bell"
               />
+              <span class="row-name" v-if="!iconsOnly">Call back</span>
             </span>
             <OptionSelect
               name="callback"
@@ -509,7 +577,7 @@
          wears the quiet failure state and is not kept. -->
       <div
         class="row tw-row tw-custom"
-        v-if="tower.bellId === 'custom'"
+        v-if="settingsTab && tower.bellId === 'custom'"
         title="Where the custom bell's sound lives — every player's browser fetches it from here"
       >
         <span class="tw-lead">
@@ -519,6 +587,7 @@
               icon="link"
               title="The custom bell's source"
             />
+            <span class="row-name" v-if="!iconsOnly">Bell source</span>
           </span>
           <input
             class="tw-url"
@@ -557,7 +626,7 @@
          same shape as the bell's own above it. -->
       <div
         class="row tw-row tw-custom"
-        v-if="tower.callId === 'custom'"
+        v-if="settingsTab && tower.callId === 'custom'"
         title="Where the call-back's sound lives — every player's browser fetches it from here"
       >
         <span class="tw-lead">
@@ -567,6 +636,7 @@
               icon="link"
               title="The call-back's source"
             />
+            <span class="row-name" v-if="!iconsOnly">Call-back source</span>
           </span>
           <input
             class="tw-url"
@@ -604,7 +674,7 @@
       <!-- FT-859: the UNSEATED TRAY — the script's characters that have no
          chair yet, dragged straight onto a seat from here. Dropping a seated
          role anywhere that is not a seat sends it back to this tray. -->
-      <RoleTray v-if="!reentry" />
+      <RoleTray v-if="scriptTab" />
 
       <!-- FT-1032: the greeting face's quiet second door, and it must exist:
          a town whose roster did not survive the trip here cannot END its
@@ -759,6 +829,30 @@ import {
 // AND the call-back), and the call-back's own preview.
 import { probeAudioUrl, uploadAudioFile } from "../golem/customAudio";
 import { toggleCallBackPreview } from "../golem/callBack";
+// FT-1168: THIS BROWSER'S OWN SETTINGS — read-only here. The panel reads one
+// of them (does each mark wear its name?); the corner cog is the only writer.
+// Note which way this dependency points: a PERSONAL setting dresses a panel
+// whose CONTENTS are the town's, and the panel never writes back.
+import { PREFS_EVENT, prefsState } from "../golem/prefs";
+
+/**
+ * FT-1168: THE TWO TABS. The user's own two names for them, in their order —
+ * what you do on the way to Start, then what this town is like.
+ */
+const SETUP_TABS = [
+  {
+    id: "script",
+    label: "Script setup",
+    icon: "scroll",
+    title: "The chairs, the script, the characters and who is holding them",
+  },
+  {
+    id: "settings",
+    label: "Game settings",
+    icon: "cog",
+    title: "This town's own rules — the night checklist, the bells, the clock",
+  },
+];
 
 // The four teams the setup table names, in the order every other surface in
 // this app states them (the reading order of a composition, best to worst).
@@ -803,6 +897,17 @@ export default {
       // FT-888: the composition readout's static furniture
       COMP_TEAMS,
       TEAM_LABELS,
+      // FT-1168: the two tabs, and which one is showing. Held in `data`, not
+      // in the store or a stash: it is where this storyteller is looking
+      // right now, not something the town or the browser is owed on the next
+      // reload — and Script setup is the honest place to open, because a
+      // fresh town has chairs to fill before it has rules to set.
+      setupTabs: SETUP_TABS,
+      setupTab: "script",
+      // FT-1168: this browser's own settings, snapshotted — a plain module
+      // object is not reactive; readPrefs refreshes it on PREFS_EVENT, the
+      // same shape `tower` below already runs on.
+      prefs: { ...prefsState },
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
@@ -858,9 +963,13 @@ export default {
     loadTowerForTown(this.session.sessionId || "");
     this.readTower();
     window.addEventListener(TOWER_EVENT, this.readTower);
+    // FT-1168: ...and this browser's own settings, which dress the panel
+    // without belonging to it.
+    window.addEventListener(PREFS_EVENT, this.readPrefs);
   },
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTower);
+    window.removeEventListener(PREFS_EVENT, this.readPrefs);
   },
   computed: {
     // FT-1133: `chat` is here for `gameUnderway` alone — `chat.gameId` is the
@@ -874,6 +983,24 @@ export default {
      *  about when the game started. */
     gameUnderway() {
       return !!(this.chat && this.chat.gameId);
+    },
+    // ── FT-1168: the two tabs, and the panel's dress ─────────────────────
+    /** The build face, on Script setup. Every row that was `!reentry` is
+     *  this now — the same gate, narrowed by which tab is up. */
+    scriptTab() {
+      return !this.reentry && this.setupTab === "script";
+    },
+    /** The town's own rules. `reentry ||` because the settings rows were
+     *  NEVER gated on `!reentry` — a storyteller mid-game still owns the
+     *  checklist, the bells and the clock, and the greeting face has always
+     *  shown them. That stays exactly true. */
+    settingsTab() {
+      return this.reentry || this.setupTab === "settings";
+    },
+    /** Marks alone, or marks with their names beside them (user's setting,
+     *  off the corner cog). Personal, not the town's — see golem/prefs. */
+    iconsOnly() {
+      return this.prefs.setupIconsOnly;
     },
     /** FT-847: the edit key when this hosted town is OURS (else falsy). */
     ownedKey() {
@@ -1148,6 +1275,11 @@ export default {
     ...mapMutations(["toggleModal"]),
     // FT-888: golem/glyphs' team art, the same call TownInfo makes.
     teamGlyph,
+    /** FT-1168: a personal setting changed in the corner menu — re-read the
+     *  snapshot this panel's dress is drawn from. */
+    readPrefs() {
+      this.prefs = { ...prefsState };
+    },
     // ── FT-1020: the tower rows ──────────────────────────────────────────
     /** The tower changed — here, on the dial's anchor menu, or by a load. */
     readTower() {
@@ -1697,6 +1829,64 @@ export default {
     margin-bottom: 8px;
   }
 
+  // ── FT-1168: THE TWO TABS ────────────────────────────────────────────────
+  // The panel's OWN segment shape, not a new one: `control-plate` around the
+  // pair and `control-cell` inside it is exactly what the night row's
+  // Off/Storyteller/Everyone switch was built from (NightModeRow's `.nm-seg` /
+  // `.nm-opt`, and controls.scss's own note on why the plate belongs to the
+  // GROUP — "three plated buttons sitting 0px apart read as three buttons").
+  // Two tabs are one control with two positions and read that way here.
+  //
+  // FULL WIDTH, unlike that switch, and that is the one difference: a segment
+  // inside a row is one setting among several and hugs its content; this is
+  // the panel's own divider and the two halves want equal weight. `flex: 1`
+  // on the cells is what does it.
+  .ht-tabs {
+    @include control-plate;
+    display: flex;
+    overflow: hidden;
+    width: 100%;
+    margin-bottom: 6px;
+  }
+  .ht-tab {
+    @include control-cell;
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 6px;
+    font-size: 85%;
+    white-space: nowrap;
+    &:hover {
+      color: #ff8a8a;
+    }
+    // the chosen half wears the segment family's own lit ground — the same
+    // `.nm-opt.on` treatment every switch on this panel already uses
+    &.on {
+      background: $control-on-bg;
+      font-weight: bold;
+      &:hover {
+        color: white;
+      }
+    }
+    // a phone gets a real target, the same 40px the night switch's cells take
+    @media (pointer: coarse) {
+      min-height: 40px;
+    }
+  }
+  .ht-tab-mark {
+    width: 13px;
+    height: 13px;
+    opacity: 0.8;
+    // Font Awesome's own two-class width rule outranks a single class — the
+    // same fight `.row-mark-fa` documents further down this file.
+    &.svg-inline--fa {
+      width: 13px;
+      height: 13px;
+    }
+  }
+
   // FT-1032: THE GREETING LINE — the re-entry face's one statement, under
   // the town's name. Brighter than the panel's 0.6 `small` idiom (this line
   // IS the face's content, not an aside), quieter than the heading; the
@@ -1958,6 +2148,17 @@ export default {
       object-fit: contain;
       display: block;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    }
+    // FT-1168: THE SETTING'S NAME, beside its mark, when the corner cog's
+    // "Icons only" is off. It takes the label's own quiet ink (the `.label`
+    // rule above already dims the pair to 0.7) and adds only the gap and a
+    // no-wrap, because a two-word name breaking over two lines would grow the
+    // row's height rather than the panel's width — which is the one thing a
+    // shrink-to-fit panel cannot show you is happening.
+    .row-name {
+      margin-left: 6px;
+      white-space: nowrap;
+      font-size: 90%;
     }
     // THE SCRIPT MARK IS THE ONE ASSET THAT DOES NOT BAKE WARM (see the
     // template note by its <img>). ui-script.png is shared with Menu.vue's
@@ -2597,6 +2798,10 @@ export default {
       // like the rows — only the tray (absent on the re-entry face anyway)
       // is allowed to give.
       > .ht-running,
+      // FT-1168: and the tab strip, for the same reason as the rows — it is
+      // fixed content, and a squeezed tab strip is a control you cannot read
+      // sitting above the thing it switches.
+      > .ht-tabs,
       > .ht-rebuild {
         flex-shrink: 0;
       }
