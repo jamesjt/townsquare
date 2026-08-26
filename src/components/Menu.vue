@@ -158,7 +158,7 @@
         <li class="tabs player-strip entry-strip" v-if="!inGame">
           <img
             :src="uiQuill"
-            title="Records — every town's games"
+            title="Chronicle — every town's games (C)"
             @click="openRecords"
           />
         </li>

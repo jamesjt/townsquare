@@ -201,6 +201,18 @@ export const HOTKEYS = [
     note: "Join somebody else's town",
   },
   {
+    // FT-1162: C's OTHER half. In a town this letter is the storyteller's
+    // Characters picker (above); off one it opens the Chronicle, the
+    // cross-town page the corner quill raises. The two can never appear in
+    // one list — hotkeysFor gives `host` rows only in a session and
+    // `sessionless` rows only outside one — so the panel always prints
+    // exactly the C the reader can actually press.
+    key: "C",
+    who: "sessionless",
+    label: "Chronicle",
+    note: "Every town's games, on one page",
+  },
+  {
     key: "Esc",
     who: "all",
     label: "Close",

@@ -21,17 +21,38 @@
        portraits. Messages and events do not follow a game across towns and are
        not offered here. -->
   <div class="records-page">
+    <!-- FT-1162 (user call): the surface is THE CHRONICLE, and its title is
+         CENTRED and wears the entry doors' own treatment — PiratesBay for the
+         word (which this h2 already used) plus the blood drop-cap the Host /
+         Join / Scripts doors put on theirs, through KeyCap, the app's one
+         drop-cap component. The cap is the letter of its hotkey, exactly as
+         the doors' caps are, so the title says how to reach it.
+
+         The head is a THREE-COLUMN GRID, not a flex row, so the title sits on
+         the PAGE's centre line and stays there whether or not the back button
+         is standing. Back holds the left column on its own (user call: "the
+         back button should be on the far left, not on the right" — it shared
+         the right corner with the close ×, which put "step back one level"
+         and "leave the page entirely" side by side); the close × holds the
+         right. -->
     <header class="rp-head">
+      <button class="rp-back" v-if="pick" @click="closePick">
+        <font-awesome-icon icon="arrow-left" /> The Chronicle
+      </button>
       <div class="rp-title">
-        <h2>Records</h2>
+        <!-- "C" + "hronicle" is ONE WORD split across two nodes, flush
+             together — the entry doors' idiom and RoleDrawer's "G"+"rimoire"
+             after it, not a badge beside a title. The newline before the span
+             is a whitespace-only node and Vue's `condense` drops it, so the
+             cap and its word stay joined. -->
+        <h2>
+          <span class="rp-cap"><KeyCap letter="C" /></span>hronicle
+        </h2>
         <p class="rp-sub">
           <template v-if="pick">one game's record</template>
           <template v-else>every town on the platform</template>
         </p>
       </div>
-      <button class="rp-back" v-if="pick" @click="closePick">
-        <font-awesome-icon icon="arrow-left" /> All records
-      </button>
       <CloseX class="rp-close" @click.native="$emit('close')" />
     </header>
 
@@ -46,7 +67,19 @@
       </p>
       <template v-else>
         <p class="rp-gamehead">
-          <span class="rp-gscript">{{ pick.game.scriptName }}</span>
+          <!-- FT-1162 (user call): "the script should use the icon of the
+               script not just its name." The mark comes from `scriptArtFor`
+               (golem/editionArt), which reads the only script handle a record
+               actually carries — its display NAME — back to an edition id and
+               so to the same art every script picker in the app shows. A name
+               it cannot place (a custom script, a script since renamed) gets
+               the stock custom mark; the art is only ever an addition, the
+               NAME is what identifies the script and it always prints. -->
+          <span class="rp-gscript"
+            ><img class="rp-gicon" :src="scriptArt(pick.game)" alt="" />{{
+              pick.game.scriptName
+            }}</span
+          >
           <span class="rp-win" :class="pick.game.winningTeam">{{
             pick.game.winningTeam === "good" ? "Good wins" : "Evil wins"
           }}</span>
@@ -55,6 +88,17 @@
             whenLabel(pick.game.startedAt || pick.game.endedAt)
           }}</span>
           <span class="rp-gmeta">{{ pick.game.playerCount }} seats</span>
+          <!-- FT-1162 (user call): "the most important info besides the script
+               name, who won, and number of seats is number of days." IT IS NOT
+               RECORDED YET — a game row carries `startedAt` and `endedAt` and
+               nothing about its length in days, so every game recorded before
+               the capture lands has no answer. When there is no answer this
+               renders NOTHING: no zero, no dash, no "unknown". A day count is
+               a fact about how the game went and inventing one would be worse
+               than the gap. -->
+          <span class="rp-gmeta" v-if="dayLabel(pick.game)">{{
+            dayLabel(pick.game)
+          }}</span>
           <span class="rp-gmeta">{{ lengthLabel(lengthOf(pick.game)) }}</span>
         </p>
 
@@ -122,7 +166,7 @@
         <h3>Every town together</h3>
         <p class="rp-state" v-if="loading">Consulting the archives…</p>
         <p class="rp-state" v-else-if="error">
-          Records unavailable — server unreachable
+          Chronicle unavailable — server unreachable
         </p>
         <p class="rp-state" v-else-if="!stats || !stats.games">
           No games recorded yet
@@ -264,6 +308,12 @@
 import { mapState } from "vuex";
 import CloseX from "./CloseX";
 import ChroniclesPortrait from "./ChroniclesPortrait";
+// FT-1162: the app's one drop-cap component — the same one the entry doors
+// and the grimoire drawer's own title render theirs through, so this C and
+// the Keys panel's C are pixel-identical and move together if the font
+// picker ever changes families.
+import KeyCap from "./KeyCap";
+import { scriptArtFor } from "../golem/editionArt";
 import { platformStats, gameRecord } from "../golem/stats";
 import { catchUp } from "../golem/chat";
 import { boardsOf, logGameIdOf } from "../golem/chronicles";
@@ -280,7 +330,7 @@ const TOP_PLAYERS = 15;
 
 export default {
   name: "StatsOverlay",
-  components: { CloseX, ChroniclesPortrait },
+  components: { CloseX, ChroniclesPortrait, KeyCap },
   props: {
     /** The town this browser is standing in, or "" on the entry screen.
      *  It NARROWS NOTHING — the page is platform-scoped by definition; it
@@ -365,6 +415,25 @@ export default {
     lengthOf,
     whenLabel,
     lengthLabel,
+    /** FT-1162: the script's own mark, from the only handle a record carries
+     *  (its display name). Always a bundled image — see scriptArtFor. */
+    scriptArt(game) {
+      return scriptArtFor(game && game.scriptName);
+    },
+    /**
+     * FT-1162: how many DAYS the game ran, or null when the record does not
+     * say — which today is every record, because nothing captures it yet.
+     * Null means the caller renders nothing at all: a missing day count is a
+     * gap in the record, and a "0" or a "—" would read as a fact about the
+     * game rather than a fact about the ledger.
+     */
+    dayLabel(game) {
+      const days = game && game.dayCount;
+      if (typeof days !== "number" || !Number.isFinite(days) || days <= 0) {
+        return null;
+      }
+      return days === 1 ? "1 day" : days + " days";
+    },
     /** Escape steps BACK one level — out of a record to the landing, out of
      *  the landing to wherever the reader came from. A single key that closed
      *  the whole page from inside a record would throw away the click that
@@ -485,9 +554,16 @@ export default {
   text-align: left;
 }
 
+// FT-1162: THREE COLUMNS, not a flex row. The two flanks are equal `1fr`, so
+// the middle column — the title — lands on the PAGE's centre line and holds
+// it whether or not the back button is standing (it is `v-if="pick"`). A flex
+// row could only centre the title against whatever happened to be beside it,
+// which is exactly the drift that made "centred" mean two different positions
+// on the landing and inside a record.
 .rp-head {
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 18px;
   padding: 14px 22px;
@@ -495,18 +571,36 @@ export default {
   background: rgba(0, 0, 0, 0.4);
 }
 
+// The title STACKS over its subtitle rather than sitting beside it. Side by
+// side, the pair is what centres and the WORD lands ~80px left of the page's
+// centre line — which is not what "centre the title" means to anyone looking
+// at it. Stacked, the word itself is on the centre line and the subtitle sits
+// under it, centred too.
 .rp-title {
+  grid-column: 2;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   min-width: 0;
 
   h2 {
+    // The ENTRY DOORS' face. PiratesBay was already the h2's font — what the
+    // doors have that this did not is the blood drop-cap, which KeyCap brings
+    // (Bloody, blood red, black-outlined, per-letter baseline).
     font-family: PiratesBay, sans-serif;
     font-size: 30px;
     line-height: 1;
     margin: 0;
+    white-space: nowrap;
+
+    // The same 2px optical nudge the doors give their own drop-cap
+    // (Intro.vue's `.doors .key`) and RoleDrawer's `.rd-cap` after it, and
+    // nothing more — KeyCap's `.key` already carries everything else. This
+    // only keeps "hronicle" from crowding the C.
+    .rp-cap {
+      margin-right: 2px;
+    }
   }
 }
 
@@ -516,7 +610,11 @@ export default {
   font-size: 14px;
 }
 
+// FT-1162: the FAR LEFT of the head, on its own, where nothing else lives —
+// "step back one level" no longer shares a corner with "leave the page".
 .rp-back {
+  grid-column: 1;
+  justify-self: start;
   @include control-plate;
   font-family: inherit;
   font-size: 13px;
@@ -534,6 +632,8 @@ export default {
 }
 
 .rp-close {
+  grid-column: 3;
+  justify-self: end;
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
@@ -734,6 +834,22 @@ h4 {
 .rp-gscript {
   font-family: PiratesBay, sans-serif;
   font-size: 24px;
+  // FT-1162: the mark rides WITH the name as one object, so the pair wraps
+  // together and the icon can never be orphaned onto its own line.
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  // Sized in `em` off the script name beside it — the same way HostTools
+  // sizes its own town-script mark — so the mark tracks the name if this
+  // heading is ever resized. `contain` because the edition art is not square
+  // and must not be stretched to pretend it is.
+  .rp-gicon {
+    width: 1.4em;
+    height: 1.4em;
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
 }
 .rp-gmeta {
   font-size: 13px;

@@ -1991,6 +1991,21 @@ export default {
           else if (this.$refs.intro) this.$refs.intro.openJoin();
           break;
         case "c":
+          // FT-1162: C READS BY WHERE YOU ARE STANDING, the same way S already
+          // does. Off any town — the entry screen, where the corner quill
+          // lives — it opens THE CHRONICLE, the cross-town page; the page's
+          // own title wears a C drop-cap saying so. In a town it is unchanged:
+          // the storyteller's Characters picker, which has held this letter
+          // since FT-880 and is published as "Characters" in the key table.
+          //
+          // Deliberately NOT dual-purpose inside a town. The Chronicle is a
+          // place you LEAVE the town for, and a letter that means two things
+          // at once mid-game is the collision worth avoiding, not the feature.
+          if (!inSession) {
+            this.$store.commit("setRecordsPick", null);
+            this.$store.commit("toggleModal", "records");
+            break;
+          }
           if (!isHost) return;
           this.$store.commit("toggleModal", "roles");
           break;
