@@ -1746,7 +1746,23 @@ class LiveSession {
    * above already draws.
    */
   sendChat(payload) {
-    this._send("chat", payload);
+    // FT-1140: THE DAY COUNTER DOES NOT SURVIVE ITS GAME. `night.day` still
+    // holds the finished game's last day after a game ends — Play again is
+    // what resets it, not the ending — so a row written in the lull between
+    // two games would carry, and be read as, a moment belonging to the game
+    // before it (a death written after the end reading "Day 3"). Null is the
+    // honest answer there: that row happened outside any game's own time, and
+    // its wall clock is the only moment it has.
+    //
+    // HERE, because this is the one funnel every writer reaches the wire
+    // through — systemMessage, the two composers, and App.vue's end-of-game
+    // rows (which are all committed BEFORE `endGame`, so they still carry the
+    // running clock and are untouched by this).
+    const { session } = this._store.state;
+    this._send(
+      "chat",
+      session.isEnded ? { ...payload, dayNumber: null } : payload,
+    );
   }
 
   /**

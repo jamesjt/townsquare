@@ -258,12 +258,30 @@ export default {
     time() {
       return timeOf(this.row);
     },
-    /** "N2" / "D3" — the in-game moment; the wall clock only when the row
-     *  lives between games. */
+    /**
+     * "Night 2" / "Day 3" — the in-game moment; the wall clock only when the
+     * row has none.
+     *
+     * FT-1140: ASK THE FIELDS THAT CARRY THE MOMENT. This used to gate on
+     * `gameId`, which does not know when a row happened — it names WHICH
+     * RECORDED GAME a row belongs to, and it is minted from the deal stash,
+     * so it exists only if somebody pressed Deal. A storyteller running the
+     * town without dealing (roles set by hand, an in-person game tracked on
+     * the grimoire) produced rows carrying a perfectly good `phase` and
+     * `dayNumber` — "Night 1 falls." itself among them — and every one of
+     * them was shown as a wall clock, because no id had been minted.
+     *
+     * The moment is `phase` + `dayNumber`, and a day that has BEGUN: the
+     * counter sits at 0 until the first night falls, and there is no Day 0 to
+     * name. So a row from before the first night, or from between two games
+     * (`sendChat` stamps no day once a game has ended), keeps the clock —
+     * which is the correct and only true answer for a row that happened
+     * outside a game's own time, not a fallback standing in for one.
+     */
     moment() {
-      if (!this.row.gameId || !this.row.phase) return this.time;
-      const d = this.row.dayNumber == null ? "" : this.row.dayNumber;
-      return (this.row.phase === "night" ? "Night " : "Day ") + d;
+      const day = this.row.dayNumber;
+      if (!this.row.phase || !(day >= 1)) return this.time;
+      return (this.row.phase === "night" ? "Night " : "Day ") + day;
     },
     event() {
       return this.row.kind === "system" ? decodeEvent(this.row.body) : null;
