@@ -15,7 +15,7 @@
     <button
       class="ra-act"
       :disabled="seatedCount < 2"
-      title="Randomize the selected roles among the seats"
+      title="Shuffle the roles among the seats — nobody moves chair, the characters do"
       @click.stop="shuffle"
     >
       <font-awesome-icon icon="random" />

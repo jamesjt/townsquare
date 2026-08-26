@@ -226,12 +226,20 @@
                clicks by itself, and it drops out of the tab order — which the
                old opacity-plus-pointer-events pair never did. -->
             <span class="tools">
+              <!-- FT-1132 (user): this button and the role randomiser beside
+                   it wear the SAME glyph and their titles read alike, so
+                   there was no way to tell which one you were about to press.
+                   This one moves the PEOPLE — `players/randomize` reorders
+                   the roster itself, so everyone changes chair and carries
+                   whatever they are holding with them. The other leaves
+                   everyone seated and redistributes the roles. Both titles
+                   now say which is which, in the user's own words. -->
               <button
                 class="tool-btn"
                 type="button"
                 :disabled="players.length <= 2"
                 @click="randomizeSeatings"
-                title="Shuffle seat order"
+                title="Shuffle players' seats — everyone moves chair, keeping what they hold"
               >
                 <font-awesome-icon icon="random" />
               </button>

@@ -66,7 +66,7 @@
           class="rd-act"
           :disabled="seatedCount < 2"
           @click="shuffleSeated"
-          title="Randomize the selected roles among the seats"
+          title="Shuffle the roles among the seats — nobody moves chair, the characters do"
         >
           <font-awesome-icon icon="random" />
           Shuffle
