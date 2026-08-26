@@ -20,6 +20,10 @@
           // this chair's character is in hand, waiting for the chair it goes
           // to — the seat's own version of the tray tile's `picked` mark
           'role-armed': roleArmed,
+          // FT-1194: …and every OTHER chair is where it could land, so those
+          // coins say 'click me' — a calm purple breath (see the style block).
+          // Clears itself: drawerPick is nulled on landing and on cancel.
+          'move-invite': moveInvite,
           // FT-861: this seat does not know what it is. The storyteller's
           // scan mark — see the amber name plate at the bottom of this file.
           believing: !!beliefChip,
@@ -982,6 +986,14 @@ import { mapGetters, mapState } from "vuex";
 // how long the cursor has to rest on a seat before its card appears — enough
 // that sweeping across the square does not strobe cards
 const HOVER_DELAY = 170;
+// FT-1194 (user: "make the hover coins hover much more responsive") — the
+// RING opens on its own, much shorter rest. The card's 170ms guards against a
+// wall of text strobing across a sweep; the ring is six small coins that cost
+// nothing to glance past, and the scheme was chosen BECAUSE the menu is the
+// point, so it answers at the speed of intent. 60ms still swallows a straight
+// sweep across the square (a pointer crossing a coin at speed is gone in
+// ~40ms) without making a genuine rest wait.
+const RING_DELAY = 60;
 // FT-990: how long a card survives after the cursor leaves a target. The seat
 // has three of them (coin, shroud, plate) with real ground between the coin and
 // the plate, and a straight move across that ground must not drop the card and
@@ -1440,6 +1452,28 @@ export default {
       );
     },
     /**
+     * FT-1194: A CHARACTER IS IN HAND AND THIS CHAIR COULD RECEIVE IT — the
+     * destination side of the armed move, whichever surface armed it (the
+     * seat menu's "Move role", the tray's picked tile, the drawer: they all
+     * speak through `drawerPick`, so every one of them invites the same way).
+     * The one chair excluded is the origin, which is already wearing the red
+     * "in hand" glow — an invitation to put the character back where it is
+     * would be noise. Never for a spectator: landing is refused for them
+     * (onLifeClick's own guard), and an invitation to a refused act is a lie.
+     *
+     * "Move player" has the same armed state and gets the same invitation,
+     * but that one lives in CSS alone (`li.move`/`li.swap` — TownSquare
+     * already binds the fact onto every seat's <li> for exactly the duration
+     * of the pick), so there is no second computed for it to drift from.
+     */
+    moveInvite() {
+      return (
+        !this.session.isSpectator &&
+        !!this.$store.state.drawerPick &&
+        this.$store.state.drawerPickFrom !== this.index
+      );
+    },
+    /**
      * FT-985: WHEN THE CHAIR NUMBERS ITSELF — the storyteller's grimoire is
      * revealed AND no character is sitting there.
      *
@@ -1894,11 +1928,12 @@ export default {
       clearTimeout(this.$options.menuTimer);
       if (this.seatMenuAnchor) return;
       if (!this.canOpenSeatMenu()) return;
-      // the same rest the card asks for. Sweeping the pointer across the ring
-      // must not fling a menu open on every coin it crosses.
+      // a much shorter rest than the card's (FT-1194) — sweeping across the
+      // square still doesn't strobe rings open, but a genuine stop answers
+      // near-instantly; see RING_DELAY's own note.
       this.$options.menuTimer = setTimeout(() => {
         this.openSeatMenu("ring");
-      }, HOVER_DELAY);
+      }, RING_DELAY);
     },
     /**
      * Leaving a coin only ARMS the close, and the menu itself cancels it —
@@ -3273,6 +3308,81 @@ export default {
   > .name {
     border-color: #a01414;
     color: #ff8a8a;
+  }
+}
+
+/* ── FT-1194: THE DESTINATIONS ANSWER THE ARMED MOVE ─────────────────────
+   User: "when move role is active can we have a call to action on the coins
+   for moving it to them, a suggestion that the user needs to click."
+
+   With a character in hand (`.move-invite`, the drawerPick channel) or a
+   player picked up (`li.move` / `li.swap` — TownSquare's own two-step marks,
+   the same gesture on the other object), every coin that can receive the
+   click BREATHES: a slow purple glow that swells and settles. The pieces are
+   all borrowed, none invented —
+
+     · the drop-shadow-on-the-coin mechanism is `.role-armed`'s and
+       `.night-chosen`'s: a glow that tracks the coin's own toothed
+       silhouette, not a circle drawn near it
+     · the ink is #a78fcd, the fork's own "this is the one you pick" purple
+       (OptionSelect's chosen border, FT-1107's night ring) — red stays the
+       SOURCE's colour, so the two sides of one move never wear the same word
+     · the breath (2s, ease-in-out, alternate) is what makes it a suggestion
+       rather than a state: the armed glow HOLDS, the invitation MOVES,
+       calmly
+
+   It clears itself on every exit: drawerPick is nulled on landing and on
+   cancel (armCharacter's toggle, onLifeClick's landing branch), and
+   TownSquare's cancel() drops move/swap — the class goes, the animation with
+   it. The origin chair is excluded on both channels (moveInvite skips it;
+   `:not(.from)` below), because it is already wearing the red "in hand" glow. */
+@keyframes seat-move-invite {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* A RING, NOT A BLOOM — the first cut breathed a purple drop-shadow on the
+   coin's own silhouette (role-armed's mechanism in night-pick's ink) and it
+   measured invisible: a translucent lavender bloom around a BRIGHT GOLD rim
+   over dark stone loses on both sides, and the armed/cleared zooms could not
+   be told apart. The night pick already solved "this coin is clickable" on
+   this exact art: a drawn purple RING over the coin's square (its box, not
+   its teeth — .token deliberately has no border-radius, the wheel is
+   unclipped, so the ring needs its own round box the way .night-pick has
+   one). This is that ring on a pseudo-element, with a soft halo behind it,
+   breathing by OPACITY between clearly-lit and full — a frame caught at the
+   bottom of the cycle still reads. pointer-events stays off: the invitation
+   never intercepts the very click it is asking for. */
+.player.move-invite::after,
+li.move:not(.from) .player::after,
+li.swap:not(.from) .player::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  pointer-events: none;
+  /* above the coin's boxes (2) and the seat marks (3), under the claim
+     overlay (10) and the night pick (12) */
+  z-index: 5;
+  box-shadow:
+    inset 0 0 0 3px rgba(167, 143, 205, 0.9),
+    0 0 16px 3px rgba(167, 143, 205, 0.55);
+  animation: seat-move-invite 1.6s ease-in-out infinite alternate;
+}
+
+/* still an invitation without the motion — the ring simply holds */
+@media (prefers-reduced-motion: reduce) {
+  .player.move-invite::after,
+  li.move:not(.from) .player::after,
+  li.swap:not(.from) .player::after {
+    animation: none;
   }
 }
 

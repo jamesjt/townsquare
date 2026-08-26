@@ -47,6 +47,43 @@
  */
 
 /**
+ * ── FT-1194: THE APP'S OWN ART ON THE ROWS ─────────────────────────────────
+ * Four entries now carry an `img` — a baked painted mark — instead of a Font
+ * Awesome glyph, because the app already SAYS these things in its own art and
+ * an icon teaches fastest by recognition:
+ *
+ *   role         ui-role.png — the toothed coin, the exact mark HostTools'
+ *                "Roles" row already wears for "a character on a coin"
+ *   move-player  ui-move-player.png — ui-seat's own chair + a bold arrow,
+ *                baked to the row-mark family's recipe (this PERSON changes
+ *                chairs)
+ *   move-role    ui-move-role.png — ui-role's own toothed coin + the same
+ *                arrow (this CHARACTER changes owners). Plain coin = change
+ *                role; coin with the arrow = the coin goes elsewhere.
+ *   nominate     ui-nominate-hand.png — the accusing hand the coin's own
+ *                nominate mark wears (FT-1069d)
+ *
+ * The arrow is ONE bold arrow, not an opposed pair — both were baked and
+ * judged at 18px (the plate row's icon box), where the pair's second head
+ * dissolves into the shaft under it. The exchange nuance stays in the label
+ * and hint; the icon's job is "this thing goes elsewhere".
+ *
+ * `img` is declared HERE, once, exactly like `icon` — both surfaces (the
+ * plate's rows, the ring's little coins) render whichever the entry carries,
+ * so changing an entry's art changes both schemes in one line. The old
+ * `icon` names stay on the entries as the stood-down record (and they remain
+ * registered in main.js); a resolved entry with an `img` is drawn from the
+ * img and the icon is ignored.
+ *
+ * The imports are webpack asset resolutions, same as every component's — this
+ * file stays free of stores, components and the DOM.
+ */
+import uiRole from "../assets/ui-role.png";
+import uiMovePlayer from "../assets/ui-move-player.png";
+import uiMoveRole from "../assets/ui-move-role.png";
+import uiNominateHand from "../assets/ui-nominate-hand.png";
+
+/**
  * The seat facts every guard reads. Player.vue builds one of these
  * (`seatActionContext`) and hands it in; nothing here touches a store, a
  * component or the DOM, which is what makes the list testable from a probe
@@ -103,7 +140,11 @@ const ENTRIES = [
   {
     id: "role",
     slot: 2,
+    // FT-1194: the mask glyph stood down for the app's own coin mark — the
+    // thing this row changes is what sits on the coin, and ui-role.png is
+    // already that word elsewhere (HostTools' "Roles" row).
     icon: () => "mask",
+    img: () => uiRole,
     label: () => "Change role",
     hint: () => "Pick the character sitting on this chair",
     guard: () => null,
@@ -112,7 +153,10 @@ const ENTRIES = [
   {
     id: "move-player",
     slot: 3,
+    // FT-1194: redo-alt (a refresh arrow) stood down — it said "again", not
+    // "elsewhere". The chair with the arrow is this PERSON changing chairs.
     icon: () => "redo-alt",
+    img: () => uiMovePlayer,
     label: () => "Move player",
     hint: () => "Pick this player up — then pick the chair they move to",
     /**
@@ -132,7 +176,11 @@ const ENTRIES = [
   {
     id: "move-role",
     slot: 4,
+    // FT-1194: people-arrows stood down — two PEOPLE trading is the other
+    // row's meaning. The toothed coin with the arrow is this CHARACTER
+    // changing owners; the plain coin one row up is changing what it is.
     icon: () => "people-arrows",
+    img: () => uiMoveRole,
     label: (f) => (f.roleArmed ? "Put character back" : "Move role"),
     hint: () =>
       "Pick this chair's character up — then tap another seat to trade them over",
@@ -145,7 +193,10 @@ const ENTRIES = [
     id: "nominate",
     slot: 5,
     only: (f) => !f.isDead,
+    // FT-1194: the stock pointing glyph stood down for the app's own hand —
+    // the same accusing manicule the coin's nominate mark wears (FT-1069d).
     icon: () => "hand-point-right",
+    img: () => uiNominateHand,
     label: () => "Player nominates",
     hint: () => "This player nominates — then pick who they point at",
     guard: (f) => (f.nomination ? "A nomination is already running" : null),
@@ -201,6 +252,10 @@ export function seatActions(facts) {
     return {
       id: e.id,
       icon: e.icon(f),
+      // FT-1194: the app's own art, when the entry carries any — the surface
+      // draws `img` when it is non-empty and falls back to the FA `icon`
+      // name, so one field here feeds both the plate and the ring.
+      img: e.img ? e.img(f) : "",
       label,
       // ONE TOOLTIP FIELD, and which sentence is in it is the whole point of
       // this rework: enabled says what the row does, disabled says why it

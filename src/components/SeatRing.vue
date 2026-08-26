@@ -42,7 +42,13 @@
         @focus="hover = i"
         @blur="hover = -1"
       >
-        <font-awesome-icon :icon="a.icon" />
+        <!-- FT-1194: same rule as the plate's rows — an entry that carries
+             the app's own art (`img`, declared once in golem/seatActions) is
+             drawn from it, the rest keep their glyph. One vocabulary, two
+             surfaces, no second mapping to drift. draggable=false: a native
+             image-drag from a little coin would open where the CLICK lives. -->
+        <img v-if="a.img" :src="a.img" alt="" draggable="false" />
+        <font-awesome-icon v-else :icon="a.icon" />
       </button>
       <!-- THE RING HAS NO ROOM FOR WORDS, so the words come to the pointer.
            A little coin can hold one glyph and nothing else, and the user's
@@ -68,10 +74,14 @@ import { centrePlateRect } from "../golem/clockFace";
  *  ~1.7px on a twenty-seat ring's, where a fixed pixel value reads as a
  *  gutter on one and disappears on the other. */
 const PAD = 0.04;
+/** FT-1194: ONE size on every seat, as a fraction of the player's coin —
+ *  fixed positions need a fixed size, or two towns' rings would disagree
+ *  about where a coin sits. The middle of the stood-down ladder below. */
+const SIZE = 0.32;
 /** How big an action coin is, as a fraction of the player's coin, best first.
- *  The ladder is walked DOWN until the whole ring fits: see `place`. A
- *  reminder token is 0.55 of a coin, and six of those would wrap the rim
- *  twice over, so this set starts well below it. */
+ *  The ladder is walked DOWN until the whole ring fits: see the stood-down
+ *  `placeByBearing`. A reminder token is 0.55 of a coin, and six of those
+ *  would wrap the rim twice over, so this set starts well below it. */
 const SIZES = [0.34, 0.3, 0.26];
 /**
  * …and how tightly the arc is packed, as a fraction of the tangent step, best
@@ -294,17 +304,86 @@ export default {
         // the glyph is a fixed share of the coin so a twenty-seat ring's
         // little coins read the same as a five-seat town's big ones
         fontSize: `${Math.round(d * 0.46)}px`,
+        // FT-1194: where this coin's entrance starts — the vector back to the
+        // player coin's own edge, so the ring slides OUT of the rim. Read by
+        // the sr-coin-in keyframes; a coin's travel is its own, the timing is
+        // shared. (Old geoms carry no edge; 0px means "appear in place".)
+        "--sr-fx": `${Math.round((g.edge ? g.edge.x : c.x) - c.x)}px`,
+        "--sr-fy": `${Math.round((g.edge ? g.edge.y : c.y) - c.y)}px`,
       };
     },
 
     /**
-     * ── WHERE THE RING GOES ────────────────────────────────────────────────
+     * ── WHERE THE RING GOES (FT-1194) ─────────────────────────────────────
+     *
+     * THE SAME ARC ON EVERY SEAT. The user: "The buttons are moving per
+     * player coin, can we make them always be in the same spot?" The first
+     * cut (below, stood down as `placeByBearing`) hung the arc on the seat's
+     * own outward bearing and swung it round the rim dodging obstacles —
+     * geometrically polite, and exactly what makes the same six actions land
+     * somewhere different on every chair, so no muscle memory ever forms.
+     *
+     * So the arc is FIXED now: six coins fanned over the player coin's TOP
+     * edge, tangent to the coin and to each other, in entry order left to
+     * right — kill, role, move player, move role, nominate/ghost, reminder —
+     * identically on every seat. Whatever the arc happens to overlap sits
+     * under it (z 201); a coin that is always in the same place beats one
+     * that never covers anything.
+     *
+     * ONE DETERMINISTIC EXCEPTION: a seat so near the window's top that the
+     * arc would leave the screen hangs it under the BOTTOM edge instead — a
+     * pure vertical mirror (same order, same x), decided by one measure
+     * (would the apex coin cross the top margin), never by search. Muscle
+     * memory keeps the left-to-right order either way.
      *
      * THE SHAPE. Six coins, each tangent to the player's coin and to its
      * neighbours on the arc, laid on one circle about the coin's centre. Two
      * circles of radius `r` whose centres ride a circle of radius `d` touch
      * when they are `2·asin(r/d)` apart, so that angle IS the step — "only
      * their gears touching", stated twice: to the coin, and to each other.
+     */
+    place() {
+      const el = this.$refs.ring;
+      const a = this.anchor;
+      if (!el || !a || typeof a.getBoundingClientRect !== "function") return;
+      const rect = a.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const n = this.entries.length;
+      if (!n) return;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const R = Math.min(rect.width, rect.height) / 2;
+      // one size on every seat, proportional to the coin — the middle of the
+      // stood-down ladder, floored at what a mouse can hit
+      const r = Math.max(R * SIZE, MIN_D / 2);
+      const d = R + r + R * PAD;
+      const step = 2 * Math.asin(Math.min(1, r / d));
+      // the flip: would the apex coin cross the window's top?
+      const dir = cy - d - r < MARGIN ? 1 : -1;
+      const coins = [];
+      for (let i = 0; i < n; i++) {
+        const t = (i - (n - 1) / 2) * step;
+        coins.push({ x: cx + d * Math.sin(t), y: cy + dir * d * Math.cos(t) });
+      }
+      this.geom = {
+        cx,
+        cy,
+        r,
+        coins,
+        // where the entrance animation starts from: the player coin's own
+        // edge on the side the arc hangs — the coins slide out of the rim
+        edge: { x: cx, y: cy + dir * R },
+      };
+    },
+
+    /**
+     * ── SUPERSEDED (FT-1194): THE BEARING SOLVE ───────────────────────────
+     * FT-1180's placement, kept whole rather than deleted — nothing calls
+     * it; `place()` above is what runs. It hung the arc on the seat's
+     * outward bearing, swung it round the rim past obstacles and walked a
+     * size/packing ladder when nothing cleared. Everything below is still
+     * correct about this app's geometry; what retired it is the user's call
+     * that the six coins must sit in the SAME spot on every seat.
      *
      * IT IS ALL IN SCREEN PIXELS, which is the one thing that differs from
      * FT-1167. The reminders are children of the seat's own `<li>` and had to
@@ -339,7 +418,7 @@ export default {
      * something still reads as belonging to that seat, and one flung to a
      * corner does not.
      */
-    place() {
+    placeByBearing() {
       const el = this.$refs.ring;
       const a = this.anchor;
       if (!el || !a || typeof a.getBoundingClientRect !== "function") return;
@@ -554,6 +633,28 @@ export default {
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
   }
 
+  /* FT-1194: the painted marks (ui-role, the two move bakes, the nominate
+     hand) take the glyphs' exact em box and shadow, so a ring mixing the two
+     kinds still reads as one set of coins. Slightly larger than the glyph's
+     1em because the painted art carries its own margins inside the frame. */
+  img {
+    width: 1.25em;
+    height: 1.25em;
+    object-fit: contain;
+    /* the same brightness lift the plate's rows wear, for the same reason —
+       the painted marks must weigh what the white glyphs beside them weigh */
+    filter: brightness(1.3) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+    pointer-events: none;
+  }
+
+  /* FT-1194: THE ENTRANCE — the little coins slide out of the player coin's
+     own edge (each --sr-fx/--sr-fy is the vector back to the rim, computed
+     with the geometry). Slight and fast on purpose: the ring must FEEL
+     instant — the animation is a read of where the coins came from, never a
+     wait. No stagger; six coins leaving one edge together read as one thing
+     opening. */
+  animation: sr-coin-in 110ms ease-out;
+
   &:hover,
   &:focus {
     outline: none;
@@ -575,6 +676,13 @@ export default {
   &.on {
     color: #ff8a8a;
     border-color: #8d5a72;
+
+    /* FT-1194: a painted mark cannot take the ink through `color`, so it
+       wears the same red as a glow — the plate's armed rows do the same. */
+    img {
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8))
+        drop-shadow(0 0 4px rgba(255, 138, 138, 0.9));
+    }
   }
 
   &.disabled {
@@ -628,6 +736,23 @@ export default {
   color: #d6c8f6;
   font-size: 12.5px;
   white-space: normal;
+}
+
+/* FT-1194: the entrance's keyframes — from the rim, small and clear, to
+   settled. Only a `from`: the rest state is the coin's own, so the hover
+   transition (scale 1.08) keeps working untouched once the entrance is done. */
+@keyframes sr-coin-in {
+  from {
+    transform: translate(var(--sr-fx, 0px), var(--sr-fy, 0px)) scale(0.45);
+    opacity: 0;
+  }
+}
+
+/* the entrance is a flourish, never a requirement */
+@media (prefers-reduced-motion: reduce) {
+  .sr-coin {
+    animation: none;
+  }
 }
 
 /* A COARSE POINTER NEVER SEES THIS RING — there is no rest gesture on a

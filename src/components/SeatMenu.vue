@@ -67,7 +67,20 @@
         :title="entry.title"
         @click="pick(entry)"
       >
-        <font-awesome-icon :icon="entry.icon" />
+        <!-- FT-1194: an entry that carries the app's own art (`img`) is drawn
+             from it; the rest keep their Font Awesome glyph. The choice is
+             the VOCABULARY'S (golem/seatActions declares img once), so this
+             surface and the ring can never disagree about a row's face.
+             draggable=false because the plate itself is the drag handle here
+             (onPlateDrag) — a native image-drag from a row would shadow it. -->
+        <img
+          v-if="entry.img"
+          class="sm-img"
+          :src="entry.img"
+          alt=""
+          draggable="false"
+        />
+        <font-awesome-icon v-else :icon="entry.icon" />
         <span class="sm-label">{{ entry.label }}</span>
       </li>
     </ul>
@@ -491,6 +504,21 @@ export default {
       text-align: center;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
     }
+
+    /* FT-1194: the painted marks take the glyphs' exact column and shadow, so
+       the six rows read as one set — same 18px box, same footing, whichever
+       kind of art a row carries. The brightness lift is the set-matching:
+       the bakes' bone (~154 mean) and the nominate hand's purple-grey both
+       sit a step under the glyphs' white on this dark glass; one multiply
+       brings all four painted marks to the glyphs' weight (judged on the
+       rendered plate — the hand was a smudge without it). */
+    .sm-img {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      object-fit: contain;
+      filter: brightness(1.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    }
   }
 
   /* a row whose act is currently ARMED — "Move role" while this chair's
@@ -498,6 +526,14 @@ export default {
      and the same the hover ring's armed coin wears. */
   li.on {
     color: #ff8a8a;
+
+    /* FT-1194: a painted mark cannot take the armed ink through `color`, so
+       it wears it as a glow in the same red — one more drop-shadow on top of
+       the column's own footing shadow. */
+    .sm-img {
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+        drop-shadow(0 0 4px rgba(255, 138, 138, 0.9));
+    }
   }
 
   /* ── REFUSED, NOT ABSENT (FT-1180) ─────────────────────────────────────
