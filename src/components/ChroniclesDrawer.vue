@@ -708,6 +708,11 @@ import uiNight from "../assets/ui-night.png";
 // the retired vote-history door's art, talk keeps the chat door's.
 import uiVotes from "../assets/ui-votes.png";
 import uiChat from "../assets/ui-chat.png";
+// FT-1136: events has no door to borrow from, so it got its own mark — a
+// clock, because everything that cell holds (deals, phases, deaths,
+// endings) is the game itself advancing. Source + reasoning in
+// src/assets/ui-events.svg.
+import uiEvents from "../assets/ui-events.png";
 import {
   townStats,
   platformStats,
@@ -1038,11 +1043,14 @@ export default {
         },
         {
           id: "events",
-          label: "Events",
+          icon: uiEvents,
           title:
             "Everything else that happened — deals, phases, deaths, endings",
         },
       ];
+      // FT-1136: "all" stays a WORD on purpose. A word among icons is what
+      // marks the row's default — the reset you fall back to — so it is not
+      // an oversight waiting to be tidied up.
       // FT-1037b (user call): the retired night drawer is a cell here now,
       // wearing the moon door's own art. Same gate the door had (FT-860):
       // the town shares night info with everyone, and this viewer holds a

@@ -1,0 +1,47 @@
+<!-- FT-1136: source for ui-events.png — the "Events" cell of the Chronicles
+     drawer's filter row (ChroniclesDrawer.vue, filterCells). Events is
+     "everything else that happened — deals, phases, deaths, endings", which
+     is to say the game itself advanced: dawn, dusk, a death, an ending are
+     all the clock moving. So the cell wears a clock.
+
+     One silhouette, sized to survive at ~16-19px beside the moon — and the
+     moon is the whole design problem, two round marks side by side. The
+     answer is solid-versus-hollow: ui-night is a FILLED disc with a crescent
+     bitten out of it, so this is an OPEN RING (rim 234/166, cut with
+     fill-rule evenodd, the noose loop's own trick) with the dark ground
+     showing through. At 16px that difference reads instantly; a filled dial
+     would not.
+
+     The hands are traced from clock-hand-CATHEDRAL-gilt-hour/minute.png —
+     the broadest of the fork's four hand families (86px wide against
+     breguet's 50, gothic's 56, skeletal's 22), and the only one with no
+     hairline piercings to lose. Measured profile, reproduced as a 9-point
+     polygon: a peaked tip over the top 15%, a shoulder at 0.72 of the
+     blade's width, a slow waist to 0.53 at 45%, then widening back and a
+     hard foot flare at the bottom. Breguet's pierced ring and gothic's
+     diamond cutouts both vanish at count size; skeletal is a needle.
+
+     Hands sit at 12 and just past 3 (105°, not a clean right angle — the
+     droop keeps the pair from reading as a letter L) with a boss welding
+     them at the centre. Two hands closer together than ~90° fuse into one
+     bent hook at this size; that was measured, not guessed. Four cardinal
+     hour ticks were tried and cut — at 22px they read as a ragged inner rim,
+     not as hours.
+
+     Baked to PNG by claude_temp_test/2026-08-25-ft1136-events/bake.mjs,
+     which is the FT-998 noose bake verbatim (bone tone, one light origin
+     upper-left, film grain, 128px square) — the same chrome ui-town /
+     ui-alive / ui-dead / ui-noose wear. Regenerate the PNG through that
+     script if this shape ever changes. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g fill="#cfc4ae">
+    <!-- the dial's rim, its face cut out as negative space -->
+    <path fill-rule="evenodd" d="M22 256 a234 234 0 1 0 468 0 a234 234 0 1 0 -468 0 M90 256 a166 166 0 1 1 332 0 a166 166 0 1 1 -332 0"/>
+    <!-- the minute hand, straight up: cathedral blade, tip to foot flare -->
+    <polygon points="222.0,268.2 233.6,249.2 238.0,194.8 232.5,140.4 256.0,120.0 279.5,140.4 274.0,194.8 278.4,249.2 290.0,268.2"/>
+    <!-- the hour hand, shorter and fatter, swung just past 3 -->
+    <polygon points="218.0,264.6 230.9,251.2 235.9,212.8 229.8,174.4 256.0,160.0 282.2,174.4 276.1,212.8 281.1,251.2 294.0,264.6" transform="rotate(105 256 256)"/>
+    <!-- the boss: one mass where the hands meet, so they hold together -->
+    <circle cx="256" cy="256" r="30"/>
+  </g>
+</svg>
