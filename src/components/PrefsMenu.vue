@@ -148,18 +148,62 @@ export default {
     }
   },
   methods: {
-    /** Stand the plate under the gear, centred on it, clamped to the
-     *  viewport with the same 8px margin OptionSelect's hoisted list keeps. */
+    /** Stand the plate ABOVE the panel when there is room, else under the
+     *  gear as before. FT-1208 (user): "can we make the bottom of this menu
+     *  start at the top of the face plate? at least if there is room." —
+     *  opening downward covered the disc the host is working on.
+     *
+     *  THE DISC'S TOP IS MEASURED, NOT DERIVED: the gear's own ancestor
+     *  `.host-tools` IS the face plate under the build gate (faceDisc.scss's
+     *  face-disc-frame makes that element the disc — width --fd-dx, height
+     *  --fd-d), so its live rect's top is the edge the user pointed at, in
+     *  every layout, with no art constants restated. In the rectangle and
+     *  sheet layouts the same read gives the panel's top, which is the same
+     *  promise ("don't cover the panel") kept on those shapes.
+     *
+     *  ROOM means the menu's natural height + the 8px breathing gap fits
+     *  between the disc's top and the window's top-chrome floor — the
+     *  corner strip (#controls, Menu.vue) lives up there, so when it
+     *  horizontally overlaps where this plate would stand, the ceiling is
+     *  the strip's bottom, not the window edge (z-index alone would paint
+     *  this plate OVER the strip at 76 vs 75, which is hiding chrome, not
+     *  clearing it). No room → the pre-FT-1208 downward placement,
+     *  unchanged. Re-measured on every open/resize/scroll, same as the
+     *  horizontal clamp always was. */
     place() {
       const a = this.anchor;
       if (!a || !a.getBoundingClientRect) return;
       const r = a.getBoundingClientRect();
       const w = this.$el ? this.$el.offsetWidth : 0;
+      const h = this.$el ? this.$el.offsetHeight : 0;
       const vw = window.innerWidth;
-      this.top = Math.round(r.bottom + 8);
-      this.left = Math.round(
+      const gap = 8;
+      const left = Math.round(
         Math.min(Math.max(8, r.left + r.width / 2 - w / 2), vw - w - 8),
       );
+      this.left = left;
+
+      const panel = a.closest ? a.closest(".host-tools") : null;
+      const discTop = panel ? panel.getBoundingClientRect().top : null;
+      if (discTop !== null && h > 0) {
+        // the ceiling: viewport margin, pushed down under the corner strip
+        // when the strip stands over this plate's horizontal span
+        let ceiling = 8;
+        const strip = document.getElementById("controls");
+        if (strip) {
+          const s = strip.getBoundingClientRect();
+          if (s.height > 0 && s.left < left + w && s.right > left) {
+            ceiling = Math.max(ceiling, s.bottom + 4);
+          }
+        }
+        const top = discTop - gap - h;
+        if (top >= ceiling) {
+          this.top = Math.round(top);
+          return;
+        }
+      }
+      // no room above (or no panel to measure) — the original downward drop
+      this.top = Math.round(r.bottom + 8);
     },
     /** Outside = not this plate, not the gear (its own click is the toggle),
      *  and not a dropdown list this plate hoisted to <body>. */
