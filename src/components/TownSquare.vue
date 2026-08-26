@@ -1199,8 +1199,8 @@ export default {
 
 /***** The bloody dial (FT-848) *****/
 /* Under every seat (the circle's own li's carry z-index 1..n) and under the
-   bluffs/fabled panels at z-index 50, so the tower stains without ever
-   covering a token, a name or a click target. */
+   bluffs/fabled panels at z-index 20 (FT-1218; formerly 50), so the tower
+   stains without ever covering a token, a name or a click target. */
 /* FT-1000: .blood-dial CSS moved to App.vue with its element. @keyframes
    stain-in below STAYS -- it is unscoped and .face-splat (App.vue) and the
    relocated stains both ride it. */
@@ -1425,7 +1425,20 @@ export default {
   transform: scale(1);
   opacity: 1;
   transition: all 200ms ease-in-out;
-  z-index: 50;
+  // FT-1218: 20, down from 50. FT-1215 kept this cluster visible while the
+  // grimoire drawer is open, and at 50 it painted OVER the storyteller's
+  // post (App.vue `.storyteller-post`, z-index 21 — the book tab, bell and
+  // End-day chip). The ruling: the cluster never covers a drawer or its
+  // chrome. The slot is the top of the seat window: resting seats run
+  // z 1..$item-count (max 20 — the on-circle mixin below), and the tie at
+  // 20 is won by DOM order — this element and the mask both come AFTER
+  // `.circle` in the template, so the cluster still paints over every
+  // resting seat and the tower stains, exactly what 50 was solved against.
+  // A HOVERED seat (li:hover, z 25 !important) now wins over the cluster —
+  // consistent, not a regression: 25 already outranks the post's own 21,
+  // so hover-wins is the app's standing order. Drawers (55), whisper
+  // planes (70) and the RoleDrawer (80) were above 50 and stay above 20.
+  z-index: 20;
 
   > svg {
     position: absolute;
@@ -1605,7 +1618,12 @@ export default {
    computation's own comment for why. */
 #townsquare > .bluffs-toggle {
   position: absolute;
-  z-index: 51;
+  // FT-1218: 20, down from 51 — moved in step with the panel above (see the
+  // z-index comment there). The mask must stay above the PANEL it controls;
+  // that used to be 51-over-50 and is now a 20-20 tie won by DOM order (the
+  // mask is the panel's later sibling in the template), and both now sit
+  // under the storyteller's post (z 21).
+  z-index: 20;
   // static fallback: near the corner panel's own top edge (that panel sits
   // `bottom: 10px; left: 10px` above), so the switch sits where its own
   // panel appears rather than a spot unrelated to it.
