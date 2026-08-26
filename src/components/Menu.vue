@@ -86,7 +86,24 @@
                the door onto the list, and it is last in the row on purpose:
                it is the one mark here that is never part of running a game,
                so it sits where the eye stops rather than where it starts. -->
+          <!-- FT-1197 (user): "lets make that a better icon than a ?" — the
+               stock Font Awesome question glyph was the last unbaked mark in
+               a row of house art (the cog was the previous one, FT-1174, and
+               the reasoning there carries verbatim: a flat vector beside
+               baked bone reads as a different MATERIAL, not a different
+               door). It is a LANTERN now — a guide's light, ui-help.png in
+               the same 128px bone-and-grain family — because the panel
+               behind it grew from a key list into the whole usability guide
+               (see HotkeyHelp.vue), and the door should promise the guide,
+               not a question. The glyph is stood down below, not deleted. -->
+          <img
+            :src="uiHelp"
+            alt="The guide"
+            title="The guide — how this table works"
+            @click="$emit('hotkeys')"
+          />
           <font-awesome-icon
+            v-if="false"
             icon="question"
             title="Keys"
             @click="$emit('hotkeys')"
@@ -179,6 +196,19 @@
             :src="uiQuill"
             title="Chronicle — every town's games (C)"
             @click="openRecords"
+          />
+          <!-- FT-1197: THE GUIDE, on the entry screen too. The old "?" was
+               in-game chrome only, which meant the one person the guide's
+               "Getting in" chapter is written for — somebody standing at the
+               doors with no town yet — had no door to it at all (the panel
+               itself opens on that very chapter for them; see
+               HotkeyHelp.vue's created()). Same mark, same emit, and the
+               same App.vue listener answers both strips. -->
+          <img
+            :src="uiHelp"
+            alt="The guide"
+            title="The guide — how this table works"
+            @click="$emit('hotkeys')"
           />
           <!-- ── FT-1168 (user): TWO MARKS IN THE CORNER ──────────────────
                "add two things to the top right menu. A settings icon, and
@@ -618,6 +648,9 @@ import uiGolem from "../assets/golem-mark.png";
 // FT-1174: the settings cog, baked into the strip's own bone-and-grain family
 // (src/assets/ui-cog.svg is its source; see the entry strip's note).
 import uiCog from "../assets/ui-cog.png";
+// FT-1197: the guide's lantern — the last Font Awesome glyph in the strip,
+// baked into the same family (src/assets/ui-help.svg is its source).
+import uiHelp from "../assets/ui-help.png";
 // FT-1168: THIS PERSON'S SETTINGS — a browser's own, never a town's. The
 // module owns the stash, the clamping and the event; this menu is the only
 // surface that WRITES them, and each of the three has its own reader
@@ -721,6 +754,8 @@ export default {
       uiGolem,
       // FT-1174: the strip's cog, now one of the baked marks beside it
       uiCog,
+      // FT-1197: the guide's lantern, ditto
+      uiHelp,
       controlSchemes: CONTROL_SCHEMES,
       grimoireSizes: GRIMOIRE_SIZES,
       prefs: { ...prefsState },

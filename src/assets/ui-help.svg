@@ -1,0 +1,21 @@
+<!-- FT-1197: source for ui-help.png — the corner strip's GUIDE door
+     (Menu.vue, replacing the stock Font Awesome "?" that opened HotkeyHelp).
+
+     A LANTERN — a guide's light. Chosen over a signpost (generic arrow at
+     26px) and an open book (mushed text slots, and the grimoire's closed
+     tome lives two doors away). Nothing else in the strip or the seat
+     vocabulary carries a lamp, and the town spends half its life in the
+     dark — which is when you reach for the guide.
+
+     GENERATED, NOT TYPED: claude_temp_test/2026-08-26-ft1197-help-icons-bake.mjs
+     (the FT-1196 shuffle bake's recipe verbatim — bone #cfc4ae family,
+     film grain, 128px square). Regenerate through that script if the shape
+     ever changes; do not hand-edit the paths. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><g fill="#cfc4ae">
+  <path fill-rule="evenodd" d="M64,2 a13 13 0 1 0 0.01,0 Z M64,9 a6 6 0 1 1 -0.01,0 Z"/>
+  <polygon points="52,20 76,20 92,38 36,38"/>
+  <path fill-rule="evenodd" d="M38,38 h52 v58 h-52 Z M47,46 h34 v42 h-34 Z"/>
+  <path d="M64,54 c6,8 10,13 10,20 a10 10 0 0 1 -20,0 c0,-7 4,-12 10,-20 Z"/>
+  <rect x="30" y="96" width="68" height="13" rx="4"/>
+  <rect x="38" y="107" width="52" height="8" rx="3"/>
+</g></svg>
