@@ -1188,6 +1188,88 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
   }
 }
 
+// ── THE MENU PLATE: THE SAME GLASS, ON A RECTANGLE (FT-1193) ────────────────
+//
+// The disc's material laid on a MENU rather than on the dial. Every surface
+// above is a circle laid on the clock face; these are boxes with corners,
+// standing in the corners of the screen and in the middle of it, and the four
+// dial settings that turn a disc into a menu plate had — until this lane —
+// exactly one copy, written inline in `SeatMenu.vue`.
+//
+// WHY IT IS A MIXIN NOW. The user's ask was "use that same style of glass menu
+// on the settings menu, and the timer menu, and the hotkeys overlay". Three
+// more copies of four custom properties is four places to change the glass the
+// next time it moves, and this file exists precisely because the disc's own
+// numbers were once copied into four components and drifted. The variant is
+// grown here, off `face-disc-plate`, rather than a second material invented
+// beside it: everything the disc is made of — the backdrop filter, the two
+// bevel crescents, the plum hairline, the bronze thread, the ground ramp, the
+// rim layer — arrives unchanged. What this adds is only the four numbers that
+// answer "and it is a rectangle, this big".
+//
+// THE NUMBERS ARE SEATMENU'S OWN, unchanged, because that plate is the one the
+// user pointed at and said "that style". They are:
+//
+//   $r       THE MATERIAL'S SCALE. The mixin's blur is a fraction of it
+//            (0.008r + `--fd-blur-adj`/1000), which is what keeps one setting
+//            one material at every window size on the disc. A menu has no
+//            radius of its own, so it names the size it is. 200px is a plate
+//            of about six rows; a caller with a much bigger box passes its own.
+//
+//   $radius  A PLATE, NOT AN ELLIPSE. The plate mixin's default is 50%, which
+//            on a rounded box draws an oval. Both `::before` (the ground) and
+//            `::after` (the rim) read `--fd-radius`, so one declaration
+//            re-shapes all three layers together — and because a custom
+//            property is token substitution rather than a number, a caller may
+//            hand it a FOUR-VALUE corner set (Menu.vue's notched
+//            `10px 0 10px 10px`) and every layer takes the same notch.
+//
+//   blur-adj THE ONE THING TURNED UP, and the only place these surfaces argue
+//            with the disc. The disc ships at 0.008r — nearly clear glass —
+//            because what shows through it is the dial's own painted bronze,
+//            and blurring that would be blurring the art the plate exists to
+//            sit on. What shows through a MENU is whatever it happens to have
+//            been opened over: a character's face at coin size, the tower art,
+//            the night sky. 0.008 + 0.042 = 0.05r — 10px at 200px — is a real
+//            frost, and it is what makes six lines of type readable over an
+//            engraved coin.
+//
+//   tint     A GROUND UNDER THE WORDS. The disc ships its tint ramp at zero,
+//            because the `brightness(0.34)` multiply in the backdrop filter
+//            does that surface's calming on its own. It cannot do a menu's: a
+//            multiply takes almost nothing off a ground that is already dark —
+//            a shrouded seat, an empty chair's black life token, the night sky
+//            behind the top-right cluster — and the plate would have no edge
+//            at all against it. The ramp is heaviest dead centre and gone by
+//            the rim, so the words get their ground and the plate still reads
+//            as glass where it meets the town.
+//
+// A CALLER STILL OWNS ITS OWN BOX. Position, padding, type, rows, z-index and
+// the corner it wants are the surface's; the material is not.
+//
+// AND IT MUST BE POSITIONED — the one thing a caller has to bring. Both of the
+// plate's layers are `position: absolute; inset: 0`, so a `static` caller
+// hands them its nearest positioned ANCESTOR's box instead of its own: the
+// settings menu would tint `.menu`, the hotkeys panel would tint the whole
+// full-window scrim. This is NOT declared in here, deliberately — SeatMenu is
+// `position: fixed` and sets it at the top of its block, while this mixin is
+// included at the bottom, so a `relative` written here would land AFTER it and
+// unfix a plate that is positioned in viewport coordinates.
+@mixin face-disc-menu-plate($r: 200px, $radius: 14px) {
+  --fd-r: #{$r};
+  --fd-radius: #{$radius};
+  --fd-blur-adj: 42;
+  --fd-tint: 0.62;
+  --fd-tint-rgb: 26, 20, 33;
+  // THE ELEMENT'S OWN CORNER IS NOT THE MIXIN'S. `face-disc-plate` rounds its
+  // two layers off `--fd-radius` but leaves the box itself to its caller — on
+  // the disc that caller is `face-disc-frame`, which sets `border-radius: 50%`.
+  // Without this line the backdrop-filter and the bevel would be a hard
+  // rectangle behind two rounded layers.
+  border-radius: var(--fd-radius);
+  @include face-disc-plate;
+}
+
 // ── THE THREE BANDS, exact: cap + (d - 2cap) + cap = d ──────────────────────
 // The middle band MUST come out centred — an off-centre band is bound by
 // whichever pole it sits closer to, and its far corners then poke out through

@@ -1255,6 +1255,9 @@ export default {
 
 <style scoped lang="scss">
 @import "../vars.scss";
+// FT-1193: the glass this menu is made of — `face-disc-menu-plate`, the same
+// material the seat's plate, the centre disc and the entry panels wear.
+@import "../faceDisc.scss";
 
 // success animation
 @keyframes greenToWhite {
@@ -1359,16 +1362,50 @@ export default {
     margin: 0;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 0 10px black;
-    border: 3px solid black;
-    border-radius: 10px 0 10px 10px;
+
+    // ── FT-1193: THE GLASS ───────────────────────────────────────────────
+    // "lets use that same style of glass menu on the settings menu, and the
+    // timer menu" (user). `face-disc-menu-plate` is what the seat's plate is
+    // made of, and it is included here rather than copied: the material's own
+    // file owns the numbers, this surface owns its box.
+    //
+    // ONE BOX, TWO SECTIONS AND A STRIP, and that is not a scope slip. This
+    // `ul` IS the object the user pointed at — the tab row and whichever
+    // section is open are rows of one list inside one border, which is why the
+    // before-shot shows the icons and the settings sharing a single dark
+    // rectangle. Glassing the section and leaving the strip flat would split
+    // an object that has always been one.
+    //
+    // THE NOTCH SURVIVES, and it is the affordance the brief asked be kept:
+    // `10px 0 10px 10px` squares the TOP-RIGHT corner alone, where the strip
+    // runs up to the window's own corner and the tab that opened the section
+    // sits. A custom property is token substitution rather than a number, so
+    // the four-value set reaches `border-radius` AND both of the plate's
+    // layers — the ground and the rim take the same notch.
+    //
+    // `position: relative` IS LOAD-BEARING. The plate's two layers are
+    // `absolute; inset: 0`; without a positioned host they would resolve
+    // against `.menu` (which is `position: absolute`) and, when the section is
+    // open at a different width from the strip, tint the wrong box.
+    position: relative;
+    @include face-disc-menu-plate($radius: 10px 0 10px 10px);
+    // STOOD DOWN, FT-1193 — the plate brings its own edge (a plum hairline
+    // inside a bronze thread) and its own outer shadow.
+    //   box-shadow: 0 0 10px black;
+    //   border: 3px solid black;
+    //   border-radius: 10px 0 10px 10px;
     // Golem fork: collapsed = the toolbar alone, corners fully rounded.
 
     li {
       padding: 2px 5px;
       color: white;
       text-align: left;
-      background: rgba(0, 0, 0, 0.7);
+      // STOOD DOWN, FT-1193: `background: rgba(0, 0, 0, 0.7)`. Every row
+      // carried its own opaque-ish ground, and a plate under thirty of them is
+      // a plate nobody can see — the glass would have been a rim around a
+      // black box. The darkness the words need is the plate's tint ramp now,
+      // declared once for the whole surface instead of once per row.
+      background: transparent;
       display: flex;
       align-items: center;
       justify-content: space-between;

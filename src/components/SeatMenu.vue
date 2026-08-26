@@ -433,6 +433,23 @@ export default {
      hairline, the bronze thread, the ground ramp and the rim layer — comes
      from the mixin exactly as it comes for those four.
 
+     ── FT-1193: THE SIX DECLARATIONS BELOW MOVED INTO THE FILE ────────────
+     They are `face-disc-menu-plate` now (src/faceDisc.scss), and this plate
+     is one of its four consumers rather than the only place its numbers
+     exist. The user asked for "that same style of glass menu" on the
+     settings menu, the timer menu and the hotkeys overlay; three more copies
+     of this block is four places to change the glass the next time it moves,
+     which is the drift faceDisc.scss was written to end.
+
+     NOTHING ABOUT THIS PLATE CHANGES. The mixin's defaults ARE these values —
+     200px, 14px, blur-adj 42, tint 0.62, the grimoire's purple-black — so the
+     include below computes byte-for-byte what the block did. The literals are
+     stood down in place rather than deleted, and the reasoning stays here
+     because it is where it was earned; the file's own copy explains the
+     numbers to the three surfaces that did not earn them.
+
+     v-- STOOD DOWN, FT-1193. Live in `face-disc-menu-plate`'s defaults.
+
      --fd-r  THE MATERIAL'S SCALE. The mixin's blur is a fraction of it
              (0.008r + the lab's own offset), which is what keeps one setting
              one material at every window size on the disc. A menu plate has
@@ -466,19 +483,23 @@ export default {
              heaviest dead centre and gone by the rim, so the words get their
              ground and the plate still reads as glass at its edges. The
              colour is the mixin's own default literal, the grimoire's cool
-             purple-black. */
-  --fd-r: 200px;
-  --fd-radius: 14px;
-  --fd-blur-adj: 42;
-  --fd-tint: 0.62;
-  --fd-tint-rgb: 26, 20, 33;
-  /* THE ELEMENT'S OWN CORNER IS NOT THE MIXIN'S. `face-disc-plate` rounds its
+             purple-black.
+
+     --fd-r: 200px;
+     --fd-radius: 14px;
+     --fd-blur-adj: 42;
+     --fd-tint: 0.62;
+     --fd-tint-rgb: 26, 20, 33;
+
+     THE ELEMENT'S OWN CORNER IS NOT THE MIXIN'S. `face-disc-plate` rounds its
      two layers (`::before`, `::after`) off `--fd-radius` but leaves the box
      itself to its caller — on the disc that caller is `face-disc-frame`,
      which sets `border-radius: 50%`. Without this line the backdrop-filter
-     and the bevel would be a hard rectangle behind two rounded layers. */
-  border-radius: var(--fd-radius);
-  @include face-disc-plate;
+     and the bevel would be a hard rectangle behind two rounded layers.
+
+     border-radius: var(--fd-radius);
+     ^-- all six now arrive from the include below. */
+  @include face-disc-menu-plate;
 
   li {
     display: flex;
