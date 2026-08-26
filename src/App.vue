@@ -1966,11 +1966,11 @@ export default {
           this.$store.commit("toggleModal", "roleDrawer");
           break;
         case "r":
-          // the seat COINS face up / face down — upstream's toggleGrimoire,
-          // rehomed off G. Kept, not dropped: it is the only way to turn the
-          // town square face-down, and the menu still lists it.
-          if (!isHost) return;
-          this.$store.commit("toggleGrimoire");
+          // FT-1207 (user): "disable that for now, always have it revealed."
+          // The face-down flip is stood down — the grimoire rests revealed
+          // and R does nothing. The old branch, for the day it returns:
+          //   if (!isHost) return;
+          //   this.$store.commit("toggleGrimoire");
           break;
         case "e":
           // END THE DAY / END THE NIGHT — see endPhase() above, which this

@@ -592,7 +592,10 @@
         <template v-if="tab === 'grimoire'">
           <!-- Grimoire -->
           <li class="headline">Grimoire</li>
-          <li @click="toggleGrimoire" v-if="players.length">
+          <!-- FT-1207 (user): the face-down flip is stood down with the R
+               key — the grimoire always rests revealed, so the Hide/Show
+               item hides with it (v-if false, kept whole). -->
+          <li @click="toggleGrimoire" v-if="false && players.length">
             <template v-if="!grimoire.isPublic">Hide</template>
             <template v-if="grimoire.isPublic">Show</template>
             <!-- FT-880: the coins moved off G (which is the grimoire drawer

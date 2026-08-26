@@ -143,12 +143,14 @@ export const HOTKEYS = [
     label: "Other nights",
     note: "Every other night's order",
   },
-  {
-    key: "R",
-    who: "host",
-    label: "Reveal",
-    note: "Turn the coins on the seats face up or face down",
-  },
+  // FT-1207 (user): the R flip is stood down — the grimoire always rests
+  // revealed, so the row leaves the list rather than advertising a dead key.
+  // {
+  //   key: "R",
+  //   who: "host",
+  //   label: "Reveal",
+  //   note: "Turn the coins on the seats face up or face down",
+  // },
   {
     key: "C",
     who: "host",
