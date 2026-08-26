@@ -239,12 +239,32 @@
                    changed. It now moves the PEOPLE and leaves every character
                    on its own chair, which is the only version of this button
                    that does anything a storyteller wants. -->
+              <!-- FT-1135 (user): "there is no 'mid game shuffle' this is a
+                   set up shuffle. users can be moved mid game intentionally by
+                   the storyteller, and their roles, but they can't shuffle
+                   them then can they?"
+
+                   No, and they should not be able to. This is a SETUP tool.
+                   Start closes the build panel, so the only way to reach this
+                   button once a game is running is to reopen the build face
+                   after a reload — which is not a use, it is an accident. The
+                   answer to an accident is a door that is shut, not a question
+                   asked at the last moment.
+
+                   Moving a player mid-game stays available and untouched: the
+                   storyteller's own Move and Swap are deliberate, aimed acts
+                   on ONE seat. A shuffle cannot be aimed at all, which is
+                   exactly why it belongs to setup and nowhere else. -->
               <button
                 class="tool-btn"
                 type="button"
-                :disabled="players.length <= 2"
+                :disabled="players.length <= 2 || gameUnderway"
                 @click="randomizeSeatings"
-                title="Shuffle who sits where — the people change chair, the characters stay on theirs"
+                :title="
+                  gameUnderway
+                    ? 'Shuffling seats is a setup tool — use Move or Swap to reseat someone now'
+                    : 'Shuffle who sits where — the people change chair, the characters stay on theirs'
+                "
               >
                 <font-awesome-icon icon="random" />
               </button>
@@ -1438,17 +1458,11 @@ export default {
     // (socket.js's reseatPlayers) — the dialog is the manners, not the rule.
     randomizeSeatings() {
       if (this.players.length <= 2) return;
-      if (
-        this.gameUnderway &&
-        !confirm(
-          "The game is underway. Shuffling now moves the players only — " +
-            "every character stays on its own chair, so everyone ends up " +
-            "holding whoever's character they sit down in front of. " +
-            "Shuffle anyway?",
-        )
-      ) {
-        return;
-      }
+      // FT-1135 (user): the button is a SETUP tool and is now disabled once a
+      // game is running, so this is the same refusal stated twice — the guard
+      // is here as well because a disabled button is a courtesy and a method
+      // that anything can call is not.
+      if (this.gameUnderway) return;
       this.$store.dispatch("players/randomize");
     },
     clearAllPlayers() {
