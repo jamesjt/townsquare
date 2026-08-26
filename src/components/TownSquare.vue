@@ -1685,12 +1685,22 @@ export default {
    its own comment says to extend and nowhere else. Adding a drawer there
    still adds it here for free.
 
-   THE GRIMOIRE IS DELIBERATELY IN THAT SET. It is the one drawer that
-   carries its OWN "Demon bluffs" section (RoleDrawer.vue's `.rd-bluffs`,
-   gated on `canSetBluffs` — `!isSpectator`, so EVERY storyteller has it, not
-   just the no-demon case this square's cluster hands off for). With the
-   grimoire open the bluffs are already on screen, in the drawer; standing
-   this copy down removes a duplicate rather than a control.
+   THE GRIMOIRE IS NO LONGER IN THAT SET (FT-1215, user overruling the
+   paragraph this one replaced): "demon bluffs shouldn't be removed from the
+   board if the grimoire is open." FT-1141's reasoning was that the grimoire
+   carries its OWN "Demon bluffs" section (RoleDrawer.vue's `.rd-bluffs`), so
+   standing the board copy down removed a duplicate — but the two windows are
+   the SAME store slots (`players.bluffs`, both mapState it; every write goes
+   through `players/setBluff`), and the user wants both in view, updating in
+   step. Hence `:not(.sheet-left)` below: `sheet-left` is App.vue's
+   `modals.roleDrawer` root class, and the store's `toggleModal` closes every
+   other modal when one opens, so drawer-out + sheet-left ⟺ "the open drawer
+   IS the grimoire" — no second drawer can be out at the same time to slip
+   through the exclusion. The RIGHT drawers (script, vote log, chronicles)
+   keep the stand-down and its rationale above, unchanged. Stacking is also
+   unchanged: the cluster stays z 50/51 under RoleDrawer's z 80, so where the
+   grimoire's 250px overlaps the demon's seat the cluster sits BEHIND the
+   drawer (the FT-1141 paint-order ruling), never on it.
 
    OPACITY, NOT `display: none` AND NOT A `v-if`:
      - the cluster keeps its box, so `measureBluffAnchor`'s geometry (and the
@@ -1707,8 +1717,8 @@ export default {
    is out. It is a SIBLING of the cluster precisely so it survives
    `isBluffsOpen` going false — that is untouched: shut the drawer and the
    mask is back in its old state, still the way to re-open hidden bluffs. */
-#app.drawer-out #townsquare > .bluffs,
-#app.drawer-out #townsquare > .bluffs-toggle {
+#app.drawer-out:not(.sheet-left) #townsquare > .bluffs,
+#app.drawer-out:not(.sheet-left) #townsquare > .bluffs-toggle {
   opacity: 0;
   pointer-events: none;
 }
