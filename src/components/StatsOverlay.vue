@@ -65,11 +65,11 @@
                after it, not a badge beside a title. The newline before the tag
                is a whitespace-only node and Vue's `condense` drops it, so the
                cap and its word stay joined. -->
-          <h3 class="almanac-title"><KeyCap letter="C" />hronicle</h3>
+          <h3 class="almanac-title"><KeyCap letter="C" />hronicles</h3>
         </div>
         <div class="rp-row2">
           <button class="rp-back" v-if="pick" @click="closePick">
-            <font-awesome-icon icon="arrow-left" /> The Chronicle
+            <font-awesome-icon icon="arrow-left" /> The Chronicles
           </button>
           <p class="rp-sub">
             <template v-if="pick">one game's record</template>
@@ -204,7 +204,7 @@
           <h3>Every town together</h3>
           <p class="rp-state" v-if="loading">Consulting the archives…</p>
           <p class="rp-state" v-else-if="error">
-            Chronicle unavailable — server unreachable
+            Chronicles unavailable — server unreachable
           </p>
           <p class="rp-state" v-else-if="!stats || !stats.games">
             No games recorded yet

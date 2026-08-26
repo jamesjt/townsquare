@@ -178,7 +178,7 @@ export const HOTKEYS = [
     // — the nomination log lives there now, each vote unfolding its own
     // roster and outcome. (The old vote-history drawer is retired.)
     label: "Gallows",
-    note: "The chronicles, filtered to nominations and votes",
+    note: "The chronicle, filtered to nominations and votes",
   },
   {
     key: "1–4",
@@ -186,7 +186,7 @@ export const HOTKEYS = [
     // FT-1019: live only while the chronicles drawer is out — the four
     // filter cells in their on-screen order.
     label: "Chronicle filters",
-    note: "While the chronicles are open: All, Talk, Gallows, Events",
+    note: "While the chronicle is open: All, Talk, Gallows, Events",
   },
   {
     key: "H",
@@ -209,7 +209,7 @@ export const HOTKEYS = [
     // exactly the C the reader can actually press.
     key: "C",
     who: "sessionless",
-    label: "Chronicle",
+    label: "Chronicles",
     note: "Every town's games, on one page",
   },
   {

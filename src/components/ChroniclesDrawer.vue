@@ -40,13 +40,13 @@
       <div class="sd-head">
         <CloseX
           class="sd-close"
-          title="Close the chronicles"
+          title="Close the chronicle"
           @pointerup.native="sheetDismiss"
           @click.native="sheetDismiss"
         />
         <h3 class="sd-title">
           <img class="sd-mark" :src="quill" alt="" />
-          <span>Chronicles</span>
+          <span>Chronicle</span>
         </h3>
         <!-- FT-1037 (user redesign): the two READING MODES, at the top beside
              the title. Current is the town since it was opened this time —

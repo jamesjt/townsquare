@@ -71,7 +71,7 @@ export const GUIDE_SECTIONS = [
         // golem-mark → AccountDoor (FT-1200)
         lead: "The corner marks",
         note:
-          "The quill opens the Chronicle, the cog your own settings, and " +
+          "The quill opens the Chronicles, the cog your own settings, and " +
           "the golem is the account door — sign in, or see who you are.",
       },
       {
@@ -268,7 +268,7 @@ export const GUIDE_SECTIONS = [
         // chips; live whispers reach their parties, finished games go public
         lead: "The talk",
         note:
-          "The chat lives in the Chronicles, composer at its foot; arm a seat's " +
+          "The chat lives in the Chronicle, composer at its foot; arm a seat's " +
           "chip to whisper. A live game's whisper stays between its parties — " +
           "a finished game is public, whispers included.",
       },
@@ -317,7 +317,7 @@ export const GUIDE_SECTIONS = [
       {
         // StatsOverlay: the cross-town Chronicle page, entry-screen quill,
         // sessionless C
-        lead: "The Chronicle page",
+        lead: "The Chronicles page",
         note:
           "Off a town, the same quill opens every town's games on one page — " +
           "end-of-game facts only, no messages.",
