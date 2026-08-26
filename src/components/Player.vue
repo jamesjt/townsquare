@@ -2465,17 +2465,55 @@ export default {
        * walks it round the circle. Capped at 55 degrees a step so a seat with
        * many tokens fans rather than wraps.
        */
-      const spread = Math.min(step / radius, (55 * Math.PI) / 180);
-      const swing = this.reminderSwing({
+      const ideal = Math.min(step / radius, (55 * Math.PI) / 180);
+      /**
+       * FT-1183: THE FAN MAY HAVE TO PACK TIGHTER TO GET OUT FROM UNDER THE
+       * NAME PLATE — and there is exactly one floor on how tight.
+       *
+       * The plate joined the list of things the fan clears (reminderSwing
+       * below), and at a 12 o'clock chair the plate sits in the ONE direction
+       * the fan wants: straight inward is straight down the screen there, and
+       * down the screen is where the plate hangs. Measured on an 8-seat ring
+       * at 1280x800: coin radius 54, token radius 30, so the fan rides at
+       * radius 86 — while escaping the plate SIDEWAYS needs the token's centre
+       * 94.8px off the seat's axis (the plate is 120% of the seat wide, the
+       * token 50%). 86 < 94.8: no rotation reaches past the plate's ends, and
+       * the only way out is ABOVE its top edge, which is 70.2 degrees round.
+       * Three tokens at the desktop step (48.1 degrees each) need the fan's
+       * middle at 118.3 degrees to put all three there — past the 100 degree
+       * sweep, and far enough round that the outermost token points away from
+       * the clock face, which is the one thing the user asked for by name.
+       *
+       * So the step itself becomes a candidate, not a constant. NEVER TIGHTER
+       * THAN THE TOUCH FAN ALREADY SHIPS (0.59 token-widths, deliberately
+       * overlapping — see the step note above): a packing this app already
+       * puts in front of people on a phone is a packing it can fall back to on
+       * a crowded desktop chair. On a coarse pointer the fan is already at
+       * that floor, so there is nothing to give and nothing is taken.
+       */
+      const floor = Math.min(ideal, (w * 0.59) / radius);
+      const spreads = [ideal, ideal * 0.8, ideal * 0.6, floor].filter(
+        (s, i, all) => s >= floor - 1e-9 && all.indexOf(s) === i,
+      );
+      const fan = this.reminderSwing({
         a,
         b,
         radius,
-        spread,
+        spreads,
+        pad,
         tokenR: h / 2,
         coinScreenX: tb.left + tb.width / 2,
         coinScreenY: tb.top + tb.height / 2,
       });
-      this.reminderAnchor = { cx, cy, w, h, radius, spread, swing };
+      this.reminderAnchor = {
+        cx,
+        cy,
+        w,
+        h,
+        radius,
+        spread: fan.spread,
+        swing: fan.swing,
+      };
     },
 
     /**
@@ -2504,40 +2542,114 @@ export default {
      * kept — a token overlapping a plate still reads as that seat's; one flung
      * to a corner does not, which is the call the FT-891 pass already made for
      * the bluffs.
+     *
+     * ── FT-1183: AND THE SEAT'S OWN NAME PLATE GETS A VOTE TOO ────────────
+     *
+     * FT-1167 moved the fan INWARD so the tokens touch the coin's gears
+     * instead of its art, which is what the user asked for — and inward is
+     * where the seat's own name plate hangs. Two things were measured against
+     * (the coin's rim, the disc in the middle) and the plate was not one of
+     * them. On an 8-seat ring at 1280x800, day, one token a seat: the token
+     * landed dead centre on the plates of five chairs in eight, its centre
+     * INSIDE the plate's box, i.e. the plate covered by a token from edge to
+     * edge on those chairs. `elementFromPoint` at the plate's own middle came
+     * back as `.reminder`, so the plate answered no pointer at all.
+     *
+     * IT WAS COSMETIC UNTIL FT-1180. The plate is one of the three control
+     * schemes now ("Nameplate click"), so a storyteller who picks that scheme
+     * and then puts a reminder on a chair — which is most chairs in a real
+     * game — cannot work that chair with the mouse.
+     *
+     * The plate is measured, never assumed: `seatPlateRect` reads `.name`'s
+     * real box, and `:scope >` there matters for the reason measureAddAnchor
+     * writes out (Token's own `svg.name` is a nearer match to a plain
+     * selector). The box is treated as its RECTANGLE though it draws as a
+     * pill — the four corners it does not paint are a couple of pixels of
+     * pessimism, and pessimism about a click target is free.
+     *
+     * WHY THE STEP IS A CANDIDATE NOW, not a constant: at a chair near 12
+     * o'clock the plate sits square in the only direction the fan wants, and
+     * no rotation at the ideal step gets three tokens clear of it. The full
+     * arithmetic is on measureReminderAnchor, beside the floor it may not
+     * pack past.
      */
     reminderSwing(g) {
-      const plate = this.centrePlateRect();
-      if (!plate) return 0;
+      const disc = this.centrePlateRect();
+      const plate = this.seatPlateRect();
       const n = Math.max(1, (this.player.reminders || []).length);
-      const clears = (phi) => {
+      const clears = (phi, spread) => {
         for (let i = 0; i < n; i++) {
-          const t = phi + (i - (n - 1) / 2) * g.spread;
+          const t = phi + (i - (n - 1) / 2) * spread;
           const fx = g.radius * Math.sin(t);
           const fy = g.radius * Math.cos(t);
           // … and carried into screen space by the seat's own rotation, which
-          // is where the plate's box was measured
+          // is where both boxes were measured
           const sx = g.coinScreenX + (g.a * fx - g.b * fy);
           const sy = g.coinScreenY + (g.b * fx + g.a * fy);
-          const dx = sx - plate.cx;
-          const dy = sy - plate.cy;
-          const d = Math.hypot(dx, dy) || 1;
-          // the ellipse's own radius along this bearing
-          const rim = 1 / Math.hypot(dx / d / plate.rx, dy / d / plate.ry);
-          if (d - g.tokenR < rim) return false;
+          if (disc) {
+            const dx = sx - disc.cx;
+            const dy = sy - disc.cy;
+            const d = Math.hypot(dx, dy) || 1;
+            // the ellipse's own radius along this bearing
+            const rim = 1 / Math.hypot(dx / d / disc.rx, dy / d / disc.ry);
+            if (d - g.tokenR < rim) return false;
+          }
+          if (plate) {
+            // circle against rectangle: the nearest point ON the plate to this
+            // token's centre, and whether the token's own rim reaches it
+            const qx = Math.max(plate.left, Math.min(sx, plate.right));
+            const qy = Math.max(plate.top, Math.min(sy, plate.bottom));
+            if (Math.hypot(sx - qx, sy - qy) < g.tokenR + g.pad) return false;
+          }
         }
         return true;
       };
-      if (clears(0)) return 0;
       // 5 degrees at a time, one side preferred over the other so that every
       // seat on the ring swings the SAME way round its own coin — a ring where
       // half the tokens sat clockwise and half anticlockwise would read as a
-      // fault rather than a rule.
+      // fault rather than a rule. (The plate is a SCREEN-space object and the
+      // fan a seat-local one, so the chair's own clock position decides which
+      // way is away from it; the preference still holds wherever both sides
+      // are open, which is every chair the disc alone used to move.)
+      //
+      // THE WIDEST STEP THAT CAN BE MADE TO WORK WINS, and only then the
+      // smallest angle: the spacing is what FT-1167 tuned by eye, so it is
+      // spent last and a chair with room keeps exactly the fan it has today.
       const STEP = Math.PI / 36;
-      for (let k = 1; k <= 20; k++) {
-        if (clears(k * STEP)) return k * STEP;
-        if (clears(-k * STEP)) return -k * STEP;
+      for (const spread of g.spreads) {
+        if (clears(0, spread)) return { swing: 0, spread };
+        for (let k = 1; k <= 20; k++) {
+          if (clears(k * STEP, spread)) return { swing: k * STEP, spread };
+          if (clears(-k * STEP, spread)) return { swing: -k * STEP, spread };
+        }
       }
-      return 0;
+      return { swing: 0, spread: g.spreads[0] };
+    },
+
+    /**
+     * FT-1183: this seat's own name plate, in screen pixels — the third thing
+     * the reminder fan has to clear.
+     *
+     * `:scope >` is not decoration, and measureAddAnchor already paid for the
+     * lesson: a plain `.name` descendant also matches Token.vue's `<svg
+     * class="name">` (the role's name arc), which sits earlier in the DOM and
+     * so wins a plain querySelector — a coin-sized box where a plate-sized one
+     * was wanted. The plate is `.player`'s own direct child; the arc is not.
+     *
+     * MEASURED, NOT NOMINAL, because the plate has states: an unclaimed chair
+     * says "Open", a claimed one carries a name that can run long, and a
+     * coarse pointer pads it taller. (Its WIDTH turns out not to move — the
+     * stylesheet pins it at 120% of the seat and a long name ellipses inside
+     * that — but reading the box costs nothing and does not depend on that
+     * staying true.)
+     */
+    seatPlateRect() {
+      const playerEl = this.$el.querySelector(".player");
+      const el = playerEl && playerEl.querySelector(":scope > .name");
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      if (!b.width || !b.height) return null;
+      return { left: b.left, top: b.top, right: b.right, bottom: b.bottom };
     },
 
     /**
@@ -4927,6 +5039,19 @@ li.nominate .player .overlay .nominate-target {
     width: 100%;
     position: absolute;
     top: 15%;
+    /* FT-1183: THE LABEL IS NOT A HIT TARGET, and it was never meant to be
+       one. This box is a full token-DIAMETER square pushed down by 65% of a
+       diameter (`top: 15%` + `margin-top: 50%`), so two thirds of it hangs
+       BELOW the token it labels, invisible and — until this line — live:
+       measured with the fan already clearing the plate geometrically,
+       `elementFromPoint` at plate and coin points still came back as
+       `span.text` 234 times across 5/8/12/20 seats in both viewports, on this
+       seat's own plate and on neighbouring coins alike. Same shape of bug as
+       the hidden plus disc FT-1180 stood down, and the same one-line answer:
+       the token itself carries the click, the drag and the hover, so nothing
+       is lost by the label declining to. The token's own box is a circle
+       (`border-radius: 50%`), which is exactly the ground it should claim. */
+    pointer-events: none;
     text-shadow: 0 1px 1px #f6dfbd, 0 -1px 1px #f6dfbd, 1px 0 1px #f6dfbd,
       -1px 0 1px #f6dfbd;
   }
