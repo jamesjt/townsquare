@@ -145,7 +145,24 @@
                 All towns
               </button>
             </div>
-            <p class="cr-allrecords" @click="openRecords(null)">
+            <!-- FT-1159 (user call, 2026-08-25): "that still doesn't need to
+                 exist... the way to access chronicles for everyone should be
+                 only from the main screen." The cross-town page is a thing you
+                 come to the SITE to look at, not a door you find mid-game
+                 inside one town's own story. STOOD DOWN, not removed (house
+                 rule): the markup and its handler stay in the tree.
+
+                 The scope buttons above are untouched — "This town / All
+                 towns" still switches what the summary NUMBERS count, which is
+                 a reading of this band, not a way out of the drawer.
+
+                 The per-game "The boards, full size →" line further down is a
+                 different thing and STAYS: it opens onto ONE game's record —
+                 the game the reader already has open — never the landing view,
+                 and it is the only way to see a recorded game's boards at all
+                 since FT-1146 stood the in-drawer thumbnails down in its
+                 favour. -->
+            <p class="cr-allrecords" v-if="false" @click="openRecords(null)">
               Every town's records →
             </p>
             <!-- THE LEDGER: this town's games, newest first. FT-1066 (user

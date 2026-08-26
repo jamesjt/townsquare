@@ -71,7 +71,18 @@
                surface whose whole subject is EVERY town. It is a front door
                beside Host and Join because that is what it is: a thing you
                come to the site to look at, not a panel you raise mid-game. -->
-          <li @click="openRecords">
+          <!-- FT-1159 (user call, 2026-08-25): "The record button on the home
+               shouldn't be in the main list of things a user does, maybe we
+               put it in the top right as the chronicles button as well." Host,
+               Join and Scripts are the things a person is CHOOSING BETWEEN
+               when they arrive — Records is not one of them, and standing it
+               fourth in that stack said it was. The destination is unchanged;
+               it wears a corner mark now instead of a door, in the in-game
+               strip's own box (Menu.vue's `.entry-strip`) — the same corner,
+               the same 26px art, the same plate. STOOD DOWN, not removed
+               (house rule): the markup, its handler, the blood-R import and
+               the `.blood-cap-r` sizing all stay in the tree. -->
+          <li v-if="false" @click="openRecords">
             <span class="key"
               ><img
                 :src="capSrc('R')"
@@ -1234,13 +1245,14 @@ export default {
     margin: 0;
     gap: calc(5.5 * var(--dfpx));
     padding: calc(14 * var(--dfpx)) 0;
-    // FT-1146: 164 → 190. The plate was sized to the widest word the stack
-    // held, and "Records" is wider than "Scripts" — its drop-cap R is nearly
-    // twice the S's — so the fourth door's last two letters hung 21px outside
-    // their own plate (measured). The stack is centred on the hub by
-    // translate(-50%), so widening moves nothing; only the plates grow, and
-    // they grow by exactly what the new widest word needs.
-    width: calc(190 * var(--dfpx));
+    // FT-1146 widened this 164 → 190 for the Records door: the plate is sized
+    // to the widest word the stack holds, and "Records" beat "Scripts" (its
+    // drop-cap R is nearly twice the S's) by 26 door-pixels.
+    // FT-1159: that door left the stack, so the width it cost goes back. The
+    // widest word is "Scripts" again and 164 is what it needs. The stack is
+    // centred on the hub by translate(-50%), so narrowing moves nothing; only
+    // the plates shrink, back to exactly the three doors' own measure.
+    width: calc(164 * var(--dfpx));
     font-size: calc(53 * var(--dfpx));
 
     li {

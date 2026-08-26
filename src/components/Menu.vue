@@ -134,6 +134,35 @@
           />
         </li>
 
+        <!-- FT-1159 (user call, 2026-08-25): THE ENTRY SCREEN'S RECORDS MARK —
+             "maybe we put it in the top right as the chronicles button as
+             well." The records door left Intro's door stack (see the note
+             there): Host, Join and Scripts are the things a person is choosing
+             between when they arrive, and the cross-town records are not one
+             of them — they are a thing you come to the site to look at.
+
+             THIS IS THE SAME STRIP, GATED THE OTHER WAY. `!inGame` is exactly
+             Intro's own render test (`!session.sessionId && !players.length`),
+             so this row and the one above are never up together, and a second
+             kind of corner button never gets built: the same `#controls`
+             corner, the same `li.tabs.player-strip` plate, the same 26px art,
+             the same hover and the same coarse-pointer tap box, all inherited
+             rather than restated.
+
+             THE QUILL, not the hourglass. `ui-records.png` is the old
+             town-records door's hourglass, and FT-1020b put it back in service
+             as the tower's hour-display menu — a mark that opens the timer
+             in-game cannot also mean "records" one screen earlier.
+             `ui-chronicle.png`, the quill and inkwell, is the app's mark for
+             the written ledger and is the button the user pointed at. -->
+        <li class="tabs player-strip entry-strip" v-if="!inGame">
+          <img
+            :src="uiQuill"
+            title="Records — every town's games"
+            @click="openRecords"
+          />
+        </li>
+
         <!-- FT-1020b: the hourglass's own section — the four hour displays,
              the current one checked. Rows keep the menu's own shape (word
              left, mark right, the Night-order row's check idiom) and stay
@@ -460,6 +489,14 @@ export default {
     },
   },
   methods: {
+    /** FT-1159: the entry screen's corner mark → the Records page, on its
+     *  landing view. No pick: from the entry screen there is no game in hand
+     *  to open onto, only "every town on the platform" — the same two commits
+     *  Intro's retired Records door made. */
+    openRecords() {
+      this.$store.commit("setRecordsPick", null);
+      this.$store.commit("toggleModal", "records");
+    },
     // Click the open tab → collapse to the toolbar; click another → switch.
     setTab(name) {
       this.tab = this.tab === name ? null : name;
