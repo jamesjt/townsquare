@@ -1801,18 +1801,16 @@ export default {
 .player-strip img.golem-mark:hover {
   filter: drop-shadow(0 1px 2px black) brightness(1.25);
 }
+/* FT-1204 (user): "no glow on the golem mark if a user is logged in or
+   not." The gold ring stood down the day it shipped — the mark rests like
+   its siblings in both states; who-you-are lives one click away in the
+   panel. The .signed-in class stays on the element (the panel keys off the
+   same fact) — only the paint is gone. */
 .player-strip img.golem-mark.signed-in {
-  /* two gold layers â€” a tight bright rim plus a wider bloom â€” because one
-     3px halo vanished into the dark strip at 26px (measured on the first
-     proof pass); this is the cog's own on-glow weight. */
-  filter: drop-shadow(0 1px 2px black)
-    drop-shadow(0 0 2px rgba(226, 201, 138, 1))
-    drop-shadow(0 0 6px rgba(202, 166, 98, 0.9));
+  filter: drop-shadow(0 1px 2px black);
 }
 .player-strip img.golem-mark.signed-in:hover {
-  filter: drop-shadow(0 1px 2px black)
-    drop-shadow(0 0 3px rgba(236, 216, 158, 1))
-    drop-shadow(0 0 8px rgba(226, 201, 138, 1)) brightness(1.12);
+  filter: drop-shadow(0 1px 2px black) brightness(1.25);
 }
 
 /* FT-1174: A SETTING'S ROW â€” its name on the left, its answer on the right.
