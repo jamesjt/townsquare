@@ -31,3 +31,18 @@ The background art, in variants (creative director, 2026-08-16):
   splat keeps its own satellite droplets (a plain grid cut bled neighbors'
   spray across cell lines).
 - `cut-contact-sheet.png` — all 16 over a dark ground, for eyeballing edges.
+- `blood-pack2.jpg` / `blood-pack3.jpg` — two more packs of 16 the creative
+  director added 2026-08-25 (`D:/Projects/Golem/botc/splatter2.jpg` and
+  `splatter3.jpg`). Same 1168x784 sheet, same light neutral ground — so the
+  SAME recipe cut them, unchanged: the calibrator found the ground at 208-255
+  and keyed alpha off min(G,B) exactly as it did for pack 1. Cut into
+  `cut2/blood-01..16.png` and `cut3/blood-01..16.png`, with their own contact
+  sheets (`cut2-contact-sheet.png`, `cut3-contact-sheet.png`).
+
+  The cut script writes its sheet to `OUT/../cut-contact-sheet.png`, so
+  running it for a second pack OVERWRITES the first pack's sheet. Pack 1's was
+  restored from git and the new runs were pointed at their own filenames —
+  worth knowing before anyone runs it a fourth time.
+
+  48 splatters total now. Pack 1 is the one in use (`src/assets/blood/`);
+  2 and 3 are cut and waiting, not yet imported by anything.

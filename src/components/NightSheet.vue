@@ -1453,7 +1453,18 @@ $ns-team-colors: (
         //
         // COLOUR IS NOT COPIED. End night keeps its own purple plate — the
         // shared thing here is the geometry, not the skin.
-        width: max(150px, 0.583 * var(--fd-rx));
+        // FT-1143 (user): "that shouldn't wrap expand it to fit the text."
+        // FT-1111 matched Start game's box exactly, which is right for "End
+        // night 3" and one word too tight for "Finish night checks" — the
+        // blocked state's own label, which is the one a storyteller reads
+        // while they are stuck. So the matched width becomes a FLOOR rather
+        // than the width: the two buttons still agree at their common size,
+        // and the longer label takes the room it needs instead of breaking
+        // across two lines inside a disc.
+        width: auto;
+        min-width: max(150px, 0.583 * var(--fd-rx));
+        max-width: 100%;
+        white-space: nowrap;
         margin-top: 0;
         font-size: 100%;
         padding: 4px 14px;
