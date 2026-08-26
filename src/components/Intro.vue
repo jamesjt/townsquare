@@ -461,7 +461,14 @@ export default {
     titleStyle() {
       const { x, y, s } = this.bgA;
       return {
-        left: x + 807 * s + "px",
+        // FT-1190: + the background's baked 7px shift and the lab's live
+        // scrub, exactly as ontheStyle below already reads them. `bgA` maps
+        // IMAGE coordinates onto a paint assumed to be centred; the paint is
+        // not centred (App.vue publishes `calc(50% + 7px + var(--bg-off-x))`
+        // as the face centre), so x 807 alone put the lockup 7px left of the
+        // tower axis it is glued to — and 7px left of "on the" beneath it,
+        // which does carry the offset. One expression, both halves.
+        left: `calc(${x + 807 * s}px + 7px + var(--bg-off-x, 0px))`,
         top: y + 56 * s + "px",
         // the lockup draws at 360 image-px wide (1657x651 native)
         width: 318 * s + "px",
@@ -1239,18 +1246,32 @@ export default {
     // fixed to the app box at the hub point — NOT centered inside .intro,
     // whose 460px overlay box moves with the viewport (the drift that kept
     // eating the calibration). Recentred art (FT-anon 2026-08-19): the hub
-    // sits at plain 50% left, no offset needed any more. Nudge with
-    // --stack-trim, in image pixels, positive = down.
+    // sits at the image's own centre, so no baked offset is folded in here
+    // any more. Nudge with --stack-trim, in image pixels, positive = down.
+    //
+    // FT-1190: THE HUB IS `--face-cx`/`--face-cy`, NOT A BARE 50%. Those two
+    // are #app's published dial centre and they carry the paint's own
+    // horizontal shift — `calc(50% + 7px + var(--bg-off-x, 0px))` (App.vue;
+    // the 7px is FT-881's baked nudge, --bg-off-x is the face lab's live
+    // scrub, a value persisted per browser profile in localStorage). Written
+    // as a plain `left: 50%` this stack was the one thing on the dial that
+    // did not move when the art did: 7px left of the face at every viewport
+    // — a RAW pixel offset, so it never scales, and the smaller the window
+    // the larger a share of the dial it eats (0.4% of a 1920px window, 1.9%
+    // of a 375px pane) — and 0..40px further adrift for anyone whose profile
+    // holds a lab scrub, which is why the same URL could look right in one
+    // browser and shifted in another. Reading the variable means the doors
+    // track the paint at every viewport and under any future change to it.
     --stack-trim: 0;
     position: absolute;
     pointer-events: auto;
-    left: 50%;
+    left: var(--face-cx);
     // -16.0 = the face's VISUAL center (the hands' boss, image y=434) —
     // measured against the art and confirmed by eye, not by formula alone.
     // (Was -36.5 against the original art's centre; the recentre trim
     // moved the reference point, not the boss itself, so the coefficient
     // shifted by +20.5 to match.)
-    top: calc(50% + (-16.0 + var(--stack-trim)) * var(--fpx));
+    top: calc(var(--face-cy) + (-16.0 + var(--stack-trim)) * var(--fpx));
     transform: translate(-50%, -50%);
     margin: 0;
     gap: calc(5.5 * var(--dfpx));
@@ -1375,12 +1396,17 @@ export default {
   .panel {
     // FT-852: hub-anchored exactly like the doors and the dial letters —
     // one coordinate system for everything sitting on the clock face.
-    // Recentred art (FT-anon 2026-08-19): left needs no offset now; top's
-    // -16.0 is the same hands'-boss adjustment the doors block above uses.
+    // Recentred art (FT-anon 2026-08-19): no baked offset folded in here;
+    // top's -16.0 is the same hands'-boss adjustment the doors block uses.
+    // FT-1190: the hub is `--face-cx`/`--face-cy` (see the doors block) — the
+    // DISC form of this panel already reads them (faceDisc.scss centres every
+    // disc on `var(--face-cx, 50%)`), so written as a bare 50% the rectangle
+    // fallback sat 7px left of the disc it replaces. Both forms now land on
+    // the same point, which is what "one coordinate system" above claimed.
     position: absolute;
     pointer-events: auto;
-    left: 50%;
-    top: calc(50% + -16.0 * var(--fpx));
+    left: var(--face-cx);
+    top: calc(var(--face-cy) + -16.0 * var(--fpx));
     transform: translate(-50%, -50%);
     width: min(92vw, 420px);
     margin: 0;

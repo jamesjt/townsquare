@@ -3308,47 +3308,56 @@ video#background {
     }
   }
   /* hour positions on the measured tick rays (image px from the face's own
-     centre, which is now the viewport centre — recentred art, no more
-     baked-in +15,-20.5) */
+     centre — recentred art, no more baked-in +15,-20.5).
+
+     FT-1190: THE CENTRE IS `--face-cx`/`--face-cy`, NOT A BARE 50%. Those are
+     published a few rules up as `calc(50% + 7px + var(--bg-off-x, 0px))` —
+     the paint's own horizontal shift (FT-881's baked 7px, plus whatever the
+     face lab's scrub holds for this browser profile). Written as 50% these
+     ten letters were laid on a centre the art does not use, so the whole ring
+     sat 7px left of the dial it is engraved on — invisible against a 1920px
+     window, a fifth of a letter's width in a small pane, and further adrift
+     for anyone with a lab scrub saved. They now share one centre with the
+     paint, the door stack and every face disc. */
   .dl-c1 {
-    left: calc(50% + 81.9 * var(--fpx));
-    top: calc(50% + -152.1 * var(--fpx));
+    left: calc(var(--face-cx) + 81.9 * var(--fpx));
+    top: calc(var(--face-cy) + -152.1 * var(--fpx));
   }
   .dl-l {
-    left: calc(50% + 148.3 * var(--fpx));
-    top: calc(50% + -96.9 * var(--fpx));
+    left: calc(var(--face-cx) + 148.3 * var(--fpx));
+    top: calc(var(--face-cy) + -96.9 * var(--fpx));
   }
   .dl-o1 {
-    left: calc(50% + 162.5 * var(--fpx));
-    top: calc(50% + -13.5 * var(--fpx));
+    left: calc(var(--face-cx) + 162.5 * var(--fpx));
+    top: calc(var(--face-cy) + -13.5 * var(--fpx));
   }
   .dl-c2 {
-    left: calc(50% + 141.1 * var(--fpx));
-    top: calc(50% + 68 * var(--fpx));
+    left: calc(var(--face-cx) + 141.1 * var(--fpx));
+    top: calc(var(--face-cy) + 68 * var(--fpx));
   }
   .dl-k {
-    left: calc(50% + 90 * var(--fpx));
-    top: calc(50% + 129.5 * var(--fpx));
+    left: calc(var(--face-cx) + 90 * var(--fpx));
+    top: calc(var(--face-cy) + 129.5 * var(--fpx));
   }
   .dl-t {
-    left: calc(50% + -100.4 * var(--fpx));
-    top: calc(50% + 132.2 * var(--fpx));
+    left: calc(var(--face-cx) + -100.4 * var(--fpx));
+    top: calc(var(--face-cy) + 132.2 * var(--fpx));
   }
   .dl-o2 {
-    left: calc(50% + -154.5 * var(--fpx));
-    top: calc(50% + 67.9 * var(--fpx));
+    left: calc(var(--face-cx) + -154.5 * var(--fpx));
+    top: calc(var(--face-cy) + 67.9 * var(--fpx));
   }
   .dl-w {
-    left: calc(50% + -177.5 * var(--fpx));
-    top: calc(50% + -13 * var(--fpx));
+    left: calc(var(--face-cx) + -177.5 * var(--fpx));
+    top: calc(var(--face-cy) + -13 * var(--fpx));
   }
   .dl-e {
-    left: calc(50% + -156.5 * var(--fpx));
-    top: calc(50% + -96.7 * var(--fpx));
+    left: calc(var(--face-cx) + -156.5 * var(--fpx));
+    top: calc(var(--face-cy) + -96.7 * var(--fpx));
   }
   .dl-r {
-    left: calc(50% + -97.5 * var(--fpx));
-    top: calc(50% + -156.1 * var(--fpx));
+    left: calc(var(--face-cx) + -97.5 * var(--fpx));
+    top: calc(var(--face-cy) + -156.1 * var(--fpx));
   }
 }
 
