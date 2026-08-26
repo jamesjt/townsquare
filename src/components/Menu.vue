@@ -8,7 +8,11 @@
          collapses back to the bare toolbar. -->
     <div
       class="menu open"
-      :class="{ collapsed: tab === null, 'strip-width': tab === 'tower' }"
+      :class="{
+        collapsed: tab === null,
+        'strip-width': tab === 'tower',
+        'auto-width': tab === 'settings',
+      }"
     >
       <ul>
         <!-- Golem fork (2026-08-18, user call): the grimoire/help tabs left;
@@ -136,10 +140,13 @@
                `settings-marks` note on the entry strip below — the pair is
                identical in both rows on purpose, because a personal setting
                is personal on every screen this app has. -->
-          <font-awesome-icon
+          <!-- FT-1174: the cog is BAKED ART now, not a Font Awesome glyph —
+               see the entry strip's copy of this row for the whole reason. -->
+          <img
             class="settings-cog"
             :class="{ on: tab === 'settings' }"
-            icon="cog"
+            :src="uiCog"
+            alt="Your settings"
             title="Your settings — this browser, every town"
             @click="setTab('settings')"
           />
@@ -197,10 +204,38 @@
                would be a door out of a running game sitting one pixel from
                the Chronicle. It carries a title and nothing else until
                somebody says where it should go. -->
-          <font-awesome-icon
+          <!-- ── FT-1174 (user): THE COG WEARS THE HOUSE FINISH ─────────────
+               "apply the texture to the settings button that we did to the
+               other buttons that go up there."
+
+               FT-1168 stood a bare Font Awesome glyph in a row of BAKED marks
+               — ui-script, ui-chronicle, ui-records — every one of which
+               carries the same finish: bone #cfc4ae, one light origin at the
+               upper left, film grain, 128px square. A flat vector beside them
+               does not read as a different door, it reads as a different
+               MATERIAL, and the eye sorts the strip into "our marks, and that
+               one".
+
+               So the cog is `ui-cog.png` now, baked by the FT-998 noose script
+               (the same one FT-1136 used for ui-events) from `ui-cog.svg`,
+               both shipped in src/assets/. Being an `<img>` it inherits
+               `.player-strip img` — the same 26px box, drop shadow, hover lift
+               and coarse-pointer tap box the art beside it already has — so
+               the row is now four marks of one family rather than three and a
+               glyph. Its OPEN state moves from a colour to a gold glow for the
+               same reason (an image has no `color`); see the style block.
+
+               THE GOLEM MARK IS DELIBERATELY LEFT ALONE. It is the platform's
+               own brand art — the same golem head the site's tab wears — and
+               it is the one thing in this strip that is NOT one of our marks.
+               Baking it into the bone family would make the house's signature
+               look like a fifth door, which is the opposite of what it is
+               here (it does not even take a click; see the note above). -->
+          <img
             class="settings-cog"
             :class="{ on: tab === 'settings' }"
-            icon="cog"
+            :src="uiCog"
+            alt="Your settings"
             title="Your settings — this browser, every town"
             @click="setTab('settings')"
           />
@@ -299,55 +334,120 @@
             Your settings
             <font-awesome-icon :icon="['fas', 'cog']" class="hl-clock" />
           </li>
-          <li class="sub-headline">Setup</li>
-          <li
-            title="Show the setup panel's settings as marks alone, with no names beside them"
-            @click="toggleIconsOnly"
-          >
-            Icons only
-            <em>
-              <font-awesome-icon
-                :icon="[
-                  'fas',
-                  prefs.setupIconsOnly ? 'check-square' : 'square',
-                ]"
-              />
-            </em>
+          <!-- ── FT-1174 (user): ONE ROW PER SETTING, ITS OPTIONS BESIDE IT ─
+               "Those should just have a selector next to them for their
+               options not checkboxes beneath them."
+
+               FT-1168 spent a ROW PER OPTION: a dim group label, then one
+               checkbox line for each thing you could pick. Six lines and three
+               labels to say three answers, and the check idiom it borrowed
+               belongs to the rows it came from (Night order, the Timer's
+               layers) which are genuinely independent toggles — several can be
+               on at once. These are not: a control scheme is one of three, a
+               grimoire size is one of two. A column of checkboxes says the
+               wrong thing about them before it is even read.
+
+               THE CONTROL IS THE APP'S OWN. `OptionSelect` is the dropdown the
+               setup panel and the night sheet already wear — the shared plate,
+               the widest-option sizing, the plum list, the APG combobox keys.
+               Nothing new is invented here; the setting is simply asked with
+               the control the app already asks settings with.
+
+               HOISTED, every one of them. `.menu ul` is `overflow: hidden`
+               (it is what clips the sections as they open), so a list drawn in
+               flow would be shorn off at the menu's own edge — the same
+               containment problem FT-1167 hit on the night sheet, answered by
+               the same prop it added for it.
+
+               THE OLD ROWS ARE STOOD DOWN, NOT DELETED — `v-if="false"`
+               immediately below, methods and all, per the house rule. -->
+          <li class="setting-row">
+            <span class="setting-name">Setup panel</span>
+            <OptionSelect
+              name="prefs-setup-labels"
+              aria-label="Setup panel labels"
+              hoist
+              :options="setupLabelOptions"
+              :value="prefs.setupIconsOnly"
+              @input="setIconsOnly"
+            />
           </li>
-          <li class="sub-headline">Control scheme</li>
-          <li
-            v-for="s in controlSchemes"
-            :key="s.id"
-            :title="s.title"
-            @click="pickScheme(s.id)"
-          >
-            {{ s.label }}
-            <em>
-              <font-awesome-icon
-                :icon="[
-                  'fas',
-                  prefs.controlScheme === s.id ? 'check-square' : 'square',
-                ]"
-              />
-            </em>
+          <li class="setting-row">
+            <span class="setting-name">Control scheme</span>
+            <OptionSelect
+              name="prefs-control-scheme"
+              aria-label="Control scheme"
+              hoist
+              :options="controlSchemeOptions"
+              :value="prefs.controlScheme"
+              @input="pickScheme"
+            />
           </li>
-          <li class="sub-headline">Grimoire size</li>
-          <li
-            v-for="g in grimoireSizes"
-            :key="g.id"
-            :title="g.title"
-            @click="pickGrimoireSize(g.id)"
-          >
-            {{ g.label }}
-            <em>
-              <font-awesome-icon
-                :icon="[
-                  'fas',
-                  prefs.grimoireSize === g.id ? 'check-square' : 'square',
-                ]"
-              />
-            </em>
+          <li class="setting-row">
+            <span class="setting-name">Grimoire size</span>
+            <OptionSelect
+              name="prefs-grimoire-size"
+              aria-label="Grimoire size"
+              hoist
+              :options="grimoireSizeOptions"
+              :value="prefs.grimoireSize"
+              @input="pickGrimoireSize"
+            />
           </li>
+          <!-- FT-1174: FT-1168's checkbox rows, stood down. Kept whole (the
+               group labels and all six lines) so the shape they had is still
+               readable beside the shape that replaced them. -->
+          <template v-if="false">
+            <li class="sub-headline">Setup</li>
+            <li
+              title="Show the setup panel's settings as marks alone, with no names beside them"
+              @click="toggleIconsOnly"
+            >
+              Icons only
+              <em>
+                <font-awesome-icon
+                  :icon="[
+                    'fas',
+                    prefs.setupIconsOnly ? 'check-square' : 'square',
+                  ]"
+                />
+              </em>
+            </li>
+            <li class="sub-headline">Control scheme</li>
+            <li
+              v-for="s in controlSchemes"
+              :key="s.id"
+              :title="s.title"
+              @click="pickScheme(s.id)"
+            >
+              {{ s.label }}
+              <em>
+                <font-awesome-icon
+                  :icon="[
+                    'fas',
+                    prefs.controlScheme === s.id ? 'check-square' : 'square',
+                  ]"
+                />
+              </em>
+            </li>
+            <li class="sub-headline">Grimoire size</li>
+            <li
+              v-for="g in grimoireSizes"
+              :key="g.id"
+              :title="g.title"
+              @click="pickGrimoireSize(g.id)"
+            >
+              {{ g.label }}
+              <em>
+                <font-awesome-icon
+                  :icon="[
+                    'fas',
+                    prefs.grimoireSize === g.id ? 'check-square' : 'square',
+                  ]"
+                />
+              </em>
+            </li>
+          </template>
         </template>
 
         <template v-if="tab === 'grimoire'">
@@ -515,6 +615,9 @@ import uiHourglass from "../assets/ui-records.png";
 // FT-1168: the platform's own favicon, standing in the corner as a mark —
 // see the entry strip's note for which cut this is and why it does not click.
 import uiGolem from "../assets/golem-mark.png";
+// FT-1174: the settings cog, baked into the strip's own bone-and-grain family
+// (src/assets/ui-cog.svg is its source; see the entry strip's note).
+import uiCog from "../assets/ui-cog.png";
 // FT-1168: THIS PERSON'S SETTINGS — a browser's own, never a town's. The
 // module owns the stash, the clamping and the event; this menu is the only
 // surface that WRITES them, and each of the three has its own reader
@@ -522,6 +625,9 @@ import uiGolem from "../assets/golem-mark.png";
 import {
   CONTROL_SCHEMES,
   GRIMOIRE_SIZES,
+  // FT-1174: the two states `setupIconsOnly` names, said out loud — a
+  // selector has to have something to put on its face.
+  SETUP_LABELS,
   PREFS_EVENT,
   prefsState,
   setPref,
@@ -553,9 +659,35 @@ import { flashHint } from "../golem/hint";
 // FT-880: the index page's key lettering, shared so the menu's badges and the
 // key list print a key the same way.
 import KeyCap from "./KeyCap";
+// FT-1174: the app's own dropdown — the setup panel's and the night sheet's,
+// worn here so the corner menu asks a multi-option setting the same way every
+// other surface does. Used as-is; nothing about the control changed for this.
+import OptionSelect from "./OptionSelect";
 export default {
-  components: { KeyCap },
+  components: { KeyCap, OptionSelect },
   computed: {
+    // ── FT-1174: the three settings, in the dropdown's own shape ──────────
+    // `{ id, label, title }` is what prefs.js has always published and what
+    // every other reader of those lists expects; `{ value, label, title }` is
+    // what OptionSelect takes. Mapped here rather than renaming the field in
+    // prefs.js, so the stash's vocabulary is untouched by a control choice.
+    setupLabelOptions() {
+      return SETUP_LABELS;
+    },
+    controlSchemeOptions() {
+      return CONTROL_SCHEMES.map((s) => ({
+        value: s.id,
+        label: s.label,
+        title: s.title,
+      }));
+    },
+    grimoireSizeOptions() {
+      return GRIMOIRE_SIZES.map((g) => ({
+        value: g.id,
+        label: g.label,
+        title: g.title,
+      }));
+    },
     ...mapState([
       "grimoire",
       "session",
@@ -587,6 +719,8 @@ export default {
       // object is not reactive; readPrefs refreshes it on PREFS_EVENT, the
       // same shape `towerHour` above already runs on).
       uiGolem,
+      // FT-1174: the strip's cog, now one of the baked marks beside it
+      uiCog,
       controlSchemes: CONTROL_SCHEMES,
       grimoireSizes: GRIMOIRE_SIZES,
       prefs: { ...prefsState },
@@ -627,6 +761,10 @@ export default {
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTowerMode);
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
+    // FT-1174: a section open at teardown leaves two document listeners behind
+    // it; the `tab` watcher only fires on a CHANGE, and being unmounted is not
+    // one. Idempotent, so calling it with nothing watching is free.
+    this.unwatchOutside();
     clearTimeout(this.clearTimer);
   },
   watch: {
@@ -634,6 +772,21 @@ export default {
     // honour it by expanding the first section.
     "grimoire.isMenuOpen"(open) {
       if (open && this.tab === null) this.tab = "grimoire";
+    },
+    /**
+     * FT-1174 (user): "clicking outside of a settings, or timer menu when it
+     * is open should close it."
+     *
+     * ONE PLACE, NOT ONE PER MENU. `tab` is the single fact "a section of this
+     * strip is showing" — every section, the two the user named and the three
+     * they did not, and any future one the moment it is added. Written into
+     * `setTab` or into the cog's own handler this would be a behaviour the
+     * next section silently lacked; written here it is a property of the strip
+     * itself. (Behaviour only — nothing about what a section IS changes.)
+     */
+    tab(now, before) {
+      if (now && !before) this.watchOutside();
+      if (!now && before) this.unwatchOutside();
     },
   },
   methods: {
@@ -648,6 +801,73 @@ export default {
     // Click the open tab → collapse to the toolbar; click another → switch.
     setTab(name) {
       this.tab = this.tab === name ? null : name;
+    },
+    // ── FT-1174: A SECTION CLOSES WHEN YOU LOOK AWAY ─────────────────────
+    /**
+     * MOUSEDOWN, NOT CLICK, and this is the whole reason the pair exists.
+     * The gesture that OPENS a section is a `click` on its mark, and a
+     * document-level `click` listener registered while handling that click
+     * still receives the very same event as it finishes bubbling — the menu
+     * would shut in the same gesture that opened it. `mousedown` has already
+     * been and gone by then, so the listener's first event is the NEXT press.
+     * OptionSelect's own `onDocDown` is registered for exactly this reason and
+     * is the precedent.
+     *
+     * Escape rides along on the same switch: same door, one line, and a
+     * keyboard user should not have to find the mark again to close it.
+     */
+    watchOutside() {
+      document.addEventListener("mousedown", this.onOutsideDown);
+      document.addEventListener("keydown", this.onOutsideKey);
+    },
+    unwatchOutside() {
+      document.removeEventListener("mousedown", this.onOutsideDown);
+      document.removeEventListener("keydown", this.onOutsideKey);
+    },
+    /**
+     * Outside = not in this strip, and not in a popup this strip opened.
+     *
+     * THE SECOND TEST IS THE ONE THAT MATTERS. A dropdown inside the settings
+     * section HOISTS its list to `<body>` (OptionSelect's `hoist`, and the
+     * same for `golem/floatingPicker`'s `.sp-list` / `.cp-list` elsewhere in
+     * this app), so the list is NOT a descendant of `#controls` and a plain
+     * containment check would close the whole section the instant somebody
+     * reached for one of its own options. The three hoisted popup classes this
+     * app has are named here rather than a general "is it floating" guess.
+     *
+     * IT NEVER EATS THE CLICK. No preventDefault, no stopPropagation, and
+     * nothing is moved out from under the pointer — the section is in the
+     * corner, so the seat or the door being clicked is still there when the
+     * mouseup lands. Closing and doing the thing are not alternatives.
+     */
+    onOutsideDown(e) {
+      const t = e.target;
+      if (!t || typeof t.closest !== "function") return;
+      if (this.$el.contains(t)) return;
+      if (t.closest(".gsel-menu, .sp-list, .cp-list")) return;
+      this.tab = null;
+    },
+    /**
+     * Escape closes the section — unless something nearer owns the key. An
+     * open dropdown answers Escape on its own trigger and the inline ask is
+     * modal, and closing the section out from under either would take away
+     * the very thing the key was pressed at.
+     *
+     * `defaultPrevented` IS THE TEST, not "is a list in the DOM". The first
+     * version of this asked the document whether a `.gsel-menu` was still
+     * standing, and it was wrong: a microtask checkpoint runs between one
+     * listener and the next, so Vue has already flushed the list out of the
+     * DOM by the time this handler sees the same keypress — the section
+     * closed along with the dropdown every time. Measured, not reasoned
+     * around. What survives the flush is the flag the nearer handler set:
+     * OptionSelect's Escape calls `preventDefault`, so a prevented Escape is
+     * one somebody closer has already answered.
+     */
+    onOutsideKey(e) {
+      if (e.key !== "Escape") return;
+      if (e.defaultPrevented) return;
+      if (this.ask) return;
+      this.tab = null;
     },
     // ── FT-1020b: the hourglass tab ──────────────────────────────────────
     /** The tower moved (any surface) — re-read which layers this screen
@@ -677,6 +897,12 @@ export default {
     /** A pref changed anywhere — re-read the snapshot this menu renders. */
     readPrefs() {
       this.prefs = { ...prefsState };
+    },
+    // FT-1174: the selector hands back the state it wants, rather than the
+    // row asking for the opposite of the one it has. (toggleIconsOnly below
+    // is the stood-down rows' own writer and stays with them.)
+    setIconsOnly(on) {
+      setPref("setupIconsOnly", on);
     },
     toggleIconsOnly() {
       setPref("setupIconsOnly", !this.prefs.setupIconsOnly);
@@ -1107,6 +1333,17 @@ export default {
     width: auto;
   }
 
+  // FT-1174: the settings section is a column of NAME + DROPDOWN rows, and the
+  // dropdowns size themselves to their widest option (OptionSelect's sizer
+  // stack). 220px cannot hold "Control scheme" beside "Nameplate click", and
+  // `ul` is `overflow: hidden`, so the shortfall would be a silent crop rather
+  // than a visible one. Shrink-to-fit instead: the rows say how wide the panel
+  // is. Safe now that the strip is right-justified below — a wider section
+  // grows LEFTWARDS from a pinned right edge and the marks do not move.
+  &.auto-width {
+    width: auto;
+  }
+
   a {
     color: white;
     text-decoration: none;
@@ -1249,8 +1486,24 @@ export default {
     }
   }
 }
+/* FT-1174 (user): "The icons at the top jump when the menu opens, stop them
+   from doing that by justifying them on the right side even when the settings
+   is open."
+
+   THE ROW WAS CENTRED IN A BOX THAT CHANGES WIDTH. `.menu` is pinned by its
+   RIGHT edge (`right: 0`) and its width depends on what is open — `auto` when
+   collapsed, `auto` for the Timer, `auto` for the settings section, 220px for
+   the rest — so every open widens the strip leftwards, and a centred row put
+   half of that new width in front of the marks. Measured before the fix, the
+   settings section moved the whole icon row 50.4px left; the mark that had
+   just been clicked slid out from under the pointer that clicked it.
+
+   `flex-end` pins the row to the edge the box itself is pinned to, so the
+   marks stand still and the section grows behind them. When the menu is
+   collapsed the box hugs the row and flex-end is indistinguishable from the
+   centre it replaces — which is the point: one rule, both states, no jump. */
 .menu ul li.player-strip {
-  justify-content: center;
+  justify-content: flex-end;
   gap: 10px;
   padding: 3px 10px;
   min-height: 0;
@@ -1331,12 +1584,28 @@ export default {
    not a new colour. The strip has never marked which section is showing,
    which was fine while the only one was the Timer's four rows; a settings
    menu is somewhere you leave open while you look at what it changed, and a
-   door with no lit state means hunting for the one that is. */
+   door with no lit state means hunting for the one that is.
+
+   FT-1174: the cog is baked art now, and an image has no `color` to set. The
+   lit state says the SAME THING in the only language a bitmap speaks — the
+   same gold, laid on as a glow around the mark rather than poured into it,
+   over the drop shadow every mark in this strip already wears. The rule below
+   is kept as it was rather than deleted: it is the record of what the glyph
+   wore, and it costs nothing while nothing matches it. */
 .menu ul li.tabs.player-strip svg.settings-cog.on {
   color: #caa662;
 }
 .menu ul li.tabs.player-strip svg.settings-cog.on:hover {
   color: #e2c98a;
+}
+.player-strip img.settings-cog.on,
+.player-strip img.settings-cog.on:hover {
+  filter: drop-shadow(0 1px 2px black)
+    drop-shadow(0 0 5px rgba(202, 166, 98, 0.95)) brightness(1.1);
+}
+.player-strip img.settings-cog.on:hover {
+  filter: drop-shadow(0 1px 2px black)
+    drop-shadow(0 0 7px rgba(226, 201, 138, 1)) brightness(1.22);
 }
 /* THE HOUSE MARK TAKES NO CLICKS. It sits in a row of doors and is not one
    (see the entry strip's note), so it sheds the pointer and the hover lift
@@ -1348,6 +1617,30 @@ export default {
 }
 .player-strip img.golem-mark:hover {
   filter: drop-shadow(0 1px 2px black);
+}
+
+/* FT-1174: A SETTING'S ROW — its name on the left, its answer on the right.
+   The row itself is no longer a button: the dropdown beside it is, so the
+   row sheds the pointer and the red hover that every CLICKABLE line in this
+   menu wears (`li:not(.headline):not(.tabs):hover`). A whole line going red
+   under the pointer while only one end of it does anything is the same lie a
+   checkbox with no named states tells. `gap` keeps the two ends apart when
+   the panel is narrow enough for `space-between` to run out of slack. */
+.menu ul li.setting-row {
+  cursor: default;
+  gap: 14px;
+  padding: 4px 10px;
+}
+/* `:not(.headline):not(.tabs)` is carried over from the rule this overrides,
+   not decoration: that rule is written with both, so a plain
+   `.menu ul li.setting-row:hover` LOSES to it on specificity and the row went
+   red anyway (measured — the first render of this section did exactly that). */
+.menu ul li.setting-row:not(.headline):not(.tabs):hover {
+  color: white;
+  cursor: default;
+}
+.menu ul li.setting-row .setting-name {
+  white-space: nowrap;
 }
 
 /* THE INLINE ASK. It is a child of the strip in the DOM but it belongs to the
@@ -1447,6 +1740,45 @@ export default {
         color: white;
       }
     }
+  }
+}
+</style>
+
+<!-- FT-1174: NOT SCOPED, and only these three lists.
+
+     The settings rows' dropdowns are HOISTED — OptionSelect moves an open list
+     to <body> so this menu's `overflow: hidden` cannot shear it (see the rows'
+     own note). Once it is on <body> it is no longer inside `#controls`, and
+     `#controls` sits at `z-index: 75` in the ROOT stacking context — `#app`
+     takes `container-type: size` but does not form a stacking context, which
+     App.vue's own note on the face splat established and which is exactly the
+     fact that bites here. A hoisted list carries `z-index: 60` (`.gsel-menu
+     .hoisted`), so the strip and the settings rows painted OVER the list they
+     had just opened: measured, the "Grimoire size" trigger stood in front of
+     the control-scheme list's first option, which made that option unreadable
+     and unclickable.
+
+     80 clears 75. Reached by the list's own `aria-label`, which is on the
+     hoisted element itself, so this raises THESE THREE lists and touches no
+     other caller of the control — the night sheet's hoisted list, which shares
+     the 60, is deliberately left where it is. Scoping would defeat the whole
+     point: a scoped rule stamps its `[data-v-…]` on the last compound selector
+     and the list no longer carries this component's attribute once it moves.
+
+     `:root` + THE DOUBLED CLASS is not a flourish, it is the arithmetic. The
+     rule being overridden is `.gsel-menu.hoisted` inside OptionSelect's SCOPED
+     block, which compiles with a `[data-v-…]` attribute welded on — three
+     class-weight terms. A plain `.gsel-menu[aria-label=…]` is two and loses;
+     measured, the first render of this fix left the list at z-index 60 and
+     `elementFromPoint` on its top option still came back as the settings row
+     in front of it. NightSheet's `:root .sp-list.sp-list` is the same trick
+     against the same problem and is the precedent for writing it this way. -->
+<style lang="scss">
+:root .gsel-menu.gsel-menu.hoisted {
+  &[aria-label="Setup panel labels"],
+  &[aria-label="Control scheme"],
+  &[aria-label="Grimoire size"] {
+    z-index: 80;
   }
 }
 </style>

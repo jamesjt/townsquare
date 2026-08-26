@@ -1,0 +1,31 @@
+<!-- FT-1174: source for ui-cog.png — the corner strip's PERSONAL
+     SETTINGS door (Menu.vue's `.settings-cog`, in both the in-game strip and
+     the entry strip).
+
+     WHY IT EXISTS. FT-1168 put the cog in that strip as a bare Font Awesome
+     glyph, standing beside four baked marks (ui-script, ui-chronicle,
+     ui-records, and the count icons' family) that all carry the house finish —
+     bone #cfc4ae, one light origin at the upper left, film grain. A flat vector
+     glyph beside them reads as a different MATERIAL, not as a different door:
+     the eye sorts the row into "our marks, and that one" (user, 2026-08-26:
+     "apply the texture to the settings button that we did to the other
+     buttons that go up there").
+
+     THE SHAPE. Eight teeth, tapered 17° at the root to 11° at the tip, 50/512
+     of tooth depth, and a hub hole cut as negative space (fill-rule evenodd —
+     the noose loop's and the events dial's own trick). Every one of those
+     numbers is a legibility call at 26px and the reasoning for each sits beside
+     it in the script that generated this file.
+
+     GENERATED, NOT TYPED: claude_temp_test/2026-08-26-ft1174-cog-bake.mjs
+     computes the tooth ring and writes both this file and the PNG. It is the
+     FT-998 noose bake verbatim for the chrome half (bone tone, upper-left
+     light, film grain, 128px square) — the same treatment ui-town / ui-alive /
+     ui-dead / ui-noose / ui-events wear. Regenerate through that script if the
+     shape ever changes; do not hand-edit the path. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g fill="#cfc4ae">
+    <!-- the toothed ring, its hub cut out as negative space -->
+    <path fill-rule="evenodd" d="M201.6,78.1 L211.0,24.3 A236 236 0 0 1 301.0,24.3 L310.4,78.1 A186 186 0 0 1 343.3,91.8 L343.3,91.8 L388.0,60.3 A236 236 0 0 1 451.7,124.0 L420.2,168.7 A186 186 0 0 1 433.9,201.6 L433.9,201.6 L487.7,211.0 A236 236 0 0 1 487.7,301.0 L433.9,310.4 A186 186 0 0 1 420.2,343.3 L420.2,343.3 L451.7,388.0 A236 236 0 0 1 388.0,451.7 L343.3,420.2 A186 186 0 0 1 310.4,433.9 L310.4,433.9 L301.0,487.7 A236 236 0 0 1 211.0,487.7 L201.6,433.9 A186 186 0 0 1 168.7,420.2 L168.7,420.2 L124.0,451.7 A236 236 0 0 1 60.3,388.0 L91.8,343.3 A186 186 0 0 1 78.1,310.4 L78.1,310.4 L24.3,301.0 A236 236 0 0 1 24.3,211.0 L78.1,201.6 A186 186 0 0 1 91.8,168.7 L91.8,168.7 L60.3,124.0 A236 236 0 0 1 124.0,60.3 L168.7,91.8 A186 186 0 0 1 201.6,78.1 Z M140,256 a116 116 0 1 0 232 0 a116 116 0 1 0 -232 0 Z"/>
+  </g>
+</svg>

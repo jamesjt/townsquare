@@ -90,6 +90,36 @@ export const GRIMOIRE_SIZES = [
 ];
 
 /**
+ * THE SETUP PANEL'S DRESS — the two states `setupIconsOnly` names, said out
+ * loud (FT-1174).
+ *
+ * WHY A TWO-OPTION LIST AND NOT A CHECKBOX. The user's ask was that every
+ * setting in the corner menu carry "a selector next to them for their options"
+ * — and a checkbox is a selector that refuses to name one of its two states.
+ * "Icons only: [ ]" makes the reader work out that the empty box means words
+ * are ON, which is the one thing a settings menu must never ask of somebody
+ * (see the menu's own note on why its labels never hide). Naming both states
+ * also lets the ROW carry the noun ("Setup panel") and the CONTROL carry the
+ * answer, which is the shape the other two settings already have.
+ *
+ * The stored value is untouched: still the boolean `setupIconsOnly`, still
+ * read the same way by the panel. Only the way it is ASKED changed.
+ */
+export const SETUP_LABELS = [
+  {
+    value: false,
+    label: "Names and marks",
+    title: "Every setting on the setup panel says its name beside its mark",
+  },
+  {
+    value: true,
+    label: "Marks only",
+    title:
+      "The setup panel shows its marks alone, with no names beside them — for a storyteller who has learned them",
+  },
+];
+
+/**
  * ICONS ONLY defaults OFF — the setup panel says the NAME of each setting
  * beside its mark until someone turns the words off.
  *

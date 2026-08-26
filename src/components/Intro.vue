@@ -1277,16 +1277,48 @@ export default {
       // Host and Create sit 25% smaller. Fixed heights (user spec: 70/50)
       // with line-height centering — the words center in their boxes while
       // the blood caps keep their baseline hang over the border.
+      //
+      // FT-1174 (user: "the text isn't shrinking to be within their boxes
+      // correctly"). THE WORD AND THE PLATE WERE ON TWO DIFFERENT RULES.
+      // Everything else in this stack is stated in door-pixels — the width
+      // (164), the gap (5.5), the padding (14) and the TYPE ITSELF (53) —
+      // so all of it grows and shrinks with the clock face. These four
+      // heights were the one thing left in raw CSS pixels, which means the
+      // words scaled and the plates they sit in did not. They agreed at one
+      // window size and drifted apart at every other one:
+      //
+      //   (measured, claude_temp_test/2026-08-26-ft1174-doorprobe.mjs —
+      //    ink box vs plate box, + = the word hanging outside the plate)
+      //   1280x800   Host -5.6  Join -11.0  Scripts -10.0   fits
+      //   1920x1080  Host +9.4  Join  +7.8  Scripts  -1.9   overflows
+      //   2560x1440  Host +27.9 Join +32.5  Scripts +12.5   overflows badly
+      //    390x844   Host -13.0 Join -20.0  Scripts -16.0   swims
+      //
+      // The failure is VERTICAL only: the width is already in door-pixels,
+      // so the words have never come close to the side walls (worst measured
+      // side clearance is 16.5px, on a 390px-wide phone).
+      //
+      // So the fix is to say the height in the same unit as everything else.
+      // 1280x800 is the anchor — the size where the calibrated look was
+      // still intact — and at that window --dfpx is 0.8889px, so the four
+      // numbers convert x1.125: 70 -> 78.75, 64 -> 72, 50 -> 56.25, 44 ->
+      // 49.5. NOTHING MOVES at 1280x800; every other size now holds the same
+      // word-to-plate proportion instead of finding its own.
+      //
+      // And because the plate and the type are now one linear system, "it
+      // fits" is proved once rather than per window: the clearance measured
+      // in door-pixels is the same number at every size, which is exactly
+      // what the old rule could not promise.
       box-sizing: border-box;
       white-space: nowrap;
-      height: 70px;
-      line-height: 64px;
+      height: calc(78.75 * var(--dfpx));
+      line-height: calc(72 * var(--dfpx));
       padding: 0 0.18em;
       &:nth-child(1),
       &:nth-child(3) {
         font-size: 75%;
-        height: 50px;
-        line-height: 44px;
+        height: calc(56.25 * var(--dfpx));
+        line-height: calc(49.5 * var(--dfpx));
       }
       // "Almanac" runs longer than the old "Create" — its own step down so
       // the word fits the same door on one line.
