@@ -161,6 +161,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-1150: $control-edge-hover — "the storyteller's own colour throughout the
+// app", the token controls.scss names. Read-only import: that partial carries
+// no bare selectors, only variables and mixins, the same way seven other
+// components already import it.
+@import "../controls.scss";
+
 // ROW CONTROL HEIGHT CONTRACT: 30px desktop / 44px coarse-pointer — see
 // SeatPicker.vue's copy of this comment; the three files stay in step by
 // hand.
@@ -209,9 +215,13 @@ export default {
     font-size: 70%;
     transition: transform 150ms;
   }
+  // FT-1150: purple, not the app's blood #400. NightSheet's own unscoped
+  // block sets this from `--ns-viewer-color` and wins on specificity, so this
+  // is the value the control shows STANDALONE — deliberately the same pixels
+  // that block computes for a storyteller, so the two paths agree.
   &:hover,
   &.open {
-    border-color: #400;
+    border-color: $control-edge-hover;
   }
   &.open .cp-caret {
     transform: rotate(180deg);
@@ -230,14 +240,19 @@ export default {
   }
 }
 
+// FT-1150: THE LIST'S GROUND AND EDGE COME OFF THE BLOOD. Both values are
+// the settings dropdown's own (OptionSelect's `.gsel-menu`, FT-1108) — red is
+// the blood in this fork, purple is the book, and a storyteller choosing what
+// to show a player is working out of the book. This picker is mounted by the
+// night sheet alone, so nothing player-facing inherits the change.
 .cp-list {
   position: fixed;
   overflow-y: auto;
   margin: 0;
   padding: 4px;
   list-style: none;
-  background: rgba(10, 4, 4, 0.97);
-  border: 2px solid #400;
+  background: rgba(12, 8, 16, 0.96);
+  border: 2px solid rgba(120, 105, 135, 0.55);
   border-radius: 8px;
   box-shadow: 0 0 12px black;
   z-index: 60;
@@ -300,13 +315,16 @@ export default {
       white-space: nowrap;
     }
 
+    // FT-1150: the row under the pointer and the chosen row, in plum. Same
+    // washes the seat picker's own rows take from `--ns-viewer-*` next door,
+    // written here as the standalone value so the two agree either way.
     &:hover,
     &:focus {
-      background: rgba(255, 0, 0, 0.1);
+      background: rgba($control-edge-hover, 0.12);
     }
     &.picked {
-      background: rgba(160, 20, 20, 0.22);
-      box-shadow: inset 0 0 0 1px #a01414;
+      background: rgba($control-edge-hover, 0.22);
+      box-shadow: inset 0 0 0 1px $control-edge-hover;
     }
 
     @media (pointer: coarse) {

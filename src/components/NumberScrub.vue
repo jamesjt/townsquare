@@ -235,6 +235,15 @@ export default {
   }
   &.night {
     color: white;
+    // FT-1150 (user: all the storyteller's controls purple): the shared focus
+    // border above is the app's blood #a01414, which is right on the build
+    // panel's seat scrub and wrong on a night-checklist row, where every
+    // neighbouring control is now plum. Overridden for the NIGHT preset only
+    // — the same split FT-1108 made on the dropdown's focus ring rather than
+    // repainting a token every other control wears correctly.
+    &:focus-visible {
+      border-color: rgba(150, 130, 175, 0.75);
+    }
   }
 }
 
@@ -246,13 +255,42 @@ export default {
     background: rgba(0, 0, 0, 0.6);
     color: inherit;
   }
+  // (The night preset's own colours moved OUT of this nesting — see the
+  // rule below and the specificity note that goes with it.)
   &.night {
     color: white;
     background: rgba(0, 0, 0, 0.55);
-    border: 1px solid #3d3d3d;
-    &:focus-visible {
-      border-color: #a01414;
-    }
+  }
+}
+
+// FT-1150: THE NIGHT ROW'S TYPE-IN BOX, and the selector is the whole point.
+//
+// The night preset takes the same purple pair its row-mates on the checklist
+// (.ns-free, .ns-lie, .ns-grim-show) now wear at rest and focused. The `seat`
+// preset above is untouched — that one lives on the build panel, where blood
+// is still the language.
+//
+// WRITTEN FLAT, WITH THE ELEMENT NAMED, because the nested version could not
+// win and neither could the original. App.vue dresses every field in the app
+// with `input:not([type=checkbox]):not([type=radio]):not([type=range])` —
+// three :not()s carry their arguments' weight, so that selector scores 0-3-1
+// against a nested `.num-scrub-input.night`'s 0-3-0. Measured: a focused
+// night scrub came back with a #a01414 border and a blood glow whatever this
+// file said. Naming the element and both classes takes it to 0-4-1 and wins.
+//
+// (It is flat rather than nested for a second, duller reason worth writing
+// down: `input#{&}.night` inside the block above compiles to
+// `.num-scrub-input input...` — Sass does not treat an INTERPOLATED `&` as
+// the parent placeholder, so it prepends the parent as a descendant and the
+// rule matches an input inside an input. Also measured, also red.)
+//
+// App.vue itself is not touched: it is right for every other field in the app.
+input.num-scrub-box.num-scrub-input.night {
+  border: 1px solid rgba(120, 105, 135, 0.3);
+  &:focus,
+  &:focus-visible {
+    border-color: rgba(150, 130, 175, 0.75);
+    box-shadow: 0 0 7px rgba(120, 105, 135, 0.4);
   }
 }
 </style>

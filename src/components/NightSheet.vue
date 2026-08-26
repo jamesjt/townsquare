@@ -172,20 +172,44 @@
                 believes they are the {{ row.shownRole.name }}
               </small>
             </span>
+
+            <!-- FT-1150 (user): THE ABILITY MOVED UP HERE, onto the identity
+                 line, and the whole next line now belongs to the controls.
+                 "maybe we put the short ability description in line, with the
+                 role name and player name. then uses the whole next row for
+                 the info?"
+
+                 WHY IT IS THE ONE THAT YIELDS. The sentence is REFERENCE —
+                 read once on the first row that wakes, known by the third
+                 night — so it is the thing that can shrink and truncate (the
+                 tooltip still carries the official wording, FT-886). The
+                 answer controls are what a storyteller ACTS on, every night,
+                 under time pressure, and a control that truncates is just a
+                 control you cannot use. So the sentence gives up its own line
+                 and the controls take it whole.
+
+                 FT-874/882's arrangement had the two SHARING line two, which
+                 is why the controls were small: on the disc's ~370px band
+                 they were negotiating for roughly half of it and losing.
+                 Measured before this pass at 1280x800: the answer zone got
+                 188.8px of a 372px band and every information row stood 98.8px
+                 tall (three lines). See the style block's own note. -->
+            <span class="ns-reminder" :title="row.official">{{
+              row.reminder
+            }}</span>
           </div>
 
-          <!-- THE WORKING LINE (FT-882). A wrapper that is INVISIBLE to the
-               layout everywhere it has always worked: `display: contents`
-               makes it generate no box at all, so on the 640px rectangle and
-               on both phone layouts the two children below sit in the row's
-               grid areas exactly as they did before this pass.
+          <!-- THE WORKING LINE (FT-882, re-tasked FT-1150). It used to hold
+               TWO children and exist to make them negotiate one line: the
+               ability sentence and the controls sat side by side where both
+               fit and the controls dropped below where they did not.
 
-               It exists for the DISC, where the band is ~275px of line and
-               the two children have to negotiate: the ability sentence and
-               the controls share one line where they both fit, and the
-               controls drop to a line of their own where they do not. Grid
-               cannot do that — it has no wrap — and a fixed three-line row
-               would charge every row for the two or three that need it. -->
+               There is nothing left to negotiate — the sentence moved onto
+               the identity line above, so this wrapper now holds the controls
+               alone and is simply the row's second line. It is KEPT rather
+               than folded away: it is the grid item the row's `work` area
+               names, the `.done` fade reaches through it by name, and the
+               disc's own rules hang off it. -->
           <div class="ns-work">
             <!-- THE ANSWER (right zone): what a storyteller records tonight.
                  FT-862: this used to be a yes/no toggle on EVERY row — wrong
@@ -203,6 +227,37 @@
                    seam (see .from-player below) — the quiet mark that says
                    "their own pick" apart from the storyteller's record. The
                    storyteller's edit clears it (setTarget). -->
+              <!-- FT-1150 (user): A SEAT PICKER SHOWS EXACTLY WHAT THE PLAYER
+                   WILL SEE — names, and nothing about anybody's character.
+                   "they shouldn't see Fake 1 is an imp, so once the player
+                   has been selected just show the player names. if it is a
+                   select player, exactly as the player will see."
+
+                   `show-role` used to be passed `isStoryteller`, which is
+                   always true here (this component mounts for the storyteller
+                   alone), so the trigger read "1. / Fake 1 / Imp" — the
+                   seat's TRUE CHARACTER, printed inside a control whose whole
+                   job is to compose WHAT THIS PLAYER IS BEING TOLD. Wrong
+                   subject. It is the same call FT-986 already made about this
+                   control's COLOUR: a seat picker on this sheet answers what
+                   the viewer is TOLD, never what they ARE.
+
+                   FALSE RATHER THAN REMOVED, and the prop stays bound: the
+                   gate is a real prop on SeatPicker (default false) and
+                   writing the decision out here is what makes it reviewable.
+                   `icon-for` stays bound too — SeatPicker only ever calls it
+                   behind `show-role`, so it is inert while this is false and
+                   is one edit away from being live again.
+
+                   NOT SWEPT ANYWHERE ELSE. The CHARACTER picker below keeps
+                   its characters: a character IS what the Ravenkeeper and the
+                   Undertaker are shown, so showing it is the same rule, not
+                   an exception to it. And the storyteller's own bookkeeping
+                   on this row (the truth chip, the lie mask, the grimoire
+                   grant) is not a rendering of what a player receives at all,
+                   so this rule does not reach it. The grimoire itself still
+                   holds everything; this is one control not lying about its
+                   own subject. -->
               <SeatPicker
                 v-for="slot in row.slots"
                 :key="'seat' + slot"
@@ -210,7 +265,7 @@
                 :class="{ 'from-player': targetBy(row, slot - 1) === 'player' }"
                 :players="players"
                 :picked-seat="entryFor(row).targets[slot - 1]"
-                :show-role="isStoryteller"
+                :show-role="false"
                 :icon-for="p => roleIconUrl(p.role)"
                 :title="targetHint(row, slot)"
                 @pick="seat => setTarget(row, slot - 1, seat)"
@@ -405,16 +460,13 @@
               </span>
             </div>
 
-            <!-- FT-874: ONE line, truncated — a storyteller is SCANNING a
-                 checklist here (compare ScriptView, where the ability wraps
-                 in full: there the storyteller is READING to learn a script,
-                 a different job).
-                 FT-886/882: the row now SHOWS our own short line and the
-                 tooltip carries the OFFICIAL wording. Binding both to
-                 `reminder` made the hover a copy of the line already on
-                 screen and put the shipped text out of reach from the row —
-                 `official` is the field that lane left here for it. -->
-            <span class="ns-reminder" :title="row.official">{{ row.reminder }}</span>
+            <!-- (FT-874's ability line stood HERE, as the second child of
+                 .ns-work. FT-1150 moved it up into .ns-identity — see its
+                 own note there. Everything about it is unchanged: still ONE
+                 line, still truncated because a storyteller is SCANNING a
+                 checklist rather than reading to learn a script, still
+                 showing our short `reminder` with the OFFICIAL wording on
+                 the tooltip (FT-886/882). Only which line it rides moved.) -->
           </div>
         </li>
       </ul>
@@ -643,12 +695,15 @@ export default {
       return map;
     },
     /**
-     * The privacy gate golem/nightInfo's field table and SeatPicker both
-     * need, computed here rather than assumed by either: this component
-     * only ever mounts for the storyteller (App.vue's isSpectator check), so
-     * in practice this is always true — but SeatPicker takes it as an
-     * explicit prop rather than inferring it, and this is where that prop
-     * comes from.
+     * Is this client the storyteller? Computed rather than assumed: this
+     * component only ever mounts for one (App.vue's isSpectator check), so in
+     * practice it is always true, and the places that read it say their own
+     * condition rather than inheriting it.
+     *
+     * FT-1150: IT NO LONGER FEEDS THE SEAT PICKERS. `show-role` used to take
+     * this value, which is what put a seat's true character on a control that
+     * composes what a PLAYER is told — see that element's own note. The
+     * remaining reader is `verdicts`, the truth oracle.
      */
     isStoryteller() {
       return !this.session.isSpectator;
@@ -1497,26 +1552,28 @@ $ns-team-colors: (
       // that truncates is just a control you cannot use.
       //
       // Total ink is unchanged; only which line each zone sits on moves.
-      // LINE TWO NEGOTIATES. Two earlier arrangements were measured and both
-      // failed on the same 275px of line:
-      //   · sentence and controls as two GRID tracks (`1fr auto`) — grid
-      //     hands an `auto` track its full max-content before a `1fr` track
-      //     gets anything, so the two-picker rows took their 189px and the
-      //     sentence rendered at zero width. It did not truncate; it
-      //     vanished. (shot: pass2-1280x800)
-      //   · the same two tracks with a floor under the sentence
-      //     (`minmax(33%, 1fr)`) — now the controls take the squeeze, and a
-      //     seat picker squeezed to 33px shows a seat number and nothing
-      //     else. Worse: SeatPicker's trigger is a <button>, which sizes to
-      //     its content rather than to its shrunk parent, so the pickers
-      //     drew ON TOP of one another. (shot: pass3-1280x800, measured in
-      //     2026-08-19-night-disc-overlap.mjs)
+      // LINE TWO NEGOTIATED, and FT-882 recorded two arrangements that failed
+      // on the same 275px of line before it settled on a wrap — grid tracks
+      // (`1fr auto`) rendered the sentence at zero width, and a floor under
+      // the sentence (`minmax(33%, 1fr)`) squeezed a seat picker to 33px and
+      // drew the pickers on top of one another.
       //
-      // So they WRAP instead. The sentence and the controls sit on one line
-      // wherever both fit, and the controls take a line of their own where
-      // they do not — which at 1280×800 is the four-control rows only, and
-      // at 1920×1080 is none of them. A fixed three-line row would have
-      // charged every row on every screen for the two that need it.
+      // ── FT-1150: THE NEGOTIATION IS OVER, and this is the user's own
+      // proposal, built. "maybe we put the short ability description in line,
+      // with the role name and player name. then uses the whole next row for
+      // the info?"
+      //
+      // The sentence goes UP onto the identity line and the controls take the
+      // whole of line two. That is the right way round for the same reason
+      // FT-882 gave for truncating the sentence at all: it is REFERENCE, read
+      // once and then known, so it can be the thing that shrinks — where a
+      // control that shrinks is a control you cannot use. Every wrap rule the
+      // wrapper carried goes with the negotiation it was arranging.
+      //
+      // MEASURED, 1280x800, before -> after (the proof rig prints this table):
+      //   answer zone width   188.8px -> the band, ~356px
+      //   control type        12.5px  -> 15px
+      //   information row     98.8px tall (three lines) -> two lines
       .ns-row {
         grid-template-columns: 28px 1fr;
         grid-template-areas:
@@ -1525,57 +1582,48 @@ $ns-team-colors: (
         column-gap: 8px;
         padding: 6px 2px 7px;
 
+        // the controls' line. `min-width: 0` is still load-bearing and it was
+        // measured (2026-08-19-night-disc-overlap.mjs): without it this zone's
+        // AUTOMATIC minimum is its own max-content, so a four-control row sits
+        // at its full width inside a narrower band and hangs out over the rim
+        // — flex-shrink never gets to run.
         .ns-work {
-          grid-area: work;
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 4px 8px;
           min-width: 0;
         }
-        // the sentence leads and takes the slack; 130px is the basis the
-        // wrap decision is made against, not a floor it is held to
-        .ns-reminder {
-          order: 0;
-          flex: 1 1 130px;
-        }
-        // …the controls follow it, hard right, on whichever line they end up
-        // on. The WRAP absorbs a crowded row first; only once they have a
-        // whole line to themselves and still do not fit does the shrink
-        // start, and then it lands on the pickers, which ellipsize their
-        // player and role lines and keep the two things that identify a
-        // choice — the seat number and the character icon.
-        // `min-width: 0` is load-bearing, and it was measured: without it
-        // this zone's AUTOMATIC minimum is its own max-content, so a
-        // four-control row sat at its full 335px inside a 275px line and
-        // simply hung out over the rim — flex-shrink never got to run
-        // (2026-08-19-night-disc-overlap.mjs, before/after).
+        // the answer WRAPS here rather than shrinking. It has a whole line
+        // now, so the crowded rows (a Washerwoman's two seats, a character and
+        // a mask) take a second line of their own on the narrow band instead
+        // of squeezing four controls into one — which is the trade this pass
+        // exists to make: the controls keep their size, and only the row that
+        // needs the extra line pays for it.
         .ns-answer {
-          order: 1;
-          flex: 0 1 auto;
-          flex-wrap: nowrap;
+          flex-wrap: wrap;
           min-width: 0;
-          margin-left: auto;
-          gap: 5px;
+          gap: 4px 6px;
         }
+        // a hair under the base 14px — the band is narrower, and the label is
+        // the one piece of the answer line that is not itself a control
         .ns-label {
-          font-size: 11.5px;
+          font-size: 13.5px;
         }
         // the character icon drops 40 → 30px: it is the row's height driver
         // on line one, and the band is short enough that ten wasted pixels
         // a row costs a whole visible row. The role name comes down with it
-        // (17 → 15.5px) so it still sits ABOVE the reminder's 13.5px rather
-        // than towering over a line it now shares the row with. That is the
-        // only type on this sheet that moves.
+        // (17 → 15.5px) so it still sits ABOVE the reminder rather than
+        // towering over the line it shares.
         .ns-icon {
           width: 30px;
           height: 30px;
         }
+        // FT-1150: the identity line is shared again — with the ability
+        // sentence this time — so the name gives back the width FT-882 handed
+        // it when it had the line to itself. 62% of the band still leaves
+        // "Fortune Teller · Fen" whole at both proof viewports.
+        .ns-identity > .ns-who {
+          max-width: 62%;
+        }
         .ns-who b {
           font-size: 15.5px;
-          // with the whole line to itself the name no longer has to yield
-          // most of its width to a neighbouring control zone
-          max-width: 72%;
         }
       }
     }
@@ -1888,15 +1936,31 @@ $ns-team-colors: (
   flex: 0 0 auto;
 }
 
+// FT-1150 (user): "All storyteller controls should be purple like the player
+// selector one." This segment was the last blood-red control on the sheet and
+// it was red in THREE places at once — a red hover ink, `control-lit`'s blood
+// ground on the chosen cell, and `control-focus-ring`'s #a01414 outline from
+// the shared `control-cell` mixin.
+//
+// All three take FT-1108's answer, values and reasoning both: the shared
+// mixins are NOT repainted (every other plated control in the app wears them
+// correctly), the three values are restated locally in the settings
+// dropdown's own plum, and the focus ring is overridden here because the
+// shared one is the app's blood red. Same recipe as `OptionSelect`'s
+// `.gsel-opt.on` and its `outline-color`, not a third one invented for this.
 .ns-daylen-opt {
   @include control-cell;
   font-size: 90%;
   padding: 2px 6px;
   &:hover {
-    color: #ff8a8a;
+    color: $control-edge-hover;
+  }
+  &:focus-visible {
+    outline-color: rgba(150, 130, 175, 0.9);
   }
   &.on {
-    background: $control-on-bg;
+    background: rgba(96, 74, 128, 0.42);
+    color: #ece4f8;
     font-weight: bold;
   }
   @media (pointer: coarse) {
@@ -1956,10 +2020,22 @@ $ns-team-colors: (
   // across every row its area name appears in, by construction, no explicit
   // row-span needed. The team-coloured left border is retired (user call):
   // the icon alone carries the team now.
-  grid-template-columns: 34px minmax(150px, 1fr) auto;
+  //
+  // FT-1150 (user): STILL TWO LINES, AND THEY HAVE SWAPPED THEIR CARGO.
+  // Line one is the identity AND the ability sentence; line two is the
+  // controls, alone, across the row's whole width. The "instruct" area is
+  // gone with the sentence that named it — the ability is a child of
+  // .ns-identity now, not a grid item — and "work" (the wrapper that used to
+  // hold both) is what column two's second line names.
+  //
+  // WHY. On the disc the answer zone was getting 188.8px of a 372px band
+  // and 12.5px type, because it was sharing every line it stood on. It now
+  // gets the band. Measured before/after in
+  // claude_temp_test/2026-08-25-ft1150-nightrow-proof.mjs.
+  grid-template-columns: 34px minmax(150px, 1fr);
   grid-template-areas:
-    "state identity answer"
-    "state instruct instruct";
+    "state identity"
+    "state work";
   column-gap: 10px;
   row-gap: 3px;
   align-items: center;
@@ -2083,6 +2159,20 @@ $ns-team-colors: (
     align-items: center;
     gap: 8px;
     min-width: 0;
+
+    // FT-1150: the ability sentence rides this line now, after the name, and
+    // it is the piece that YIELDS. The name is capped at a share of the line
+    // (a percentage of THIS box, so it is well defined at any band width)
+    // and the sentence takes everything left over — `flex: 1 1 0` rather
+    // than a content basis, so it never argues for width it has not been
+    // given and never pushes the seat name off the line.
+    > .ns-who {
+      flex: 0 1 auto;
+      max-width: 58%;
+    }
+    > .ns-reminder {
+      flex: 1 1 0;
+    }
   }
   .ns-ord {
     flex-shrink: 0;
@@ -2151,9 +2241,22 @@ $ns-team-colors: (
     // than everything around it except the instruction line. Shrinks before
     // the player name does (FT-874): a role has nowhere else to be read, a
     // player's name is already on their seat.
+    // FT-1150: THE CAP MOVED OUT TO `.ns-who`. A percentage max-width here
+    // resolves against `.ns-who`, which is itself content-sized — so the name
+    // could never use more than 65% of a box the name's own width had just
+    // defined, and "Washerwoman" came out as "Washerwom…" on a line with
+    // 200px to spare (measured at BOTH proof viewports, before this line
+    // changed). The role is the one thing this list is scanned for; it must
+    // not be the first thing to truncate.
+    //
+    // The limit is real, just stated where it is well defined:
+    // `.ns-identity > .ns-who` caps the whole name block at a share of the
+    // identity line, and inside it the SEAT ellipsizes first (`small`, below)
+    // — a player's name is already written on their seat in the ring, a role
+    // name has nowhere else to be read.
     b {
       flex-shrink: 0;
-      max-width: 65%;
+      max-width: 100%;
       font-size: 17px;
       font-weight: 600;
       white-space: nowrap;
@@ -2171,48 +2274,124 @@ $ns-team-colors: (
   }
 
   // FT-882: the wrapper around the ability sentence and the controls. It
-  // generates NO BOX here — its two children go straight into the row's own
-  // grid areas, so the rectangle and both phone layouts are byte-for-byte
-  // what they were. Only the disc turns it into a real flex line.
+  // used to generate NO BOX at all (`display: contents`) so its two children
+  // could sit in the row's own grid areas, and only the disc turned it into a
+  // real flex line.
+  //
+  // FT-1150: it is a REAL BOX everywhere now, and it holds the controls
+  // alone. The negotiation it existed to arrange is over — the sentence
+  // moved up a line — so there is nothing left for `display: contents` to
+  // buy, and one shape on every surface beats a wrapper that is two
+  // different things depending on the window.
   .ns-work {
-    display: contents;
+    grid-area: work;
+    min-width: 0;
   }
 
   .ns-answer {
-    grid-area: answer;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    // FT-1150: LEFT, not right. The zone used to be pinned to the row's right
+    // edge because it shared a line with the identity and had to be visibly
+    // separate from it. It owns the line now, so it reads down the same left
+    // edge every other line of the row does.
+    justify-content: flex-start;
     flex-wrap: wrap;
     gap: 6px;
   }
 
   // FT-874: what's being recorded, before the row's first control —
   // golem/nightInfo's per-character label
+  // FT-1150: 12.5 -> 14px, one step under the controls it names.
   .ns-label {
     flex-shrink: 0;
     opacity: 0.75;
-    font-size: 12.5px;
+    font-size: 14px;
     white-space: nowrap;
+  }
+
+  // ── FT-1150: THE ROW-CONTROL TYPE SIZE, said once ──────────────────────
+  // Every control in the answer zone was 12.5px, which was the size that fit
+  // when the zone was half a line wide. It has a whole line now, so the type
+  // goes to the size these same controls ALREADY take when they have to be
+  // usable under pressure: 15px — the value `.ns-free`, `.ns-told`, `.ns-lie`
+  // and `.ns-label` all jump to under `@media (pointer: coarse)` further down
+  // this file, and the value NumberScrub's own night preset carries there
+  // too. Not a new number; the number this sheet already agreed on for "a
+  // storyteller has to read this while the table waits".
+  //
+  // It also lands the controls level with the role name (15.5px) and above
+  // the ability sentence (12.5px), which is the hierarchy this pass is for:
+  // the thing you ACT on reads as loudly as the thing you are acting about,
+  // and the reference text sits under both.
+  //
+  // The two pickers are child components, so their triggers are reached with
+  // ::v-deep through the class THIS file puts on them — never by editing
+  // SeatPicker, which player-facing surfaces (NightCall, NightInfoDrawer)
+  // also mount and which should not inherit a storyteller row's sizing.
+  .ns-target ::v-deep .sp-trigger,
+  .ns-charpick ::v-deep .cp-trigger,
+  .ns-told-sel ::v-deep .trigger {
+    font-size: 15px;
+  }
+  // NumberScrub's root element IS `.num-scrub-box`, so `.ns-num` lands on the
+  // same node — three classes plus this file's scope attribute, which is what
+  // it takes to win against the component's own `.num-scrub-box.night`
+  // (the `.phase .ns-day .num-scrub-box` rule above learned the same lesson).
+  .ns-answer .ns-num {
+    font-size: 15px;
+    width: 56px;
   }
 
   // FT-874: the box styling that used to live here for .ns-num moved into
   // NumberScrub's own "night" preset (it needs a THIRD state — the resting
   // scrub label — that a plain <input> selector can't reach). This block is
   // .ns-free only now, the free-text fallback.
-  .ns-free {
+  // FT-1150: 12.5 -> 15px with its row-mates, and its EDGE COMES OFF THE
+  // BLOOD. Resting grey #3d3d3d and a red focus ring were the last two
+  // non-purple states on a control in this zone; both take `.ns-lie`'s own
+  // purple pair, which is already the box beside this one on half these rows.
+  // Red is the blood in this fork; the checklist is the book.
+  //
+  // ── AND `input.` IS LOAD-BEARING, which is a bug this card found rather
+  // than a style choice. App.vue dresses every field in the app
+  // (`input:not([type=checkbox]):not([type=radio]):not([type=range])`), and
+  // three `:not()`s carry their argument's weight — that selector scores
+  // 0-3-1 against this rule's 0-3-0, so it has been WINNING here all along.
+  // Measured: this box rendered at 23.04px (`font-size: inherit` from that
+  // rule, not the 12.5px written here), wore #3d3d3d rather than the edge
+  // written here, and took a blood-red border and glow on focus. The `width`
+  // and `height` landed, because the app-wide rule does not name them —
+  // which is why it never looked broken enough to notice.
+  //
+  // Naming the element AND the zone takes this to 0-4-1 and wins outright
+  // (`.ns-row input.ns-free` alone only TIES at 0-3-1, and a tie is decided
+  // by whichever stylesheet the bundler happens to emit last — measured: the
+  // tie lost). App.vue is another lane's file this week and is not touched:
+  // the same split FT-1108 made when the shared focus ring was the app's
+  // blood red — override where the exception lives, leave the app-wide rule
+  // to the app.
+  .ns-answer input.ns-free {
     height: 30px;
     font-family: inherit;
-    font-size: 12.5px;
+    font-size: 15px;
     color: white;
     background: rgba(0, 0, 0, 0.55);
-    border: 1px solid #3d3d3d;
+    border: 1px solid rgba(120, 105, 135, 0.3);
     border-radius: 5px;
     padding: 0 8px;
-    width: 128px;
+    width: 140px;
+    &:hover {
+      border-color: rgba(150, 130, 175, 0.75);
+    }
+    // `:focus`, not `:focus-visible` — the app-wide rule's own blood glow
+    // hangs off `:focus`, so that is the state that has to be answered here
+    // or a focused box keeps the red halo whatever its border says.
+    &:focus,
     &:focus-visible {
       outline: none;
-      border-color: #a01414;
+      border-color: rgba(150, 130, 175, 0.75);
+      box-shadow: 0 0 7px rgba(120, 105, 135, 0.4);
     }
   }
 
@@ -2234,7 +2413,10 @@ $ns-team-colors: (
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 12px;
+    // FT-1150: 12 -> 13px. It is read while acting, so it comes up with the
+    // controls — a step under them, because it is what somebody said rather
+    // than something to press.
+    font-size: 13px;
     font-style: italic;
     color: #d4af55;
   }
@@ -2293,22 +2475,29 @@ $ns-team-colors: (
     display: inline-flex;
     gap: 4px;
     flex-shrink: 0;
+    // FT-1150: 12.5 -> 15px, and the same purple pair `.ns-free` and
+    // `.ns-lie` wear at rest and under the pointer. Its LIT state stays gold
+    // — see the colour note above: gold on this row is data (an open window
+    // on the truth), purple is chrome (the thing you press).
     .ns-grim-show {
       height: 30px;
       font-family: inherit;
-      font-size: 12.5px;
+      font-size: 15px;
       color: white;
       padding: 0 8px;
       background: rgba(0, 0, 0, 0.55);
-      border: 1px solid #3d3d3d;
+      border: 1px solid rgba(120, 105, 135, 0.3);
       border-radius: 5px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      &:hover:not(:disabled) {
+        border-color: rgba(150, 130, 175, 0.75);
+      }
       &:focus-visible {
         outline: none;
-        border-color: #a01414;
+        border-color: rgba(150, 130, 175, 0.75);
       }
       &:disabled {
         opacity: 0.4;
@@ -2372,13 +2561,14 @@ $ns-team-colors: (
     max-width: 190px;
     overflow: hidden;
     white-space: nowrap;
-    font-size: 12px;
+    // FT-1150: 12 -> 13px, with the rest of the answer line.
+    font-size: 13px;
     line-height: 1;
     color: #8fbfa8;
     cursor: default;
   }
   .ns-oracle-tag {
-    font-size: 9.5px;
+    font-size: 10.5px;
     letter-spacing: 0.09em;
     text-transform: uppercase;
     opacity: 0.55;
@@ -2390,7 +2580,7 @@ $ns-team-colors: (
   // the impairment note — quieter again, and italic, because it is a fact
   // about the SEAT rather than part of the answer
   .ns-oracle-imp {
-    font-size: 10.5px;
+    font-size: 11.5px;
     font-style: italic;
     opacity: 0.65;
   }
@@ -2510,11 +2700,14 @@ $ns-team-colors: (
   // script). `min-width: 0` overrides grid's own default item minimum,
   // which otherwise refuses to shrink below content size and silently
   // defeats the ellipsis.
+  // FT-1150: no longer a grid item — it is the last child of .ns-identity
+  // (see the template), so `grid-area: instruct` went with the area name.
+  // 13.5 -> 12.5px: it now shares a line with a 15.5px role name and a 13px
+  // seat, and it is the reference text on that line, so it sits under both.
   .ns-reminder {
-    grid-area: instruct;
     display: block;
     min-width: 0;
-    font-size: 13.5px;
+    font-size: 12.5px;
     line-height: 1.32;
     opacity: 0.78;
     white-space: nowrap;
@@ -2522,16 +2715,17 @@ $ns-team-colors: (
     text-overflow: ellipsis;
   }
 
-  // a finger needs a box, not a glyph — the state column stays put (it is
-  // now the full height of ALL THREE stacked rows below, "state" naming
-  // every one of them — an even taller target than the two-row desktop
-  // case), the rest stacks
+  // a finger needs a box, not a glyph — the state column stays put ("state"
+  // names every stacked row below, so the check is the row's full height, an
+  // even taller target than the desktop case), the rest stacks.
+  // FT-1150: TWO stacked rows rather than three — the ability rides the
+  // identity line here as well, wrapping under the name rather than
+  // truncating, since a phone has no band to fight over.
   @media (pointer: coarse) {
     grid-template-columns: 48px 1fr;
     grid-template-areas:
       "state identity"
-      "state answer"
-      "state instruct";
+      "state work";
     row-gap: 6px;
 
     .ns-check {
@@ -2540,19 +2734,35 @@ $ns-team-colors: (
     .ns-answer {
       justify-content: flex-start;
     }
+    // the phone has no band to fight over — the sentence wraps onto its own
+    // line under the name instead of truncating on a narrow one
+    .ns-identity {
+      flex-wrap: wrap;
+      > .ns-who {
+        max-width: 100%;
+      }
+      > .ns-reminder {
+        flex: 1 1 100%;
+        white-space: normal;
+      }
+    }
     // FT-874: .ns-num dropped from this list — NumberScrub's "night" preset
     // carries its own coarse-pointer sizing (44px height, 64px width, 15px
     // font — same numbers this rule used to apply) inside the component.
     .ns-label {
       font-size: 15px;
     }
-    .ns-free,
+    // FT-1150: `input.` on the free box here too, for the reason spelt out
+    // where the desktop rule sets it — App.vue's app-wide field styling
+    // outscores a bare class and was silently taking this font size.
     .ns-told,
     .ns-lie {
       height: 44px;
       font-size: 15px;
     }
-    .ns-free {
+    .ns-answer input.ns-free {
+      height: 44px;
+      font-size: 15px;
       flex: 1;
       min-width: 140px;
     }
@@ -2664,6 +2874,47 @@ $ns-team-colors: (
 :root .sp-list.sp-list {
   border-color: var(--ns-viewer-color, #400);
   .sp-row {
+    &:hover,
+    &:focus {
+      background: var(--ns-viewer-hover-wash, rgba(255, 0, 0, 0.1));
+    }
+    &.picked {
+      background: var(--ns-viewer-wash, rgba(160, 20, 20, 0.22));
+      box-shadow: inset 0 0 0 1px var(--ns-viewer-color, #a01414);
+    }
+  }
+}
+
+// ── FT-1150: AND THE CHARACTER PICKER, WHICH WAS STILL RED ─────────────────
+// The user's report was about this control: "why is that red stil,, they
+// should all be purple. All storyteller controls should be purple like the
+// player selector one." Its list wore a #400 frame, its rows reddened under
+// the pointer and its chosen row wore the blood wash — while the seat picker
+// standing beside it, and the settings dropdowns above it (FT-1108), were
+// already plum.
+//
+// It joins the SAME block rather than getting a recipe of its own, for both
+// of the reasons this block exists. `.cp-list` is hoisted to `document.body`
+// by the same `golem/floatingPicker` mixin that hoists `.sp-list` — the two
+// pickers share that shell — so a scoped `::v-deep` could not reach it
+// either. And routing it through the same three custom properties means the
+// two pickers on one row cannot drift: one definition, one colour, and the
+// character picker answers "who is looking" exactly as its neighbour does.
+//
+// `.cp-*` are CharacterPicker's own class names, used nowhere else in the app
+// (checked, same as `.sp-*`), and that component is mounted by this file
+// alone — so reaching them globally here is safe.
+:root .cp-trigger.cp-trigger {
+  border-color: var(--ns-viewer-color, #3d3d3d);
+  &:hover,
+  &.open {
+    border-color: var(--ns-viewer-color, #400);
+  }
+}
+
+:root .cp-list.cp-list {
+  border-color: var(--ns-viewer-color, #400);
+  .cp-row {
     &:hover,
     &:focus {
       background: var(--ns-viewer-hover-wash, rgba(255, 0, 0, 0.1));
