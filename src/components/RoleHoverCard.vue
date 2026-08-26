@@ -26,7 +26,21 @@
       v-if="iconSrc"
     ></span>
     <span class="txt">
-      <b>{{ role.name }}</b>
+      <!-- FT-1171 (user): "lets make role names the color of their team and
+           after it put a · [role type icon] [role type]". The card already
+           knew the team — it wore it on the BORDER, which is a colour you
+           read only by comparison, and only if two cards are open at once.
+           Saying it costs one line and answers the question the border was
+           gesturing at. The name takes the team's own ink, then the glyph and
+           the word, so a reader gets the fact three ways: colour for the
+           glance, mark for the scan, word for certainty. -->
+      <b class="rhc-name">{{ role.name }}</b>
+      <span class="rhc-team">
+        <span class="rhc-dot">·</span>
+        <img class="rhc-team-mark" v-if="teamMark" :src="teamMark" alt="" />{{
+          teamLabel
+        }}
+      </span>
       <span class="ability" v-if="abilityText">{{ abilityText }}</span>
       <!-- the role's tags as chips (team rides the border, so it stays off
            the chips) -->
@@ -44,6 +58,23 @@ import { mapState } from "vuex";
 import editionJSON from "../editions.json";
 import rolesJSON from "../roles.json";
 import { EDITION_ICONS, edCustom } from "../golem/editionArt";
+// FT-1171: one definition of "the glyph for team X", shared with TownInfo,
+// ScriptView, RoleDrawer and EditionModal rather than copied per surface.
+import { teamGlyph } from "../golem/glyphs";
+
+/** FT-1171: the retired script chip's switch. A named constant rather than a
+ *  literal `false`, so the branch below stays readable code the linter does
+ *  not flag as a constant condition — and so restoring it is one word. */
+const SHOW_SCRIPT_CHIP = false;
+
+/** FT-1171: the five teams in a reader's words. */
+const TEAM_LABELS = {
+  townsfolk: "Townsfolk",
+  outsider: "Outsider",
+  minion: "Minion",
+  demon: "Demon",
+  traveler: "Traveller"
+};
 // FT-887: when a character wakes is decided in ONE place, so the chip on this
 // card and the coin's moon and the workbench's night filter cannot disagree —
 // see golem/nightInfo's wakesOn().
@@ -130,6 +161,18 @@ export default {
       const t = (this.role.team || "").toLowerCase();
       return TEAMS.includes(t) ? t : "townsfolk";
     },
+    /** FT-1171: the team's own mark, from the one definition every other
+     *  surface reads (TownInfo's counts, the build panel's composition row,
+     *  RoleDrawer's group headers). */
+    teamMark() {
+      return teamGlyph(this.teamKey);
+    },
+    /** FT-1171: the team in words. The app spells the travelling folk
+     *  "traveler" in its data and "Traveller" to a reader — the same split
+     *  EndGameOverlay already maps on the way out to the stats server. */
+    teamLabel() {
+      return TEAM_LABELS[this.teamKey] || "";
+    },
     abilityText() {
       return this.role.ability || this.fallbackAbility;
     },
@@ -175,10 +218,21 @@ export default {
       const r = this.role;
       const out = [];
       const chip = (label, icon) => out.push({ label, icon: icon || null });
-      if (EDITION_LABELS[r.edition])
-        chip(EDITION_LABELS[r.edition], EDITION_ICONS[r.edition] || edCustom);
-      else if (LUF_ROLES.has(r.id)) chip("Laissez un Faire", EDITION_ICONS.luf || edCustom);
-      else if (OFFICIAL_IDS.has(r.id)) chip("Experimental", edCustom);
+      // FT-1171 (user): "lets remove the script tag from the hover". Which
+      // script a character came from is a fact about the LIBRARY, not about
+      // the character in front of you — and while you are playing, every
+      // character on the table is from the script you are playing, so the
+      // chip said the same thing on every card. Stood down rather than
+      // deleted, per the house rule: the derivation and its three branches
+      // stay here, behind a dead condition, along with everything they know
+      // about editions.
+      if (SHOW_SCRIPT_CHIP) {
+        if (EDITION_LABELS[r.edition])
+          chip(EDITION_LABELS[r.edition], EDITION_ICONS[r.edition] || edCustom);
+        else if (LUF_ROLES.has(r.id))
+          chip("Laissez un Faire", EDITION_ICONS.luf || edCustom);
+        else if (OFFICIAL_IDS.has(r.id)) chip("Experimental", edCustom);
+      }
       const { first, other, known } = wakesOn(r);
       if (first && other) chip("Wakes every night", moonFull);
       else if (first) chip("Wakes first night", moonFirst);
@@ -349,7 +403,42 @@ $team-colors: (
   @each $team, $color in $team-colors {
     &.team-#{$team} {
       border-color: rgba($color, 0.75);
+      // FT-1171 (user): the NAME takes the team's ink too. The border already
+      // carried it, but a border colour is read by comparison — you need a
+      // second card open to know what it means. On the name it is a fact you
+      // can read from one card. Not the raw token: these run from #1f65ff to
+      // #ce0100 and the darkest of them is unreadable as type on this ground,
+      // so each is lightened toward its own hue rather than any of them being
+      // nudged toward a shared safe grey, which would cost the distinction
+      // the colour exists for.
+      .rhc-name {
+        color: mix(white, $color, 32%);
+      }
     }
+  }
+
+  // FT-1171: the team, in a mark and a word, after the name. Quiet — the name
+  // is the heading and this is its qualifier, so it takes the ability line's
+  // size and sits at the name's baseline rather than starting a line of its
+  // own.
+  .rhc-team {
+    display: inline;
+    margin-left: 7px;
+    font-size: 13px;
+    font-weight: normal;
+    opacity: 0.72;
+    white-space: nowrap;
+  }
+  .rhc-dot {
+    margin-right: 6px;
+    opacity: 0.55;
+  }
+  .rhc-team-mark {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    vertical-align: -2px;
+    margin-right: 5px;
   }
   background: rgba(10, 4, 4, 0.97);
   border: 2px solid #400;
