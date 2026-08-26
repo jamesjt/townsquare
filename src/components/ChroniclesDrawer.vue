@@ -1674,7 +1674,15 @@ export default {
         }
       }
     }
-    &:not(.jump) {
+    // FT-1137 (user: "why is the history faded? it needs to have full
+    // brightness"). This rule dims a ledger ROW that cannot be opened — a
+    // reasonable thing to say about a row. But the unfolded game page is
+    // also an `li` in this list and also carries no `.jump`, so it inherited
+    // the dimming meant for its neighbours: the whole record a user had just
+    // asked to see rendered at 60%. The exclusion is by the body's own class
+    // rather than by adding `.jump` to it, because the body genuinely is not
+    // clickable — the bug was the selector's reach, not the body's nature.
+    &:not(.jump):not(.cr-recbody) {
       opacity: 0.6;
       cursor: default;
     }
