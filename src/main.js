@@ -107,7 +107,12 @@ Vue.directive("blood-scroll", BloodScroll);
 // rides the same-origin /api proxy, so a main-site login is a login here.
 // Best-effort and async; the app boots signed-out and lights up when the
 // answer lands (session.account).
+// FT-1202: the personal prefs watch that same fact — bound BEFORE the /me
+// ask fires, so the boot answer is caught exactly like any later login and
+// the account's saved prefs come down with it (golem/prefs' account sync).
 import { initAccount } from "./golem/account";
+import { bindPrefsAccount } from "./golem/prefs";
+bindPrefsAccount(store);
 initAccount(store);
 
 new Vue({

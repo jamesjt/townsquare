@@ -53,6 +53,35 @@
         >
           <font-awesome-icon :icon="linkCopied ? 'check' : 'link'" />
         </button>
+        <!-- FT-1202 (user): THE SETTINGS GEAR LIVES HERE NOW — "remove it
+             from the main page, and in while a user is hosting a game put it
+             inline with the town name." Every row behind it (Setup panel /
+             Control scheme / Grimoire size) is a storyteller concern, and
+             the storyteller's own panel head is where the storyteller is; the
+             corner strips it used to stand in are stood down (Menu.vue). A
+             player never renders this panel, so the host gate rides for free.
+
+             ABSOLUTE AT `left: 100%`, NOT A FOURTH GRID CELL: FT-1098's
+             three-column grid pins the town name to the disc's axis by
+             making the two flanks the same width — a fourth cell would tip
+             that measured balance. Out of flow, the gear hangs just off the
+             row's right end in every layout without moving what was measured.
+
+             DIMMED TO THE PACK (FT-1202's other ask): the cog art bakes ~20%
+             hotter than its bone siblings — alpha-weighted mean luminance
+             175.0 against ui-chronicle 146.1 / ui-records 145.1 / ui-help
+             147.2 (rig: claude_temp_test/2026-08-26-ft1202-lum.mjs) — so it
+             wears brightness(0.835) at rest (146.13 / 175.0), which lands its
+             mean exactly on the pack's own 146.1. CSS, not a re-bake: the
+             art stays one source, and the trim is visible where it applies. -->
+        <img
+          class="ht-cog"
+          :class="{ on: prefsOpen }"
+          :src="uiCog"
+          alt="Your settings"
+          title="Your settings — this browser, every town"
+          @click="togglePrefs"
+        />
       </h3>
       <input
         v-else
@@ -79,6 +108,17 @@
         renameNote
       }}</small>
     </div>
+
+    <!-- FT-1202: the gear's menu — Menu.vue's settings section moved out
+         whole (see PrefsMenu.vue). It hoists itself to <body> and hangs off
+         the gear's rect, so the host panel's scroll and sheet layouts never
+         shear it; closing is its own outside-click/Escape, plus the gear's
+         second click. -->
+    <PrefsMenu
+      v-if="prefsOpen"
+      :anchor="prefsAnchor"
+      @close="prefsOpen = false"
+    />
 
     <!-- FT-888: THE BAND. On the desktop disc this wrapper is the ring's
          middle third — the slice between the two caps, where the rows live,
@@ -858,6 +898,11 @@ import uiShufflePlayer from "../assets/ui-shuffle-player.png";
 // a glyph, not an illustration" bar every other row-mark on this panel
 // already clears.
 import uiTown from "../assets/ui-town.png";
+// FT-1202: the settings gear — moved here from the corner strips (Menu.vue,
+// where it and its section stand down), because everything behind it is a
+// storyteller concern and this panel is the storyteller's own surface.
+import uiCog from "../assets/ui-cog.png";
+import PrefsMenu from "./PrefsMenu";
 // DEV shift-Start (2026-08-19): the same transient hint EditionModal, Menu and
 // EndGameOverlay use to say something when a click can't do what it looks
 // like it should — used below so a shift-click that genuinely can't proceed
@@ -945,6 +990,8 @@ export default {
     NightModeRow,
     NumberScrub,
     OptionSelect,
+    // FT-1202: the settings gear's own menu, anchored to the head
+    PrefsMenu,
   },
   // FT-1032: WHICH FACE this panel wears. False (the build face) is every
   // path that existed before; true is App's re-entry judgement — the durable
@@ -996,6 +1043,11 @@ export default {
       uiShufflePlayer,
       // FT-1098: the header's own mark — the TOWN's, not the script's.
       uiTown,
+      // FT-1202: the settings gear beside the name, and its menu's state —
+      // open-or-not plus the gear element the menu hangs its rect off.
+      uiCog,
+      prefsOpen: false,
+      prefsAnchor: null,
       // FT-847: owned-town rename state.
       renaming: false,
       renameDraft: "",
@@ -1592,6 +1644,14 @@ export default {
         this.linkCopied = false;
       }, 1500);
     },
+    /** FT-1202: the gear opens (and closes) its own menu. The anchor is the
+     *  gear element itself — PrefsMenu tracks its rect, and ignores
+     *  mousedowns on it so this toggle is the one closer, not a race with
+     *  the menu's own outside-click. */
+    togglePrefs(ev) {
+      this.prefsAnchor = ev.currentTarget;
+      this.prefsOpen = !this.prefsOpen;
+    },
     startRename() {
       if (!this.ownedKey) return;
       this.renameDraft = this.townName;
@@ -2136,6 +2196,9 @@ export default {
     justify-items: center;
     column-gap: 8px;
     cursor: default;
+    // FT-1202: the gear hangs off this row's right end (`.ht-cog`,
+    // absolute at left: 100%) — the row is its containing block.
+    position: relative;
 
     // only an OWNED town can be renamed — the pencil and the pointer both
     // say so, same affordance the old Town row's `.value` wore.
@@ -2204,6 +2267,59 @@ export default {
     // its drag handle on a phone, rather than growing the visible glyph.
     @media (pointer: coarse) {
       position: relative;
+      &::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+      }
+    }
+  }
+
+  // ── FT-1202: THE SETTINGS GEAR, inline with the town's name ─────────────
+  // Out of the grid on purpose (see the template note): absolute at the
+  // row's right end, so FT-1098's measured three-column axis is untouched.
+  // `em`-sized like the town icon for the same reason it is (the head is
+  // 2.25x taller on the disc than on a phone) — 0.9em keeps it below the
+  // 1.15em town mark: the name's own mark outranks a control hanging off it.
+  //
+  // BRIGHTNESS 0.835 IS THE MEASURED TRIM, not taste: the cog's baked art
+  // means (alpha-weighted) 175.0 against its bone siblings' 146.1/145.1/147.2
+  // — see the template note and the rig it names. 0.835 lands it on 146.1.
+  // Hover multiplies the strip marks' own 1.3 on top of the trim (1.086),
+  // so a hovered gear lifts exactly as much as a hovered strip mark did.
+  .ht-cog {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 10px;
+    width: 0.9em;
+    height: 0.9em;
+    cursor: pointer;
+    filter: drop-shadow(0 1px 2px black) brightness(0.835);
+
+    &:hover {
+      filter: drop-shadow(0 1px 2px black) brightness(1.086);
+    }
+
+    // OPEN: the strip-wide `lit` glow (Menu.vue, FT-1202 — the register the
+    // user kept, taken down half a step), composed over the trim: 0.835 x
+    // 1.06 = 0.885 resting-lit, 0.835 x 1.18 = 0.985 hovered-lit.
+    &.on {
+      filter: drop-shadow(0 1px 2px black)
+        drop-shadow(0 0 5px rgba(202, 166, 98, 0.8)) brightness(0.885);
+    }
+    &.on:hover {
+      filter: drop-shadow(0 1px 2px black)
+        drop-shadow(0 0 7px rgba(226, 201, 138, 0.85)) brightness(0.985);
+    }
+
+    // the same invisible fingertip pad the copy-link wears, same reason
+    @media (pointer: coarse) {
       &::after {
         content: "";
         position: absolute;

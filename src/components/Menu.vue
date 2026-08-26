@@ -29,8 +29,16 @@
         <li class="tabs player-strip" :class="tab" v-if="inGame">
           <!-- FT-857: script + night open the SAME drawer, on their own tab.
                (The old reference / night-order overlays stay in-tree.) -->
+          <!-- FT-1202 (user): "either have all of them glow or none of them
+               (I like the glow)" — the settings cog was the ONLY mark that lit
+               while its surface was open, which made the others read as doors
+               with no lit state. Every mark in this strip now carries `lit`
+               while the thing it opens is up, in one shared rule (see the
+               style block) — the cog's old gold glow, generalized and taken
+               down half a step to the register the user asked for. -->
           <img
             :src="uiScript"
+            :class="{ lit: modals.scriptDrawer }"
             title="The script (reference sheet)"
             @click="openScriptDrawer('team')"
           />
@@ -60,6 +68,7 @@
                The records aggregates live on as the surface's summary band. -->
           <img
             :src="uiQuill"
+            :class="{ lit: modals.chroniclesDrawer }"
             title="Chronicles — the town's whole story"
             @click="toggleModal('chroniclesDrawer')"
           />
@@ -75,6 +84,7 @@
                player's sets their own screen (towerBells.toggleHourLayer). -->
           <img
             :src="uiHourglass"
+            :class="{ lit: tab === 'tower' }"
             title="The tower — how the dial shows the hour"
             @click="setTab('tower')"
           />
@@ -104,8 +114,12 @@
                behind it grew from a key list into the whole usability guide
                (see HotkeyHelp.vue), and the door should promise the guide,
                not a question. The glyph is stood down below, not deleted. -->
+          <!-- FT-1202: the guide's open state lives in App.vue
+               (hotkeyHelpOpen — this strip only emits), so the lit fact
+               arrives as a prop rather than a second flag that could drift. -->
           <img
             :src="uiHelp"
+            :class="{ lit: guideOpen }"
             alt="The guide"
             title="The guide — how this table works"
             @click="$emit('hotkeys')"
@@ -178,8 +192,16 @@
                a browser pref (this repo has been burned gating on the wrong
                party's value). If prefs ever grow a genuinely player-facing
                row, the gear can return for players then. -->
+          <!-- FT-1202 (user): "right now all it is is host control settings
+               lets remove it from the main page, and in while a user is
+               hosting a game put it inline with the town name." The cog LEFT
+               this strip — its one home is the host panel's own head now
+               (HostTools.vue's `.ht-cog`, beside the town's name), because
+               every row behind it is a storyteller concern and the
+               storyteller's panel is where those live. Stood down, not
+               deleted; the section it opened moved out whole (PrefsMenu.vue). -->
           <img
-            v-if="!session.isSpectator"
+            v-if="false"
             class="settings-cog"
             :class="{ on: tab === 'settings' }"
             :src="uiCog"
@@ -188,10 +210,12 @@
             @click="setTab('settings')"
           />
           <!-- FT-1200: the mark is THE ACCOUNT DOOR now — see the entry
-               strip's note. Signed in it wears a quiet gold ring. -->
+               strip's note. (FT-1204 took the signed-in ring off; FT-1202's
+               `lit` is a different fact — the door's own panel standing open,
+               the same open-state glow every mark in this strip now wears.) -->
           <img
             class="golem-mark"
-            :class="{ 'signed-in': !!session.account }"
+            :class="{ 'signed-in': !!session.account, lit: accountOpen }"
             :src="uiGolem"
             alt="Golem account"
             :title="
@@ -227,8 +251,11 @@
              `ui-chronicle.png`, the quill and inkwell, is the app's mark for
              the written ledger and is the button the user pointed at. -->
         <li class="tabs player-strip entry-strip" v-if="!inGame">
+          <!-- FT-1202: `lit` while the surface each mark opens is up — the
+               same one-glow-rule the in-game strip wears (see the note there). -->
           <img
             :src="uiQuill"
+            :class="{ lit: modals.records }"
             title="Chronicle — every town's games (C)"
             @click="openRecords"
           />
@@ -241,6 +268,7 @@
                same App.vue listener answers both strips. -->
           <img
             :src="uiHelp"
+            :class="{ lit: guideOpen }"
             alt="The guide"
             title="The guide — how this table works"
             @click="$emit('hotkeys')"
@@ -308,8 +336,12 @@
                practice — leaving a town clears the spectator flag
                (townRoute's leaveTown), so the person at the doors always
                sees the gear — but the two strips must read the same fact. -->
+          <!-- FT-1202 (user): the cog left the entry screen entirely — "right
+               now all it is is host control settings lets remove it from the
+               main page". Its one home is the host panel's head
+               (HostTools.vue's `.ht-cog`). Stood down, not deleted. -->
           <img
-            v-if="!session.isSpectator"
+            v-if="false"
             class="settings-cog"
             :class="{ on: tab === 'settings' }"
             :src="uiCog"
@@ -318,10 +350,12 @@
             @click="setTab('settings')"
           />
           <!-- FT-1200: the mark is THE ACCOUNT DOOR now — see the entry
-               strip's note. Signed in it wears a quiet gold ring. -->
+               strip's note. (FT-1204 took the signed-in ring off; FT-1202's
+               `lit` is a different fact — the door's own panel standing open,
+               the same open-state glow every mark in this strip now wears.) -->
           <img
             class="golem-mark"
-            :class="{ 'signed-in': !!session.account }"
+            :class="{ 'signed-in': !!session.account, lit: accountOpen }"
             :src="uiGolem"
             alt="Golem account"
             :title="
@@ -427,6 +461,12 @@
              the user asked for was a cleaner SETUP PANEL — a surface used
              constantly, whose marks are learned by the tenth game — and
              that is exactly where the setting is applied. -->
+        <!-- FT-1202: UNREACHABLE NOW, kept whole. The cog that set
+             `tab === 'settings'` left both strips for the host panel's head,
+             and the section it opened moved out with it as its own component
+             (PrefsMenu.vue — the same headline, rows and glass, anchored to
+             the gear's new home). This copy stands down with the cog rather
+             than being deleted, per the house rule. -->
         <template v-if="tab === 'settings'">
           <li class="headline headline-plain">
             <font-awesome-icon :icon="['fas', 'cog']" class="hl-clock" />
@@ -775,6 +815,13 @@ import AccountDoor from "./AccountDoor";
 import OptionSelect from "./OptionSelect";
 export default {
   components: { KeyCap, OptionSelect, AccountDoor },
+  props: {
+    // FT-1202: the guide panel's open fact — it lives in App.vue
+    // (hotkeyHelpOpen; this strip only emits the open), and the lantern's
+    // lit state must follow the panel, not the click. A prop, not a second
+    // flag here that could drift from the one that actually renders it.
+    guideOpen: { type: Boolean, default: false },
+  },
   computed: {
     // ── FT-1174: the three settings, in the dropdown's own shape ──────────
     // `{ id, label, title }` is what prefs.js has always published and what
@@ -1778,6 +1825,34 @@ export default {
 .menu ul li.tabs.player-strip svg.settings-cog.on:hover {
   color: #e2c98a;
 }
+/* FT-1202 (user): "either have all of them glow or none of them (I like the
+   glow), but also bring the settings menu into the same slightly less bright
+   style." The cog's open-state gold — the two rules stood down just below —
+   was the only lit state in the strip; it is EVERY mark's now, one rule, the
+   `lit` class each mark carries while the surface it opens is up (the script
+   drawer, the chronicles, the tower section, the guide, the account panel —
+   and the gear's own menu in its new home, HostTools' head, which wears this
+   same recipe). Taken down half a step on the way, per the ask: the halo
+   0.95→0.8, the lift 1.1→1.06 (hover 1.22→1.18), so an open door reads as
+   lit, not lamped.
+
+   THE GOLEM-MARK TERMS are specificity, not decoration: FT-1204's
+   `.golem-mark.signed-in` rule (four simple selectors) out-ranks a plain
+   `.player-strip img.lit` (three), so a signed-in mark with its panel open
+   would have stayed flat — measured on the first draft of this rule. */
+.player-strip img.lit,
+.player-strip img.golem-mark.signed-in.lit {
+  filter: drop-shadow(0 1px 2px black)
+    drop-shadow(0 0 5px rgba(202, 166, 98, 0.8)) brightness(1.06);
+}
+.player-strip img.lit:hover,
+.player-strip img.golem-mark.signed-in.lit:hover {
+  filter: drop-shadow(0 1px 2px black)
+    drop-shadow(0 0 7px rgba(226, 201, 138, 0.85)) brightness(1.18);
+}
+/* FT-1202: stood down with the strip's cog (its one home is HostTools' head
+   now) — superseded by the strip-wide `lit` rule above. Kept as the record
+   of the register the glow had before it was taken down half a step. */
 .player-strip img.settings-cog.on,
 .player-strip img.settings-cog.on:hover {
   filter: drop-shadow(0 1px 2px black)
@@ -1802,10 +1877,10 @@ export default {
   filter: drop-shadow(0 1px 2px black) brightness(1.25);
 }
 /* FT-1204 (user): "no glow on the golem mark if a user is logged in or
-   not." The gold ring stood down the day it shipped � the mark rests like
+   not." The gold ring stood down the day it shipped � the mark rests like
    its siblings in both states; who-you-are lives one click away in the
    panel. The .signed-in class stays on the element (the panel keys off the
-   same fact) � only the paint is gone. */
+   same fact) � only the paint is gone. */
 .player-strip img.golem-mark.signed-in {
   filter: drop-shadow(0 1px 2px black);
 }

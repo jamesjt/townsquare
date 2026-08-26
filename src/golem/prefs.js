@@ -7,8 +7,14 @@
  *   PERSONAL (here)      belongs to the human at this browser and follows them
  *                        into every town — how the setup panel is dressed, how
  *                        they operate a coin, how big the storyteller's post
- *                        stands. Nothing here is ever synced, and nothing here
- *                        is ever keyed by town.
+ *                        stands. Nothing here is ever synced TO A TOWN, and
+ *                        nothing here is ever keyed by town. (FT-1202 amended
+ *                        the first half of the old "never synced" claim: a
+ *                        SIGNED-IN person's prefs now follow their ACCOUNT
+ *                        through the platform's per-user ui-state bag — see
+ *                        THE ACCOUNT SYNC below. The line this header draws —
+ *                        personal vs the town's — is untouched: the sync is
+ *                        to the person, which is the claim, done properly.)
  *
  *   THIS TOWN'S RULES    the build panel's "Game settings" tab — the night
  *                        checklist, the day bell, the day's length, the
@@ -167,6 +173,137 @@ function notifyPrefs() {
   }
 }
 
+/** The one localStorage write, shared by the local setter and the account
+ *  pull — signed in or out, this browser's stash always holds the latest. */
+function persistLocal() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(prefsState));
+  } catch (e) {
+    // storage off: the choice still works for this session
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FT-1202: THE ACCOUNT SYNC — "it should save per user and remember the
+// settings between logins/locally."
+//
+// The platform's per-user ui-state bag (GET/PATCH /api/me/ui-state — the
+// shared contract in shared/protocols/ui-state.ts) is EXACTLY this: a flat
+// key→JSON bag on the account, last-write-wins, namespaced under "ui." at the
+// route boundary. Our keys are `ui.botc.prefs.<name>` — one wire key per
+// DEFAULT_PREFS field — pulled with the prefix filter so this app never sees
+// the editor's own keys.
+//
+// THE CONTRACT, in the ui-state file's own degradation terms:
+//   signed out    localStorage only, exactly as before this pass.
+//   sign-in       the account bag is the source of truth: keys the server
+//                 holds are applied over local (server wins); keys it lacks
+//                 are SEEDED from local in one PATCH, so a first sign-in
+//                 carries this browser's setup up rather than losing it.
+//   signed in     every setPref writes BOTH — local first (the warm cache),
+//                 then a best-effort PATCH of the one changed key.
+//   sign-out      back to local, which was kept warm all along. Never wiped.
+//
+// Every request is best-effort and SILENT (the bag's own rule: this must
+// never block a render or surface an error) — the worst outcome is a pref
+// that doesn't follow you to the next machine.
+//
+// WHY A STORE SUBSCRIPTION AND NOT POLLING: who-is-signed-in is one fact and
+// it lives in session.account, written only by golem/account.js's four entry
+// points (boot /me, login, signup, logout) — all of which land as ONE
+// mutation, "session/setAccount". Hooking that transition is the whole
+// listener. main.js binds this BEFORE initAccount fires, so the boot answer
+// is caught like any later login.
+// ---------------------------------------------------------------------------
+
+const ACCOUNT_PREFIX = "ui.botc.prefs.";
+const UI_STATE_API = "/api/me/ui-state";
+
+/** The account whose bag we mirror right now, or null signed out. */
+let syncedAccountId = null;
+/** Monotonic pull ticket — a stale response (signed out, or a different
+ *  account signed in, while the fetch was in flight) must land nowhere. */
+let pullSeq = 0;
+
+/** Watch the session's account fact and mirror the transitions. */
+export function bindPrefsAccount(store) {
+  const onAccount = (account) => {
+    const id = account && account.id;
+    if (!id) {
+      // sign-out: back to local (kept warm by persistLocal all along).
+      // pullSeq bumps so an in-flight pull for the old account lands nowhere.
+      syncedAccountId = null;
+      pullSeq++;
+      return;
+    }
+    if (id === syncedAccountId) return;
+    syncedAccountId = id;
+    pullAccountPrefs(id);
+  };
+  store.subscribe((mutation) => {
+    if (mutation.type === "session/setAccount") onAccount(mutation.payload);
+  });
+  // the store is created signed-out and account.js's boot /me lands as the
+  // same mutation — but if a caller ever binds late, honour what's there.
+  onAccount(store.state.session.account);
+}
+
+/** Sign-in: pull the account's prefs (server wins), seed what it lacks. */
+async function pullAccountPrefs(id) {
+  const seq = ++pullSeq;
+  let bag = null;
+  try {
+    const res = await fetch(
+      `${UI_STATE_API}?prefix=${encodeURIComponent(ACCOUNT_PREFIX)}`,
+    );
+    if (!res.ok) return;
+    const body = await res.json();
+    bag = (body && body.state) || {};
+  } catch (e) {
+    return; // unreachable platform: local carries on, silently
+  }
+  // the world moved while we fetched — a different account, or signed out
+  if (seq !== pullSeq || syncedAccountId !== id) return;
+  let changed = false;
+  const seed = {};
+  Object.keys(DEFAULT_PREFS).forEach((key) => {
+    const wireKey = ACCOUNT_PREFIX + key;
+    if (wireKey in bag) {
+      // SERVER WINS where both exist — the account's value is the one that
+      // followed the person here.
+      const clean = sanitize(key, bag[wireKey]);
+      if (clean !== prefsState[key]) {
+        prefsState[key] = clean;
+        changed = true;
+      }
+    } else {
+      // FIRST SIGN-IN (for this key): this browser's value seeds the bag,
+      // so nobody's setup is lost to an empty account.
+      seed[wireKey] = prefsState[key];
+    }
+  });
+  if (changed) {
+    persistLocal();
+    notifyPrefs();
+  }
+  if (Object.keys(seed).length) patchAccountPrefs(seed);
+}
+
+/** One best-effort PATCH — shallow merge on the server, per the contract. */
+function patchAccountPrefs(state) {
+  try {
+    fetch(UI_STATE_API, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state }),
+    }).catch(() => {
+      // the bag's degradation contract: never block, never surface
+    });
+  } catch (e) {
+    // no fetch at all (tests): local already has it
+  }
+}
+
 /** Read the stash over the defaults. Safe to call more than once. */
 export function loadPrefs() {
   let raw = null;
@@ -184,17 +321,16 @@ export function loadPrefs() {
   return prefsState;
 }
 
-/** One write: validate, remember for this BROWSER, tell the surfaces. */
+/** One write: validate, remember for this BROWSER — and, signed in, for
+ *  this PERSON (FT-1202: the same value rides up to the account's ui-state
+ *  bag, best-effort, so it is waiting on their next machine). */
 export function setPref(key, value) {
   const clean = sanitize(key, value);
   if (clean === undefined) return;
   prefsState[key] = clean;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(prefsState));
-  } catch (e) {
-    // storage off: the choice still works for this session
-  }
+  persistLocal();
   notifyPrefs();
+  if (syncedAccountId) patchAccountPrefs({ [ACCOUNT_PREFIX + key]: clean });
 }
 
 // Read once at import. There is no town to wait for and no socket to hear from

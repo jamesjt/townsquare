@@ -449,8 +449,11 @@
     <!-- The strip's records mark asks for the overlay App already owns, rather
          than keeping a second flag of its own that could disagree with the
          pill's door. Its key list is the same arrangement. -->
+    <!-- FT-1202: the strip's lantern glows while the guide is up — the open
+         fact lives here (hotkeyHelpOpen), so it rides down as a prop. -->
     <Menu
       ref="menu"
+      :guide-open="hotkeyHelpOpen"
       @records="statsOpen = true"
       @hotkeys="hotkeyHelpOpen = true"
     ></Menu>
