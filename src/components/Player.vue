@@ -5467,6 +5467,19 @@ li.nominate .player .overlay .nominate-target {
     }
     .icon {
       top: 5%;
+      /* FT-1212 (user: "instead of a plus lets do a note icon, and use that
+         for the hover reminder as well"): the stock sticker plus stands down
+         for ui-note.png — the same note sheet the seat vocabulary's "Add
+         reminder" row now wears (golem/seatActions), so the two surfaces
+         that mean "put a note on this seat" carry one mark. The base
+         `.icon` rule above keeps plus.png untouched: it is `.add`'s face
+         only through this override, and placed reminders paint their own
+         art inline over it either way. The drop-shadow lifts the bone tone
+         off the bronze coin ground — the sticker plus carried its own white
+         keyline for that job; the baked mark borrows the plate rows' answer
+         (their footing shadow) instead. */
+      background-image: url("../assets/ui-note.png");
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
     }
   }
 

@@ -266,6 +266,10 @@ export default {
      * test already trusts; `.player > .name` rides the seat's counter-
      * rotation, so its rect is an honest screen box. The window-top clamp
      * still wins last — a plate cannot be pushed off screen to save a name.
+     * FT-1212: and when that clamp would UNDO the slide (a top-of-window
+     * seat: the slid position lands above MARGIN, the clamp pushes the plate
+     * back down over the nameplate), the plate flips BELOW the nameplate
+     * instead — see the flip note in the body.
      *
      * TWO PASSES, the same one RoleHoverCard and golem/floatingPicker take:
      * the plate's own size is not known until it has laid out once, and a box
@@ -289,15 +293,32 @@ export default {
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
         let top = cy - h / 2;
-        // FT-1211: the nameplate's vote — see the method note. Only ever an
-        // upward slide, and only by the measured overlap.
+        // FT-1211: the nameplate's vote — see the method note. An upward
+        // slide, and only by the measured overlap.
+        //
+        // FT-1212: …UNLESS THE WINDOW TOP TAKES THE SLIDE BACK. For a seat
+        // near the top edge the slide's answer (`nameTop - NAME_GAP - h`)
+        // can land above `MARGIN`, and the final clamp then pushed the plate
+        // back DOWN — over the coin and the very nameplate the slide
+        // existed to clear (the user's screenshot: the plate pinned at the
+        // window top, covering both). So the slide checks its own landing:
+        // when `nameTop - NAME_GAP - h < MARGIN` — the upward slide cannot
+        // buy the gap inside the window — the plate flips BELOW the
+        // nameplate instead, its top at `nameBottom + NAME_GAP`, and the
+        // bottom clamp owns it from there. Flip, not clamp-and-pray: below
+        // the plate, the nameplate and coin both stay clear, which is the
+        // whole of FT-1211's promise. Mid-ring seats never trip the
+        // condition and keep the upward rule untouched.
         const name =
           this.owner && typeof this.owner.querySelector === "function"
             ? this.owner.querySelector(".player > .name")
             : null;
         if (name) {
-          const nameTop = name.getBoundingClientRect().top;
-          if (top + h > nameTop - NAME_GAP) top = nameTop - NAME_GAP - h;
+          const nameBox = name.getBoundingClientRect();
+          if (top + h > nameBox.top - NAME_GAP) {
+            const slid = nameBox.top - NAME_GAP - h;
+            top = slid < MARGIN ? nameBox.bottom + NAME_GAP : slid;
+          }
         }
         this.style = {
           left: `${Math.round(clamp(cx - w / 2, MARGIN, vw - w - MARGIN))}px`,

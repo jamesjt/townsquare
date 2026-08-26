@@ -84,6 +84,30 @@ import uiMoveRole from "../assets/ui-move-role.png";
 import uiNominateHand from "../assets/ui-nominate-hand.png";
 
 /**
+ * ── FT-1212: TWO MORE ROWS LEAVE THE STOCK SET ─────────────────────────────
+ *
+ *   kill      ui-dead.png / ui-alive.png — the app's OWN death and life
+ *             marks, the exact pair TownInfo's counts already wear
+ *             (golem/glyphs' COUNT_ICONS.dead/.alive, the bone-tone chrome
+ *             family). faSkull was upstream's word for death; this app
+ *             already says it in its own paint, at 17px, every game. The
+ *             row keeps its per-state swap: the skull kills, the heart
+ *             revives — same two meanings the count strip gives them.
+ *   reminder  ui-note.png — a note sheet, dog-eared corner, writing lines
+ *             knocked out to transparency, baked NEW to the row-mark recipe
+ *             (claude_temp_test/2026-08-26-ft1212-note-bake.mjs) because the
+ *             app had no note mark to reuse: the custom reminder's icon is
+ *             question marks and the add disc wore upstream's stock plus. A
+ *             plus says "more"; what the row puts on a seat is a NOTE, and
+ *             the nameplate-hover add disc (Player.vue) now wears this same
+ *             art so the two surfaces that mean "put a note on this seat"
+ *             say it with one mark.
+ */
+import uiDead from "../assets/ui-dead.png";
+import uiAlive from "../assets/ui-alive.png";
+import uiNote from "../assets/ui-note.png";
+
+/**
  * The seat facts every guard reads. Player.vue builds one of these
  * (`seatActionContext`) and hands it in; nothing here touches a store, a
  * component or the DOM, which is what makes the list testable from a probe
@@ -134,7 +158,10 @@ const ENTRIES = [
   {
     id: "kill",
     slot: 1,
+    // FT-1212: skull/heartbeat stood down for the app's own pair — see the
+    // import note. The swap stays per-state, exactly as the glyphs' was.
     icon: (f) => (f.isDead ? "heartbeat" : "skull"),
+    img: (f) => (f.isDead ? uiAlive : uiDead),
     label: (f) => (f.isDead ? "Revive" : "Kill"),
     hint: (f) =>
       f.isDead
@@ -226,7 +253,9 @@ const ENTRIES = [
   {
     id: "reminder",
     slot: 6,
+    // FT-1212: the plus stood down for the note sheet — see the import note.
     icon: () => "plus",
+    img: () => uiNote,
     label: () => "Add reminder",
     hint: () => "Put a reminder token on this seat",
     /**
