@@ -2156,9 +2156,28 @@ $ns-team-colors: (
   .ns-identity {
     grid-area: identity;
     display: flex;
-    align-items: center;
+    // FT-1157 (user): "its weird that the player name doesn't line up with
+    // the ability name and that all of them don't line up with the role
+    // icon? Can we make then all line up?"
+    //
+    // They did not line up because this row centred BOXES. `.ns-who` is a
+    // column and `.ns-reminder` a single line, so centring made their middles
+    // agree and left their baselines wherever the box heights happened to put
+    // them — and the three pieces are three different type sizes, which is
+    // exactly the case where centring reads as misalignment.
+    //
+    // Baseline is the right axis for text: the role name, the seat name and
+    // the ability sentence now all sit on one line, whatever size each is.
+    // The order number and the icon are not text and have no baseline worth
+    // sharing, so they stay centred against the line they sit beside.
+    align-items: baseline;
     gap: 8px;
     min-width: 0;
+
+    > .ns-ord,
+    > .ns-icon {
+      align-self: center;
+    }
 
     // FT-1150: the ability sentence rides this line now, after the name, and
     // it is the piece that YIELDS. The name is capped at a share of the line
