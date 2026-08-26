@@ -653,7 +653,10 @@ export default {
      instant — the animation is a read of where the coins came from, never a
      wait. No stagger; six coins leaving one edge together read as one thing
      opening. */
-  animation: sr-coin-in 110ms ease-out;
+  /* 110ms -> 60ms (FT-1203, user: "even faster") — at 60 the slide still
+     reads as coming from the rim, but the ring is settled inside the same
+     frame budget as the hover delay itself. */
+  animation: sr-coin-in 60ms ease-out;
 
   &:hover,
   &:focus {
