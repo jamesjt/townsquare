@@ -187,7 +187,22 @@
             title="Your settings — this browser, every town"
             @click="setTab('settings')"
           />
-          <img class="golem-mark" :src="uiGolem" alt="Golem" title="Golem" />
+          <!-- FT-1200: the mark is THE ACCOUNT DOOR now — see the entry
+               strip's note. Signed in it wears a quiet gold ring. -->
+          <img
+            class="golem-mark"
+            :class="{ 'signed-in': !!session.account }"
+            :src="uiGolem"
+            alt="Golem account"
+            :title="
+              session.account
+                ? `Golem — signed in as ${
+                    session.account.name || session.account.email
+                  }`
+                : 'Golem — sign in'
+            "
+            @click="accountOpen = true"
+          />
         </li>
 
         <!-- FT-1159 (user call, 2026-08-25): THE ENTRY SCREEN'S RECORDS MARK —
@@ -253,7 +268,14 @@
                "leave for the main site", which nobody asked for and which
                would be a door out of a running game sitting one pixel from
                the Chronicle. It carries a title and nothing else until
-               somebody says where it should go. -->
+               somebody says where it should go.
+
+               FT-1200: SOMEBODY SAID. The user made the mark the login
+               door — it opens the account panel (AccountDoor.vue) rather
+               than leaving the site, which dissolves the old objection: the
+               door leads to the platform's account, not away from the game.
+               The signed-in ring and the click live on both strips' copies
+               of the img below. -->
           <!-- ── FT-1174 (user): THE COG WEARS THE HOUSE FINISH ─────────────
                "apply the texture to the settings button that we did to the
                other buttons that go up there."
@@ -295,7 +317,22 @@
             title="Your settings — this browser, every town"
             @click="setTab('settings')"
           />
-          <img class="golem-mark" :src="uiGolem" alt="Golem" title="Golem" />
+          <!-- FT-1200: the mark is THE ACCOUNT DOOR now — see the entry
+               strip's note. Signed in it wears a quiet gold ring. -->
+          <img
+            class="golem-mark"
+            :class="{ 'signed-in': !!session.account }"
+            :src="uiGolem"
+            alt="Golem account"
+            :title="
+              session.account
+                ? `Golem — signed in as ${
+                    session.account.name || session.account.email
+                  }`
+                : 'Golem — sign in'
+            "
+            @click="accountOpen = true"
+          />
         </li>
       </ul>
 
@@ -658,6 +695,11 @@
          its own body element, because this lane's predecessor was barred from
          App.vue. Chronicles is mounted by App.vue beside the other drawers,
          so that workaround is retired with the ChatDrawer it carried.) -->
+
+    <!-- FT-1200: the account door — the golem mark's panel. The panel is its
+         own component (sign-in/sign-up/who-am-I all live there); this menu
+         only owns the toggle, exactly like the marks beside it own theirs. -->
+    <AccountDoor v-if="accountOpen" @close="accountOpen = false" />
   </div>
 </template>
 
@@ -724,12 +766,15 @@ import { flashHint } from "../golem/hint";
 // FT-880: the index page's key lettering, shared so the menu's badges and the
 // key list print a key the same way.
 import KeyCap from "./KeyCap";
+// FT-1200: the account door the golem mark opens — sign-in, sign-up and
+// who-am-I all live in the panel; this menu only mounts and toggles it.
+import AccountDoor from "./AccountDoor";
 // FT-1174: the app's own dropdown — the setup panel's and the night sheet's,
 // worn here so the corner menu asks a multi-option setting the same way every
 // other surface does. Used as-is; nothing about the control changed for this.
 import OptionSelect from "./OptionSelect";
 export default {
-  components: { KeyCap, OptionSelect },
+  components: { KeyCap, OptionSelect, AccountDoor },
   computed: {
     // ── FT-1174: the three settings, in the dropdown's own shape ──────────
     // `{ id, label, title }` is what prefs.js has always published and what
@@ -812,6 +857,9 @@ export default {
       // The townless table's door out — held here rather than in the store:
       // it is about this one button's feel, not about the town's state.
       clearArmed: false,
+      // FT-1200: the account door (AccountDoor.vue) — open or not. Panel
+      // state only; who is signed in lives in the store (session.account).
+      accountOpen: false,
       clearTimer: null,
       // The inline ask panel (see its markup for why it exists): null, or
       // { mode, title, note, label, value, placeholder, okText, danger,
@@ -1739,16 +1787,32 @@ export default {
   filter: drop-shadow(0 1px 2px black)
     drop-shadow(0 0 7px rgba(226, 201, 138, 1)) brightness(1.22);
 }
-/* THE HOUSE MARK TAKES NO CLICKS. It sits in a row of doors and is not one
-   (see the entry strip's note), so it sheds the pointer and the hover lift
-   the art in this strip otherwise carries — the only two things that would
-   promise it does something. It keeps the 26px box and the drop shadow, so
-   it still reads as part of the set rather than as a stray sticker. */
-.player-strip img.golem-mark {
-  cursor: default;
-}
+/* FT-1200: THE HOUSE MARK IS THE ACCOUNT DOOR NOW. It spent FT-1168..1197
+   as the one mark in the strip that took no clicks ("a mark, not a door" —
+   the old rule here shed the pointer and the hover lift); the user made it
+   the login door, so it takes the strip's own pointer and hover back.
+
+   SIGNED IN, IT WEARS A QUIET GOLD RING — the settings cog's open-state
+   idiom (a glow, because an image has no `color`), turned down: the cog's
+   glow says "this door is open", this one says "you're in" and has to say
+   it all session without shouting. At 26px a soft 3px halo reads as a rim
+   light rather than a lamp; hover brightens it the way every mark here
+   brightens. */
 .player-strip img.golem-mark:hover {
-  filter: drop-shadow(0 1px 2px black);
+  filter: drop-shadow(0 1px 2px black) brightness(1.25);
+}
+.player-strip img.golem-mark.signed-in {
+  /* two gold layers — a tight bright rim plus a wider bloom — because one
+     3px halo vanished into the dark strip at 26px (measured on the first
+     proof pass); this is the cog's own on-glow weight. */
+  filter: drop-shadow(0 1px 2px black)
+    drop-shadow(0 0 2px rgba(226, 201, 138, 1))
+    drop-shadow(0 0 6px rgba(202, 166, 98, 0.9));
+}
+.player-strip img.golem-mark.signed-in:hover {
+  filter: drop-shadow(0 1px 2px black)
+    drop-shadow(0 0 3px rgba(236, 216, 158, 1))
+    drop-shadow(0 0 8px rgba(226, 201, 138, 1)) brightness(1.12);
 }
 
 /* FT-1174: A SETTING'S ROW — its name on the left, its answer on the right.

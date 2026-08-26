@@ -3229,8 +3229,14 @@ export default {
       ).trim();
       if (!remembered) {
         // No name on this browser yet — ask in place, then claim.
+        // FT-1200: a signed-in account's name is the DEFAULT, not a cage —
+        // it prefills the ask (typing over it still wins, and the override
+        // is what gets remembered), so an account holder's first claim on a
+        // fresh browser is one Enter rather than a retype.
         this.askName = true;
-        this.claimName = "";
+        this.claimName = (
+          (this.$store.state.session.account || {}).name || ""
+        ).trim();
         this.$nextTick(() => {
           const input = this.$refs.nameInput;
           if (input) input.focus();

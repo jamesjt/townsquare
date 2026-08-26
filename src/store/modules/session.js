@@ -56,7 +56,18 @@ const state = () => ({
   // mutations (store/index.js), which also touch grimoire.isPublic — the same
   // "root mutation reaches into a submodule" shape isEnded documents above.
   grimoireGrants: {},
-  isGrimoireGranted: false
+  isGrimoireGranted: false,
+  // FT-1200: THE ACCOUNT — who this browser is on the platform, or null.
+  // `{ id, name, email }`, written only by golem/account.js (boot /me, the
+  // door's sign-in/out). Session state, not game state: not synced, not
+  // persisted (the cookie is the persistence), no prevX snapshot.
+  account: null,
+  // FT-1200: THE HOST'S SEAT-ACCOUNT LEDGER — playerId → accountId for every
+  // claimant who offered one (socket.js's "accountId" direct frame). Host
+  // side only; players never hold it. Resolved through each seat's live
+  // `player.id` at record time (EndGameOverlay), so a stale entry from a
+  // refused or abandoned claim is inert. Transient like grimoireGrants above.
+  seatAccounts: {}
 });
 
 const getters = {};
@@ -81,6 +92,22 @@ const mutations = {
   setVoteHistoryAllowed: set("isVoteHistoryAllowed"),
   claimSeat: set("claimedSeat"),
   distributeRoles: set("isRolesDistributed"),
+  // FT-1200: the platform account (or null on sign-out) — see the state note.
+  setAccount: set("account"),
+  // FT-1200: one claimant's account offer, keyed by the playerId their claim
+  // rides under (exact case — it must match the `player.id` the host's
+  // roster holds, which is the same value from the same claim frame).
+  // A null accountId is a retraction: vacating a seat, or a guest claiming.
+  setSeatAccount(state, [playerId, accountId]) {
+    if (!playerId || typeof playerId !== "string") return;
+    const next = { ...state.seatAccounts };
+    if (accountId && typeof accountId === "string") {
+      next[playerId] = accountId;
+    } else {
+      delete next[playerId];
+    }
+    state.seatAccounts = next;
+  },
   setSessionId(state, sessionId) {
     // Golem fork: dashes and underscores are legal town-name characters (our
     // relay lowercases but never strips), and readable minted names like

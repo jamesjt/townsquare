@@ -103,6 +103,13 @@ Vue.config.productionTip = false;
 import BloodScroll from "./golem/bloodScrollbar";
 Vue.directive("blood-scroll", BloodScroll);
 
+// Golem fork (FT-1200): ask the platform who this browser is — the cookie
+// rides the same-origin /api proxy, so a main-site login is a login here.
+// Best-effort and async; the app boots signed-out and lights up when the
+// answer lands (session.account).
+import { initAccount } from "./golem/account";
+initAccount(store);
+
 new Vue({
   render: (h) => h(App),
   store,

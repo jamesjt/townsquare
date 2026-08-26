@@ -68,11 +68,22 @@ export const GUIDE_SECTIONS = [
       },
       {
         // Menu.vue entry strip: quill → Chronicle page, cog → prefs,
-        // golem-mark cursor:default
+        // golem-mark → AccountDoor (FT-1200)
         lead: "The corner marks",
         note:
-          "The quill opens the Chronicle, the cog your own settings. " +
-          "The golem is the house's signature — it takes no clicks.",
+          "The quill opens the Chronicle, the cog your own settings, and " +
+          "the golem is the account door — sign in, or see who you are.",
+      },
+      {
+        // FT-1200: AccountDoor.vue (the golem mark, both strips); the name
+        // prefills Intro's join field and the first-claim ask (a default,
+        // not a cage); recorded games carry each claimed seat's account id
+        // (EndGameOverlay → the stats POST), guests record as guests.
+        lead: "Your account",
+        note:
+          "Signing in makes your name follow you to every table, and games " +
+          "you play count toward your own record. No account? Guests play " +
+          "exactly the same — games just aren't yours to look back on.",
       },
     ],
   },

@@ -809,7 +809,12 @@ export default {
     openJoin() {
       this.mode = "join";
       this.recentEnterTowns = listTowns().slice(0, 3);
-      this.joinName = localStorage.getItem("golem.playerName") || "";
+      // FT-1200: the remembered name leads; a signed-in account's name is
+      // the fallback default (a default, not a cage — typing over it wins,
+      // and what's typed is what gets remembered).
+      this.joinName =
+        localStorage.getItem("golem.playerName") ||
+        ((this.$store.state.session.account || {}).name || "").trim();
       this.watchTowns();
       this.refreshMeta();
     },

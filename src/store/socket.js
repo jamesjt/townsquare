@@ -267,6 +267,16 @@ class LiveSession {
       case "claim":
         this._updateSeat(params);
         break;
+      case "accountId":
+        // FT-1200: a claimant's account offer, arriving on the direct lane
+        // (see claimSeat). Host-only — a player's client has no ledger to
+        // write, and nothing ever sends this frame TO a player anyway.
+        // `params` is [playerId, accountId|null]; the mutation validates
+        // shapes and treats null as a retraction.
+        if (this._isSpectator) return;
+        if (!Array.isArray(params)) return;
+        this._store.commit("session/setSeatAccount", params);
+        break;
       case "ping":
         this._handlePing(params);
         break;
@@ -675,6 +685,19 @@ class LiveSession {
         fabled: fabled.map((f) => this._store.state.fabled.get(f.id) || f),
       });
     }
+    // FT-1200: RE-OFFER THE ACCOUNT to a host that may be new. The host's
+    // seat-account ledger (session.seatAccounts) is in-memory only, so a
+    // storyteller's reload starts it empty — and a reload is exactly when
+    // every seated player is sent a fresh gamestate. If this client is
+    // signed in and holds a chair in the roster that just arrived, tell the
+    // host again. Direct to the host, never broadcast, and idempotent (the
+    // ledger write is a plain map set), so the occasional resync-triggered
+    // repeat costs one tiny frame.
+    const me = this._store.state.session.playerId;
+    const account = this._store.state.session.account;
+    if (account && me && gamestate.some((seat) => seat.id === me)) {
+      this._sendDirect("host", "accountId", [me, account.id]);
+    }
   }
 
   /**
@@ -1008,6 +1031,20 @@ class LiveSession {
       // it (and, before this fix, only one of them bothering to).
       const name = (localStorage.getItem("golem.playerName") || "").trim();
       this._send("claim", [seat, this._store.state.session.playerId, name]);
+      // FT-1200: THE ACCOUNT RIDES BESIDE THE CLAIM, NOT INSIDE IT. The claim
+      // frame above is a broadcast — every client in the town sees it — and
+      // the account id is the host's business only (it exists so the finished
+      // game records to the right person). The relay already carries a
+      // private lane ("direct", routed by playerId and never echoed to
+      // anyone else — see server/index.js's direct branch and the existing
+      // `_sendDirect("host", …)` bye/nightAction frames), so the id takes
+      // that lane. Sent on vacate too (seat < 0, id null) so standing up
+      // retracts the offer; a guest's claim sends null, which writes nothing.
+      const account = this._store.state.session.account;
+      this._sendDirect("host", "accountId", [
+        this._store.state.session.playerId,
+        seat >= 0 && account ? account.id : null,
+      ]);
     }
   }
 

@@ -100,7 +100,17 @@ export default {
             role.team === "minion" || role.team === "demon" ? "evil" : "good",
           roleIdFinal: role.id,
           roleType: ROLE_TYPES[role.team],
-          survived: !player.isDead
+          survived: !player.isDead,
+          // FT-1200: WHOSE game this seat was, when the claimant said so.
+          // The host's ledger (session.seatAccounts, written by the private
+          // "accountId" frames) is keyed by playerId; the seat's live
+          // `player.id` is the claim that actually held — so a guest, an
+          // empty chair, or a stale offer from a refused claim all resolve
+          // to null. The server cross-checks the ids it is given and nulls
+          // any it doesn't know (FT-1199), so a wrong guess cannot attach
+          // a game to nobody's account.
+          accountId:
+            (player.id && (session.seatAccounts || {})[player.id]) || null
         };
         // FT-1163: WHEN it died rides along when we know it. Stamped at the
         // moment the shroud went down (store/deathMoment.js) because that is
