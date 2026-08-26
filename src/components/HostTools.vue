@@ -74,9 +74,17 @@
              wears brightness(0.835) at rest (146.13 / 175.0), which lands its
              mean exactly on the pack's own 146.1. CSS, not a re-bake: the
              art stays one source, and the trim is visible where it applies. -->
+        <!-- FT-1209 (user): the gear is the SHORTCUT now — clicking it opens
+             the setup panel's Control settings tab (and steps back to Script
+             setup if that tab is already up, the closest thing a tab row has
+             to "closed"). Lit while its tab is the active one, the same
+             open-glow rule the strip marks wear (FT-1202). On the re-entry
+             face there is no tab strip, so the gear keeps its old door there
+             — the floating PrefsMenu (see togglePrefs). -->
         <img
+          ref="cog"
           class="ht-cog"
-          :class="{ on: prefsOpen }"
+          :class="{ on: prefsOpen || prefsTab }"
           :src="uiCog"
           alt="Your settings"
           title="Your settings — this browser, every town"
@@ -113,7 +121,14 @@
          whole (see PrefsMenu.vue). It hoists itself to <body> and hangs off
          the gear's rect, so the host panel's scroll and sheet layouts never
          shear it; closing is its own outside-click/Escape, plus the gear's
-         second click. -->
+         second click.
+
+         FT-1209: STOOD DOWN FOR THE BUILD FACE — the three rows live on the
+         Control settings tab now and the gear opens THAT (togglePrefs). This
+         mount survives for ONE case: the re-entry face, which renders the
+         head (and its gear) but no tab strip, so the floating menu stays the
+         returning storyteller's only door to their own settings. `prefsOpen`
+         can only turn true on that face. -->
     <PrefsMenu
       v-if="prefsOpen"
       :anchor="prefsAnchor"
@@ -166,7 +181,17 @@
            settings rows below it stay reachable (`reentry ||`) exactly as they
            were before this pass, because a storyteller mid-game still owns the
            checklist, the bell and the clock. -->
-      <div class="ht-tabs" v-if="!reentry" role="tablist">
+      <!-- FT-1209: the strip right-aligns OVER THE GEAR — `tabInset` is the
+           measured gap between the strip's right edge and the gear's (see
+           alignTabs), so the rightmost tab (Control settings) stands directly
+           above the gear that opens it, one cluster in every layout. -->
+      <div
+        ref="tabs"
+        class="ht-tabs"
+        v-if="!reentry"
+        role="tablist"
+        :style="{ paddingRight: tabInset + 'px' }"
+      >
         <button
           v-for="t in setupTabs"
           :key="t.id"
@@ -751,6 +776,77 @@
         </span>
       </div>
 
+      <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
+         "these options need be right above the gear. and in fact maybe we
+         need to add a third tab? Script setup, game settings, and control
+         settings?" — the three PERSONAL rows (Setup panel / Control scheme /
+         Grimoire size), moved out of the gear's floating menu (PrefsMenu,
+         FT-1202) and rendered in the Game-settings rows' own grammar: one
+         `.ht-set-line` per setting, mark + name + OptionSelect. The STORAGE
+         is untouched — same golem/prefs stash, same account sync; only where
+         the rows render changed. `.ht-settings` is reused deliberately (the
+         two blocks are mutually exclusive v-ifs) so the lines inherit the
+         settings tab's own layout instead of restating it. -->
+      <div class="row ht-settings ht-prefs" v-if="prefsTab">
+        <span class="ht-set-line">
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="font"
+                title="The setup panel's dress — names beside the icons, or icons alone"
+              />
+              <span class="row-name" v-if="!iconsOnly">Setup panel</span>
+            </span>
+            <OptionSelect
+              name="prefs-setup-labels"
+              aria-label="Setup panel labels"
+              :options="setupLabelOptions"
+              :value="prefs.setupIconsOnly"
+              @input="setIconsOnly"
+            />
+          </span>
+        </span>
+        <span class="ht-set-line">
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="mouse-pointer"
+                title="How you operate a seat"
+              />
+              <span class="row-name" v-if="!iconsOnly">Control scheme</span>
+            </span>
+            <OptionSelect
+              name="prefs-control-scheme"
+              aria-label="Control scheme"
+              :options="controlSchemeOptions"
+              :value="prefs.controlScheme"
+              @input="pickScheme"
+            />
+          </span>
+        </span>
+        <span class="ht-set-line">
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="book-open"
+                title="The grimoire, the day's end and the bell — their size"
+              />
+              <span class="row-name" v-if="!iconsOnly">Grimoire size</span>
+            </span>
+            <OptionSelect
+              name="prefs-grimoire-size"
+              aria-label="Grimoire size"
+              :options="grimoireSizeOptions"
+              :value="prefs.grimoireSize"
+              @input="pickGrimoireSize"
+            />
+          </span>
+        </span>
+      </div>
+
       <!-- FT-1045: THE CUSTOM BELL'S SOURCE — the row only Custom shows.
          A link, or an upload that becomes one: either way what the town
          syncs is a URL in the tower config, never audio bytes. The field
@@ -1030,7 +1126,16 @@ import { toggleCallBackPreview } from "../golem/callBack";
 // of them (does each mark wear its name?); the corner cog is the only writer.
 // Note which way this dependency points: a PERSONAL setting dresses a panel
 // whose CONTENTS are the town's, and the panel never writes back.
-import { PREFS_EVENT, prefsState } from "../golem/prefs";
+// FT-1209: the tab's three rows need the option lists and the one writer too
+// — the same imports PrefsMenu holds, reading and writing the same module.
+import {
+  CONTROL_SCHEMES,
+  GRIMOIRE_SIZES,
+  SETUP_LABELS,
+  PREFS_EVENT,
+  prefsState,
+  setPref,
+} from "../golem/prefs";
 
 /**
  * FT-1168: THE TWO TABS. The user's own two names for them, in their order —
@@ -1048,6 +1153,18 @@ const SETUP_TABS = [
     label: "Game settings",
     icon: "cog",
     title: "This town's own rules — the night checklist, the bells, the clock",
+  },
+  // FT-1209 (user): the THIRD tab — the storyteller's own settings, moved in
+  // from the gear's floating menu. `user-cog`, not the gear's own plain cog:
+  // that glyph already names the Game settings tab one leaf over, and two
+  // identical marks on one strip would make the reader tell the tabs apart
+  // by words alone. The person-with-a-gear is the same meaning with the
+  // "yours" said in the mark — which is exactly this tab's line.
+  {
+    id: "prefs",
+    label: "Control settings",
+    icon: "user-cog",
+    title: "Your own settings — this browser, every town",
   },
 ];
 
@@ -1083,6 +1200,15 @@ export default {
     // roster died on the way here, and seeded chairs are what returning
     // players can claim back — an empty square offers them nothing.
     if (this.players.length === 0) this.setSeatCount(7);
+    // FT-1209: the tab strip's alignment over the gear is a measurement (see
+    // alignTabs) — taken once the DOM stands, again on resize (which is also
+    // when the disc gate flips), and again when the display fonts land,
+    // because the tabs' widths are type.
+    this.$nextTick(this.alignTabs);
+    window.addEventListener("resize", this.alignTabs);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(this.alignTabs);
+    }
   },
   watch: {
     // the HOST sees assignments as they land — while building, the first
@@ -1090,19 +1216,31 @@ export default {
     rolesAssigned(n) {
       if (n > 0 && this.grimoire.isPublic) this.$store.commit("toggleGrimoire");
     },
+    // FT-1209: the gear's position is the h3's width — a rename (or the
+    // rename input coming down) moves it; a tab switch re-weights a label
+    // (the chosen leaf is bold). All re-measure after the DOM settles.
+    townName: "queueAlignTabs",
+    renaming: "queueAlignTabs",
+    setupTab: "queueAlignTabs",
+    reentry: "queueAlignTabs",
   },
   data() {
     return {
       // FT-888: the composition readout's static furniture
       COMP_TEAMS,
       TEAM_LABELS,
-      // FT-1168: the two tabs, and which one is showing. Held in `data`, not
+      // FT-1168: the tabs (three since FT-1209), and which one is showing.
+      // Held in `data`, not
       // in the store or a stash: it is where this storyteller is looking
       // right now, not something the town or the browser is owed on the next
       // reload — and Script setup is the honest place to open, because a
       // fresh town has chairs to fill before it has rules to set.
       setupTabs: SETUP_TABS,
       setupTab: "script",
+      // FT-1209: the strip's measured right inset — how far the tabs come in
+      // off the strip's right edge so the last one stands over the gear
+      // (alignTabs writes it; 0 until something is measured).
+      tabInset: 0,
       // FT-1168: this browser's own settings, snapshotted — a plain module
       // object is not reactive; readPrefs refreshes it on PREFS_EVENT, the
       // same shape `tower` below already runs on.
@@ -1176,6 +1314,8 @@ export default {
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTower);
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
+    // FT-1209: the strip's alignment listener (bound in mounted)
+    window.removeEventListener("resize", this.alignTabs);
   },
   computed: {
     // FT-1133: `chat` is here for `gameUnderway` alone — `chat.gameId` is the
@@ -1190,7 +1330,7 @@ export default {
     gameUnderway() {
       return !!(this.chat && this.chat.gameId);
     },
-    // ── FT-1168: the two tabs, and the panel's dress ─────────────────────
+    // ── FT-1168: the tabs (three since FT-1209), and the panel's dress ─────────────────────
     /** The build face, on Script setup. Every row that was `!reentry` is
      *  this now — the same gate, narrowed by which tab is up. */
     scriptTab() {
@@ -1202,6 +1342,31 @@ export default {
      *  shown them. That stays exactly true. */
     settingsTab() {
       return this.reentry || this.setupTab === "settings";
+    },
+    /** FT-1209: the storyteller's OWN settings, as the third tab. Build face
+     *  only — the re-entry face renders no tab strip, and its gear opens the
+     *  floating PrefsMenu instead (see togglePrefs). */
+    prefsTab() {
+      return !this.reentry && this.setupTab === "prefs";
+    },
+    // FT-1209: the three rows' option lists — prefs.js's own vocabulary,
+    // mapped the same way PrefsMenu maps it.
+    setupLabelOptions() {
+      return SETUP_LABELS;
+    },
+    controlSchemeOptions() {
+      return CONTROL_SCHEMES.map((s) => ({
+        value: s.id,
+        label: s.label,
+        title: s.title,
+      }));
+    },
+    grimoireSizeOptions() {
+      return GRIMOIRE_SIZES.map((g) => ({
+        value: g.id,
+        label: g.label,
+        title: g.title,
+      }));
     },
     /** Marks alone, or marks with their names beside them (user's setting,
      *  off the corner cog). Personal, not the town's — see golem/prefs. */
@@ -1766,13 +1931,79 @@ export default {
         this.linkCopied = false;
       }, 1500);
     },
-    /** FT-1202: the gear opens (and closes) its own menu. The anchor is the
-     *  gear element itself — PrefsMenu tracks its rect, and ignores
-     *  mousedowns on it so this toggle is the one closer, not a race with
-     *  the menu's own outside-click. */
+    /** FT-1202 / FT-1209: the gear is the Control settings SHORTCUT. On the
+     *  build face it drives the tab strip — open that tab, or step back to
+     *  Script setup if it is already up (a tab row is never tabless, so the
+     *  default tab is what "closed" means here, the same place the strip
+     *  itself opens on). The RE-ENTRY face renders no strip, so the gear
+     *  keeps its FT-1202 door there: the floating PrefsMenu, anchored to the
+     *  gear element (which ignores mousedowns on its anchor so this toggle
+     *  is the one closer, not a race with the menu's own outside-click). */
     togglePrefs(ev) {
-      this.prefsAnchor = ev.currentTarget;
-      this.prefsOpen = !this.prefsOpen;
+      if (this.reentry) {
+        this.prefsAnchor = ev.currentTarget;
+        this.prefsOpen = !this.prefsOpen;
+        return;
+      }
+      this.setupTab = this.setupTab === "prefs" ? "script" : "prefs";
+    },
+    // FT-1209: the three rows' writers — one line each into golem/prefs, the
+    // same calls PrefsMenu makes (readPrefs hears the echo like every other
+    // surface).
+    setIconsOnly(on) {
+      setPref("setupIconsOnly", on);
+    },
+    pickScheme(id) {
+      setPref("controlScheme", id);
+    },
+    pickGrimoireSize(id) {
+      setPref("grimoireSize", id);
+    },
+    /** FT-1209 (user): "these options need be right above the gear." The
+     *  strip and the gear live in different coordinate systems — the gear
+     *  hangs off the town name's h3 (content-sized and centred on the disc,
+     *  full-width on the rectangle and both sheets), the strip is the band's
+     *  first row — so CSS alone cannot state "the strip's right edge is the
+     *  gear's". This measures the live gap between the two right edges and
+     *  spends it as the strip's own padding-right, so the rightmost tab
+     *  (Control settings) stands directly over the gear in every layout.
+     *
+     *  CLAMPED both ways: never negative (a gear right of the strip's edge —
+     *  the rectangle, where it overhangs the padding — just means no inset),
+     *  and never past what the tabs' own content width leaves (a short town
+     *  name on the disc puts the gear near centre; the tabs stop at the
+     *  strip's left edge rather than overflowing it). Re-measured on resize
+     *  (which also covers the disc gate flipping), on rename (the h3's width
+     *  IS the gear's position), and once the display fonts land (tab widths
+     *  are type).
+     *
+     *  THE TARGET IS CENTRE-OVER-CENTRE — the last tab's midpoint on the
+     *  gear's, not edge-on-edge: the tab is several times the gear's width,
+     *  and an edge-aligned leaf reads as standing NEXT TO the gear's spot
+     *  rather than over it. */
+    alignTabs() {
+      const strip = this.$refs.tabs;
+      const cog = this.$refs.cog;
+      if (!strip || !cog) return;
+      const s = strip.getBoundingClientRect();
+      const g = cog.getBoundingClientRect();
+      if (!s.width || !g.width) return;
+      // the tabs' own natural width — content-sized leaves plus the 4px gaps
+      let group = 0;
+      let lastW = 0;
+      const btns = strip.querySelectorAll(".ht-tab");
+      btns.forEach((b) => {
+        group += b.offsetWidth;
+        lastW = b.offsetWidth;
+      });
+      group += 4 * Math.max(0, btns.length - 1);
+      const maxInset = Math.max(0, s.width - group);
+      const want = s.right - (g.left + g.width / 2) - lastW / 2;
+      this.tabInset = Math.max(0, Math.min(Math.round(want), maxInset));
+    },
+    /** The watcher half of alignTabs — measure after the DOM settles. */
+    queueAlignTabs() {
+      this.$nextTick(this.alignTabs);
     },
     startRename() {
       if (!this.ownedKey) return;
@@ -2128,7 +2359,7 @@ export default {
     margin-bottom: 8px;
   }
 
-  // ── FT-1168: THE TWO TABS ────────────────────────────────────────────────
+  // ── FT-1168: THE TWO TABS (FT-1209: three — Control settings joined) ────────────────────────────────────────────────
   // The panel's OWN segment shape, not a new one: `control-plate` around the
   // pair and `control-cell` inside it is exactly what the night row's
   // Off/Storyteller/Everyone switch was built from (NightModeRow's `.nm-seg` /
@@ -2163,6 +2394,9 @@ export default {
   // NOTHING CHANGES WIDTH. Both tabs stay equal halves of the strip (the
   // rider's own check): the join is drawn with a border and a 2px negative
   // margin, so no tab needs a width of its own to claim the body below it.
+  // (FT-1209 SUPERSEDES the equal halves — three leaves now, content-sized
+  // and clustered at the strip's right end over the gear; see `.ht-tab`'s
+  // own note. The join mechanism is unchanged.)
   //
   // THE PLATE COMES OFF THE GROUP AND GOES ONTO THE CELLS, and that is what
   // the shape costs. `control-plate` around the pair drew one box with both
@@ -2172,24 +2406,57 @@ export default {
   .ht-tabs {
     display: flex;
     align-items: flex-end;
+    // FT-1209 (user): the tabs cluster at the strip's RIGHT end, over the
+    // gear — the strip keeps its full width (the rule runs the whole row and
+    // on under the gear's own x), and the measured `tabInset` padding (see
+    // alignTabs) is what parks the last leaf directly above the gear.
+    justify-content: flex-end;
     gap: 4px;
-    width: 100%;
+    // FT-1209: BELOW THE DISC the strip takes the panel's own side padding
+    // too (the 25px flanks) — three word-bearing leaves are wider than the
+    // rectangle's 370px of content, and every pixel is needed before the
+    // first label clips. Same move .start-dock makes into the sheet's
+    // padding, matched per layout below; the disc resets it (its band has
+    // its own arithmetic).
+    width: calc(100% + 44px);
+    margin: 0 -22px 8px;
     // THE RULE THE ACTIVE TAB BREAKS. Plum, at the alpha the dropdowns'
     // popup edge already uses — quiet enough to read as a seam rather than
     // as a fifth control on a panel that has plenty.
     border-bottom: 2px solid rgba(120, 105, 135, 0.45);
-    margin-bottom: 8px;
+  }
+  // …and the sheets' own flanks are shallower (14px / 12px), so the bleed
+  // matches each one rather than overrunning the screen edge. AFTER the base
+  // rule on purpose: same specificity, later wins.
+  @media (pointer: coarse) and (orientation: portrait) {
+    .ht-tabs {
+      width: calc(100% + 28px);
+      margin: 0 -14px 8px;
+    }
+  }
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    .ht-tabs {
+      width: calc(100% + 24px);
+      margin: 0 -12px 8px;
+    }
   }
   .ht-tab {
     @include control-cell;
     // the cell mixin's seam belongs to a segment; these are separate leaves
     border-right: 0;
-    flex: 1 1 0;
+    // FT-1209: content-sized, not equal halves. FT-1175's "equal halves of
+    // the strip" was the full-width strip's own arithmetic; a right-aligned
+    // cluster sizes each leaf to its label (nowrap below keeps them whole),
+    // and the padding is up from 6 to 8 so three short leaves still read as
+    // targets rather than slivers. Not more than 8: on the disc the three
+    // leaves plus the gear-centring inset (alignTabs) share ~480px, and
+    // every pad pixel is an inset pixel the clamp takes away.
+    flex: 0 1 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 4px 6px;
+    padding: 4px 8px;
     font-size: 85%;
     white-space: nowrap;
     // the leaf: the plate's own ground and radius, top corners only, and no
@@ -2248,6 +2515,11 @@ export default {
     width: 13px;
     height: 13px;
     opacity: 0.8;
+    // FT-1209: HIDDEN below the disc — with three tabs the marks are the
+    // 57px that push the labels past the rectangle's width, and the words
+    // are the tabs' identity where the marks are trim. The disc, with a
+    // whole band to spend, puts them back (see the gate below).
+    display: none;
     // Font Awesome's own two-class width rule outranks a single class — the
     // same fight `.row-mark-fa` documents further down this file.
     &.svg-inline--fa {
@@ -3434,10 +3706,27 @@ export default {
       // …and it is 20px the strip does not miss: the two tabs stay exactly
       // equal halves of whatever width the strip has, so nothing about them
       // becomes different sizes.
+      //
+      // FT-1209 SUPERSEDES THE 20px: the strip is full-band again. The
+      // corner-against-the-ellipse numbers above measured the PAINTED
+      // LEAVES' top corners when the tabs spanned the strip end to end —
+      // but the leaves are content-sized and clustered over the gear now
+      // (alignTabs), nowhere near the strip's ends, and the only thing at
+      // the ends is the 2px bottom rule, which sits ~28px LOWER than the
+      // corners that measured -1.2px — well inside the circle at every disc
+      // size. Meanwhile the three leaves plus the gear-centring inset need
+      // every pixel the band has: the 20px was costing exactly the inset
+      // that parks the last tab over the gear on shorter town names.
       > .ht-tabs {
-        margin-bottom: 6px;
-        width: calc(100% - 20px);
+        margin: 0 0 6px;
+        width: 100%;
         align-self: center;
+        // FT-1209: the disc alone keeps the tab marks — it is the one face
+        // wide enough to carry mark + word on all three leaves (see the
+        // base `.ht-tab-mark`'s own note for why the others fold them).
+        .ht-tab-mark {
+          display: inline-block;
+        }
       }
       // THE WORD "assigned" FOLDS INTO THE VALUE'S TOOLTIP, the second and
       // last thing this disc takes away rather than rearranges (the claimed

@@ -111,17 +111,20 @@ export const GRIMOIRE_SIZES = [
  * The stored value is untouched: still the boolean `setupIconsOnly`, still
  * read the same way by the panel. Only the way it is ASKED changed.
  */
+// FT-1209 (user rider): "these should say icons not marks" — the DISPLAY
+// strings say icons now. The stored value and its key are untouched (they are
+// saved state; renaming them would orphan every stash already written).
 export const SETUP_LABELS = [
   {
     value: false,
-    label: "Names and marks",
-    title: "Every setting on the setup panel says its name beside its mark",
+    label: "Names and icons",
+    title: "Every setting on the setup panel says its name beside its icon",
   },
   {
     value: true,
-    label: "Marks only",
+    label: "Icons only",
     title:
-      "The setup panel shows its marks alone, with no names beside them — for a storyteller who has learned them",
+      "The setup panel shows its icons alone, with no names beside them — for a storyteller who has learned them",
   },
 ];
 

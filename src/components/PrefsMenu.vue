@@ -1,4 +1,14 @@
 <template>
+  <!-- FT-1209 (user): LARGELY STOOD DOWN — the three rows live on the host
+       panel's own THIRD TAB now ("Control settings", HostTools' SETUP_TABS),
+       and the gear beside the town name opens that tab, not this plate. This
+       component keeps ONE live mount: the RE-ENTRY face (HostTools with
+       `reentry` — a game runs, the head and its gear render, the tab strip
+       does not), where it remains the returning storyteller's only door to
+       these settings. FT-1208's above-the-disc placement logic below rides
+       on for that one face rather than retiring: the menu it positions still
+       opens there. Everything else in this file is unchanged, per the house
+       rule — the build face simply never sets `prefsOpen` any more. -->
   <!-- FT-1202 (user): THE SETTINGS MENU, MOVED OUT WHOLE. "right now all it
        is is host control settings lets remove it from the main page, and in
        while a user is hosting a game put it inline with the town name."

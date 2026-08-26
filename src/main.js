@@ -48,6 +48,12 @@ const faIcons = [
   "FileCode",
   "FileUpload",
   "FlagCheckered",
+  // FT-1209: the Control settings tab's three row marks (Setup panel /
+  // Control scheme) and the tab's own leaf mark — the person-with-a-gear,
+  // distinct from the Game settings tab's plain Cog one leaf over.
+  "Font",
+  "MousePointer",
+  "UserCog",
   "HandPaper",
   "HandPointRight",
   "Heartbeat",

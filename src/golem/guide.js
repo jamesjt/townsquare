@@ -143,11 +143,13 @@ export const GUIDE_SECTIONS = [
     foot: "This whole chapter is the storyteller's seat.",
     entries: [
       {
-        // HostTools.vue SETUP_TABS — the two tabs' own titles, verbatim
+        // HostTools.vue SETUP_TABS — the tabs' own titles, verbatim
+        // (FT-1209 added the third: Control settings, the cog's own rows)
         lead: "The setup panel",
         note:
-          "Two tabs: Script setup — the chairs, the script, the characters and " +
-          "who is holding them — and Game settings, this town's own rules.",
+          "Three tabs: Script setup — the chairs, the script, the characters " +
+          "and who is holding them — Game settings, this town's own rules, " +
+          "and Control settings, your own.",
       },
       {
         // HostTools seats scrub + Shuffle people (setup-only, disabled once
@@ -347,10 +349,11 @@ export const GUIDE_SECTIONS = [
           "them the town's.",
       },
       {
-        // prefs.js SETUP_LABELS: Names and marks / Marks only
+        // prefs.js SETUP_LABELS: Names and icons / Icons only (FT-1209
+        // rider renamed the display strings; the stored key is unchanged)
         lead: "Setup panel",
         who: "host",
-        note: "Names and marks, or marks alone once you have learned them.",
+        note: "Names and icons, or icons alone once you have learned them.",
       },
       {
         // prefs.js CONTROL_SCHEMES (see the Seats section for what they do)
