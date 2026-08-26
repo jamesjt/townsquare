@@ -3179,6 +3179,29 @@ video#background {
   .storyteller-post {
     gap: 12px;
 
+    // FT-1190: THE COLUMN'S WIDTH LIVES HERE, ON THE COLUMN. It was written
+    // one level up, at the top of this `#app.grimoire-lg` block, where
+    // `width: var(--sp-w)` did not size the storyteller's column at all — it
+    // sized `#app`, collapsing the whole application box to 150px hard
+    // against the left edge for everyone whose grimoire size is "large".
+    //
+    // The clock face did not follow it, and that is what made the failure
+    // look like a mystery rather than a typo: the art is painted from
+    // `100vw`/`100vh` and `--fpx` reads container units that resolve against
+    // the viewport, so the background and the letters stayed full-window
+    // while everything anchored to #app's own box — the entry doors, the
+    // Host/Join panels, the whole intro layer — laid out inside a 150px
+    // ribbon on the left. Reported as "the UI is shifted far to the left in
+    // preview", and only in SOME browsers, because the grimoire size is a
+    // per-profile preference: a browser that never chose "large" was fine.
+    //
+    // `--sp-w` stays a variable declared on the column, so `.drawer-tab` and
+    // `.post-phase` below still inherit it — they are both inside this
+    // element (the bell and the phase button hang off the book's box by
+    // absolute positioning, but they are still its descendants).
+    --sp-w: 150px;
+    width: var(--sp-w);
+
     .post-bell {
       bottom: calc(100% + 12px);
     }
@@ -3204,8 +3227,12 @@ video#background {
   // width varies with its label ("End day 2" against "End night 12"), so
   // there is no single number to match. Stating it once and having both obey
   // it is the honest version of "as wide as the button".
-  --sp-w: 150px;
-  width: var(--sp-w);
+  //
+  // FT-1190: the two declarations that used to sit HERE — `--sp-w: 150px` and
+  // `width: var(--sp-w)` — have moved into the `.storyteller-post` block
+  // above, which is the column this paragraph is describing. At this level
+  // they were setting the width of #app. The reasoning above is unchanged and
+  // still governs; only the element it lands on is corrected.
 
   .drawer-tab {
     padding: 5px;
