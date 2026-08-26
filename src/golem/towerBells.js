@@ -39,10 +39,12 @@ import bellTwoSound from "../assets/bell-tolls-2.mp3";
 // FT-1051: the shared custom-audio machinery (sanitizer + one-element-per-URL
 // slot) — one helper serving the bell and the call-back, not a copy.
 import { sanitizeAudioUrl, makeCustomSlot } from "./customAudio";
-// FT-1206: the chat levels and the whisper-mark linger choices — the
-// vocabulary is golem/chat's (they are facts about the chat); this file only
-// sanitizes the keys, the same split callBack.js already has with callId.
-import { CHAT_LEVELS, WHISPER_MARK_SECS } from "./chat";
+// FT-1206: the chat levels — the vocabulary is golem/chat's (they are facts
+// about the chat); this file only sanitizes the key, the same split
+// callBack.js already has with callId. (FT-1210: WHISPER_MARK_SECS is no
+// longer imported here — the linger stopped being a preset list and became
+// a free scrub with bounds below, the Day length's own shape.)
+import { CHAT_LEVELS } from "./chat";
 
 /** The two bells the user cut for the tower (FT-979 trimmed and faded them;
  *  the full-length originals live in design/bells/), plus CUSTOM (FT-1045):
@@ -170,6 +172,12 @@ export const DEFAULT_TOWER = {
 export const DAY_LENGTH_MIN = 1;
 export const DAY_LENGTH_MAX = 60;
 
+/** FT-1210: the whisper-plane linger scrub's bounds, in seconds — the same
+ *  shape as the Day length's (0 — Off — is the select's write, never the
+ *  scrub's). */
+export const WHISPER_MARK_SEC_MIN = 1;
+export const WHISPER_MARK_SEC_MAX = 60;
+
 /** The volume dial's bounds, in percent — 0 is silent, 100 is the clip as cut. */
 export const BELL_VOLUME_MIN = 0;
 export const BELL_VOLUME_MAX = 100;
@@ -262,12 +270,16 @@ function sanitize(key, value) {
       return CHAT_LEVELS.some((l) => l.id === value)
         ? value
         : DEFAULT_TOWER.chatLevel;
-    // FT-1206: the linger is one of the offered choices — no scrub here, so
-    // membership rather than a clamp (a clamped 11 would claim a choice the
-    // panel never offered).
+    // FT-1206→FT-1210: the linger was a preset list (0/4/8/15, membership-
+    // checked); it is a free scrub now, so this is dayLengthMin's own clamp.
+    // Old stored values migrate silently: 0 stays Off, 4/8/15 are in range
+    // and pass through unchanged, and parseFloat also absorbs a suffixed
+    // relic like "8s". Garbage falls back to the default, as it always did.
     case "whisperMarkSec": {
-      const n = Math.round(Number(value));
-      return WHISPER_MARK_SECS.includes(n) ? n : DEFAULT_TOWER.whisperMarkSec;
+      const n = Math.round(parseFloat(value));
+      if (!isFinite(n)) return DEFAULT_TOWER.whisperMarkSec;
+      if (n <= 0) return 0;
+      return Math.max(WHISPER_MARK_SEC_MIN, Math.min(WHISPER_MARK_SEC_MAX, n));
     }
     case "whisperCounts":
       return !!value;

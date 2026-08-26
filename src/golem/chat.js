@@ -354,7 +354,11 @@ export const CHAT_LEVELS = [
 ];
 
 /** The linger choices for the whisper marks (seconds); 0 is Off — no plane
- *  is broadcast at all. */
+ *  is broadcast at all. STOOD DOWN by FT-1210: the settings row is Off/On
+ *  plus a free seconds scrub now (towerBells' WHISPER_MARK_SEC_MIN/MAX are
+ *  the bounds), so nothing offers these presets any more. Left in place per
+ *  the house never-delete rule — HostTools' stood-down option list still
+ *  reads it as the record of what the row was. */
 export const WHISPER_MARK_SECS = [0, 4, 8, 15];
 
 /** Are two chairs beside each other on a ring of `size` chairs, wrapping?

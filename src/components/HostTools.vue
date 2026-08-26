@@ -730,23 +730,49 @@
           <!-- FT-1206: THE WHISPER MARKS — the paper plane every browser sees
              when two players whisper (metadata only: seats, never content),
              and how long it rests by the recipient's coin. Off keeps the
-             wire silent. -->
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="paper-plane"
-                title="The whisper planes — how long one rests by the recipient's coin"
+             wire silent. FT-1210 (user): "whisper marks should share the
+             layout and structure of the day timer" — the preset dropdown
+             became the Day timer row's exact anatomy: an Off/On select plus
+             the seconds on the shared NumberScrub, dimmed while Off, unit
+             word trailing, all in one `.ht-set-pair`. -->
+          <span
+            class="ht-set-pair tw-whisper"
+            title="The whisper planes — how long one rests by the recipient's coin"
+          >
+            <span class="tw-lead">
+              <span class="label">
+                <font-awesome-icon
+                  class="row-mark-fa"
+                  icon="paper-plane"
+                  title="The whisper planes"
+                />
+                <span class="row-name" v-if="!iconsOnly">Whisper marks</span>
+              </span>
+              <OptionSelect
+                name="whisper-marks"
+                aria-label="Whisper marks"
+                :options="whisperMarkModeOptions"
+                :value="tower.whisperMarkSec ? 'on' : 'off'"
+                @input="setWhisperMarkMode"
               />
-              <span class="row-name" v-if="!iconsOnly">Whisper marks</span>
             </span>
-            <OptionSelect
-              name="whisper-marks"
-              aria-label="Whisper marks"
-              :options="whisperMarkOptions"
-              :value="String(tower.whisperMarkSec)"
-              @input="pickWhisperMarks"
-            />
+            <!-- the seconds themselves — dimmed while Off, and scrubbing is
+               itself the "on" gesture, exactly as the Day timer's minutes. -->
+            <span
+              class="tw-daylen"
+              :class="{ idle: !tower.whisperMarkSec }"
+              title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
+            >
+              <NumberScrub
+                class="tw-daylen-scrub"
+                :value="tower.whisperMarkSec || whisperSecDraft"
+                :min="whisperSecMin"
+                :max="whisperSecMax"
+                title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
+                @input="setWhisperMarkSec"
+              />
+              <span class="tw-daylen-unit">sec</span>
+            </span>
           </span>
         </span>
 
@@ -1107,6 +1133,9 @@ import {
   // FT-1055: the Day length scrub's bounds.
   DAY_LENGTH_MIN,
   DAY_LENGTH_MAX,
+  // FT-1210: the whisper-plane linger scrub's bounds — the same shape.
+  WHISPER_MARK_SEC_MIN,
+  WHISPER_MARK_SEC_MAX,
   previewBell,
   // FT-1045: the bell buttons preview as they pick, and Custom brings a
   // source row — a validated link, or an upload that becomes one.
@@ -1286,6 +1315,12 @@ export default {
       dayLenMin: DAY_LENGTH_MIN,
       dayLenMax: DAY_LENGTH_MAX,
       dayLenDraft: towerState.dayLengthMin || 10,
+      // FT-1210: the Whisper marks row's same furniture — the linger scrub's
+      // bounds, and what the scrub shows while Off (the last set linger, so
+      // On returns to it rather than to an arbitrary number).
+      whisperSecMin: WHISPER_MARK_SEC_MIN,
+      whisperSecMax: WHISPER_MARK_SEC_MAX,
+      whisperSecDraft: towerState.whisperMarkSec || 8,
       // FT-1045: the custom bell's source row. The draft is what the field
       // shows (it may trail towerState.bellUrl while being typed); the state
       // is the quiet validation verdict ("", "checking", "bad", "ok").
@@ -1455,7 +1490,10 @@ export default {
         title: l.title,
       }));
     },
-    /** FT-1206: the plane's linger — Off, or seconds by the coin. */
+    /** FT-1206: the plane's linger — Off, or seconds by the coin. STOOD
+     *  DOWN by FT-1210 (the row is Off/On + a seconds scrub now, the Day
+     *  timer's anatomy); left in place, never deleted — the record of what
+     *  the preset dropdown offered. */
     whisperMarkOptions() {
       return WHISPER_MARK_SECS.map((s) => ({
         value: String(s),
@@ -1465,6 +1503,24 @@ export default {
             ? "No planes — a whisper leaves no public trace"
             : `The plane rests by the recipient's coin for ${s} seconds`,
       }));
+    },
+    /** FT-1210: Off / On, the Day timer's own two-position shape — the
+     *  VALUE is derived from the seconds, not stored: a linger of 0 IS Off,
+     *  exactly as a day length of 0 is. */
+    whisperMarkModeOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title: "No planes — a whisper leaves no public trace",
+        },
+        {
+          value: "on",
+          label: "On",
+          title:
+            "Every whisper flies a paper plane the whole town sees — seats only, never words",
+        },
+      ];
     },
     /** FT-1206: the Chronicle's whisper tally, on or off. */
     whisperCountOptions() {
@@ -1744,6 +1800,11 @@ export default {
       if (this.tower.dayLengthMin > 0) {
         this.dayLenDraft = this.tower.dayLengthMin;
       }
+      // FT-1210: the whisper linger keeps the same promise — On returns to
+      // the last seconds this town had set.
+      if (this.tower.whisperMarkSec > 0) {
+        this.whisperSecDraft = this.tower.whisperMarkSec;
+      }
     },
     /** One choice made: validate, persist for THIS town, tell the dial. */
     setTower(key, value) {
@@ -1827,8 +1888,24 @@ export default {
     pickChatLevel(id) {
       this.setTower("chatLevel", id);
     },
+    /** FT-1206's preset pick — STOOD DOWN by FT-1210 (the row is the Day
+     *  timer's Off/On + scrub pair now, handled by the two methods below);
+     *  left in place, never deleted. */
     pickWhisperMarks(v) {
       this.setTower("whisperMarkSec", Number(v));
+    },
+    /** FT-1210: the seconds scrubbed (or typed) — a linger being set is a
+     *  linger wanted, so scrubbing while Off also turns the planes on
+     *  (setDayLength's own rule). */
+    setWhisperMarkSec(n) {
+      this.whisperSecDraft = n;
+      this.setTower("whisperMarkSec", n);
+    },
+    /** FT-1210: Off or On, off the row's select — 0, or the draft the scrub
+     *  is showing, so "On returns to the last linger you set" holds exactly
+     *  as the Day timer's Timed does. */
+    setWhisperMarkMode(v) {
+      this.setTower("whisperMarkSec", v === "on" ? this.whisperSecDraft : 0);
     },
     pickWhisperCounts(v) {
       this.setTower("whisperCounts", v === "on");
