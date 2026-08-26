@@ -67,6 +67,63 @@ export async function gameRecord(id) {
   return res.json();
 }
 
+/**
+ * FT-1155: EVERY recorded game, newest first, across every town — one call.
+ *
+ * This is the read the ledger could not make. `GET /games` used to REQUIRE a
+ * town and answer 400 without one, and nothing enumerates the towns that
+ * exist, so "every game on the platform" had to be faked by fanning the
+ * per-town read over whatever towns this browser had happened to visit (see
+ * golem/records). The town parameter is now optional and its absence means
+ * every town; each row already carries its own `townId`, so a mixed list needs
+ * nothing new to stay readable. The server's ceiling is 50 either way.
+ */
+export async function allGames(limit = 50) {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`${API}/games?${qs}`);
+  if (!res.ok) throw new Error(`games failed (${res.status})`);
+  const body = await res.json();
+  return Array.isArray(body.games) ? body.games : [];
+}
+
+/**
+ * FT-1164: THE BREAKDOWN — every recorded game, by script and by role.
+ *
+ * Totals and the good/evil split; then per script its games, its share of the
+ * platform and its own split; then per role within that script how many games
+ * it was in, that as a share of the script, its win rate and when it died.
+ *
+ * The response DOCUMENTS ITSELF: an `about` block carries, in sentences, what
+ * each figure counted — what an unrecorded game length does to a median, why
+ * night and day are never averaged together, what the mode is worth, and where
+ * the small-sample line sits (`about.smallSampleThreshold`). The page reads
+ * that threshold from here rather than keeping its own copy, so the two can
+ * never disagree about which numbers are too thin to read.
+ */
+export async function platformBreakdown() {
+  const res = await fetch(`${API}/stats/breakdown`);
+  if (!res.ok) throw new Error(`breakdown failed (${res.status})`);
+  return res.json();
+}
+
+/**
+ * FT-1164: games of one script containing EVERY one of the named roles, with
+ * the share of the script that is and the split of who won them.
+ *
+ * A QUERY, asked fresh each time, never a table read: 22 roles is 231 pairs
+ * and 1,540 triples, and the only combination worth an answer is the one a
+ * reader just picked.
+ */
+export async function roleCombination(scriptName, roleIds) {
+  const qs = new URLSearchParams({
+    script: scriptName,
+    roles: (roleIds || []).join(","),
+  });
+  const res = await fetch(`${API}/stats/combination?${qs}`);
+  if (!res.ok) throw new Error(`combination failed (${res.status})`);
+  return res.json();
+}
+
 /** Every town together — same shape as townStats. */
 export async function platformStats() {
   const res = await fetch(`${API}/stats/platform`);

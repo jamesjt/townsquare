@@ -8,18 +8,21 @@
  * the player table. That half of the page is genuinely platform-wide and needs
  * nothing from here.
  *
- * The PER-GAME LEDGER is the half the server cannot answer. `GET /games`
- * REQUIRES a `town` query parameter (server/experiences/botc/routes.ts — a
- * missing town is a 400, `missing_town`), and no endpoint lists the towns that
- * exist. So there is no way to ask "every game, newest first, across the
- * platform" — not with a slow call, not with a big one. It is absent.
+ * The PER-GAME LEDGER used to be the half the server could not answer.
+ * `GET /games` REQUIRED a `town` query parameter — a missing one was a 400,
+ * `missing_town` — and nothing enumerates the towns that exist, so "every
+ * game, newest first, across the platform" was a question the API could not be
+ * asked. This file answered it anyway by fanning the per-town read out over
+ * the towns THIS BROWSER had visited, and the page said so on screen: an
+ * honest label on a ledger that was not the platform's.
  *
- * What this browser CAN enumerate is its own town shelf (golem/towns —
- * hosted or joined, ≤12 plus every owned town). Fanning the per-town read out
- * over those ids gives a real cross-town ledger of THE VIEWER'S OWN GAMES,
- * which is the honest thing this page can offer today and is labelled as
- * exactly that on screen. When the server grows a townless `GET /games`, the
- * fan-out below collapses to one fetch and nothing above it changes.
+ * FT-1155 made the town optional, so the fan-out collapsed to one fetch, which
+ * is `platformGames()` below. The ledger is now genuinely every recorded game.
+ *
+ * `knownTownIds` and `crossTownGames` STAY. They are the same shelf read a
+ * viewer's own towns will want when the per-town figures come back (the
+ * players table FT-1161 stood down is scoped to exactly those towns), and the
+ * fan-out is the only code that knows how to merge and sort across towns.
  *
  * Best-effort throughout, per town: an unreachable or empty town contributes
  * nothing and never fails the page (`allSettled`, not `all`) — the same
@@ -27,7 +30,7 @@
  */
 
 import { listTowns } from "./towns";
-import { townGames } from "./stats";
+import { allGames, townGames } from "./stats";
 
 /** How many games one town contributes. The API's own ceiling is 50. */
 const PER_TOWN = 50;
@@ -62,6 +65,17 @@ export async function crossTownGames(ids) {
   // is the only instant every record carries (`startedAt` is optional).
   games.sort((a, b) => whenOf(b) - whenOf(a));
   return games.slice(0, LEDGER_MAX);
+}
+
+/**
+ * FT-1155: EVERY recorded game, newest first, in ONE call. The server sorts
+ * and caps; nothing here has to merge or re-sort, because there is only one
+ * list. The ceiling is the API's own (50), so this is the newest page of the
+ * archive rather than the whole of it — which is what a page wants.
+ */
+export async function platformGames(limit = PER_TOWN) {
+  const games = await allGames(limit);
+  return games.filter((game) => game && game.id);
 }
 
 /** A game's place on the clock — when it ended, or 0 when unreadable. */

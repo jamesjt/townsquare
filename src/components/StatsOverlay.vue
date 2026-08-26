@@ -172,44 +172,84 @@
           No games recorded yet
         </p>
         <template v-else>
+          <!-- FT-1164: EVERY PERCENTAGE CARRIES ITS COUNT. The big number is
+               always the raw one and the share rides in the label beneath it,
+               because a bare "64%" invites a confidence the sample may not
+               support and the count is what tells you whether it does. The
+               last figure is the sample itself: how many of these games
+               recorded how long they ran, which is the denominator every
+               length and death figure further down is taken over. -->
           <ul class="rp-figures">
             <li>
               <b>{{ stats.games }}</b
               ><span>{{ stats.games === 1 ? "game" : "games" }}</span>
             </li>
             <li class="good">
-              <b>{{ stats.byTeam.good }}</b
-              ><span>good wins</span>
+              <b>{{ stats.wins.good }}</b
+              ><span>good wins · {{ pct(stats.winRate.good) }}</span>
             </li>
             <li class="evil">
-              <b>{{ stats.byTeam.evil }}</b
-              ><span>evil wins</span>
+              <b>{{ stats.wins.evil }}</b
+              ><span>evil wins · {{ pct(stats.winRate.evil) }}</span>
             </li>
             <li>
-              <b>{{ goodShare }}%</b><span>good win rate</span>
+              <b>{{ stats.scriptsTotal }}</b
+              ><span>{{
+                stats.scriptsTotal === 1 ? "script" : "scripts"
+              }}</span>
+            </li>
+            <li :class="{ faint: !stats.gamesTimed }">
+              <b>{{ stats.gamesTimed }}</b
+              ><span>of {{ stats.games }} recorded their length</span>
             </li>
           </ul>
           <div class="rp-columns">
-            <div class="rp-col" v-if="stats.byScript && stats.byScript.length">
+            <!-- FT-1164: the script table grew from four columns to seven.
+                 Each rate cell prints "63 · 64%" — the count first, because
+                 that is the fact, and the share second, because that is the
+                 reading of it. A script under the thin line wears the mark
+                 defined in the legend below the table. "Ran" is the median
+                 number of nights, over the games that recorded one; when none
+                 did it reads "no data", never a zero. -->
+            <div class="rp-col rp-col-wide" v-if="stats.scripts.length">
               <h4>Scripts</h4>
               <table class="rp-table">
                 <thead>
                   <tr>
                     <th>Script</th>
                     <th>Games</th>
+                    <th title="Share of every recorded game">Share</th>
                     <th>Good</th>
                     <th>Evil</th>
+                    <th title="Median nights the town reached">Ran</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in stats.byScript" :key="row.scriptName">
-                    <td>{{ row.scriptName }}</td>
+                  <tr v-for="row in stats.scripts" :key="row.scriptName">
+                    <td>
+                      {{ row.scriptName
+                      }}<ThinMark v-if="row.thin" :n="row.games" />
+                    </td>
                     <td>{{ row.games }}</td>
-                    <td class="good">{{ row.goodWins }}</td>
-                    <td class="evil">{{ row.games - row.goodWins }}</td>
+                    <td class="dim">{{ pct(row.share) }}</td>
+                    <td class="good">
+                      {{ row.wins.good }}
+                      <i class="rp-pct">{{ pct(row.winRate.good) }}</i>
+                    </td>
+                    <td class="evil">
+                      {{ row.wins.evil }}
+                      <i class="rp-pct">{{ pct(row.winRate.evil) }}</i>
+                    </td>
+                    <td :class="{ dim: !row.length.n }">
+                      {{ nights(row.length) }}
+                    </td>
                   </tr>
                 </tbody>
               </table>
+              <p class="rp-legend">
+                <ThinMark :n="threshold" bare /> fewer than {{ threshold }}
+                games — the share is real, the rate is not yet worth reading.
+              </p>
             </div>
             <!-- FT-1161 (user): "the players section of this is bad, we
                  shouldn't be publically displaying player info. Users should
@@ -252,18 +292,235 @@
         </template>
       </section>
 
-      <!-- THE PER-GAME LEDGER. Deliberately its own band with its own scope
-           line: the numbers above are every game in the store, these rows are
-           every game from the towns THIS BROWSER has been in — because the
-           games list is a per-town endpoint and no endpoint lists the towns
-           that exist (golem/records' own note). The two claims are different
-           and the page says so rather than letting the heading imply one. -->
+      <!-- ── ROLES, WITHIN THEIR SCRIPT ───────────────────────────────────
+           A role only means anything inside the script it was played on: the
+           Imp's win rate on Trouble Brewing and on a homebrew that also
+           contains it are two different facts about two different games, and
+           averaging them would be a third fact that is true of neither. So
+           there is one table per script and no platform-wide role table at all.
+
+           WIN RATE IS THE PLAINEST THING HERE. A role belongs to a team; the
+           role won when its team won. There is no special case — what the
+           Recluse registers as, what the Drunk believes, are facts about what
+           some other player was told, not about who won — so the page carries
+           no explanation for it and none is needed.
+
+           DEATH DAY IS THE MOST FRAGILE. Night and day are separate columns
+           because within one numbered cycle the town runs night N and then
+           day N: a night-2 kill and a day-2 execution share a number and are
+           not the same moment, and a median over the two mixed would claim
+           they were. Both columns show their own count, so a median over one
+           death is visibly a median over one death. -->
+      <section
+        class="rp-band"
+        v-if="!loading && !error && stats && stats.games"
+      >
+        <h3>Roles</h3>
+        <p class="rp-scope">
+          Per script: how often each role was in play, how often its team won,
+          and when it died. Death figures are taken only over the deaths whose
+          moment was recorded — the count beside each is that sample, and
+          {{ stats.gamesTimed }} of {{ stats.games }} games recorded it.
+        </p>
+        <div
+          class="rp-rolescript"
+          v-for="script in scriptsWithRoles"
+          :key="script.scriptName"
+        >
+          <h4>
+            {{ script.scriptName }} · {{ script.games }}
+            {{ script.games === 1 ? "game" : "games" }}
+          </h4>
+          <div class="rp-scroll">
+            <table class="rp-table rp-roles">
+              <thead>
+                <tr>
+                  <th rowspan="2">Role</th>
+                  <th rowspan="2">Kind</th>
+                  <th rowspan="2" title="Games this role was in play">In</th>
+                  <th rowspan="2" title="Share of this script's games">
+                    Share
+                  </th>
+                  <th rowspan="2">Won</th>
+                  <th rowspan="2">Win rate</th>
+                  <th rowspan="2" title="Seats that did not survive">Died</th>
+                  <th colspan="3" class="rp-group">Died at night</th>
+                  <th colspan="3" class="rp-group">Died by day</th>
+                  <th rowspan="2" title="The most common recorded moment">
+                    Most common
+                  </th>
+                </tr>
+                <tr>
+                  <th class="rp-sub-th" title="Deaths with a recorded moment">
+                    n
+                  </th>
+                  <th class="rp-sub-th">median</th>
+                  <th class="rp-sub-th">mean</th>
+                  <th class="rp-sub-th" title="Deaths with a recorded moment">
+                    n
+                  </th>
+                  <th class="rp-sub-th">median</th>
+                  <th class="rp-sub-th">mean</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="role in script.roles" :key="role.roleId">
+                  <td>{{ roleNameOf(role.roleId) }}</td>
+                  <td class="dim">{{ role.roleType }}</td>
+                  <td>{{ role.games }}</td>
+                  <td class="dim">{{ pct(role.share) }}</td>
+                  <td>{{ role.wins }}</td>
+                  <td>
+                    {{ pct(role.winRate)
+                    }}<ThinMark v-if="role.thin" :n="role.games" />
+                  </td>
+                  <td :class="{ dim: !role.deaths.died }">
+                    {{ role.deaths.died }}
+                  </td>
+                  <td :class="{ dim: !role.deaths.night.n }">
+                    {{ role.deaths.night.n }}
+                  </td>
+                  <td>{{ num(role.deaths.night.median) }}</td>
+                  <td>{{ num(role.deaths.night.mean) }}</td>
+                  <td :class="{ dim: !role.deaths.day.n }">
+                    {{ role.deaths.day.n }}
+                  </td>
+                  <td>{{ num(role.deaths.day.median) }}</td>
+                  <td>{{ num(role.deaths.day.mean) }}</td>
+                  <!-- A TIED MODE IS NOT A FACT and is not printed as one. With
+                       four deaths spread over four moments every one of them is
+                       modal; naming one would invent a typical death out of an
+                       arbitrary pick. When the server says the top count was
+                       shared, this says "tied" and stops. -->
+                  <td :class="{ dim: !role.deaths.mode }">
+                    {{ modeLabel(role.deaths.mode) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="rp-legend">
+            <ThinMark :n="threshold" bare /> fewer than {{ threshold }} games —
+            the rate is not yet worth reading.
+            <template v-if="!script.gamesTimed">
+              No game on this script recorded how long it ran, so every death
+              figure above reads as no data rather than as a zero.
+            </template>
+          </p>
+        </div>
+      </section>
+
+      <!-- ── ROLES TOGETHER ───────────────────────────────────────────────
+           The user's own example: "Trouble Brewing: Fortune Teller, Raven
+           Keeper. And get number of games with both relative to the total for
+           the script, and wins and % wins of games with both."
+
+           A QUESTION ASKED, not a table read. Twenty-two roles is 231 pairs and
+           1,540 triples; the combination worth an answer is the one just
+           picked, so the page asks the server each time rather than the server
+           precomputing an archive nobody reads.
+
+           ALL of the picked roles, not any — a game counts only if it contained
+           every one of them. -->
+      <section
+        class="rp-band"
+        v-if="!loading && !error && stats && stats.games"
+      >
+        <h3>Roles together</h3>
+        <p class="rp-scope">
+          Pick a script and the roles that must all have been in play. The
+          answer is over the games that contained every one of them.
+        </p>
+
+        <div class="rp-combo">
+          <label class="rp-combo-script">
+            <span>Script</span>
+            <select v-model="combo.scriptName" @change="onComboScript">
+              <option
+                v-for="script in scriptsWithRoles"
+                :key="script.scriptName"
+                :value="script.scriptName"
+              >
+                {{ script.scriptName }} ({{ script.games }})
+              </option>
+            </select>
+          </label>
+
+          <p class="rp-state" v-if="!comboRoleChoices.length">
+            No roles have been recorded on this script yet.
+          </p>
+          <div class="rp-chips" v-else>
+            <button
+              v-for="role in comboRoleChoices"
+              :key="role.roleId"
+              class="rp-chip"
+              :class="{ on: combo.roleIds.indexOf(role.roleId) >= 0 }"
+              :disabled="
+                combo.roleIds.length >= maxComboRoles &&
+                combo.roleIds.indexOf(role.roleId) < 0
+              "
+              @click="toggleComboRole(role.roleId)"
+            >
+              {{ roleNameOf(role.roleId) }}
+              <i class="rp-chip-n">{{ role.games }}</i>
+            </button>
+          </div>
+
+          <p class="rp-state" v-if="!combo.roleIds.length">
+            Pick at least one role.
+          </p>
+          <p class="rp-state" v-else-if="combo.loading">Counting the games…</p>
+          <p class="rp-state" v-else-if="combo.error">
+            That query could not be run.
+          </p>
+          <div class="rp-combo-out" v-else-if="combo.result">
+            <ul class="rp-figures">
+              <li>
+                <b>{{ combo.result.games }}</b
+                ><span>
+                  of {{ combo.result.scriptGames }} games ·
+                  {{ pct(combo.result.share) }}
+                </span>
+              </li>
+              <li class="good">
+                <b>{{ combo.result.wins.good }}</b
+                ><span>good wins · {{ pct(combo.result.winRate.good) }}</span>
+              </li>
+              <li class="evil">
+                <b>{{ combo.result.wins.evil }}</b
+                ><span>evil wins · {{ pct(combo.result.winRate.evil) }}</span>
+              </li>
+            </ul>
+            <p class="rp-legend" v-if="combo.result.games === 0">
+              No recorded game on this script had all of them in play at once.
+            </p>
+            <p class="rp-legend" v-else-if="combo.result.thin">
+              <ThinMark :n="combo.result.games" bare />
+              {{ combo.result.games }} games is under the {{ threshold }}-game
+              line. The count is a fact; the win split off it is not yet a
+              pattern.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- THE PER-GAME LEDGER. It used to be its own band with its own,
+         SMALLER claim: the numbers above were every game in the store, while
+         these rows were only the games from the towns THIS BROWSER had been
+         in — because the games list was a per-town endpoint and nothing
+         enumerated the towns that exist.
+
+         FT-1155 made the town optional, so the two claims are finally the
+         same claim: these rows are the newest games on the platform, in one
+         read, and the scope line below says the one true thing rather than
+         apologising for a shortfall. The ceiling is the API's own (50), so
+         this is the newest page of the archive, not the whole of it. -->
       <section class="rp-band">
         <h3>The games</h3>
         <p class="rp-scope">{{ ledgerScope }}</p>
         <p class="rp-state" v-if="ledger.loading">Reading the ledgers…</p>
         <p class="rp-state" v-else-if="!ledger.games.length">
-          No recorded games in the towns this browser has been in.
+          No games have been recorded yet.
         </p>
         <template v-else>
           <table class="rp-table rp-ledger">
@@ -313,13 +570,22 @@ import ChroniclesPortrait from "./ChroniclesPortrait";
 // the Keys panel's C are pixel-identical and move together if the font
 // picker ever changes families.
 import KeyCap from "./KeyCap";
+// FT-1164: the one glyph that says "too few games for this rate to mean
+// anything" — see the component for why marking beats hiding.
+import ThinMark from "./ThinMark";
 import { scriptArtFor } from "../golem/editionArt";
-import { platformStats, gameRecord } from "../golem/stats";
+import {
+  platformStats,
+  platformBreakdown,
+  roleCombination,
+  gameRecord,
+} from "../golem/stats";
 import { catchUp } from "../golem/chat";
 import { boardsOf, logGameIdOf } from "../golem/chronicles";
 import {
   knownTownIds,
   crossTownGames,
+  platformGames,
   ledgerSummary,
   lengthOf,
   whenLabel,
@@ -330,7 +596,7 @@ const TOP_PLAYERS = 15;
 
 export default {
   name: "StatsOverlay",
-  components: { CloseX, ChroniclesPortrait, KeyCap },
+  components: { CloseX, ChroniclesPortrait, KeyCap, ThinMark },
   props: {
     /** The town this browser is standing in, or "" on the entry screen.
      *  It NARROWS NOTHING — the page is platform-scoped by definition; it
@@ -354,6 +620,27 @@ export default {
       /** The merged per-game ledger — see golem/records for what it can and
        *  cannot cover. */
       ledger: { loading: true, games: [], summary: null },
+      /**
+       * FT-1164: THE ROLE-COMBINATION QUESTION and its answer.
+       *
+       * `scriptName` and `roleIds` are the question; `result` is whatever the
+       * server last answered. The answer is fetched on every change rather
+       * than behind a Run button — the question is one cheap query and a
+       * button between a reader and a number they can already see the inputs
+       * of is a step with nothing in it.
+       *
+       * `seq` discards a slow answer that arrives after a faster later one:
+       * clicking three roles quickly fires three queries and only the last
+       * one is still the question being asked.
+       */
+      combo: {
+        scriptName: "",
+        roleIds: [],
+        seq: 0,
+        loading: false,
+        error: false,
+        result: null,
+      },
       /** The opened record: {id, loading, game} or null for the landing. */
       pick: null,
       /** That record's board portraits, read out of its town's log. */
@@ -371,19 +658,46 @@ export default {
     },
     goodShare() {
       if (!this.stats || !this.stats.games) return 0;
-      return Math.round((this.stats.byTeam.good / this.stats.games) * 100);
+      return Math.round(this.stats.winRate.good || 0);
+    },
+    /**
+     * FT-1164: the small-sample line, READ FROM THE RESPONSE rather than kept
+     * here. The server computes every `thin` flag against its own threshold;
+     * a second copy of the number in this file could only ever drift out of
+     * agreement with the flags it is supposed to explain.
+     */
+    threshold() {
+      return (this.stats && this.stats.about.smallSampleThreshold) || 20;
+    },
+    /** Scripts that actually have role rows — a script with none has an empty
+     *  table to offer and is left out of the roles band entirely. */
+    scriptsWithRoles() {
+      const scripts = (this.stats && this.stats.scripts) || [];
+      return scripts.filter((script) => script.roles && script.roles.length);
+    },
+    /** The picked script's roles, most-played first (the server's own order). */
+    comboRoleChoices() {
+      const script = this.scriptsWithRoles.find(
+        (s) => s.scriptName === this.combo.scriptName,
+      );
+      return (script && script.roles) || [];
+    },
+    /** The server's ceiling on one combination, mirrored so the chips can
+     *  disable rather than let a click become a 400. */
+    maxComboRoles() {
+      return 8;
     },
     /** The ledger's honest one-liner: how much it covers, and how typical a
-     *  game in it looks. */
+     *  game in it looks. FT-1155: "the towns this browser has been in" is gone
+     *  from it, because the read behind it is no longer that. */
     ledgerScope() {
       const s = this.ledger.summary;
       if (!s || !s.games) {
-        return "Every game from the towns this browser has been in.";
+        return "The newest recorded games, across every town.";
       }
       const parts = [
-        s.games + (s.games === 1 ? " game" : " games"),
+        "The newest " + s.games + (s.games === 1 ? " game" : " games"),
         "across " + s.towns + (s.towns === 1 ? " town" : " towns"),
-        "this browser has been in",
       ];
       const typical = [];
       if (s.seats !== null) typical.push(s.seats + " seats");
@@ -443,25 +757,158 @@ export default {
       if (this.pick) this.closePick();
       else this.$emit("close");
     },
+    /**
+     * FT-1164: ONE read for the whole landing view. `platformBreakdown()`
+     * carries everything `platformStats()` did — total games, the good/evil
+     * split, the per-script table — and the three things it did not: each
+     * script's share and length, the per-role figures within a script, and
+     * the definitions those numbers were computed under. Two reads would have
+     * meant two totals on one page that could disagree with each other.
+     */
     load() {
       this.loading = true;
       this.error = false;
       this.stats = null;
-      platformStats()
+      platformBreakdown()
         .then((stats) => {
           this.stats = stats;
           this.loading = false;
+          this.primeCombination();
         })
         .catch(() => {
           this.error = true;
           this.loading = false;
         });
     },
-    /** The ledger is its own read and its own failure: the aggregates above
-     *  must still render when every town read misses. */
+    /**
+     * THE STOOD-DOWN PLAYERS TABLE'S READ, kept beside its markup.
+     *
+     * Not called. FT-1161 took the platform-wide players table off this page
+     * because it named people, and FT-1164 took the `players` rows off the
+     * platform endpoint itself — hiding a list in a client is not privacy
+     * while the endpoint still publishes it, so the field is now absent from
+     * what `platformStats()` returns and this would fetch nothing to show.
+     *
+     * It stays because the scoped version of that table is a surface the user
+     * does want ("users should get access to the player info of towns they
+     * have been in"), and when it returns it will call `townStats(id)` —
+     * per town, where names belong — not this. Kept, like the markup, so the
+     * shape is here rather than rebuilt later from memory.
+     */
+    loadStoodDownPlayers() {
+      return platformStats();
+    },
+    /**
+     * FT-1164: a percentage for print — "64.3%", or "—" when there is no rate
+     * to print at all.
+     *
+     * NULL IS NOT ZERO here either. The server sends null for a rate whose
+     * denominator was empty, and rendering that as "0%" would turn "no games
+     * to judge by" into "it never wins", which is the exact class of lie this
+     * whole surface is built to avoid.
+     */
+    pct(value) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+      return value + "%";
+    },
+    /** A median or mean for print, or "—" when the sample was empty. */
+    num(value) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+      return String(value);
+    },
+    /** A script's typical length: the median nights, over the games that
+     *  recorded one. "no data" when none did — never a zero. */
+    nights(length) {
+      if (!length || !length.n || typeof length.median !== "number") {
+        return "no data";
+      }
+      const nights = length.median;
+      return nights + (nights === 1 ? " night" : " nights");
+    },
+    /**
+     * The most common recorded death moment, in words.
+     *
+     * A TIE IS NOT REPORTED AS A MOMENT. When several moments share the top
+     * count — the normal case over a handful of deaths — naming one of them
+     * would invent a typical death out of an arbitrary pick, so this says
+     * "tied" and stops. The medians beside it are the figures to read.
+     */
+    modeLabel(mode) {
+      if (!mode) return "—";
+      if (mode.tied) return "tied";
+      return mode.phase + " " + mode.day + " ×" + mode.count;
+    },
+    /** Open the combination question on the busiest script — the one most
+     *  likely to have an answer worth reading. */
+    primeCombination() {
+      if (this.combo.scriptName) return;
+      const first = this.scriptsWithRoles[0];
+      if (!first) return;
+      this.combo.scriptName = first.scriptName;
+      this.combo.roleIds = [];
+      this.combo.result = null;
+    },
+    /** A different script is a different set of roles — the old picks cannot
+     *  survive it, and an answer about them would be about a question nobody
+     *  is asking any more. */
+    onComboScript() {
+      this.combo.roleIds = [];
+      this.combo.result = null;
+      this.combo.error = false;
+    },
+    toggleComboRole(roleId) {
+      const at = this.combo.roleIds.indexOf(roleId);
+      if (at >= 0) this.combo.roleIds.splice(at, 1);
+      else if (this.combo.roleIds.length < this.maxComboRoles) {
+        this.combo.roleIds.push(roleId);
+      }
+      this.runCombination();
+    },
+    /**
+     * Ask the question. `seq` is the guard against out-of-order answers: each
+     * call claims the next number and an answer is only accepted while its
+     * number is still the current one, so a slow reply for two roles cannot
+     * overwrite a fast reply for three.
+     */
+    runCombination() {
+      const script = this.combo.scriptName;
+      const roles = [...this.combo.roleIds];
+      if (!script || !roles.length) {
+        this.combo.result = null;
+        this.combo.loading = false;
+        this.combo.error = false;
+        return;
+      }
+      const seq = this.combo.seq + 1;
+      this.combo.seq = seq;
+      this.combo.loading = true;
+      this.combo.error = false;
+      roleCombination(script, roles)
+        .then((result) => {
+          if (this.combo.seq !== seq) return;
+          this.combo.result = result;
+          this.combo.loading = false;
+        })
+        .catch(() => {
+          if (this.combo.seq !== seq) return;
+          this.combo.error = true;
+          this.combo.loading = false;
+        });
+    },
+    /**
+     * The ledger is its own read and its own failure: the aggregates above
+     * must still render when this one misses.
+     *
+     * FT-1155: ONE call now. It used to be `crossTownGames(knownTownIds())` —
+     * a fan-out over the towns this browser had visited, because the games
+     * list required a town and nothing enumerated the towns that exist. The
+     * town is optional now, so the ledger is the platform's rather than the
+     * viewer's, and the fan-out it replaces stays in golem/records for the
+     * per-town surfaces that will want it.
+     */
     loadLedger() {
       this.ledger = { loading: true, games: [], summary: null };
-      crossTownGames(knownTownIds())
+      platformGames()
         .then((games) => {
           this.ledger = {
             loading: false,
@@ -472,6 +919,21 @@ export default {
         .catch(() => {
           this.ledger = { loading: false, games: [], summary: null };
         });
+    },
+    /**
+     * THE VIEWER'S OWN CROSS-TOWN LEDGER, stood down.
+     *
+     * Not called. This is what `loadLedger` did before FT-1155 made the town
+     * optional: fan the per-town read out over the towns on this browser's
+     * shelf and merge them. The platform read replaced it here — but the
+     * shelf itself is exactly the scope the per-town player figures are
+     * coming back under ("the towns they have been in"), and this is the only
+     * code that knows how to merge and sort across them. Kept, per the house
+     * never-delete rule, so that surface starts from the working version
+     * rather than a remembered one.
+     */
+    loadViewerTownLedger() {
+      return crossTownGames(knownTownIds());
     },
     openPick(id) {
       if (!id) return;
@@ -678,6 +1140,40 @@ h4 {
   font-size: 13px;
 }
 
+// FT-1164: what a mark on a table MEANS, printed under the table it marks
+// rather than once at the foot of the page. A legend a reader has to go
+// looking for is a legend that does not get read, and the thin mark is the
+// one glyph here whose whole job is to be understood on sight.
+.rp-legend {
+  margin: 8px 0 0;
+  opacity: 0.45;
+  font-size: 12px;
+  max-width: 720px;
+}
+
+// A cell whose value is absent, or zero in the "nothing happened" sense. Dim
+// rather than hidden: the row still has to line up with its neighbours, and a
+// blank cell reads as a rendering fault where a faint one reads as an empty
+// count.
+.dim {
+  opacity: 0.4;
+}
+
+// The share riding beside the count it is a share OF. Small and unemphatic on
+// purpose — the count is the fact and the percentage is the reading.
+.rp-pct {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 4px;
+}
+
+// A headline figure with nothing behind it — "0 of 104 recorded their length"
+// is worth printing and not worth shouting.
+.rp-figures li.faint b {
+  opacity: 0.45;
+}
+
 // THE HEADLINE NUMBERS — the one thing a reader should be able to take in
 // without reading anything.
 .rp-figures {
@@ -729,6 +1225,157 @@ h4 {
   min-width: 0;
   max-width: 620px;
   overflow-x: auto;
+}
+// FT-1164: the scripts table grew from four columns to six and needs the
+// room. Still capped — the width buys columns, never stretched ones.
+.rp-col-wide {
+  flex-basis: 560px;
+  max-width: 820px;
+}
+
+// FT-1164: the roles table is WIDE — fourteen columns, six of them the two
+// death scales — and it must not force the whole page sideways. Its own box
+// scrolls instead, so a narrow window loses the far columns rather than the
+// layout.
+.rp-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+// One block per script. The heading names the script and its game count,
+// because every number under it is a share or a rate against that count.
+.rp-rolescript + .rp-rolescript {
+  margin-top: 26px;
+}
+.rp-rolescript > h4 {
+  margin-top: 0;
+}
+
+.rp-roles {
+  min-width: 860px;
+
+  // The two grouped headers ("Died at night", "Died by day") sit over three
+  // columns each and are CENTRED over them — left-aligned they would read as
+  // labels for their first column alone.
+  .rp-group {
+    text-align: center;
+    padding-left: 14px;
+    padding-right: 14px;
+    border-bottom: none;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  .rp-sub-th {
+    font-size: 11px;
+    opacity: 0.4;
+    letter-spacing: 0.04em;
+  }
+  // Role and Kind read as words; everything after them is a number and lines
+  // up on the right, which the base table already does.
+  th:nth-child(2),
+  td:nth-child(2) {
+    text-align: left;
+    padding-left: 0;
+    padding-right: 14px;
+  }
+}
+
+// THE COMBINATION QUESTION. A script, a set of roles, an answer — laid out
+// down the page in that reading order rather than across it, because the
+// answer is what the reader came for and it belongs at the end of the
+// sentence they just built.
+.rp-combo {
+  max-width: 900px;
+}
+
+.rp-combo-script {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+
+  span {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  select {
+    @include control-plate;
+    font-family: inherit;
+    font-size: 14px;
+    color: #d8cdb4;
+    padding: 4px 10px;
+    cursor: pointer;
+
+    &:focus-visible {
+      @include control-focus-ring;
+    }
+    // The native menu draws on the OS surface, not the page's — without this
+    // the options are dark text on a dark plate in every browser that honours
+    // the control's own colour.
+    option {
+      background: #1a1512;
+      color: #d8cdb4;
+    }
+  }
+}
+
+// THE ROLES, AS CHIPS. Not a multi-select: picking three roles out of
+// twenty-two is a set-building action, and a set the reader can see all of at
+// once is the difference between "which did I choose" and reading it off.
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.rp-chip {
+  @include control-plate;
+  font-family: inherit;
+  font-size: 13px;
+  color: #d8cdb4;
+  padding: 3px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+
+  &:hover:not(:disabled) {
+    color: #fff;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  // A chosen role is FILLED, not merely outlined — the set has to be readable
+  // from across the page, and a border-weight change is not.
+  &.on {
+    background: rgba(232, 178, 58, 0.22);
+    border-color: rgba(232, 178, 58, 0.55);
+    color: #fff;
+  }
+  // At the ceiling, the unchosen chips say so by going quiet rather than by
+  // failing on click.
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+// How many games that role was in — the reason to pick it or not.
+.rp-chip-n {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-combo-out .rp-figures {
+  margin-top: 0;
+  margin-bottom: 8px;
 }
 
 .rp-table {
