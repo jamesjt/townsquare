@@ -5,12 +5,22 @@
        implementation: Deal and Shuffle ask the grimoire drawer to run ITS
        methods, and Dupes is the shared store flag. -->
   <span class="role-acts">
+    <!-- FT-1175 (user): "add labels for the buttons". Four marks in a row
+         with no words was the panel's least readable cluster — Shuffle and
+         Retract in particular are two arrows that mean opposite things.
+
+         THE WORDS OBEY THE ICONS-ONLY PREFERENCE (golem/prefs'
+         `setupIconsOnly`, FT-1168), which exists for exactly this: a
+         storyteller who has learned the marks takes the words away and the
+         row returns, to the pixel, to what it looked like before this pass.
+         Same `.row-name` idiom every other label on the setup panel uses. -->
     <button
       class="ra-act"
       title="Deal the remaining valid roles out to the open seats"
       @click.stop="deal"
     >
       <img :src="dealGlyph" alt="Deal" />
+      <span class="ra-name" v-if="!iconsOnly">Deal</span>
     </button>
     <button
       class="ra-act"
@@ -19,6 +29,7 @@
       @click.stop="shuffle"
     >
       <font-awesome-icon icon="random" />
+      <span class="ra-name" v-if="!iconsOnly">Shuffle</span>
     </button>
     <!-- DUPES. The mark is `copy` — two of the same sheet, one behind the
          other, which is the thing this setting allows: one character sitting
@@ -50,6 +61,7 @@
       @click.stop="allowDup = !allowDup"
     >
       <font-awesome-icon icon="copy" />
+      <span class="ra-name" v-if="!iconsOnly">Dupes</span>
     </button>
     <!-- RETRACT ALL ROLES (FT-943): the inverse of Deal — every seat's
          role goes back to the tray. `undo` rather than a new glyph: RoleTray
@@ -74,6 +86,7 @@
       @click.stop="retract"
     >
       <font-awesome-icon icon="undo" />
+      <span class="ra-name" v-if="!iconsOnly">Retract</span>
     </button>
   </span>
 </template>
@@ -81,16 +94,32 @@
 <script>
 import { mapState } from "vuex";
 import dealGlyph from "../assets/ui-deal.png";
+// FT-1175: the personal "icons only" preference — the same snapshot-plus-event
+// pattern HostTools uses (the module object is not reactive, so each surface
+// holds its own copy and refreshes it on the event).
+import { PREFS_EVENT, prefsState } from "../golem/prefs";
 
 export default {
   name: "RoleActions",
   data() {
     return {
-      dealGlyph
+      dealGlyph,
+      prefs: { ...prefsState }
     };
+  },
+  mounted() {
+    window.addEventListener(PREFS_EVENT, this.readPrefs);
+  },
+  beforeDestroy() {
+    window.removeEventListener(PREFS_EVENT, this.readPrefs);
   },
   computed: {
     ...mapState("players", ["players"]),
+    /** FT-1168's preference, read here for the same reason the setup panel
+     *  reads it: these four buttons are part of that panel's dress. */
+    iconsOnly() {
+      return this.prefs.setupIconsOnly;
+    },
     seatedCount() {
       return this.players.filter(p => p.role && p.role.id).length;
     },
@@ -111,6 +140,11 @@ export default {
     }
   },
   methods: {
+    /** A personal setting changed in the corner menu — re-read the snapshot
+     *  these four buttons' dress is drawn from. */
+    readPrefs() {
+      this.prefs = { ...prefsState };
+    },
     /** Deal and Shuffle are the grimoire drawer's own methods — asked for by
      *  name so there is exactly one of each in the app. */
     withDrawer(fn) {
@@ -176,6 +210,36 @@ export default {
     &.on {
       @include control-lit;
     }
+
+    // FT-1175: A LABELLED BUTTON IS NO LONGER A SQUARE, and this is the whole
+    // of what the words cost. The mixin's `width` is a fixed 34px (42px on a
+    // coarse pointer) because these four were marks; with a word beside the
+    // mark the box has to size to its content, so the fixed width becomes a
+    // MINIMUM and the height is left exactly where the mixin put it.
+    //
+    // `:has()` rather than a class on the button: the label's own `v-if` is
+    // the single source of truth for whether the words are showing, and a
+    // second binding saying the same thing is a second thing to get wrong.
+    // Supported in every browser this fork targets (the fork already ships
+    // `:has()` — see App.vue's own corner-strip rules).
+    &:has(.ra-name) {
+      width: auto;
+      min-width: 34px;
+      padding: 0 9px;
+      gap: 6px;
+      @media (pointer: coarse) {
+        min-width: 42px;
+      }
+    }
+  }
+
+  // The word beside the mark. `.row-name`'s own size and weight on the setup
+  // panel, restated here because a scoped style cannot cross into a child
+  // component — same reason NightModeRow restates its own.
+  .ra-name {
+    font-size: 80%;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
   }
 
   // Dupes is the only TOGGLE in this row — Deal and Shuffle have no off to be

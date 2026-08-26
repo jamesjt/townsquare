@@ -256,6 +256,27 @@ export default new Vuex.Store({
     // placing it anywhere else MOVES it. Shared state so every placing path
     // (drag, click, assign, shuffle) obeys the same rule.
     allowDupRoles: false,
+    /**
+     * FT-1175: THE CHARACTERS THE STORYTELLER HAS SET ASIDE — role ids that
+     * Deal must skip. Empty is the whole script, which is exactly how this
+     * app has always dealt, so the feature costs nothing until it is used.
+     *
+     * IT IS A SET OF EXCLUSIONS, NOT A SET OF INCLUSIONS, and that is forced
+     * rather than chosen: "which roles will be dealt" starts as ALL of them,
+     * so a list of the included ones would have to be written out in full
+     * before Deal worked at all, and a script swap would silently empty it.
+     * A list of what is held back starts empty, means nothing until someone
+     * means something by it, and a script swap simply leaves ids in it that
+     * no longer match anything.
+     *
+     * AN ARRAY, NOT A Set: Vue 2's reactivity does not see into a Set, and
+     * the tray paints one tile per role off this on every change.
+     *
+     * IT GOVERNS DEALING ONLY. An aimed placement — a drag onto a chair, the
+     * tap path, the grimoire drawer — is the storyteller doing it on purpose
+     * and is never refused; see RoleTray's own note.
+     */
+    dealExcluded: [],
     // FT-857: which tab the script drawer opens on — "team" | "first" |
     // "other". The strip's night icon lands on "first".
     scriptDrawerView: "team",
@@ -474,6 +495,20 @@ export default new Vuex.Store({
     toggleImageOptIn: toggle("isImageOptIn"),
     setAllowDupRoles(state, on) {
       state.allowDupRoles = !!on;
+    },
+    /** FT-1175: set a character aside from the deal, or put it back. One
+     *  mutation for both directions — the tray's tiles are a toggle, and a
+     *  pair of add/remove mutations would only give a caller a way to get
+     *  the two out of step. */
+    toggleDealExcluded(state, id) {
+      if (!id) return;
+      const at = state.dealExcluded.indexOf(id);
+      if (at === -1) state.dealExcluded.push(id);
+      else state.dealExcluded.splice(at, 1);
+    },
+    /** Every character back in the deal. */
+    clearDealExcluded(state) {
+      state.dealExcluded = [];
     },
     /** Arm a character. The source seat always resets here, so a pick made
      *  from a list can never inherit the last seat-pick's origin — a caller

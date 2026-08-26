@@ -638,8 +638,22 @@ export default {
       });
       const pool = [];
       Object.keys(need).forEach(team => {
+        // FT-1175: …and the characters the storyteller has set aside in the
+        // build panel's tray are not in the pool. THIS IS THE ONLY PLACE THE
+        // EXCLUSION BITES: Deal is the one path that CHOOSES a character on
+        // the storyteller's behalf, so it is the one path that has to be told
+        // what not to choose. Every aimed placement — a drag onto a chair, the
+        // tap path, this drawer's own click — stays untouched, because a
+        // deliberate act is not a guess that needs correcting.
+        //
+        // A RE-DEAL OF A FULL TOWN (the branch above, which clears every seat
+        // first) therefore drops a set-aside character that was sitting on a
+        // chair and does not deal it again — which is the honest reading of
+        // "re-deal from the whole script" once part of the script has been
+        // held back.
+        const held = this.$store.state.dealExcluded;
         const options = (this.grouped[team] || []).filter(
-          r => this.allowDup || !this.placedCount(r)
+          r => (this.allowDup || !this.placedCount(r)) && !held.includes(r.id)
         );
         const local = options.slice();
         for (let i = 0; i < need[team]; i++) {

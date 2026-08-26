@@ -154,6 +154,46 @@
       <div class="ht-running" v-if="reentry">
         Game running — {{ phaseLine }}
       </div>
+      <!-- the SHARED script picker (user call): pick right here, with the
+         script's OWN art on the trigger; the Almanac card opens the forge -->
+      <!-- ── FT-1175 (user): "put the script row above the roles row." ──────
+         MOVED, not rebuilt — the same row, the same handler, the same styles,
+         lifted above the cast line rather than sitting under it.
+
+         IT ALSO CLEARS THE SEATS ROW, and that is not a liberty taken: the
+         Roles half and the Seats half are ONE row (FT-1090's cast line), so
+         "above the roles" and "above the seats" are the same position. It is
+         the better order anyway — the script decides which characters exist
+         and what seat counts it plays at, which is the fact the two halves
+         below both depend on. The seat-range warning still reads off the
+         picked script and still sits under the row that sets the count. -->
+      <div class="row" v-if="scriptTab">
+        <span class="label">
+          <!-- ui-script.png is the SAME file the top strip's own script door
+             wears (Menu.vue) — not a new asset. It bakes flat neutral grey
+             (mean rgb ~101,101,101) where seat/role/nightcheck bake warm
+             (~154,146,133), the recipe every other row mark in the app
+             converges on independently. ui-script.png is used elsewhere
+             (Menu.vue) so it is not re-baked; `.ht-script-mark`'s filter
+             warms THIS instance only, tuned against the live render to land
+             within ~2 units of the warm family's own mean RGB — see the
+             sampling rig, claude_temp_test/2026-08-19-ft936-sample/. -->
+          <img
+            class="row-mark ht-script-mark"
+            :src="uiScript"
+            alt="Script"
+            title="Script"
+          />
+          <span class="row-name" v-if="!iconsOnly">Script</span>
+        </span>
+        <ScriptPicker
+          class="ht-script-picker"
+          :cards="scriptCards"
+          :picked-id="pickedScriptId"
+          @pick="pickScript"
+        />
+      </div>
+
       <!-- ── FT-1090: THE CAST LINE ─────────────────────────────────────
          ONE row for the two questions that are the same question — how many
          are playing, and who they are (user-approved plan: "seat/team counts
@@ -347,8 +387,17 @@
               <img class="row-mark" :src="uiRole" alt="Roles" title="Roles" />
               <span class="row-name" v-if="!iconsOnly">Roles</span>
             </span>
-            <span class="value" @click="toggleModal('roleDrawer')">
-              {{ rolesAssigned }} / {{ players.length }} assigned
+            <!-- FT-1175: the WORD folds away on the disc, the numbers never
+                 do — see `.ht-role-word` in the disc rules for the
+                 measurement that made it necessary and why this word is the
+                 cheapest thing on the line. -->
+            <span
+              class="value"
+              :title="`${rolesAssigned} of ${players.length} seats have a character`"
+              @click="toggleModal('roleDrawer')"
+            >
+              {{ rolesAssigned }} / {{ players.length }}
+              <span class="ht-role-word">assigned</span>
             </span>
           </span>
           <RoleActions />
@@ -383,41 +432,39 @@
         <span class="plays" v-if="seatWarn.plays">{{ seatWarn.plays }}</span>
       </small>
 
-      <!-- the SHARED script picker (user call): pick right here, with the
-         script's OWN art on the trigger; the Almanac card opens the forge -->
-      <div class="row" v-if="scriptTab">
-        <span class="label">
-          <!-- ui-script.png is the SAME file the top strip's own script door
-             wears (Menu.vue) — not a new asset. It bakes flat neutral grey
-             (mean rgb ~101,101,101) where seat/role/nightcheck bake warm
-             (~154,146,133), the recipe every other row mark in the app
-             converges on independently. ui-script.png is used elsewhere
-             (Menu.vue) so it is not re-baked; `.ht-script-mark`'s filter
-             warms THIS instance only, tuned against the live render to land
-             within ~2 units of the warm family's own mean RGB — see the
-             sampling rig, claude_temp_test/2026-08-19-ft936-sample/. -->
-          <img
-            class="row-mark ht-script-mark"
-            :src="uiScript"
-            alt="Script"
-            title="Script"
-          />
-          <span class="row-name" v-if="!iconsOnly">Script</span>
-        </span>
-        <ScriptPicker
-          class="ht-script-picker"
-          :cards="scriptCards"
-          :picked-id="pickedScriptId"
-          @pick="pickScript"
-        />
-      </div>
-
       <!-- (FT-1090: the ROLES ROW stood here. Its mark, its "N / M assigned"
          value and RoleActions all moved up into the cast line above — see
          the `.ht-cast-roles` half — so the two halves of one statement share
          one line instead of two. Nothing was dropped on the way.) -->
 
-      <!-- ── FT-1099 (user's own pairing, superseding FT-1098's bin-pack) ──────
+      <!-- ── FT-1175 (user): ONE SETTING, ONE ROW. "each of these can
+         probably be their own row now. lots of room."
+
+         SUPERSEDES THE PAIRING BELOW, not its reasoning. FT-1099 named two
+         pairs because four settings had to share a column with the seats,
+         the script, the roles row and the character tray, and a bin-pack was
+         choosing the pairs badly. FT-1168 moved the tray and the cast line
+         onto a different tab, so the constraint that forced any pairing at
+         all is gone — and a pair only ever existed to save height that this
+         tab no longer needs to save.
+
+         FOUR LINES, in the order they were already read in: the night
+         checklist (both its selects, inside its own component), the
+         day-break bell, the day's length with its minutes, the call-back
+         voice. `.ht-set-line` is unchanged as the wrap unit — each still
+         takes its own full-width row via `flex: 1 1 100%` — so this is the
+         same mechanism holding four names instead of two, not a new one.
+
+         The old class names `ht-set-line1`/`ht-set-line2` said "first pair"
+         and "second pair" and would have been lying; they are named for what
+         they hold now.
+
+         WHAT IT COSTS: the settings tab grows by two rows' worth of height.
+         It has no character tray under it — that is the other tab — so the
+         room comes out of slack, not out of anything.
+
+         ── the pairing this replaces, kept for its measurements ────────────
+         FT-1099 (user's own pairing, superseding FT-1098's bin-pack)
          `flex-wrap` bin-packing four units greedily in DOM order (FT-1098)
          paired whichever two happened to fit a line — at the disc's 2560
          width that meant night-mode+day-length, at the floor/1920 it meant
@@ -457,11 +504,13 @@
            the tab when the panel is building, and unconditional on the
            re-entry face, which is exactly where this row already stood. -->
       <div class="row ht-settings" v-if="settingsTab">
-        <span class="ht-set-line ht-set-line1">
+        <span class="ht-set-line ht-set-line-night">
           <!-- FT-860: the night sheet's three-state switch. Its own component so
              the setting travels with the rest of the night code. -->
           <NightModeRow />
+        </span>
 
+        <span class="ht-set-line ht-set-line-bell">
           <!-- FT-1087: THE DAY-BREAK BELL IS ONE SELECT — Off / One / Two /
              Custom — where it was two segments standing side by side, an
              On/Off pair and a which-bell trio. Every state the pair could
@@ -494,7 +543,7 @@
           </span>
         </span>
 
-        <span class="ht-set-line ht-set-line2">
+        <span class="ht-set-line ht-set-line-day">
           <!-- ── FT-1055: THE DAY'S LENGTH — Off, or a minutes value on the
              shared NumberScrub (the Seats row's own gesture code). TOWN
              AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
@@ -546,7 +595,9 @@
               <span class="tw-daylen-unit">min</span>
             </span>
           </span>
+        </span>
 
+        <span class="ht-set-line ht-set-line-call">
           <!-- FT-1051: THE CALL-BACK VOICE — the same merged-select shape as
              the bell above it (two words, so it is the smaller control, but
              the SAME kind of control). -->
@@ -701,13 +752,16 @@
          fold. Grouped, the pair can ride the sheet's bottom edge (see the
          portrait rule in the styles); on a desktop the wrapper is inert. -->
     <div class="start-dock" v-if="!reentry">
+      <!-- FT-1175: the button says WHY it is greyed out, on its own face —
+           see `startLabel` for the three blockers and why the words are as
+           short as they are. It still says "Start game" the moment it can. -->
       <div
         class="start"
-        :class="{ ready: canStart }"
+        :class="{ ready: canStart, blocked: !canStart }"
         @click="start"
         :title="startHint"
       >
-        Start game
+        {{ startLabel }}
       </div>
       <small class="hint">{{ startHint }}</small>
     </div>
@@ -1269,6 +1323,44 @@ export default {
       if (this.rolesAssigned < this.players.length)
         return "Assign roles (the shuffle) before starting.";
       return "Everyone seated and cast — deal the characters.";
+    },
+    /**
+     * FT-1175 (user): "The start game button needs to tell the user why it is
+     * disabled."
+     *
+     * THE REASON WAS ALWAYS THERE AND NOBODY COULD SEE IT. `startHint` above
+     * has named the blocker since this panel was built, but it rides the
+     * button's `title` and a sentence under it — and on the DESKTOP DISC that
+     * sentence is folded away (see `.start-dock .hint` in the disc rules,
+     * where the cap has room for the button or the pair, not both). So the
+     * one layout most storytellers build in showed a greyed slab and nothing
+     * else. FT-1089 is the cost of that class of silence: a refusal nobody
+     * could see hid a real bug for hours.
+     *
+     * IT NAMES THE ACTUAL BLOCKER, in the same order and off the same three
+     * conditions `canStart` tests, so the face and the tooltip can never
+     * disagree about which one is biting:
+     *
+     *   no seats at all              -> "Add seats"
+     *   a chair nobody has claimed   -> "N seats open"
+     *   a seat with no character     -> "Deal roles"
+     *
+     * SHORT BECAUSE THE BUTTON IS A CHORD, NOT A RECTANGLE. On the disc the
+     * dock is `max(150px, 0.583 * fd-rx)` and the 150px floor is set by
+     * "Start game" itself fitting on one line — a wider button pushes its own
+     * bottom corners out past the arc, which this file has re-measured twice
+     * (see `.start-dock`). So the sentence shortens rather than the button
+     * widening, and the full sentence stays one hover away in the `title`
+     * and on the line below wherever that line is shown. "N seats open" is
+     * the one that had to give the most: it is the same fact as "waiting on
+     * N seats to be claimed", said in the width available.
+     */
+    startLabel() {
+      if (this.canStart) return "Start game";
+      if (!this.players.length) return "Add seats";
+      const open = this.coreSeats.filter((p) => !p.id).length;
+      if (open) return `${open} seat${open === 1 ? "" : "s"} open`;
+      return "Deal roles";
     },
   },
   methods: {
@@ -1841,15 +1933,50 @@ export default {
   // inside a row is one setting among several and hugs its content; this is
   // the panel's own divider and the two halves want equal weight. `flex: 1`
   // on the cells is what does it.
+  //
+  // ── FT-1175: THE STRIP BECOMES A FOLDER ─────────────────────────────────
+  //
+  // User: "can we make the script setup and game settings tabs look like they
+  // encapsulate their settings a bit some how?" They read as two buttons
+  // floating above a set of unrelated rows; nothing said the rows belonged to
+  // the lit one.
+  //
+  // THE CLASSIC MOVE, AND IT IS THE RIGHT ONE HERE: a rule runs the full
+  // width under the strip, and the ACTIVE tab breaks it — its own bottom edge
+  // sits ON that rule, in nothing, so the tab and the rows below are one
+  // continuous shape while the other tab stays a closed box behind it.
+  //
+  // WHY A BROKEN LINE AND NOT A DRAWN BOX. The panel lives inside the clock
+  // face's disc, where the ground behind these rows is translucent glass over
+  // the dial art. A filled pane with hard edges would paint a rectangle that
+  // matches nothing behind it — the same argument RoleTray's own edge fade
+  // makes for using a mask rather than a background wash. A hairline sits on
+  // whatever ground it finds.
+  //
+  // NOTHING CHANGES WIDTH. Both tabs stay equal halves of the strip (the
+  // rider's own check): the join is drawn with a border and a 2px negative
+  // margin, so no tab needs a width of its own to claim the body below it.
+  //
+  // THE PLATE COMES OFF THE GROUP AND GOES ONTO THE CELLS, and that is what
+  // the shape costs. `control-plate` around the pair drew one box with both
+  // tabs inside it — which is the segment idiom, and a segment is exactly the
+  // thing the user is saying this should stop looking like. Each tab is its
+  // own leaf now: top corners rounded, no bottom edge of its own.
   .ht-tabs {
-    @include control-plate;
     display: flex;
-    overflow: hidden;
+    align-items: flex-end;
+    gap: 4px;
     width: 100%;
-    margin-bottom: 6px;
+    // THE RULE THE ACTIVE TAB BREAKS. Plum, at the alpha the dropdowns'
+    // popup edge already uses — quiet enough to read as a seam rather than
+    // as a fifth control on a panel that has plenty.
+    border-bottom: 2px solid rgba(120, 105, 135, 0.45);
+    margin-bottom: 8px;
   }
   .ht-tab {
     @include control-cell;
+    // the cell mixin's seam belongs to a segment; these are separate leaves
+    border-right: 0;
     flex: 1 1 0;
     display: inline-flex;
     align-items: center;
@@ -1858,17 +1985,52 @@ export default {
     padding: 4px 6px;
     font-size: 85%;
     white-space: nowrap;
+    // the leaf: the plate's own ground and radius, top corners only, and no
+    // bottom edge — the strip's rule is the bottom edge of every tab that
+    // has not been chosen.
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(120, 105, 135, 0.28);
+    border-bottom: 0;
+    border-radius: $control-radius $control-radius 0 0;
+    color: rgba(255, 255, 255, 0.72);
+    // FT-1175: PURPLE, NOT RED (user). This hover was `#ff8a8a`, the blood
+    // ink — the last red left on the strip along with the focus ring below.
+    // Red is the blood in this fork and purple is the book; the setup panel
+    // is the storyteller's, so it takes the plum every other storyteller
+    // control took (FT-1108's dropdowns, FT-1150's night rows).
     &:hover {
-      color: #ff8a8a;
+      color: #ece4f8;
+      border-color: rgba(150, 130, 175, 0.55);
+      background: rgba(150, 130, 175, 0.12);
     }
-    // the chosen half wears the segment family's own lit ground — the same
-    // `.nm-opt.on` treatment every switch on this panel already uses
+    // THE CHOSEN LEAF. Its ground and edge are FT-1108's own purple
+    // restatement of `control-lit` — the same three values every chosen row
+    // in every dropdown on this panel wears, so "this one is open" is the
+    // same event in the same ink. It was `$control-on-bg`, the shared blood.
     &.on {
-      background: $control-on-bg;
+      background: rgba(96, 74, 128, 0.42);
+      border-color: rgba(167, 143, 205, 0.85);
+      color: #ece4f8;
       font-weight: bold;
+      // …and this is the join: a transparent bottom edge, pulled down over
+      // the strip's rule, so the line stops at this tab and the rows below
+      // read as its contents.
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
       &:hover {
         color: white;
+        background: rgba(96, 74, 128, 0.42);
+        border-color: rgba(167, 143, 205, 0.85);
+        border-bottom-color: transparent;
       }
+    }
+    // FT-1175: and the LAST red on the strip. `control-cell`'s focus ring is
+    // `$control-focus`, #a01414 — overridden here rather than in
+    // controls.scss for the same reason OptionSelect overrides it in its own
+    // file (FT-1108): that token is worn by every plated control in the app,
+    // and this change is about the setup panel.
+    &:focus-visible {
+      outline-color: rgba(150, 130, 175, 0.9);
     }
     // a phone gets a real target, the same 40px the night switch's cells take
     @media (pointer: coarse) {
@@ -2069,7 +2231,24 @@ export default {
     // of running its last control out past the panel's edge.
     flex-wrap: wrap;
     gap: 14px;
-    min-height: 34px;
+    // ── FT-1175 (user): "we can now give the script setup a lot of room to
+    // breathe. its to compact now. put some spacing between the rows." ──────
+    //
+    // 34 -> 40px of floor and 8px BETWEEN rows. These rows were squeezed when
+    // this panel carried everything down one column — ten of them plus a
+    // character tray — and FT-1168's tab split handed half of them to the
+    // other tab without either half taking the room back.
+    //
+    // A MARGIN, NOT A `gap` ON THE PARENT. `.ht-body` is `display: contents`
+    // on three of this panel's four layouts, so it generates no box and has
+    // no gap to set; the rows are the parent's children there. The margin
+    // travels with the row instead, which is the one thing that is true in
+    // all four.
+    min-height: 40px;
+    margin-bottom: 8px;
+    &:last-of-type {
+      margin-bottom: 0;
+    }
 
     // FT-959: THE TWO CLUSTERS (Seats and Roles rows both use this shape —
     // see the template comments by each). `.row` keeps `space-between` from
@@ -2106,8 +2285,25 @@ export default {
     // `controls.scss`) rather than a connective glyph. Padding is a shade
     // tighter than the picker/rename-input's own 4px/8px: this plate holds a
     // single bold digit and a row of small stats, not a full-width control.
+    // ── FT-1175 (user): "lets remove the black background of that element,
+    // the input one already has a background and the role counts don't need
+    // it." ──────────────────────────────────────────────────────────────────
+    //
+    // THE PLATE'S REASON EXPIRED AN HOUR BEFORE THIS PASS. It was drawn when
+    // the seat number was a bare digit with no box of its own — the plate was
+    // the only thing making the control look like a control. FT-1170 gave the
+    // scrub its own border and ground at rest, so this became a box around a
+    // box, and it had also swept up the composition counts, which are a
+    // readout and never wanted one.
+    //
+    // DECORATION OFF, LAYOUT KEPT. `control-plate` is exactly three things —
+    // ground, edge, radius — and all three go. The flex, the 10px gap and the
+    // `3px 10px` padding stay: they are what puts the counts beside the
+    // number and off its edge, and removing a background must not move
+    // anything. The one measurable consequence is the 2px edge no longer
+    // being drawn, which under `border-box` gives the box back 4px of width
+    // it was spending on itself.
     .ht-seat-readout {
-      @include control-plate;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -2473,10 +2669,14 @@ export default {
   // day-length pair alone in an empty band" was the bug being fixed rather
   // than a width this table's old prescription (widen the band, or shrink the
   // controls) would have solved.
+  // FT-1175: `row-gap: 0` was the merge's other half — two halves sharing a
+  // line must not pay a vertical gap. They are two lines on purpose now (see
+  // `.ht-cast-half`), and the settings tab is four lines on purpose (see the
+  // template), so both rows take the 8px the panel gives every other pair.
   .ht-cast,
   .ht-settings {
     flex-wrap: wrap;
-    row-gap: 0;
+    row-gap: 8px;
     align-items: center;
   }
 
@@ -2488,13 +2688,35 @@ export default {
   // wider than the panel, which is the PHONE, where the seat scrub, the counts,
   // the claimed line and the shuffle genuinely do not fit one line — and where
   // wrapping inside is exactly what the Seats row did before this merge.
+  //
+  // ── FT-1175: EACH HALF TAKES ITS OWN LINE ───────────────────────────────
+  //
+  // `flex: 0 1 auto` let the two halves share a line wherever they both fit,
+  // which is what FT-1090 merged them for — it was buying HEIGHT for the
+  // character tray back when this panel carried the settings, the night
+  // switch and the tray in one column.
+  //
+  // TWO THINGS EXPIRED THAT. FT-1168 moved half the panel onto a second tab,
+  // and this pass puts a WORD on each of the four role buttons — so the role
+  // half is now wider than the seat half was ever measured against, and at
+  // every width tested it broke into three lines: seats, then the mark and
+  // its count, then the four buttons stranded underneath. A row that wraps
+  // three ways is not a row.
+  //
+  // `flex: 1 1 100%` is `.ht-set-line`'s own rule, one level over — the same
+  // mechanism, so the cast lines and the settings lines hold to one rhythm
+  // rather than drifting into two. The halves keep their classes, their
+  // contents and their internal shape; only what they do at the row's edge
+  // changed. And the row-gap the merge zeroed comes back, because two lines
+  // that are deliberately two lines want the same 8px every other pair of
+  // rows on this panel now has.
   .ht-cast-half {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 14px;
     row-gap: 0;
-    flex: 0 1 auto;
+    flex: 1 1 100%;
     min-width: 0;
   }
 
@@ -2553,6 +2775,29 @@ export default {
     border-radius: 10px;
     opacity: 0.4;
     cursor: not-allowed;
+    // FT-1175: the blocked label is a fact to read, not a word to recognise,
+    // and it must never take a second line — the disc sizes this button's
+    // bottom corners against the arc and a second line pushes them through it
+    // (see `.start-dock` in the disc rules for the two re-measurements that
+    // arithmetic has already cost).
+    white-space: nowrap;
+
+    // FT-1175: A BLOCKED BUTTON IS READABLE NOW. `opacity: .4` was right when
+    // the face said "Start game" whatever the state — a word you already know,
+    // faded to say "not yet". It is wrong for a sentence nobody has read
+    // before, which is the whole point of the change. Raised to .62, which is
+    // still visibly below the ready state's 1 and still reads as unavailable
+    // against every full-contrast control on the panel.
+    //
+    // AND THE WORDS RUN SMALLER THAN THE VERB. "Start game" is the button's
+    // name; "3 seats open" is the button explaining itself. The smaller type
+    // is what keeps a longer string inside the disc's 150px floor without the
+    // box growing — measured against the live render, not assumed.
+    &.blocked {
+      opacity: 0.62;
+      font-size: 100%;
+      letter-spacing: 0;
+    }
 
     // FT-938 (user call: "let's make the border and text purple when it is
     // active"). Was `border-color: #400` (blood) with the default white text
@@ -2621,7 +2866,13 @@ export default {
   // eye lands on the control the line is about rather than hunting the row.
   // Edge only — the scrub's own digits stay legible, and the plate keeps the
   // `control-plate` material every other control on this panel wears.
-  .ht-seat-readout.warn {
+  // FT-1175: …and it moves onto the SCRUB's own edge, because the plate that
+  // used to carry it is gone (see `.ht-seat-readout` above). The scrub is the
+  // control the line is actually about — it is the number you drag to fix the
+  // warning — so this is the cue landing closer to its cause than it did, not
+  // a fallback. `.num-scrub-box` is NumberScrub's own root element, which is
+  // why a scoped style here can reach it and nothing inside it.
+  .ht-seat-readout.warn .num-scrub-box {
     border-color: rgba(255, 217, 138, 0.55);
   }
 
@@ -2777,6 +3028,36 @@ export default {
       // (Rig: claude_temp_test/2026-08-19-ft936-measure.mjs — run against a
       // built dist, not dev-server, so the hash in the proof matches.)
       flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) + 26px);
+
+      // ── FT-1175: +8px MORE, AND ONLY WHERE IT IS FREE ───────────────────
+      //
+      // The 26px above is the FLOOR's number: at 1642x780 the Start button's
+      // bottom corners clear the disc's ellipse by +2.7px, and every pixel
+      // this constant grows costs very close to a pixel of that. So it cannot
+      // grow — at the floor.
+      //
+      // AT 1080px OF VIEWPORT HEIGHT IT IS NOT THE FLOOR AND THE MARGIN IS
+      // 20.1px, measured on the live build both before this pass and after
+      // it (rig: claude_temp_test/2026-08-26-ft1175-budget.mjs). 8px of that
+      // is spent on the character tray and 12.4px is kept — still four times
+      // the floor's own +2.7px, which is unchanged by this rule because the
+      // floor is 780 tall and never enters the query.
+      //
+      // WHAT THE 8px BUYS, measured, 7 seats, a full 22-role script:
+      //   the tray's box 193 -> 201px against 201px of content — the whole
+      //   script visible with no scroll, where 193 cut the demon row.
+      //
+      // WHY THE TRAY NEEDS IT. The rows are being given room to breathe in
+      // this same pass (the user's ask), and on the disc the band is a fixed
+      // slice of the circle — so room handed to the rows comes out of the one
+      // child that gives, which is the tray. This is the part of that bill
+      // the button can afford to pay instead. It is gated on the SAME
+      // 1080px height as the tile shrink in RoleTray, deliberately: those are
+      // the two levers that decide whether a full script fits, and they
+      // should turn on together rather than at two different sizes.
+      @media (min-height: 1080px) {
+        flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) + 34px);
+      }
       display: flex;
       flex-direction: column;
       // without this the band's automatic minimum is its content's height and
@@ -2833,15 +3114,69 @@ export default {
       > .row {
         flex-wrap: wrap;
         gap: 4px 8px;
+        // FT-1175: the rows breathe here too, at 4px rather than the
+        // rectangle's 8. The band is a fixed slice of the circle and every
+        // pixel a row keeps is a pixel the character tray does not get — so
+        // the disc takes the smaller of the two spacings, the same way it
+        // already takes 8px of column gap where the rectangle takes 14. The
+        // budget the 4 was solved against is under `.ht-body` above.
+        margin-bottom: 4px;
+      }
+      // …and the tab strip's own, for the same reason.
+      //
+      // IT ALSO COMES IN OFF THE RIM. The strip sits at the very top of the
+      // band, where the chord is at its narrowest, and a full-band-width
+      // strip put its top corners OUTSIDE the circle — measured at 1.2px
+      // before this pass (the strip has always been a painted box) and 4.1px
+      // after, because two separate leaves with their own 2px edges and a
+      // gap between them are wider than one plate around both.
+      //
+      // 20px off the width lands it INSIDE at every disc size, measured on
+      // the live build (rig: claude_temp_test/2026-08-26-ft1175-budget.mjs,
+      // corner-against-the-ellipse, positive = inside):
+      //
+      //                     before      after
+      //   1642x780 (floor)   -1.2       +3.3
+      //   1000x900           -1.2       +3.3
+      //   1920x1080          -1.2       +3.5
+      //
+      // …and it is 20px the strip does not miss: the two tabs stay exactly
+      // equal halves of whatever width the strip has, so nothing about them
+      // becomes different sizes.
+      > .ht-tabs {
+        margin-bottom: 6px;
+        width: calc(100% - 20px);
+        align-self: center;
+      }
+      // THE WORD "assigned" FOLDS INTO THE VALUE'S TOOLTIP, the second and
+      // last thing this disc takes away rather than rearranges (the claimed
+      // count below is the first). It is the cheapest 62px on the Roles line
+      // and it buys the most: with the four role buttons wearing words
+      // (FT-1175), the half needs 527.7px of a 481px band and wraps to a
+      // second line — 40px of band, straight out of the character tray.
+      // Without the word it needs 456.7 and stays on one.
+      //
+      // The numbers themselves never fold: "3 / 7" beside the Roles mark is
+      // the fact, and "assigned" is the sentence around it. A FOLD, not a
+      // deletion — the value's own `title` carries the whole statement, the
+      // rectangle and both phone sheets are untouched, and one deleted rule
+      // brings it back.
+      .ht-role-word {
+        display: none;
       }
 
-      // FT-1090: …AND THE TWO MERGED ROWS KEEP THEIR ZERO ROW-GAP THROUGH IT.
-      // The rule above sets `gap` in both axes, which would hand the cast and
-      // settings lines back the 4px of vertical gap the merge exists to save.
-      // Restated here rather than fought with `!important`.
+      // FT-1175: …AND THE MULTI-LINE ROWS KEEP THEIR OWN ROW-GAP THROUGH IT.
+      // The rule above sets `gap` in both axes, which would flatten the cast
+      // and settings lines to the disc's own 4px. They are deliberately two
+      // and four lines now, so they keep the 6px this face can afford —
+      // stated here rather than fought with `!important`.
+      //
+      // (It was 0 while FT-1090's merge existed to save every pixel of that
+      // gap for the character tray; the tray got the room back another way in
+      // this pass — see RoleTray's own note on giving up its padding.)
       > .row.ht-cast,
       > .row.ht-settings {
-        row-gap: 0;
+        row-gap: 4px;
       }
       // a half closes up to the disc's own 8px like every row on the panel
       .ht-cast-half {

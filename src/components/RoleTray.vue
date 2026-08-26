@@ -24,32 +24,54 @@
          main.js, already worn by the grimoire drawer, the night checklist, the
          chronicle, the workbench and five more. Nothing is reimplemented here;
          the tray simply joins the list. -->
+    <!-- FT-1175: `cut` says THERE IS MORE BELOW, and it is measured rather
+         than assumed — see `.rt-rows.cut` in the styles for what the fixed
+         viewport gate it replaces got wrong. -->
     <div
       class="rt-rows"
+      :class="{ cut: overflowing }"
+      ref="rows"
       v-if="unseated.length"
       v-blood-scroll
       @scroll.passive="hideCard"
     >
       <div class="rt-row" v-for="row in unseatedByTeam" :key="row.team">
-      <span
-        v-for="role in row.roles"
-        :key="role.id"
-        class="rt-icon"
-        :class="['team-' + role.team, { picked: isPicked(role) }]"
-        :style="{ backgroundImage: `url(${icon(role)})` }"
-        draggable="true"
-        role="button"
-        tabindex="0"
-        :aria-label="spokenRole(role)"
-        @dragstart="onDragStart(role, $event)"
-        @click="pick(role)"
-        @keydown.enter.prevent="pick(role)"
-        @keydown.space.prevent="pick(role)"
-        @focus="showCard(role, $event, true)"
-        @blur="hideCard"
-        @mouseenter="showCard(role, $event)"
-        @mouseleave="hideCard"
-      ></span>
+        <!-- FT-1175 (user): "Allow clicking to select roles that will
+             automatically be dealt a toggle state of on or off."
+
+             A TILE IS A TOGGLE NOW, AND `aria-pressed` SAYS SO. Lit (the
+             resting state of every character) means "Deal may pick this";
+             unlit means the storyteller has set it aside and Deal skips it.
+             The state itself lives in the store (`dealExcluded`) because Deal
+             runs in the grimoire drawer, not here. -->
+        <span
+          v-for="role in row.roles"
+          :key="role.id"
+          class="rt-icon"
+          :class="[
+            'team-' + role.team,
+            {
+              picked: isPicked(role),
+              on: !isExcluded(role),
+              off: isExcluded(role),
+            },
+          ]"
+          :style="{ backgroundImage: `url(${icon(role)})` }"
+          draggable="true"
+          role="button"
+          tabindex="0"
+          :aria-pressed="String(!isExcluded(role))"
+          :aria-label="spokenRole(role)"
+          :title="tileTitle(role)"
+          @dragstart="onDragStart(role, $event)"
+          @click="tap(role)"
+          @keydown.enter.prevent="pick(role)"
+          @keydown.space.prevent="toggleDeal(role)"
+          @focus="showCard(role, $event, true)"
+          @blur="hideCard"
+          @mouseenter="showCard(role, $event)"
+          @mouseleave="hideCard"
+        ></span>
       </div>
     </div>
     <!-- THE TAP PATH, SAID OUT LOUD. Dragging a character onto a chair is the
@@ -106,11 +128,14 @@ export default {
       dealGlyph,
       // which role the hover card is describing, and the tile it is pinned to
       cardRole: null,
-      cardAnchor: null
+      cardAnchor: null,
+      // FT-1175: is there more tray than box? Measured off the scroller, not
+      // inferred from the viewport — see `.rt-rows.cut`.
+      overflowing: false
     };
   },
   computed: {
-    ...mapState(["roles"]),
+    ...mapState(["roles", "dealExcluded"]),
     // FT-949: a role is being dragged OFF a seat right now — the tray says
     // so, reading the state the always-mounted target (golem/roleUnseat)
     // maintains rather than owning a drag listener of its own.
@@ -158,10 +183,39 @@ export default {
         .sort((a, b) => TEAM_ORDER.indexOf(a.team) - TEAM_ORDER.indexOf(b.team));
     }
   },
+  mounted() {
+    this.measureCut();
+    window.addEventListener("resize", this.measureCut);
+  },
+  updated() {
+    this.measureCut();
+  },
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
+    window.removeEventListener("resize", this.measureCut);
   },
   methods: {
+    /**
+     * FT-1175: does the tray have more in it than it can show?
+     *
+     * ASKED OF THE BOX, NOT OF THE WINDOW. The fade this drives used to be
+     * gated on `min-height: 1080px` — a viewport size that, when FT-955 wrote
+     * it, was exactly where a 36px tile made a full script fit. Two passes
+     * have moved that line since (the rows above the tray have their own
+     * room now), and a fixed number cannot follow it: at 1080 the fade was
+     * off while a 20-seat town's tray was cut 70px short, which is the one
+     * state the fade exists for.
+     *
+     * `updated` plus a resize listener covers every way the answer changes —
+     * the roster, the script, the window — and the read is two integer
+     * properties on an element that is already laid out, so it costs a
+     * comparison, not a reflow.
+     */
+    measureCut() {
+      const el = this.$refs.rows;
+      const cut = !!el && el.scrollHeight > el.clientHeight + 1;
+      if (cut !== this.overflowing) this.overflowing = cut;
+    },
     /** Deal and Shuffle are the grimoire drawer's own actions — the tray asks
      *  IT to run them, so there is one implementation of each. */
     withDrawer(fn) {
@@ -191,10 +245,53 @@ export default {
     isPicked(role) {
       return !!this.drawerPick && this.drawerPick.id === role.id;
     },
-    /** Click (or Enter/Space) arms the role for the seat you click next —
-     *  the drawer's own pick channel, so the keyboard reaches the tray too. */
+    /** FT-1175: set aside — Deal will skip this character. */
+    isExcluded(role) {
+      return this.dealExcluded.includes(role.id);
+    },
+    /** Enter (and, on a hoverless pointer, a tap) arms the role for the seat
+     *  you click next — the drawer's own pick channel, so the keyboard
+     *  reaches the tray too. UNCHANGED by FT-1175; what changed is which
+     *  gestures reach it (see `tap`). */
     pick(role) {
       this.setDrawerPick(this.isPicked(role) ? null : role);
+    },
+    /** FT-1175: in the deal, or set aside. */
+    toggleDeal(role) {
+      this.$store.commit("toggleDealExcluded", role.id);
+    },
+    /**
+     * FT-1175: WHAT A CLICK ON A TILE MEANS, AND WHY IT DEPENDS ON THE
+     * POINTER.
+     *
+     * Before this change a click ARMED the character for the next seat you
+     * clicked — the tap path, the second half of which the hint line below
+     * spells out. That path is the ONLY way to seat a character on a touch
+     * screen: HTML5 drag-and-drop does not fire there at all (recorded on the
+     * hint's own comment, verified on an emulated phone). So a touch tap
+     * keeps doing exactly what it did, and the tray on a phone is unchanged
+     * by this pass.
+     *
+     * On a pointer that CAN drag, the drag is the seating gesture and always
+     * has been — arming was an unadvertised second way in, which is why the
+     * hint line never appeared there. That click is the one this feature
+     * takes, and the keyboard keeps both: Enter arms (the accessible seating
+     * path, untouched), Space toggles.
+     */
+    tap(role) {
+      if (!window.matchMedia("(hover: hover)").matches) return this.pick(role);
+      this.toggleDeal(role);
+    },
+    /** The tile says which state it is in and what pressing it does — the
+     *  enforcement chip's own tooltip model, the one this fork uses for
+     *  every toggle. */
+    tileTitle(role) {
+      const set = this.isExcluded(role);
+      return `${role.name} — ${
+        set
+          ? "set aside; Deal will skip it. Click to put it back in the deal."
+          : "in the deal. Click to set it aside."
+      }`;
     },
     /**
      * `immediate` means NO DELAY (the keyboard lands on a tile and wants its
@@ -380,22 +477,36 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
         // needs). A MASK costs no layout at all: it is painted on the box
         // that already exists, so nothing here moves a row or changes
         // `clientHeight`.
-        mask-image: linear-gradient(
-          to bottom,
-          #000 calc(100% - 32px),
-          transparent 100%
-        );
-        -webkit-mask-image: linear-gradient(
-          to bottom,
-          #000 calc(100% - 32px),
-          transparent 100%
-        );
-
-        @media #{$rt-disc-closes-gate} {
-          // THE TRAY FITS HERE (see the tile swap below) — nothing is cut
-          // off, so a fade would be lying about content that is not there.
-          mask-image: none;
-          -webkit-mask-image: none;
+        // ── FT-1175: IT IS DRAWN WHEN THERE IS SOMETHING TO DRAW IT FOR ──
+        //
+        // The fade used to be unconditional in this branch and switched OFF
+        // above `$rt-disc-closes-gate`, on the reasoning quoted above — "every
+        // viewport in this branch overflows by construction". That was true of
+        // the panel FT-955 measured. It is not a property of the tray: the
+        // rows ABOVE it have taken room in two passes since (FT-1168 tabs,
+        // FT-1175 spacing and labels), and a 20-seat town at 1920x1080 was
+        // being cut 70px short with the fade switched off — the exact state
+        // the fade exists for, on the exact viewport the gate exempted.
+        //
+        // So the question is asked of the BOX now (RoleTray's `measureCut`,
+        // `scrollHeight > clientHeight`) and the answer is a class. The gate
+        // stays where it belongs — deciding the TILE SIZE below, which is a
+        // real property of the viewport — and stops deciding a fact about
+        // content it cannot see.
+        //
+        // Everything about the fade ITSELF is unchanged: same 32px, same
+        // measured-by-eye reasoning, same mask rather than a background wash.
+        &.cut {
+          mask-image: linear-gradient(
+            to bottom,
+            #000 calc(100% - 32px),
+            transparent 100%
+          );
+          -webkit-mask-image: linear-gradient(
+            to bottom,
+            #000 calc(100% - 32px),
+            transparent 100%
+          );
         }
       }
 
@@ -416,8 +527,25 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
     }
   }
 
-  margin: 2px 0 4px;
-  padding: 5px 4px;
+  // FT-1175 (user: "get rid a bunch of the extra space, so they don't flow
+  // outside of the disc"). THE TRAY GIVES UP ITS OWN FURNITURE FIRST, before
+  // anything is asked of the tiles: 6px of vertical margin and 10px of
+  // vertical padding were 16px of blank wrapped round a box whose whole
+  // content is a grid of circles, and the rows above it are being GIVEN room
+  // in the same pass — so every pixel the tray hands back is a pixel that
+  // room costs the band nothing.
+  //
+  // THE SIDE PADDING GOES TOO, everywhere, not only on the disc. The disc
+  // gave its 8px back in 2026-08-19 for a measured reason (the ninth tile in
+  // a row); the same 8px on the rectangle buys the same thing there, and a
+  // tray that is 4px narrower than its own box is a tray whose rows wrap one
+  // tile earlier for no visible return.
+  //
+  // 2px of vertical padding stays, and it is not decoration: the unseat
+  // target's dashed border (`.armed`) is drawn on this box's own edge, and at
+  // zero it would be drawn straight through the top row of tiles.
+  margin: 0 0 2px;
+  padding: 2px 0;
   // the border is always there so arming only repaints it — nothing moves
   border: 1px dashed transparent;
   border-radius: 7px;
@@ -475,7 +603,10 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
   .rt-rows {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    // FT-1175: 3px -> 2px between the team rows. Four gaps on a full script,
+    // so it is 4px of band handed to the tiles themselves; the rows are
+    // already separated by being different teams of art, not by the gap.
+    gap: 2px;
     // FT-953 (user: "can we make that a little taller, it is cutting it off
     // before Start when it could show all of the icons"). 132px was cutting a
     // full 22-role script (13 townsfolk / 4 outsider / 4 minion / 1 demon —
@@ -530,7 +661,10 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 3px;
+    // FT-1175: 3px -> 2px, the same trade as `.rt-rows` above and worth more
+    // here — a townsfolk row runs 8-13 tiles wide, so the pitch drops from
+    // 45px to 44px and a row that was one tile short of fitting can find it.
+    gap: 2px;
   }
   .rt-icons {
     display: flex;
@@ -599,9 +733,56 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
     &:focus {
       border-color: #d8cdb4;
     }
+
+    // ── FT-1175: IN THE DEAL, OR SET ASIDE ────────────────────────────────
+    //
+    // A tile is a toggle now (user: "clicking to select roles that will
+    // automatically be dealt, a toggle state of on or off"), and ON — the
+    // resting state of every character — wears the plum: ground AND edge, as
+    // asked.
+    //
+    // THE THREE VALUES ARE NOT NEW. They are FT-1108's own purple restatement
+    // of `control-lit`, worn by every chosen row in every dropdown on the
+    // setup panel, so a lit tile and a chosen setting are the same event in
+    // the same ink. No third purple was invented for this.
+    //
+    // WHAT THE PURPLE EDGE COSTS, AND WHY IT IS AFFORDABLE. The tile's border
+    // has carried the TEAM colour since the tray was built ("the team reads
+    // off the ring"), and a lit tile now overrides it. That is paid for
+    // twice over: the tray is laid out ONE ROW PER TEAM (`unseatedByTeam`),
+    // so the grouping already says which team a tile belongs to without the
+    // ring saying it again — and the ring comes straight back the moment a
+    // character is set aside, which is exactly when a storyteller is asking
+    // "what have I taken out of which team".
+    &.on {
+      background-color: rgba(96, 74, 128, 0.42);
+      border-color: rgba(167, 143, 205, 0.85);
+    }
+    // SET ASIDE. Not dimmed the way a disabled control is — this tile is
+    // still fully pressable and still fully draggable onto a chair, and
+    // `control-disabled`'s fade would say otherwise. Greyed and hollow: the
+    // art loses its colour (the one cue that survives at 36px), the team
+    // ring comes back on a dashed edge, and the ground goes empty.
+    &.off {
+      background-color: transparent;
+      border-style: dashed;
+      filter: grayscale(0.85) brightness(0.62);
+    }
+    &.off:hover,
+    &.off:focus {
+      filter: grayscale(0.85) brightness(0.62)
+        drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+    }
+
+    // ARMED FOR THE NEXT SEAT — the tap path's own momentary state, and a
+    // different KIND of thing from the two above: it lasts until the next
+    // seat is tapped, where in/out of the deal is a standing decision. It
+    // took the plum with everything else (user: purple, not red) but keeps a
+    // shape of its own — a bright rim and a glow, not a ground — so the two
+    // cannot be confused on a tray where every other tile is already purple.
     &.picked {
-      border-color: #ff5a5a;
-      background-color: rgba(160, 20, 20, 0.25);
+      border-color: #ece4f8;
+      box-shadow: 0 0 7px 1px rgba(167, 143, 205, 0.95);
       transform: scale(1.12);
     }
     &:active {
