@@ -317,6 +317,22 @@
         @release="onSeatMenuLeave"
       />
 
+      <!-- FT-1206: THE SEAT'S WHISPER BOX — one inline input, whichever of
+           the three schemes opened it (the plate's Whisper row, the ring's
+           coin, the click scheme's plate-side disc). Bound here for the same
+           lifetime reason as the two menus above; it travels to the body
+           through the same portal move. On the plate scheme, dismissing it
+           brings the plate back — the input IS the plate's swapped content,
+           per the user's spec. -->
+      <SeatWhisper
+        v-if="whisperAnchor"
+        :anchor="whisperAnchor"
+        :name="player.name || 'this player'"
+        :owner="$el"
+        @send="sendSeatWhisper"
+        @dismiss="closeSeatWhisper"
+      />
+
       <!-- FT-985 — THE SEAT'S ROMAN NUMERAL (user call: "have them appear if
            the grimoire is revealed and there is no role token on the seat").
            It sits AFTER the coin on purpose: same-z-index siblings paint in
@@ -728,6 +744,39 @@
         <span class="icon"></span>
       </div>
 
+      <!-- FT-1206: THE WHISPER DISC — the click scheme's seat-whisper
+           doorway, docked beside the add-reminder disc on the plate's own
+           hover surface (the user: "an icon left of the custom note on
+           hover nameplate"). Its own class, NOT `.reminder`: the reminders
+           are storyteller writing and go dark when the grimoire faces the
+           room (`#townsquare.public .circle .reminder`), while whispering is
+           the one seat act a PLAYER owns — it must survive exactly the view
+           the players live in. Same measured geometry as the add disc, one
+           disc further out (whisperDiscStyle). Refused states stay drawn,
+           dim, with the reason on the tooltip — the fixed-list rule. -->
+      <!-- FT-1206: the corridor-keeper — renders BEFORE the disc so the
+           disc's own pixels stay the disc's (same paint-order note as the
+           FT-923 bridge above). -->
+      <div
+        class="whisper-bridge"
+        v-if="whisperDiscShown"
+        :style="whisperBridgeStyle"
+        @mouseenter="nameHover = true"
+        @mouseleave="nameHover = false"
+      ></div>
+      <div
+        class="whisper-disc"
+        v-if="whisperDiscShown"
+        :style="whisperDiscStyle"
+        :class="{ refused: !!whisperRefusalText }"
+        :title="whisperDiscTitle"
+        @click="onWhisperDiscClick"
+        @mouseenter="nameHover = true"
+        @mouseleave="nameHover = false"
+      >
+        <font-awesome-icon icon="paper-plane" />
+      </div>
+
       <!-- FT-1068: THE SEAT MENU IS RETIRED (user call: "can we finally
            get rid of it?"). Its rows' jobs had been leaving one by one for
            direct affordances — the plate drag (move/swap), the one-tap
@@ -967,6 +1016,17 @@ import {
 // they share is golem/seatActions, which is the LIST and not the box.
 import SeatMenu from "./SeatMenu";
 import SeatRing from "./SeatRing";
+// FT-1206: the seat's own whisper — the ONE inline input all three schemes
+// end their whisper gesture in (the plate's row, the ring's coin, the click
+// scheme's plate-side disc). See SeatWhisper.vue for the shape.
+import SeatWhisper from "./SeatWhisper";
+// FT-1206: the whisper is the Chronicle composer's own whisper — same frame
+// builder, same chatSay funnel — and the chat level's refusals are the chat's
+// own words, precomputed here for the vocabulary's guard.
+import { seatOf, viewerOf, whisperFrame, whisperRefusal } from "../golem/chat";
+// FT-1206: the chat level is a town rule on the tower shelf; this seat holds
+// the usual snapshot, refreshed on TOWER_EVENT (the FaceHands idiom).
+import { TOWER_EVENT, towerState } from "../golem/towerBells";
 // FT-1180: the six things a storyteller can do to a seat — every one of them
 // present on every seat, with the guards deciding DISABLED rather than absent.
 import { seatActions } from "../golem/seatActions";
@@ -1016,6 +1076,7 @@ export default {
     RoleHoverCard,
     SeatMenu,
     SeatRing,
+    SeatWhisper,
     Token
   },
   props: {
@@ -1240,6 +1301,108 @@ export default {
         lockedVote: !!this.session.lockedVote,
         nomination: !!this.session.nomination,
         grimoireHidden: !!this.grimoire.isPublic,
+        // FT-1206: why this seat cannot be whispered, or null — the chat
+        // level's own answer, computed once here for every surface.
+        whisperRefusal: this.whisperRefusalText,
+      };
+    },
+    /** FT-1206: which chair this seat is — the roster's own index, the same
+     *  number the chat rows carry as senderSeat/recipientSeat. */
+    seatIndex() {
+      return this.players.indexOf(this.player);
+    },
+    /**
+     * FT-1206: MAY THIS VIEWER WHISPER THIS SEAT — null, or the reason not,
+     * in the chat level's own words. The permanent facts come first (an open
+     * chair, your own chair), the level's refusals after — the same
+     * permanent-before-passing order move-player's guard documents.
+     */
+    whisperRefusalText() {
+      if (!this.player.id) {
+        return "This chair is open — there is nobody to whisper";
+      }
+      const state = this.$store.state;
+      if (this.player.id === this.session.playerId) {
+        return "That's you";
+      }
+      const viewer = viewerOf(state);
+      if (!viewer.key) {
+        return "Take a seat, or set a name, and you can whisper";
+      }
+      return whisperRefusal(
+        this.chatLevel,
+        viewer,
+        this.seatIndex,
+        seatOf(state),
+        this.players.length,
+      );
+    },
+    /**
+     * FT-1206: THE CLICK SCHEME'S WHISPER DISC — the icon beside the
+     * add-reminder disc on the nameplate hover, the third of the three seat
+     * whisper doorways (the plate's row and the ring's coin are the other
+     * two). Click scheme only: the other two schemes carry the action in
+     * their own menus, and two doorways on one seat would be the FT-1169
+     * mistake again. It keeps the fixed-list philosophy — refused is drawn
+     * dim with the reason on its tooltip, never absent — with ONE absence:
+     * your own seat and an open chair get no disc at all, because "whisper
+     * yourself" and "whisper nobody" are meaningless for every viewer at
+     * every level.
+     */
+    whisperDiscShown() {
+      return !!(
+        this.controlScheme === "click" &&
+        this.addAnchor &&
+        this.player.id &&
+        this.player.id !== this.session.playerId
+      );
+    },
+    /** The disc sits OUTWARD of the add disc — the same measured anchor,
+     *  stepped one disc further from the plate on the seat's own side. */
+    whisperDiscStyle() {
+      if (!this.addAnchor) return null;
+      const { side, size, top, left, gap } = this.addAnchor;
+      const step = side > 0 ? size + gap : -(size + gap);
+      return {
+        boxSizing: "border-box",
+        width: `${size}px`,
+        height: `${size}px`,
+        top: `${top}px`,
+        left: `${left + step}px`,
+        margin: 0,
+        padding: 0,
+      };
+    },
+    whisperDiscTitle() {
+      const label = `Whisper ${this.player.name || "this player"}`;
+      const why = this.whisperRefusalText;
+      return why ? `${label} — ${why}` : label;
+    },
+    /**
+     * FT-1206: THE WHISPER DISC'S OWN BRIDGE — FT-923's lesson, paid again by
+     * this lane's rig: the cursor's path from the plate to the whisper disc
+     * crosses the ADD DISC'S footprint, and in the public view (which is the
+     * view every PLAYER lives in) that disc is pointer-dead
+     * (`#townsquare.public .circle .reminder`), so `nameHover` dropped
+     * mid-corridor and the whisper disc hid before the cursor reached it —
+     * measured, not guessed: the proof rig's click timed out on exactly this.
+     * One invisible strip covers the whole corridor (both gaps plus the add
+     * disc between them); the same x-arithmetic works on both sides because
+     * `addAnchor.left` is the add disc's own left on either.
+     */
+    whisperBridgeStyle() {
+      if (!this.addAnchor) return null;
+      const { size, top, left, gap } = this.addAnchor;
+      const OVERLAP = 1;
+      return {
+        position: "absolute",
+        boxSizing: "border-box",
+        left: `${left - gap - OVERLAP}px`,
+        top: `${top - OVERLAP}px`,
+        width: `${size + gap * 2 + OVERLAP * 2}px`,
+        height: `${size + OVERLAP * 2}px`,
+        margin: 0,
+        padding: 0,
       };
     },
     /**
@@ -1786,6 +1949,16 @@ export default {
       // open menu cannot morph one surface into the other mid-gesture; the
       // scheme watcher closes the menu instead (see readPrefs).
       seatMenuMode: "plate",
+      // FT-1206: the inline whisper box is up, pinned to this coin — the
+      // element, same contract as seatMenuAnchor.
+      whisperAnchor: null,
+      // FT-1206: the whisper box was opened FROM the nameplate plate, so
+      // Esc/click-out restores that menu rather than just closing (the
+      // user's spec: the plate's content swaps to the input and back).
+      whisperFromPlate: false,
+      // FT-1206: the town's chat level, snapshotted — a town rule off the
+      // tower shelf, refreshed on TOWER_EVENT like every tower reader.
+      chatLevel: towerState.chatLevel,
     };
   },
   mounted() {
@@ -1793,6 +1966,9 @@ export default {
     // FT-1169: the control scheme can change while a town is open (the corner
     // menu sets it), and every seat has to hear it.
     window.addEventListener(PREFS_EVENT, this.readPrefs);
+    // FT-1206: …and the chat level too — a whisper row's guard changes with
+    // it, under an open menu included.
+    window.addEventListener(TOWER_EVENT, this.readChatLevel);
     try {
       this.hasHover = window.matchMedia("(hover: hover)").matches;
     } catch (e) {
@@ -1818,6 +1994,7 @@ export default {
     clearTimeout(this.$options.menuTimer);
     clearTimeout(this.$options.menuHideTimer);
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
+    window.removeEventListener(TOWER_EVENT, this.readChatLevel);
     window.removeEventListener("resize", this.remeasureSeat);
     window.removeEventListener("orientationchange", this.remeasureSeat);
     if (this._addRO) this._addRO.disconnect();
@@ -1898,6 +2075,13 @@ export default {
       // the scheme just changed under an open menu — a menu opened by a
       // gesture that no longer exists is a menu nothing will close
       if (this.seatMenuAnchor) this.closeSeatMenu();
+      // FT-1206: same fate for the whisper box, same reason — and without
+      // the restore, since the plate that would come back is the old
+      // scheme's too
+      if (this.whisperAnchor) {
+        this.whisperFromPlate = false;
+        this.whisperAnchor = null;
+      }
     },
     /**
      * FT-1169: THE COIN'S HOVER, routed by scheme.
@@ -2098,6 +2282,71 @@ export default {
       this.closeSeatMenu();
       const run = this[entry.act];
       if (typeof run === "function") run.call(this);
+    },
+    /** FT-1206: the chat level snapshot — TOWER_EVENT's reader. */
+    readChatLevel() {
+      this.chatLevel = towerState.chatLevel;
+    },
+    /**
+     * FT-1206: OPEN THE INLINE WHISPER on this seat's coin. Reached from all
+     * three schemes — the plate's row and the ring's coin land here through
+     * runSeatAction (the entry's own `act`), the click scheme's disc calls it
+     * directly. The plate case remembers where it came from: Esc/click-out
+     * swaps the glass back to the menu, the user's own spec.
+     */
+    openSeatWhisper() {
+      const coin = this.$el.querySelector(".player .token");
+      if (!coin) return;
+      this.whisperFromPlate =
+        this.seatMenuMode === "plate" && this.controlScheme === "nameplate";
+      this.hideCard();
+      this.whisperAnchor = coin;
+    },
+    /** Esc/click-out: the plate scheme gets its menu back; everywhere else
+     *  the box simply goes. */
+    closeSeatWhisper() {
+      const restore = this.whisperFromPlate;
+      this.whisperFromPlate = false;
+      this.whisperAnchor = null;
+      if (restore && this.canOpenSeatMenu()) this.openSeatMenu("plate");
+    },
+    /**
+     * FT-1206: SEND — the Chronicle composer's own whisper, from the seat.
+     * One frame builder (golem/chat's whisperFrame), one funnel (the chatSay
+     * mutation → socket.sendChat), so the store round trip, the privacy
+     * lane, the plane and the recipient's toast all come for free. The guard
+     * is re-checked at the send: the level can change while the box stands,
+     * and a refusal lands where the Chronicle's own refusals land
+     * (chatError, under its composer).
+     */
+    sendSeatWhisper(body) {
+      this.whisperFromPlate = false;
+      this.whisperAnchor = null;
+      const why = this.whisperRefusalText;
+      if (why) {
+        this.$store.commit("chatError", why);
+        return;
+      }
+      const seat = this.seatIndex;
+      const target = {
+        id: this.player.id,
+        key: this.player.name || `Seat ${seat + 1}`,
+        seat,
+      };
+      this.$store.commit(
+        "chatSay",
+        whisperFrame(this.$store.state, target, body),
+      );
+    },
+    /** The click scheme's disc — a refused disc teaches from its tooltip and
+     *  swallows the click, the fixed-list rule's own behaviour. */
+    onWhisperDiscClick() {
+      if (this.whisperRefusalText) return;
+      if (this.whisperAnchor) {
+        this.closeSeatWhisper();
+        return;
+      }
+      this.openSeatWhisper();
     },
     /**
      * FT-1180: A GRAB ON THE GLASS PLATE IS A GRAB ON WHAT IS UNDER IT.
@@ -5285,6 +5534,94 @@ li.nominate .player .overlay .nominate-target {
 }
 .circle li.name-hover .reminder.add:before {
   opacity: 1;
+}
+
+/* ── FT-1206: THE WHISPER DISC — the click scheme's seat whisper ─────────────
+   Beside the add-reminder disc on the plate's hover surface, one disc further
+   out (whisperDiscStyle steps the same measured anchor). Deliberately NOT a
+   `.reminder`: the reminders go dark when the grimoire faces the room, and
+   whispering is the one seat act a PLAYER owns — see the template note. The
+   face is the seat-ring little coin's own recipe (SeatRing's sr-coin: dark
+   ground, plum edge, bronze thread), so the town's two smallest round
+   controls read as one family. */
+#townsquare .circle li .whisper-disc {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #f4eeff;
+  background: radial-gradient(
+    circle at 50% 34%,
+    rgba(58, 44, 74, 0.97) 0%,
+    rgba(24, 18, 32, 0.97) 72%,
+    rgba(12, 9, 16, 0.98) 100%
+  );
+  border: 2px solid #4b3565;
+  box-shadow:
+    inset 0 1px 2px rgba(250, 246, 255, 0.28),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(150, 120, 60, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.66);
+  /* hidden until the plate's hover reveals it — the add disc's own gate,
+     pointer-events included (an invisible disc must not eat a neighbour's
+     clicks; FT-1180 measured what that costs) */
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    color 90ms ease,
+    border-color 90ms ease;
+
+  svg {
+    width: 45%;
+    height: 45%;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+  }
+
+  &:hover {
+    color: #fff;
+    border-color: #a78fcd;
+  }
+
+  /* refused, not absent — dim, reason on the tooltip, click swallowed */
+  &.refused {
+    cursor: not-allowed;
+    opacity: 0.42;
+    &:hover {
+      color: #f4eeff;
+      border-color: #4b3565;
+    }
+  }
+}
+/* the id rides the reveal too — the base rule above carries #townsquare, and
+   a reveal without it loses the specificity race and never fires (measured:
+   the rig's disc stayed at opacity 0 with .name-hover ON the li) */
+#townsquare .circle li.name-hover .whisper-disc {
+  opacity: 1;
+  pointer-events: auto;
+  /* the refused disc is revealed too — dimmer, so the two states read */
+  &.refused {
+    opacity: 0.42;
+  }
+}
+/* a finger never hovers: pinned open, the add disc's own answer in
+   media.scss for the same gesture gap */
+@media (hover: none) {
+  #townsquare .circle li .whisper-disc {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* the whisper disc's corridor-keeper — invisible, no z-index of its own, so
+   the two discs (z 3) keep every pixel they paint; a coarse pointer never
+   hovers, so there is no corridor to keep there (the name-bridge's own rule) */
+#townsquare .circle li .whisper-bridge {
+  @media (pointer: coarse) {
+    display: none;
+  }
 }
 
 /* ── REMINDERS ON A COARSE POINTER ──────────────────────────────────────────

@@ -39,6 +39,10 @@ import bellTwoSound from "../assets/bell-tolls-2.mp3";
 // FT-1051: the shared custom-audio machinery (sanitizer + one-element-per-URL
 // slot) — one helper serving the bell and the call-back, not a copy.
 import { sanitizeAudioUrl, makeCustomSlot } from "./customAudio";
+// FT-1206: the chat levels and the whisper-mark linger choices — the
+// vocabulary is golem/chat's (they are facts about the chat); this file only
+// sanitizes the keys, the same split callBack.js already has with callId.
+import { CHAT_LEVELS, WHISPER_MARK_SECS } from "./chat";
 
 /** The two bells the user cut for the tower (FT-979 trimmed and faded them;
  *  the full-length originals live in design/bells/), plus CUSTOM (FT-1045):
@@ -148,6 +152,17 @@ export const DEFAULT_TOWER = {
   // bell machinery tolls once and the readout flashes — AND NOTHING ELSE:
   // the day never auto-ends; the human storyteller keeps control, always.
   dayLengthMin: 0,
+  // FT-1206: THE CHAT LEVEL — how much talking this town allows (golem/chat's
+  // CHAT_LEVELS: off / no-whispers / neighbors / anyone). The player↔story-
+  // teller lane stays open at every level; see chat.js for the whole rule.
+  chatLevel: "anyone",
+  // FT-1206: THE WHISPER MARKS — how long a whisper's paper plane rests by
+  // the recipient's coin, seconds; 0 is Off (nothing is even broadcast).
+  whisperMarkSec: 8,
+  // FT-1206: COUNT WHISPERS — the Chronicle's per-pair whisper tally for the
+  // running game. On by default: the plane already tells the town THAT
+  // whispers happen; the tally is the same fact, kept honest in one place.
+  whisperCounts: true,
 };
 
 /** The Day length scrub's bounds, in minutes (0 — Off — is set by its own
@@ -242,6 +257,20 @@ function sanitize(key, value) {
       if (!isFinite(n) || n <= 0) return 0;
       return Math.max(DAY_LENGTH_MIN, Math.min(DAY_LENGTH_MAX, n));
     }
+    // FT-1206: the chat level is one of golem/chat's own ids, nothing else.
+    case "chatLevel":
+      return CHAT_LEVELS.some((l) => l.id === value)
+        ? value
+        : DEFAULT_TOWER.chatLevel;
+    // FT-1206: the linger is one of the offered choices — no scrub here, so
+    // membership rather than a clamp (a clamped 11 would claim a choice the
+    // panel never offered).
+    case "whisperMarkSec": {
+      const n = Math.round(Number(value));
+      return WHISPER_MARK_SECS.includes(n) ? n : DEFAULT_TOWER.whisperMarkSec;
+    }
+    case "whisperCounts":
+      return !!value;
     default:
       return undefined;
   }

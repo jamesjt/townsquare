@@ -576,6 +576,11 @@
          component. It replaced the ChronicleDrawer that stood here and the
          ChatDrawer Menu mounted on the body — retired by unmounting. -->
     <ChroniclesDrawer />
+    <!-- FT-1206: the received-whisper toast — the plane that unfolds into a
+         crumpled note when a whisper reaches THIS viewer. App-level, beside
+         the drawer it opens onto; fed by the socket's live lane only, so a
+         reload never replays a night of toasts. -->
+    <WhisperToast />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -845,6 +850,8 @@ import NightSheet from "./components/NightSheet";
 // ChronicleDrawer mounted here and the ChatDrawer Menu used to stand on the
 // body — both RETIRED BY UNMOUNTING; their files stay in the tree.
 import ChroniclesDrawer from "./components/ChroniclesDrawer";
+// FT-1206: the received-whisper toast (the plane unfolding into the note).
+import WhisperToast from "./components/WhisperToast";
 // FT-1010: the game-end event the winner pick writes into the town's log.
 // FT-1037/FT-1057: plus the two BOARD PORTRAITS posted beside it — the
 // opening ring (stashed by socket.js at the deal; broadcasting it live would
@@ -985,6 +992,7 @@ export default {
     ScriptDrawer,
     NightSheet,
     ChroniclesDrawer,
+    WhisperToast,
     FaceDiscLab,
     FaceHands,
     FaceHandsLab,

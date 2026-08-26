@@ -641,12 +641,33 @@
              entry, and the refusal line when the store never took it.
              Current only — History is a reading room, nobody talks into
              a finished game. -->
+        <!-- FT-1206: THE WHISPER TALLY — who↔whom, how many, for the running
+             game, when the town's "Count whispers" setting is on. In the
+             CHRONICLE and never on the clock (the user's call). What each
+             viewer's table holds is what their log holds: the storyteller
+             everything, a player their own pairs — see whisperPairCounts. -->
+        <div
+          class="cr-whisper-counts"
+          v-if="mode === 'current' && whisperPairCounts.length"
+          title="Whispers this game — who whispered whom, and how many times. You see the pairs your own Chronicle knows about; the storyteller sees them all, and a finished game publishes everything."
+        >
+          <font-awesome-icon class="cr-wc-mark" icon="paper-plane" />
+          <span
+            class="cr-wc-pair"
+            v-for="p in whisperPairCounts"
+            :key="p.a + '|' + p.b"
+          >
+            {{ p.a }} ↔ {{ p.b }}
+            <b>×{{ p.n }}</b>
+          </span>
+        </div>
+
         <div class="cr-compose" v-if="mode === 'current'">
           <div class="cr-targets">
             <button
               class="cr-target"
-              :class="{ on: !target }"
-              title="Say this to the whole town"
+              :class="{ on: !target, refused: !!sayRefusalText }"
+              :title="sayRefusalText || 'Say this to the whole town'"
               @click="pick(null)"
             >
               <!-- FT-1158 (user): "instead of room lets make that say town?"
@@ -658,12 +679,23 @@
                    unmounted; left alone rather than edited blind.) -->
               Town
             </button>
+            <!-- FT-1206: a chip the chat level refuses stays DRAWN (the
+                 fixed-list rule — the town can always see what whispering
+                 would be), dimmed, the reason on its tooltip, and pick()
+                 will not arm it. The Storyteller chip never refuses. -->
             <button
               v-for="t in whisperTargets"
               :key="t.id"
               class="cr-target is-whisper"
-              :class="{ on: target && target.id === t.id }"
-              :title="'Whisper ' + t.label"
+              :class="{
+                on: target && target.id === t.id,
+                refused: !!t.refusal,
+              }"
+              :title="
+                t.refusal
+                  ? 'Whisper ' + t.label + ' — ' + t.refusal
+                  : 'Whisper ' + t.label
+              "
               @click="pick(t)"
             >
               {{ t.label }}
@@ -728,7 +760,23 @@ import CloseX from "./CloseX";
 import ChroniclesRow from "./ChroniclesRow";
 import rightDrawer from "../golem/rightDrawer";
 import bottomSheet from "../golem/bottomSheet";
-import { BODY_MAX, seatOf, STORYTELLER_KEY, viewerOf } from "../golem/chat";
+import {
+  BODY_MAX,
+  seatOf,
+  STORYTELLER_KEY,
+  viewerOf,
+  // FT-1206: the chat level's two composer gates (the room, the chips), the
+  // shared frame builders (one send path with the seat schemes), and the
+  // per-pair whisper tally the counts band renders.
+  sayRefusal,
+  whisperRefusal,
+  whisperFrame,
+  sayFrame,
+  whisperCountsFor,
+} from "../golem/chat";
+// FT-1206: the chat level and the counts toggle ride the tower shelf — the
+// usual snapshot, refreshed on TOWER_EVENT.
+import { TOWER_EVENT, towerState } from "../golem/towerBells";
 import {
   startLabelOf,
   gamesOf,
@@ -817,6 +865,10 @@ export default {
       draft: "",
       /** null = the room; otherwise the whisper target chip that is armed. */
       target: null,
+      /** FT-1206: the town's chat level + counts toggle, snapshotted off the
+       *  tower shelf (refreshed on TOWER_EVENT, the FaceHands idiom). */
+      chatLevel: towerState.chatLevel,
+      countsOn: !!towerState.whisperCounts,
       /** Is the log scrolled to the bottom? Decides whether it follows. */
       stuck: true,
       /** FT-1037: "current" — the stream since the town opened this time —
@@ -848,6 +900,14 @@ export default {
       rosterCardRole: null,
       rosterCardAnchor: null,
     };
+  },
+  mounted() {
+    // FT-1206: the chat level and the counts toggle are town rules — the
+    // storyteller can turn them mid-session and this composer must hear it.
+    window.addEventListener(TOWER_EVENT, this.readChatRules);
+  },
+  beforeDestroy() {
+    window.removeEventListener(TOWER_EVENT, this.readChatRules);
   },
   computed: {
     ...mapState(["chat", "grimoire", "session", "night"]),
@@ -1277,18 +1337,27 @@ export default {
     historyCells() {
       return this.filterCells.filter((f) => f.id !== "nights");
     },
-    /** Who can be whispered — ChatDrawer's rule, verbatim. */
+    /** Who can be whispered — ChatDrawer's rule, verbatim.
+     *
+     *  FT-1206 adds the chat level: every chip now carries `refusal` — null,
+     *  or why it cannot be armed right now, in the level's own words. The
+     *  LIST does not shrink (a chip you cannot pick is drawn refused, the
+     *  fixed-list rule) and the Storyteller chip never refuses: that lane
+     *  stays open at every level, Off included. */
     whisperTargets() {
       const out = [];
+      const state = this.$store.state;
+      const viewer = this.viewer;
       if (this.session.isSpectator) {
         out.push({
           id: "host",
           label: "Storyteller",
           key: STORYTELLER_KEY,
           seat: null,
+          refusal: null,
         });
       }
-      const mySeat = seatOf(this.$store.state);
+      const mySeat = seatOf(state);
       this.players.forEach((player, seat) => {
         if (!player.id) return;
         if (player.id === this.session.playerId) return;
@@ -1298,9 +1367,35 @@ export default {
           label: player.name || `Seat ${seat + 1}`,
           key: player.name || `Seat ${seat + 1}`,
           seat,
+          refusal: whisperRefusal(
+            this.chatLevel,
+            viewer,
+            seat,
+            mySeat,
+            this.players.length,
+          ),
         });
       });
       return out;
+    },
+    /** FT-1206: may this viewer talk to the ROOM — null, or the reason not
+     *  ("Chat is off…"). The storyteller is never refused. */
+    sayRefusalText() {
+      return sayRefusal(this.chatLevel, this.viewer);
+    },
+    /**
+     * FT-1206: THE COUNTS BAND — per-pair whisper tallies for the running
+     * game, when the town's "Count whispers" toggle is on. Derived from the
+     * rows THIS viewer holds, which is the entire visibility model: the
+     * storyteller's log holds every whisper (full table, live); a player's
+     * holds only their own (their pairs only — the Chronicle never told them
+     * another pair's whisper even EXISTED live, and the counts keep that
+     * promise); at game end the publish hands everyone every row and the
+     * finished game's whispers are readable in History outright.
+     */
+    whisperPairCounts() {
+      if (!this.countsOn || this.mode !== "current") return [];
+      return whisperCountsFor(this.chat.log, this.chat.gameId);
     },
     topPlayers() {
       const players = (this.records.stats && this.records.stats.players) || [];
@@ -1340,10 +1435,13 @@ export default {
     visible() {
       if (this.stuck) this.$nextTick(this.toBottom);
     },
-    /** A target who left the town cannot be whispered; fall back to the room. */
+    /** A target who left the town cannot be whispered; fall back to the room.
+     *  FT-1206: and one the chat level has since refused disarms the same way
+     *  (the chip stays drawn, refused — only the ARMED state falls back). */
     whisperTargets(list) {
       if (!this.target) return;
-      if (!list.some((t) => t.id === this.target.id)) this.target = null;
+      const t = list.find((q) => q.id === this.target.id);
+      if (!t || t.refusal) this.target = null;
     },
     /** FT-1066: no more forced default (an accordion starts closed) — this
      *  only folds an open row if its game disappears from under it, e.g. a
@@ -1574,11 +1672,18 @@ export default {
       ];
     },
     pick(t) {
+      // FT-1206: a refused chip does not arm — its tooltip carries the why.
+      if (t && t.refusal) return;
       this.target = t;
       this.$store.commit("chatError", "");
       this.$nextTick(() => {
         if (this.$refs.entry) this.$refs.entry.focus();
       });
+    },
+    /** FT-1206: the tower snapshot — TOWER_EVENT's reader. */
+    readChatRules() {
+      this.chatLevel = towerState.chatLevel;
+      this.countsOn = !!towerState.whisperCounts;
     },
     onScroll() {
       const el = this.$refs.log;
@@ -1598,19 +1703,23 @@ export default {
       const body = this.draft.trim();
       if (!body || !this.canTalk) return;
       const t = this.target;
-      this.$store.commit("chatSay", {
-        to: t ? t.id : "",
-        kind: t ? "whisper" : "say",
-        gameId: this.chat.gameId,
-        senderKey: this.viewer.key,
-        senderKind: this.viewer.kind,
-        senderSeat: this.viewer.seat,
-        recipientKey: t ? t.key : null,
-        recipientSeat: t ? t.seat : null,
-        body,
-        phase: this.grimoire.isNight ? "night" : "day",
-        dayNumber: this.night.day,
-      });
+      // FT-1206: the chat level's last word before the wire — the chips and
+      // the Town button already refuse to ARM what the level forbids; this
+      // catches a level that changed under a composed line, and says why
+      // where the composer's refusals are said.
+      const why = t ? t.refusal : this.sayRefusalText;
+      if (why) {
+        this.$store.commit("chatError", why);
+        return;
+      }
+      // FT-1206: the frames are golem/chat's own builders now — the same
+      // whisperFrame the seat schemes send through, so the drawer and the
+      // seats can never drift apart on what a whisper IS.
+      const state = this.$store.state;
+      this.$store.commit(
+        "chatSay",
+        t ? whisperFrame(state, t, body) : sayFrame(state, body),
+      );
       this.draft = "";
       this.stuck = true;
     },
@@ -2207,6 +2316,39 @@ export default {
   &.is-whisper.on {
     background: rgba(60, 44, 78, 0.95);
     border-color: rgba(150, 130, 175, 0.75);
+    color: #efe6ff;
+  }
+  // FT-1206: refused by the chat level — drawn, dim, the reason on the
+  // tooltip; pick() swallows the click. The seat surfaces' own grammar.
+  &.refused {
+    cursor: not-allowed;
+    opacity: 0.45;
+    &:hover {
+      color: #d8cdb4;
+    }
+  }
+}
+
+// ── FT-1206: THE WHISPER TALLY — a thin band over the composer ─────────────
+.cr-whisper-counts {
+  @include control-plate;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #d8cdb4;
+}
+.cr-wc-mark {
+  width: 11px;
+  flex: 0 0 11px;
+  opacity: 0.75;
+}
+.cr-wc-pair {
+  white-space: nowrap;
+  b {
     color: #efe6ff;
   }
 }

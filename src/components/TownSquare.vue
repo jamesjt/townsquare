@@ -179,6 +179,12 @@
       :player-index="selectedPlayer"
       :for-belief="beliefMode"
     ></RoleModal>
+
+    <!-- FT-1206: the whisper planes — every player↔player whisper's public
+         trace, flying coin to coin. Lives here because the coins it flies
+         between are this component's ring; the whole overlay is
+         pointer-transparent ambience. -->
+    <WhisperPlanes />
   </div>
 </template>
 
@@ -188,6 +194,9 @@ import Player from "./Player";
 import Token from "./Token";
 import ReminderModal from "./modals/ReminderModal";
 import RoleModal from "./modals/RoleModal";
+// FT-1206: the whisper planes — the metadata-only public trace of a
+// player↔player whisper, flying between this ring's own coins.
+import WhisperPlanes from "./WhisperPlanes";
 // Golem fork (2026-08-19): who holds the demon's bluffs — the storyteller, the
 // demon, and the Lunatic. One rule, shared with the socket's sender (and, up
 // to FT-958, the menu strip's own toggle — that mark now lives here, see
@@ -226,6 +235,7 @@ export default {
     Token,
     RoleModal,
     ReminderModal,
+    WhisperPlanes,
   },
   computed: {
     ...mapGetters({ nightOrder: "players/nightOrder" }),

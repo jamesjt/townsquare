@@ -33,7 +33,19 @@ import { offerHostTakeover, takeoverSuffix } from "../golem/hostTakeover";
 // FT-965: the town log. `chatErrorText` says a relay refusal in the app's own
 // voice; `gameIdFor` derives the game a line belongs to from the deal moment
 // the host already stashes (golem/stats), so no new per-game identity is minted.
-import { chatErrorText, gameIdFor } from "../golem/chat";
+import {
+  chatErrorText,
+  gameIdFor,
+  viewerOf,
+  STORYTELLER_KEY,
+} from "../golem/chat";
+// FT-1206: the whisper's public trace (the paper plane, metadata only) and
+// the received-whisper toast — event names, wire validator, timing.
+import {
+  WHISPER_MARK_EVENT,
+  WHISPER_TOAST_EVENT,
+  cleanMark,
+} from "../golem/whisperMarks";
 // FT-1105: the DURABLE deal marker — see `_isDealt` below. The stash is the
 // host's own record of when this town was dealt (golem/stats.js), and it is
 // already the thing App.vue trusts for "a game is underway here".
@@ -47,6 +59,9 @@ import {
   TOWER_EVENT,
   towerSyncPayload,
   applyTowerSync,
+  // FT-1206: sendChat reads the town's whisper-mark setting at send (Off
+  // keeps the wire quiet) and the mark handler reads it again on receive.
+  towerState,
 } from "../golem/towerBells";
 // FT-1010: the event envelope — a game event riding a system row's body.
 import {
@@ -408,6 +423,17 @@ class LiveSession {
       // this client one it should not have.
       case "chat":
         this._store.commit("chatIngest", [params]);
+        // FT-1206: a LIVE whisper addressed to this viewer raises the toast.
+        // Here rather than in the mutation because catch-up lands through the
+        // same commit — a reload must not replay a night's worth of toasts.
+        this._notifyWhisper(params);
+        break;
+      // FT-1206: A PLANE FLEW — one player whispered another, somewhere in
+      // this town. Metadata only ({from, to} seats); the whisper itself
+      // travelled the private three-socket lane and never comes through here.
+      // The relay broadcasts this frame on its default branch, untouched.
+      case "whisperMark":
+        this._handleWhisperMark(params);
         break;
       // ...and the sender-only refusal. Nobody saw the line; say so where the
       // sender is looking, which is the composer.
@@ -1800,6 +1826,73 @@ class LiveSession {
       "chat",
       session.isEnded ? { ...payload, dayNumber: null } : payload,
     );
+    // FT-1206: THE PLANE RIDES BESIDE THE WHISPER, NOT INSIDE IT. A whisper
+    // between two SEATED players (both seats integers — a storyteller end is
+    // null and flies nothing) broadcasts its metadata-only mark to the whole
+    // town, unless the town turned the marks off — Off is suppressed at SEND,
+    // so the wire stays quiet, and receive ignores strays defensively too.
+    // One plane per message, the user's own call ("an airport is fine").
+    //
+    // The relay never echoes a broadcast to its sender, so this browser shows
+    // its own plane through the same handler every other browser uses.
+    if (
+      payload.kind === "whisper" &&
+      Number.isInteger(payload.senderSeat) &&
+      Number.isInteger(payload.recipientSeat) &&
+      towerState.whisperMarkSec > 0
+    ) {
+      const mark = { from: payload.senderSeat, to: payload.recipientSeat };
+      this._send("whisperMark", mark);
+      this._handleWhisperMark(mark);
+    }
+  }
+
+  /**
+   * FT-1206: a whisper-mark frame, from the wire or from this client's own
+   * send. Refused unless the town's marks are on and the shape is two real,
+   * distinct seats on this ring (golem/whisperMarks.cleanMark) — a
+   * hand-written frame from a console draws nothing. What survives is a
+   * window event; WhisperPlanes.vue draws it.
+   */
+  _handleWhisperMark(params) {
+    if (!(towerState.whisperMarkSec > 0)) return;
+    const mark = cleanMark(params, this._store.state.players.players.length);
+    if (!mark) return;
+    try {
+      window.dispatchEvent(
+        new CustomEvent(WHISPER_MARK_EVENT, { detail: mark }),
+      );
+    } catch (e) {
+      // no CustomEvent: the whisper still lands; only the plane is lost
+    }
+  }
+
+  /**
+   * FT-1206: A WHISPER REACHED THIS VIEWER — raise the unfold toast. Only for
+   * a row that (a) is a whisper, (b) names this viewer as its RECIPIENT (the
+   * storyteller answers to the Storyteller key whatever name they typed),
+   * (c) was not sent by this viewer (the relay echoes the sender too), and
+   * (d) actually SURVIVED ingest — the level defence may have dropped it, and
+   * a toast for a line the log refuses to hold would be the notification
+   * outliving the message.
+   */
+  _notifyWhisper(row) {
+    if (!row || row.kind !== "whisper") return;
+    const state = this._store.state;
+    const viewer = viewerOf(state);
+    if (!viewer.key || row.senderKey === viewer.key) return;
+    const mine = viewer.isStoryteller
+      ? row.recipientKey === STORYTELLER_KEY || row.recipientKey === viewer.key
+      : row.recipientKey === viewer.key;
+    if (!mine) return;
+    if (!state.chat.log.some((r) => r.seq === row.seq)) return;
+    try {
+      window.dispatchEvent(
+        new CustomEvent(WHISPER_TOAST_EVENT, { detail: row }),
+      );
+    } catch (e) {
+      // no CustomEvent: the row is in the log; only the toast is lost
+    }
   }
 
   /**
@@ -1907,6 +2000,21 @@ export default (store) => {
     if (!store.state.session.isSpectator && store.state.session.sessionId) {
       session.sendTower();
     }
+  });
+
+  // FT-1206: THE CHAT LEVEL CHANGED — on the host's own pick or on a sync
+  // arriving. Rows are level-filtered at ingest (store's chatIngest), so the
+  // held log answers to the OLD level and the cursor has moved past whatever
+  // it dropped; throw the log away and re-read it under the level now in
+  // force — the exact move the live-game-boundary watcher below makes, for
+  // the exact same reason.
+  let lastChatLevel = towerState.chatLevel;
+  window.addEventListener(TOWER_EVENT, () => {
+    if (towerState.chatLevel === lastChatLevel) return;
+    lastChatLevel = towerState.chatLevel;
+    if (!store.state.session.sessionId) return;
+    store.commit("chatReset");
+    store.dispatch("chatCatchUp");
   });
 
   // FT-1010: the live game id as last seen, for spotting the moment it

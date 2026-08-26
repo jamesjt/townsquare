@@ -310,6 +310,193 @@ export function inScope(row, scope, gameId) {
   return true;
 }
 
+/**
+ * ── FT-1206: THE CHAT LEVELS — how much talking this town allows ────────────
+ *
+ * A TOWN RULE, not a viewer preference: the storyteller sets it on the build
+ * panel's Game settings tab and it rides the tower shelf (golem/towerBells'
+ * DEFAULT_TOWER — per-town persisted, synced to every client) exactly as the
+ * bells and the day length do. The VOCABULARY lives here because it is a fact
+ * about the chat, not about the tower; towerBells imports these two tables to
+ * sanitize the keys and owns nothing else about them.
+ *
+ * THE ONE DOOR THAT NEVER CLOSES: the player↔storyteller lane. At EVERY
+ * level, Off included, a player may whisper the storyteller and the
+ * storyteller may whisper anyone. What the levels govern is the town's own
+ * talk — the room, and player↔player whispers.
+ *
+ * NEIGHBORS ARE CHAIRS, dead or alive: the two seats beside yours on the
+ * ring, wrapping at its ends. A dead neighbor is still a neighbor.
+ */
+export const CHAT_LEVELS = [
+  {
+    id: "off",
+    label: "Off",
+    title: "The town is silent — players can still whisper the storyteller",
+  },
+  {
+    id: "no-whispers",
+    label: "No whispers",
+    title:
+      "Everyone talks in the open — the only private line is to the storyteller",
+  },
+  {
+    id: "neighbors",
+    label: "Neighbors",
+    title:
+      "Whisper the two seats beside you (dead or alive) — and the storyteller",
+  },
+  {
+    id: "anyone",
+    label: "Anyone",
+    title: "Whisper any seat in the town",
+  },
+];
+
+/** The linger choices for the whisper marks (seconds); 0 is Off — no plane
+ *  is broadcast at all. */
+export const WHISPER_MARK_SECS = [0, 4, 8, 15];
+
+/** Are two chairs beside each other on a ring of `size` chairs, wrapping?
+ *  On a two-chair ring the other chair is both neighbors at once. */
+export function seatsAdjacent(a, b, size) {
+  if (!Number.isInteger(a) || !Number.isInteger(b)) return false;
+  if (!Number.isInteger(size) || size < 2) return false;
+  if (a === b) return false;
+  const step = Math.abs(a - b);
+  return step === 1 || step === size - 1;
+}
+
+/**
+ * MAY THIS VIEWER SAY SOMETHING TO THE ROOM — null, or the reason not.
+ * The storyteller is never refused: the game's own voice (phase turns,
+ * system rows) already speaks through the same log, and silencing the town
+ * was never about silencing its narrator.
+ */
+export function sayRefusal(level, viewer) {
+  if (!viewer || viewer.isStoryteller) return null;
+  if (level === "off")
+    return "Chat is off — you can still whisper the storyteller";
+  return null;
+}
+
+/**
+ * MAY THIS VIEWER WHISPER THAT SEAT — null, or the reason not, said the way
+ * the seat surfaces show it ("Chat is off", "Whispers are off", "Only your
+ * neighbors"). `targetSeat` null means the storyteller chip — the lane that
+ * never closes.
+ */
+export function whisperRefusal(level, viewer, targetSeat, viewerSeat, size) {
+  if (!viewer || viewer.isStoryteller) return null;
+  if (targetSeat == null) return null;
+  if (level === "off") return "Chat is off";
+  if (level === "no-whispers") return "Whispers are off";
+  if (level === "neighbors") {
+    if (!seatsAdjacent(viewerSeat, targetSeat, size))
+      return "Only your neighbors";
+  }
+  return null;
+}
+
+/**
+ * THE RECEIVE-SIDE DEFENCE — should this held-or-arriving row be dropped
+ * under the level now in force? The composer is the first gate; this is the
+ * second, for a client that bypassed it. Scoped to the LIVE GAME on purpose:
+ * finished games are published history (canSee's contract) and rewriting it
+ * under today's level would silence rows the town already owns. The
+ * storyteller is never silenced — every enforcement question is theirs to
+ * judge, which takes seeing the evidence.
+ */
+export function levelSilences(row, viewer, liveGameId, level, size) {
+  if (!row || !viewer || viewer.isStoryteller) return false;
+  if (!liveGameId || row.gameId !== liveGameId) return false;
+  if (row.kind === "whisper") {
+    // player↔player only — a seatless end (the storyteller) keeps the lane
+    if (
+      !Number.isInteger(row.senderSeat) ||
+      !Number.isInteger(row.recipientSeat)
+    )
+      return false;
+    if (level === "off" || level === "no-whispers") return true;
+    if (level === "neighbors")
+      return !seatsAdjacent(row.senderSeat, row.recipientSeat, size);
+    return false;
+  }
+  if (row.kind === "say") {
+    // a seated player's room talk while the room is off; the storyteller's
+    // own lines carry no seat and pass
+    return level === "off" && Number.isInteger(row.senderSeat);
+  }
+  return false;
+}
+
+/**
+ * FT-1206: ONE WHISPER, WHOEVER COMPOSED IT. The Chronicle's composer and the
+ * three seat schemes all build their frame here, so "whisper from the seat"
+ * can never drift from "whisper from the drawer" — same identity, same game
+ * id, same phase stamp, one send path (the chatSay mutation → sendChat).
+ */
+export function whisperFrame(state, target, body) {
+  const viewer = viewerOf(state);
+  return {
+    to: target.id,
+    kind: "whisper",
+    gameId: state.chat.gameId,
+    senderKey: viewer.key,
+    senderKind: viewer.kind,
+    senderSeat: viewer.seat,
+    recipientKey: target.key,
+    recipientSeat: target.seat == null ? null : target.seat,
+    body,
+    phase: state.grimoire.isNight ? "night" : "day",
+    dayNumber: state.night.day,
+  };
+}
+
+/** …and the room's own line, same funnel. */
+export function sayFrame(state, body) {
+  const viewer = viewerOf(state);
+  return {
+    to: "",
+    kind: "say",
+    gameId: state.chat.gameId,
+    senderKey: viewer.key,
+    senderKind: viewer.kind,
+    senderSeat: viewer.seat,
+    recipientKey: null,
+    recipientSeat: null,
+    body,
+    phase: state.grimoire.isNight ? "night" : "day",
+    dayNumber: state.night.day,
+  };
+}
+
+/**
+ * FT-1206: PER-PAIR WHISPER COUNTS for one game — who↔whom, how many —
+ * derived from the rows THIS VIEWER HOLDS, which is the whole privacy story:
+ * the storyteller's log holds every whisper so their table is complete; a
+ * player's log holds only whispers they were party to (chatIngest drops the
+ * rest before the store), so their table is their own pairs and nothing else;
+ * and once the game is over the publish hands everyone every row, so the full
+ * table becomes everyone's. No second visibility rule to keep in step.
+ */
+export function whisperCountsFor(log, gameId) {
+  if (!gameId || !Array.isArray(log)) return [];
+  const pairs = new Map();
+  log.forEach((row) => {
+    if (!row || row.kind !== "whisper" || row.gameId !== gameId) return;
+    const a = row.senderKey || "?";
+    const b = row.recipientKey || "?";
+    const key = a <= b ? `${a}|${b}` : `${b}|${a}`;
+    const cur = pairs.get(key);
+    if (cur) cur.n++;
+    else pairs.set(key, { a: a <= b ? a : b, b: a <= b ? b : a, n: 1 });
+  });
+  return [...pairs.values()].sort(
+    (p, q) => q.n - p.n || (p.a + p.b).localeCompare(q.a + q.b),
+  );
+}
+
 /** HH:MM for a row's `createdAt`, or "" if it is unreadable. */
 export function timeOf(row) {
   const at = Date.parse(row.createdAt);

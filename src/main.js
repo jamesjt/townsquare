@@ -26,6 +26,9 @@ const faIcons = [
   "Clock",
   "CloudMoon",
   "Cog",
+  // FT-1206: the Chat level row's mark (there is no speech mark in the fork's
+  // own art set yet — the Bell/BellSlash standing note applies).
+  "Comments",
   "Copy",
   "Clipboard",
   "Bell",
@@ -53,6 +56,9 @@ const faIcons = [
   "Link",
   "Mask",
   "MinusCircle",
+  // FT-1206: the whisper — the seat vocabulary's Whisper row, the Whisper
+  // marks settings row, and the click scheme's plate-side disc all wear it.
+  "PaperPlane",
   "Pen",
   "PeopleArrows",
   "Plus",

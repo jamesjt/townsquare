@@ -12,7 +12,18 @@ import night from "./modules/night";
 // FT-965: THE TOWN LOG. The merge/cursor/visibility rules live in the module,
 // not in these mutations — see golem/chat.js for why "no gap, no duplicate" is
 // a property of the data structure rather than of arrival timing.
-import { canSee, catchUp, mergeLog, SCOPES, viewerOf } from "../golem/chat";
+import {
+  canSee,
+  catchUp,
+  levelSilences,
+  mergeLog,
+  SCOPES,
+  viewerOf,
+} from "../golem/chat";
+// FT-1206: the town's chat level rides the tower shelf; ingest reads it as a
+// plain snapshot (towerState is the module's own single copy, sanitized on
+// every write), the same way the components snapshot it.
+import { towerState } from "../golem/towerBells";
 // FT-1019: the chronicles stream's filter vocabulary — the store holds which
 // one is showing so the V hotkey can arm "gallows" before the drawer opens.
 import { FILTERS } from "../golem/chronicles";
@@ -563,7 +574,20 @@ export default new Vuex.Store({
           // FT-1010: the live game's id rides along — a whisper from a
           // FINISHED game is public (see canSee), and "finished" can only be
           // judged against the game being played right now.
-          canSee(row, viewer, state.chat.gameId),
+          canSee(row, viewer, state.chat.gameId) &&
+          // FT-1206: THE CHAT LEVEL'S SECOND GATE. The composer refuses to
+          // build a forbidden line; this drops one a bypassing client sent
+          // anyway, before the store, live game only — finished games are
+          // published history and the storyteller is never silenced (the
+          // helper owns both rules). socket.js re-reads the log when the
+          // level changes, so a relaxed level re-offers what this dropped.
+          !levelSilences(
+            row,
+            viewer,
+            state.chat.gameId,
+            towerState.chatLevel,
+            state.players.players.length,
+          ),
       );
       state.chat.log = mergeLog(state.chat.log, allowed);
     },

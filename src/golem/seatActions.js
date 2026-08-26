@@ -99,6 +99,14 @@ import uiNominateHand from "../assets/ui-nominate-hand.png";
  * @property {boolean} nomination    a nomination is already up
  * @property {boolean} grimoireHidden `grimoire.isPublic` — the coins are face
  *                                    down, i.e. the room is looking at this
+ * @property {?string} whisperRefusal FT-1206: why this seat cannot be
+ *                                    whispered right now, or null when it can.
+ *                                    COMPUTED BY THE SEAT (Player.vue, from
+ *                                    golem/chat's whisperRefusal — the chat
+ *                                    level, the viewer, the ring) because the
+ *                                    rule is the chat's, not the seat's; this
+ *                                    file only carries the answer, exactly as
+ *                                    every other guard carries a store fact.
  */
 
 /**
@@ -235,6 +243,24 @@ const ENTRIES = [
         ? "Not while the grimoire is hidden — the room can see this seat"
         : null,
     act: "openReminderModal",
+  },
+  {
+    /**
+     * FT-1206: THE SEVENTH SLOT — whisper this seat. The same whisper the
+     * Chronicle's composer sends (one send path, golem/chat's whisperFrame);
+     * what this row opens is the inline input (SeatWhisper.vue), drawn by
+     * each scheme in its own shape. The guard's reasons are the chat level's
+     * own words ("Chat is off", "Whispers are off", "Only your neighbors"),
+     * precomputed by the seat — see SeatFacts. The row keeps the fixed-list
+     * rule: refused is drawn, never absent.
+     */
+    id: "whisper",
+    slot: 7,
+    icon: () => "paper-plane",
+    label: () => "Whisper",
+    hint: () => "Send this player a private message",
+    guard: (f) => f.whisperRefusal || null,
+    act: "openSeatWhisper",
   },
 ];
 

@@ -677,6 +677,78 @@
             />
           </span>
         </span>
+
+        <span class="ht-set-line ht-set-line-chat">
+          <!-- ── FT-1206: THE CHAT LEVEL — how much talking this town allows.
+             Off / No whispers / Neighbors / Anyone (golem/chat's CHAT_LEVELS;
+             neighbors are the two chairs beside yours, dead or alive). The
+             player↔storyteller lane stays open at EVERY level. Rides the
+             tower shelf like every row beside it: per-town persisted, synced
+             live, enforced at the composers and defensively on receive. -->
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="comments"
+                title="How much the town may talk"
+              />
+              <span class="row-name" v-if="!iconsOnly">Chat</span>
+            </span>
+            <OptionSelect
+              name="chat-level"
+              aria-label="Chat level"
+              :options="chatOptions"
+              :value="tower.chatLevel"
+              @input="pickChatLevel"
+            />
+          </span>
+          <!-- FT-1206: THE WHISPER MARKS — the paper plane every browser sees
+             when two players whisper (metadata only: seats, never content),
+             and how long it rests by the recipient's coin. Off keeps the
+             wire silent. -->
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="paper-plane"
+                title="The whisper planes — how long one rests by the recipient's coin"
+              />
+              <span class="row-name" v-if="!iconsOnly">Whisper marks</span>
+            </span>
+            <OptionSelect
+              name="whisper-marks"
+              aria-label="Whisper marks"
+              :options="whisperMarkOptions"
+              :value="String(tower.whisperMarkSec)"
+              @input="pickWhisperMarks"
+            />
+          </span>
+        </span>
+
+        <span class="ht-set-line ht-set-line-counts">
+          <!-- FT-1206: COUNT WHISPERS — the Chronicle's per-pair tally for
+             the running game (who whispered whom, how many times). In the
+             Chronicle, never on the clock. Each viewer's table holds what
+             their own Chronicle holds: the storyteller everything, a player
+             their own pairs; a finished game publishes all of it. -->
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="chart-bar"
+                title="The Chronicle's whisper tally"
+              />
+              <span class="row-name" v-if="!iconsOnly">Count whispers</span>
+            </span>
+            <OptionSelect
+              name="whisper-counts"
+              aria-label="Count whispers"
+              :options="whisperCountOptions"
+              :value="tower.whisperCounts ? 'on' : 'off'"
+              @input="pickWhisperCounts"
+            />
+          </span>
+        </span>
       </div>
 
       <!-- FT-1045: THE CUSTOM BELL'S SOURCE — the row only Custom shows.
@@ -947,6 +1019,9 @@ import {
   // still running — the pair of segments it replaced had no way to say that.
   stopBellPreview,
 } from "../golem/towerBells";
+// FT-1206: the chat levels and the plane's linger choices — the two new
+// rows offer them; the keys ride the tower shelf like every setting here.
+import { CHAT_LEVELS, WHISPER_MARK_SECS } from "../golem/chat";
 // FT-1051: the shared custom-audio machinery (one helper serving the bell
 // AND the call-back), and the call-back's own preview.
 import { probeAudioUrl, uploadAudioFile } from "../golem/customAudio";
@@ -1203,6 +1278,42 @@ export default {
           label: "Custom",
           title:
             "A sound of your own — picking it plays it for you; picking it again stops it",
+        },
+      ];
+    },
+    /** FT-1206: the Chat row's choices — golem/chat's own table, so the
+     *  select and the enforcement can never disagree about the levels. */
+    chatOptions() {
+      return CHAT_LEVELS.map((l) => ({
+        value: l.id,
+        label: l.label,
+        title: l.title,
+      }));
+    },
+    /** FT-1206: the plane's linger — Off, or seconds by the coin. */
+    whisperMarkOptions() {
+      return WHISPER_MARK_SECS.map((s) => ({
+        value: String(s),
+        label: s === 0 ? "Off" : `${s}s`,
+        title:
+          s === 0
+            ? "No planes — a whisper leaves no public trace"
+            : `The plane rests by the recipient's coin for ${s} seconds`,
+      }));
+    },
+    /** FT-1206: the Chronicle's whisper tally, on or off. */
+    whisperCountOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title: "No tally — the Chronicle keeps only the whispers themselves",
+        },
+        {
+          value: "on",
+          label: "On",
+          title:
+            "The Chronicle shows who whispered whom this game, and how many times",
         },
       ];
     },
@@ -1545,6 +1656,17 @@ export default {
       this.setTower("callId", id);
       if (id === "custom" && !this.tower.callUrl) return;
       toggleCallBackPreview(this.grimoire.isMuted);
+    },
+    /** FT-1206: the three chat rows — plain tower writes; the shelf persists
+     *  per town, syncs live, and the composers re-read on its event. */
+    pickChatLevel(id) {
+      this.setTower("chatLevel", id);
+    },
+    pickWhisperMarks(v) {
+      this.setTower("whisperMarkSec", Number(v));
+    },
+    pickWhisperCounts(v) {
+      this.setTower("whisperCounts", v === "on");
     },
     /** The two source fields' shared tooltip wording (bellUrlHint /
      *  callUrlHint above name their own fallback). */
