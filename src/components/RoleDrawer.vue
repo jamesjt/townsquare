@@ -54,13 +54,32 @@
         <template v-else>Tap a character, then tap a seat</template>
       </div>
       <div class="rd-acts">
+        <!-- FT-1151 (user): "if this button is going to also shuffle the
+             roles does it do the same thing as the shuffle button of all of
+             the roles are filled? Do we need both?"
+
+             They do different things, and the LABEL was what made that hard
+             to see. On a full town this button clears every chair and deals
+             the composition FRESH from the whole script (a 2026-08-18 user
+             call) — a new hand, in which characters that were in play may
+             leave and others arrive. Shuffle keeps the same characters and
+             only moves them between chairs.
+
+             So the button that does the most on a full town was labelled
+             "Deal 0", which reads as "there is nothing to deal". The count
+             belongs to the case it describes; when there is no open chair
+             the button says what it will actually do. -->
         <button
           class="rd-act"
           @click="assignRandomly"
-          title="Deal the remaining valid roles out to the open seats"
+          :title="
+            openSeats
+              ? 'Deal the remaining valid roles out to the open seats'
+              : 'Every chair is taken — deal a fresh hand from the whole script. Shuffle instead to keep these characters and only move them.'
+          "
         >
           <img class="act-glyph" :src="dealGlyph" alt="" />
-          Deal {{ openSeats }}
+          {{ openSeats ? "Deal " + openSeats : "Re-deal" }}
         </button>
         <button
           class="rd-act"
