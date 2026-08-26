@@ -646,7 +646,13 @@ export default {
   display: block;
   margin: 2px 0 4px 18px;
   padding-left: 8px;
-  border-left: 2px solid rgba(178, 143, 47, 0.45);
+  // FT-1152 (user): "Night info should have the left border as storyteller
+  // purple not gold". The night block is the storyteller's own record — the
+  // one thing on this row that only they and the acting seat can read until
+  // the game ends — so it wears the book's colour, the same plum every other
+  // storyteller control took today. Gold is the checklist's tick, not the
+  // record's edge.
+  border-left: 2px solid rgba(167, 143, 205, 0.55);
 }
 
 .crr-nights-lines {
