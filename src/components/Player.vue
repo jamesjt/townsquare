@@ -992,8 +992,11 @@ const HOVER_DELAY = 170;
 // nothing to glance past, and the scheme was chosen BECAUSE the menu is the
 // point, so it answers at the speed of intent. 60ms still swallows a straight
 // sweep across the square (a pointer crossing a coin at speed is gone in
-// ~40ms) without making a genuine rest wait.
-const RING_DELAY = 60;
+// ~40ms) without making a genuine rest wait. 60 -> 30 (FT-1203, the user's
+// second "even faster"): a straight sweep still clears a coin in ~40ms of
+// travel, but half of that lands inside the delay -- 30 keeps the guard while
+// answering a genuine rest within a couple of frames.
+const RING_DELAY = 30;
 // FT-990: how long a card survives after the cursor leaves a target. The seat
 // has three of them (coin, shroud, plate) with real ground between the coin and
 // the plate, and a straight move across that ground must not drop the card and
