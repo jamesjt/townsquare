@@ -83,8 +83,8 @@
         :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
         @dragstart="onRoleDragStart"
         @click="onLifeClick"
-        @mouseenter="showCard"
-        @mouseleave="hideCardSoon"
+        @mouseenter="onCoinEnter"
+        @mouseleave="onCoinLeave"
       ></div>
       <!-- FT-985: the seat's Roman numeral USED TO LIVE IN HERE, and that is
            why it only ever appeared with the grimoire hidden. The life token
@@ -101,8 +101,8 @@
       <div
         class="life"
         @click="onLifeClick"
-        @mouseenter="showCard"
-        @mouseleave="hideCardSoon"
+        @mouseenter="onCoinEnter"
+        @mouseleave="onCoinLeave"
       ></div>
 
       <!-- The seat's night-order badges are RETIRED (user call 2026-08-18):
@@ -148,9 +148,9 @@
         :hover-card="false"
         :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
         @dragstart.native="onRoleDragStart"
-        @mouseenter.native="showCard"
-        @mouseleave.native="hideCardSoon"
-        @set-role="$emit('trigger', ['openRoleModal'])"
+        @mouseenter.native="onCoinEnter"
+        @mouseleave.native="onCoinLeave"
+        @set-role="onCoinSetRole"
       />
 
       <!-- FT-1080 — THE BELIEF CHIP'S DOCK, and why the chip had to leave the
@@ -257,6 +257,36 @@
         :anchor="cardAnchor"
         :prefer="cardPrefer"
         @dismiss="hideCard"
+      />
+
+      <!-- FT-1169 — THE SEAT'S ACTIONS, one menu, two doorways.
+           The nameplate's click opens it in the "Nameplate click" scheme and
+           the coin's own rest opens it in "Hover coin"; the plate is the same
+           object either way (the user: "hovering the coin brings up the menu
+           of all of the things in the nameplate click menu"). It is bound
+           here, inside `.player`, purely so the seat owns its lifetime — what
+           actually PAINTS is moved onto document.body when it mounts, because
+           a fixed-position box inside one of these rotated, clipped seats is
+           re-rooted to the seat's own transform and every viewport number it
+           computes would be a lie. Same move RoleHoverCard directly above
+           makes, for the same reason; SeatMenu does it through a PORTAL (its
+           root stays here, only the plate travels) because moving the root
+           itself broke Vue's sibling patching on this very seat — the crash
+           and its measurement are written up in SeatMenu's own template note.
+           `owner` is this seat's <li>: a press on the plate or the coin that
+           opened the menu is not a press OUTSIDE it, and neither is a grab on
+           one of the drag handles the user insisted stay live in every
+           scheme. -->
+      <SeatMenu
+        v-if="seatMenuAnchor"
+        :anchor="seatMenuAnchor"
+        :outward="seatMenuOutward"
+        :entries="seatMenuEntries"
+        :owner="$el"
+        @pick="runSeatAction"
+        @dismiss="closeSeatMenu"
+        @hold="onSeatMenuEnter"
+        @release="onSeatMenuLeave"
       />
 
       <!-- FT-985 — THE SEAT'S ROMAN NUMERAL (user call: "have them appear if
@@ -612,12 +642,16 @@
            card — the hover belongs to the COIN alone. Retires the FT-858
            plate-park (2026-08-19); showCard's fromPlate branch stays for the
            day it is wanted back. -->
+      <!-- FT-1169: the plate's click is routed by the control scheme now —
+           see onPlateClick. The plate's HOVER is untouched in all three
+           schemes (it reveals the add-reminder disc, and the user's own spec
+           says the nameplate hover keeps doing what it does today). -->
       <div
         class="name"
-        @click="showSeatMenu && (isMenuOpen = !isMenuOpen)"
+        @click="onPlateClick"
         @mouseenter="nameHover = true"
         @mouseleave="nameHover = false"
-        :class="{ active: isMenuOpen }"
+        :class="{ active: isMenuOpen || !!seatMenuAnchor }"
         :draggable="String(!!player.id && !session.isSpectator)"
         @dragstart="onPlayerDragStart"
       >
@@ -894,6 +928,21 @@ import {
   setDragImageSrc,
   warmIconSrc,
 } from "../golem/roleDrag";
+// FT-1169: the seat's actions as one menu — the object BOTH the nameplate
+// click and the coin hover open. See SeatMenu.vue for why it is one component
+// and not two, and for where it places itself.
+import SeatMenu from "./SeatMenu";
+// FT-1169: THE CONTROL SCHEME — this browser's own answer to "how do I work a
+// seat". FT-1168 built the setting and deliberately left it inert; this is the
+// lane that reads it. One stash, one writer (golem/prefs), and the snapshot
+// idiom every other consumer of it uses (App.vue, Menu.vue, NightModeRow):
+// prefsState is a plain module object, so each component holds its own
+// reactive copy refreshed on PREFS_EVENT.
+import { PREFS_EVENT, prefsState } from "../golem/prefs";
+// FT-1169: the plate in the middle of the clock, which the seat menu has to
+// clear for exactly the reason the reminder fan does. FT-1167 measured it as a
+// private method here; it moved to a module so the menu can read the same one.
+import { centrePlateRect as readCentrePlateRect } from "../golem/clockFace";
 import { mapGetters, mapState } from "vuex";
 
 // how long the cursor has to rest on a seat before its card appears — enough
@@ -916,6 +965,7 @@ const SPLATS = splatCtx
 export default {
   components: {
     RoleHoverCard,
+    SeatMenu,
     Token
   },
   props: {
@@ -1030,6 +1080,143 @@ export default {
      *  bring the whole menu back, plate-toggle and all. */
     showSeatMenu() {
       return false;
+    },
+    // ── FT-1169: THE THREE CONTROL SCHEMES ───────────────────────────────
+    /**
+     * WHICH SCHEME THIS SEAT IS ACTUALLY RUNNING — not simply what the
+     * setting says.
+     *
+     * TWO THINGS OVERRIDE THE STORED CHOICE, both of them because the scheme
+     * would otherwise be a dead end:
+     *
+     *   · A SPECTATOR is always on "click". The schemes are how a STORYTELLER
+     *     works a seat (golem/prefs says so in as many words), and every row
+     *     the menu offers is refused for a spectator by the guard that
+     *     already stands in front of it — `updatePlayer` bails on anything but
+     *     reminders and pronouns, movePlayer/swapPlayer/nominatePlayer bail on
+     *     `isSpectator`. A player who picked "Hover coin" out of curiosity
+     *     would otherwise get a plate of rows that do nothing, standing over
+     *     the coin they are trying to claim.
+     *
+     *   · "HOVER" FALLS BACK TO "NAMEPLATE" ON A TOUCH SCREEN. There is no
+     *     rest-the-pointer gesture on a finger, so hover is not a scheme
+     *     there — it is the absence of one. Falling back to the nameplate
+     *     keeps every row reachable rather than stranding a phone on a
+     *     control it cannot perform. Same `(hover: hover)` test showCard
+     *     already runs before raising a card.
+     */
+    controlScheme() {
+      if (this.session.isSpectator) return "click";
+      const scheme = this.prefs.controlScheme || "click";
+      if (scheme === "hover" && !this.hasHover) return "nameplate";
+      return scheme;
+    },
+    /**
+     * THE ROWS THIS SEAT OFFERS, and what each one is conditional on.
+     *
+     * THE MENU READS THE SEAT; it is not a fixed list with a special case
+     * bolted on for the one entry the user happened to name. Every row below
+     * carries the SAME guard the direct affordance it replaces already
+     * carried — that is the whole design rule here, because two different
+     * answers to "may this happen now" is how a menu and a mark drift apart.
+     *
+     *   Kill / Revive        always. The label flips on `isDead`; the act is
+     *                        `toggleStatus`, the shroud's own click, verbatim.
+     *   Change role          always — the coin's own `set-role`.
+     *   Move player          the chair is CLAIMED (an "Open" plate has no
+     *                        player to carry), and greyed while a vote is
+     *                        locked, which is the retired row's own gate.
+     *   Move role            the chair HAS a character. Label flips on armed,
+     *                        so the row that picks a character up is also the
+     *                        row that puts it back — `armCharacter` was
+     *                        already a toggle.
+     *   Player nominates     a LIVING seat, and no nomination already
+     *                        running. Both come straight off the nominate
+     *                        mark's own `v-if`.
+     *   Ghost vote           a DEAD seat — and it takes the nominate row's
+     *                        slot rather than sitting beside it, because the
+     *                        two are the same question at two moments: a
+     *                        living seat can point at somebody, a dead one
+     *                        can only spend the vote it has left. (User's
+     *                        rider, and the seat already wears exactly this
+     *                        swap: the ghost-vote cowl and the nominate hand
+     *                        share one corner of the coin for the same
+     *                        reason.) The label says what the CLICK does, not
+     *                        what the state is, so it reads like every other
+     *                        row here.
+     *   Add reminder         not on the PUBLIC grimoire — the retired row's
+     *                        own gate, and the one the reminders themselves
+     *                        already follow.
+     *
+     * An empty list is a real answer and the menu does not open on one.
+     */
+    seatMenuEntries() {
+      if (this.session.isSpectator) return [];
+      const out = [];
+      const dead = !!this.player.isDead;
+      out.push({
+        id: "kill",
+        icon: dead ? "heartbeat" : "skull",
+        label: dead ? "Revive" : "Kill",
+        title: dead
+          ? "Bring this player back to life"
+          : "Kill this player — the shroud goes on",
+      });
+      out.push({
+        id: "role",
+        icon: "mask",
+        label: "Change role",
+        title: "Pick the character sitting on this chair",
+      });
+      if (this.player.id) {
+        out.push({
+          id: "move-player",
+          icon: "redo-alt",
+          label: "Move player",
+          title: this.session.lockedVote
+            ? "Not while a vote is locked"
+            : "Pick this player up — then pick the chair they move to",
+          disabled: !!this.session.lockedVote,
+        });
+      }
+      if (this.player.role.id) {
+        out.push({
+          id: "move-role",
+          icon: "people-arrows",
+          label: this.roleArmed ? "Put character back" : "Move role",
+          title:
+            "Pick this chair's character up — then tap another seat to trade them over",
+          on: this.roleArmed,
+        });
+      }
+      if (dead) {
+        out.push({
+          id: "ghost-vote",
+          icon: "vote-yea",
+          label: this.player.isVoteless
+            ? "Give ghost vote back"
+            : "Use ghost vote",
+          title: this.player.isVoteless
+            ? "This ghost's vote is spent — hand it back"
+            : "Spend this ghost's one vote",
+        });
+      } else if (!this.session.nomination) {
+        out.push({
+          id: "nominate",
+          icon: "hand-point-right",
+          label: "Player nominates",
+          title: "This player nominates — then pick who they point at",
+        });
+      }
+      if (!this.grimoire.isPublic) {
+        out.push({
+          id: "reminder",
+          icon: "plus",
+          label: "Add reminder",
+          title: "Put a reminder token on this seat",
+        });
+      }
+      return out;
     },
     index: function() {
       return this.players.indexOf(this.player);
@@ -1433,11 +1620,35 @@ export default {
       // FT-1117: this gesture on a reminder became a DRAG, so the click that
       // may follow it is the drag's own tail and must not remove the token.
       // Cleared by the next mousedown on a reminder — see the template note.
-      reminderDragged: false
+      reminderDragged: false,
+      // FT-1169: this browser's own settings, snapshot-and-refresh (see the
+      // import note). Only `controlScheme` is read here.
+      prefs: { ...prefsState },
+      // FT-1169: does this device HAVE a resting pointer? Read once — it is a
+      // property of the machine, not of the session — and used to fall the
+      // hover scheme back to the nameplate on a touch screen.
+      hasHover: true,
+      // FT-1169: the seat menu is up, and the coin it is pinned to. The
+      // element rather than a flag alone: SeatMenu measures the anchor fresh
+      // at placement time, the same contract RoleHoverCard's `anchor` keeps.
+      seatMenuAnchor: null,
+      // FT-1169: this seat's outward direction in screen space, handed to the
+      // menu so it can lean away from the middle of the clock. Read off the
+      // seat's own transform matrix at open time — see seatOutwardVector.
+      seatMenuOutward: { x: 0, y: -1 },
     };
   },
   mounted() {
     this.remeasureSeat();
+    // FT-1169: the control scheme can change while a town is open (the corner
+    // menu sets it), and every seat has to hear it.
+    window.addEventListener(PREFS_EVENT, this.readPrefs);
+    try {
+      this.hasHover = window.matchMedia("(hover: hover)").matches;
+    } catch (e) {
+      // no matchMedia: assume a pointer, which is the desktop this app is for
+      this.hasHover = true;
+    }
     window.addEventListener("resize", this.remeasureSeat);
     window.addEventListener("orientationchange", this.remeasureSeat);
     // Catches what a resize event misses: this seat's own box can change
@@ -1452,6 +1663,11 @@ export default {
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
     clearTimeout(this.$options.hideTimer);
+    // FT-1169: the hover scheme's own open/close timers ride the same options
+    // bag the card's do, so they are cleared in the same breath.
+    clearTimeout(this.$options.menuTimer);
+    clearTimeout(this.$options.menuHideTimer);
+    window.removeEventListener(PREFS_EVENT, this.readPrefs);
     window.removeEventListener("resize", this.remeasureSeat);
     window.removeEventListener("orientationchange", this.remeasureSeat);
     if (this._addRO) this._addRO.disconnect();
@@ -1523,6 +1739,212 @@ export default {
     remeasureSeat() {
       this.measureAddAnchor();
       this.measureReminderAnchor();
+    },
+    // ── FT-1169: THE THREE CONTROL SCHEMES, wired ────────────────────────
+    /** golem/prefs is a plain module object; this is the refresh half of the
+     *  snapshot idiom every other consumer of it uses. */
+    readPrefs() {
+      this.prefs = { ...prefsState };
+      // the scheme just changed under an open menu — a menu opened by a
+      // gesture that no longer exists is a menu nothing will close
+      if (this.seatMenuAnchor) this.closeSeatMenu();
+    },
+    /**
+     * FT-1169: THE COIN'S HOVER, routed by scheme.
+     *
+     * The coin is three boxes (the shroud, the life token, the coin itself —
+     * see showCard's own note for why, measured), and all three already
+     * carried the role card's hover. They now carry ONE handler that decides
+     * which of the two things a rest on the coin means, so there is a single
+     * place where the answer lives rather than three bindings to keep in
+     * step.
+     *
+     * THE CARD AND THE MENU CANNOT BOTH HAVE IT. They are two plates that
+     * open off the same coin, on the same gesture, leaning the same way
+     * (outward — the only direction that clears the disc), so "show both" is
+     * not a design, it is two boxes on top of each other. In the hover scheme
+     * the MENU wins the coin, because opening the menu is the entire reason
+     * somebody picked that scheme; the card is what yields. It is not gone
+     * from the seat — the belief chip still raises it (showBeliefCard,
+     * untouched), and both of the other two schemes leave the coin's card
+     * exactly as it is today.
+     */
+    onCoinEnter(e) {
+      if (this.controlScheme !== "hover") {
+        this.showCard(e);
+        return;
+      }
+      // the card must not be left standing under a menu that is about to
+      // open where it is
+      this.hideCard();
+      clearTimeout(this.$options.menuHideTimer);
+      clearTimeout(this.$options.menuTimer);
+      if (this.seatMenuAnchor) return;
+      if (!this.canOpenSeatMenu()) return;
+      // the same rest the card asks for. Sweeping the pointer across the ring
+      // must not fling a menu open on every coin it crosses.
+      this.$options.menuTimer = setTimeout(() => {
+        this.openSeatMenu();
+      }, HOVER_DELAY);
+    },
+    /**
+     * Leaving a coin only ARMS the close, and the menu itself cancels it —
+     * see onSeatMenuEnter. Without that pair the menu would vanish in the gap
+     * between the coin's rim and its own first row, which is the one gesture
+     * a hover menu absolutely has to survive.
+     *
+     * The grace is the card's own HOVER_GRACE, and it is shorter than the
+     * open delay, so a genuine exit is closed long before any neighbouring
+     * seat could acquire.
+     */
+    onCoinLeave() {
+      if (this.controlScheme !== "hover") {
+        this.hideCardSoon();
+        return;
+      }
+      clearTimeout(this.$options.menuTimer);
+      this.closeSeatMenuSoon();
+    },
+    /** The pointer reached the plate — this is not leaving. */
+    onSeatMenuEnter() {
+      clearTimeout(this.$options.menuHideTimer);
+    },
+    /** …and leaving the plate is, in the hover scheme. In the nameplate
+     *  scheme the menu was opened by a CLICK and stays until it is dismissed,
+     *  which is what a clicked menu means everywhere else in this app. */
+    onSeatMenuLeave() {
+      if (this.controlScheme !== "hover") return;
+      this.closeSeatMenuSoon();
+    },
+    /**
+     * FT-1169: the name plate's click, routed by scheme.
+     *
+     * The retired FT-1068 menu's own toggle is kept behind `showSeatMenu`
+     * exactly as it was — this adds a branch in front of it rather than
+     * taking it over.
+     */
+    onPlateClick() {
+      if (this.controlScheme === "nameplate") {
+        if (this.seatMenuAnchor) this.closeSeatMenu();
+        else if (this.canOpenSeatMenu()) this.openSeatMenu();
+        return;
+      }
+      if (this.showSeatMenu) this.isMenuOpen = !this.isMenuOpen;
+    },
+    /**
+     * MAY A MENU OPEN RIGHT NOW.
+     *
+     * Two refusals, and the second is the one worth stating.
+     *
+     *   · no rows to show — an empty plate is not a menu
+     *   · A TWO-STEP ACT IS ALREADY RUNNING. "Move player", "Swap seats" and
+     *     "Player nominates" all arm this seat and then wait for the
+     *     storyteller to pick a TARGET on another seat; while that is up,
+     *     every seat on the ring is wearing a big overlay icon that finishes
+     *     the act. A menu opening on the seat being pointed AT would stand
+     *     between the storyteller and the only control that completes the
+     *     thing they just started.
+     *
+     *     It is read off the seat's own rendered classes because that is
+     *     where the fact is: TownSquare binds `move`/`swap`/`nominate` onto
+     *     every seat's `<li>` for exactly the duration of the pick (see its
+     *     `<Player>` binding). Asking the DOM keeps this lane out of the
+     *     store, which another lane holds, and there is no second copy of the
+     *     state to fall out of step with.
+     */
+    canOpenSeatMenu() {
+      if (!this.seatMenuEntries.length) return false;
+      const cl = this.$el && this.$el.classList;
+      if (
+        cl &&
+        (cl.contains("move") || cl.contains("swap") || cl.contains("nominate"))
+      )
+        return false;
+      return true;
+    },
+    openSeatMenu() {
+      const coin = this.$el.querySelector(".player .token");
+      if (!coin) return;
+      // the role card and the menu never stand together — see onCoinEnter
+      this.hideCard();
+      this.seatMenuOutward = this.seatOutwardVector();
+      this.seatMenuAnchor = coin;
+    },
+    closeSeatMenu() {
+      clearTimeout(this.$options.menuTimer);
+      clearTimeout(this.$options.menuHideTimer);
+      this.seatMenuAnchor = null;
+    },
+    closeSeatMenuSoon() {
+      clearTimeout(this.$options.menuHideTimer);
+      this.$options.menuHideTimer = setTimeout(() => {
+        this.seatMenuAnchor = null;
+      }, HOVER_GRACE);
+    },
+    /**
+     * THIS SEAT'S OUTWARD DIRECTION in screen space, unit length — the vector
+     * `seatOutwardSide` already reduces to a left/right answer, kept whole
+     * because the menu has to lean UP off a 12 o'clock chair and DOWN off a 6
+     * o'clock one, which a side cannot say.
+     *
+     * Same reading measureAddAnchor documents at length: the ring's
+     * `on-circle` mixin rotates each seat's `<li>` by a CSS transform, so the
+     * li's own computed matrix is the ground truth for "which way is outward"
+     * — not a second derivation off bounding boxes, which that note records
+     * getting several seats backwards. `matrix(a, b, c, d, e, f)` maps local
+     * "straight up" (0, -1) to screen (-c, -d).
+     */
+    seatOutwardVector() {
+      const matrix = /matrix\(([^)]+)\)/.exec(
+        getComputedStyle(this.$el).transform
+      );
+      if (!matrix) return { x: 0, y: -1 };
+      const parts = matrix[1].split(",").map(Number);
+      const x = -parts[2];
+      const y = -parts[3];
+      const len = Math.sqrt(x * x + y * y) || 1;
+      return { x: x / len, y: y / len };
+    },
+    /**
+     * FT-1169: one row picked.
+     *
+     * EVERY BRANCH REACHES FOR A THING THAT ALREADY EXISTS. Kill is the
+     * shroud's own toggle, Change role is the coin's own `set-role`, the two
+     * moves are the drags' own destinations, the nomination is the accusing
+     * mark's own call and the ghost vote is the cowl's own toggle. Nothing
+     * here invents state, which is why a row and the mark it duplicates can
+     * never disagree.
+     *
+     * The menu closes FIRST in every case: three of these rows open a modal
+     * or arm a ring-wide pick, and a plate left standing over the coin would
+     * be in the way of both.
+     */
+    runSeatAction(id) {
+      this.closeSeatMenu();
+      switch (id) {
+        case "kill":
+          this.toggleStatus();
+          break;
+        case "role":
+          this.$emit("trigger", ["openRoleModal"]);
+          break;
+        case "move-player":
+          if (this.session.lockedVote) return;
+          this.movePlayer();
+          break;
+        case "move-role":
+          this.armCharacter();
+          break;
+        case "nominate":
+          this.nominatePlayer();
+          break;
+        case "ghost-vote":
+          this.updatePlayer("isVoteless", !this.player.isVoteless);
+          break;
+        case "reminder":
+          this.$emit("trigger", ["openReminderModal"]);
+          break;
+      }
     },
     /**
      * FT-858: rest on a seat and it tells you what its character does.
@@ -2003,22 +2425,15 @@ export default {
     /** FT-1167: the round plate at the ring's centre, in screen pixels — the
      *  night checklist when it is up, the town readout otherwise. Both are
      *  centred on the dial and both are drawn as a disc on desktop
-     *  (`face-disc-frame`), so one ellipse describes either. */
+     *  (`face-disc-frame`), so one ellipse describes either.
+     *
+     *  FT-1169: THE BODY MOVED TO golem/clockFace, unchanged line for line.
+     *  The seat menu has to clear the same plate for the same reason the
+     *  reminder fan does, and two copies of "where is the disc" is the drift
+     *  this file keeps writing notes about. The method keeps its name and its
+     *  callers, and is now one line long. */
     centrePlateRect() {
-      const el =
-        document.querySelector(".night-sheet.has-list") ||
-        document.querySelector("ul.info");
-      if (!el) return null;
-      const box = el.getBoundingClientRect();
-      if (!box.width || !box.height) return null;
-      const cs = getComputedStyle(el);
-      if (cs.visibility === "hidden" || cs.display === "none") return null;
-      return {
-        cx: box.left + box.width / 2,
-        cy: box.top + box.height / 2,
-        rx: box.width / 2,
-        ry: box.height / 2,
-      };
+      return readCentrePlateRect();
     },
 
     /**
@@ -2093,6 +2508,22 @@ export default {
      * does for a drag: off a list it is placed here; off another CHAIR the two
      * chairs trade, so a tap-swap and a drag-swap leave the town in the same
      * state. Tapping the chair it came from is the cancel.
+     *
+     * FT-1169 — THE DEATH TOGGLE STANDS DOWN IN THE OTHER TWO SCHEMES, and
+     * the character landing does NOT.
+     *
+     * The user described the coin's two click halves under "Click coins" and
+     * nowhere else, and both of those acts — kill, and role select — are rows
+     * in the menu the other two schemes open. Three schemes that are
+     * alternatives; not one scheme plus two that also have a menu. Somebody
+     * who picks "Nameplate click" is very often picking it BECAUSE a stray
+     * click on a coin keeps killing people, so leaving that click live would
+     * hand them the setting and not the thing they wanted from it.
+     *
+     * The landing branch above is untouched in every scheme, deliberately: it
+     * is not one of the coin's two halves, it is how a character IN HAND
+     * reaches a chair. Standing it down would break picking a character up in
+     * one scheme and putting it down in another, which is the same gesture.
      */
     onLifeClick() {
       const { drawerPick: pick, drawerPickFrom: from } = this.$store.state;
@@ -2106,7 +2537,17 @@ export default {
         this.$store.commit("setDrawerPick", null);
         return;
       }
+      if (this.controlScheme !== "click") return;
       this.toggleStatus();
+    },
+    /**
+     * FT-1169: the coin's BOTTOM half — role select — by the same rule as the
+     * top half above. `Token` still emits `set-role` in every scheme; the
+     * seat decides whether that click is this scheme's job or the menu's.
+     */
+    onCoinSetRole() {
+      if (this.controlScheme !== "click") return;
+      this.$emit("trigger", ["openRoleModal"]);
     },
     /**
      * FT-1107: TAP A COIN, CHOOSE A PLAYER — the night's own click.
