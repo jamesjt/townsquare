@@ -3196,20 +3196,37 @@ video#background {
     }
   }
 
-  .post-bell {
+  // FT-1176 (user): "make the grimoire and end day button bigger if their
+  // size is set to large but not the bell". The bell is a summons, not a
+  // reading surface — it is pressed once a day and never read, so it gains
+  // nothing from the extra size the book and the phase button do. Left at its
+  // shipped size; the two rules below stand down rather than being deleted,
+  // per the house rule, and the record of what large used to do to it stays.
+  .post-bell--retired-ft1176 {
     width: 54px;
     height: 54px;
   }
-  .post-bell-mark {
+  .post-bell-mark--retired-ft1176 {
     width: 30px;
     height: 30px;
   }
 
+  // FT-1176 (user): "make the end day button the same size as the start game
+  // button as far as font size if big and the button around it scale
+  // accordingly."
+  //
+  // Start game is 120% of its panel's type in 8px/20px of padding inside a 3px
+  // border (HostTools' `.start`). This is not a percentage of the same parent,
+  // so the size is stated in px at the value that percentage resolves to on
+  // the panel — and the padding and border come with it, because "the same
+  // size as far as font size, and the button scales accordingly" is a button
+  // matched in its whole box rather than in one property.
   .post-phase {
-    font-size: 19px;
-    gap: 7px;
-    padding: 6px 12px;
-    border-radius: 0 9px 9px 0;
+    font-size: 21.6px;
+    gap: 8px;
+    padding: 8px 20px;
+    border-width: 3px;
+    border-radius: 0 10px 10px 0;
   }
   .post-phase-mark {
     width: 21px;
