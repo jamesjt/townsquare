@@ -53,7 +53,23 @@
         </template>
         <template v-else>Tap a character, then tap a seat</template>
       </div>
-      <div class="rd-acts">
+      <!-- FT-1154 (user): "those are all game setup actions, shouldn't we
+           not show them while a game is in play?" Yes. Dealing a fresh hand,
+           shuffling the characters between chairs and allowing duplicates are
+           three ways of composing a game that has not started; none of them
+           is an act a storyteller performs during one, and the cost of a
+           stray press mid-game is every character changing hands at once.
+
+           The DRAWER itself stays open for business — putting one character
+           on one chair by hand is a real mid-game act (a Drunk switching, an
+           ability that changes what someone is), and it is aimed at a single
+           seat. It is only the bulk actions that belong to setup, the same
+           distinction FT-1135 drew for the seat shuffle: a deliberate act on
+           one thing stays, an indiscriminate one does not.
+
+           Dupes goes with them because it governs nothing once dealing is
+           gone — it is a setting for the deal, not a state of the town. -->
+      <div class="rd-acts" v-if="!gameUnderway">
         <!-- FT-1151 (user): "if this button is going to also shuffle the
              roles does it do the same thing as the shuffle button of all of
              the roles are filled? Do we need both?"
@@ -310,7 +326,17 @@ export default {
     },
   },
   computed: {
-    ...mapState(["roles", "modals", "otherTravelers", "session"]),
+    ...mapState(["roles", "modals", "otherTravelers", "session", "chat"]),
+    /**
+     * FT-1154: is a game running? The town's own current-game id, which the
+     * host derives from its deal record and sends to every client on the
+     * ordinary sync — the same answer FT-1112 settled on for the seat lock,
+     * and deliberately NOT this browser's own stashes, which are host-only
+     * and would leave a joined client thinking a running game had not begun.
+     */
+    gameUnderway() {
+      return !!(this.chat && this.chat.gameId);
+    },
     ...mapState("players", ["players", "bluffs"]),
     /**
      * May this client set a bluff at all — the clock face's own `canSeeBluffs`
