@@ -167,7 +167,23 @@
                 </tbody>
               </table>
             </div>
-            <div class="rp-col" v-if="topPlayers.length">
+            <!-- FT-1161 (user): "the players section of this is bad, we
+                 shouldn't be publically displaying player info. Users should
+                 get access to the player info of towns they have been in,
+                 but not all across the entire platform."
+
+                 Right, and it is the one thing on this page that names a
+                 PERSON. Every other figure here is about games, scripts and
+                 roles — facts about the play. A leaderboard of who won what,
+                 visible to anyone who opens the site, is a different kind of
+                 thing entirely, and it went out the moment it was named.
+
+                 Stood down rather than removed: the same table, scoped to the
+                 towns a viewer has actually been in, is a surface the user
+                 does want — so the markup and its `topPlayers` computed stay
+                 here waiting for that scope rather than being rebuilt later
+                 from memory. -->
+            <div class="rp-col" v-if="false && topPlayers.length">
               <h4>Players</h4>
               <table class="rp-table">
                 <thead>
