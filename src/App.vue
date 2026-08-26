@@ -774,12 +774,16 @@ const STAIN_SPAN = 470;
 const STAIN_MAX = 172;
 
 /**
- * A SHUFFLE BAG of stain indices: all 16 are dealt before any of them repeats
- * (user call 2026-08-18 — repeats were showing on the dial).
+ * A SHUFFLE BAG of stain indices: every stain in the folder is dealt before
+ * any of them repeats (user call 2026-08-18 — repeats were showing on the
+ * dial). The bag is built from STAINS.length, never from a written-down
+ * count, so dropping art into src/assets/blood/stains/ grows it with no code
+ * change — FT-1145 tripled the set from 16 to 48 and nothing here moved.
  *
  * Hashing a seat straight into the set, the way its size and lie are hashed,
  * collides long before the set runs out: seven deaths drawing from 16 stains
- * repeat more often than not. A permutation cannot.
+ * repeat more often than not. A permutation cannot. (At 48 the bag is now
+ * larger than any legal town, so a seat's stain is unique outright.)
  *
  * Deterministic on purpose, like everything else about a stain: the order is
  * dealt from the town's OWN id, so every client derives the same bag from
@@ -1029,7 +1033,7 @@ export default {
      * players.length, so the stain stays under its seat at any town size and
      * follows the ring when seats are added, removed, moved or swapped.
      *
-     * Everything else about a stain — which of the 16 it is, how big, how far
+     * Everything else about a stain — which of the 48 it is, how big, how far
      * out, how it lies — is hashed from seat + name, so every client paints
      * the same dial from the already-synced death state with no extra sync.
      * Stains accumulate: five deaths put five separate marks on the face.

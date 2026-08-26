@@ -39,17 +39,58 @@ SPLAT_FILES.forEach((key) => {
  * straight drips running parallel beneath it. The file stays on disk (never
  * delete art without permission -- MEMORY-CORE rule 1); it is just never
  * dealt from here.
+ *
+ * WHAT MAKES A BAD FACE SPLAT, generalised from that one call (FT-1145, when
+ * packs 2 and 3 tripled the set to 48 and brought shapes pack 1 did not have):
+ *
+ *   1. THE MARK DEPENDS ON GRAVITY. Long straight drips running parallel out
+ *      of a mass only read as blood when "down" is down. This element is
+ *      centred on a clock face and SPUN by a random angle (see the spin below),
+ *      so a drip-run arrives at 143 degrees as often as upright, where it stops
+ *      being a drip and becomes a smear. Every other shape in this art -- a
+ *      splat, a starburst, a slash -- is rotation-free and survives the spin.
+ *   2. THERE IS NO ONE MARK. A scatter of unconnected droplets has no centre,
+ *      and the centre is precisely where this element lives: the town readout
+ *      sits on the hub, and a splat with a hollow middle disappears under it.
+ *
+ * Judged on both, with two measured arms behind the eye (rig:
+ * claude_temp_test/2026-08-25-ft1145-core.mjs) -- `coreShare`, the largest
+ * connected ink component's share of total ink, and `centreFill`, the share
+ * inside the inner third. Pack 1's kept files run coreShare 0.62-0.99.
+ *
+ * The four excluded, and why:
+ *   blood-17 -- a vertical bead-chain drip ending in a pool. Rule 1, and it
+ *               fails rule 2 too (coreShare 0.44, the lowest of all 48).
+ *   blood-29 -- a scatter of separate droplets, no dominant mark
+ *               (coreShare 0.57, under pack 1's floor of 0.62). Rule 2.
+ *   blood-33 -- four parallel drips off a bulb row, plus a stray droplet
+ *               cluster. Rule 1.
+ *   blood-46 -- seven long parallel drips hanging from bulbs: blood-16's twin,
+ *               and the clearest case in either new pack. Rule 1. Note its
+ *               coreShare is a healthy 0.94 -- the drips connect to the mass,
+ *               so no number catches this one. The SHAPE rule has to.
+ *
+ * Deliberately NOT excluded, though they measure oddly: blood-30 and blood-39
+ * (single long clean slashes -- thin, but pack 1 already ships blood-12/13/15
+ * on the same read) and blood-45 (a real starburst wearing far-flung
+ * satellites, coreShare 0.84 -- pack 1's blood-15 has 161 satellite pieces).
  */
-const EXCLUDED = new Set(["blood-16.png"]);
+const EXCLUDED = new Set([
+  "blood-16.png",
+  "blood-17.png",
+  "blood-29.png",
+  "blood-33.png",
+  "blood-46.png",
+]);
 
 const POOL = Object.keys(SPLAT_URL)
   .filter((file) => !EXCLUDED.has(file))
   .sort();
 
 /**
- * SIZE, per file -- measured, not eyeballed. The 16 files are not drawn at
+ * SIZE, per file -- measured, not eyeballed. The files are not drawn at
  * one scale: some fill their canvas, some are a stray mark in a mostly
- * empty one. Rendered at one common box they read as sixteen different
+ * empty one. Rendered at one common box they read as forty-eight different
  * scales, not one motif.
  *
  * Normalised on INK AREA (alpha > 16/255 pixel count, taken as an
@@ -58,8 +99,8 @@ const POOL = Object.keys(SPLAT_URL)
  * has an ABOVE-median box but a BELOW-median ink count, so normalising by
  * bbox SHRINKS it (0.924x) -- exactly backwards, since it is the thin,
  * far-reaching ones that need protecting from shrinking, not the ones
- * getting it. Ink-area correctly GROWS it instead (1.123x). Full 16-row
- * table, method and a side-by-side contact sheet of all 16 at these numbers:
+ * getting it. Ink-area correctly GROWS it instead (1.123x). Full table,
+ * method and a side-by-side contact sheet at these numbers:
  * claude_temp_test/2026-08-19-splat-measure/ (measure.html, contact-sheet.html).
  *
  * TARGET_INK_R = 42 face-px -- the common on-screen ink-radius every file
@@ -75,8 +116,20 @@ const POOL = Object.keys(SPLAT_URL)
  * Hand-tunable: change a number here to re-scale one file without touching
  * the art. Adding a new file to the splats/ folder means re-running the
  * measurement rig and adding its row here -- there is no runtime
- * measurement, on purpose (16 PNGs decoded on every boot is not a cost this
+ * measurement, on purpose (48 PNGs decoded on every boot is not a cost this
  * decoration is worth).
+ *
+ * FT-1145 added rows 17-48 (packs 2 and 3) with that same formula, re-run
+ * unchanged: claude_temp_test/2026-08-25-ft1145-measure.mjs re-derives rows
+ * 1-16 first and diffs them against the numbers already committed here --
+ * all sixteen reproduce to the decimal, which is what says the new 32 were
+ * measured the same way and not merely near it. The number that matters
+ * afterwards is REACH: the furthest ink pixel from centre, carried through
+ * the file's own scale. Every file DEALT from POOL reaches 56-144 face-px,
+ * against a dead-stain band at 185 and a rim at --face-r = 238 -- so the
+ * widest new splat still stops well short of the band, let alone the rim.
+ * (Pack 1 alone ran 67-123; the new spread widens the envelope without
+ * leaving the face.)
  */
 export const SPLAT_BOX_PX = {
   "blood-01.png": 147.3,
@@ -95,6 +148,38 @@ export const SPLAT_BOX_PX = {
   "blood-14.png": 153.4,
   "blood-15.png": 222.8,
   "blood-16.png": 174.9, // excluded from POOL above -- kept for completeness
+  "blood-17.png": 340.6, // excluded from POOL above -- kept for completeness
+  "blood-18.png": 162.0,
+  "blood-19.png": 130.2,
+  "blood-20.png": 213.6,
+  "blood-21.png": 226.2,
+  "blood-22.png": 210.5,
+  "blood-23.png": 173.6,
+  "blood-24.png": 115.1,
+  "blood-25.png": 122.1,
+  "blood-26.png": 133.3,
+  "blood-27.png": 106.4,
+  "blood-28.png": 117.5,
+  "blood-29.png": 193.5, // excluded from POOL above -- kept for completeness
+  "blood-30.png": 250.6,
+  "blood-31.png": 126.8,
+  "blood-32.png": 169.0,
+  "blood-33.png": 326.3, // excluded from POOL above -- kept for completeness
+  "blood-34.png": 162.7,
+  "blood-35.png": 142.4,
+  "blood-36.png": 201.3,
+  "blood-37.png": 175.4,
+  "blood-38.png": 122.8,
+  "blood-39.png": 249.6,
+  "blood-40.png": 141.8,
+  "blood-41.png": 170.2,
+  "blood-42.png": 201.5,
+  "blood-43.png": 119.8,
+  "blood-44.png": 127.6,
+  "blood-45.png": 272.4,
+  "blood-46.png": 180.1, // excluded from POOL above -- kept for completeness
+  "blood-47.png": 173.5,
+  "blood-48.png": 140.6,
 };
 
 /** FNV-1a over a string -- unchanged from the hash TownSquare.vue's stain
@@ -128,7 +213,7 @@ export const seededRandoms = (seed) => {
  * Pick this game's splat, deterministically, from a seed string every
  * client in the game computes identically (see TownSquare.vue's
  * faceSplatLive/faceSplatSeed). Returns null only if the pool is somehow
- * empty (never in practice -- 15 of the 16 files are always in POOL).
+ * empty (never in practice -- 43 of the 48 files are always in POOL).
  */
 export function pickFaceSplat(seed) {
   if (!POOL.length) return null;
