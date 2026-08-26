@@ -22,6 +22,32 @@ const NEWPLAYER = {
   reminders: [],
   isVoteless: false,
   isDead: false,
+  // Golem fork (FT-1163): WHEN THIS SEAT DIED, beside the fact that it did.
+  // `isDead` is a boolean with no time next to it, so a finished game could
+  // say who died and never when — and the moment cannot be recovered
+  // afterwards. These two carry it:
+  //
+  //   deathDay    the cycle, on `night.day`'s scale (first night = 1)
+  //   deathPhase  "night" | "day" — which half of that cycle
+  //
+  // Both null while the seat lives, and both set back to null when a shroud
+  // is LIFTED — a seat that is alive again has no death moment.
+  //
+  // THEY LIVE ON THE PLAYER, not in a seat-indexed side table, so that they
+  // move with the chair: `swap`, `move` and `reseat` below all relocate whole
+  // player objects, so anything held here follows its seat for free, while an
+  // index-keyed stash would quietly come to describe the wrong player.
+  //
+  // Written ONLY by `setDeathMoment` (see the mutation, and the deathMoment
+  // store plugin that calls it). NOT broadcast: `sendPlayer` forwards whatever
+  // property `players/update` carries, which is exactly why the stamp has its
+  // own mutation instead. Nothing on the wire needs it — the town already
+  // hears "X dies" as a dated chronicle line (FT-1010/FT-1140), and the
+  // storyteller's grimoire is the only client that records a game.
+  //
+  // The keys exist from the start because Vue 2 cannot see keys added later.
+  deathDay: null,
+  deathPhase: null,
   pronouns: ""
 };
 
@@ -282,6 +308,26 @@ const mutations = {
     if (index >= 0) {
       state.players[index][property] = value;
     }
+  },
+  /**
+   * FT-1163: stamp (or clear) WHEN a seat died.
+   *
+   * Its own mutation rather than two `players/update` calls, for one reason:
+   * the socket layer answers every `players/update` by broadcasting that
+   * property to the town (see `sendPlayer`), and a death moment has no
+   * business on the wire — the storyteller's own grimoire is the only place
+   * that records a game, and the town already hears the death itself as a
+   * dated chronicle line. A separate type is simply not in that subscriber's
+   * switch, so nothing is sent and nothing had to be special-cased there.
+   *
+   * Clearing is `{ player, day: null, phase: null }` — a lifted shroud leaves
+   * no moment behind.
+   */
+  setDeathMoment(state, { player, day = null, phase = null } = {}) {
+    const index = state.players.indexOf(player);
+    if (index < 0) return;
+    state.players[index].deathDay = day;
+    state.players[index].deathPhase = phase;
   },
   add(state, name) {
     state.players.push({

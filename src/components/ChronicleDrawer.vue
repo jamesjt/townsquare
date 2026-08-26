@@ -190,10 +190,13 @@
         </section>
 
         <!-- ── THE DEAD ───────────────────────────────────────────────────
-             A roll, not a run of events, because the app records THAT a seat
-             died and never WHEN: `isDead` is a boolean with no time beside it
-             and nothing writes one. Putting these on the timeline would mean
-             inventing the moment. Names only — the shroud is public at the
+             A roll, not a run of events. `isDead` is a boolean with no time
+             beside it, so this surface has no moment to place a seat at.
+             FT-1163 now stamps one alongside it (`deathDay`/`deathPhase`, see
+             store/deathMoment.js) for the sake of the recorded game — putting
+             THESE rows on the timeline off the back of it is a change to this
+             chapter that has not been made, so the note below still holds for
+             what is drawn here. Names only — the shroud is public at the
              table, the character under it is not. -->
         <section class="ch-chapter ch-dead" v-if="chronicle.dead.length">
           <h4>

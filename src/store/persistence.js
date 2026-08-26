@@ -272,8 +272,14 @@ module.exports = store => {
           )
         );
         break;
+      // FT-1163: `players/setDeathMoment` joins this list. The death moment is
+      // stamped by its own mutation so it never reaches the wire (see that
+      // mutation), and a type missing from here would mean a host reload kept
+      // THAT a seat died and dropped WHEN. The stash keeps whole player
+      // objects, so the two fields ride along with no projection change.
       case "players/add":
       case "players/update":
+      case "players/setDeathMoment":
       case "players/remove":
       case "players/clear":
       case "players/set":

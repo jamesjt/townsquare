@@ -87,13 +87,13 @@ export default {
     async record(winningTeam) {
       if (this.busy) return;
       this.busy = true;
-      const { session, edition } = this.$store.state;
+      const { session, edition, night } = this.$store.state;
       const players = this.$store.state.players.players;
       const seats = [];
       players.forEach((player, index) => {
         const role = player.role;
         if (!role || !role.id || !ROLE_TYPES[role.team]) return;
-        seats.push({
+        const seat = {
           seatNo: index + 1,
           playerName: (player.name || `Seat ${index + 1}`).slice(0, 200),
           teamAtEnd:
@@ -101,7 +101,27 @@ export default {
           roleIdFinal: role.id,
           roleType: ROLE_TYPES[role.team],
           survived: !player.isDead
-        });
+        };
+        // FT-1163: WHEN it died rides along when we know it. Stamped at the
+        // moment the shroud went down (store/deathMoment.js) because that is
+        // the only moment the fact exists — by the time this roster is read it
+        // knows nothing but dead-or-alive.
+        //
+        // Sent only for a seat that is actually dead AND carries both halves.
+        // A survivor with a death moment is a contradiction the server
+        // refuses, and half a moment is not a moment: a game whose seats
+        // predate this stamp (a shroud placed before a reload, say) records
+        // with the fields absent, which reads back as "we do not know" rather
+        // than as a wrong day.
+        if (
+          player.isDead &&
+          typeof player.deathDay === "number" &&
+          (player.deathPhase === "night" || player.deathPhase === "day")
+        ) {
+          seat.deathDay = player.deathDay;
+          seat.deathPhase = player.deathPhase;
+        }
+        seats.push(seat);
       });
       if (!seats.length) {
         // FT-1050: nothing to record is not a reason to leave the game
@@ -123,6 +143,17 @@ export default {
         scriptName: (edition.name || "Custom script").slice(0, 200),
         winningTeam,
         playerCount: seats.length,
+        // FT-1163: HOW LONG THE GAME WAS — the single most wanted fact about a
+        // finished game after the script, the winner and the seat count, and
+        // the one that cannot be worked out later (started/ended timestamps
+        // say how long the sitting took, not how many nights it ran).
+        //
+        // `night.day` is the count of nights the town reached: the first night
+        // is 1, and 0 means the game ended before ever going to night. It is
+        // still the finished game's own value here — the counter is reset by
+        // Play again, not by the ending (see socket.js's sendChat note), and
+        // this runs before the endGame commit either way.
+        dayCount: night.day,
         seats
       };
       // The vault id rides along only when the table is actually playing a

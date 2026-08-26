@@ -1,6 +1,9 @@
 import Vue from "vue";
 import Vuex from "vuex";
 import persistence from "./persistence";
+// FT-1163: stamps WHEN a seat died, at the instant the shroud goes down —
+// the only instant that fact exists. See the file header.
+import deathMoment from "./deathMoment";
 import socket from "./socket";
 import players from "./modules/players";
 import session from "./modules/session";
@@ -705,5 +708,5 @@ export default new Vuex.Store({
       state.modals.edition = false;
     },
   },
-  plugins: [persistence, socket],
+  plugins: [persistence, deathMoment, socket],
 });
