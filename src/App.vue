@@ -3187,12 +3187,35 @@ video#background {
     }
   }
 
+  // FT-1179 (user): "lets make the grimoire even bigger if large is
+  // selected" — "as wide as the end day button while maintaining aspect
+  // ratio".
+  //
+  // The button cannot set the book's width by layout: it is ABSOLUTE, hanging
+  // off the book's box, and that is deliberate — FT-1063d took the two
+  // satellites out of the flow precisely so the column's midpoint is the book
+  // and not the average of three things. So the relationship is inverted
+  // instead: the COLUMN gets one width, and the book and the button each take
+  // all of it. They are then equal by construction rather than by a number
+  // typed twice, and the book holds 5:6 through `aspect-ratio` rather than a
+  // second height that would have to be edited whenever the width is.
+  //
+  // 150px is a chosen width, not a measured one — the button's own natural
+  // width varies with its label ("End day 2" against "End night 12"), so
+  // there is no single number to match. Stating it once and having both obey
+  // it is the honest version of "as wide as the button".
+  --sp-w: 150px;
+  width: var(--sp-w);
+
   .drawer-tab {
     padding: 5px;
     border-radius: 0 12px 12px 0;
+    width: 100%;
+    box-sizing: border-box;
     .tab-book {
-      width: 60px;
-      height: 72px;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 5 / 6;
     }
   }
 
@@ -3227,6 +3250,13 @@ video#background {
     padding: 8px 20px;
     border-width: 3px;
     border-radius: 0 10px 10px 0;
+    // FT-1179: the same width the book takes, so the pair reads as one
+    // column. `min-width` rather than `width` — a longer label may need more
+    // room and a clipped button would be a worse failure than a slightly
+    // uneven edge.
+    min-width: var(--sp-w);
+    box-sizing: border-box;
+    justify-content: center;
   }
   .post-phase-mark {
     width: 21px;
