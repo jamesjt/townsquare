@@ -256,7 +256,15 @@ const ENTRIES = [
      */
     id: "whisper",
     slot: 7,
-    icon: () => "paper-plane",
+    // FT-1211: the plane stood down for the speech bubble — the user's own
+    // reading: "the plane is a fun message SENT icon but we want this to be
+    // clearly the icon to SEND a message". The plane keeps the places where
+    // it means "sent" (the flying mark, the toast, the composer's send
+    // button); the doorway that OPENS a message wears comment-dots — a
+    // message being spoken, distinct from the Chat-level row's `comments`
+    // (the chat feature itself). One change here reskins the plate row and
+    // the ring's coin both — the point of the vocabulary.
+    icon: () => "comment-dots",
     label: () => "Whisper",
     hint: () => "Send this player a private message",
     guard: (f) => f.whisperRefusal || null,

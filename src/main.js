@@ -29,6 +29,11 @@ const faIcons = [
   // FT-1206: the Chat level row's mark (there is no speech mark in the fork's
   // own art set yet — the Bell/BellSlash standing note applies).
   "Comments",
+  // FT-1211: the whisper DOORWAYS' mark — the seat vocabulary's Whisper row
+  // (both schemes) and the click scheme's plate-side disc. The single spoken
+  // message, where `Comments` above is the chat feature itself and the plane
+  // below means a message SENT.
+  "CommentDots",
   "Copy",
   "Clipboard",
   "Bell",
@@ -62,8 +67,9 @@ const faIcons = [
   "Link",
   "Mask",
   "MinusCircle",
-  // FT-1206: the whisper — the seat vocabulary's Whisper row, the Whisper
-  // marks settings row, and the click scheme's plate-side disc all wear it.
+  // FT-1206: the whisper's SENT face — the flying mark, the toast, the
+  // composer's send button. (FT-1211: the doorways that OPEN a message moved
+  // to CommentDots above; the plane stays where it means "sent".)
   "PaperPlane",
   "Pen",
   "PeopleArrows",

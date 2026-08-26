@@ -96,6 +96,14 @@ import { centrePlateBox } from "../golem/clockFace";
 const GAP = 8;
 /** Never nearer the window's edge than this. */
 const MARGIN = 8;
+/**
+ * FT-1211: daylight between the plate's bottom edge and the seat's own name
+ * plate. The seventh row (Whisper, FT-1206) grew the plate past the coin and
+ * its last row landed ON the nameplate — a glass edge cutting through the
+ * name it was opened from. 6px reads as "above it", not "touching it", and
+ * matches the plate's own 6px row padding.
+ */
+const NAME_GAP = 6;
 
 export default {
   props: {
@@ -178,8 +186,8 @@ export default {
       this.$emit("dismiss");
     },
     /**
-     * THE PLATE CARRIES THE SEAT'S DRAG. It covers the coin — and, on a
-     * six-row plate, the name plate under it too — and the user's standing
+     * THE PLATE CARRIES THE SEAT'S DRAG. It covers the coin (the name plate
+     * stays clear below it since FT-1211's slide) and the user's standing
      * rule is that the drags stay live in every scheme, so the thing on top
      * has to hand the gesture on rather than eat it. The seat runs its own
      * `onRoleDragStart` (or `onPlayerDragStart`, on a chair with no character
@@ -235,13 +243,29 @@ export default {
     },
     /**
      * ON THE COIN. The plate's centre is the coin's centre, and the only
-     * thing allowed to move it is the window edge.
+     * things allowed to move it are the window edge and — FT-1211 — the
+     * seat's own name plate.
      *
      * NOTHING ELSE GETS A VOTE, and that is the correction. FT-1169 gave the
      * centre disc a vote and let it push the plate around the window; the
      * user's instruction is that this plate belongs on the coin, so a disc it
      * happens to overlap is simply behind it — which is exactly what glass is
      * for. `centrePlateBox` stays imported for `placeBeside` below.
+     *
+     * ── FT-1211: THE NAMEPLATE'S ONE VOTE ─────────────────────────────────
+     * The seventh row (Whisper, FT-1206) made the plate taller than the coin
+     * by enough that a dead-centre plate's last row landed on the seat's own
+     * name plate — the user: "the menu overlaps with the nameplate, it needs
+     * to get bumped?" So after centring, the plate is SLID UP by exactly the
+     * overlap, so its bottom edge stops `NAME_GAP` above the nameplate's
+     * top. Slid, not re-anchored: on the day the plate is short enough to
+     * clear on its own, the centring stands untouched, and the slide is
+     * measured fresh from the live rects so it is right at both grimoire
+     * sizes and any ring size without knowing either. The nameplate is found
+     * through `owner` (the seat's own <li>), the same element the outside
+     * test already trusts; `.player > .name` rides the seat's counter-
+     * rotation, so its rect is an honest screen box. The window-top clamp
+     * still wins last — a plate cannot be pushed off screen to save a name.
      *
      * TWO PASSES, the same one RoleHoverCard and golem/floatingPicker take:
      * the plate's own size is not known until it has laid out once, and a box
@@ -264,9 +288,20 @@ export default {
           Math.min(Math.max(v, lo), Math.max(lo, hi));
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
+        let top = cy - h / 2;
+        // FT-1211: the nameplate's vote — see the method note. Only ever an
+        // upward slide, and only by the measured overlap.
+        const name =
+          this.owner && typeof this.owner.querySelector === "function"
+            ? this.owner.querySelector(".player > .name")
+            : null;
+        if (name) {
+          const nameTop = name.getBoundingClientRect().top;
+          if (top + h > nameTop - NAME_GAP) top = nameTop - NAME_GAP - h;
+        }
         this.style = {
           left: `${Math.round(clamp(cx - w / 2, MARGIN, vw - w - MARGIN))}px`,
-          top: `${Math.round(clamp(cy - h / 2, MARGIN, vh - h - MARGIN))}px`,
+          top: `${Math.round(clamp(top, MARGIN, vh - h - MARGIN))}px`,
         };
       };
       run();

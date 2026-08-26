@@ -774,7 +774,9 @@
         @mouseenter="nameHover = true"
         @mouseleave="nameHover = false"
       >
-        <font-awesome-icon icon="paper-plane" />
+        <!-- FT-1211: comment-dots, with the vocabulary's Whisper row — this
+             disc OPENS a message; the plane means one was SENT. -->
+        <font-awesome-icon icon="comment-dots" />
       </div>
 
       <!-- FT-1068: THE SEAT MENU IS RETIRED (user call: "can we finally
