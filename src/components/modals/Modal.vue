@@ -167,7 +167,15 @@ export default {
 
 // Golem fork (FT-854): the Almanac workbench claims the room it needs — the
 // class rides the backdrop (component class passthrough) while it is open.
-.modal-backdrop.editions.workbench .modal {
+//
+// FT-1188: THE CHRONICLE JOINS IT, on the same selector rather than a second
+// copy of these six declarations. Both are BIG SURFACES — a page-sized thing
+// you go to, standing over the town rather than replacing it — and the whole
+// point of the redesign was that they be the same object at the same size, so
+// they read the same numbers. A third such surface adds its class here; it
+// does not restate the block.
+.modal-backdrop.editions.workbench .modal,
+.modal-backdrop.records .modal {
   width: 94vw;
   height: 92vh;
   max-width: 94vw;

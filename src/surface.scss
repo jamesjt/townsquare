@@ -1,0 +1,132 @@
+// Golem fork (FT-1188): THE BIG SURFACE — the chrome a full-window reading or
+// working page wears, in one place.
+//
+// The Scripts workbench (EditionModal.vue) settled this app's idiom for a
+// surface too big to be a dialog: a real modal over the town, so the clock
+// face still shows behind it; a plate with a corner close mark; a centred
+// title wearing the entry doors' drop-cap, alone on its own line; a row of
+// controls beneath it; and the content inside framed panels with their own
+// edges. The Chronicle (StatsOverlay.vue) is the second such surface — a
+// READING one where the bench is a WORKING one — and it has to be a member of
+// the same family, not a lookalike.
+//
+// WHY A PARTIAL, and not a copy in each file. Four surfaces already carry a
+// drop-cap title (the entry doors, the workbench, the grimoire drawer, the
+// Chronicle) and the two that hand-rolled their own sizing had already drifted
+// apart by the time this was written — see the note on `surface-title`. The
+// same drift is what `drawer.scss` and `faceDisc.scss` exist to prevent for
+// their own chrome; this is that file for the big surface.
+//
+// This file declares NO rules of its own — variables and mixins only — so
+// importing it costs a caller nothing but what it includes.
+
+// ── THE MATERIAL ────────────────────────────────────────────────────────────
+// The head's underline, lifted from `.wb-top`'s own border-bottom. Light
+// enough to separate the title from the content without drawing a box.
+$surface-rule: rgba(255, 255, 255, 0.15);
+
+// A panel's edge, lifted from ScriptView's character groups — the app's
+// existing "a block of content in its own frame" value.
+$surface-panel-edge: rgba(255, 255, 255, 0.22);
+
+// A panel's GROUND. The shell plate is rgba(0,0,0,0.8) over a 0.3 backdrop,
+// which leaves about 14% of the town reading through — fine behind the bench's
+// large bright type, and measured too much behind a table of 12px figures at
+// half opacity: on the entry screen the tower's own logo art came straight
+// through a column of win rates. The panel takes that 14% down to about 6%,
+// which was measured, not guessed — 0.45 still let the dial letters read
+// through the scripts table on the entry screen.
+//
+// A GROUND IS IN THE FAMILY'S VOCABULARY, not a departure from it: the bench's
+// action plates, its search field and its icon grid all sit on one
+// (rgba(0,0,0,0.3)–(0,0,0,0.55)). What stays constant is that the darkness is
+// the PANEL's and not the page's — the town still shows between the panels and
+// around them, which is the whole point of standing over it.
+$surface-panel-ground: rgba(0, 0, 0, 0.6);
+
+// Panels at BAND size take the plate radius family's middle value — 4px is
+// ScriptView's inner character group, 10px is the modal shell itself, and a
+// band standing between the two takes 8px, the same as the bench's action
+// plates.
+$surface-panel-radius: 8px;
+
+// ── THE TITLE ───────────────────────────────────────────────────────────────
+// One word, centred, with a blood drop-cap for its own hotkey letter.
+//
+// SIZE IS IN `rem`, and that is the whole point of putting it here. It used to
+// be `font-size: 140%` — 140% of whatever the heading happened to inherit —
+// which is why the bench's title measured 32.3px and the Chronicle's 27.0px
+// while both claimed to be "the same treatment": an h3 inside the bench's own
+// type context and a title in the page's do not inherit the same size, so a
+// percentage could never make them agree. `rem` reads the ROOT, which is one
+// number for both surfaces — and the root is exactly what this app steps at
+// 1200/992/768/576px (media.scss), so the title still tracks the window the
+// way the percentage did.
+//
+// 1.68rem IS THE BENCH'S OWN SIZE, not a new one: the root is 1.2em (App.vue's
+// html/body rule, 19.2px on a desktop) and the bench's title measured 32.256px
+// there — 32.256 / 19.2. Nothing about the Scripts title changes; the
+// Chronicle comes up to meet it.
+//
+// THE CAP ITSELF IS NOT THIS MIXIN'S BUSINESS. It comes from `KeyCap` — the
+// app's ONE drop-cap component — for every caller, so the letter is resolved,
+// sized and outlined by a single function (golem/hotkeys' `capFor`). Before
+// FT-1188 the workbench sized its own cap through `glyphStyleFrom`, the WORD
+// normalization that measures every letter against the set's reference B,
+// while the doors and the Chronicle used `glyphCapStyleFrom`, the LONE
+// drop-cap normalization FT-948 promoted for exactly this. Two normalizations
+// meant the bench's S and the Chronicle's C were never quite the same object.
+// All this mixin adds is the 2px the doors give their own cap so the word does
+// not crowd the letter.
+@mixin surface-title {
+  font-family: PiratesBay, sans-serif;
+  font-size: 1.68rem;
+  line-height: 1;
+  margin: 0;
+  white-space: nowrap;
+  // KeyCap's span, whatever the caller names it
+  > .key,
+  > .rp-cap {
+    margin-right: 2px;
+  }
+}
+
+// ── THE HEAD ────────────────────────────────────────────────────────────────
+// Rows stacked, ruled off from the body. Row 1 is the title alone (the shell's
+// close mark is the only other thing at that height); row 2 is the surface's
+// controls. Lifted from `.wb-top`.
+@mixin surface-head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $surface-rule;
+}
+
+// Row 1: the title, on the SHELL's centre line.
+@mixin surface-head-title-row {
+  display: flex;
+  justify-content: center;
+}
+
+// Row 2: a 1fr / auto / 1fr grid, so whatever sits in the middle column holds
+// the centre whether or not the flanks are occupied. The bench puts its script
+// picker in the middle and its actions on the right; the Chronicle puts its
+// subtitle in the middle and its back button on the left.
+@mixin surface-head-control-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+// ── A PANEL ─────────────────────────────────────────────────────────────────
+// A block of content in its own frame. `$pad` because a band of tables wants
+// more room inside its edge than a group of six character lines does.
+@mixin surface-panel($pad: 14px 16px 16px) {
+  border: 1px solid $surface-panel-edge;
+  border-radius: $surface-panel-radius;
+  background: $surface-panel-ground;
+  padding: $pad;
+}

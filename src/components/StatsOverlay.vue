@@ -20,549 +20,596 @@
        script, how many sat down, how long it ran, the roster and the two board
        portraits. Messages and events do not follow a game across towns and are
        not offered here. -->
-  <div class="records-page">
-    <!-- FT-1162 (user call): the surface is THE CHRONICLE, and its title is
-         CENTRED and wears the entry doors' own treatment — PiratesBay for the
-         word (which this h2 already used) plus the blood drop-cap the Host /
-         Join / Scripts doors put on theirs, through KeyCap, the app's one
-         drop-cap component. The cap is the letter of its hotkey, exactly as
-         the doors' caps are, so the title says how to reach it.
+  <!-- FT-1188 (user call: "make the chronicle and overlay similar to the
+       scripts"): THE CHRONICLE IS A MEMBER OF THE SCRIPTS WORKBENCH'S FAMILY.
+       It was a flat opaque page that took the whole window and shared no
+       chrome with anything else in the app; the bench (EditionModal.vue) had
+       already settled this app's idiom for a surface too big to be a dialog —
+       a real modal over the town, the clock face still showing behind it, a
+       corner close mark, a centred drop-cap title alone on its line, controls
+       under it, and the content in framed panels.
 
-         The head is a THREE-COLUMN GRID, not a flex row, so the title sits on
-         the PAGE's centre line and stays there whether or not the back button
-         is standing. Back holds the left column on its own (user call: "the
-         back button should be on the far left, not on the right" — it shared
-         the right corner with the close ×, which put "step back one level"
-         and "leave the page entirely" side by side); the close × holds the
-         right. -->
-    <header class="rp-head">
-      <button class="rp-back" v-if="pick" @click="closePick">
-        <font-awesome-icon icon="arrow-left" /> The Chronicle
-      </button>
-      <div class="rp-title">
-        <!-- "C" + "hronicle" is ONE WORD split across two nodes, flush
-             together — the entry doors' idiom and RoleDrawer's "G"+"rimoire"
-             after it, not a badge beside a title. The newline before the span
-             is a whitespace-only node and Vue's `condense` drops it, so the
-             cap and its word stay joined. -->
-        <h2>
-          <span class="rp-cap"><KeyCap letter="C" /></span>hronicle
-        </h2>
-        <p class="rp-sub">
-          <template v-if="pick">one game's record</template>
-          <template v-else>every town on the platform</template>
-        </p>
-      </div>
-      <CloseX class="rp-close" @click.native="$emit('close')" />
-    </header>
+       IT IS THE SAME SHELL, not a copy of it: the 94vw/92vh sizing lives on
+       one selector shared with the bench (Modal.vue), and the head, title and
+       panel material come from `surface.scss`, lifted out of the bench for
+       this. A working surface and a reading surface, same frame.
 
-    <!-- ── ONE GAME'S RECORD ────────────────────────────────────────────
-         Opened from a ledger row (or handed in by the Chronicles drawer's
-         boards link). Self-sufficient: the record is fetched by id, so it
-         renders whether or not the ledger behind it holds that game. -->
-    <div class="rp-body" v-blood-scroll v-if="pick">
-      <p class="rp-state" v-if="pick.loading">Consulting the archives…</p>
-      <p class="rp-state" v-else-if="!pick.game">
-        That record could not be read.
-      </p>
-      <template v-else>
-        <p class="rp-gamehead">
-          <!-- FT-1162 (user call): "the script should use the icon of the
-               script not just its name." The mark comes from `scriptArtFor`
-               (golem/editionArt), which reads the only script handle a record
-               actually carries — its display NAME — back to an edition id and
-               so to the same art every script picker in the app shows. A name
-               it cannot place (a custom script, a script since renamed) gets
-               the stock custom mark; the art is only ever an addition, the
-               NAME is what identifies the script and it always prints. -->
-          <span class="rp-gscript"
-            ><img class="rp-gicon" :src="scriptArt(pick.game)" alt="" />{{
-              pick.game.scriptName
-            }}</span
-          >
-          <span class="rp-win" :class="pick.game.winningTeam">{{
-            pick.game.winningTeam === "good" ? "Good wins" : "Evil wins"
-          }}</span>
-          <span class="rp-gmeta">{{ pick.game.townId }}</span>
-          <span class="rp-gmeta">{{
-            whenLabel(pick.game.startedAt || pick.game.endedAt)
-          }}</span>
-          <span class="rp-gmeta">{{ pick.game.playerCount }} seats</span>
-          <!-- FT-1162 (user call): "the most important info besides the script
-               name, who won, and number of seats is number of days." IT IS NOT
-               RECORDED YET — a game row carries `startedAt` and `endedAt` and
-               nothing about its length in days, so every game recorded before
-               the capture lands has no answer. When there is no answer this
-               renders NOTHING: no zero, no dash, no "unknown". A day count is
-               a fact about how the game went and inventing one would be worse
-               than the gap. -->
-          <span class="rp-gmeta" v-if="dayLabel(pick.game)">{{
-            dayLabel(pick.game)
-          }}</span>
-          <span class="rp-gmeta">{{ lengthLabel(lengthOf(pick.game)) }}</span>
-        </p>
+       THE TOWN SHOWS THROUGH NOW, which the old opaque page existed to
+       prevent — a ring of role coins with the clock face reading through it.
+       That was never this page's problem to solve: ChroniclesPortrait paints
+       its own opaque plate under every ring for exactly this reason, so the
+       boards stand on their own darkness whatever is behind the shell. -->
+  <Modal class="records" @close="$emit('close')">
+    <div class="records-page">
+      <!-- FT-1162 (user call): the surface is THE CHRONICLE, and its title is
+           CENTRED and wears the entry doors' own treatment — PiratesBay for
+           the word plus the blood drop-cap the Host / Join / Scripts doors put
+           on theirs, through KeyCap, the app's one drop-cap component. The cap
+           is the letter of its hotkey, exactly as the doors' caps are, so the
+           title says how to reach it.
 
-        <!-- THE BOARDS AT THEIR TRUE SIZE. This is the whole reason the page
-             exists as a page: a 230px thumbnail in a 460px drawer cannot show
-             a 15-seat ring, and the portrait already has a large variant
-             (ChroniclesPortrait's `large` — 68px coins, 16px names) that had
-             nowhere wide enough to stand. Here it does. -->
-        <p class="rp-state" v-if="boards.loading">Fetching the boards…</p>
-        <div
-          class="rp-boards"
-          v-else-if="boards.start || boards.day1 || boards.end"
-        >
-          <!-- Each ring gets its OWN block box. ChroniclesPortrait's root is a
-               `display: contents` wrapper, so the figure itself is the layout
-               box and a parent's scoped CSS cannot reach it — the box around
-               it is how this page decides that two rings wrap onto separate
-               rows rather than shrinking to share one. -->
-          <div class="rp-board" v-if="boards.start">
-            <ChroniclesPortrait
-              :board="boards.start"
-              label="The game begins"
-              large
-            />
-          </div>
-          <div class="rp-board" v-if="boards.day1">
-            <ChroniclesPortrait :board="boards.day1" label="Day 1" large />
-          </div>
-          <div class="rp-board" v-if="boards.end">
-            <ChroniclesPortrait :board="boards.end" label="The end" large />
-          </div>
+           FT-1188: it is the bench's `almanac-title` now — the same class, the
+           same element, the same shared declarations — so "Chronicle" and
+           "Scripts" are one treatment rather than two that happen to look
+           alike. The head is the bench's two-row head: the title alone on row
+           one (the shell's close × is the only other thing at that height),
+           and row two a 1fr/auto/1fr grid where the subtitle holds the true
+           centre and Back keeps the far left on its own. FT-1162's call — "the
+           back button should be on the far left, not on the right" — is
+           unchanged and now costs nothing to hold, because the close × has
+           left this header entirely for the shell's corner. -->
+      <header class="rp-head">
+        <div class="rp-row1">
+          <!-- "C" + "hronicle" is ONE WORD split across two nodes, flush
+               together — the entry doors' idiom and RoleDrawer's "G"+"rimoire"
+               after it, not a badge beside a title. The newline before the tag
+               is a whitespace-only node and Vue's `condense` drops it, so the
+               cap and its word stay joined. -->
+          <h3 class="almanac-title"><KeyCap letter="C" />hronicle</h3>
         </div>
-        <p class="rp-state" v-else>No boards were kept for this game.</p>
+        <div class="rp-row2">
+          <button class="rp-back" v-if="pick" @click="closePick">
+            <font-awesome-icon icon="arrow-left" /> The Chronicle
+          </button>
+          <p class="rp-sub">
+            <template v-if="pick">one game's record</template>
+            <template v-else>every town on the platform</template>
+          </p>
+          <!-- FT-1188: THE PAGE'S OWN CLOSE MARK, stood down rather than
+               removed (house rule). The shell paints the × now — the shared
+               CloseX at the size and corner every modal in the app puts it,
+               which is the whole point of joining the family. -->
+          <CloseX
+            class="rp-close"
+            v-if="false"
+            @click.native="$emit('close')"
+          />
+        </div>
+      </header>
 
-        <table class="rp-table rp-roster" v-if="pick.game.seats">
-          <thead>
-            <tr>
-              <th>Seat</th>
-              <th>Player</th>
-              <th>Role</th>
-              <th>Kind</th>
-              <th>Side</th>
-              <th>Fate</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="seat in pick.game.seats" :key="seat.seatNo">
-              <td>{{ seat.seatNo }}</td>
-              <td>{{ seat.playerName }}</td>
-              <td>{{ roleNameOf(seat.roleIdFinal) }}</td>
-              <td>{{ seat.roleType }}</td>
-              <td :class="seat.teamAtEnd">{{ seat.teamAtEnd }}</td>
-              <td :class="seat.survived ? 'lived' : 'died'">
-                {{ seat.survived ? "lived" : "died" }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </template>
-    </div>
-
-    <!-- ── THE LANDING VIEW ─────────────────────────────────────────────── -->
-    <div class="rp-body" v-blood-scroll v-else>
-      <section class="rp-band">
-        <h3>Every town together</h3>
-        <p class="rp-state" v-if="loading">Consulting the archives…</p>
-        <p class="rp-state" v-else-if="error">
-          Chronicle unavailable — server unreachable
-        </p>
-        <p class="rp-state" v-else-if="!stats || !stats.games">
-          No games recorded yet
+      <!-- ── ONE GAME'S RECORD ────────────────────────────────────────────
+           Opened from a ledger row (or handed in by the Chronicles drawer's
+           boards link). Self-sufficient: the record is fetched by id, so it
+           renders whether or not the ledger behind it holds that game. -->
+      <div class="rp-body" v-blood-scroll v-if="pick">
+        <p class="rp-state" v-if="pick.loading">Consulting the archives…</p>
+        <p class="rp-state" v-else-if="!pick.game">
+          That record could not be read.
         </p>
         <template v-else>
-          <!-- FT-1164: EVERY PERCENTAGE CARRIES ITS COUNT. The big number is
-               always the raw one and the share rides in the label beneath it,
-               because a bare "64%" invites a confidence the sample may not
-               support and the count is what tells you whether it does. The
-               last figure is the sample itself: how many of these games
-               recorded how long they ran, which is the denominator every
-               length and death figure further down is taken over. -->
-          <ul class="rp-figures">
-            <li>
-              <b>{{ stats.games }}</b
-              ><span>{{ stats.games === 1 ? "game" : "games" }}</span>
-            </li>
-            <li class="good">
-              <b>{{ stats.wins.good }}</b
-              ><span>good wins · {{ pct(stats.winRate.good) }}</span>
-            </li>
-            <li class="evil">
-              <b>{{ stats.wins.evil }}</b
-              ><span>evil wins · {{ pct(stats.winRate.evil) }}</span>
-            </li>
-            <li>
-              <b>{{ stats.scriptsTotal }}</b
-              ><span>{{
-                stats.scriptsTotal === 1 ? "script" : "scripts"
-              }}</span>
-            </li>
-            <li :class="{ faint: !stats.gamesTimed }">
-              <b>{{ stats.gamesTimed }}</b
-              ><span>of {{ stats.games }} recorded their length</span>
-            </li>
-          </ul>
-          <div class="rp-columns">
-            <!-- FT-1164: the script table grew from four columns to seven.
-                 Each rate cell prints "63 · 64%" — the count first, because
-                 that is the fact, and the share second, because that is the
-                 reading of it. A script under the thin line wears the mark
-                 defined in the legend below the table. "Ran" is the median
-                 number of nights, over the games that recorded one; when none
-                 did it reads "no data", never a zero. -->
-            <div class="rp-col rp-col-wide" v-if="stats.scripts.length">
-              <h4>Scripts</h4>
-              <table class="rp-table">
-                <thead>
-                  <tr>
-                    <th>Script</th>
-                    <th>Games</th>
-                    <th title="Share of every recorded game">Share</th>
-                    <th>Good</th>
-                    <th>Evil</th>
-                    <th title="Median nights the town reached">Ran</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in stats.scripts" :key="row.scriptName">
-                    <td>
-                      {{ row.scriptName
-                      }}<ThinMark v-if="row.thin" :n="row.games" />
-                    </td>
-                    <td>{{ row.games }}</td>
-                    <td class="dim">{{ pct(row.share) }}</td>
-                    <td class="good">
-                      {{ row.wins.good }}
-                      <i class="rp-pct">{{ pct(row.winRate.good) }}</i>
-                    </td>
-                    <td class="evil">
-                      {{ row.wins.evil }}
-                      <i class="rp-pct">{{ pct(row.winRate.evil) }}</i>
-                    </td>
-                    <td :class="{ dim: !row.length.n }">
-                      {{ nights(row.length) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <p class="rp-legend">
-                <ThinMark :n="threshold" bare /> fewer than {{ threshold }}
-                games — the share is real, the rate is not yet worth reading.
-              </p>
+          <p class="rp-gamehead">
+            <!-- FT-1162 (user call): "the script should use the icon of the
+                 script not just its name." The mark comes from `scriptArtFor`
+                 (golem/editionArt), which reads the only script handle a record
+                 actually carries — its display NAME — back to an edition id and
+                 so to the same art every script picker in the app shows. A name
+                 it cannot place (a custom script, a script since renamed) gets
+                 the stock custom mark; the art is only ever an addition, the
+                 NAME is what identifies the script and it always prints. -->
+            <span class="rp-gscript"
+              ><img class="rp-gicon" :src="scriptArt(pick.game)" alt="" />{{
+                pick.game.scriptName
+              }}</span
+            >
+            <span class="rp-win" :class="pick.game.winningTeam">{{
+              pick.game.winningTeam === "good" ? "Good wins" : "Evil wins"
+            }}</span>
+            <span class="rp-gmeta">{{ pick.game.townId }}</span>
+            <span class="rp-gmeta">{{
+              whenLabel(pick.game.startedAt || pick.game.endedAt)
+            }}</span>
+            <span class="rp-gmeta">{{ pick.game.playerCount }} seats</span>
+            <!-- FT-1162 (user call): "the most important info besides the script
+                 name, who won, and number of seats is number of days." IT IS NOT
+                 RECORDED YET — a game row carries `startedAt` and `endedAt` and
+                 nothing about its length in days, so every game recorded before
+                 the capture lands has no answer. When there is no answer this
+                 renders NOTHING: no zero, no dash, no "unknown". A day count is
+                 a fact about how the game went and inventing one would be worse
+                 than the gap. -->
+            <span class="rp-gmeta" v-if="dayLabel(pick.game)">{{
+              dayLabel(pick.game)
+            }}</span>
+            <span class="rp-gmeta">{{ lengthLabel(lengthOf(pick.game)) }}</span>
+          </p>
+
+          <!-- THE BOARDS AT THEIR TRUE SIZE. This is the whole reason the page
+               exists as a page: a 230px thumbnail in a 460px drawer cannot show
+               a 15-seat ring, and the portrait already has a large variant
+               (ChroniclesPortrait's `large` — 68px coins, 16px names) that had
+               nowhere wide enough to stand. Here it does. -->
+          <p class="rp-state" v-if="boards.loading">Fetching the boards…</p>
+          <div
+            class="rp-boards"
+            v-else-if="boards.start || boards.day1 || boards.end"
+          >
+            <!-- Each ring gets its OWN block box. ChroniclesPortrait's root is a
+                 `display: contents` wrapper, so the figure itself is the layout
+                 box and a parent's scoped CSS cannot reach it — the box around
+                 it is how this page decides that two rings wrap onto separate
+                 rows rather than shrinking to share one. -->
+            <div class="rp-board" v-if="boards.start">
+              <ChroniclesPortrait
+                :board="boards.start"
+                label="The game begins"
+                large
+              />
             </div>
-            <!-- FT-1161 (user): "the players section of this is bad, we
-                 shouldn't be publically displaying player info. Users should
-                 get access to the player info of towns they have been in,
-                 but not all across the entire platform."
-
-                 Right, and it is the one thing on this page that names a
-                 PERSON. Every other figure here is about games, scripts and
-                 roles — facts about the play. A leaderboard of who won what,
-                 visible to anyone who opens the site, is a different kind of
-                 thing entirely, and it went out the moment it was named.
-
-                 Stood down rather than removed: the same table, scoped to the
-                 towns a viewer has actually been in, is a surface the user
-                 does want — so the markup and its `topPlayers` computed stay
-                 here waiting for that scope rather than being rebuilt later
-                 from memory. -->
-            <div class="rp-col" v-if="false && topPlayers.length">
-              <h4>Players</h4>
-              <table class="rp-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Games</th>
-                    <th>Wins</th>
-                    <th title="Games survived to the end">Lived</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in topPlayers" :key="row.playerName">
-                    <td>{{ row.playerName }}</td>
-                    <td>{{ row.games }}</td>
-                    <td>{{ row.wins }}</td>
-                    <td>{{ row.survivals }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="rp-board" v-if="boards.day1">
+              <ChroniclesPortrait :board="boards.day1" label="Day 1" large />
+            </div>
+            <div class="rp-board" v-if="boards.end">
+              <ChroniclesPortrait :board="boards.end" label="The end" large />
             </div>
           </div>
-        </template>
-      </section>
+          <p class="rp-state" v-else>No boards were kept for this game.</p>
 
-      <!-- ── ROLES, WITHIN THEIR SCRIPT ───────────────────────────────────
-           A role only means anything inside the script it was played on: the
-           Imp's win rate on Trouble Brewing and on a homebrew that also
-           contains it are two different facts about two different games, and
-           averaging them would be a third fact that is true of neither. So
-           there is one table per script and no platform-wide role table at all.
-
-           WIN RATE IS THE PLAINEST THING HERE. A role belongs to a team; the
-           role won when its team won. There is no special case — what the
-           Recluse registers as, what the Drunk believes, are facts about what
-           some other player was told, not about who won — so the page carries
-           no explanation for it and none is needed.
-
-           DEATH DAY IS THE MOST FRAGILE. Night and day are separate columns
-           because within one numbered cycle the town runs night N and then
-           day N: a night-2 kill and a day-2 execution share a number and are
-           not the same moment, and a median over the two mixed would claim
-           they were. Both columns show their own count, so a median over one
-           death is visibly a median over one death. -->
-      <section
-        class="rp-band"
-        v-if="!loading && !error && stats && stats.games"
-      >
-        <h3>Roles</h3>
-        <p class="rp-scope">
-          Per script: how often each role was in play, how often its team won,
-          and when it died. Death figures are taken only over the deaths whose
-          moment was recorded — the count beside each is that sample, and
-          {{ stats.gamesTimed }} of {{ stats.games }} games recorded it.
-        </p>
-        <div
-          class="rp-rolescript"
-          v-for="script in scriptsWithRoles"
-          :key="script.scriptName"
-        >
-          <h4>
-            {{ script.scriptName }} · {{ script.games }}
-            {{ script.games === 1 ? "game" : "games" }}
-          </h4>
-          <div class="rp-scroll">
-            <table class="rp-table rp-roles">
+          <!-- FT-1188: the roster stands in a framed panel, the same material
+               every band on the landing view wears. The BOARDS above it do
+               not — a frame there would take 32px off the ring width the
+               large portrait was measured at, and each ring already paints
+               its own opaque plate, which is the frame it needs. -->
+          <div class="rp-panel rp-rosterwrap" v-if="pick.game.seats">
+            <table class="rp-table rp-roster">
               <thead>
                 <tr>
-                  <th rowspan="2">Role</th>
-                  <th rowspan="2">Kind</th>
-                  <th rowspan="2" title="Games this role was in play">In</th>
-                  <th rowspan="2" title="Share of this script's games">
-                    Share
-                  </th>
-                  <th rowspan="2">Won</th>
-                  <th rowspan="2">Win rate</th>
-                  <th rowspan="2" title="Seats that did not survive">Died</th>
-                  <th colspan="3" class="rp-group">Died at night</th>
-                  <th colspan="3" class="rp-group">Died by day</th>
-                  <th rowspan="2" title="The most common recorded moment">
-                    Most common
-                  </th>
-                </tr>
-                <tr>
-                  <th class="rp-sub-th" title="Deaths with a recorded moment">
-                    n
-                  </th>
-                  <th class="rp-sub-th">median</th>
-                  <th class="rp-sub-th">mean</th>
-                  <th class="rp-sub-th" title="Deaths with a recorded moment">
-                    n
-                  </th>
-                  <th class="rp-sub-th">median</th>
-                  <th class="rp-sub-th">mean</th>
+                  <th>Seat</th>
+                  <th>Player</th>
+                  <th>Role</th>
+                  <th>Kind</th>
+                  <th>Side</th>
+                  <th>Fate</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="role in script.roles" :key="role.roleId">
-                  <td>{{ roleNameOf(role.roleId) }}</td>
-                  <td class="dim">{{ role.roleType }}</td>
-                  <td>{{ role.games }}</td>
-                  <td class="dim">{{ pct(role.share) }}</td>
-                  <td>{{ role.wins }}</td>
-                  <td>
-                    {{ pct(role.winRate)
-                    }}<ThinMark v-if="role.thin" :n="role.games" />
-                  </td>
-                  <td :class="{ dim: !role.deaths.died }">
-                    {{ role.deaths.died }}
-                  </td>
-                  <td :class="{ dim: !role.deaths.night.n }">
-                    {{ role.deaths.night.n }}
-                  </td>
-                  <td>{{ num(role.deaths.night.median) }}</td>
-                  <td>{{ num(role.deaths.night.mean) }}</td>
-                  <td :class="{ dim: !role.deaths.day.n }">
-                    {{ role.deaths.day.n }}
-                  </td>
-                  <td>{{ num(role.deaths.day.median) }}</td>
-                  <td>{{ num(role.deaths.day.mean) }}</td>
-                  <!-- A TIED MODE IS NOT A FACT and is not printed as one. With
-                       four deaths spread over four moments every one of them is
-                       modal; naming one would invent a typical death out of an
-                       arbitrary pick. When the server says the top count was
-                       shared, this says "tied" and stops. -->
-                  <td :class="{ dim: !role.deaths.mode }">
-                    {{ modeLabel(role.deaths.mode) }}
+                <tr v-for="seat in pick.game.seats" :key="seat.seatNo">
+                  <td>{{ seat.seatNo }}</td>
+                  <td>{{ seat.playerName }}</td>
+                  <td>{{ roleNameOf(seat.roleIdFinal) }}</td>
+                  <td>{{ seat.roleType }}</td>
+                  <td :class="seat.teamAtEnd">{{ seat.teamAtEnd }}</td>
+                  <td :class="seat.survived ? 'lived' : 'died'">
+                    {{ seat.survived ? "lived" : "died" }}
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p class="rp-legend">
-            <ThinMark :n="threshold" bare /> fewer than {{ threshold }} games —
-            the rate is not yet worth reading.
-            <template v-if="!script.gamesTimed">
-              No game on this script recorded how long it ran, so every death
-              figure above reads as no data rather than as a zero.
-            </template>
+        </template>
+      </div>
+
+      <!-- ── THE LANDING VIEW ─────────────────────────────────────────────── -->
+      <div class="rp-body" v-blood-scroll v-else>
+        <section class="rp-band">
+          <h3>Every town together</h3>
+          <p class="rp-state" v-if="loading">Consulting the archives…</p>
+          <p class="rp-state" v-else-if="error">
+            Chronicle unavailable — server unreachable
           </p>
-        </div>
-      </section>
-
-      <!-- ── ROLES TOGETHER ───────────────────────────────────────────────
-           The user's own example: "Trouble Brewing: Fortune Teller, Raven
-           Keeper. And get number of games with both relative to the total for
-           the script, and wins and % wins of games with both."
-
-           A QUESTION ASKED, not a table read. Twenty-two roles is 231 pairs and
-           1,540 triples; the combination worth an answer is the one just
-           picked, so the page asks the server each time rather than the server
-           precomputing an archive nobody reads.
-
-           ALL of the picked roles, not any — a game counts only if it contained
-           every one of them. -->
-      <section
-        class="rp-band"
-        v-if="!loading && !error && stats && stats.games"
-      >
-        <h3>Roles together</h3>
-        <p class="rp-scope">
-          Pick a script and the roles that must all have been in play. The
-          answer is over the games that contained every one of them.
-        </p>
-
-        <div class="rp-combo">
-          <label class="rp-combo-script">
-            <span>Script</span>
-            <select v-model="combo.scriptName" @change="onComboScript">
-              <option
-                v-for="script in scriptsWithRoles"
-                :key="script.scriptName"
-                :value="script.scriptName"
-              >
-                {{ script.scriptName }} ({{ script.games }})
-              </option>
-            </select>
-          </label>
-
-          <p class="rp-state" v-if="!comboRoleChoices.length">
-            No roles have been recorded on this script yet.
+          <p class="rp-state" v-else-if="!stats || !stats.games">
+            No games recorded yet
           </p>
-          <div class="rp-chips" v-else>
-            <button
-              v-for="role in comboRoleChoices"
-              :key="role.roleId"
-              class="rp-chip"
-              :class="{ on: combo.roleIds.indexOf(role.roleId) >= 0 }"
-              :disabled="
-                combo.roleIds.length >= maxComboRoles &&
-                combo.roleIds.indexOf(role.roleId) < 0
-              "
-              @click="toggleComboRole(role.roleId)"
-            >
-              {{ roleNameOf(role.roleId) }}
-              <i class="rp-chip-n">{{ role.games }}</i>
-            </button>
-          </div>
-
-          <p class="rp-state" v-if="!combo.roleIds.length">
-            Pick at least one role.
-          </p>
-          <p class="rp-state" v-else-if="combo.loading">Counting the games…</p>
-          <p class="rp-state" v-else-if="combo.error">
-            That query could not be run.
-          </p>
-          <div class="rp-combo-out" v-else-if="combo.result">
+          <template v-else>
+            <!-- FT-1164: EVERY PERCENTAGE CARRIES ITS COUNT. The big number is
+                 always the raw one and the share rides in the label beneath it,
+                 because a bare "64%" invites a confidence the sample may not
+                 support and the count is what tells you whether it does. The
+                 last figure is the sample itself: how many of these games
+                 recorded how long they ran, which is the denominator every
+                 length and death figure further down is taken over. -->
             <ul class="rp-figures">
               <li>
-                <b>{{ combo.result.games }}</b
-                ><span>
-                  of {{ combo.result.scriptGames }} games ·
-                  {{ pct(combo.result.share) }}
-                </span>
+                <b>{{ stats.games }}</b
+                ><span>{{ stats.games === 1 ? "game" : "games" }}</span>
               </li>
               <li class="good">
-                <b>{{ combo.result.wins.good }}</b
-                ><span>good wins · {{ pct(combo.result.winRate.good) }}</span>
+                <b>{{ stats.wins.good }}</b
+                ><span>good wins · {{ pct(stats.winRate.good) }}</span>
               </li>
               <li class="evil">
-                <b>{{ combo.result.wins.evil }}</b
-                ><span>evil wins · {{ pct(combo.result.winRate.evil) }}</span>
+                <b>{{ stats.wins.evil }}</b
+                ><span>evil wins · {{ pct(stats.winRate.evil) }}</span>
+              </li>
+              <li>
+                <b>{{ stats.scriptsTotal }}</b
+                ><span>{{
+                  stats.scriptsTotal === 1 ? "script" : "scripts"
+                }}</span>
+              </li>
+              <li :class="{ faint: !stats.gamesTimed }">
+                <b>{{ stats.gamesTimed }}</b
+                ><span>of {{ stats.games }} recorded their length</span>
               </li>
             </ul>
-            <p class="rp-legend" v-if="combo.result.games === 0">
-              No recorded game on this script had all of them in play at once.
-            </p>
-            <p class="rp-legend" v-else-if="combo.result.thin">
-              <ThinMark :n="combo.result.games" bare />
-              {{ combo.result.games }} games is under the {{ threshold }}-game
-              line. The count is a fact; the win split off it is not yet a
-              pattern.
+            <div class="rp-columns">
+              <!-- FT-1164: the script table grew from four columns to seven.
+                   Each rate cell prints "63 · 64%" — the count first, because
+                   that is the fact, and the share second, because that is the
+                   reading of it. A script under the thin line wears the mark
+                   defined in the legend below the table. "Ran" is the median
+                   number of nights, over the games that recorded one; when none
+                   did it reads "no data", never a zero. -->
+              <div class="rp-col rp-col-wide" v-if="stats.scripts.length">
+                <h4>Scripts</h4>
+                <table class="rp-table">
+                  <thead>
+                    <tr>
+                      <th>Script</th>
+                      <th>Games</th>
+                      <th title="Share of every recorded game">Share</th>
+                      <th>Good</th>
+                      <th>Evil</th>
+                      <th title="Median nights the town reached">Ran</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in stats.scripts" :key="row.scriptName">
+                      <td>
+                        {{ row.scriptName
+                        }}<ThinMark v-if="row.thin" :n="row.games" />
+                      </td>
+                      <td>{{ row.games }}</td>
+                      <td class="dim">{{ pct(row.share) }}</td>
+                      <td class="good">
+                        {{ row.wins.good }}
+                        <i class="rp-pct">{{ pct(row.winRate.good) }}</i>
+                      </td>
+                      <td class="evil">
+                        {{ row.wins.evil }}
+                        <i class="rp-pct">{{ pct(row.winRate.evil) }}</i>
+                      </td>
+                      <td :class="{ dim: !row.length.n }">
+                        {{ nights(row.length) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="rp-legend">
+                  <ThinMark :n="threshold" bare /> fewer than {{ threshold }}
+                  games — the share is real, the rate is not yet worth reading.
+                </p>
+              </div>
+              <!-- FT-1161 (user): "the players section of this is bad, we
+                   shouldn't be publically displaying player info. Users should
+                   get access to the player info of towns they have been in,
+                   but not all across the entire platform."
+
+                   Right, and it is the one thing on this page that names a
+                   PERSON. Every other figure here is about games, scripts and
+                   roles — facts about the play. A leaderboard of who won what,
+                   visible to anyone who opens the site, is a different kind of
+                   thing entirely, and it went out the moment it was named.
+
+                   Stood down rather than removed: the same table, scoped to the
+                   towns a viewer has actually been in, is a surface the user
+                   does want — so the markup and its `topPlayers` computed stay
+                   here waiting for that scope rather than being rebuilt later
+                   from memory. -->
+              <div class="rp-col" v-if="false && topPlayers.length">
+                <h4>Players</h4>
+                <table class="rp-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Games</th>
+                      <th>Wins</th>
+                      <th title="Games survived to the end">Lived</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in topPlayers" :key="row.playerName">
+                      <td>{{ row.playerName }}</td>
+                      <td>{{ row.games }}</td>
+                      <td>{{ row.wins }}</td>
+                      <td>{{ row.survivals }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <!-- ── ROLES, WITHIN THEIR SCRIPT ───────────────────────────────────
+             A role only means anything inside the script it was played on: the
+             Imp's win rate on Trouble Brewing and on a homebrew that also
+             contains it are two different facts about two different games, and
+             averaging them would be a third fact that is true of neither. So
+             there is one table per script and no platform-wide role table at all.
+
+             WIN RATE IS THE PLAINEST THING HERE. A role belongs to a team; the
+             role won when its team won. There is no special case — what the
+             Recluse registers as, what the Drunk believes, are facts about what
+             some other player was told, not about who won — so the page carries
+             no explanation for it and none is needed.
+
+             DEATH DAY IS THE MOST FRAGILE. Night and day are separate columns
+             because within one numbered cycle the town runs night N and then
+             day N: a night-2 kill and a day-2 execution share a number and are
+             not the same moment, and a median over the two mixed would claim
+             they were. Both columns show their own count, so a median over one
+             death is visibly a median over one death. -->
+        <section
+          class="rp-band"
+          v-if="!loading && !error && stats && stats.games"
+        >
+          <h3>Roles</h3>
+          <p class="rp-scope">
+            Per script: how often each role was in play, how often its team won,
+            and when it died. Death figures are taken only over the deaths whose
+            moment was recorded — the count beside each is that sample, and
+            {{ stats.gamesTimed }} of {{ stats.games }} games recorded it.
+          </p>
+          <div
+            class="rp-rolescript"
+            v-for="script in scriptsWithRoles"
+            :key="script.scriptName"
+          >
+            <h4>
+              {{ script.scriptName }} · {{ script.games }}
+              {{ script.games === 1 ? "game" : "games" }}
+            </h4>
+            <div class="rp-scroll">
+              <table class="rp-table rp-roles">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Role</th>
+                    <th rowspan="2">Kind</th>
+                    <th rowspan="2" title="Games this role was in play">In</th>
+                    <th rowspan="2" title="Share of this script's games">
+                      Share
+                    </th>
+                    <th rowspan="2">Won</th>
+                    <th rowspan="2">Win rate</th>
+                    <th rowspan="2" title="Seats that did not survive">Died</th>
+                    <th colspan="3" class="rp-group">Died at night</th>
+                    <th colspan="3" class="rp-group">Died by day</th>
+                    <th rowspan="2" title="The most common recorded moment">
+                      Most common
+                    </th>
+                  </tr>
+                  <tr>
+                    <th class="rp-sub-th" title="Deaths with a recorded moment">
+                      n
+                    </th>
+                    <th class="rp-sub-th">median</th>
+                    <th class="rp-sub-th">mean</th>
+                    <th class="rp-sub-th" title="Deaths with a recorded moment">
+                      n
+                    </th>
+                    <th class="rp-sub-th">median</th>
+                    <th class="rp-sub-th">mean</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="role in script.roles" :key="role.roleId">
+                    <td>{{ roleNameOf(role.roleId) }}</td>
+                    <td class="dim">{{ role.roleType }}</td>
+                    <td>{{ role.games }}</td>
+                    <td class="dim">{{ pct(role.share) }}</td>
+                    <td>{{ role.wins }}</td>
+                    <td>
+                      {{ pct(role.winRate)
+                      }}<ThinMark v-if="role.thin" :n="role.games" />
+                    </td>
+                    <td :class="{ dim: !role.deaths.died }">
+                      {{ role.deaths.died }}
+                    </td>
+                    <td :class="{ dim: !role.deaths.night.n }">
+                      {{ role.deaths.night.n }}
+                    </td>
+                    <td>{{ num(role.deaths.night.median) }}</td>
+                    <td>{{ num(role.deaths.night.mean) }}</td>
+                    <td :class="{ dim: !role.deaths.day.n }">
+                      {{ role.deaths.day.n }}
+                    </td>
+                    <td>{{ num(role.deaths.day.median) }}</td>
+                    <td>{{ num(role.deaths.day.mean) }}</td>
+                    <!-- A TIED MODE IS NOT A FACT and is not printed as one. With
+                         four deaths spread over four moments every one of them is
+                         modal; naming one would invent a typical death out of an
+                         arbitrary pick. When the server says the top count was
+                         shared, this says "tied" and stops. -->
+                    <td :class="{ dim: !role.deaths.mode }">
+                      {{ modeLabel(role.deaths.mode) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="rp-legend">
+              <ThinMark :n="threshold" bare /> fewer than {{ threshold }} games
+              — the rate is not yet worth reading.
+              <template v-if="!script.gamesTimed">
+                No game on this script recorded how long it ran, so every death
+                figure above reads as no data rather than as a zero.
+              </template>
             </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- THE PER-GAME LEDGER. It used to be its own band with its own,
-         SMALLER claim: the numbers above were every game in the store, while
-         these rows were only the games from the towns THIS BROWSER had been
-         in — because the games list was a per-town endpoint and nothing
-         enumerated the towns that exist.
+        <!-- ── ROLES TOGETHER ───────────────────────────────────────────────
+             The user's own example: "Trouble Brewing: Fortune Teller, Raven
+             Keeper. And get number of games with both relative to the total for
+             the script, and wins and % wins of games with both."
 
-         FT-1155 made the town optional, so the two claims are finally the
-         same claim: these rows are the newest games on the platform, in one
-         read, and the scope line below says the one true thing rather than
-         apologising for a shortfall. The ceiling is the API's own (50), so
-         this is the newest page of the archive, not the whole of it. -->
-      <section class="rp-band">
-        <h3>The games</h3>
-        <p class="rp-scope">{{ ledgerScope }}</p>
-        <p class="rp-state" v-if="ledger.loading">Reading the ledgers…</p>
-        <p class="rp-state" v-else-if="!ledger.games.length">
-          No games have been recorded yet.
-        </p>
-        <template v-else>
-          <table class="rp-table rp-ledger">
-            <thead>
-              <tr>
-                <th>Ended</th>
-                <th>Town</th>
-                <th>Script</th>
-                <th>Seats</th>
-                <th>Ran</th>
-                <th>Winner</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="game in ledger.games"
-                :key="game.id"
-                class="jump"
-                :class="{ here: game.townId === townId }"
-                :data-record-row="game.id"
-                title="Open this game's record"
-                @click="openPick(game.id)"
+             A QUESTION ASKED, not a table read. Twenty-two roles is 231 pairs and
+             1,540 triples; the combination worth an answer is the one just
+             picked, so the page asks the server each time rather than the server
+             precomputing an archive nobody reads.
+
+             ALL of the picked roles, not any — a game counts only if it contained
+             every one of them. -->
+        <section
+          class="rp-band"
+          v-if="!loading && !error && stats && stats.games"
+        >
+          <h3>Roles together</h3>
+          <p class="rp-scope">
+            Pick a script and the roles that must all have been in play. The
+            answer is over the games that contained every one of them.
+          </p>
+
+          <div class="rp-combo">
+            <label class="rp-combo-script">
+              <span>Script</span>
+              <select v-model="combo.scriptName" @change="onComboScript">
+                <option
+                  v-for="script in scriptsWithRoles"
+                  :key="script.scriptName"
+                  :value="script.scriptName"
+                >
+                  {{ script.scriptName }} ({{ script.games }})
+                </option>
+              </select>
+            </label>
+
+            <p class="rp-state" v-if="!comboRoleChoices.length">
+              No roles have been recorded on this script yet.
+            </p>
+            <div class="rp-chips" v-else>
+              <button
+                v-for="role in comboRoleChoices"
+                :key="role.roleId"
+                class="rp-chip"
+                :class="{ on: combo.roleIds.indexOf(role.roleId) >= 0 }"
+                :disabled="
+                  combo.roleIds.length >= maxComboRoles &&
+                  combo.roleIds.indexOf(role.roleId) < 0
+                "
+                @click="toggleComboRole(role.roleId)"
               >
-                <td>{{ whenLabel(game.endedAt) }}</td>
-                <td>{{ game.townId }}</td>
-                <td>{{ game.scriptName }}</td>
-                <td>{{ game.playerCount }}</td>
-                <td>{{ lengthLabel(lengthOf(game)) }}</td>
-                <td class="rp-win" :class="game.winningTeam">
-                  {{ game.winningTeam === "good" ? "Good" : "Evil" }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </template>
-      </section>
+                {{ roleNameOf(role.roleId) }}
+                <i class="rp-chip-n">{{ role.games }}</i>
+              </button>
+            </div>
+
+            <p class="rp-state" v-if="!combo.roleIds.length">
+              Pick at least one role.
+            </p>
+            <p class="rp-state" v-else-if="combo.loading">
+              Counting the games…
+            </p>
+            <p class="rp-state" v-else-if="combo.error">
+              That query could not be run.
+            </p>
+            <div class="rp-combo-out" v-else-if="combo.result">
+              <ul class="rp-figures">
+                <li>
+                  <b>{{ combo.result.games }}</b
+                  ><span>
+                    of {{ combo.result.scriptGames }} games ·
+                    {{ pct(combo.result.share) }}
+                  </span>
+                </li>
+                <li class="good">
+                  <b>{{ combo.result.wins.good }}</b
+                  ><span>good wins · {{ pct(combo.result.winRate.good) }}</span>
+                </li>
+                <li class="evil">
+                  <b>{{ combo.result.wins.evil }}</b
+                  ><span>evil wins · {{ pct(combo.result.winRate.evil) }}</span>
+                </li>
+              </ul>
+              <p class="rp-legend" v-if="combo.result.games === 0">
+                No recorded game on this script had all of them in play at once.
+              </p>
+              <p class="rp-legend" v-else-if="combo.result.thin">
+                <ThinMark :n="combo.result.games" bare />
+                {{ combo.result.games }} games is under the {{ threshold }}-game
+                line. The count is a fact; the win split off it is not yet a
+                pattern.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- THE PER-GAME LEDGER. It used to be its own band with its own,
+           SMALLER claim: the numbers above were every game in the store, while
+           these rows were only the games from the towns THIS BROWSER had been
+           in — because the games list was a per-town endpoint and nothing
+           enumerated the towns that exist.
+
+           FT-1155 made the town optional, so the two claims are finally the
+           same claim: these rows are the newest games on the platform, in one
+           read, and the scope line below says the one true thing rather than
+           apologising for a shortfall. The ceiling is the API's own (50), so
+           this is the newest page of the archive, not the whole of it. -->
+        <section class="rp-band">
+          <h3>The games</h3>
+          <p class="rp-scope">{{ ledgerScope }}</p>
+          <p class="rp-state" v-if="ledger.loading">Reading the ledgers…</p>
+          <p class="rp-state" v-else-if="!ledger.games.length">
+            No games have been recorded yet.
+          </p>
+          <template v-else>
+            <table class="rp-table rp-ledger">
+              <thead>
+                <tr>
+                  <th>Ended</th>
+                  <th>Town</th>
+                  <th>Script</th>
+                  <th>Seats</th>
+                  <th>Ran</th>
+                  <th>Winner</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="game in ledger.games"
+                  :key="game.id"
+                  class="jump"
+                  :class="{ here: game.townId === townId }"
+                  :data-record-row="game.id"
+                  title="Open this game's record"
+                  @click="openPick(game.id)"
+                >
+                  <td>{{ whenLabel(game.endedAt) }}</td>
+                  <td>{{ game.townId }}</td>
+                  <td>{{ game.scriptName }}</td>
+                  <td>{{ game.playerCount }}</td>
+                  <td>{{ lengthLabel(lengthOf(game)) }}</td>
+                  <td class="rp-win" :class="game.winningTeam">
+                    {{ game.winningTeam === "good" ? "Good" : "Evil" }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
+        </section>
+      </div>
     </div>
-  </div>
+  </Modal>
 </template>
 
 <script>
 import { mapState } from "vuex";
+// FT-1188: THE SHELL. The Chronicle stands in the app's own modal now, the
+// same one the Scripts workbench stands in — the close mark, the veil over the
+// town and the plate all come from it rather than being painted here.
+import Modal from "./modals/Modal";
+// The header's own × — STOOD DOWN in the template (FT-1188), still registered,
+// because the mark is the one this page would paint if it ever left the shell.
 import CloseX from "./CloseX";
 import ChroniclesPortrait from "./ChroniclesPortrait";
 // FT-1162: the app's one drop-cap component — the same one the entry doors
@@ -596,7 +643,7 @@ const TOP_PLAYERS = 15;
 
 export default {
   name: "StatsOverlay",
-  components: { CloseX, ChroniclesPortrait, KeyCap, ThinMark },
+  components: { Modal, CloseX, ChroniclesPortrait, KeyCap, ThinMark },
   props: {
     /** The town this browser is standing in, or "" on the entry screen.
      *  It NARROWS NOTHING — the page is platform-scoped by definition; it
@@ -996,80 +1043,64 @@ export default {
 <style scoped lang="scss">
 @import "../vars.scss";
 @import "../controls.scss";
+// FT-1188: the big surface's shared chrome — the head rows, the title and the
+// panel material, all lifted out of the Scripts workbench so both surfaces
+// read one definition. Variables and mixins only; importing adds no rules.
+@import "../surface.scss";
 
-// THE PAGE. Not a dialog on top of the town — a surface that takes the whole
-// window, because the thing it exists to show (two 15-seat board rings side by
-// side) does not fit in anything smaller. Ranked above the drawers (55) and
-// the portrait lightbox's own veil (91) is above this, as it should be.
+// THE PAGE, INSIDE THE SHELL.
+//
+// It used to paint its own: `position: fixed; inset: 0; z-index: 90;
+// background: #0a0706` — a full-window opaque page that owed nothing to any
+// other surface in the app. FT-1188 handed all four of those to Modal (the
+// veil, the plate, the stacking, the close mark), which is what makes this the
+// same object as the Scripts workbench rather than a lookalike.
+//
+// THE OPACITY WENT WITH THEM, on purpose. The note that used to stand here
+// said the page had to be opaque because "the clock face reading through a
+// ring of role coins" is unreadable — true, and already solved one level down:
+// ChroniclesPortrait paints an opaque plate under every ring for exactly that
+// reason. The page never needed to be opaque; the RINGS did, and they are.
 .records-page {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  // OPAQUE, unlike every overlay in this app. Those are panels raised OVER the
-  // town and want it visible behind them; this is a page you go to, and the
-  // clock face reading through a ring of role coins was the drawer's own
-  // problem (ChroniclesPortrait's opaque plate exists for the same reason).
-  background: #0a0706;
   color: #d8cdb4;
   text-align: left;
 }
 
-// FT-1162: THREE COLUMNS, not a flex row. The two flanks are equal `1fr`, so
-// the middle column — the title — lands on the PAGE's centre line and holds
-// it whether or not the back button is standing (it is `v-if="pick"`). A flex
-// row could only centre the title against whatever happened to be beside it,
-// which is exactly the drift that made "centred" mean two different positions
-// on the landing and inside a record.
+// FT-1188: THE BENCH'S TWO-ROW HEAD (surface.scss) — title alone on row one,
+// controls on row two. FT-1162's requirement survives intact and is now
+// cheaper to hold: the title centres against the SHELL rather than against
+// whatever happens to be beside it, and Back keeps the far left on its own
+// because the close × has left this header for the shell's corner.
 .rp-head {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 18px;
-  padding: 14px 22px;
-  border-bottom: 1px solid rgba(216, 205, 180, 0.18);
-  background: rgba(0, 0, 0, 0.4);
+  @include surface-head;
+}
+.rp-row1 {
+  @include surface-head-title-row;
+}
+// THE TITLE, the bench's own — same class, same mixin, same computed size.
+// Scoped styles do not travel between components, so this include is what
+// makes "the same treatment" true rather than merely claimed: `.almanac-title`
+// in EditionModal's sheet cannot reach this element, and a copy of its
+// declarations here is exactly the fourth copy this work exists to prevent.
+.almanac-title {
+  @include surface-title;
+}
+.rp-row2 {
+  @include surface-head-control-row;
+  min-height: 24px;
 }
 
-// The title STACKS over its subtitle rather than sitting beside it. Side by
-// side, the pair is what centres and the WORD lands ~80px left of the page's
-// centre line — which is not what "centre the title" means to anyone looking
-// at it. Stacked, the word itself is on the centre line and the subtitle sits
-// under it, centred too.
-.rp-title {
-  grid-column: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-
-  h2 {
-    // The ENTRY DOORS' face. PiratesBay was already the h2's font — what the
-    // doors have that this did not is the blood drop-cap, which KeyCap brings
-    // (Bloody, blood red, black-outlined, per-letter baseline).
-    font-family: PiratesBay, sans-serif;
-    font-size: 30px;
-    line-height: 1;
-    margin: 0;
-    white-space: nowrap;
-
-    // The same 2px optical nudge the doors give their own drop-cap
-    // (Intro.vue's `.doors .key`) and RoleDrawer's `.rd-cap` after it, and
-    // nothing more — KeyCap's `.key` already carries everything else. This
-    // only keeps "hronicle" from crowding the C.
-    .rp-cap {
-      margin-right: 2px;
-    }
-  }
-}
-
+// The subtitle holds the true centre column, under the word it belongs to.
 .rp-sub {
+  grid-column: 2;
   margin: 0;
   opacity: 0.55;
   font-size: 14px;
+  text-align: center;
 }
 
 // FT-1162: the FAR LEFT of the head, on its own, where nothing else lives —
@@ -1093,6 +1124,8 @@ export default {
   }
 }
 
+// STOOD DOWN with the mark it sized (FT-1188) — the shell's × is 30px in the
+// plate's own corner, and this page no longer paints one.
 .rp-close {
   grid-column: 3;
   justify-self: end;
@@ -1101,16 +1134,29 @@ export default {
   flex: 0 0 auto;
 }
 
+// The scroller. Its side padding is DELIBERATELY THIN — the shell already pads
+// 20px either side, and every px here comes off the width the board rings get
+// in a record.
 .rp-body {
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 18px 22px 40px;
+  padding: 16px 4px 24px;
 }
 
-.rp-band + .rp-band {
-  margin-top: 34px;
-  padding-top: 22px;
-  border-top: 1px solid rgba(216, 205, 180, 0.14);
+// ── A BAND IS A PANEL ───────────────────────────────────────────────────────
+// FT-1188: each band stands in its own frame, the way the bench's content
+// does, instead of being separated from its neighbour by a hairline. The frame
+// carries its own ground as well as its edge — the shell alone leaves enough
+// of the town reading through to sit inside a column of 12px figures (see
+// surface.scss). The town still shows between the panels, which is the point.
+.rp-band,
+.rp-panel {
+  @include surface-panel;
+}
+.rp-band + .rp-band,
+.rp-panel {
+  margin-top: 16px;
 }
 
 // The app's global type centres headings; a page of left-aligned tables wants
@@ -1176,13 +1222,40 @@ h4 {
 
 // THE HEADLINE NUMBERS — the one thing a reader should be able to take in
 // without reading anything.
+//
+// ── FT-1188: WHAT THIS ROW ACTUALLY WAS ─────────────────────────────────────
+// The user's screenshot caught it as a wash of blue with the writing barely
+// readable against it, and that is exactly what it was — not a background, but
+// the TEXT. Two of the five items carry `.good` / `.evil`, and those classes
+// are declared bare further down this sheet for the TABLE CELLS that need
+// them (`<td class="good">`). On a `<li>` they set the whole item's colour, so
+// the label under the number inherited the team colour and was then halved in
+// opacity. MEASURED against the page's own ground: "GOOD WINS · 63.3%" came
+// out at 2.77:1 and "EVIL WINS · 36.7%" at 1.91:1 — the two least legible
+// strings on a page whose whole subject they are, both under even the 3:1
+// large-text floor. The big numeral, which the team colour was FOR, was the
+// one part of each item that was already fine (8.34:1 and 4.57:1).
+//
+// So: the numeral keeps its colour, and the label is put back on the page's
+// own ink explicitly, where no `.good`/`.evil` can reach it. All three labels
+// now measure 4.99:1, because all three are now the same ink. The row also
+// stands in a frame, like every other block on the surface — a headline band
+// with nothing around it read as text that had drifted to the top.
 .rp-figures {
+  @include surface-panel(12px 16px 14px);
   list-style: none;
   display: flex;
   flex-wrap: wrap;
   gap: 10px 34px;
-  margin: 12px 0 22px;
-  padding: 0;
+  margin: 12px 0 18px;
+  // EXPLICIT, because the shell brought company: `.modal ul` (Modal.vue)
+  // centres, middle-aligns and sets line-height on every list inside a modal,
+  // and this row is a list inside a modal now. Only the properties declared
+  // here outrank it.
+  justify-content: flex-start;
+  align-items: stretch;
+  align-content: flex-start;
+  line-height: 1.1;
 
   li {
     display: flex;
@@ -1196,10 +1269,12 @@ h4 {
     font-variant-numeric: tabular-nums;
   }
   span {
+    // THE LABEL IS PAGE INK, never the team colour — see the note above.
+    color: #d8cdb4;
     font-size: 12px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    opacity: 0.5;
+    opacity: 0.6;
   }
   .good b {
     color: #6fa8ff;
@@ -1433,7 +1508,9 @@ h4 {
 }
 
 .rp-roster {
-  margin-top: 26px;
+  // FT-1188: the gap to the boards above belongs to the PANEL around it now
+  // (`.rp-rosterwrap`), not to the table inside it.
+  margin-top: 0;
   max-width: 780px;
 
   th:nth-child(2),
@@ -1471,12 +1548,16 @@ h4 {
   }
 }
 
+// FT-1188: the record's own header line stands in a frame, the same material
+// the landing's bands wear — which script, who won, and the four facts about
+// the game, read as one block rather than as loose text above the boards.
 .rp-gamehead {
+  @include surface-panel(10px 16px 12px);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 18px;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
 }
 .rp-gscript {
   font-family: PiratesBay, sans-serif;
@@ -1520,11 +1601,17 @@ h4 {
 }
 
 @media (max-width: 700px) {
-  .rp-head {
-    padding: 10px 14px;
-  }
+  // FT-1188: the shell owns the side padding now (Modal drops to 10px there),
+  // so the page only tightens what is still its own — the scroller's ends and
+  // the size of the headline numerals.
   .rp-body {
-    padding: 14px 14px 30px;
+    padding: 12px 2px 20px;
+  }
+  .rp-band,
+  .rp-panel,
+  .rp-figures {
+    padding-left: 10px;
+    padding-right: 10px;
   }
   .rp-figures b {
     font-size: 30px;

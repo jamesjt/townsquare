@@ -18,14 +18,17 @@
              component to the host panel's) + the action buttons. The
              composition meter lives down beside the view tabs. -->
         <div class="wb-row1">
-          <h3 class="almanac-title">
-            <img
-              :src="almanacCap.src"
-              :class="almanacCap.cls"
-              :style="almanacCap.style"
-              alt="S"
-            />cripts
-          </h3>
+          <!-- FT-1188: the cap comes from KeyCap, the app's ONE drop-cap
+               component, exactly as the entry doors' own "S" and the
+               Chronicle's "C" do. It used to be hand-rolled here (`almanacCap`
+               below, stood down) and the hand-rolled version differed twice
+               over: it sized through `glyphStyleFrom`, the WORD normalization
+               that measures against the set's reference B, where a lone
+               drop-cap needs `glyphCapStyleFrom` (FT-948) — and its blood
+               fallback still served blood-A.png, the "A" of the surface's old
+               name "Almanac", so in blood mode the title read A-cripts. One
+               component, one letter, one size. -->
+          <h3 class="almanac-title"><KeyCap letter="S" />cripts</h3>
         </div>
         <div class="wb-row2">
           <!-- `manage` (FT-970) turns on the per-card shelf-remove ×. Only the
@@ -1248,7 +1251,14 @@ import {
   reminderName,
   reminderDeal,
 } from "../../golem/dealReminders";
+// FT-1188: STOOD DOWN, not removed (house rule) — it still rides `data` and
+// still feeds `almanacCap`, but nothing renders either any more. The blood "A"
+// was the drop-cap of this surface's first name, the Almanac; the bench is
+// "Scripts" now and its cap comes from KeyCap like every other cap in the app.
 import bloodA from "../../assets/blood/blood-A.png";
+// FT-1188: THE app's one drop-cap component — the same one the entry doors,
+// the grimoire drawer and the Chronicle print their title letters through.
+import KeyCap from "../KeyCap";
 // FT-854: THE shared script picker + its art — the same component the host
 // panel renders (user-directed: one component, both surfaces).
 import ScriptPicker from "../ScriptPicker";
@@ -1571,6 +1581,7 @@ const SMALL_BENCH =
 
 export default {
   components: {
+    KeyCap,
     Modal,
     NumberScrub,
     OptionSelect,
@@ -2244,8 +2255,17 @@ export default {
         this.roleForm.otherNight = v ? this.roleForm.otherNight || 100 : 0;
       },
     },
-    /** The Almanac's drop-cap wears the caps' font (right-click a door to
-     *  cycle); blood keeps the pixel-tuned baked class. */
+    /**
+     * The Almanac's drop-cap wears the caps' font (right-click a door to
+     * cycle); blood keeps the pixel-tuned baked class.
+     *
+     * FT-1188: STOOD DOWN — nothing renders it any more; the title prints
+     * through `KeyCap` (see wb-row1). Kept, unreferenced, because it records
+     * the two ways this cap was wrong: `glyphStyleFrom` is the WORD
+     * normalization (every letter against the set's reference B), where a
+     * lone drop-cap needs `glyphCapStyleFrom`; and the blood tier returned
+     * `bloodA` — the "A" of the surface's old name — under `alt="S"`.
+     */
     almanacCap() {
       const key = resolvedCapKey();
       if (key !== "blood" && key !== "logo") {
@@ -3979,15 +3999,18 @@ export default {
 // own darkest purple, worn here by the bench's two + buttons. Variables and
 // mixins only, so importing it adds no rules to this sheet.
 @import "../../controls.scss";
-// Golem fork: the title's blood drop-cap — em sizes baked from the asset
-// metrics, same conversion as the Intro doors.
+// FT-1188: the big surface's shared chrome — this title, and the head rows
+// below. The Chronicle reads the same file.
+@import "../../surface.scss";
+// Golem fork: the surface title — one word, centred, with its hotkey letter as
+// a blood drop-cap. FT-1188 moved the declarations to `surface.scss` so the
+// Chronicle wears the same treatment rather than a second copy of it.
+//
+// The `.blood-cap-a` sizing that used to live here is STOOD DOWN with the
+// `almanacCap` computed that fed it (see the script): the cap is a KeyCap now
+// and KeyCap sizes its own art from the asset metrics.
 .almanac-title {
-  font-size: 140%;
-  .blood-cap-a {
-    width: 0.805em;
-    height: 0.927em;
-    vertical-align: -0.124em;
-  }
+  @include surface-title;
 }
 
 ul.editions .edition {
@@ -4808,28 +4831,20 @@ $team-colors: (
     }
   }
 
+  // FT-1188: the head is the big surface's shared head now (surface.scss) —
+  // the same three mixins the Chronicle includes, so the two surfaces cannot
+  // drift apart on the rule, the gap or the centring.
   .wb-top {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    @include surface-head;
     // The title, centered, alone on its line (the shell's close × is the
     // only other thing at this height).
     .wb-row1 {
-      display: flex;
-      justify-content: center;
-      .almanac-title {
-        margin: 0;
-      }
+      @include surface-head-title-row;
     }
     // the picker sits CENTERED under the title (user call); the actions
     // keep the right flank — a 1fr/auto/1fr grid holds the center true
     .wb-row2 {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 6px 10px;
+      @include surface-head-control-row;
       .wb-script-picker {
         grid-column: 2;
         width: 300px;
