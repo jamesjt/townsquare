@@ -14,7 +14,15 @@
         'auto-width': tab === 'settings',
       }"
     >
-      <ul>
+      <!-- FT-1198 (user): "I didn't mean all of this being glass. Just the
+           part where below the player strip... make it more of a controls
+           header?" — FT-1193 laid the glass plate on the whole ul, strip and
+           section together, because that ul WAS one bordered object. It is
+           TWO lists now: this one is the CONTROLS HEADER — the standing row
+           of marks, on its own slim dark bar — and the ul after it is the
+           SECTION, which alone wears the glass. Every `.menu ul` style still
+           reaches both; only the material split. -->
+      <ul class="strip-bar">
         <!-- Golem fork (2026-08-18, user call): the grimoire/help tabs left;
              the strip is the PLAYER surface now — script, vote history,
              night order — in our engraved art. Menu sections stay in-tree. -->
@@ -159,7 +167,19 @@
                is personal on every screen this app has. -->
           <!-- FT-1174: the cog is BAKED ART now, not a Font Awesome glyph —
                see the entry strip's copy of this row for the whole reason. -->
+          <!-- FT-1198 (user): "the settings for that are all right now
+               related to hosting, can we make the only show up for hosts?" —
+               every row behind this cog (Setup panel / Control scheme /
+               Grimoire size) is a storyteller concern, so the DOOR is
+               storyteller-only too: a gear that opens an empty plate for a
+               player is worse than no gear. `!session.isSpectator` is the
+               session's own host fact — the same gate Add Fabled below and
+               every other storyteller-only control in this app reads — never
+               a browser pref (this repo has been burned gating on the wrong
+               party's value). If prefs ever grow a genuinely player-facing
+               row, the gear can return for players then. -->
           <img
+            v-if="!session.isSpectator"
             class="settings-cog"
             :class="{ on: tab === 'settings' }"
             :src="uiCog"
@@ -261,7 +281,13 @@
                Baking it into the bone family would make the house's signature
                look like a fifth door, which is the opposite of what it is
                here (it does not even take a click; see the note above). -->
+          <!-- FT-1198: host-gated exactly like the in-game copy above (see
+               the note there). On the entry screen the gate is open in
+               practice — leaving a town clears the spectator flag
+               (townRoute's leaveTown), so the person at the doors always
+               sees the gear — but the two strips must read the same fact. -->
           <img
+            v-if="!session.isSpectator"
             class="settings-cog"
             :class="{ on: tab === 'settings' }"
             :src="uiCog"
@@ -271,7 +297,13 @@
           />
           <img class="golem-mark" :src="uiGolem" alt="Golem" title="Golem" />
         </li>
+      </ul>
 
+      <!-- FT-1198: THE SECTION, and only the section, is glass. It renders
+           only while a tab is open (`sectionOpen` — which also stands the
+           settings section down for a spectator, see the computed), so a
+           closed menu is the bare header with no empty plate under it. -->
+      <ul class="section-plate" v-if="sectionOpen">
         <!-- FT-1020b: the hourglass's own section — the four hour displays,
              the current one checked. Rows keep the menu's own shape (word
              left, mark right, the Night-order row's check idiom) and stay
@@ -736,6 +768,17 @@ export default {
     // no votes and no night to look at (user call, 2026-08-18)
     inGame() {
       return !!this.session.sessionId || this.players.length > 0;
+    },
+    /** FT-1198: is a section showing? One test for the glass plate's own
+     *  render, so a closed menu never draws an empty plate — and the
+     *  settings section answers to the host gate as well as to its tab:
+     *  the cog is already hidden from spectators, but a section left open
+     *  while its owner BECOMES a spectator (joining a town mid-look) must
+     *  fold rather than stand as bare glass. */
+    sectionOpen() {
+      if (this.tab === null) return false;
+      if (this.tab === "settings" && this.session.isSpectator) return false;
+      return true;
     },
   },
   data() {
@@ -1293,6 +1336,10 @@ export default {
 // FT-1193: the glass this menu is made of — `face-disc-menu-plate`, the same
 // material the seat's plate, the centre disc and the entry panels wear.
 @import "../faceDisc.scss";
+// FT-1198: the sunken well the settings selectors sit in — `$control-toggle-
+// well` is the app's one "recessed control" shadow (controls.scss; RoleActions'
+// Dupes toggle wears it). Variables and mixins only, nothing emitted.
+@import "../controls.scss";
 
 // success animation
 @keyframes greenToWhite {
@@ -1398,32 +1445,45 @@ export default {
     flex-direction: column;
     overflow: hidden;
 
-    // ── FT-1193: THE GLASS ───────────────────────────────────────────────
-    // "lets use that same style of glass menu on the settings menu, and the
-    // timer menu" (user). `face-disc-menu-plate` is what the seat's plate is
-    // made of, and it is included here rather than copied: the material's own
-    // file owns the numbers, this surface owns its box.
+    // ── FT-1193 → FT-1198: THE GLASS, NOW ON THE SECTION ALONE ───────────
+    // FT-1193 laid `face-disc-menu-plate` on this whole ul — strip and open
+    // section in one plate, because they were one bordered object. FT-1198
+    // (user): "I didn't mean all of this being glass. Just the part where
+    // below the player strip... make it more of a controls header?" — so the
+    // one ul is two now, and the material follows the split:
     //
-    // ONE BOX, TWO SECTIONS AND A STRIP, and that is not a scope slip. This
-    // `ul` IS the object the user pointed at — the tab row and whichever
-    // section is open are rows of one list inside one border, which is why the
-    // before-shot shows the icons and the settings sharing a single dark
-    // rectangle. Glassing the section and leaving the strip flat would split
-    // an object that has always been one.
+    //   ul.strip-bar       the CONTROLS HEADER. Not glass: a slim dark bar
+    //                      in the app's own hairline treatment (the
+    //                      NumberScrub resting field's plum-on-near-black,
+    //                      FT-1170), so the standing marks read as chrome
+    //                      and the thing that opens under them reads as a
+    //                      surface.
+    //   ul.section-plate   the SECTION — the settings rows, the timer rows,
+    //                      grimoire, help — and the only thing on the glass.
     //
-    // THE NOTCH SURVIVES, and it is the affordance the brief asked be kept:
-    // `10px 0 10px 10px` squares the TOP-RIGHT corner alone, where the strip
-    // runs up to the window's own corner and the tab that opened the section
-    // sits. A custom property is token substitution rather than a number, so
-    // the four-value set reaches `border-radius` AND both of the plate's
-    // layers — the ground and the rim take the same notch.
+    // THE NOTCH IS RETIRED WITH THE SPLIT. `10px 0 10px 10px` squared the
+    // top-right corner because the strip ran up to the window's own corner
+    // as part of the plate; a detached plate standing 4px below a header has
+    // no corner to meet, so it rounds all four and the header does the same.
     //
-    // `position: relative` IS LOAD-BEARING. The plate's two layers are
-    // `absolute; inset: 0`; without a positioned host they would resolve
-    // against `.menu` (which is `position: absolute`) and, when the section is
-    // open at a different width from the strip, tint the wrong box.
-    position: relative;
-    @include face-disc-menu-plate($radius: 10px 0 10px 10px);
+    // `position: relative` on the section IS LOAD-BEARING. The plate's two
+    // layers are `absolute; inset: 0`; without a positioned host they would
+    // resolve against `.menu` and tint the header too — the exact look this
+    // split exists to end.
+    &.strip-bar {
+      // the marks' hover glow (drop-shadow filters) must not be sheared by
+      // the bar — only the SECTION needs the clip, for its opening rows
+      overflow: visible;
+      background: rgba(12, 8, 16, 0.55);
+      border: 1px solid rgba(120, 105, 135, 0.3);
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+    }
+    &.section-plate {
+      position: relative;
+      margin-top: 4px;
+      @include face-disc-menu-plate($radius: 10px);
+    }
     // STOOD DOWN, FT-1193 — the plate brings its own edge (a plum hairline
     // inside a bronze thread) and its own outer shadow.
     //   box-shadow: 0 0 10px black;
@@ -1713,6 +1773,29 @@ export default {
 }
 .menu ul li.setting-row .setting-name {
   white-space: nowrap;
+}
+/* FT-1198 (user): "the selectors need to obviously be interactable, the soft
+   black doesn't pop at all on the purple background, maybe we make it sunken
+   selectors?" — the trigger's shared `control-plate` (soft black behind a
+   black edge) was invisible against the glass plate's plum tint. SUNKEN now:
+   a recessed ground darker than the plate, the app's one inset-well shadow
+   ($control-toggle-well — RoleActions' Dupes toggle wears the same), and the
+   NumberScrub resting field's plum hairline (FT-1170) instead of 2px of
+   black-on-dark. Three existing recipes, no fourth invented.
+
+   `::v-deep` because the trigger is OptionSelect's own DOM and a scoped rule
+   stops at the child's root — NightSheet's `.ns-told-sel ::v-deep .trigger`
+   is the precedent. Scoped to `.setting-row`, so the setup panel's and the
+   night sheet's copies of the control keep their own plate.
+
+   HOVER SURVIVES ON PURPOSE: OptionSelect's own `:hover` (plum edge, lifted
+   ground) out-specifies this rule's colors but never sets `box-shadow`, so
+   a hovered well brightens WITHOUT un-sinking — pressed-into-the-glass in
+   both states, which is the affordance asked for. */
+.menu ul li.setting-row ::v-deep .trigger {
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(120, 105, 135, 0.35);
+  box-shadow: $control-toggle-well;
 }
 
 /* THE INLINE ASK. It is a child of the strip in the DOM but it belongs to the
