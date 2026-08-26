@@ -113,7 +113,21 @@
             <font-awesome-icon class="cr-records-chev" icon="chevron-down" />
           </p>
           <template v-if="recordsOpen">
-            <div class="cr-scope" role="group" aria-label="Records scope">
+            <!-- FT-1146 (user: "All towns shouldn't exist within a game"):
+                 THE SCOPE CONTROL STANDS DOWN. A whole-platform view had no
+                 business living inside one game's drawer — this surface is
+                 THIS town's story, and every town together is now its own
+                 page (StatsOverlay.vue, reached from the entry screen's
+                 Records door). Stood down by a dead condition per the house
+                 never-delete rule; `recordsScope` and `setRecordsScope` stay
+                 below, unreachable, and `loadRecords` reads the town branch
+                 forever. -->
+            <div
+              class="cr-scope"
+              role="group"
+              aria-label="Records scope"
+              v-if="false"
+            >
               <button
                 class="cr-scope-btn"
                 :class="{ on: recordsScope === 'town' }"
@@ -131,6 +145,9 @@
                 All towns
               </button>
             </div>
+            <p class="cr-allrecords" @click="openRecords(null)">
+              Every town's records →
+            </p>
             <!-- THE LEDGER: this town's games, newest first. FT-1066 (user
                  redesign): every row is an ACCORDION door now — a click
                  unfolds that game's own page directly beneath the row
@@ -226,12 +243,36 @@
                          legacy moment older games hold) and as it ended.
                          Games from before the portraits existed show stats
                          only. -->
+                    <!-- FT-1146: A RECORDED GAME'S BOARDS ARE A LINK NOW.
+                         A 15-seat ring rendered 230px wide inside a 460px
+                         drawer is not a board, it is a smudge — and the
+                         drawer has no width to give it. The rings live on
+                         the Records page at their full size (68px coins,
+                         16px names) and this is the door to them. The
+                         thumbnails stand down rather than being removed,
+                         and they still render for a game the log holds but
+                         the records API never got: there is no page row to
+                         send those to. -->
+                    <p
+                      class="cr-boardlink"
+                      v-if="
+                        pickedGame &&
+                        pickedGame.record &&
+                        (pickedBoards.start ||
+                          pickedBoards.day1 ||
+                          pickedBoards.end)
+                      "
+                      @click="openRecords(pickedGame.record.id)"
+                    >
+                      The boards, full size →
+                    </p>
                     <div
                       class="cr-portraits"
                       v-if="
-                        pickedBoards.start ||
-                        pickedBoards.day1 ||
-                        pickedBoards.end
+                        (!pickedGame || !pickedGame.record) &&
+                        (pickedBoards.start ||
+                          pickedBoards.day1 ||
+                          pickedBoards.end)
                       "
                     >
                       <ChroniclesPortrait
@@ -1334,6 +1375,17 @@ export default {
       this.recordsScope = scope;
       this.loadRecords();
     },
+    /**
+     * FT-1146: leave for the RECORDS PAGE — every town together, on a surface
+     * with room for the boards. `id` names a game to open onto, or null for
+     * its landing view. The pick is committed FIRST: `toggleModal` closes this
+     * drawer, so by the time the page mounts this component is gone and could
+     * not hand it anything.
+     */
+    openRecords(id) {
+      this.$store.commit("setRecordsPick", id || null);
+      this.$store.commit("toggleModal", "records");
+    },
     /** FT-1037: the reading mode flips. Entering History re-reads the
      *  records (a game may have finished since last look); returning to
      *  Current re-sticks the stream to its newest line. */
@@ -1882,6 +1934,30 @@ export default {
   justify-content: center;
   gap: 12px;
   margin: 2px 0 8px;
+}
+
+// FT-1146: the two doors OUT of the drawer and onto the Records page — the
+// band's "every town" line, and a game's own "the boards, full size". Quiet
+// links, not buttons: the drawer's subject is this town, and these say where
+// the wider thing lives without competing with it.
+.cr-allrecords,
+.cr-boardlink {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #d8cdb4;
+  opacity: 0.6;
+  cursor: pointer;
+  transition:
+    opacity 150ms,
+    color 150ms;
+
+  &:hover {
+    opacity: 1;
+    color: #fff;
+  }
+}
+.cr-allrecords {
+  text-align: center;
 }
 
 // the roster — the records band's table lettering, one size up

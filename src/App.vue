@@ -733,10 +733,17 @@
       @close="endGameOpen = false"
       @recorded="onGameRecorded"
     />
+    <!-- FT-1146: THE RECORDS PAGE — every town's end-of-game record, on its
+         own full-window surface. It is raised by the `records` MODAL now, not
+         by `statsOpen` (stood down below), because it is reached from three
+         places that cannot see this component's data: the entry screen's own
+         door, the Chronicles drawer's boards line, and the strip. Mounted
+         outside every session test on purpose — the whole point of the page is
+         that it is not a thing you can only reach from inside a game. -->
     <StatsOverlay
-      v-if="statsOpen"
+      v-if="modals.records"
       :town-id="session.sessionId"
-      @close="statsOpen = false"
+      @close="$store.commit('toggleModal', 'records')"
     />
   </div>
 </template>
@@ -1405,6 +1412,12 @@ export default {
       // reload mid-game re-reads it here (persistence has already restored
       // the session by the time the root component's data runs).
       endGameOpen: false,
+      // FT-1146: `statsOpen` STOOD DOWN, not removed. It raised the old
+      // town-records overlay; that overlay is the Records page now and it is
+      // raised by the `records` modal instead (see the template), so this flag
+      // no longer reaches anything. Menu's `@records` emit — which has been
+      // unfired since FT-1010 moved the strip's quill to Chronicles — still
+      // writes it, harmlessly.
       statsOpen: false,
       // FT-1053: the ceremony's observable — held in data so the root class
       // binding above re-renders on its phase walks. The module owns it.

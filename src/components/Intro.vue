@@ -65,6 +65,21 @@
               ><img :src="capSrc('S')" :class="capClass('s')" :style="capStyle('S')" alt="S"
             /></span>cripts
           </li>
+          <!-- FT-1146: THE RECORDS DOOR. The town records have only ever been
+               reachable from inside a town — the strip that carried them
+               renders `v-if="inGame"` — which is exactly backwards for a
+               surface whose whole subject is EVERY town. It is a front door
+               beside Host and Join because that is what it is: a thing you
+               come to the site to look at, not a panel you raise mid-game. -->
+          <li @click="openRecords">
+            <span class="key"
+              ><img
+                :src="capSrc('R')"
+                :class="capClass('r')"
+                :style="capStyle('R')"
+                alt="R" /></span
+            >ecords
+          </li>
         </ul>
 
         <!-- Golem fork: Host and Join swap the doors for in-app panels —
@@ -355,6 +370,9 @@ import bloodH from "../assets/blood/blood-H.png";
 import bloodJ from "../assets/blood/blood-J.png";
 import bloodC from "../assets/blood/blood-C.png";
 import bloodA from "../assets/blood/blood-A.png";
+// FT-1146: the Records door's own baked cap. (The art has been in the tree
+// since FT-846 — the door set was cut whole; only four letters had doors.)
+import bloodR from "../assets/blood/blood-R.png";
 import bloodMetrics from "../assets/blood/metrics.json";
 // Golem fork: the page title's "BLOOD" — the FT-846 blood alphabet archive
 // (O2 is the variant, so the double O never repeats a letterform).
@@ -399,7 +417,8 @@ const BLOOD = {
   H: { src: bloodH, ...bloodMetrics.H },
   J: { src: bloodJ, ...bloodMetrics.J },
   C: { src: bloodC, ...bloodMetrics.C },
-  A: { src: bloodA, ...bloodMetrics.A }
+  A: { src: bloodA, ...bloodMetrics.A },
+  R: { src: bloodR, ...bloodMetrics.R }
 };
 
 // The title's blood glyphs. The alphabet archive is original-artwork scans on
@@ -1046,6 +1065,12 @@ export default {
       const editionModal = this.$parent.$refs.edition;
       if (editionModal) editionModal.isCustom = true;
     },
+    /** FT-1146: the Records page (App mounts it on the `records` modal). No
+     *  pick — the entry screen always lands on the whole-platform view. */
+    openRecords() {
+      this.$store.commit("setRecordsPick", null);
+      this.$store.commit("toggleModal", "records");
+    },
     press(key) {
       // The hotkey listener lives on the App root element (@keyup), so a
       // document-dispatched synthetic event never reaches it. Intro is App's
@@ -1209,7 +1234,13 @@ export default {
     margin: 0;
     gap: calc(5.5 * var(--dfpx));
     padding: calc(14 * var(--dfpx)) 0;
-    width: calc(164 * var(--dfpx));
+    // FT-1146: 164 → 190. The plate was sized to the widest word the stack
+    // held, and "Records" is wider than "Scripts" — its drop-cap R is nearly
+    // twice the S's — so the fourth door's last two letters hung 21px outside
+    // their own plate (measured). The stack is centred on the hub by
+    // translate(-50%), so widening moves nothing; only the plates grow, and
+    // they grow by exactly what the new widest word needs.
+    width: calc(190 * var(--dfpx));
     font-size: calc(53 * var(--dfpx));
 
     li {
@@ -1271,6 +1302,15 @@ export default {
         .blood-cap-h { width: 0.712em; height: 0.927em; vertical-align: -0.127em; }
         .blood-cap-j { width: 0.681em; height: 0.936em; vertical-align: -0.136em; }
         .blood-cap-c { width: 0.687em; height: 0.942em; vertical-align: -0.139em; }
+        // FT-1146: the Records door, same 1.09/360 em-per-trimmed-pixel
+        // conversion as its four neighbours (metrics.json R: 243x289, 27
+        // below). Written out rather than on one line like them so the file's
+        // formatting warnings do not grow by this change.
+        .blood-cap-r {
+          width: 0.736em;
+          height: 0.875em;
+          vertical-align: -0.082em;
+        }
       }
     }
   }

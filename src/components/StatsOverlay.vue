@@ -1,107 +1,343 @@
 <template>
-  <!-- Golem fork (FT-850): TOWN RECORDS — the recorded-games ledger for the
-       current town, with a toggle out to every town on the platform. Read-only
-       and best-effort: an unreachable server is an honest one-liner, never a
-       broken overlay. -->
-  <div class="stats-overlay" @click="$emit('close')">
-    <div class="panel" @click.stop>
-      <h3>Town records</h3>
-      <div class="scope">
-        <span :class="{ active: scope === 'town' }" @click="setScope('town')">
-          {{ townId }}
-        </span>
-        <span
-          :class="{ active: scope === 'platform' }"
-          @click="setScope('platform')"
-        >
-          All towns
-        </span>
-      </div>
+  <!-- Golem fork (FT-1146): THE RECORDS PAGE — what has happened across every
+       town, on its own full-width surface.
 
-      <div class="state" v-if="loading">Consulting the archives…</div>
-      <div class="state" v-else-if="error">
-        Records unavailable — server unreachable
-      </div>
-      <div class="state" v-else-if="!stats || !stats.games">
-        No games recorded yet
-      </div>
+       THIS FILE IS THE OLD TOWN-RECORDS OVERLAY, GROWN UP. It was a centred
+       panel with a "this town / All towns" toggle, reached from the strip's
+       quill; FT-1010 folded that door into the Chronicles drawer and the panel
+       has been mounted-but-unreachable ever since (nothing has emitted
+       `records` since — see Menu.vue's note). Rather than stand a SECOND stats
+       surface beside an orphaned one — which is exactly how the drawer came to
+       be carrying a whole-platform scope inside one game's chat — the orphan
+       IS the page, and the drawer's platform scope stands down into it.
 
+       PLATFORM SCOPE ONLY. The per-town record lives in the Chronicles drawer,
+       where a town's own story already is. This surface never narrows to one
+       town; `townId` only marks which row of the ledger is the town you are
+       standing in.
+
+       END-OF-GAME AND SETUP FACTS ONLY (user's own words): who won, on which
+       script, how many sat down, how long it ran, the roster and the two board
+       portraits. Messages and events do not follow a game across towns and are
+       not offered here. -->
+  <div class="records-page">
+    <header class="rp-head">
+      <div class="rp-title">
+        <h2>Records</h2>
+        <p class="rp-sub">
+          <template v-if="pick">one game's record</template>
+          <template v-else>every town on the platform</template>
+        </p>
+      </div>
+      <button class="rp-back" v-if="pick" @click="closePick">
+        <font-awesome-icon icon="arrow-left" /> All records
+      </button>
+      <CloseX class="rp-close" @click.native="$emit('close')" />
+    </header>
+
+    <!-- ── ONE GAME'S RECORD ────────────────────────────────────────────
+         Opened from a ledger row (or handed in by the Chronicles drawer's
+         boards link). Self-sufficient: the record is fetched by id, so it
+         renders whether or not the ledger behind it holds that game. -->
+    <div class="rp-body" v-blood-scroll v-if="pick">
+      <p class="rp-state" v-if="pick.loading">Consulting the archives…</p>
+      <p class="rp-state" v-else-if="!pick.game">
+        That record could not be read.
+      </p>
       <template v-else>
-        <div class="summary">
-          <b>{{ stats.games }}</b>
-          {{ stats.games === 1 ? "game" : "games" }} · Good
-          {{ stats.byTeam.good }} · Evil {{ stats.byTeam.evil }}
+        <p class="rp-gamehead">
+          <span class="rp-gscript">{{ pick.game.scriptName }}</span>
+          <span class="rp-win" :class="pick.game.winningTeam">{{
+            pick.game.winningTeam === "good" ? "Good wins" : "Evil wins"
+          }}</span>
+          <span class="rp-gmeta">{{ pick.game.townId }}</span>
+          <span class="rp-gmeta">{{
+            whenLabel(pick.game.startedAt || pick.game.endedAt)
+          }}</span>
+          <span class="rp-gmeta">{{ pick.game.playerCount }} seats</span>
+          <span class="rp-gmeta">{{ lengthLabel(lengthOf(pick.game)) }}</span>
+        </p>
+
+        <!-- THE BOARDS AT THEIR TRUE SIZE. This is the whole reason the page
+             exists as a page: a 230px thumbnail in a 460px drawer cannot show
+             a 15-seat ring, and the portrait already has a large variant
+             (ChroniclesPortrait's `large` — 68px coins, 16px names) that had
+             nowhere wide enough to stand. Here it does. -->
+        <p class="rp-state" v-if="boards.loading">Fetching the boards…</p>
+        <div
+          class="rp-boards"
+          v-else-if="boards.start || boards.day1 || boards.end"
+        >
+          <!-- Each ring gets its OWN block box. ChroniclesPortrait's root is a
+               `display: contents` wrapper, so the figure itself is the layout
+               box and a parent's scoped CSS cannot reach it — the box around
+               it is how this page decides that two rings wrap onto separate
+               rows rather than shrinking to share one. -->
+          <div class="rp-board" v-if="boards.start">
+            <ChroniclesPortrait
+              :board="boards.start"
+              label="The game begins"
+              large
+            />
+          </div>
+          <div class="rp-board" v-if="boards.day1">
+            <ChroniclesPortrait :board="boards.day1" label="Day 1" large />
+          </div>
+          <div class="rp-board" v-if="boards.end">
+            <ChroniclesPortrait :board="boards.end" label="The end" large />
+          </div>
         </div>
-        <table v-if="stats.byScript && stats.byScript.length">
+        <p class="rp-state" v-else>No boards were kept for this game.</p>
+
+        <table class="rp-table rp-roster" v-if="pick.game.seats">
           <thead>
             <tr>
-              <th>Script</th>
-              <th>Games</th>
-              <th>Good wins</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in stats.byScript" :key="row.scriptName">
-              <td>{{ row.scriptName }}</td>
-              <td>{{ row.games }}</td>
-              <td>{{ row.goodWins }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <table v-if="topPlayers.length">
-          <thead>
-            <tr>
+              <th>Seat</th>
               <th>Player</th>
-              <th>Games</th>
-              <th>Wins</th>
-              <th>Survived</th>
+              <th>Role</th>
+              <th>Kind</th>
+              <th>Side</th>
+              <th>Fate</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in topPlayers" :key="row.playerName">
-              <td>{{ row.playerName }}</td>
-              <td>{{ row.games }}</td>
-              <td>{{ row.wins }}</td>
-              <td>{{ row.survivals }}</td>
+            <tr v-for="seat in pick.game.seats" :key="seat.seatNo">
+              <td>{{ seat.seatNo }}</td>
+              <td>{{ seat.playerName }}</td>
+              <td>{{ roleNameOf(seat.roleIdFinal) }}</td>
+              <td>{{ seat.roleType }}</td>
+              <td :class="seat.teamAtEnd">{{ seat.teamAtEnd }}</td>
+              <td :class="seat.survived ? 'lived' : 'died'">
+                {{ seat.survived ? "lived" : "died" }}
+              </td>
             </tr>
           </tbody>
         </table>
       </template>
     </div>
+
+    <!-- ── THE LANDING VIEW ─────────────────────────────────────────────── -->
+    <div class="rp-body" v-blood-scroll v-else>
+      <section class="rp-band">
+        <h3>Every town together</h3>
+        <p class="rp-state" v-if="loading">Consulting the archives…</p>
+        <p class="rp-state" v-else-if="error">
+          Records unavailable — server unreachable
+        </p>
+        <p class="rp-state" v-else-if="!stats || !stats.games">
+          No games recorded yet
+        </p>
+        <template v-else>
+          <ul class="rp-figures">
+            <li>
+              <b>{{ stats.games }}</b
+              ><span>{{ stats.games === 1 ? "game" : "games" }}</span>
+            </li>
+            <li class="good">
+              <b>{{ stats.byTeam.good }}</b
+              ><span>good wins</span>
+            </li>
+            <li class="evil">
+              <b>{{ stats.byTeam.evil }}</b
+              ><span>evil wins</span>
+            </li>
+            <li>
+              <b>{{ goodShare }}%</b><span>good win rate</span>
+            </li>
+          </ul>
+          <div class="rp-columns">
+            <div class="rp-col" v-if="stats.byScript && stats.byScript.length">
+              <h4>Scripts</h4>
+              <table class="rp-table">
+                <thead>
+                  <tr>
+                    <th>Script</th>
+                    <th>Games</th>
+                    <th>Good</th>
+                    <th>Evil</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in stats.byScript" :key="row.scriptName">
+                    <td>{{ row.scriptName }}</td>
+                    <td>{{ row.games }}</td>
+                    <td class="good">{{ row.goodWins }}</td>
+                    <td class="evil">{{ row.games - row.goodWins }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rp-col" v-if="topPlayers.length">
+              <h4>Players</h4>
+              <table class="rp-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Games</th>
+                    <th>Wins</th>
+                    <th title="Games survived to the end">Lived</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in topPlayers" :key="row.playerName">
+                    <td>{{ row.playerName }}</td>
+                    <td>{{ row.games }}</td>
+                    <td>{{ row.wins }}</td>
+                    <td>{{ row.survivals }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <!-- THE PER-GAME LEDGER. Deliberately its own band with its own scope
+           line: the numbers above are every game in the store, these rows are
+           every game from the towns THIS BROWSER has been in — because the
+           games list is a per-town endpoint and no endpoint lists the towns
+           that exist (golem/records' own note). The two claims are different
+           and the page says so rather than letting the heading imply one. -->
+      <section class="rp-band">
+        <h3>The games</h3>
+        <p class="rp-scope">{{ ledgerScope }}</p>
+        <p class="rp-state" v-if="ledger.loading">Reading the ledgers…</p>
+        <p class="rp-state" v-else-if="!ledger.games.length">
+          No recorded games in the towns this browser has been in.
+        </p>
+        <template v-else>
+          <table class="rp-table rp-ledger">
+            <thead>
+              <tr>
+                <th>Ended</th>
+                <th>Town</th>
+                <th>Script</th>
+                <th>Seats</th>
+                <th>Ran</th>
+                <th>Winner</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="game in ledger.games"
+                :key="game.id"
+                class="jump"
+                :class="{ here: game.townId === townId }"
+                :data-record-row="game.id"
+                title="Open this game's record"
+                @click="openPick(game.id)"
+              >
+                <td>{{ whenLabel(game.endedAt) }}</td>
+                <td>{{ game.townId }}</td>
+                <td>{{ game.scriptName }}</td>
+                <td>{{ game.playerCount }}</td>
+                <td>{{ lengthLabel(lengthOf(game)) }}</td>
+                <td class="rp-win" :class="game.winningTeam">
+                  {{ game.winningTeam === "good" ? "Good" : "Evil" }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </section>
+    </div>
   </div>
 </template>
 
 <script>
-import { townStats, platformStats } from "../golem/stats";
+import { mapState } from "vuex";
+import CloseX from "./CloseX";
+import ChroniclesPortrait from "./ChroniclesPortrait";
+import { platformStats, gameRecord } from "../golem/stats";
+import { catchUp } from "../golem/chat";
+import { boardsOf, logGameIdOf } from "../golem/chronicles";
+import {
+  knownTownIds,
+  crossTownGames,
+  ledgerSummary,
+  lengthOf,
+  whenLabel,
+  lengthLabel,
+} from "../golem/records";
 
-const TOP_PLAYERS = 10;
+const TOP_PLAYERS = 15;
 
 export default {
+  name: "StatsOverlay",
+  components: { CloseX, ChroniclesPortrait },
   props: {
+    /** The town this browser is standing in, or "" on the entry screen.
+     *  It NARROWS NOTHING — the page is platform-scoped by definition; it
+     *  only marks that town's rows in the ledger. */
     townId: {
       type: String,
-      required: true
-    }
+      default: "",
+    },
   },
   data() {
     return {
-      scope: "town",
+      /* FT-1146: `scope` ("town" | "platform") STOOD DOWN, not removed. This
+       * surface answers one question — every town together — and the per-town
+       * ledger it used to toggle to now lives in the Chronicles drawer, where
+       * a town's own story is. The field stays so the shape of what this
+       * panel used to be is still readable here. */
+      scope: "platform",
       loading: true,
       error: false,
-      stats: null
+      stats: null,
+      /** The merged per-game ledger — see golem/records for what it can and
+       *  cannot cover. */
+      ledger: { loading: true, games: [], summary: null },
+      /** The opened record: {id, loading, game} or null for the landing. */
+      pick: null,
+      /** That record's board portraits, read out of its town's log. */
+      boards: { loading: false, start: null, day1: null, end: null },
     };
   },
   computed: {
-    /** The table shows the town's regulars, not everyone who ever sat down. */
+    ...mapState(["recordsPick"]),
+    /** The table shows the platform's regulars, not everyone who ever sat. */
     topPlayers() {
       const players = (this.stats && this.stats.players) || [];
       return [...players]
         .sort((a, b) => b.games - a.games || b.wins - a.wins)
         .slice(0, TOP_PLAYERS);
-    }
+    },
+    goodShare() {
+      if (!this.stats || !this.stats.games) return 0;
+      return Math.round((this.stats.byTeam.good / this.stats.games) * 100);
+    },
+    /** The ledger's honest one-liner: how much it covers, and how typical a
+     *  game in it looks. */
+    ledgerScope() {
+      const s = this.ledger.summary;
+      if (!s || !s.games) {
+        return "Every game from the towns this browser has been in.";
+      }
+      const parts = [
+        s.games + (s.games === 1 ? " game" : " games"),
+        "across " + s.towns + (s.towns === 1 ? " town" : " towns"),
+        "this browser has been in",
+      ];
+      const typical = [];
+      if (s.seats !== null) typical.push(s.seats + " seats");
+      if (s.minutes !== null) typical.push(lengthLabel(s.minutes));
+      return (
+        parts.join(" ") +
+        (typical.length ? " · typically " + typical.join(", ") : "") +
+        "."
+      );
+    },
   },
   created() {
     this.load();
+    this.loadLedger();
+    // FT-1146: the Chronicles drawer's boards line hands a game in — the page
+    // opens straight onto that record rather than its landing view.
+    if (this.recordsPick) {
+      this.openPick(this.recordsPick);
+      this.$store.commit("setRecordsPick", null);
+    }
   },
   mounted() {
     document.addEventListener("keyup", this.onKeyup);
@@ -110,22 +346,24 @@ export default {
     document.removeEventListener("keyup", this.onKeyup);
   },
   methods: {
+    lengthOf,
+    whenLabel,
+    lengthLabel,
+    /** Escape steps BACK one level — out of a record to the landing, out of
+     *  the landing to wherever the reader came from. A single key that closed
+     *  the whole page from inside a record would throw away the click that
+     *  opened it. */
     onKeyup(e) {
-      if (e.key === "Escape") this.$emit("close");
-    },
-    setScope(scope) {
-      if (this.scope === scope) return;
-      this.scope = scope;
-      this.load();
+      if (e.key !== "Escape") return;
+      if (this.pick) this.closePick();
+      else this.$emit("close");
     },
     load() {
       this.loading = true;
       this.error = false;
       this.stats = null;
-      const request =
-        this.scope === "town" ? townStats(this.townId) : platformStats();
-      request
-        .then(stats => {
+      platformStats()
+        .then((stats) => {
           this.stats = stats;
           this.loading = false;
         })
@@ -133,98 +371,384 @@ export default {
           this.error = true;
           this.loading = false;
         });
-    }
-  }
+    },
+    /** The ledger is its own read and its own failure: the aggregates above
+     *  must still render when every town read misses. */
+    loadLedger() {
+      this.ledger = { loading: true, games: [], summary: null };
+      crossTownGames(knownTownIds())
+        .then((games) => {
+          this.ledger = {
+            loading: false,
+            games,
+            summary: ledgerSummary(games),
+          };
+        })
+        .catch(() => {
+          this.ledger = { loading: false, games: [], summary: null };
+        });
+    },
+    openPick(id) {
+      if (!id) return;
+      this.pick = { id, loading: true, game: null };
+      this.boards = { loading: true, start: null, day1: null, end: null };
+      gameRecord(id)
+        .then((game) => {
+          if (!this.pick || this.pick.id !== id) return;
+          this.pick = { id, loading: false, game };
+          this.loadBoards(game);
+        })
+        .catch(() => {
+          if (!this.pick || this.pick.id !== id) return;
+          this.pick = { id, loading: false, game: null };
+          this.boards = { loading: false, start: null, day1: null, end: null };
+        });
+    },
+    closePick() {
+      this.pick = null;
+      this.boards = { loading: false, start: null, day1: null, end: null };
+    },
+    /**
+     * A game's two portraits. They are NOT part of the games record — they
+     * are `board` event rows in the town's own message log (golem/chronicles),
+     * and the bridge between the two sides is the deal instant: the log's
+     * game id is `g-<town>-<ms>` and the record's `startedAt` IS that instant.
+     * A record with no start has no bridge and therefore no boards, honestly.
+     */
+    loadBoards(game) {
+      const logGameId = logGameIdOf(game.townId, game.startedAt);
+      if (!logGameId) {
+        this.boards = { loading: false, start: null, day1: null, end: null };
+        return;
+      }
+      const rows = [];
+      catchUp(game.townId, 0, (page) => rows.push(...page))
+        .then(() => {
+          if (!this.pick || !this.pick.game || this.pick.game.id !== game.id) {
+            return;
+          }
+          this.boards = { loading: false, ...boardsOf(rows, logGameId) };
+        })
+        .catch(() => {
+          this.boards = { loading: false, start: null, day1: null, end: null };
+        });
+    },
+    /** A role id's display name — the loaded edition first, the full official
+     *  library second, the raw id when neither knows it (a custom role). */
+    roleNameOf(id) {
+      if (!id) return "—";
+      const role =
+        this.$store.state.roles.get(id) ||
+        this.$store.getters.rolesJSONbyId.get(id);
+      return (role && role.name) || id;
+    },
+  },
 };
 </script>
 
 <style scoped lang="scss">
-.stats-overlay {
+@import "../vars.scss";
+@import "../controls.scss";
+
+// THE PAGE. Not a dialog on top of the town — a surface that takes the whole
+// window, because the thing it exists to show (two 15-seat board rings side by
+// side) does not fit in anything smaller. Ranked above the drawers (55) and
+// the portrait lightbox's own veil (91) is above this, as it should be.
+.records-page {
   position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
   z-index: 90;
   display: flex;
+  flex-direction: column;
+  // OPAQUE, unlike every overlay in this app. Those are panels raised OVER the
+  // town and want it visible behind them; this is a page you go to, and the
+  // clock face reading through a ring of role coins was the drawer's own
+  // problem (ChroniclesPortrait's opaque plate exists for the same reason).
+  background: #0a0706;
+  color: #d8cdb4;
+  text-align: left;
+}
+
+.rp-head {
+  flex: 0 0 auto;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  gap: 18px;
+  padding: 14px 22px;
+  border-bottom: 1px solid rgba(216, 205, 180, 0.18);
+  background: rgba(0, 0, 0, 0.4);
+}
 
-  .panel {
-    text-align: center;
-    padding: 15px 25px;
-    max-height: 80%;
-    max-width: 80%;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.75);
-    border: 3px solid black;
-    border-radius: 10px;
-    box-shadow: 0 0 10px black;
+.rp-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
 
-    h3 {
-      margin-bottom: 8px;
-    }
+  h2 {
+    font-family: PiratesBay, sans-serif;
+    font-size: 30px;
+    line-height: 1;
+    margin: 0;
   }
+}
 
-  .scope {
+.rp-sub {
+  margin: 0;
+  opacity: 0.55;
+  font-size: 14px;
+}
+
+.rp-back {
+  @include control-plate;
+  font-family: inherit;
+  font-size: 13px;
+  color: #d8cdb4;
+  padding: 4px 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: #fff;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+}
+
+.rp-close {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.rp-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 18px 22px 40px;
+}
+
+.rp-band + .rp-band {
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(216, 205, 180, 0.14);
+}
+
+// The app's global type centres headings; a page of left-aligned tables wants
+// its band titles standing at the same left edge as the columns under them.
+.rp-band > h3 {
+  font-family: PiratesBay, sans-serif;
+  font-size: 22px;
+  margin: 0 0 4px;
+  opacity: 0.9;
+  text-align: left;
+}
+
+h4 {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin: 0 0 6px;
+  font-weight: normal;
+  text-align: left;
+}
+
+.rp-scope,
+.rp-state {
+  margin: 0 0 10px;
+  opacity: 0.55;
+  font-size: 13px;
+}
+
+// THE HEADLINE NUMBERS — the one thing a reader should be able to take in
+// without reading anything.
+.rp-figures {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 34px;
+  margin: 12px 0 22px;
+  padding: 0;
+
+  li {
     display: flex;
-    justify-content: center;
-    gap: 14px;
-    margin-bottom: 10px;
-    font-size: 90%;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  b {
+    font-family: PiratesBay, sans-serif;
+    font-size: 40px;
+    font-weight: normal;
+    font-variant-numeric: tabular-nums;
+  }
+  span {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+  .good b {
+    color: #6fa8ff;
+  }
+  .evil b {
+    color: #d24a3a;
+  }
+}
 
-    span {
-      cursor: pointer;
-      opacity: 0.5;
-      padding-bottom: 2px;
+// The width the page bought: two tables standing beside each other instead of
+// stacked down a 460px drawer.
+.rp-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 34px;
+  align-items: flex-start;
+}
+// Wide, but not ARBITRARILY wide: on a 1920 window an uncapped column puts
+// "Trouble Brewing" and its count 600px apart, which is harder to read than
+// the drawer was. The width buys two tables side by side, not stretched ones.
+.rp-col {
+  flex: 1 1 320px;
+  min-width: 0;
+  max-width: 620px;
+  overflow-x: auto;
+}
 
-      &:hover {
-        color: red;
-        opacity: 1;
-      }
-      &.active {
-        opacity: 1;
-        border-bottom: 2px solid #c00;
-      }
-    }
+.rp-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+
+  th {
+    opacity: 0.5;
+    font-weight: normal;
+    text-align: left;
+    padding: 3px 14px 5px 0;
+    border-bottom: 1px solid rgba(216, 205, 180, 0.2);
+    white-space: nowrap;
+  }
+  td {
+    text-align: left;
+    padding: 4px 14px 4px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  tbody tr + tr td {
+    border-top: 1px solid rgba(216, 205, 180, 0.08);
+  }
+  th:not(:first-child),
+  td:not(:first-child) {
+    text-align: right;
+    padding-right: 0;
+    padding-left: 14px;
+  }
+}
+
+.rp-ledger {
+  max-width: 1180px;
+
+  th:nth-child(2),
+  th:nth-child(3),
+  td:nth-child(2),
+  td:nth-child(3) {
+    text-align: left;
+    padding-left: 0;
+    padding-right: 14px;
   }
 
-  .state {
-    opacity: 0.7;
-    padding: 10px 0;
-  }
-
-  .summary {
-    margin-bottom: 8px;
-
-    b {
-      color: #c00;
+  tbody tr.jump {
+    cursor: pointer;
+    &:hover td {
+      background: rgba(216, 205, 180, 0.09);
+      color: #fff;
     }
   }
+  // the town you are standing in, marked in its own ledger
+  tbody tr.here td:nth-child(2) {
+    color: #e8b23a;
+  }
+}
 
-  table {
-    margin: 0 auto 10px;
-    border-collapse: collapse;
-    font-size: 85%;
+.rp-roster {
+  margin-top: 26px;
+  max-width: 780px;
 
-    th {
-      opacity: 0.6;
-      font-weight: normal;
-      text-align: left;
-      padding: 2px 12px 2px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    td {
-      text-align: left;
-      padding: 3px 12px 3px 0;
-    }
-    th:not(:first-child),
-    td:not(:first-child) {
-      text-align: right;
-      padding-right: 0;
-      padding-left: 12px;
-    }
+  th:nth-child(2),
+  th:nth-child(3),
+  th:nth-child(4),
+  td:nth-child(2),
+  td:nth-child(3),
+  td:nth-child(4) {
+    text-align: left;
+    padding-left: 0;
+    padding-right: 14px;
+  }
+}
+
+.good {
+  color: #6fa8ff;
+}
+.evil {
+  color: #d24a3a;
+}
+.lived {
+  color: #8fbf7a;
+}
+.died {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.rp-win {
+  &.good {
+    color: #6fa8ff;
+  }
+  &.evil {
+    color: #d24a3a;
+  }
+}
+
+.rp-gamehead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin: 0 0 18px;
+}
+.rp-gscript {
+  font-family: PiratesBay, sans-serif;
+  font-size: 24px;
+}
+.rp-gmeta {
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+// TWO RINGS, SIDE BY SIDE, AT THE PORTRAIT'S OWN LARGE SIZE. `.cp-large`
+// caps itself at min(640px, 86vw); the gap and the wrap are all this needs to
+// add. On a narrow window they stack rather than shrink — a shrunk ring is
+// the drawer's problem all over again.
+.rp-boards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+.rp-board {
+  flex: 1 1 420px;
+  min-width: 0;
+  max-width: 640px;
+}
+
+@media (max-width: 700px) {
+  .rp-head {
+    padding: 10px 14px;
+  }
+  .rp-body {
+    padding: 14px 14px 30px;
+  }
+  .rp-figures b {
+    font-size: 30px;
   }
 }
 </style>

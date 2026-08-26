@@ -208,6 +208,14 @@ export default new Vuex.Store({
       // flags above stay in place, unrouted — their components are retired by
       // unmounting, never deleted.
       chroniclesDrawer: false,
+      // FT-1146: THE RECORDS PAGE — what has happened across every town, on
+      // its own full-window surface (StatsOverlay.vue, the old town-records
+      // overlay grown up). A modal rather than a component-local flag because
+      // it is opened from three unrelated places — the entry screen, the
+      // Chronicles drawer's boards line, and App's own strip wiring — and
+      // `toggleModal` closing whatever else was open is exactly right: this
+      // is a page you go to, not a panel you raise over the town.
+      records: false,
     },
     /**
      * FT-965: THE TOWN'S ONE PERMANENT ROOM.
@@ -254,6 +262,12 @@ export default new Vuex.Store({
     // pointed at the gallows, so the pointer must exist before the drawer
     // does.
     chroniclesFilter: "all",
+    // FT-1146: which recorded game the RECORDS page should open onto, or null
+    // for its landing view. Root state for the same reason chroniclesFilter
+    // is: the Chronicles drawer names the game BEFORE the page exists, and
+    // `toggleModal` unmounts the drawer in the same breath — so the pointer
+    // cannot live on either component. The page reads it once and clears it.
+    recordsPick: null,
     edition: editionJSONbyId.get("tb"),
     roles: getRolesByEdition(),
     otherTravelers: getTravelersNotInEdition(),
@@ -476,6 +490,12 @@ export default new Vuex.Store({
      *  hotkey lands on "gallows"; the drawer's own cells commit this too). */
     setChroniclesFilter(state, filter) {
       state.chroniclesFilter = FILTERS.includes(filter) ? filter : "all";
+    },
+    /** FT-1146: name the recorded game the Records page should open onto
+     *  (null = its landing view). Set by whoever opens the page; the page
+     *  clears it as it reads, so a second visit lands on the landing again. */
+    setRecordsPick(state, id) {
+      state.recordsPick = id || null;
     },
     /**
      * FT-965: THE ONE DOOR INTO THE LOG. Both feeds come through here — the
