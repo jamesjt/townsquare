@@ -1659,6 +1659,50 @@ export default {
   }
 }
 
+/***** A DRAWER IS OUT — the demon's bluffs stand down (FT-1141) *****
+   The paint order is fixed at its cause (drawer.scss's `right-drawer` now
+   sits at 55, above everything the square paints — see that comment), so
+   nothing of this cluster can land ON a drawer any more. This rule is the
+   second half of the same call, and it is about the ANCHOR rather than the
+   stacking: these three coins and their mask are pinned to the DEMON'S OWN
+   SEAT, and a full-height drawer covers a third of the ring. Left merely
+   behind it, the cluster is furniture in a room the storyteller is not
+   looking at — sliced in half wherever the drawer's edge happens to cross
+   its column, and half-clickable on whichever side pokes out.
+
+   `#app.drawer-out` is App.vue's `anyDrawerOpen` — the ONE computed that
+   knows which drawers count (`rightDrawerOpen` plus the grimoire), the one
+   its own comment says to extend and nowhere else. Adding a drawer there
+   still adds it here for free.
+
+   THE GRIMOIRE IS DELIBERATELY IN THAT SET. It is the one drawer that
+   carries its OWN "Demon bluffs" section (RoleDrawer.vue's `.rd-bluffs`,
+   gated on `canSetBluffs` — `!isSpectator`, so EVERY storyteller has it, not
+   just the no-demon case this square's cluster hands off for). With the
+   grimoire open the bluffs are already on screen, in the drawer; standing
+   this copy down removes a duplicate rather than a control.
+
+   OPACITY, NOT `display: none` AND NOT A `v-if`:
+     - the cluster keeps its box, so `measureBluffAnchor`'s geometry (and the
+       ResizeObserver watching it) survives a drawer opening and closing with
+       nothing to re-measure — closing the drawer puts everything back on the
+       same pixel it left;
+     - `pointer-events: none` is what actually makes it unreachable, so a
+       faded coin cannot be clicked through a drawer sitting over it;
+     - the cluster's own `v-if` stays the PRIVACY belt it was built as
+       (`canSeeBluffs` — no role name in a player's DOM at all). This is a
+       layout call on top of that, never a substitute for it.
+
+   The mask is covered by the same rule ON PURPOSE, and only while a drawer
+   is out. It is a SIBLING of the cluster precisely so it survives
+   `isBluffsOpen` going false — that is untouched: shut the drawer and the
+   mask is back in its old state, still the way to re-open hidden bluffs. */
+#app.drawer-out #townsquare > .bluffs,
+#app.drawer-out #townsquare > .bluffs-toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .fabled ul li .token:before {
   content: " ";
   opacity: 0;

@@ -34,6 +34,14 @@
       // the build panel and the night sheet stand down (their own rules), and
       // the session pill steps up onto the sheet's top edge (below).
       'sheet-up': anyDrawerOpen,
+      // FT-1141: THE SAME CONDITION, WORN UNDER AN HONEST NAME. `sheet-up` is
+      // read only by phone-sheet rules, and the demon's bluff cluster has to
+      // stand down on every viewport — so this is the desktop-and-phone alias,
+      // bound to the SAME `anyDrawerOpen` computed rather than to a second
+      // predicate. There is still exactly one place that knows which drawers
+      // count (`rightDrawerOpen` below, plus the grimoire); nothing here can
+      // drift out of step with it. Consumed by TownSquare.vue's stand-down.
+      'drawer-out': anyDrawerOpen,
       // …and WHICH edge it came from, which only matters turned on its side:
       // there a drawer stays a drawer (a 375px-tall window has no room for a
       // sheet) and the square gives up the column it is standing in.

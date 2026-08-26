@@ -1555,6 +1555,13 @@ export default {
   // the mixin's z 20 and were sitting on the stats portraits), still under
   // the player strip (75) and the session pill (80). Scoped here rather than
   // in the shared mixin — the other drawers' stacking is not this lane's.
+  //
+  // FT-1141 STOOD THIS DOWN: it is now a no-op restating the family value.
+  // The script drawer turned out to have the identical defect and no patch of
+  // its own, so this line's 55 was promoted into `right-drawer` itself and
+  // every drawer inherits it. Kept, not deleted — it is the record of where
+  // the number came from, and it agrees with the mixin exactly, so it can
+  // never disagree with it.
   z-index: 55;
 }
 

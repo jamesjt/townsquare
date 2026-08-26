@@ -47,7 +47,28 @@ $sheet-h: var(--sheet-h, 52vh);
   // cascade here, where the sheet's `width: auto` can win it back.
   width: var(--sd-w, 400px);
   max-width: 94vw;
-  z-index: 20;
+  // FT-1141 — THE FAMILY SITS ABOVE THE SQUARE'S OWN FURNITURE (was 20).
+  //
+  // 20 is UNDER most of what the town square paints: the seats and their
+  // coins at 25, the script picker at 30, the bluff cluster and its mask at
+  // 50/51. Every drawer that noticed has had to re-solve this alone — the
+  // chronicles drawer patched itself to 55 in FT-1037 ("above the square's
+  // bluffs/fabled panels… scoped here rather than in the shared mixin — the
+  // other drawers' stacking is not this lane's"), and the grimoire went to 80
+  // in its own lane. The SCRIPT drawer never did, which is the whole of
+  // FT-1141: the demon's bluff coins painted straight through it, measured at
+  // z 50/51 against this 20 with NO stacking context anywhere in either
+  // ancestor chain to explain it away
+  // (claude_temp_test/2026-08-25-ft1141-bluffz-shots/diagnose-HEAD.json).
+  //
+  // 55 is the chronicles drawer's already-proven value, promoted to the
+  // family baseline so the next drawer to use this mixin inherits the fix
+  // instead of rediscovering the bug. It clears everything the square paints
+  // and stops short of the two layers that must stay above a right-hand
+  // drawer: the player strip at 75 and the session pill at 80/85 (which
+  // dodges the drawer horizontally via `rightDrawerOpen`, and cannot dodge
+  // something painted over it).
+  z-index: 55;
   display: flex;
   flex-direction: column;
   background: rgba(8, 8, 10, 0.96);
