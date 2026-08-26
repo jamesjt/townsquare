@@ -7,7 +7,14 @@
        The tray never assigns anything itself: a drag hands the seat the same
        `golem/role` payload the grimoire drawer sends, so Player.placeRole
        stays the single owner of the one-chair-per-role rule. -->
-  <div class="role-tray" :class="{ armed: dropArmed }" v-if="roles.size">
+  <!-- FT-1201: `--rt-tile` is the fitted coin size (see fitTile) — unset
+       everywhere the CSS's own fixed sizes are the right answer. -->
+  <div
+    class="role-tray"
+    :class="{ armed: dropArmed }"
+    :style="trayStyle"
+    v-if="roles.size"
+  >
     <RoleHoverCard
       v-if="cardRole"
       :role="cardRole"
@@ -120,6 +127,20 @@ const TEAM_ORDER = ["townsfolk", "outsider", "minion", "demon"];
 // tray should not strobe cards (the drawer's own delay)
 const HOVER_DELAY = 170;
 
+// ── FT-1201: THE COIN SIZE FITS THE ROOM (see fitTile) ──────────────────────
+// The FLOOR is today's CSS size, so the fit only ever GROWS the coins — a
+// script too big for the box at today's size keeps today's size and scrolls
+// under the fade, exactly as before. The gate string is $rt-disc-closes-gate's
+// JS twin (the styles below): above it the disc's own tile is 36px, below it
+// the base 42px. Keep the three numbers in step with the SCSS variables.
+const RT_TILE_FLOOR_GATE = "(min-height: 1080px)";
+const RT_TILE_FLOOR_ABOVE_GATE = 36; // $rt-tile-disc
+const RT_TILE_FLOOR_BELOW_GATE = 42; // $rt-tile
+// The CEILING is taste, not fit: past ~64px a four-coin tray reads as a rack
+// of grimoire tokens, not a tray of characters, and the hover lift (1.12)
+// starts crowding the rows above.
+const RT_TILE_MAX = 64;
+
 export default {
   name: "RoleTray",
   components: { RoleHoverCard },
@@ -131,11 +152,19 @@ export default {
       cardAnchor: null,
       // FT-1175: is there more tray than box? Measured off the scroller, not
       // inferred from the viewport — see `.rt-rows.cut`.
-      overflowing: false
+      overflowing: false,
+      // FT-1201: the fitted coin size in px, 0 = "the CSS's fixed sizes
+      // apply" (every layout that is not the disc band). See fitTile.
+      tile: 0
     };
   },
   computed: {
     ...mapState(["roles", "dealExcluded"]),
+    /** FT-1201: the fitted size rides a CSS custom property so the styles
+     *  below stay the single owner of everything else about a tile. */
+    trayStyle() {
+      return this.tile ? { "--rt-tile": this.tile + "px" } : null;
+    },
     // FT-949: a role is being dragged OFF a seat right now — the tray says
     // so, reading the state the always-mounted target (golem/roleUnseat)
     // maintains rather than owning a drag listener of its own.
@@ -184,15 +213,15 @@ export default {
     }
   },
   mounted() {
-    this.measureCut();
-    window.addEventListener("resize", this.measureCut);
+    this.remeasure();
+    window.addEventListener("resize", this.remeasure);
   },
   updated() {
-    this.measureCut();
+    this.remeasure();
   },
   beforeDestroy() {
     clearTimeout(this.$options.cardTimer);
-    window.removeEventListener("resize", this.measureCut);
+    window.removeEventListener("resize", this.remeasure);
   },
   methods: {
     /**
@@ -215,6 +244,78 @@ export default {
       const el = this.$refs.rows;
       const cut = !!el && el.scrollHeight > el.clientHeight + 1;
       if (cut !== this.overflowing) this.overflowing = cut;
+    },
+    /** FT-1201: both reads, one handler — the size question first (it moves
+     *  the layout the cut question is asked of; a changed `tile` re-renders,
+     *  and the second pass through `updated` re-asks measureCut of the fitted
+     *  layout). */
+    remeasure() {
+      this.fitTile();
+      this.measureCut();
+    },
+    /**
+     * FT-1201 (user: "there is more vertical space now — can we make the
+     * icons scale to use the available space?"): THE COIN SIZE IS SOLVED,
+     * NOT FIXED, where the box's height is a given.
+     *
+     * WHY THIS IS JS AND NOT CSS. The coin size decides how many coins fit a
+     * line, which decides how many lines there are, which decides what size
+     * fits the height — the row count and the tile size are circular, and
+     * CSS can only read one side of the loop (no container-height unit knows
+     * how many lines a `flex-wrap` will produce). So the loop is closed here:
+     * walk the sizes from the ceiling down and take the first whose wrapped
+     * line count fits the box. ~30 candidate sizes over 4 team counts —
+     * arithmetic on numbers already read, no layout thrash.
+     *
+     * WHERE IT RUNS: only where `.rt-rows` is TOLD its height and scrolls
+     * the rest — the disc band's shock-absorber mode (`flex: 1 1 auto`,
+     * `max-height: none`, `overflow-y: auto`; see the FT-888 block in the
+     * styles). The rectangle (max-height cap) and the portrait phone
+     * (overflow visible — the sheet is the scroller) both size the box FROM
+     * the coins, so fitting the coins to the box there would chase its own
+     * tail; they keep the CSS's fixed sizes (`tile` stays 0).
+     *
+     * THE MODEL, against the styles below: a coin's box is the tile size
+     * itself — the app's box-sizing is border-box, so the 1px team ring is
+     * INSIDE the width (verified off the live layout: an 11-coin line spans
+     * 416px = 11 x 36 + 10 x 2, not 11 x 38) — and 2px of gap between coins
+     * and between lines (.rt-row's wrap gap and .rt-rows' row gap are both
+     * 2px, so every adjacent pair of lines is 2px apart whichever kind of
+     * break sits between them).
+     */
+    fitTile() {
+      const el = this.$refs.rows;
+      let next = 0;
+      if (el) {
+        const cs = getComputedStyle(el);
+        if (cs.maxHeight === "none" && cs.overflowY === "auto") {
+          // content box: clientWidth/Height include padding, and the
+          // blood-drip scrollbar reserves its 30px lane AS padding
+          const w =
+            el.clientWidth -
+            parseFloat(cs.paddingLeft) -
+            parseFloat(cs.paddingRight);
+          const h =
+            el.clientHeight -
+            parseFloat(cs.paddingTop) -
+            parseFloat(cs.paddingBottom);
+          const counts = this.unseatedByTeam.map((r) => r.roles.length);
+          const floor = window.matchMedia(RT_TILE_FLOOR_GATE).matches
+            ? RT_TILE_FLOOR_ABOVE_GATE
+            : RT_TILE_FLOOR_BELOW_GATE;
+          next = floor;
+          for (let t = RT_TILE_MAX; t > floor; t--) {
+            const perLine = Math.max(1, Math.floor((w + 2) / (t + 2)));
+            let lines = 0;
+            for (const c of counts) lines += Math.ceil(c / perLine);
+            if (lines * t + (lines - 1) * 2 <= h) {
+              next = t;
+              break;
+            }
+          }
+        }
+      }
+      if (next !== this.tile) this.tile = next;
     },
     /** Deal and Shuffle are the grimoire drawer's own actions — the tray asks
      *  IT to run them, so there is one implementation of each. */
@@ -517,11 +618,18 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
       // honesty instead. `.host-tools .role-tray .rt-icon` (three classes)
       // is still more specific than the base rule's two, so this wins
       // regardless of source order once the media query is satisfied.
+      // FT-1201: this rule now reads `--rt-tile` too — with the fitted size
+      // active it must not fight the base rule (it out-specifies it), and
+      // when the script is small the fit lands ABOVE 36px on exactly the
+      // viewports this gate matches. The 36px stays as the fallback (and as
+      // fitTile's own floor above the gate), so the no-fit behaviour is
+      // byte-for-byte what FT-955 measured.
       @media #{$rt-disc-closes-gate} {
         .rt-icon {
-          width: $rt-tile-disc;
-          height: $rt-tile-disc;
-          background-position: center $rt-tile-disc-lift;
+          width: var(--rt-tile, #{$rt-tile-disc});
+          height: var(--rt-tile, #{$rt-tile-disc});
+          background-position: center
+            calc(var(--rt-tile, #{$rt-tile-disc}) * 0.08);
         }
       }
     }
@@ -686,8 +794,13 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
     // phone, where this is a primary drag/tap target (user call 2026-08-18).
     // A 13-townsfolk row costs the shrink-to-fit panel about 100px of width
     // for the change; on a phone the row wraps as it already did.
-    width: $rt-tile;
-    height: $rt-tile;
+    //
+    // FT-1201: `--rt-tile` is the FITTED size (fitTile in the script — set
+    // only in the disc band, where the box height is a given and the coins
+    // grow to spend it). Everywhere it is unset, these fall back to exactly
+    // the fixed sizes that were written here, so nothing off the disc moves.
+    width: var(--rt-tile, #{$rt-tile});
+    height: var(--rt-tile, #{$rt-tile});
     flex: none;
     background-size: contain;
     // THE GLYPH, NOT THE FILE, IS WHAT GETS CENTRED (2026-08-19, user call —
@@ -709,7 +822,12 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
     // route is wrong here: the widest glyph in the set spans 87.6% of its file,
     // so scaling past ~114% starts shearing characters off the sides of a tile
     // that is the thing you drag onto a chair.)
-    background-position: center $rt-art-lift;
+    // FT-1201: the 8% lift is re-derived from the LIVE size, not the fixed
+    // one — see the $rt-art-lift block up top for why the lift is a fraction
+    // of the tile ("that length has to be re-derived if the tile ever
+    // changes size"; now it changes at runtime, so the derivation moved into
+    // the calc). $rt-art-lift itself keeps the record of the measurement.
+    background-position: center calc(var(--rt-tile, #{$rt-tile}) * 0.08);
     background-repeat: no-repeat;
     border: 1px solid transparent;
     border-radius: 50%;
@@ -724,14 +842,34 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
       }
     }
 
-    &:hover,
-    &:focus {
+    // ── FT-1201: THE CLICK NO LONGER GROWS THE COIN ───────────────────────
+    //
+    // `:focus` used to share this rule (scale AND drop-shadow) plus a
+    // border-color of its own below. These tiles are `tabindex="0"`, so a
+    // CLICK parks focus on the coin — and the focus scale then held it at
+    // 1.12 until blur. The toggle read as "the coin grew" instead of "the
+    // coin flipped" (user: "clicking one of those grows it which is awkward
+    // — just make it toggle the state").
+    //
+    // Hover keeps the lift — it is transient and ends when the cursor
+    // leaves. Focus is split off below: the KEYBOARD still gets a visible,
+    // non-growing mark (`:focus-visible`, which a mouse click never
+    // matches), and a mouse-parked focus gets nothing, so a click is purely
+    // the on/off repaint.
+    &:hover {
       outline: none;
       transform: scale(1.12);
       filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
     }
     &:focus {
+      outline: none;
+    }
+    // The keyboard's mark is a RING, not a size: box-shadow so it survives
+    // the `.on`/`.off` border repaints (both out-specify a bare border here),
+    // in the same bone ink the old focus border used.
+    &:focus-visible {
       border-color: #d8cdb4;
+      box-shadow: 0 0 0 2px rgba(216, 205, 180, 0.5);
     }
 
     // ── FT-1175: IN THE DEAL, OR SET ASIDE ────────────────────────────────
@@ -768,8 +906,10 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
       border-style: dashed;
       filter: grayscale(0.85) brightness(0.62);
     }
+    // FT-1201: `:focus` -> `:focus-visible` here too, or a clicked-off coin
+    // would keep the hover glow after the pointer left (focus stays parked).
     &.off:hover,
-    &.off:focus {
+    &.off:focus-visible {
       filter: grayscale(0.85) brightness(0.62)
         drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
     }
