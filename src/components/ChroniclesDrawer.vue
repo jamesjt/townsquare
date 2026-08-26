@@ -632,7 +632,14 @@
               title="Say this to the whole town"
               @click="pick(null)"
             >
-              Room
+              <!-- FT-1158 (user): "instead of room lets make that say town?"
+                   The chip's own tooltip already said "the whole town" — the
+                   word on it was the odd one out. This app has towns, not
+                   rooms, everywhere else: the pill says Playing in <town>,
+                   the records page counts towns, the summons calls the town
+                   back. (ChatDrawer.vue carries the same chip and is
+                   unmounted; left alone rather than edited blind.) -->
+              Town
             </button>
             <button
               v-for="t in whisperTargets"
