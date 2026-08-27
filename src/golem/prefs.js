@@ -127,8 +127,9 @@ export const CONTROL_TOGGLES = [
   {
     key: "ctrlClickNameAction",
     // FT-1230 (user) named the row; FT-1260.2 trims it to the gesture (the
-    // assignment is the control's own face). The mark stays the app's role
-    // coin (HostTools' TOGGLE_MARKS; the FA name stands down as the record).
+    // assignment is the control's own face). FT-1264: the mark says the
+    // TARGET now — the name on the coin (ui-role-name.png, HostTools'
+    // TOGGLE_MARKS; the FA name stands down as the record).
     label: "Click role name",
     icon: "theater-masks",
     title: "What a click on the character's name on a coin's lower edge does",
@@ -137,8 +138,10 @@ export const CONTROL_TOGGLES = [
   {
     key: "ctrlClickDeadAction",
     // FT-1230 (user): "click Cog to kill" — their word for the gear-toothed
-    // player coin; FT-1260.2 trims the label to the gesture. Wears the
-    // app's death mark (ui-dead via TOGGLE_MARKS).
+    // player coin; FT-1260.2 trims the label to the gesture. FT-1264: the
+    // mark says the TARGET now — the toothed coin itself (ui-role.png via
+    // HostTools' TOGGLE_MARKS; the death mark stood down with the kill
+    // meaning).
     label: "Click Cog",
     icon: "skull",
     title: "What a click on a coin anywhere outside its name does",

@@ -923,7 +923,11 @@
           <span
             class="ht-set-line ht-ctrl-row"
             :key="t.key"
-            :class="{ 'ht-ctrl-inert': t.inert, 'ht-ctrl-pick': !!t.action }"
+            :class="{
+              'ht-ctrl-inert': t.inert,
+              'ht-ctrl-pick': !!t.action,
+              'ht-group-start': t.groupStart,
+            }"
             :title="t.rowTitle"
           >
             <span class="tw-lead">
@@ -937,7 +941,19 @@
                 <font-awesome-icon v-else class="row-mark-fa" :icon="t.icon" />
                 <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
               </span>
+              <!-- FT-1264 (user): the two MENU rows carry ONE control now.
+                   The FT-1260 shape was an On/Off dropdown PLUS a bare
+                   chevron — two controls answering one question. The single
+                   selector-styled button below wears the menu's SUMMARY as
+                   its face ("7 buttons" / "5 of 7" / "Off") and opens the
+                   same customization list, with the master On/Off moved
+                   INSIDE the list as its top row. Esc / click-out close it
+                   (see the menuListOpen watcher). A sizer span holds the
+                   trigger at its widest face ("N buttons") so the summary
+                   changing under a click cannot shift the layout —
+                   OptionSelect's own FT-1088 rule, restated for one label. -->
               <OptionSelect
+                v-if="!t.layoutKey"
                 :name="'prefs-' + t.key"
                 :aria-label="t.label"
                 :options="t.options"
@@ -945,26 +961,52 @@
                 @input="setToggle(t.key, $event)"
               />
               <button
-                v-if="t.layoutKey"
+                v-else
                 type="button"
-                class="ht-menu-exp"
+                class="ht-menu-sum"
                 :class="{ open: menuListOpen === t.key }"
+                :aria-expanded="String(menuListOpen === t.key)"
+                :aria-controls="'ht-menu-list-' + t.key"
+                :aria-label="t.label + ' — choose and order this menu\'s buttons'"
                 :title="
                   menuListOpen === t.key
                     ? 'Close this menu\'s button list'
-                    : 'Choose and order this menu\'s buttons'
+                    : 'Choose and order this menu\'s buttons — On/Off lives inside'
                 "
                 @click="toggleMenuList(t.key)"
               >
-                <font-awesome-icon icon="chevron-down" />
+                <span class="ht-menu-sum-wrap">
+                  <span class="ht-menu-sum-label">{{ menuSummary(t) }}</span>
+                  <span class="ht-menu-sum-sizer" aria-hidden="true">{{
+                    "0 of " + menuSlots(t).length
+                  }}</span>
+                </span>
+                <font-awesome-icon icon="chevron-down" class="caret" />
               </button>
             </span>
           </span>
           <div
             class="ht-menu-list"
+            :id="'ht-menu-list-' + t.key"
             v-if="t.layoutKey && menuListOpen === t.key"
             :key="t.key + ':list'"
+            :class="{ 'ht-menu-off': prefs[t.key] === false }"
           >
+            <!-- FT-1264: the MASTER SWITCH is the list's top row — the
+                 whole-menu On/Off the row itself used to carry. Same writer
+                 (setToggle → setPref), same pref key; the slot rows below
+                 dim while it is Off but stay operable, the tab's own
+                 inert-but-working grammar (ht-ctrl-inert). -->
+            <div class="ht-menu-item ht-menu-master">
+              <span class="row-name">This menu</span>
+              <OptionSelect
+                :name="'prefs-' + t.key"
+                :aria-label="t.label + ' on or off'"
+                :options="t.options"
+                :value="prefs[t.key] !== false"
+                @input="setToggle(t.key, $event)"
+              />
+            </div>
             <div
               v-for="(s, i) in menuSlots(t)"
               :key="s.id"
@@ -997,7 +1039,7 @@
             </div>
           </div>
         </template>
-        <span class="ht-set-line">
+        <span class="ht-set-line ht-group-start">
           <span class="tw-lead">
             <span class="label">
               <font-awesome-icon
@@ -1325,17 +1367,32 @@ import { seatActionSlots } from "../golem/seatActions";
 // toggle key; a row not named here keeps its FA icon from CONTROL_TOGGLES.
 import uiRoleMark from "../assets/ui-role.png";
 import uiDeadMark from "../assets/ui-dead.png";
+import uiRoleNameMark from "../assets/ui-role-name.png";
 import uiMoveRole from "../assets/ui-move-role.png";
 import uiMovePlayer from "../assets/ui-move-player.png";
 import uiNote from "../assets/ui-note.png";
 
+// FT-1264: where the Control tab's light groups begin — the click targets,
+// the two menus, then the drags + the pin. Setup panel opens the tab and
+// Grimoire size (a `ht-group-start` class straight on its row) closes it.
+const GROUP_STARTS = ["ctrlClickNameAction", "ctrlHoverCoins", "ctrlDragRoles"];
+
 const TOGGLE_MARKS = {
   // FT-1230 (user): the change-role click wears the app's own role coin,
   // not the FA masks; the kill click wears the app's own death mark.
-  // (FT-1260.2 rekeyed the two click rows onto their picker prefs; the
-  // marks are the GESTURE's, so they ride along unchanged.)
-  ctrlClickNameAction: uiRoleMark,
-  ctrlClickDeadAction: uiDeadMark,
+  // (FT-1260.2 rekeyed the two click rows onto their picker prefs.)
+  //
+  // FT-1264 (user) RE-DEALS THE TWO CLICK ROWS' MARKS. Those marks dated
+  // from when the rows MEANT their acts (change role / kill); now each row
+  // is an assignable picker, so its mark must say WHERE you click, not what
+  // the click used to do. "Click Cog" takes the toothed coin itself
+  // (ui-role.png — the app's own glyph for the gear-toothed player coin,
+  // the user's "Cog"), and "Click role name" takes ui-role-name.png, a
+  // fresh bake in the same family recipe: the same coin with its nameplate
+  // bar across the lower edge, knockout-separated — the name ON the coin.
+  // uiDeadMark stands down from this map, kept imported as the record.
+  ctrlClickNameAction: uiRoleNameMark,
+  ctrlClickDeadAction: uiRoleMark,
   ctrlDragRoles: uiMoveRole,
   ctrlDragNames: uiMovePlayer,
   ctrlReminderHover: uiNote,
@@ -1444,6 +1501,19 @@ export default {
     renaming: "queueAlignTabs",
     setupTab: "queueAlignTabs",
     reentry: "queueAlignTabs",
+    // FT-1264: the menu list closes on Esc / click-out now that its trigger
+    // reads as a dropdown (the two menu rows' one control) — the listeners
+    // live only while a list is open, the same discipline OptionSelect keeps
+    // for its own popup.
+    menuListOpen(open) {
+      if (open) {
+        document.addEventListener("mousedown", this.onMenuDocDown);
+        document.addEventListener("keydown", this.onMenuKey);
+      } else {
+        document.removeEventListener("mousedown", this.onMenuDocDown);
+        document.removeEventListener("keydown", this.onMenuKey);
+      }
+    },
   },
   data() {
     return {
@@ -1496,6 +1566,10 @@ export default {
       uiScript,
       // FT-1196: the people shuffle's own mark
       uiShufflePlayer,
+      // FT-1264: STOOD DOWN from TOGGLE_MARKS (the Click Cog row wears the
+      // coin now, not the death mark) — held here as the record, the same
+      // shelf the other row marks sit on; nothing renders it.
+      uiDeadMark,
       // FT-1098: the header's own mark — the TOWN's, not the script's.
       uiTown,
       // FT-1202: the settings gear beside the name, and its menu's state —
@@ -1562,6 +1636,10 @@ export default {
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTower);
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
+    // FT-1264: the open menu list's Esc / click-out listeners (bound by the
+    // menuListOpen watcher; a teardown mid-open must not strand them)
+    document.removeEventListener("mousedown", this.onMenuDocDown);
+    document.removeEventListener("keydown", this.onMenuKey);
     // FT-1209: the strip's alignment listener (bound in mounted)
     window.removeEventListener("resize", this.alignTabs);
     // FT-1231: the Control tab's overflow listener (bound in mounted)
@@ -1666,6 +1744,13 @@ export default {
           mark: TOGGLE_MARKS[t.key] || null,
           rowTitle,
           options,
+          // FT-1264: the tab's light grouping — spacing only, no headers
+          // (judged at row size: five labeled bands would out-weigh nine
+          // rows). A row starting a group opens a little extra air above
+          // itself in the single-column dresses; the disc's two-column
+          // dress zeroes it, because there the rows pair ACROSS groups and
+          // a gap on half a line would shear the pair.
+          groupStart: GROUP_STARTS.includes(t.key),
         };
       });
     },
@@ -2369,6 +2454,37 @@ export default {
     /** One list open at a time — the tab is a band, not a page. */
     toggleMenuList(key) {
       this.menuListOpen = this.menuListOpen === key ? null : key;
+    },
+    /** FT-1264: the one control's face — the menu in a couple of words.
+     *  Master off is "Off"; otherwise how many of the vocabulary's buttons
+     *  show ("All 7" when every one, "5 of 7" when fewer — "0 of 7" is the
+     *  legal all-hidden state whose menu never opens, and saying it here is
+     *  what makes that state findable). Deliberately COMPACT faces (not
+     *  "7 buttons"): the disc's two-column dress prices every control's
+     *  width straight out of the label tracks beside it, and the word
+     *  "buttons" cost ~35px per column against a fact "All 7" carries
+     *  whole (measured — the wide face pushed the tab into the scroll
+     *  dress at every size). */
+    menuSummary(t) {
+      if (this.prefs[t.key] === false) return "Off";
+      const slots = this.prefs[t.layoutKey] || [];
+      const on = slots.filter((e) => e.on !== false).length;
+      return on === slots.length ? "All " + on : on + " of " + slots.length;
+    },
+    /** FT-1264: click-out closes the open list — unless the click lands in
+     *  the list itself or on a menu trigger (the trigger's own click is the
+     *  toggle; closing here first would make it reopen). */
+    onMenuDocDown(e) {
+      const t = e.target;
+      if (t && t.closest && t.closest(".ht-menu-list, .ht-menu-sum")) return;
+      this.menuListOpen = null;
+    },
+    /** FT-1264: Esc closes the list — but an OptionSelect inside it (the
+     *  master row's, a slot row's) handles its own Esc first and marks the
+     *  event consumed; one Esc, one layer. */
+    onMenuKey(e) {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      this.menuListOpen = null;
     },
     /** The rows of one menu's list: the layout pref's order, dressed with
      *  the vocabulary's own art and settings names. The pref is sanitized
@@ -3885,6 +4001,9 @@ export default {
     // The chevron is the tab's own dropdown caret (OptionSelect's), worn as
     // a bare button beside the master switch; it flips when its list is
     // open, the caret's one grammar everywhere on this panel.
+    // FT-1264: STOOD DOWN — the bare chevron and the master On/Off merged
+    // into one selector-styled control (`.ht-menu-sum` below); nothing
+    // renders this class any more. Kept as the record, the house rule.
     .ht-menu-exp {
       background: none;
       border: none;
@@ -3902,6 +4021,60 @@ export default {
       }
       &.open svg {
         transform: rotate(180deg);
+      }
+    }
+    // ── FT-1264: the menu rows' ONE control ──────────────────────────────
+    // A selector-styled trigger (OptionSelect's own plate, padding, caret —
+    // restated here because that component's dress is scoped) whose face is
+    // the menu's summary; clicking it opens the customization list below.
+    // The hidden sizer holds the trigger at its widest face ("N buttons")
+    // so the summary changing under a toggle cannot shift the layout.
+    .ht-menu-sum {
+      @include control-plate;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 7px;
+      font-family: inherit;
+      font-size: 90%;
+      color: white;
+      text-align: left;
+      cursor: pointer;
+      .ht-menu-sum-wrap {
+        display: grid;
+        min-width: 0;
+        > * {
+          grid-area: 1 / 1;
+        }
+      }
+      .ht-menu-sum-label {
+        white-space: nowrap;
+      }
+      .ht-menu-sum-sizer {
+        visibility: hidden;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .caret {
+        opacity: 0.7;
+        font-size: 62%;
+        flex-shrink: 0;
+        transition: transform 150ms;
+      }
+      &:hover {
+        @include control-plate-hover;
+      }
+      &:focus-visible {
+        @include control-focus-ring;
+        // the dropdowns' own plum ring (OptionSelect's FT-1108 call), not
+        // the shared blood red — this control reads as one of them
+        outline-color: rgba(150, 130, 175, 0.9);
+      }
+      &.open .caret {
+        transform: rotate(180deg);
+      }
+      @media (pointer: coarse) {
+        min-height: 40px;
       }
     }
     // The list itself: a full-width sunken shelf under its row (the same
@@ -3985,6 +4158,26 @@ export default {
         cursor: grabbing;
       }
     }
+    // ── FT-1264: the master row at the list's head ───────────────────────
+    // No grip (the whole-menu switch has no order to drag); its words are
+    // indented past where a grip would sit so the action names below still
+    // read down one edge, and a hairline under it separates "the menu" from
+    // "its buttons".
+    .ht-menu-master {
+      padding-left: 24px;
+      padding-bottom: 5px;
+      margin-bottom: 3px;
+      border-radius: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      .row-name {
+        opacity: 0.85;
+      }
+    }
+    // Master Off: the slot rows dim but stay operable — the tab's own
+    // inert-but-working grammar (`.ht-ctrl-inert`), worn by a list.
+    .ht-menu-off .ht-menu-item:not(.ht-menu-master) {
+      opacity: 0.45;
+    }
   }
 
   // ── FT-1227 → FT-1231: THE CONTROL TOGGLES IN TWO COLUMNS ───────────────
@@ -4030,6 +4223,76 @@ export default {
   // only when the rows genuinely overflow (measurePrefsOverflow) — a tab
   // that fits keeps the panel's own flat ground.
   .ht-prefs {
+    // ── FT-1264: THE TAB IS A GRID — the ragged labels' actual fix ────────
+    // The flex rows clustered each select against its own label, so nine
+    // rows put nine controls at nine x positions (user: "Control settings
+    // is messy — ragged labels, unnecessarily wide selectors, and it's a
+    // bit cramped"). One grid with a LABEL TRACK and a CONTROL TRACK gives
+    // every control the same starting x — the label column aligns, the
+    // controls align, and each control still sizes to its own content
+    // (`justify-self: start` refuses the track's stretch; OptionSelect's
+    // FT-1088 widest-option rule is untouched, so the On/Off selects stay
+    // compact and the two click pickers stay exactly as wide as the longest
+    // action name).
+    //
+    // THE ROWS DISSOLVE INTO IT (`display: contents` on the line and its
+    // lead): the DOM keeps its shape — titles, class hooks (`ht-ctrl-inert`,
+    // `ht-ctrl-pick`), the v-for keys — while the label and the control
+    // become the grid's own items. The expander list spans the full width,
+    // the shelf it always was. `minmax(0, max-content)` on the label track
+    // (not bare max-content) so a face too narrow for the longest name
+    // squeezes the track and lets the name wrap instead of overflowing —
+    // the phone sheets' armour, which is also why `.row-name` un-pins its
+    // nowrap here.
+    display: grid;
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 9px;
+    > .ht-set-line,
+    > .ht-set-line > .tw-lead {
+      display: contents;
+    }
+    .label {
+      grid-column: 1;
+      justify-self: start;
+    }
+    .tw-lead > .gsel,
+    .tw-lead > .ht-menu-sum {
+      grid-column: 2;
+      justify-self: start;
+      // a control caught in a track narrower than its widest option
+      // SHRINKS and ellipsizes its face rather than sliding under the
+      // drip's lane (the scroll well is the one dress narrow enough to
+      // engage this; everywhere else the track fits the option list and
+      // nothing changes)
+      max-width: 100%;
+      min-width: 0;
+    }
+    ::v-deep .gsel .trigger {
+      max-width: 100%;
+    }
+    // OptionSelect's FT-1088 sizer keeps setting the trigger's PREFERRED
+    // width (max-content sizing is untouched) but must not hold the FLOOR
+    // when the track is narrower — overflow:hidden zeroes a grid item's
+    // automatic minimum, which is what lets the label ellipsize at all
+    ::v-deep .gsel .gsel-sizer {
+      overflow: hidden;
+    }
+    > .ht-menu-list {
+      grid-column: 1 / -1;
+    }
+    .row-name {
+      white-space: normal;
+    }
+    // the light grouping — a breath more air above each group's first row
+    // (see controlToggles' groupStart note; the disc's two-column dress
+    // zeroes it because rows pair across groups there)
+    .ht-group-start .label,
+    .ht-group-start .gsel,
+    .ht-group-start .ht-menu-sum {
+      margin-top: 7px;
+    }
     // THE DRIP'S LANE, ONLY WHERE THE DRIP CAN DRAW. `v-blood-scroll`
     // reserves a 30px gutter on every host as an inline style — right on a
     // box that scrolls, pure loss on the three faces where the panel is the
@@ -4592,6 +4855,28 @@ export default {
           padding-right: 30px !important;
           margin-left: 18px;
           margin-right: 18px;
+          // FT-1264: the well is the tab's NARROWEST dress — the margins
+          // and the drip's lane leave ~300px of grid at the sizes that
+          // scroll, which cannot host a free label track AND the widest
+          // select. So the label track CAPS (fit-content: shorter names
+          // still hug, longer ones wrap — height is the cheap axis in a
+          // scroller) and the names take the cells' own 80% type; what
+          // width remains goes to the controls, whose shrink-and-ellipsize
+          // license (base block) is the last resort rather than the norm.
+          grid-template-columns: fit-content(6.2em) minmax(0, 1fr);
+          column-gap: 10px;
+          // one type size for the WHOLE well — names and the closed
+          // trigger faces both at 80% (the option lists keep their own
+          // size; they open over the panel, not inside the well's width)
+          .row-name {
+            font-size: 80%;
+            text-align: left;
+            line-height: 1.25;
+          }
+          .ht-menu-sum,
+          ::v-deep .gsel .trigger {
+            font-size: 80%;
+          }
         }
 
         // 2. THE TOGGLE ROWS TAKE TWO COLUMNS — the FT-1227 dress, re-cut
@@ -4619,46 +4904,62 @@ export default {
         // as a ladder: two columns where they fit, the roles' scroll where
         // they cannot.
         &:not(.scrolls) {
-          column-gap: 12px;
           // FT-1260.2: the two PICKER rows (`ht-ctrl-pick`) keep full lines
           // — the columns' founding rule is that a select carrying WORDS
           // cannot live in a half-cell (Setup panel's own exemption), and
           // an action picker's face is words ("Nominate / Ghost vote").
           // The expander lists opt out by class list too (`ht-menu-list`
           // is not a `.ht-ctrl-row`): a full-width shelf under its row.
+          //
+          // FT-1264 RE-CUTS THE DRESS FOR THE GRID (the flex half-cells
+          // stood down with the flex rows themselves — see `.ht-prefs`'s
+          // own block). Four tracks: label / control / label / control.
+          // Each label track is a `1fr` share (equal columns, names keep
+          // their two-quiet-lines wrap license), each control track is
+          // max-content — so within a column every switch starts on the
+          // same x, the tab-wide alignment rule restated at half width.
+          // The toggle rows flow into whichever half-line is free; the
+          // full-line rows pin their label to track 1 (the base rule) and
+          // span their control across the rest, which is also what makes
+          // auto-placement break lines where a full row follows a lone
+          // half-cell (Reminder pin's).
+          grid-template-columns:
+            minmax(0, 1fr) max-content
+            minmax(0, 1fr) max-content;
+          column-gap: 10px;
+          row-gap: 6px;
+          // EVERY label takes the cells' own 80% type here, not just the
+          // half-cells' — the full-line rows share track 1 with the cells,
+          // and at 90% "Click role name" outruns the ~148px the track has
+          // left once the control tracks are paid (measured: it wrapped to
+          // three lines and pushed the tab into the scroll dress at every
+          // size). One type size is also simply how a settings table reads.
+          .row-name {
+            font-size: 80%;
+            text-align: left;
+            line-height: 1.25;
+          }
           > .ht-set-line.ht-ctrl-row:not(.ht-ctrl-pick) {
-            flex: 0 1 calc(50% - 6px);
-            > .tw-lead {
-              flex: 1 1 auto;
-              justify-content: space-between;
-              // the name's wrap license needs the whole chain shrinkable —
-              // a flex item's min-width:auto would otherwise hold the cell
-              // to the name's one-line width and overwrite the neighbour
-              // column (FT-1227's own failure case, measured then too)
-              min-width: 0;
-              flex-wrap: nowrap;
-            }
             .label {
-              min-width: 0;
-              // FT-1260: the label GROWS so the switch (and the menu rows'
-              // chevron after it) packs to the cell's right edge —
-              // space-between with three children would otherwise strand
-              // the switch mid-cell.
-              flex: 1 1 auto;
+              grid-column: auto;
             }
-            // the mark holds the cell's left edge and the switch (`.gsel`,
-            // OptionSelect's root) its right — only the name gives
-            .row-mark,
-            .row-mark-fa,
-            .gsel {
-              flex-shrink: 0;
+            .tw-lead > .gsel,
+            .tw-lead > .ht-menu-sum {
+              grid-column: auto;
             }
-            .row-name {
-              font-size: 80%;
-              white-space: normal;
-              text-align: left;
-              line-height: 1.25;
-            }
+          }
+          // full-line rows: the control takes everything past the label
+          // track, so its words start where every column-1 control starts
+          > .ht-set-line:not(.ht-ctrl-row) .tw-lead > .gsel,
+          > .ht-set-line.ht-ctrl-pick .tw-lead > .gsel {
+            grid-column: 2 / -1;
+          }
+          // the group air comes off — these rows pair ACROSS groups, and a
+          // margin on half a line would shear its partner out of true
+          .ht-group-start .label,
+          .ht-group-start .gsel,
+          .ht-group-start .ht-menu-sum {
+            margin-top: 0;
           }
         }
       }
