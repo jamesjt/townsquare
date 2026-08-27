@@ -31,7 +31,7 @@
       :aria-expanded="String(ngLabOpen)"
       @click="ngLabOpen = !ngLabOpen"
     >
-      Ng
+      Numeral-glow lab
     </button>
     <div class="fl-rows" v-if="ngLabOpen">
       <!-- one group per shadow layer, in the order they paint — so the
@@ -97,7 +97,7 @@ export default {
 // toggle's letters and the ladder position differ.
 #numeral-lab {
   position: fixed;
-  top: 360px;
+  top: 206px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
   left: 0;
   z-index: 60;
   display: flex;
@@ -111,11 +111,13 @@ export default {
   }
 
   .ng-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
+    width: 132px;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
     font-family: inherit;
     font-size: 12px;
     color: #d8cdb4;

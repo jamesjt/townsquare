@@ -34,7 +34,7 @@
       :aria-expanded="String(vlLabOpen)"
       @click="vlLabOpen = !vlLabOpen"
     >
-      Vl
+      Veil lab
     </button>
     <div class="fl-rows" v-if="vlLabOpen">
       <!-- THE SILK GROUP — the veil PICK. Both paintings were baked the same
@@ -139,7 +139,7 @@ export default {
 // toggle's letter and the ladder position differ.
 #veil-lab {
   position: fixed;
-  top: 316px;
+  top: 182px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
   left: 0;
   z-index: 60;
   display: flex;
@@ -153,11 +153,13 @@ export default {
   }
 
   .vl-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
+    width: 132px;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
     font-family: inherit;
     font-size: 12px;
     color: #d8cdb4;

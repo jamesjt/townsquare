@@ -72,7 +72,7 @@
       :aria-expanded="String(fdLabOpen)"
       @click="fdLabOpen = !fdLabOpen"
     >
-      Fd
+      Face-disc lab
     </button>
     <div class="fl-rows" v-if="fdLabOpen">
       <!-- THE GEOMETRY GROUP DRIVES ONE PLATE — the one on screen — and says
@@ -172,7 +172,7 @@ export default {
 // TEMPORARY, DELETE ME — see the template.
 #face-disc-lab {
   position: fixed;
-  top: 184px;
+  top: 110px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
   left: 0;
   z-index: 60;
   display: flex;
@@ -187,11 +187,13 @@ export default {
   }
 
   .fd-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
+    width: 132px;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
     font-family: inherit;
     font-size: 12px;
     color: #d8cdb4;

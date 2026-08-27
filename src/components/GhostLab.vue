@@ -47,7 +47,7 @@
       :aria-expanded="String(ggLabOpen)"
       @click="ggLabOpen = !ggLabOpen"
     >
-      Gh
+      Ghost lab
     </button>
     <div class="fl-rows" v-if="ggLabOpen">
       <!-- THE MATERIAL GROUP. A click seeds the six scrubs below, sets whether
@@ -210,7 +210,7 @@ export default {
 // toggle's letter differ.
 #ghost-lab {
   position: fixed;
-  top: 272px;
+  top: 158px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
   left: 0;
   z-index: 60;
   display: flex;
@@ -224,11 +224,13 @@ export default {
   }
 
   .gg-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
+    width: 132px;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
     font-family: inherit;
     font-size: 12px;
     color: #d8cdb4;

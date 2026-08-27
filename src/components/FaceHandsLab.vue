@@ -43,7 +43,7 @@
       :aria-expanded="String(fhLabOpen)"
       @click="fhLabOpen = !fhLabOpen"
     >
-      Fh
+      Clock-hands lab
     </button>
     <div class="fl-rows" v-if="fhLabOpen">
       <!-- ── ART: WHICH HANDS ARE ON THE DIAL ─────────────────────────────
@@ -264,7 +264,7 @@ export default {
 // two panels read as one toolkit.
 #face-hands-lab {
   position: fixed;
-  top: 228px;
+  top: 134px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
   left: 0;
   z-index: 60;
   display: flex;
@@ -278,11 +278,13 @@ export default {
   }
 
   .fh-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
+    width: 132px;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
     font-family: inherit;
     font-size: 12px;
     color: #d8cdb4;

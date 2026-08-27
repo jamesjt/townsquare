@@ -27,7 +27,7 @@
       :aria-expanded="String(spLabOpen)"
       @click="spLabOpen = !spLabOpen"
     >
-      Sp
+      Stats-plate lab
     </button>
     <div class="fl-rows" v-if="spLabOpen">
       <!-- one group per concern — ground, glass, shape — in paint order -->
@@ -92,7 +92,7 @@ export default {
 // toggle's letters and the ladder position differ.
 #stats-plate-lab {
   position: fixed;
-  top: 404px;
+  top: 230px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
   left: 0;
   z-index: 60;
   display: flex;
@@ -106,11 +106,13 @@ export default {
   }
 
   .sp-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 24px;
-    padding: 0;
-    text-align: center;
+    width: 132px;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    text-align: left;
+    white-space: nowrap;
     font-family: inherit;
     font-size: 12px;
     color: #d8cdb4;

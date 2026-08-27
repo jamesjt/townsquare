@@ -174,16 +174,41 @@
         <template v-else>{{ d.letter }}</template>
       </span>
     </div>
-    <!-- the COIN LAB (Co): swap the seats' coin art live (user call
+    <!-- FT-1258: THE LABS DOOR (user: "full names for the labs… one button on
+         the top left to open or collapse the labs"). ONE flush-left button; the
+         column of full-name lab openers below it only exists while it is open,
+         and the choice persists per browser (golem.devLabsList). Each lab keeps
+         its own open/close behaviour — this door governs the LIST, nothing
+         else. Collapsing the list unmounts the labs, so a lab left open closes
+         with it; that is the point of a collapse. Behind `devLabs` (FT-1245)
+         like everything it opens. -->
+    <div id="labs-door" v-if="devLabs">
+      <button
+        type="button"
+        class="labs-toggle"
+        :class="{ open: labsListOpen }"
+        :aria-expanded="String(labsListOpen)"
+        title="Dev labs — open or collapse the column of lab panels"
+        @click="toggleLabsList"
+      >
+        Labs
+      </button>
+    </div>
+    <!-- the COIN LAB: swap the seats' coin art live (user call
          2026-08-18). The choice rides CSS variables, so it is a repaint. -->
-    <div id="coin-lab" :class="{ open: coinLabOpen }" v-if="devLabs">
-      <div
+    <div
+      id="coin-lab"
+      :class="{ open: coinLabOpen }"
+      v-if="devLabs && labsListOpen"
+    >
+      <button
+        type="button"
         class="fd-toggle"
-        title="Coin lab"
+        title="Coin lab — swap the seats' coin art live"
         @click="coinLabOpen = !coinLabOpen"
       >
-        Co
-      </div>
+        Coin lab
+      </button>
       <div class="co-rows" v-if="coinLabOpen">
         <button
           v-for="c in coinOptions"
@@ -198,9 +223,16 @@
       </div>
     </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
-    <!-- the DRIP LAB (Dr): the user's own dials for the blood scrollbar -->
-    <div id="drip-lab" :class="{ open: drOpen }" v-if="devLabs">
-      <div class="fd-toggle" title="Drip lab" @click="drOpen = !drOpen">Dr</div>
+    <!-- the DRIP LAB: the user's own dials for the blood scrollbar -->
+    <div id="drip-lab" :class="{ open: drOpen }" v-if="devLabs && labsListOpen">
+      <button
+        type="button"
+        class="fd-toggle"
+        title="Drip lab — the blood scrollbar's dials"
+        @click="drOpen = !drOpen"
+      >
+        Drip lab
+      </button>
       <div class="dr-rows" v-if="drOpen">
         <div class="dr-row" v-for="d in drDials" :key="d.key">
           <span class="dr-label">{{ d.label }}</span>
@@ -230,14 +262,19 @@
          NOTE on the scrub: its type-in strips non-digits, so a NEGATIVE offset
          can be dragged but not typed. Left as-is rather than forking the shared
          control for a dev tool that is coming out again. -->
-    <div id="face-lab" :class="{ open: faceLabOpen }" v-if="devLabs">
-      <div
+    <div
+      id="face-lab"
+      :class="{ open: faceLabOpen }"
+      v-if="devLabs && labsListOpen"
+    >
+      <button
+        type="button"
         class="fd-toggle"
-        title="Face lab"
+        title="Face lab — nudge the clock-face art onto the window's centre line"
         @click="faceLabOpen = !faceLabOpen"
       >
-        Fa
-      </div>
+        Face lab
+      </button>
       <div class="fa-rows" v-if="faceLabOpen">
         <div class="fa-row">
           <span class="fa-label">X</span>
@@ -289,7 +326,7 @@
          done its job and its toggle was landing on top of the grimoire's list.
          Behind `devLabs` with the font lab, not deleted: the dials are how the
          next disc gets set by eye. -->
-    <FaceDiscLab v-if="devLabs" />
+    <FaceDiscLab v-if="devLabs && labsListOpen" />
     <!-- THE CLOCK-HANDS LAB (Fh) — one notch below the disc lab, same column,
          same shell. Style and colourway, each blade's length and width, the
          centre boss, opacity, and an angle scrub that spins the whole assembly
@@ -299,7 +336,7 @@
          user's call because a visible dev toggle was landing on top of real
          controls; a new one shipping visible would be that same mistake made
          again on purpose. -->
-    <FaceHandsLab v-if="devLabs" />
+    <FaceHandsLab v-if="devLabs && labsListOpen" />
     <!-- THE GHOST LAB (Gh) — one notch below the hands lab, same column, same
          shell. The dead seat's mark: four materials (the painted cowl that
          ships, glass, clear glass, frost) and then blur, saturation,
@@ -313,35 +350,40 @@
          and faceDisc's glass. See `src/golem/ghostGlass.js`.
 
          BEHIND `devLabs` FROM THE START, for the hands lab's stated reason. -->
-    <GhostLab v-if="devLabs" />
+    <GhostLab v-if="devLabs && labsListOpen" />
     <!-- THE VEIL LAB (Vl) — one notch below the ghost lab, same column, same
          shell. The dead seat's silk: the pick of the two veil paintings, then
          the glass bench's dials (Frost, Refraction, Aberration, Edge band)
          plus Opacity. See src/golem/veilGlass.js. Behind `devLabs` from the
          start, for the column's shared reason. -->
-    <VeilLab v-if="devLabs" />
+    <VeilLab v-if="devLabs && labsListOpen" />
     <!-- THE NUMERAL-GLOW LAB (Ng) — one notch below the veil lab, same
          column, same shell. The clock ring's dressing: the four shadow
          layers under the twelve numerals (under-light, dark drop, close
          halo, wide breath), strength and size dials each. See
          src/golem/numeralGlow.js. Behind `devLabs` from the start, for the
          column's shared reason. -->
-    <NumeralGlowLab v-if="devLabs" />
+    <NumeralGlowLab v-if="devLabs && labsListOpen" />
     <!-- THE STATS-PLATE LAB (Sp) — one notch below the numeral lab, same
          column, same shell. The dark pill under the clock face's centre
          stats: ground opacity and tint, real backdrop glass, padding and
          corner radius. See src/golem/statsPlate.js. Behind `devLabs` from
          the start, for the column's shared reason. -->
-    <StatsPlateLab v-if="devLabs" />
+    <StatsPlateLab v-if="devLabs && labsListOpen" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
-    <div id="font-debug" :class="{ open: fontDebugOpen }" v-if="devLabs">
-      <div
+    <div
+      id="font-debug"
+      :class="{ open: fontDebugOpen }"
+      v-if="devLabs && labsListOpen"
+    >
+      <button
+        type="button"
         class="fd-toggle"
-        title="Font lab"
+        title="Font lab — the dev dropdown that owns every lettering choice"
         @click="fontDebugOpen = !fontDebugOpen"
       >
-        Aa
-      </div>
+        Font lab
+      </button>
       <div class="fd-rows" v-if="fontDebugOpen">
         <div class="fd-row" v-for="row in fdRows" :key="row.field">
           <span class="fd-label">{{ row.label }}</span>
@@ -350,13 +392,14 @@
           </button>
         </div>
       </div>
-      <div
+      <button
+        type="button"
         class="fd-toggle ik-toggle"
-        title="Engraver lab"
+        title="Engraver lab — the PNG letter-engraver's dials"
         @click="toggleIkLab"
       >
-        Ik
-      </div>
+        Engraver lab
+      </button>
       <div class="ik-panel" v-if="ikOpen">
         <div class="ik-previews">
           <div class="ik-pair" v-for="p in ikPreviews" :key="p.key">
@@ -1569,6 +1612,10 @@ export default {
           localStorage.setItem("golem.devLabs", q === "1" ? "true" : "false");
         return localStorage.getItem("golem.devLabs") === "true";
       })(),
+      // FT-1258: whether the labs COLUMN is on screen — the top-left Labs
+      // door's verdict, persisted per browser. Collapsed by default: with the
+      // labs flag on, the resting state is one small button, not eleven.
+      labsListOpen: localStorage.getItem("golem.devLabsList") === "true",
       // FT-881 follow-up: the face-lab scrubs, persisted so a dialled value
       // survives the reload it takes to look at it again.
       // Storage keys carry a "2" since the +7px was BAKED: a browser holding the
@@ -1664,6 +1711,15 @@ export default {
     /** the coin lab: swap every seat's coin art, and remember it */
     pickCoin(id) {
       applyCoin(id);
+    },
+    // FT-1258: the Labs door — open/collapse the whole column, remembered
+    // per browser so the resting choice survives a reload.
+    toggleLabsList() {
+      this.labsListOpen = !this.labsListOpen;
+      localStorage.setItem(
+        "golem.devLabsList",
+        this.labsListOpen ? "true" : "false",
+      );
     },
     coinThumb(id) {
       return coinThumbs("./" + id + ".png");
@@ -2867,16 +2923,79 @@ video#background {
 #app.static .blood-dial .stain {
   animation: none;
 }
-// the DRIP LAB — top-left, the user's own scrollbar dials
-// The FACE LAB — same shell as the coin and drip labs, one notch below them,
-// so the three read as one column of dev doors rather than three inventions.
+// FT-1258: THE LABS RAIL (user: "can we use full names for the labs instead
+// of abbreviations? …one button on the top left to open or collapse the
+// labs"). One shared chip shell for the Labs door and every full-name opener
+// App.vue itself owns (coin, face, drip, font/engraver) — the component labs
+// (disc, hands, ghost, veil, glow, plate) carry the same shell in their own
+// scoped sheets. The ladder: door 8px, then coin 38, drip 62, face 86, disc
+// 110, hands 134, ghost 158, veil 182, glow 206, plate 230, font 254 — 22px
+// chips 24px apart, flush with the left edge like the two-letter column was.
+// The rail ends by ~302px, clear of the storyteller post's bell (y=328 at
+// a 800px-tall window in the build state).
+%labs-chip {
+  display: block;
+  width: 132px;
+  height: 22px;
+  line-height: 20px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  text-align: left;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 12px;
+  color: #d8cdb4;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid #3d3d3d;
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+  opacity: 0.45;
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    border-color: rgba(150, 130, 175, 0.75);
+    outline: none;
+  }
+}
+
+// FT-1258: the Labs door — the one control that exists while the column is
+// collapsed. Same shell as the chips it reveals, held awake a little more
+// (0.6 against their 0.45) so the single resting button can be found.
+#labs-door {
+  position: fixed;
+  top: 8px;
+  left: 0;
+  z-index: 96;
+  font-size: 13px;
+  .labs-toggle {
+    @extend %labs-chip;
+    opacity: 0.6;
+    &.open {
+      opacity: 1;
+      border-color: rgba(150, 130, 175, 0.75);
+    }
+  }
+}
+
+// the DRIP LAB — the user's own scrollbar dials
+// The FACE LAB — same shell as the coin and drip labs,
+// so they read as one column of dev doors rather than inventions.
 #face-lab {
   position: fixed;
-  top: 140px;
+  top: 86px;
   left: 0;
   z-index: 60;
   display: flex;
   align-items: flex-start;
+
+  .fd-toggle {
+    @extend %labs-chip;
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: rgba(150, 130, 175, 0.75);
+  }
 
   .fa-rows {
     display: flex;
@@ -2913,11 +3032,19 @@ video#background {
 
 #coin-lab {
   position: fixed;
-  top: 96px;
+  top: 38px;
   left: 0;
   z-index: 60;
   display: flex;
   align-items: flex-start;
+
+  .fd-toggle {
+    @extend %labs-chip;
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: rgba(150, 130, 175, 0.75);
+  }
 
   .co-rows {
     display: flex;
@@ -2955,31 +3082,24 @@ video#background {
 
 #drip-lab {
   position: fixed;
-  top: 8px;
-  left: 8px;
+  // FT-1258: into the labs rail — third rung, flush left, full-name chip.
+  // The panel steps RIGHT of the chip now (flex row, like the face lab's),
+  // because 30px below this chip stands the next lab's opener.
+  top: 62px;
+  left: 0;
   z-index: 96;
   font-size: 13px;
+  display: flex;
+  align-items: flex-start;
   .fd-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 26px;
-    text-align: center;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
-    cursor: pointer;
-    opacity: 0.45;
-    &:hover {
-      opacity: 1;
-      border-color: #a01414;
-    }
+    @extend %labs-chip;
   }
   &.open .fd-toggle {
     opacity: 1;
-    border-color: #a01414;
+    border-color: rgba(150, 130, 175, 0.75);
   }
   .dr-rows {
-    margin-top: 4px;
+    margin-left: 4px;
     background: rgba(8, 8, 12, 0.96);
     border: 1px solid #400;
     border-radius: 6px;
@@ -3517,8 +3637,11 @@ video#background {
    lettering choice. Deliberately plain: it is a debug tool. */
 #font-debug {
   position: fixed;
-  top: 8px;
-  left: 8px;
+  // FT-1258: into the labs rail — the bottom rung (font, then the engraver
+  // chip below it). It keeps its column flow: its panels drop BELOW the
+  // chips, and below is empty here at the rail's foot.
+  top: 254px;
+  left: 0;
   z-index: 96;
   font-size: 13px;
   .ik-toggle {
@@ -3591,23 +3714,11 @@ video#background {
     }
   }
   .fd-toggle {
-    width: 30px;
-    height: 26px;
-    line-height: 26px;
-    text-align: center;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
-    cursor: pointer;
-    opacity: 0.45;
-    &:hover {
-      opacity: 1;
-      border-color: #a01414;
-    }
+    @extend %labs-chip;
   }
   &.open .fd-toggle {
     opacity: 1;
-    border-color: #a01414;
+    border-color: rgba(150, 130, 175, 0.75);
   }
   .fd-rows {
     margin-top: 4px;
