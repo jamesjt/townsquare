@@ -73,9 +73,14 @@
              surface and the ring can never disagree about a row's face.
              draggable=false because the plate itself is the drag handle here
              (onPlateDrag) — a native image-drag from a row would shadow it. -->
+        <!-- FT-1228 (user): "the player nominates hand still isn't pointed
+             in the relative correct direction on the menu" — the ring's hand
+             mirrors with the seat (FT-1219) and this plate's did not. Same
+             rule, same handed-down fact: only the nominate row's art flips. -->
         <img
           v-if="entry.img"
           class="sm-img"
+          :class="{ mirrored: entry.id === 'nominate' && nominateMirrored }"
           :src="entry.img"
           alt=""
           draggable="false"
@@ -121,6 +126,10 @@ export default {
     /** `[{ id, icon, label, title, disabled, reason, armed }]` — six of them,
      *  always, from golem/seatActions. */
     entries: { type: Array, default: () => [] },
+    /** FT-1228: does this seat's accusing mark wear the mirror? Handed down
+     *  from Player.vue's own computed (FT-1069d), never re-derived — the
+     *  ring takes the identical prop (FT-1219). */
+    nominateMirrored: { type: Boolean, default: false },
     /**
      * The seat's own `<li>`. A press inside it is NOT outside — the plate,
      * the coin and the name plate are one control while this is up, and a
@@ -595,6 +604,12 @@ export default {
       flex: 0 0 18px;
       object-fit: contain;
       filter: brightness(1.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+
+      /* FT-1228: the nominate hand points at the face like the coin's own
+         mark and the ring's coin (FT-1219) — art alone flips, filter kept. */
+      &.mirrored {
+        transform: scaleX(-1);
+      }
     }
   }
 

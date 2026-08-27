@@ -309,6 +309,7 @@
         v-if="seatMenuAnchor && seatMenuMode === 'plate'"
         :anchor="seatMenuAnchor"
         :outward="seatMenuOutward"
+        :nominate-mirrored="nominateMarkMirrored"
         :entries="seatMenuEntries"
         :owner="$el"
         :drag-live="canDragCoin || canDragPlayer"
