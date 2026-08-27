@@ -1090,7 +1090,7 @@ import { seatOf, viewerOf, whisperFrame, whisperRefusal } from "../golem/chat";
 import { TOWER_EVENT, towerState } from "../golem/towerBells";
 // FT-1180: the six things a storyteller can do to a seat — every one of them
 // present on every seat, with the guards deciding DISABLED rather than absent.
-import { seatActions } from "../golem/seatActions";
+import { seatActions, SEAT_SLOT_BY_ID } from "../golem/seatActions";
 // FT-1242: the seat menu's rows say their meanings with the app's own marks —
 // the same art the plate/ring rows (golem/seatActions) already wear for the
 // same acts, plus the chair for the seat rows. The FA names they replace
@@ -1318,20 +1318,32 @@ export default {
      * deaths no longer costs the role picker. The spectator override is the
      * old computed's, kept on both halves.
      */
-    ctrlClickName() {
-      if (this.session.isSpectator) return true;
-      return this.prefs.ctrlClickName !== false;
+    /**
+     * FT-1260.2 REPLACES THE BOOLEANS WITH ASSIGNMENTS: each click carries
+     * a vocabulary SLOT id (or "off") now — the Control tab's picker rows
+     * write them, golem/prefs migrated the FT-1227 booleans onto them
+     * (true → the click's standing act, false → "off"). The spectator
+     * override keeps its FT-1227 meaning by pinning the STANDING act: a
+     * spectator's coin clicks are their own claim-and-flip affordances and
+     * were never the storyteller's to reassign.
+     */
+    ctrlClickNameAction() {
+      if (this.session.isSpectator) return "role";
+      return this.prefs.ctrlClickNameAction || "off";
     },
-    ctrlClickDead() {
-      if (this.session.isSpectator) return true;
-      return this.prefs.ctrlClickDead !== false;
+    ctrlClickDeadAction() {
+      if (this.session.isSpectator) return "kill";
+      return this.prefs.ctrlClickDeadAction || "off";
     },
     /** FT-1227: the old one-switch computed STANDS DOWN as a stored pref —
      *  it now answers "is any coin click live", which is what its one
      *  remaining reader (whisperDiscShown, the click scheme's whisper disc)
-     *  was actually asking. */
+     *  was actually asking. (FT-1260.2: "live" now means "assigned to
+     *  anything at all".) */
     ctrlClickCoins() {
-      return this.ctrlClickName || this.ctrlClickDead;
+      return (
+        this.ctrlClickNameAction !== "off" || this.ctrlClickDeadAction !== "off"
+      );
     },
     ctrlHoverCoins() {
       if (this.session.isSpectator) return false;
@@ -3276,9 +3288,16 @@ export default {
         this.$store.commit("setDrawerPick", null);
         return;
       }
-      // FT-1227: the death toggle is the "Click coin" half of the split
-      if (!this.ctrlClickDead) return;
-      this.toggleStatus();
+      // FT-1227: the death toggle is the "Click coin" half of the split.
+      // FT-1260.2: the half is an ASSIGNMENT now — whatever action the
+      // storyteller picked for this click, run through the vocabulary's own
+      // guarded runner (a spectator keeps the direct toggle: their store
+      // call is its own refusal, and seatMenuEntries is empty for them).
+      if (this.session.isSpectator) {
+        this.toggleStatus();
+        return;
+      }
+      this.runSeatClickAction(this.ctrlClickDeadAction);
     },
     /**
      * FT-1169: the coin's BOTTOM half — role select — by the same rule as the
@@ -3287,8 +3306,33 @@ export default {
      * FT-1227: gated by its OWN half of the split now ("Click role name").
      */
     onCoinSetRole() {
-      if (!this.ctrlClickName) return;
-      this.$emit("trigger", ["openRoleModal"]);
+      // FT-1260.2: an assignment now, same shape as onLifeClick's — the
+      // spectator keeps the direct role modal (claiming a seat's character
+      // is their own affordance and the guarded runner has no entries for
+      // them).
+      if (this.session.isSpectator) {
+        this.$emit("trigger", ["openRoleModal"]);
+        return;
+      }
+      this.runSeatClickAction(this.ctrlClickNameAction);
+    },
+    /**
+     * FT-1260.2: A COIN CLICK RUNS ITS ASSIGNED ACTION — through the exact
+     * runner the two menus use (`runSeatAction`), so the assignment obeys
+     * the vocabulary's own guard: an act that is illegal right now refuses
+     * (silently here — the click has no row to carry the reason; the menus'
+     * rows still teach it) instead of firing. The assignment names a SLOT,
+     * and the shared slot resolves per seat state: "nominate" runs
+     * nominate on a living seat and ghost-vote on a dead one, exactly as
+     * the menus' fifth position does.
+     */
+    runSeatClickAction(slotId) {
+      if (!slotId || slotId === "off") return;
+      const entry = this.seatMenuEntries.find(
+        (e) => (SEAT_SLOT_BY_ID[e.id] || e.id) === slotId,
+      );
+      if (!entry) return;
+      this.runSeatAction(entry.id);
     },
     /**
      * FT-1107: TAP A COIN, CHOOSE A PLAYER — the night's own click.

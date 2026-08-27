@@ -28,6 +28,15 @@
  * hover. A disabled row with a reason teaches on the first look; a missing
  * row teaches nothing, ever.
  *
+ * FT-1260 AMENDS THE FIXED-LIST RULE FOR THE OWNER'S OWN MENUS: the Control
+ * settings tab now lets a storyteller turn individual actions off (and
+ * reorder them) per menu, so a menu MAY be missing rows — but only rows its
+ * own owner chose to hide. The teaching duty this rule protects moves to the
+ * settings list itself, which always shows EVERY action (seatActionSlots
+ * below renders from this file, so a future entry appears there
+ * automatically). Guards are untouched: a visible row still says why it is
+ * refused rather than vanishing.
+ *
  * ── WHAT IS KEPT FROM FT-1169, BECAUSE IT WAS RIGHT ─────────────────────────
  * Every entry carries the SAME condition as the direct mark it duplicates —
  * `kill` is the shroud's own toggle, `role` the coin's own set-role, the two
@@ -156,6 +165,10 @@ import uiGhostVote from "../assets/ui-ghost-cowl.png";
  *           dead seat and "Put character back" on an armed one, exactly as
  *           FT-1169 wrote them
  *   hint    what the row does, for the surface's tooltip when it is ENABLED
+ *   setLabel FT-1260: the SETTINGS-FACING name — state-neutral, because the
+ *           Control tab's per-menu list names the action itself, not the
+ *           seat-state face it happens to wear ("Kill / Revive", not
+ *           whichever of the two this seat would show)
  *   guard   null when the act may happen, otherwise the reason it may not.
  *           That reason IS the disabled tooltip.
  *   armed   the act is currently running and clicking again undoes it
@@ -172,6 +185,7 @@ const ENTRIES = [
     icon: (f) => (f.isDead ? "heartbeat" : "skull"),
     img: (f) => (f.isDead ? uiAlive : uiDead),
     label: (f) => (f.isDead ? "Revive" : "Kill"),
+    setLabel: "Kill / Revive",
     hint: (f) =>
       f.isDead
         ? "Bring this player back to life"
@@ -190,6 +204,7 @@ const ENTRIES = [
     icon: () => "mask",
     img: () => uiRole,
     label: () => "Change role",
+    setLabel: "Change role",
     hint: () => "Pick the character sitting on this chair",
     guard: () => null,
     act: "openRoleModal",
@@ -202,6 +217,7 @@ const ENTRIES = [
     icon: () => "redo-alt",
     img: () => uiMovePlayer,
     label: () => "Move player",
+    setLabel: "Move player",
     hint: () => "Pick this player up — then pick the chair they move to",
     /**
      * TWO REASONS, and the ORDER matters: an open chair is the permanent
@@ -226,6 +242,7 @@ const ENTRIES = [
     icon: () => "people-arrows",
     img: () => uiMoveRole,
     label: (f) => (f.roleArmed ? "Put character back" : "Move role"),
+    setLabel: "Move role",
     hint: () =>
       "Pick this chair's character up — then tap another seat to trade them over",
     guard: (f) =>
@@ -242,6 +259,7 @@ const ENTRIES = [
     icon: () => "hand-point-right",
     img: () => uiNominateHand,
     label: () => "Player nominates",
+    setLabel: "Nominate",
     hint: () => "This player nominates — then pick who they point at",
     guard: (f) => (f.nomination ? "A nomination is already running" : null),
     act: "nominatePlayer",
@@ -254,6 +272,7 @@ const ENTRIES = [
     icon: () => "vote-yea",
     img: () => uiGhostVote,
     label: (f) => (f.isVoteless ? "Give ghost vote back" : "Use ghost vote"),
+    setLabel: "Ghost vote",
     hint: (f) =>
       f.isVoteless
         ? "This ghost's vote is spent — hand it back"
@@ -268,6 +287,7 @@ const ENTRIES = [
     icon: () => "plus",
     img: () => uiNote,
     label: () => "Add reminder",
+    setLabel: "Add reminder",
     hint: () => "Put a reminder token on this seat",
     /**
      * THE ROW THE USER FOUND MISSING. FT-1169 gated it on
@@ -306,6 +326,7 @@ const ENTRIES = [
     // the ring's coin both — the point of the vocabulary.
     icon: () => "comment-dots",
     label: () => "Whisper",
+    setLabel: "Whisper",
     hint: () => "Send this player a private message",
     guard: (f) => f.whisperRefusal || null,
     act: "openSeatWhisper",
@@ -352,4 +373,75 @@ export function seatActionLabels() {
   return ENTRIES.map((e) =>
     e.label({ isDead: false, isVoteless: false, roleArmed: false }),
   );
+}
+
+// ---------------------------------------------------------------------------
+// FT-1260: THE VOCABULARY AS ORDERABLE SLOTS — what the Control settings
+// tab's per-menu lists render, and what the layout prefs are keyed by.
+//
+// The orderable unit is the SLOT, not the entry, because slot five holds two
+// entries (nominate / ghost-vote) that are one question at two moments — the
+// header's own note. Splitting them into two draggable lines would let a
+// person order two things that can never both be on screen, so the pair is
+// ONE list entry, labelled with both names, and its layout id is the first
+// entry's ("nominate"). SEAT_SLOT_BY_ID maps every entry id back to its
+// slot's layout id so a surface filtering resolved entries against a layout
+// never has to know which entries share.
+//
+// Everything below derives from ENTRIES — an eighth action added above
+// appears in the settings list, the prefs' sanitizer and both menus with no
+// second list to update.
+// ---------------------------------------------------------------------------
+
+/** The state-neutral face an icon/img resolver is asked with — the same
+ *  facts seatActionLabels uses. */
+const NEUTRAL_FACTS = { isDead: false, isVoteless: false, roleArmed: false };
+
+/** entry id → its slot's layout id (the slot's first entry's id). */
+export const SEAT_SLOT_BY_ID = (() => {
+  const firstBySlot = new Map();
+  const map = {};
+  ENTRIES.forEach((e) => {
+    if (!firstBySlot.has(e.slot)) firstBySlot.set(e.slot, e.id);
+    map[e.id] = firstBySlot.get(e.slot);
+  });
+  return map;
+})();
+
+/**
+ * The vocabulary grouped by slot, in slot order — one row per orderable unit.
+ *
+ * @returns {Array<{id, ids, label, icon, img}>}
+ *   id     the slot's layout id (its first entry's id)
+ *   ids    every entry id the slot holds (["nominate", "ghost-vote"])
+ *   label  the settings-facing name — shared slots join theirs with " / "
+ *   icon   the first entry's FA name at the neutral face (fallback art)
+ *   img    the first entry's baked mark at the neutral face, or ""
+ */
+export function seatActionSlots() {
+  const slots = [];
+  const bySlot = new Map();
+  ENTRIES.forEach((e) => {
+    let s = bySlot.get(e.slot);
+    if (!s) {
+      s = {
+        id: e.id,
+        ids: [],
+        labels: [],
+        icon: e.icon(NEUTRAL_FACTS),
+        img: e.img ? e.img(NEUTRAL_FACTS) : "",
+      };
+      bySlot.set(e.slot, s);
+      slots.push(s);
+    }
+    s.ids.push(e.id);
+    s.labels.push(e.setLabel || e.label(NEUTRAL_FACTS));
+  });
+  return slots.map((s) => ({
+    id: s.id,
+    ids: s.ids,
+    label: s.labels.join(" / "),
+    icon: s.icon,
+    img: s.img,
+  }));
 }

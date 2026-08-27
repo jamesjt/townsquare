@@ -905,33 +905,98 @@
              FT-1227: a row named in TOGGLE_MARKS wears the gesture's own
              baked art (the ring's move icons, the hover's pin) instead of
              its FA stand-in. -->
-        <span
-          class="ht-set-line ht-ctrl-row"
-          v-for="t in controlToggles"
-          :key="t.key"
-          :class="{ 'ht-ctrl-inert': t.inert }"
-          :title="t.rowTitle"
-        >
-          <span class="tw-lead">
-            <span class="label">
-              <img
-                v-if="t.mark"
-                class="row-mark"
-                :src="t.mark"
-                :alt="t.label"
+        <!-- FT-1260: THE TWO MENU ROWS EXPAND. A row carrying `layoutKey`
+             keeps its master On/Off and gains a chevron; open, the menu's
+             own list unfolds below it — every vocabulary action (from
+             golem/seatActions, so a future one appears by itself), each
+             with its mark, its settings name, its own On/Off and a drag
+             grip. LIST ORDER IS MENU ORDER: the ring's list reads top =
+             leftmost coin (the user's mapping), the plate's top = first
+             row. One list open at a time — the tab is a band, not a page.
+             Drag is HTML5, armed only from the grip (mouse; a coarse
+             pointer reorders nowhere yet — the toggles still work there).
+             FT-1260.2: a row carrying `action` is a PICKER — the coin
+             clicks assign any one action (or Off) instead of On/Off. Those
+             rows take a full line (`ht-ctrl-pick`): the columns' own rule
+             is that a select carrying words cannot live in a half-cell. -->
+        <template v-for="t in controlToggles">
+          <span
+            class="ht-set-line ht-ctrl-row"
+            :key="t.key"
+            :class="{ 'ht-ctrl-inert': t.inert, 'ht-ctrl-pick': !!t.action }"
+            :title="t.rowTitle"
+          >
+            <span class="tw-lead">
+              <span class="label">
+                <img
+                  v-if="t.mark"
+                  class="row-mark"
+                  :src="t.mark"
+                  :alt="t.label"
+                />
+                <font-awesome-icon v-else class="row-mark-fa" :icon="t.icon" />
+                <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
+              </span>
+              <OptionSelect
+                :name="'prefs-' + t.key"
+                :aria-label="t.label"
+                :options="t.options"
+                :value="t.action ? prefs[t.key] : prefs[t.key] !== false"
+                @input="setToggle(t.key, $event)"
               />
-              <font-awesome-icon v-else class="row-mark-fa" :icon="t.icon" />
-              <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
+              <button
+                v-if="t.layoutKey"
+                type="button"
+                class="ht-menu-exp"
+                :class="{ open: menuListOpen === t.key }"
+                :title="
+                  menuListOpen === t.key
+                    ? 'Close this menu\'s button list'
+                    : 'Choose and order this menu\'s buttons'
+                "
+                @click="toggleMenuList(t.key)"
+              >
+                <font-awesome-icon icon="chevron-down" />
+              </button>
             </span>
-            <OptionSelect
-              :name="'prefs-' + t.key"
-              :aria-label="t.label"
-              :options="t.options"
-              :value="prefs[t.key] !== false"
-              @input="setToggle(t.key, $event)"
-            />
           </span>
-        </span>
+          <div
+            class="ht-menu-list"
+            v-if="t.layoutKey && menuListOpen === t.key"
+            :key="t.key + ':list'"
+          >
+            <div
+              v-for="(s, i) in menuSlots(t)"
+              :key="s.id"
+              class="ht-menu-item"
+              :class="menuItemClass(t, i)"
+              :draggable="String(menuDragArm === t.key + ':' + i)"
+              @dragstart="onMenuDragStart(t, i, $event)"
+              @dragover.prevent="onMenuDragOver(t, i, $event)"
+              @drop.prevent="onMenuDrop(t)"
+              @dragend="onMenuDragEnd"
+            >
+              <span
+                class="ht-menu-grip"
+                title="Drag to reorder — the top of this list is the menu's first button"
+                @mousedown="menuDragArm = t.key + ':' + i"
+                @mouseup="menuDragArm = null"
+              ></span>
+              <img v-if="s.img" class="row-mark" :src="s.img" :alt="s.label" />
+              <font-awesome-icon v-else class="row-mark-fa" :icon="s.icon" />
+              <span class="row-name" :class="{ off: !s.on }">{{
+                s.label
+              }}</span>
+              <OptionSelect
+                :name="'prefs-' + t.layoutKey + '-' + s.id"
+                :aria-label="s.label"
+                :options="menuOnOptions"
+                :value="s.on"
+                @input="setMenuOn(t, s.id, $event)"
+              />
+            </div>
+          </div>
+        </template>
         <span class="ht-set-line">
           <span class="tw-lead">
             <span class="label">
@@ -1249,6 +1314,10 @@ import {
   prefsState,
   setPref,
 } from "../golem/prefs";
+// FT-1260: the seat vocabulary as orderable slots — what the two menu rows'
+// expander lists render (every action, always — the teaching duty the menus'
+// fixed-list rule used to carry) and what the coin-click pickers offer.
+import { seatActionSlots } from "../golem/seatActions";
 // FT-1227 (user): the Control rows whose marks are the app's OWN baked art
 // rather than a Font Awesome stand-in — the drag rows wear the hover ring's
 // move icons and the reminder row wears the nameplate hover's pin, so a row
@@ -1263,8 +1332,10 @@ import uiNote from "../assets/ui-note.png";
 const TOGGLE_MARKS = {
   // FT-1230 (user): the change-role click wears the app's own role coin,
   // not the FA masks; the kill click wears the app's own death mark.
-  ctrlClickName: uiRoleMark,
-  ctrlClickDead: uiDeadMark,
+  // (FT-1260.2 rekeyed the two click rows onto their picker prefs; the
+  // marks are the GESTURE's, so they ride along unchanged.)
+  ctrlClickNameAction: uiRoleMark,
+  ctrlClickDeadAction: uiDeadMark,
   ctrlDragRoles: uiMoveRole,
   ctrlDragNames: uiMovePlayer,
   ctrlReminderHover: uiNote,
@@ -1400,6 +1471,15 @@ export default {
       // own idiom for the same fact. Dresses the "Hover coins" row inert on
       // a coarse pointer.
       hasHover: true,
+      // FT-1260: the expander state — which menu row's button list is open
+      // (its CONTROL_TOGGLES key), one at a time; and the drag-in-progress
+      // facts. `menuDragArm` is the grip's arming latch: the row is only
+      // draggable while the pointer went down on its grip, so a grab on the
+      // row's own On/Off can never start a reorder.
+      menuListOpen: null,
+      menuDrag: null,
+      menuDropAt: null,
+      menuDragArm: null,
       // FT-1231: does the Control tab hold more rows than its box can show?
       // Only ever true on the disc, where the band is a fixed slice of the
       // circle and the tab is its own scroller — everywhere else the panel
@@ -1553,21 +1633,74 @@ export default {
     controlToggles() {
       return CONTROL_TOGGLES.map((t) => {
         const inert = t.key === "ctrlHoverCoins" && !this.hasHover;
+        let rowTitle = inert
+          ? t.title +
+            " — this device has no resting pointer, so the gesture " +
+            "cannot fire here; the setting still follows your account"
+          : t.title;
+        let options;
+        if (t.action) {
+          // FT-1260.2: a coin-click row — the picker's face IS the
+          // assignment, and the title restates it in a sentence.
+          options = this.clickActionOptions;
+          const cur = options.find((o) => o.value === this.prefs[t.key]);
+          if (cur) rowTitle += " — set to: " + cur.label;
+        } else {
+          options = [
+            { value: true, label: "On", title: t.title },
+            { value: false, label: "Off", title: "Turn this gesture off" },
+          ];
+          // FT-1260: a menu whose every button is off never opens — the
+          // master row is where a person would look for why, so it says.
+          if (
+            t.layoutKey &&
+            (this.prefs[t.layoutKey] || []).every((e) => e.on === false)
+          ) {
+            rowTitle +=
+              " — every button in this menu is off, so it will not open";
+          }
+        }
         return {
           ...t,
           inert,
           mark: TOGGLE_MARKS[t.key] || null,
-          rowTitle: inert
-            ? t.title +
-              " — this device has no resting pointer, so the gesture " +
-              "cannot fire here; the setting still follows your account"
-            : t.title,
-          options: [
-            { value: true, label: "On", title: t.title },
-            { value: false, label: "Off", title: "Turn this gesture off" },
-          ],
+          rowTitle,
+          options,
         };
       });
+    },
+    /** FT-1260: the vocabulary's slots by id — the expander lists' art and
+     *  names. Computed once; the vocabulary is a static module list. */
+    seatSlotIndex() {
+      const m = {};
+      seatActionSlots().forEach((s) => {
+        m[s.id] = s;
+      });
+      return m;
+    },
+    /** FT-1260: the expander rows' own two named options. */
+    menuOnOptions() {
+      return [
+        { value: true, label: "On", title: "This button shows in the menu" },
+        {
+          value: false,
+          label: "Off",
+          title: "Hide this button from the menu",
+        },
+      ];
+    },
+    /** FT-1260.2: what a coin click may be assigned — Off, or any one slot
+     *  of the vocabulary (the nominate/ghost-vote pair is one choice; which
+     *  of the two fires follows the seat's life state, the slot's rule). */
+    clickActionOptions() {
+      return [
+        { value: "off", label: "Off", title: "This click does nothing" },
+        ...seatActionSlots().map((s) => ({
+          value: s.id,
+          label: s.label,
+          title: "This click runs " + s.label,
+        })),
+      ];
     },
     grimoireSizeOptions() {
       return GRIMOIRE_SIZES.map((g) => ({
@@ -2226,9 +2359,101 @@ export default {
       setPref("controlScheme", id);
     },
     /** FT-1213: the six toggles' one writer — the same setPref every other
-     *  row uses, so localStorage and the account sync both hear it. */
+     *  row uses, so localStorage and the account sync both hear it.
+     *  (FT-1260.2: the picker rows ride the same writer — `on` is their
+     *  assigned slot id, and golem/prefs sanitizes either shape.) */
     setToggle(key, on) {
       setPref(key, on);
+    },
+    // ── FT-1260: the menu rows' expander lists ───────────────────────────
+    /** One list open at a time — the tab is a band, not a page. */
+    toggleMenuList(key) {
+      this.menuListOpen = this.menuListOpen === key ? null : key;
+    },
+    /** The rows of one menu's list: the layout pref's order, dressed with
+     *  the vocabulary's own art and settings names. The pref is sanitized
+     *  on every read/write (golem/prefs), so every slot is here — the
+     *  filter is only armour against a half-written snapshot. */
+    menuSlots(t) {
+      const byId = this.seatSlotIndex;
+      return (this.prefs[t.layoutKey] || [])
+        .filter((e) => byId[e.id])
+        .map((e) => ({ ...byId[e.id], on: e.on !== false }));
+    },
+    /** One row's toggle — the whole layout is rewritten (order untouched),
+     *  because the pref is one value: a list, not seven booleans. */
+    setMenuOn(t, id, on) {
+      const layout = (this.prefs[t.layoutKey] || []).map((e) =>
+        e.id === id ? { id: e.id, on: !!on } : { ...e },
+      );
+      setPref(t.layoutKey, layout);
+    },
+    /** The drag dress: the grabbed row dims, the drop slot draws a seam
+     *  above the row it would land before (or below the last). */
+    menuItemClass(t, i) {
+      const d = this.menuDrag;
+      if (!d || d.key !== t.key) return {};
+      const n = (this.prefs[t.layoutKey] || []).length;
+      return {
+        dragging: d.from === i,
+        "drop-before": this.menuDropAt === i,
+        "drop-after": this.menuDropAt === n && i === n - 1,
+      };
+    },
+    /** HTML5 drag, armed only from the grip — a grab anywhere else on the
+     *  row (its switch, its name) is refused here rather than trusted not
+     *  to happen. stopPropagation because the app has document-level
+     *  dragstart listeners (the seat menus dismiss on any drag). */
+    onMenuDragStart(t, i, e) {
+      if (this.menuDragArm !== t.key + ":" + i) {
+        e.preventDefault();
+        return;
+      }
+      e.stopPropagation();
+      this.menuDrag = { key: t.key, from: i };
+      this.menuDropAt = null;
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        try {
+          e.dataTransfer.setData("text/plain", "ht-menu:" + t.key + ":" + i);
+        } catch (err) {
+          // IE's dataTransfer refuses custom payloads; the drag still works
+        }
+        // the whole row is the drag image, so the LINE lifts, not the grip
+        const row =
+          e.target && e.target.closest && e.target.closest(".ht-menu-item");
+        if (row && e.dataTransfer.setDragImage) {
+          e.dataTransfer.setDragImage(row, 12, row.offsetHeight / 2);
+        }
+      }
+    },
+    /** Which slot the drop would land in — above or below the hovered
+     *  row's midline, exactly the seam the dress draws. */
+    onMenuDragOver(t, i, e) {
+      const d = this.menuDrag;
+      if (!d || d.key !== t.key) return;
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      const r = e.currentTarget.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height / 2;
+      this.menuDropAt = before ? i : i + 1;
+    },
+    /** Commit: the list's new order IS the menu's new order (the ring reads
+     *  it left-to-right, the plate top-to-bottom — golem/prefs' note). */
+    onMenuDrop(t) {
+      const d = this.menuDrag;
+      const to = this.menuDropAt;
+      this.onMenuDragEnd();
+      if (!d || d.key !== t.key || to === null) return;
+      const layout = (this.prefs[t.layoutKey] || []).map((e) => ({ ...e }));
+      const moved = layout.splice(d.from, 1)[0];
+      if (!moved) return;
+      layout.splice(to > d.from ? to - 1 : to, 0, moved);
+      setPref(t.layoutKey, layout);
+    },
+    onMenuDragEnd() {
+      this.menuDrag = null;
+      this.menuDropAt = null;
+      this.menuDragArm = null;
     },
     pickGrimoireSize(id) {
       setPref("grimoireSize", id);
@@ -3655,6 +3880,111 @@ export default {
     .ht-ctrl-inert .label {
       opacity: 0.55;
     }
+
+    // ── FT-1260: the menu rows' expander ─────────────────────────────────
+    // The chevron is the tab's own dropdown caret (OptionSelect's), worn as
+    // a bare button beside the master switch; it flips when its list is
+    // open, the caret's one grammar everywhere on this panel.
+    .ht-menu-exp {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      padding: 2px 4px;
+      font-size: 80%;
+      opacity: 0.7;
+      flex-shrink: 0;
+      svg {
+        transition: transform 150ms ease;
+      }
+      &:hover {
+        opacity: 1;
+      }
+      &.open svg {
+        transform: rotate(180deg);
+      }
+    }
+    // The list itself: a full-width sunken shelf under its row (the same
+    // recessed ground the tab's scroll well wears, quieter), one line per
+    // vocabulary action. The GRIP leads each line — reorder lists put the
+    // handle where the reading starts — then the action's own mark, its
+    // settings name, and its On/Off at the line's right edge.
+    .ht-menu-list {
+      flex: 1 1 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 2px 0 4px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+    }
+    .ht-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 4px;
+      border-radius: 6px;
+      position: relative;
+      .row-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        text-align: left;
+        font-size: 80%;
+        // an action turned off stays LISTED (the list is where the whole
+        // vocabulary teaches itself now) — it just dims.
+        &.off {
+          opacity: 0.45;
+        }
+      }
+      .row-mark,
+      .row-mark-fa,
+      .gsel {
+        flex-shrink: 0;
+      }
+      // the drag dress: the grabbed line dims in place (the browser carries
+      // its image), and the drop slot draws a seam in the grimoire's own
+      // purple at the edge it would land on.
+      &.dragging {
+        opacity: 0.4;
+      }
+      &.drop-before::before,
+      &.drop-after::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        height: 2px;
+        border-radius: 1px;
+        background: $control-edge-hover;
+        pointer-events: none;
+      }
+      &.drop-before::before {
+        top: -2px;
+      }
+      &.drop-after::after {
+        bottom: -2px;
+      }
+    }
+    // the grip: three cast lines, drawn rather than fetched — the icon set
+    // has no grip glyph registered and three 2px rules ARE the mark.
+    .ht-menu-grip {
+      flex-shrink: 0;
+      width: 12px;
+      height: 11px;
+      cursor: grab;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.4) 0,
+        rgba(255, 255, 255, 0.4) 2px,
+        transparent 2px,
+        transparent 4.5px
+      );
+      &:active {
+        cursor: grabbing;
+      }
+    }
   }
 
   // ── FT-1227 → FT-1231: THE CONTROL TOGGLES IN TWO COLUMNS ───────────────
@@ -4290,7 +4620,13 @@ export default {
         // they cannot.
         &:not(.scrolls) {
           column-gap: 12px;
-          > .ht-set-line.ht-ctrl-row {
+          // FT-1260.2: the two PICKER rows (`ht-ctrl-pick`) keep full lines
+          // — the columns' founding rule is that a select carrying WORDS
+          // cannot live in a half-cell (Setup panel's own exemption), and
+          // an action picker's face is words ("Nominate / Ghost vote").
+          // The expander lists opt out by class list too (`ht-menu-list`
+          // is not a `.ht-ctrl-row`): a full-width shelf under its row.
+          > .ht-set-line.ht-ctrl-row:not(.ht-ctrl-pick) {
             flex: 0 1 calc(50% - 6px);
             > .tw-lead {
               flex: 1 1 auto;
@@ -4304,6 +4640,11 @@ export default {
             }
             .label {
               min-width: 0;
+              // FT-1260: the label GROWS so the switch (and the menu rows'
+              // chevron after it) packs to the cell's right edge —
+              // space-between with three children would otherwise strand
+              // the switch mid-cell.
+              flex: 1 1 auto;
             }
             // the mark holds the cell's left edge and the switch (`.gsel`,
             // OptionSelect's root) its right — only the name gives

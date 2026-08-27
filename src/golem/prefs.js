@@ -36,6 +36,12 @@
  * no second copy that can disagree.
  */
 
+// FT-1260: the per-menu layouts are keyed by the seat vocabulary's own slots
+// — the settings list, the sanitizer and both menus all derive from
+// golem/seatActions, so a future action needs no change here. One-way
+// dependency: seatActions imports assets only, never this module.
+import { seatActionSlots } from "./seatActions";
+
 const KEY = "golem.prefs";
 
 /** Fired on every write, so every surface showing a pref can re-read it. */
@@ -105,26 +111,38 @@ export const CONTROL_TOGGLES = [
   // applied one level deeper. The old `ctrlClickCoins` key STANDS DOWN the
   // way `controlScheme` did: read once per stash/bag to migrate its value
   // onto BOTH halves (on = both on), never consulted by a live gesture.
+  //
+  // ── FT-1260.2: THE TWO CLICKS BECOME ACTION PICKERS ──────────────────────
+  // The user's rider: each coin click chooses ANY single action from the
+  // vocabulary, or Off — "Click role name: [Change role ▾]". So the FT-1227
+  // booleans stand down exactly the way `ctrlClickCoins` did (kept in
+  // DEFAULT_PREFS, read once per stash/bag to migrate: true → the click's
+  // standing act, false → "off"; never consulted by a live gesture), and
+  // these two rows carry `action: true` — the Control tab offers the
+  // vocabulary instead of On/Off. The FT-1230 labels shorten to the
+  // gesture alone ("Click role name") because the ACT is the picker's face
+  // now, not the row's name. Values are vocabulary SLOT ids ("nominate"
+  // names the nominate/ghost-vote pair — which fires depends on the seat's
+  // life state, the slot's own rule) or "off".
   {
-    key: "ctrlClickName",
-    // FT-1230 (user): "that should say 'click role name to change role' and
-    // use the role icon not the masks icon" — the label says what the click
-    // DOES, and the mark is the app's own role coin (worn via HostTools'
-    // TOGGLE_MARKS; the FA name below stands down as the record).
-    label: "Click role name to change role",
+    key: "ctrlClickNameAction",
+    // FT-1230 (user) named the row; FT-1260.2 trims it to the gesture (the
+    // assignment is the control's own face). The mark stays the app's role
+    // coin (HostTools' TOGGLE_MARKS; the FA name stands down as the record).
+    label: "Click role name",
     icon: "theater-masks",
-    title:
-      "Click the character's name on a coin's lower edge to choose the " +
-      "character",
+    title: "What a click on the character's name on a coin's lower edge does",
+    action: true,
   },
   {
-    key: "ctrlClickDead",
-    // FT-1230 (user): "click Cog to kill" — the user's own word for the
-    // gear-toothed player coin — wearing the app's death mark (ui-dead via
-    // TOGGLE_MARKS; the FA name stands down as the record).
-    label: "Click Cog to kill",
+    key: "ctrlClickDeadAction",
+    // FT-1230 (user): "click Cog to kill" — their word for the gear-toothed
+    // player coin; FT-1260.2 trims the label to the gesture. Wears the
+    // app's death mark (ui-dead via TOGGLE_MARKS).
+    label: "Click Cog",
     icon: "skull",
-    title: "Click a coin anywhere outside its name to kill or revive the seat",
+    title: "What a click on a coin anywhere outside its name does",
+    action: true,
   },
   {
     key: "ctrlHoverCoins",
@@ -134,6 +152,10 @@ export const CONTROL_TOGGLES = [
     title:
       "Rest the pointer on a coin and a ring of small action coins opens " +
       "around it",
+    // FT-1260: this row expands — the menu's actions as a reorderable
+    // on/off list, stored under this layout pref. Top of the list is the
+    // ring's LEFTMOST coin (the user's own mapping).
+    layoutKey: "ctrlRingLayout",
   },
   {
     key: "ctrlNameplateClick",
@@ -142,6 +164,8 @@ export const CONTROL_TOGGLES = [
     icon: "address-card",
     title:
       "Click a seat's name plate and a plate of its actions opens on the coin",
+    // FT-1260: same expander; top of the list is the plate's FIRST row.
+    layoutKey: "ctrlPlateLayout",
   },
   {
     key: "ctrlDragRoles",
@@ -193,7 +217,10 @@ const CONTROL_TOGGLE_KEYS = CONTROL_TOGGLES.map((t) => t.key);
 function schemeToggles(scheme) {
   return {
     // FT-1227: the "click" scheme was both coin-click acts at once, so it
-    // lands on both halves of the split.
+    // lands on both halves of the split. (FT-1260.2: these two are stood
+    // down in turn — the picker migration below each conversion reads them
+    // AFTER this mapping lands, so a controlScheme-era stash chains
+    // scheme → booleans → pickers in one load.)
     ctrlClickName: scheme === "click",
     ctrlClickDead: scheme === "click",
     ctrlHoverCoins: scheme === "hover",
@@ -260,6 +287,75 @@ export const SETUP_LABELS = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// FT-1260: THE PER-MENU LAYOUTS — which seat actions each menu offers, and in
+// what order. The user: "make them open as drop down with a toggle for each
+// button that is there … and make them drag reorderable".
+//
+// SHAPE: an ordered array of `{ id, on }`, one element per vocabulary SLOT
+// (golem/seatActions' seatActionSlots — the nominate/ghost-vote pair is one
+// slot, so it is one orderable element). Array order IS the menu's order:
+//   ctrlRingLayout   top of the list = the hover ring's LEFTMOST coin
+//   ctrlPlateLayout  top of the list = the plate menu's FIRST row
+// `on: false` hides that slot from its menu (FT-1260's amendment to the
+// FT-1194 fixed-list rule — the note lives on seatActions' header).
+//
+// SANITIZED AGAINST THE VOCABULARY every read/write: unknown ids are
+// dropped, duplicates collapsed, and any slot the stored array is missing is
+// APPENDED (on) in that menu's default order — so a future eighth action
+// surfaces instead of vanishing because an old stash predates it. A bare
+// string element is accepted as `{ id, on: true }`.
+// ---------------------------------------------------------------------------
+
+/** The vocabulary's slot ids, in vocabulary order — resolved once; the
+ *  vocabulary is a static module list. */
+const SEAT_SLOT_IDS = seatActionSlots().map((s) => s.id);
+
+/**
+ * The ring's default order — FT-1219's user-verbatim arrangement ("going
+ * left to right: Move role, change role, pin, kill, nominate, whisper, move
+ * player"), which lived as SeatRing's hardcoded ORDER array until FT-1260
+ * made order a pref; that array's job moves here as the DEFAULT. Stated as
+ * slots, so nominate names the nominate/ghost-vote pair.
+ */
+const RING_DEFAULT_ORDER = [
+  "move-role",
+  "role",
+  "reminder",
+  "kill",
+  "nominate",
+  "whisper",
+  "move-player",
+];
+
+/** A full everything-on layout: the named ids first (unknown names dropped),
+ *  then whatever vocabulary slots the list left out, in vocabulary order. */
+function defaultLayout(order) {
+  const named = order.filter((id) => SEAT_SLOT_IDS.includes(id));
+  const rest = SEAT_SLOT_IDS.filter((id) => !named.includes(id));
+  return named.concat(rest).map((id) => ({ id, on: true }));
+}
+
+/** The layout prefs' half of `sanitize` — see the block note above. */
+function sanitizeLayout(value, fallback) {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(value) ? value : []).forEach((v) => {
+    const id = v && typeof v === "object" ? v.id : v;
+    if (!SEAT_SLOT_IDS.includes(id) || seen.has(id)) return;
+    seen.add(id);
+    out.push({ id, on: !(v && typeof v === "object" && v.on === false) });
+  });
+  fallback.forEach((d) => {
+    if (!seen.has(d.id)) out.push({ id: d.id, on: true });
+  });
+  return out;
+}
+
+/** The two layout keys — loadPrefs re-copies these so prefsState never
+ *  shares an array object with DEFAULT_PREFS. */
+const LAYOUT_KEYS = ["ctrlRingLayout", "ctrlPlateLayout"];
+
 /**
  * ICONS ONLY defaults OFF — the setup panel says the NAME of each setting
  * beside its mark until someone turns the words off.
@@ -286,14 +382,26 @@ export const DEFAULT_PREFS = {
   // in the stash and the account bag so an old value still means something,
   // read once per stash/bag to migrate onto its two halves, never consulted
   // by a live gesture.
+  // FT-1260.2: `ctrlClickName` / `ctrlClickDead` join it — read once per
+  // stash/bag to migrate onto the two picker keys below, never consulted
+  // by a live gesture.
   ctrlClickCoins: true,
   ctrlClickName: true,
   ctrlClickDead: true,
+  // FT-1260.2: the coin clicks' ASSIGNED ACTIONS — a vocabulary slot id or
+  // "off". The defaults are today's behaviour: the name click changes the
+  // role, the cog click kills.
+  ctrlClickNameAction: "role",
+  ctrlClickDeadAction: "kill",
   ctrlHoverCoins: true,
   ctrlNameplateClick: true,
   ctrlDragRoles: true,
   ctrlDragNames: true,
   ctrlReminderHover: true,
+  // FT-1260: the per-menu layouts — everything on, at each menu's standing
+  // order (the plate's is the vocabulary's own; the ring's is FT-1219's).
+  ctrlRingLayout: defaultLayout(RING_DEFAULT_ORDER),
+  ctrlPlateLayout: defaultLayout(SEAT_SLOT_IDS),
 };
 
 /** The live copy every surface reads. */
@@ -315,8 +423,22 @@ function sanitize(key, value) {
         : DEFAULT_PREFS.grimoireSize;
     // FT-1227: the stood-down key is no longer a CONTROL_TOGGLES row, but an
     // old stash/bag still carries it and the migrations still read it.
+    // FT-1260.2: the split's two booleans join it, for the same reason.
     case "ctrlClickCoins":
+    case "ctrlClickName":
+    case "ctrlClickDead":
       return !!value;
+    // FT-1260.2: a coin click's assignment — a vocabulary slot id, or "off".
+    case "ctrlClickNameAction":
+    case "ctrlClickDeadAction":
+      return value === "off" || SEAT_SLOT_IDS.includes(value)
+        ? value
+        : DEFAULT_PREFS[key];
+    // FT-1260: the per-menu layouts — vocabulary-checked, missing slots
+    // appended in that menu's default order. Always returns a NEW array.
+    case "ctrlRingLayout":
+    case "ctrlPlateLayout":
+      return sanitizeLayout(value, DEFAULT_PREFS[key]);
     default:
       // FT-1213: the control toggles are all plain booleans
       if (CONTROL_TOGGLE_KEYS.includes(key)) return !!value;
@@ -431,7 +553,14 @@ async function pullAccountPrefs(id) {
       // SERVER WINS where both exist — the account's value is the one that
       // followed the person here.
       const clean = sanitize(key, bag[wireKey]);
-      if (clean !== prefsState[key]) {
+      // FT-1260: the layout prefs are arrays, and sanitize always builds a
+      // fresh one — compare by content or every pull would count as a
+      // change and re-persist an identical stash.
+      const differs =
+        typeof clean === "object" && clean !== null
+          ? JSON.stringify(clean) !== JSON.stringify(prefsState[key])
+          : clean !== prefsState[key];
+      if (differs) {
         prefsState[key] = clean;
         changed = true;
       }
@@ -482,6 +611,39 @@ async function pullAccountPrefs(id) {
       seed[ACCOUNT_PREFIX + key] = on;
     });
   }
+  // FT-1260.2: A BAG FROM BEFORE THE PICKERS — a click switch in some
+  // generation's shape (the booleans landed via the main loop; a scheme or
+  // one-switch bag landed via the two conversions above) and neither picker
+  // wire key. Same rule as loadPrefs' own conversion: the mapping reads the
+  // POST-conversion prefsState booleans, replaces whatever the main loop
+  // queued for seeding, and the PATCH carries the mapped pair up so the bag
+  // is post-conversion from here on.
+  const nameActWire = ACCOUNT_PREFIX + "ctrlClickNameAction";
+  const deadActWire = ACCOUNT_PREFIX + "ctrlClickDeadAction";
+  if (
+    !(nameActWire in bag) &&
+    !(deadActWire in bag) &&
+    (ACCOUNT_PREFIX + "ctrlClickName" in bag ||
+      ACCOUNT_PREFIX + "ctrlClickDead" in bag ||
+      coinsWireKey in bag ||
+      oldWireKey in bag)
+  ) {
+    const mappedActs = {
+      ctrlClickNameAction: prefsState.ctrlClickName
+        ? DEFAULT_PREFS.ctrlClickNameAction
+        : "off",
+      ctrlClickDeadAction: prefsState.ctrlClickDead
+        ? DEFAULT_PREFS.ctrlClickDeadAction
+        : "off",
+    };
+    Object.keys(mappedActs).forEach((key) => {
+      if (prefsState[key] !== mappedActs[key]) {
+        prefsState[key] = mappedActs[key];
+        changed = true;
+      }
+      seed[ACCOUNT_PREFIX + key] = mappedActs[key];
+    });
+  }
   if (changed) {
     persistLocal();
     notifyPrefs();
@@ -513,6 +675,12 @@ export function loadPrefs() {
     raw = null;
   }
   Object.assign(prefsState, DEFAULT_PREFS);
+  // FT-1260: the layout defaults are arrays — re-copy them so the live state
+  // never shares an array object with DEFAULT_PREFS (a later in-place edit
+  // anywhere must not be able to rewrite the defaults).
+  LAYOUT_KEYS.forEach((k) => {
+    prefsState[k] = DEFAULT_PREFS[k].map((e) => ({ ...e }));
+  });
   if (raw && typeof raw === "object") {
     Object.keys(DEFAULT_PREFS).forEach((key) => {
       if (key in raw) prefsState[key] = sanitize(key, raw[key]);
@@ -544,6 +712,30 @@ export function loadPrefs() {
       const on = sanitize("ctrlClickCoins", raw.ctrlClickCoins);
       prefsState.ctrlClickName = on;
       prefsState.ctrlClickDead = on;
+      persistLocal();
+    }
+    // FT-1260.2: A STASH FROM BEFORE THE PICKERS — it carries a click
+    // switch in SOME generation's shape (the FT-1227 booleans, the FT-1213
+    // one-switch, or the original exclusive scheme) and neither picker key.
+    // The migrations above have already folded whichever it was onto
+    // prefsState's booleans, so the mapping reads THOSE, not raw: on = the
+    // click's standing act (the picker's own default), off = "off". Runs
+    // after both conversions above by design, persisted at once so it runs
+    // exactly one time per stash.
+    if (
+      !("ctrlClickNameAction" in raw) &&
+      !("ctrlClickDeadAction" in raw) &&
+      ("ctrlClickName" in raw ||
+        "ctrlClickDead" in raw ||
+        "ctrlClickCoins" in raw ||
+        "controlScheme" in raw)
+    ) {
+      prefsState.ctrlClickNameAction = prefsState.ctrlClickName
+        ? DEFAULT_PREFS.ctrlClickNameAction
+        : "off";
+      prefsState.ctrlClickDeadAction = prefsState.ctrlClickDead
+        ? DEFAULT_PREFS.ctrlClickDeadAction
+        : "off";
       persistLocal();
     }
   }

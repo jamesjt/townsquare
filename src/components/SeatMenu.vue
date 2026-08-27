@@ -51,8 +51,13 @@
     So the root stays here, unpainted, and only the plate travels.
   -->
   <div class="seat-menu-portal">
+    <!-- FT-1260: v-show, because an all-off layout means "the menu simply
+         doesn't open" — an empty glass plate is not a menu. v-show and not
+         v-if: hoist() adopts this element to <body> at mount and a v-if
+         would take the ref out from under that adoption. -->
     <ul
       class="seat-menu seat-plate"
+      v-show="rows.length"
       :style="style"
       ref="menu"
       :draggable="String(!!dragLive)"
@@ -61,7 +66,7 @@
       @mouseleave="$emit('release')"
     >
       <li
-        v-for="entry in entries"
+        v-for="entry in rows"
         :key="entry.id"
         :class="{ disabled: entry.disabled, on: entry.armed }"
         :title="entry.title"
@@ -94,6 +99,14 @@
 
 <script>
 import { centrePlateBox } from "../golem/clockFace";
+// FT-1260: the plate's row order and its hidden set are the storyteller's
+// own now (the Control tab's expander list writes `ctrlPlateLayout`;
+// golem/prefs sanitizes it against the vocabulary on every read/write).
+// Snapshot-refresh idiom, same as every prefs consumer — the module object
+// is not reactive. SEAT_SLOT_BY_ID folds the nominate/ghost-vote pair onto
+// its one layout slot.
+import { prefsState, PREFS_EVENT } from "../golem/prefs";
+import { SEAT_SLOT_BY_ID } from "../golem/seatActions";
 
 /** How far off the coin's own rim the SUPERSEDED side placement sat — the
  *  same 8px RoleHoverCard puts between itself and what it describes. Kept
@@ -145,7 +158,39 @@ export default {
     dragLive: { type: Boolean, default: false },
   },
   data() {
-    return { style: { top: "-9999px", left: "-9999px" } };
+    return {
+      style: { top: "-9999px", left: "-9999px" },
+      /** FT-1260: the plate's layout pref, snapshotted (readLayout refreshes
+       *  it on PREFS_EVENT). */
+      layout: (prefsState.ctrlPlateLayout || []).map((e) => ({ ...e })),
+    };
+  },
+  computed: {
+    /**
+     * FT-1260: THE ROWS THE PLATE DRAWS — the vocabulary's resolved entries,
+     * ordered by the layout pref (top of the list = first row) and minus the
+     * slots the storyteller turned off. An id the layout does not name keeps
+     * its vocabulary order after the named ones (the sanitizer appends
+     * missing slots anyway — this is the belt to those braces).
+     */
+    rows() {
+      const pos = {};
+      const off = {};
+      this.layout.forEach((e, i) => {
+        pos[e.id] = i;
+        off[e.id] = e.on === false;
+      });
+      const slotOf = (e) => SEAT_SLOT_BY_ID[e.id] || e.id;
+      const at = (e) => {
+        const i = pos[slotOf(e)];
+        return i === undefined ? this.layout.length : i;
+      };
+      return this.entries
+        .filter((e) => !off[slotOf(e)])
+        .map((e, i) => [e, i])
+        .sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1])
+        .map((p) => p[0]);
+    },
   },
   mounted() {
     this.hoist();
@@ -164,6 +209,9 @@ export default {
     // gone by then, so the first event this sees is the next press.
     document.addEventListener("mousedown", this.onOutsideDown);
     document.addEventListener("keydown", this.onOutsideKey);
+    // FT-1260: the layout pref can change under an open plate (the settings
+    // tab is a click away) — same snapshot-refresh idiom as every consumer.
+    window.addEventListener(PREFS_EVENT, this.readLayout);
   },
   beforeDestroy() {
     window.removeEventListener("scroll", this.onDismiss, true);
@@ -171,6 +219,7 @@ export default {
     document.removeEventListener("dragstart", this.onDismiss, true);
     document.removeEventListener("mousedown", this.onOutsideDown);
     document.removeEventListener("keydown", this.onOutsideKey);
+    window.removeEventListener(PREFS_EVENT, this.readLayout);
     // WE MOVED THE PLATE, SO WE PUT IT AWAY. Vue only ever removes this
     // component's ROOT, which never left the seat.
     const el = this.$refs.menu;
@@ -180,13 +229,19 @@ export default {
     anchor() {
       this.place();
     },
-    entries() {
-      // the rows changed (a seat died while its plate was open), so its size
-      // may have changed and the centring has to be re-solved
+    // FT-1260: was `entries` — the DRAWN list is what the plate's size
+    // follows now, and it moves when either the seat's facts or the layout
+    // pref does (a seat died under an open plate; a row toggled off).
+    rows() {
+      // its size may have changed, so the centring has to be re-solved
       this.$nextTick(this.place);
     },
   },
   methods: {
+    /** FT-1260: refresh the layout snapshot (PREFS_EVENT listener). */
+    readLayout() {
+      this.layout = (prefsState.ctrlPlateLayout || []).map((e) => ({ ...e }));
+    },
     pick(entry) {
       if (entry.disabled) return;
       this.$emit("pick", entry.id);

@@ -79,6 +79,13 @@
 
 <script>
 import { centrePlateRect } from "../golem/clockFace";
+// FT-1260: the ring's order and its hidden set are the storyteller's own now
+// (the Control tab's expander list) — this reads the layout pref the way
+// every prefs consumer does: a snapshot refreshed on PREFS_EVENT, because
+// prefsState is a plain module object. SEAT_SLOT_BY_ID folds the
+// nominate/ghost-vote pair onto its one layout slot.
+import { prefsState, PREFS_EVENT } from "../golem/prefs";
+import { SEAT_SLOT_BY_ID } from "../golem/seatActions";
 
 /** The hair between two rims — FT-1167's own, and proportional for its own
  *  reason: 4% of the coin's radius is ~2.5px on a five-seat town's coins and
@@ -146,6 +153,9 @@ export default {
        *  after it has laid out once — its width depends on the words in it,
        *  so nothing before the render can know it. */
       labelShift: { dx: 0, dy: 0 },
+      /** FT-1260: the ring's layout pref, snapshotted (readLayout refreshes
+       *  it on PREFS_EVENT — the module object is not reactive). */
+      layout: (prefsState.ctrlRingLayout || []).map((e) => ({ ...e })),
     };
   },
   computed: {
@@ -153,39 +163,40 @@ export default {
      * FT-1219 rider (user, verbatim): "put kill at the top of the hover
      * coins menu, left of that reminder pin, right of that nominate. So
      * going left to right: Move role, change role, pin, kill, nominate,
-     * whisper player, move player." Kill is the middle of the seven, so it
-     * sits at the arc's apex.
+     * whisper player, move player." That arrangement lived here as a
+     * hardcoded ORDER array until FT-1260 made the order (and a per-action
+     * hidden set) the storyteller's own: the Control tab's expander list
+     * writes `ctrlRingLayout` (golem/prefs), FT-1219's array is that pref's
+     * DEFAULT, and this computed just reads it — top of the list is the
+     * leftmost coin, the user's own mapping.
      *
-     * RING-SPECIFIC PRESENTATION, deliberately not a reshuffle of
-     * golem/seatActions — the plate menu reads that list and its order was
-     * not asked about. The vocabulary stays presentation-neutral; each
-     * surface owns its own arrangement, and this array is the ring's.
-     * `ghost-vote` trades places with `nominate` by life state in the
-     * vocabulary, so it takes nominate's position here. An id the array
-     * does not name keeps its vocabulary order, after the named ones — a
-     * new act appears at the arc's right end rather than vanishing.
+     * Still ring-specific presentation, not a reshuffle of golem/seatActions
+     * — the plate menu reads its OWN layout pref. The layout is keyed by
+     * SLOT (nominate names the nominate/ghost-vote pair, SEAT_SLOT_BY_ID
+     * folds an entry onto its slot), an id the layout does not name keeps
+     * its vocabulary order after the named ones (belt to the sanitizer's
+     * braces — golem/prefs appends missing slots on every read), and a slot
+     * turned off simply isn't drawn.
      *
      * The mirrored arc (a seat so near the window's top that the ring hangs
      * below the coin) flips Y only — `place()` keeps every x — so left to
      * right stays the USER'S left to right in both arcs by construction.
      */
     ringEntries() {
-      const ORDER = [
-        "move-role",
-        "role",
-        "reminder",
-        "kill",
-        "nominate",
-        "ghost-vote",
-        "whisper",
-        "move-player",
-      ];
+      const pos = {};
+      const off = {};
+      this.layout.forEach((e, i) => {
+        pos[e.id] = i;
+        off[e.id] = e.on === false;
+      });
+      const slotOf = (e) => SEAT_SLOT_BY_ID[e.id] || e.id;
       const at = (e) => {
-        const i = ORDER.indexOf(e.id);
-        return i < 0 ? ORDER.length : i;
+        const i = pos[slotOf(e)];
+        return i === undefined ? this.layout.length : i;
       };
       // stable: ties (unlisted ids) keep the vocabulary's own order
       return this.entries
+        .filter((e) => !off[slotOf(e)])
         .map((e, i) => [e, i])
         .sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1])
         .map((p) => p[0]);
@@ -237,6 +248,9 @@ export default {
     // receives that same event as it finishes bubbling.
     document.addEventListener("mousedown", this.onOutsideDown);
     document.addEventListener("keydown", this.onOutsideKey);
+    // FT-1260: the layout pref can change under an open ring (the settings
+    // tab is a click away) — same snapshot-refresh idiom as every consumer.
+    window.addEventListener(PREFS_EVENT, this.readLayout);
   },
   beforeDestroy() {
     window.removeEventListener("scroll", this.onDismiss, true);
@@ -244,6 +258,7 @@ export default {
     document.removeEventListener("dragstart", this.onDismiss, true);
     document.removeEventListener("mousedown", this.onOutsideDown);
     document.removeEventListener("keydown", this.onOutsideKey);
+    window.removeEventListener(PREFS_EVENT, this.readLayout);
     // We moved the ring, so we put it away — Vue only ever removes this
     // component's ROOT, which never left the seat.
     const el = this.$refs.ring;
@@ -253,14 +268,18 @@ export default {
     anchor() {
       this.place();
     },
-    entries() {
-      // a seat died under an open ring, so the fifth coin changed act — the
-      // COUNT is fixed at six, so nothing about the geometry moves, but the
-      // solve is cheap and re-running it keeps one code path
+    // FT-1260: was `entries` — the DRAWN list is what the geometry must
+    // match now, and it moves when either the seat's facts or the layout
+    // pref does (a slot toggled off under an open ring shrinks the arc).
+    ringEntries() {
       this.$nextTick(this.place);
     },
   },
   methods: {
+    /** FT-1260: refresh the layout snapshot (PREFS_EVENT listener). */
+    readLayout() {
+      this.layout = (prefsState.ctrlRingLayout || []).map((e) => ({ ...e }));
+    },
     pick(a) {
       if (a.disabled) return;
       this.$emit("pick", a.id);
@@ -405,7 +424,11 @@ export default {
       if (!el || !a || typeof a.getBoundingClientRect !== "function") return;
       const rect = a.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      const n = this.entries.length;
+      // FT-1260: the DRAWN count — the layout pref can hide slots, and a
+      // five-coin arc solved for seven would leave two gaps mid-fan. An
+      // everything-off layout draws no ring at all (the menu "doesn't
+      // open"), which is this early return.
+      const n = this.ringEntries.length;
       if (!n) return;
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
