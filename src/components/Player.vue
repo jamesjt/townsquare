@@ -564,9 +564,14 @@
       <!-- FT-1046 (user): spending the ghost vote no longer vanishes the
            cowl — it crosses out and fades, and a click toggles the state
            back, so a misclick is one click to undo. -->
+      <!-- FT-1249 (user): "make it so it just sits where the nomination hand
+           is if the player is dead" — the cowl takes the hand's own corner,
+           riding the same side fact (points-right mirrors with the seat),
+           instead of always-right. Dead players don't nominate, so the two
+           marks never want the corner at once (the vocabulary's own rule). -->
       <div
         class="has-vote ghost-vote"
-        :class="{ spent: player.isVoteless }"
+        :class="{ spent: player.isVoteless, 'points-right': nominateMarkMirrored }"
         v-if="!showBallotVote && player.isDead"
         @click="updatePlayer('isVoteless', !player.isVoteless)"
         :title="player.isVoteless ? 'Ghost vote spent' : 'Ghost vote'"
@@ -5040,6 +5045,15 @@ li.nominate .player .overlay .nominate-target {
  * unspent ghost vote. `ui-ghost-vote-cowl.png` (the hand) joins the unreferenced
  * retirees below. */
 .player .has-vote.ghost-vote {
+  /* FT-1249: the hand's own corner rule (FT-1073b), verbatim — native side
+     left, the mirrored seat keeps the right. The base .has-vote right-anchor
+     (the ballot box's) no longer reaches this mark. */
+  left: 2px;
+  right: auto;
+  &.points-right {
+    left: auto;
+    right: 2px;
+  }
   width: 30px;
   height: 30px;
   background: url("../assets/ui-ghost-cowl.png") center center / contain
