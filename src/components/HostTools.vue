@@ -854,8 +854,25 @@
          is untouched — same golem/prefs stash, same account sync; only where
          the rows render changed. `.ht-settings` is reused deliberately (the
          two blocks are mutually exclusive v-ifs) so the lines inherit the
-         settings tab's own layout instead of restating it. -->
-      <div class="row ht-settings ht-prefs" v-if="prefsTab">
+         settings tab's own layout instead of restating it.
+
+         FT-1231 (user): "it is still too long for the clock face — we either
+         need to make it scroll like the roles or have two columns." BOTH,
+         layered: the toggle rows take two columns wherever the disc's band
+         affords them (see the styles), and where the tab STILL outruns the
+         band it becomes its own scroller — the same measured-overflow
+         contract the night checklist (NightSheet's `scrolls` well, FT-1229)
+         and the character tray (RoleTray's `cut`, FT-1175) already keep:
+         `v-blood-scroll` is the fork's drip scrollbar, and the `scrolls`
+         class (the sunken well + the drip's lane) lands only when the rows
+         genuinely overflow, measured in measurePrefsOverflow. -->
+      <div
+        class="row ht-settings ht-prefs"
+        v-if="prefsTab"
+        ref="prefsRows"
+        :class="{ scrolls: prefsOverflow }"
+        v-blood-scroll
+      >
         <span class="ht-set-line">
           <span class="tw-lead">
             <span class="label">
@@ -1319,6 +1336,16 @@ export default {
     // because the tabs' widths are type.
     this.$nextTick(this.alignTabs);
     window.addEventListener("resize", this.alignTabs);
+    // FT-1231: overflow is re-asked whenever the box's height can change —
+    // resize here, every re-render via updated() (which is also what covers
+    // the tab switch that mounts the rows at all), and once the display
+    // fonts land (same reason alignTabs waits for them: the rows' names are
+    // type, and a fallback-font transient must not latch the answer).
+    window.addEventListener("resize", this.measurePrefsOverflow);
+    this.$nextTick(this.measurePrefsOverflow);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(this.measurePrefsOverflow);
+    }
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(this.alignTabs);
     }
@@ -1370,6 +1397,13 @@ export default {
       // own idiom for the same fact. Dresses the "Hover coins" row inert on
       // a coarse pointer.
       hasHover: true,
+      // FT-1231: does the Control tab hold more rows than its box can show?
+      // Only ever true on the disc, where the band is a fixed slice of the
+      // circle and the tab is its own scroller — everywhere else the panel
+      // scrolls and the box is content-sized. Measured, never assumed
+      // (measurePrefsOverflow); drives the `scrolls` well, the same contract
+      // NightSheet's rowsOverflow and RoleTray's overflowing keep.
+      prefsOverflow: false,
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
@@ -1447,6 +1481,15 @@ export default {
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
     // FT-1209: the strip's alignment listener (bound in mounted)
     window.removeEventListener("resize", this.alignTabs);
+    // FT-1231: the Control tab's overflow listener (bound in mounted)
+    window.removeEventListener("resize", this.measurePrefsOverflow);
+  },
+  /** FT-1231: any re-render can change the Control tab's content height (a
+   *  toggle's row count never changes, but the tab mounts/unmounts and the
+   *  disc gate flips the box it lives in) — re-ask after the DOM settles.
+   *  Guarded write in measurePrefsOverflow, so this cannot loop. */
+  updated() {
+    this.measurePrefsOverflow();
   },
   computed: {
     // FT-1133: `chat` is here for `gameUnderway` alone — `chat.gameId` is the
@@ -2232,6 +2275,36 @@ export default {
     /** The watcher half of alignTabs — measure after the DOM settles. */
     queueAlignTabs() {
       this.$nextTick(this.alignTabs);
+    },
+    /**
+     * FT-1231: does the Control tab overflow its box? scrollHeight against
+     * clientHeight on the one scroll container, +1 for the sub-pixel
+     * rounding browsers report on scaled boxes — NightSheet's
+     * measureRowsOverflow, with one addition that component never needed:
+     * the question is asked IN THE FITTED DRESS. `scrolls` changes the very
+     * layout being measured (the drip's 30px lane comes back, the toggle
+     * rows give up their two columns — see the disc styles), so measuring
+     * the scrolled state answers "does the scrolled dress overflow?", which
+     * is yes forever — a ratchet the first cut of this rig actually caught
+     * (lane → narrower cells → taller wrap → still overflowing). The class
+     * comes off for the read and straight back on, so the answer is always
+     * "do the rows overflow the box in the two-column dress?" — one truth,
+     * whichever state asks it. Guarded write so the updated() hook that
+     * calls this cannot loop. Only the disc constrains the box's height
+     * (the rectangle and both phone sheets scroll the whole panel), so
+     * `scrolls` can only ever land there.
+     */
+    measurePrefsOverflow() {
+      const el = this.$refs.prefsRows;
+      if (!el) {
+        if (this.prefsOverflow) this.prefsOverflow = false;
+        return;
+      }
+      const had = el.classList.contains("scrolls");
+      if (had) el.classList.remove("scrolls");
+      const over = el.scrollHeight > el.clientHeight + 1;
+      if (had) el.classList.add("scrolls");
+      if (over !== this.prefsOverflow) this.prefsOverflow = over;
     },
     startRename() {
       if (!this.ownedKey) return;
@@ -3573,8 +3646,8 @@ export default {
     }
   }
 
-  // ── FT-1227: THE CONTROL TOGGLES IN TWO COLUMNS ─────────────────────────
-  // Nine personal rows now (the FT-1227 split made seven toggles) and a
+  // ── FT-1227 → FT-1231: THE CONTROL TOGGLES IN TWO COLUMNS ───────────────
+  // Nine personal rows (the FT-1227 split made seven toggles) and a
   // one-per-line list had grown taller than the disc's band wants to be.
   // THE TOGGLE ROWS ALONE take the two columns (`.ht-ctrl-row`): they are
   // the long run AND the uniform one — mark + name + On/Off. Setup panel
@@ -3582,36 +3655,62 @@ export default {
   // WORDS ("Names and icons", "Small") and a half-cell cannot hold them —
   // measured: the first cut put all nine rows in columns and the Setup row
   // overwrote its neighbour.
-  // Each cell's cluster stretches (`flex: 1 1 auto` against .tw-lead's own
-  // `0 1 auto`) so every On/Off lands on its column's right edge and the
-  // two columns read as columns rather than a rag. Declared AFTER the
-  // `.ht-settings` block above so it wins its equal-specificity
-  // `flex: 1 1 100%`.
-  // WIDE FINE-POINTER WINDOWS ONLY — the narrow-layout call, measured
-  // rather than assumed: the widest row ("Nameplate click" + its switch)
-  // needs ~209px of cell even with its name stepped to 80%, and the band
-  // only affords that from ~1700px of viewport up (1706x960 disc: cell
-  // 209, zero rows over; 1440-1600 disc: cell 196, two rows overwrote
-  // their neighbours; 1280x800 rectangle: cell 176, five rows over). So
-  // BELOW 1700px — the narrow rectangle, the floor disc, and both phone
-  // sheets — the tab keeps the single column it has always had: those
-  // faces scroll or fold, so height is the cheap axis there. From 1700px
-  // the disc and the wide rectangle take the two columns, and the toggle
-  // names step to 80% inside the same gate (the compaction that makes the
-  // widest row fit its cell; the two full-width rows keep the panel size).
-  @media (pointer: fine) and (min-width: 1700px) {
-    .ht-prefs {
-      column-gap: 12px;
-      > .ht-set-line.ht-ctrl-row {
-        flex: 0 1 calc(50% - 6px);
-        > .tw-lead {
-          flex: 1 1 auto;
-          justify-content: space-between;
-        }
-        .row-name {
-          font-size: 80%;
-        }
-      }
+  //
+  // FT-1231 SUPERSEDES THE 1700px GATE. FT-1227 measured its floor against
+  // one-line names ("Nameplate click", ~209px of cell) and gated on viewport
+  // width; FT-1230 then renamed the rows LONGER in the user's own words
+  // ("Click role name to change role"), which broke every one of those
+  // numbers — one column overflowed the disc, and two one-line columns fit
+  // nowhere at all. The rows' NAMES WRAP now (the license the full-line rows
+  // never get), so a cell's floor is its longest half-line plus its switch,
+  // not its longest sentence. There is NO viewport gate any more: the rule
+  // lives inside the disc gate (see `.ht-body`'s FT-1231 block) and whether
+  // the two columns actually SHOW is the same measured question as whether
+  // the tab scrolls — one measurement, one class, because the fit depends
+  // on band height against TYPE SIZE, and the app's type steps on viewport
+  // WIDTH while the disc is usually sized by viewport HEIGHT. Measured on
+  // the live build (rig: claude_temp_test/2026-08-27-ft1231-proof.mjs):
+  //   1000x900 / 1280x960     19.4px type  cells 196  two columns, fits
+  //   1706x960 / 1920x1080    ~23px type   cells 209-234  two columns, fits
+  //   1440x900 / 1600x900 /   23px type on the SAME fpx=1 disc as 1000x900
+  //     1642x780              — two-column content 283px against a 255px
+  //                             box: the tab wears the scroll dress instead
+  // The rectangle and both phone sheets keep the single column they have
+  // always had: those faces scroll the whole panel, so height is the cheap
+  // axis there.
+  //
+  // AND THE TAB IS ITS OWN SCROLLER WHERE IT MUST BE (the user's other
+  // half: "make it scroll like the roles"). On the disc the band cannot
+  // grow, so if the rows ever outrun it — icons-off at the floor disc, a
+  // future eighth toggle — the box scrolls under the fork's own drip bar
+  // (`v-blood-scroll`, the character tray's and the night checklist's
+  // scrollbar) and wears the sunken well below, the app's measured-overflow
+  // vocabulary (NightSheet `.ns-rows.scrolls`, FT-1229). The class lands
+  // only when the rows genuinely overflow (measurePrefsOverflow) — a tab
+  // that fits keeps the panel's own flat ground.
+  .ht-prefs {
+    // THE DRIP'S LANE, ONLY WHERE THE DRIP CAN DRAW. `v-blood-scroll`
+    // reserves a 30px gutter on every host as an inline style — right on a
+    // box that scrolls, pure loss on the three faces where the panel is the
+    // scroller and this box never can (the switches would sit 30px shy of
+    // every other row's right edge). Same tool RoleTray's portrait rule
+    // uses against the same inline style, and for the same reason:
+    // `!important` because a plain inline declaration outranks every normal
+    // rule in the sheet. The disc's own block re-opens the lane the moment
+    // the box actually scrolls (`.scrolls`, below in the band rules).
+    padding-right: 0 !important;
+    // the sunken well — NightSheet's `.ns-rows.scrolls` recipe, verbatim:
+    // a recessed ground, a hairline black edge, and an inset bite at the
+    // two edges where the cut-off content actually is. Stated here (not in
+    // the disc block) because it is the vocabulary, not the geometry — but
+    // it can only ever LAND on the disc, the one face that bounds the box.
+    &.scrolls {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 8px;
+      box-shadow:
+        inset 0 9px 10px -7px rgba(0, 0, 0, 0.9),
+        inset 0 -9px 10px -7px rgba(0, 0, 0, 0.9),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.5);
     }
   }
 
@@ -4059,6 +4158,109 @@ export default {
       // itself never changes, only how tight its own two clusters sit.
       .ht-set-line {
         gap: 8px;
+      }
+
+      // ── FT-1231: THE CONTROL TAB FITS THE BAND, TWO WAYS ────────────────
+      //
+      // 1. THE BOX GIVES. The band's own rule two screens up is "nothing
+      // shrinks except the tray" (`> .row { flex-shrink: 0 }`), and it is
+      // exactly right for the build face — but on the Control tab there IS
+      // no tray, and the nine personal rows were the band's only content and
+      // still overflowed it: past the foot, past the rim, "too long for the
+      // clock face" (the user, verbatim). So on this ONE row the band's rule
+      // is overridden: the tab is the child whose height gives, and it
+      // scrolls the rest — the same shock-absorber contract the tray keeps
+      // on the build face (`RoleTray`'s FT-888 block), stated on the tab
+      // because the tab is the tray's stand-in here.
+      // `align-content: flex-start` because a flex-wrap box told to shrink
+      // would otherwise SPREAD its lines over any slack height (the default
+      // stretch), and a settings list floats apart exactly when it has room
+      // to spare — the one state it should look calmest in.
+      > .row.ht-settings.ht-prefs {
+        flex-shrink: 1;
+        min-height: 0;
+        overflow-y: auto;
+        align-content: flex-start;
+        // the drip's lane comes back the moment the box actually scrolls
+        // (`scrolls` is measured — see measurePrefsOverflow): 30px is
+        // `v-blood-scroll`'s own LANE, the constant RoleTray's fitTile
+        // already reads as "the blood-drip scrollbar reserves its 30px lane
+        // AS padding". `!important` against the same inline style the base
+        // rule zeroes; later in the sheet, so it wins that tie.
+        //
+        // AND THE WELL COMES IN OFF THE RIM. The band's +26px flex-basis
+        // extension (see `.ht-body` above) runs the band's bottom PAST the
+        // inscribed chord — safe under the build face, whose bottom child
+        // is a tray of round coins with transparent corners, but this well
+        // is a square-cornered box full of square-cornered rows, and at the
+        // fpx = 1 discs that scroll (1440-1642 wide at 900/780 tall, where
+        // the viewport font step outgrows the band) the bottom row's ink
+        // measured 9px OUTSIDE the ellipse at the box's left corner. 18px
+        // off each side brings that corner to +6px inside (measured, same
+        // rig); the rows lose 36px they do not miss — full-width one-line
+        // rows in this dress.
+        &.scrolls {
+          padding-right: 30px !important;
+          margin-left: 18px;
+          margin-right: 18px;
+        }
+
+        // 2. THE TOGGLE ROWS TAKE TWO COLUMNS — the FT-1227 dress, re-cut
+        // for the FT-1230 names (the full derivation sits on `.ht-prefs`'s
+        // own block, base styles). The one new license: a toggle's NAME MAY
+        // WRAP inside its cell — the mark holds the left edge, the switch
+        // holds the right, and "Click role name to change role" takes two
+        // quiet lines between them. That license is what makes two columns
+        // possible at all after FT-1230 — one-line names want ~281px of
+        // cell and fit two columns on no disc; two-line names run 196px
+        // cells at the floor discs and fit (rig:
+        // claude_temp_test/2026-08-27-ft1231-proof.mjs). The two full-width
+        // rows (Setup panel, Grimoire size) keep their one-line names and
+        // full lines, as before. Which sizes fit two columns and which wear
+        // the scroll dress instead is a TYPE question, not a disc-size one
+        // — the size table lives on the base `.ht-prefs` block with the
+        // rest of the derivation.
+        //
+        // FITTED DRESS ONLY (`:not(.scrolls)`). In the scrolled state the
+        // drip's lane has taken 30px of the box, and two columns of that
+        // width push the long names to a THIRD line — squeezed columns
+        // inside a scroller is the worst of both shapes. So the well shows
+        // the rows FULL WIDTH, one per line (the base `.ht-set-line` rule
+        // simply resumes), which is also the user's own either/or read back
+        // as a ladder: two columns where they fit, the roles' scroll where
+        // they cannot.
+        &:not(.scrolls) {
+          column-gap: 12px;
+          > .ht-set-line.ht-ctrl-row {
+            flex: 0 1 calc(50% - 6px);
+            > .tw-lead {
+              flex: 1 1 auto;
+              justify-content: space-between;
+              // the name's wrap license needs the whole chain shrinkable —
+              // a flex item's min-width:auto would otherwise hold the cell
+              // to the name's one-line width and overwrite the neighbour
+              // column (FT-1227's own failure case, measured then too)
+              min-width: 0;
+              flex-wrap: nowrap;
+            }
+            .label {
+              min-width: 0;
+            }
+            // the mark holds the cell's left edge and the switch (`.gsel`,
+            // OptionSelect's root) its right — only the name gives
+            .row-mark,
+            .row-mark-fa,
+            .gsel {
+              flex-shrink: 0;
+            }
+            .row-name {
+              font-size: 80%;
+              white-space: normal;
+              text-align: left;
+              line-height: 1.25;
+            }
+          }
+        }
       }
 
       // THE CLAIMED COUNT FOLDS INTO THE ROW'S TOOLTIP — a JUDGEMENT CALL, and
