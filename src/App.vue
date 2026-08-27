@@ -425,7 +425,16 @@
          end" gate, and anything added to it later — a confirmation, say —
          covers the key at the same moment it covers the button, because they
          are one function and not two. -->
-    <NightSheet ref="nightSheet" v-if="showNightSheet" />
+    <!-- FT-1220: the sheet wears the summons bell above its foot phase
+         button now (desktop disc only) — the cooldown state and the ring
+         stay HERE (one timer for whichever bell copy is on screen), the
+         sheet only wears the state and emits. -->
+    <NightSheet
+      ref="nightSheet"
+      v-if="showNightSheet"
+      :call-back-cooling="callBackCooling"
+      @call-back="callTownBack"
+    />
     <!-- THE ARMED CHARACTER'S CARD (touch).
          Every hover card in the app declines to appear without a mouse, which
          is right — and left a touch storyteller with nowhere to read what a
@@ -490,7 +499,11 @@
            `aria-label` standing in for the vanished visible label. No
            confirm and no arm-then-press: nothing to undo, and a summons
            that takes two clicks arrives after the conversation it meant to
-           interrupt. -->
+           interrupt.
+           FT-1220: on the desktop disc this copy stands down by CSS while
+           the night sheet is mounted — the bell rides the disc's foot
+           there, right above the phase button (NightSheet's .foot-bell,
+           same handler via emit). See the gated rule below. -->
       <button
         type="button"
         class="post-bell"
@@ -3183,6 +3196,20 @@ video#background {
 // disc foot to move to, and this column keeps the job FT-1063 gave it.
 @include face-disc-gate {
   .storyteller-post .post-phase.is-live {
+    display: none;
+  }
+
+  // FT-1220: THE BELL MOVED THE SAME WAY. "Put the call back button right
+  // above the end day button" — while the night sheet is mounted (a live
+  // town's day or night), the disc's foot carries the summons bell right
+  // above the phase button (NightSheet's `.foot-bell` copies, wearing this
+  // file's own unscoped `.post-bell` dress), so the column's copy stands
+  // down exactly as the live phase chip does above: display:none, in
+  // place, never unmounted. `night-sheet-up` rides #app (the sheet's own
+  // mount condition, published as a class), which is what keeps BUILDING
+  // honest — no sheet, no disc bell, and this column keeps the bell it has
+  // had since FT-1063. Below the gate nothing changes either.
+  #app.night-sheet-up .storyteller-post .post-bell {
     display: none;
   }
 }

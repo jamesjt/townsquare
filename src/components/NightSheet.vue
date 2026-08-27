@@ -608,6 +608,21 @@
            TOLD, and this list is the storyteller's own bookkeeping — no
            player ever receives a rendering of it, so it shows what helps
            the storyteller pick the right chair. -->
+      <!-- FT-1220: the bell at night, with the checklist out. The staged
+           line (FT-1173) already stands directly above End night, so the
+           bell tops the FOOT STACK instead of colliding with it: bell /
+           Deaths line / End night, one centred column. Same emitted ring,
+           same shared skin as the day copy below the list. -->
+      <button
+        type="button"
+        class="post-bell foot-bell"
+        :class="{ cooling: callBackCooling }"
+        :title="bellTitle"
+        :aria-label="bellTitle"
+        @click="$emit('call-back')"
+      >
+        <font-awesome-icon icon="bell" class="post-bell-mark" />
+      </button>
       <div class="ns-staged" v-if="roster.length || staged.length">
         <span
           class="ns-staged-label"
@@ -681,6 +696,28 @@
          sun/moon marks are FT-882's own pf-* pair, standing since the
          flanking marks came off the old pill ("the marks may yet come back
          somewhere on this sheet" — they are back). -->
+    <!-- FT-1220: THE SUMMONS BELL, RIGHT ABOVE THE PHASE BUTTON. "Put the
+         call back button right above the end day button" — and the same foot
+         holds End night when the checklist is off, so the bell rides above
+         the phase button in BOTH phases rather than jumping back to the left
+         column at dusk. The bell is still App.vue's: the cooldown state and
+         the ring live there (one timer, whichever copy of the bell is on
+         screen), this copy only wears the state and emits. Same dress too —
+         `.post-bell` is App.vue's own UNSCOPED skin, reused rather than
+         copied. Desktop-disc only, by CSS, exactly like `.foot-day` below;
+         below the gate App.vue's left column keeps the bell it has had
+         since FT-1063. -->
+    <button
+      v-if="!showList"
+      type="button"
+      class="post-bell foot-bell"
+      :class="{ cooling: callBackCooling }"
+      :title="bellTitle"
+      :aria-label="bellTitle"
+      @click="$emit('call-back')"
+    >
+      <font-awesome-icon icon="bell" class="post-bell-mark" />
+    </button>
     <button
       v-if="!showList"
       type="button"
@@ -756,6 +793,14 @@ import {
 export default {
   name: "NightSheet",
   components: { SeatPicker, CharacterPicker, NumberScrub, OptionSelect },
+  props: {
+    // FT-1220: the summons bell's cooldown — App.vue owns the timer and the
+    // ring itself (callTownBack / callBackCooling); this sheet only wears
+    // the state on its foot-stack bell and emits `call-back` when pressed,
+    // so the disc bell and the below-the-gate column bell share ONE cooling
+    // clock rather than each keeping its own.
+    callBackCooling: { type: Boolean, default: false },
+  },
   data() {
     return {
       // FT-874: rows the "end night" button just pointed at because the
@@ -812,6 +857,12 @@ export default {
     ...mapGetters("night", ["isFirstNight"]),
     isNight() {
       return this.grimoire.isNight;
+    },
+    /** FT-1220: the bell's two voices — App.vue's own strings, verbatim. */
+    bellTitle() {
+      return this.callBackCooling
+        ? "Just called the town back"
+        : "Call the town back — everyone hears a sound";
     },
     /** The checklist shows at night, and only when the sheet is switched on. */
     showList() {
@@ -1876,11 +1927,29 @@ $ns-team-colors: (
       // scroll; the button must clear the rim; the band is the one child
       // that can pay. (30px = the line's 24px height + its 6px margin,
       // pinned below so the sum cannot drift.)
+      //
+      // FT-1220: + 44px MORE for the bell — the summons bell joined the
+      // foot stack above the staged line (its 36px box + its 8px top gap,
+      // pinned below), and the band pays for it exactly as it pays for the
+      // line, for the same reason: End night must stay on the arc-cleared
+      // mark.
       > .ns-rows {
         @include face-disc-band;
-        flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) - 30px);
+        flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) - 30px - 44px);
         flex-shrink: 1;
         min-height: 0;
+      }
+
+      // FT-1220: the bell at night — the top of the FOOT STACK (bell /
+      // staged Deaths line / End night, one centred column; "right above
+      // the end day button" during the day, and at night the same spot
+      // with the staged line keeping its own place directly above the
+      // button). A pinned flex child like the staged line; the band above
+      // pays its height. Skin is App.vue's unscoped `.post-bell`.
+      > .post-bell.foot-bell {
+        display: inline-flex;
+        flex: 0 0 auto;
+        margin-top: 8px;
       }
 
       // FT-1173: the staged row, ONE line on the disc — its height is the
@@ -2111,7 +2180,11 @@ $ns-team-colors: (
       // residual this pass reports rather than moves).
       &::before {
         content: "";
-        flex: 0 0 calc(var(--fd-d) - var(--fd-caph) + 34px);
+        // FT-1220: minus the bell's 44px (its 36px box + the 8px gap below
+        // it) — the summons bell joined this column ABOVE the button, and
+        // the filler pays for it, so the phase button itself never leaves
+        // the mark the measurement above was taken on.
+        flex: 0 0 calc(var(--fd-d) - var(--fd-caph) + 34px - 44px);
       }
 
       // the retired FT-975 pill steps out of the flex flow — its box-keeping
@@ -2119,6 +2192,24 @@ $ns-team-colors: (
       // this column it would push the foot button off its mark.
       .phase.pill.retired {
         position: absolute;
+      }
+
+      // FT-1220: THE BELL, RIGHT ABOVE THE PHASE BUTTON. A plain flex child
+      // of the same centred column, wearing the button's own foot translate
+      // (the same --fd-foot-dy / --fd-foot-adj expression face-disc-foot
+      // resolves), so the pair moves as ONE object and the 8px below the
+      // bell stays 8px at every disc size and window — no absolute
+      // positioning, no hand-tuned offsets. Its box height is paid by the
+      // ::before filler above. The skin is App.vue's own unscoped
+      // `.post-bell` dress; only placement lives here.
+      > .post-bell.foot-bell {
+        display: inline-flex;
+        pointer-events: auto;
+        flex: 0 0 auto;
+        margin-bottom: 8px;
+        transform: translateY(
+          calc(var(--fd-foot-dy, 14px) + var(--fd-foot-adj, 0px))
+        );
       }
 
       > .phase-flip.foot-day {
@@ -2270,6 +2361,16 @@ $ns-team-colors: (
       width: 46px;
     }
   }
+}
+
+// FT-1220: the foot-stack bell exists ONLY where the disc does — same rule,
+// same reason as `.phase-flip.foot-day` below (below the face-disc gate the
+// left column keeps the bell; see App.vue's `.post-bell` and its gated
+// stand-down). The gated rules that turn this on live with the disc
+// geometry above, one per column state. This scoped rule outweighs the
+// unscoped `.post-bell` skin's display, which is the point.
+.foot-bell {
+  display: none;
 }
 
 .phase-flip {
