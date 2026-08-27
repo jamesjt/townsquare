@@ -183,7 +183,9 @@ export const HOTKEYS = [
     note: "The chronicle, filtered to nominations and votes",
   },
   {
-    key: "1–4",
+    // FT-1226: "1-4" with a plain hyphen — the guide's rendered strings are
+    // em/en-dash free, and this key cell renders in the Keys chapter.
+    key: "1-4",
     who: "all",
     // FT-1019: live only while the chronicles drawer is out — the four
     // filter cells in their on-screen order.

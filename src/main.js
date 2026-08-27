@@ -132,10 +132,13 @@ Vue.directive("blood-scroll", BloodScroll);
 // FT-1202: the personal prefs watch that same fact — bound BEFORE the /me
 // ask fires, so the boot answer is caught exactly like any later login and
 // the account's saved prefs come down with it (golem/prefs' account sync).
-import { initAccount } from "./golem/account";
+// FT-1226: and ask which flags are on for this caller — `labs` decides
+// whether the guide's doors render at all (session.labs; Menu + App gates).
+import { initAccount, initFlags } from "./golem/account";
 import { bindPrefsAccount } from "./golem/prefs";
 bindPrefsAccount(store);
 initAccount(store);
+initFlags(store);
 
 new Vue({
   render: (h) => h(App),

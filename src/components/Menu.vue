@@ -117,7 +117,15 @@
           <!-- FT-1202: the guide's open state lives in App.vue
                (hotkeyHelpOpen — this strip only emits), so the lit fact
                arrives as a prop rather than a second flag that could drift. -->
+          <!-- FT-1226 (user): "hide it for now unless labs is on, its not
+               good enough." The lantern stands behind the platform's `labs`
+               flag (session.labs, fetched at boot from /api/flags/self) —
+               hidden for everyone until the guide earns its place, visible
+               to the tester cohort the flag's exception list names. Stood
+               down, not deleted; the same gate covers the entry strip's
+               lantern below and the panel itself (App.vue). -->
           <img
+            v-if="session.labs"
             :src="uiHelp"
             :class="{ lit: guideOpen }"
             alt="The guide"
@@ -266,7 +274,9 @@
                itself opens on that very chapter for them; see
                HotkeyHelp.vue's created()). Same mark, same emit, and the
                same App.vue listener answers both strips. -->
+          <!-- FT-1226: behind `labs`, same as the in-game lantern above. -->
           <img
+            v-if="session.labs"
             :src="uiHelp"
             :class="{ lit: guideOpen }"
             alt="The guide"

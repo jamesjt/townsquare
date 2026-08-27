@@ -62,6 +62,12 @@ const state = () => ({
   // door's sign-in/out). Session state, not game state: not synced, not
   // persisted (the cookie is the persistence), no prevX snapshot.
   account: null,
+  // FT-1226: LABS — is the platform's `labs` flag on for THIS caller? Written
+  // only by golem/account.js's boot fetch of /api/flags/self. Default false:
+  // an unreachable platform, a failed fetch or a switched-off flag all mean
+  // the unfinished surfaces (currently the guide) stay hidden. Session state
+  // like `account` above: not synced, not persisted, no prevX snapshot.
+  labs: false,
   // FT-1200: THE HOST'S SEAT-ACCOUNT LEDGER — playerId → accountId for every
   // claimant who offered one (socket.js's "accountId" direct frame). Host
   // side only; players never hold it. Resolved through each seat's live
@@ -94,6 +100,8 @@ const mutations = {
   distributeRoles: set("isRolesDistributed"),
   // FT-1200: the platform account (or null on sign-out) — see the state note.
   setAccount: set("account"),
+  // FT-1226: the caller's own `labs` verdict — see the state note.
+  setLabs: set("labs"),
   // FT-1200: one claimant's account offer, keyed by the playerId their claim
   // rides under (exact case — it must match the `player.id` the host's
   // roster holds, which is the same value from the same claim frame).

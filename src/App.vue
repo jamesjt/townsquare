@@ -468,7 +468,15 @@
     ></Menu>
     <!-- FT-880: the key list. The app has had hotkeys since upstream and has
          never told anyone; this is the first surface that does. -->
-    <HotkeyHelp v-if="hotkeyHelpOpen" @close="hotkeyHelpOpen = false" />
+    <!-- FT-1226 (user): the guide hides unless the platform's `labs` flag is
+         on for this caller — the lanterns that open it (Menu.vue, both
+         strips) wear the same gate, and this v-if is the second door in case
+         anything else ever sets the flag. Costs accepted by the user: the
+         Keys chapter is the app's only hotkeys reference and hides with it. -->
+    <HotkeyHelp
+      v-if="session.labs && hotkeyHelpOpen"
+      @close="hotkeyHelpOpen = false"
+    />
     <!-- FT-847: ref'd so Intro can auto-load an owned town's saved script
          through the same vault path as a ?script= link. -->
     <EditionModal ref="edition" />

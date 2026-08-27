@@ -74,6 +74,26 @@ export async function initAccount(store) {
   }
 }
 
+/**
+ * FT-1226: LABS. Ask the platform which feature flags are on FOR THIS CALLER
+ * (`GET /api/flags/self` — evaluated verdicts, booleans only; the cookie makes
+ * an excepted account read true while the flag is off for everyone else) and
+ * keep the one this app acts on: `labs`, the door to unfinished surfaces —
+ * currently the guide and nothing else. Best-effort like the /me ask above:
+ * any failure means labs stays false and the guide stays hidden, which is the
+ * flag's own default. Called once at boot (main.js), beside initAccount.
+ */
+export async function initFlags(store) {
+  try {
+    const res = await fetch("/api/flags/self");
+    if (!res.ok) return;
+    const { flags } = await res.json();
+    store.commit("session/setLabs", !!(flags && flags.labs));
+  } catch {
+    // no platform in reach — labs off, exactly what the flag ships as
+  }
+}
+
 /** Sign in. Resolves to the account; throws Error(server's message). */
 export async function login(store, email, password) {
   const res = await fetch(`${API}/login`, {
