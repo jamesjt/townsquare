@@ -45,60 +45,80 @@
              below, rather than a second copy routine. Only the copied-flash
              TIMER is a local echo of App.vue's own (each button owns its own
              tick, same as the pill owns its). -->
-        <button
-          type="button"
-          class="ht-copy-link"
-          @click="copyTownLink"
-          :title="linkCopied ? 'Copied!' : 'Copy the town link'"
-        >
-          <font-awesome-icon :icon="linkCopied ? 'check' : 'link'" />
-        </button>
-        <!-- FT-1202 (user): THE SETTINGS GEAR LIVES HERE NOW — "remove it
-             from the main page, and in while a user is hosting a game put it
-             inline with the town name." Every row behind it (Setup panel /
-             Control scheme / Grimoire size) is a storyteller concern, and
-             the storyteller's own panel head is where the storyteller is; the
-             corner strips it used to stand in are stood down (Menu.vue). A
-             player never renders this panel, so the host gate rides for free.
+        <!-- FT-1225 (user): the copy-link becomes a REAL BUTTON in the Deal
+             button's form — the panel's shared plate (`control-icon-btn`),
+             the FA mark, and an icons-only-aware `.ra-name` label, exactly
+             the dress RoleActions' Deal and the Seats row's shuffle wear.
+             The bare-glyph look (FT-959's pill-match argument) stands down:
+             the user pointed at this glyph and at Deal and asked for Deal's
+             form.
 
-             ABSOLUTE AT `left: 100%`, NOT A FOURTH GRID CELL: FT-1098's
-             three-column grid pins the town name to the disc's axis by
-             making the two flanks the same width — a fourth cell would tip
-             that measured balance. Out of flow, the gear hangs just off the
-             row's right end in every layout without moving what was measured.
+             `.ht-head-acts` IS THE THIRD GRID CELL NOW — the button and the
+             re-entry gear ride in one in-flow cluster, because a labeled
+             plate no longer fits the 1.15em flank the bare glyph balanced
+             (see the h3's own FT-1225 note below for how the name keeps the
+             axis). The gear's markup, gate and behaviour are untouched —
+             only its positioning moved from absolute-off-the-row to a place
+             in this cluster. -->
+        <span class="ht-head-acts">
+          <button
+            type="button"
+            class="ht-copy-link"
+            @click="copyTownLink"
+            :title="linkCopied ? 'Copied!' : 'Copy the town link'"
+          >
+            <font-awesome-icon :icon="linkCopied ? 'check' : 'link'" />
+            <span class="ra-name" v-if="!iconsOnly">Copy link</span>
+          </button>
+          <!-- FT-1202 (user): THE SETTINGS GEAR LIVES HERE NOW — "remove it
+               from the main page, and in while a user is hosting a game put it
+               inline with the town name." Every row behind it (Setup panel /
+               Control scheme / Grimoire size) is a storyteller concern, and
+               the storyteller's own panel head is where the storyteller is; the
+               corner strips it used to stand in are stood down (Menu.vue). A
+               player never renders this panel, so the host gate rides for free.
 
-             DIMMED TO THE PACK (FT-1202's other ask): the cog art bakes ~20%
-             hotter than its bone siblings — alpha-weighted mean luminance
-             175.0 against ui-chronicle 146.1 / ui-records 145.1 / ui-help
-             147.2 (rig: claude_temp_test/2026-08-26-ft1202-lum.mjs) — so it
-             wears brightness(0.835) at rest (146.13 / 175.0), which lands its
-             mean exactly on the pack's own 146.1. CSS, not a re-bake: the
-             art stays one source, and the trim is visible where it applies. -->
-        <!-- FT-1209 (user): the gear is the SHORTCUT now — clicking it opens
-             the setup panel's Control settings tab (and steps back to Script
-             setup if that tab is already up, the closest thing a tab row has
-             to "closed"). Lit while its tab is the active one, the same
-             open-glow rule the strip marks wear (FT-1202). On the re-entry
-             face there is no tab strip, so the gear keeps its old door there
-             — the floating PrefsMenu (see togglePrefs). -->
-        <!-- FT-1213 (user): "we can remove that settings icon now" — the
-             BUILD face loses the gear: the Control settings tab sits in the
-             strip right beside it, so the shortcut was a second door an inch
-             from the first. `v-if="reentry"` rather than deletion: the
-             RE-ENTRY face renders no tab strip, so there the gear stays the
-             returning storyteller's ONLY door to their settings (the
-             floating PrefsMenu). alignTabs already bails without a cog to
-             measure, so the strip simply keeps its natural right edge. -->
-        <img
-          v-if="reentry"
-          ref="cog"
-          class="ht-cog"
-          :class="{ on: prefsOpen || prefsTab }"
-          :src="uiCog"
-          alt="Your settings"
-          title="Your settings — this browser, every town"
-          @click="togglePrefs"
-        />
+               ABSOLUTE AT `left: 100%`, NOT A FOURTH GRID CELL — was the
+               FT-1202 placement, protecting FT-1098's fixed-em flank balance.
+               FT-1225 SUPERSEDES IT: the flanks are equal `1fr` tracks now
+               (see the h3 note), so the gear rides IN FLOW inside
+               `.ht-head-acts` beside the Copy link button — same spot to the
+               eye on the re-entry face (just off the name's right), without a
+               second coordinate system.
+
+               DIMMED TO THE PACK (FT-1202's other ask): the cog art bakes ~20%
+               hotter than its bone siblings — alpha-weighted mean luminance
+               175.0 against ui-chronicle 146.1 / ui-records 145.1 / ui-help
+               147.2 (rig: claude_temp_test/2026-08-26-ft1202-lum.mjs) — so it
+               wears brightness(0.835) at rest (146.13 / 175.0), which lands its
+               mean exactly on the pack's own 146.1. CSS, not a re-bake: the
+               art stays one source, and the trim is visible where it applies. -->
+          <!-- FT-1209 (user): the gear is the SHORTCUT now — clicking it opens
+               the setup panel's Control settings tab (and steps back to Script
+               setup if that tab is already up, the closest thing a tab row has
+               to "closed"). Lit while its tab is the active one, the same
+               open-glow rule the strip marks wear (FT-1202). On the re-entry
+               face there is no tab strip, so the gear keeps its old door there
+               — the floating PrefsMenu (see togglePrefs). -->
+          <!-- FT-1213 (user): "we can remove that settings icon now" — the
+               BUILD face loses the gear: the Control settings tab sits in the
+               strip right beside it, so the shortcut was a second door an inch
+               from the first. `v-if="reentry"` rather than deletion: the
+               RE-ENTRY face renders no tab strip, so there the gear stays the
+               returning storyteller's ONLY door to their settings (the
+               floating PrefsMenu). alignTabs already bails without a cog to
+               measure, so the strip simply keeps its natural right edge. -->
+          <img
+            v-if="reentry"
+            ref="cog"
+            class="ht-cog"
+            :class="{ on: prefsOpen || prefsTab }"
+            :src="uiCog"
+            alt="Your settings"
+            title="Your settings — this browser, every town"
+            @click="togglePrefs"
+          />
+        </span>
       </h3>
       <input
         v-else
@@ -2728,20 +2748,34 @@ export default {
   //   after   every width tested: disc / h3 box / name-run all equal, 0.0px apart
   //
   // A THREE-COLUMN GRID fixes the axis structurally rather than by eye: the
-  // two flanking columns are pinned to the SAME width (the icon's own
-  // 1.15em, wide enough to hold the smaller button too), so the middle
-  // column is the only one free to size to its content — centring it
-  // centres the town's name itself, not a lopsided box built around it.
+  // two flanking columns are pinned to the SAME width, so the middle column
+  // is the only one free to size to its content — centring it centres the
+  // town's name itself, not a lopsided box built around it.
+  //
+  // FT-1225: THE FLANKS ARE `1fr`, NOT THE FIXED `1.15em` FT-1098 SHIPPED.
+  // The copy-link grew from a bare 15px glyph into a labeled plate
+  // (`.ht-head-acts`, ~5x the icon's width), so no fixed em can hold both
+  // flanks any more. Equal `1fr` tracks keep FT-1098's invariant — same-width
+  // flanks, name on the axis — at ANY ornament width, provided the h3's own
+  // width is definite: it is block-level (full width) on the rectangle and
+  // both sheets already, and the disc gate now gives it `width: 100%` (see
+  // the disc rules) instead of letting the head's flex centring shrink-wrap
+  // it. The icon hugs the name's left (`justify-self: end`) and the cluster
+  // hugs its right (`justify-self: start`) — which is also what FT-1095
+  // asked for verbatim ("a mark immediately left of it"): the old rectangle
+  // layout parked the icon at the panel's far-left edge only because the
+  // fixed flank sat at the track's extreme.
   h3 {
     margin: 0;
     display: grid;
-    grid-template-columns: 1.15em auto 1.15em;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     justify-items: center;
     column-gap: 8px;
     cursor: default;
-    // FT-1202: the gear hangs off this row's right end (`.ht-cog`,
-    // absolute at left: 100%) — the row is its containing block.
+    // FT-1202: the row was the absolute gear's containing block; FT-1225
+    // moved the gear in flow (`.ht-head-acts`), so nothing positions off
+    // this any more — kept as a harmless anchor for the next head ornament.
     position: relative;
 
     // only an OWNED town can be renamed — the pencil and the pointer both
@@ -2771,55 +2805,49 @@ export default {
     object-fit: contain;
     flex-shrink: 0;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    // FT-1225: hug the name (the `1fr` flank is wide; centred in it the mark
+    // would drift toward the panel's edge — see the h3 note).
+    justify-self: end;
   }
 
-  // FT-959: COPY THE TOWN LINK, next to its name. Styled BARE — no
-  // `control-icon-btn` plate — because the pill (App.vue) already does this
-  // exact job as a plain icon with `cursor: pointer` and a red hover, no box
-  // of its own (see `.copylink` there), and this is the same control in a
-  // second place: matching its look is what makes the two read as "the same
-  // button" rather than as two different affordances that happen to copy the
-  // same thing. A plate here would also fight the heading — a heavy 34x30 box
-  // beside a serif town name reads as chrome bolted onto a title, not as
-  // part of it.
-  .ht-copy-link {
+  // FT-1225: the head's ornament cluster — the Copy link button always, the
+  // settings gear on the re-entry face. One in-flow grid cell (see the h3
+  // note), hugging the name's right; the 10px gap is the margin the gear
+  // wore when it hung absolute off the row (FT-1202).
+  .ht-head-acts {
+    justify-self: start;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    margin: 0;
-    color: inherit;
-    font-size: 55%;
-    opacity: 0.65;
-    cursor: pointer;
-    transition:
-      color 150ms,
-      opacity 150ms;
+    gap: 10px;
+  }
 
-    &:hover {
-      color: red;
-      opacity: 1;
-    }
-    &:focus-visible {
-      @include control-focus-ring;
-    }
-
-    // a fingertip needs more than a bare 12px glyph — an invisible pad
-    // centred on it, the same trick NumberScrub's own "seat" preset uses for
-    // its drag handle on a phone, rather than growing the visible glyph.
-    @media (pointer: coarse) {
-      position: relative;
-      &::after {
-        content: "";
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 40px;
-        height: 40px;
+  // FT-959: COPY THE TOWN LINK, next to its name. FT-1225 (user): it wears
+  // the DEAL BUTTON'S FORM now — the panel's shared plate + a `.ra-name`
+  // label — superseding FT-959's bare-glyph dress (which matched the session
+  // pill's `.copylink`; the user pointed at this glyph and at Deal and asked
+  // for Deal's form). The recipe is the Seats-row shuffle's restatement of
+  // RoleActions' `.ra-act`, verbatim: `control-icon-btn` for plate, size,
+  // ink, hover, focus ring and the coarse-pointer 42x40 bump (which retires
+  // the invisible-fingertip-pad hack the bare glyph needed), then the
+  // labelled-button width rule and the label's dress — restated here because
+  // a scoped style cannot cross components, same as `.tool-btn` says below.
+  // Buttons don't inherit type, so inside the PiratesBay h3 this still
+  // renders in the same face and size as Deal's own label.
+  .ht-copy-link {
+    @include control-icon-btn;
+    &:has(.ra-name) {
+      width: auto;
+      min-width: 34px;
+      padding: 0 9px;
+      gap: 6px;
+      @media (pointer: coarse) {
+        min-width: 42px;
       }
+    }
+    .ra-name {
+      font-size: 80%;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
     }
   }
 
@@ -2836,11 +2864,13 @@ export default {
   // Hover multiplies the strip marks' own 1.3 on top of the trim (1.086),
   // so a hovered gear lifts exactly as much as a hovered strip mark did.
   .ht-cog {
-    position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 10px;
+    // FT-1225: IN FLOW NOW — a flex child of `.ht-head-acts`, beside the
+    // Copy link button, so the absolute-at-`left: 100%` placement (FT-1202,
+    // written to spare FT-1098's fixed flanks a fourth cell) stands down:
+    // position: absolute; left: 100%; top: 50%;
+    // transform: translateY(-50%); margin-left: 10px;
+    // The cluster's own gap carries the 10px; `0.9em` still reads the h3's
+    // font (the span inherits it), so the gear's size is untouched.
     width: 0.9em;
     height: 0.9em;
     cursor: pointer;
@@ -3660,6 +3690,11 @@ export default {
 
       h3 {
         margin: 0;
+        // FT-1225: a DEFINITE width, so the grid's equal-`1fr` flanks can
+        // keep the name on the disc's axis (see the base h3 note) — the
+        // head's flex centring used to shrink-wrap the h3, which is exactly
+        // the case where `1fr` tracks stop being equal.
+        width: 100%;
       }
 
       // THE GAMES LINE AND THE RENAME NOTE FOLD INTO THE HEADING'S OWN
