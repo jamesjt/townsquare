@@ -68,7 +68,12 @@ const faIcons = [
   "Heartbeat",
   "Home",
   "Image",
+  // FT-1241: the town's two optional locks — Key marks the ENTER password
+  // (the room key players give at the door), Lock the OPEN password (the
+  // guest host's seat lock). Intro's host panel + the door-side ask.
+  "Key",
   "Link",
+  "Lock",
   "Mask",
   "MinusCircle",
   // FT-1206: the whisper's SENT face — the flying mark, the toast, the

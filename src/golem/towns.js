@@ -79,10 +79,18 @@ export function removeTown(id) {
  * Claim a town id (POST). On success the shelf entry gains the edit key —
  * its single appearance — and the display name.
  * → { town } | { taken: true }; throws only on network/server failure.
+ *
+ * FT-1241: `extra` may carry the two OPTIONAL passwords the claim can set —
+ * {openPassword, enterPassword} — travelling in the POST body only, never a
+ * URL. A signed-in claimer needs neither: the platform records their ACCOUNT
+ * as the town's owner (cookies ride same-origin), and their session alone
+ * re-opens the host seat later.
  */
-export async function claimTown(id, name, scriptId) {
+export async function claimTown(id, name, scriptId, extra = {}) {
   const body = { id: normalizeTownId(id), name };
   if (scriptId) body.scriptId = scriptId;
+  if (extra.openPassword) body.openPassword = extra.openPassword;
+  if (extra.enterPassword) body.enterPassword = extra.enterPassword;
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -194,6 +202,188 @@ export function townIsOpen(id) {
 }
 
 /**
+ * ── FT-1241: town ownership + the two optional passwords ────────────────────
+ *
+ * A town claimed while signed in BELONGS to that account; re-opening its host
+ * seat later needs only the session. Two optional passwords cover everyone
+ * else: the OPEN password takes the host seat of a town you do not own, and
+ * the ENTER password is the room key players must give to join. Both live
+ * hashed on the platform and travel only in POST bodies — an invite link
+ * never carries a secret.
+ *
+ * EVERY check here FAILS OPEN, the same promise townIsOpen makes: the towns
+ * API being unreachable never locks anyone out of a working relay session.
+ * That is also the honest enforcement boundary — the relay itself does not
+ * (yet) ask, so these gates guard the app's flows, not the wire.
+ */
+
+/**
+ * May this browser take the HOST seat of `id`? Sends what it holds: the
+ * session cookie rides by itself, a held edit key rides as the header, and
+ * `openPassword` (when given) rides in the body.
+ * → { ok: true } | { ok: false, error, owned, openPasswordSet }.
+ * 404 (a never-claimed id) and every failure resolve ok — fail open.
+ */
+export async function openTown(id, openPassword) {
+  const clean = normalizeTownId(id);
+  const key = editKeyFor(clean);
+  try {
+    const res = await fetch(`${API}/${clean}/open`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(key ? { "x-botc-edit-key": key } : {}),
+      },
+      body: JSON.stringify(openPassword ? { openPassword } : {}),
+    });
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        ok: false,
+        error: body.error || "host_locked",
+        owned: !!body.owned,
+        openPasswordSet: !!body.openPasswordSet,
+      };
+    }
+    return { ok: true }; // 204 yes; 404/5xx/anything else fails open
+  } catch (e) {
+    return { ok: true }; // unreachable — fail open, the recorded boundary
+  }
+}
+
+/** Does the town ask players for a password? Best-effort meta read;
+ *  unknown town / unreachable API → false (fail open). */
+async function townNeedsEnterPass(id) {
+  try {
+    const res = await fetch(`${API}/${normalizeTownId(id)}`);
+    if (!res.ok) return false;
+    const meta = await res.json();
+    return !!meta.requiresEnterPassword;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Offer `pass` (possibly none) at the town's door.
+ * → { ok: true } | { ok: false, error: "password_required" | "wrong_password" }.
+ * Anything but a 403 lets the player through — fail open.
+ */
+async function verifyEnterPass(id, pass) {
+  try {
+    const res = await fetch(`${API}/${normalizeTownId(id)}/enter`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pass ? { enterPassword: pass } : {}),
+    });
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, error: body.error || "wrong_password" };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: true };
+  }
+}
+
+/**
+ * Remembered ENTER passwords, per town, in this browser — the same
+ * convenience the shelf's edit keys already are: give the room key once,
+ * walk back in on later visits. A room key shared with a whole table is a
+ * courtesy lock, not an account credential, so localStorage is its measure.
+ * A remembered pass the server refuses (it was changed) is forgotten and the
+ * player is simply asked again.
+ */
+const ENTER_PASS_KEY = "golem.townEnterPasses";
+
+function rememberedEnterPass(id) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ENTER_PASS_KEY)) || {};
+    return all[normalizeTownId(id)] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function rememberEnterPass(id, pass) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ENTER_PASS_KEY)) || {};
+    all[normalizeTownId(id)] = pass;
+    localStorage.setItem(ENTER_PASS_KEY, JSON.stringify(all));
+  } catch (e) {
+    // remembering is a bonus, never a blocker
+  }
+}
+
+function forgetEnterPass(id) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ENTER_PASS_KEY)) || {};
+    delete all[normalizeTownId(id)];
+    localStorage.setItem(ENTER_PASS_KEY, JSON.stringify(all));
+  } catch (e) {
+    // nothing stored, nothing to forget
+  }
+}
+
+/**
+ * The town whose door is asking for a password ("" = none) + the last
+ * refusal. Reactive the same way townGate is: a plain module object Intro
+ * holds in `data`, written from any entry path — the Join panel and the
+ * invite-link boot alike.
+ */
+export const enterKeyGate = { town: "", error: "" };
+
+/** The continuation the gate holds while it asks — runs on the right pass. */
+let enterKeyProceed = null;
+
+/**
+ * The player typed a password at the gate's panel. Right → remembered for
+ * this browser, gate closed, entry continues (straight in, or on to the
+ * waiting screen if the town isn't open yet). Wrong → the gate stays up with
+ * the server's honest refusal. → resolves true when they were let through.
+ */
+export async function offerEnterPass(pass) {
+  const clean = enterKeyGate.town;
+  if (!clean) return false;
+  const verdict = await verifyEnterPass(clean, pass);
+  if (!verdict.ok) {
+    enterKeyGate.error = verdict.error;
+    return false;
+  }
+  rememberEnterPass(clean, pass);
+  const proceed = enterKeyProceed;
+  stopEnterPassGate();
+  if (proceed) proceed();
+  return true;
+}
+
+/** Leave the password gate — the player went back to the entry screen. */
+export function stopEnterPassGate() {
+  enterKeyGate.town = "";
+  enterKeyGate.error = "";
+  enterKeyProceed = null;
+}
+
+/**
+ * The room-key gate a player entry passes first: no password needed (or a
+ * remembered one still fits) → true, proceed. Otherwise the gate panel takes
+ * over and this resolves false — `proceed` runs later, from offerEnterPass.
+ */
+async function gateOnEnterPass(clean, proceed) {
+  if (!(await townNeedsEnterPass(clean))) return true;
+  const held = rememberedEnterPass(clean);
+  if (held) {
+    const verdict = await verifyEnterPass(clean, held);
+    if (verdict.ok) return true;
+    forgetEnterPass(clean); // the key was changed — ask honestly
+  }
+  enterKeyGate.town = clean;
+  enterKeyGate.error = "";
+  enterKeyProceed = proceed;
+  return false;
+}
+
+/**
  * The town this browser is waiting to see opened ("" = none), and when the
  * wait began. A plain module object rather than store state because it is
  * WRITTEN from the socket plugin's boot parse — which runs before any
@@ -252,9 +442,13 @@ export function stopWaitingForTown() {
 }
 
 /**
- * THE ONE GATE every PLAYER entry path calls. Open → `enter(id)` runs now;
- * shut → the wait begins and `enter(id)` runs the moment a storyteller
- * appears. Resolves true if they went straight in, false if they are waiting.
+ * THE ONE GATE every PLAYER entry path calls. FT-1241 made it two doors, in
+ * order: the room key first (a town with an enter password ASKS — the gate
+ * panel takes over until the right password is given), then the open check
+ * (a town with no storyteller is waited for). Both fail open on any API
+ * trouble. Resolves true if they went straight in, false if a gate panel or
+ * the wait now owns the entry — `enter(id)` still runs the moment both doors
+ * pass, however long that takes.
  *
  * A HOST NEVER COMES THROUGH HERE — each caller checks its own role first,
  * because opening a town is precisely the moment when no host is connected to
@@ -264,6 +458,16 @@ export function stopWaitingForTown() {
  */
 export function enterWhenOpen(id, enter) {
   const clean = normalizeTownId(id);
+  return gateOnEnterPass(clean, () => proceedWhenOpen(clean, enter)).then(
+    (passed) => {
+      if (!passed) return false; // the gate panel took the entry over
+      return proceedWhenOpen(clean, enter);
+    },
+  );
+}
+
+/** The pre-FT-1241 body of enterWhenOpen: enter now, or wait for the host. */
+function proceedWhenOpen(clean, enter) {
   return townIsOpen(clean).then(open => {
     if (open) {
       enter(clean);

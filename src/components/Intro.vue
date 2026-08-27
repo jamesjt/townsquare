@@ -49,7 +49,7 @@
                (user call 2026-08-18) — swash rule + "on the" as one piece -->
           <img class="onthe-lockup" :src="ontheLockup" alt="on the" />
         </div>
-        <ul class="doors" v-if="!mode && !waitingTown">
+        <ul class="doors" v-if="!mode && !waitingTown && !keyGateTown">
           <li @click="openHost">
             <span class="key"
               ><img :src="capSrc('H')" :class="capClass('h')" :style="capStyle('H')" alt="H"
@@ -112,6 +112,56 @@
              Join panels are, so it inherits their geometry rather than
              inventing a fourth surface. It outranks `mode` because a wait can
              begin with no panel open at all. -->
+        <!-- FT-1241: THE TOWN'S DOOR ASKS FOR A PASSWORD. Every player entry
+             path funnels through the same gate (enterWhenOpen), so this one
+             panel serves the Join button and a followed invite link alike —
+             the link itself never carries the secret; this ask is how it
+             arrives. Same panel object as the wait screen (disc on the
+             desktop face, rectangle on a phone), because it IS the same
+             moment: standing at a town, not yet inside. It outranks the wait
+             — the key is asked for first, the waiting starts after. -->
+        <div class="panel wait" v-else-if="keyGateTown">
+          <div class="panel-head">
+            <span class="panel-back" title="Back" @click="stopKeyGate"
+              ><font-awesome-icon icon="arrow-left"
+            /></span>
+            <p class="hint">Password, please</p>
+          </div>
+          <div class="panel-body">
+            <p class="wait-town">{{ keyGateLabel }}</p>
+            <p class="wait-why">
+              {{
+                enterKeyGate.error
+                  ? "That's not this town's password — ask your storyteller."
+                  : "This town asks everyone entering for a password."
+              }}
+            </p>
+            <div class="field">
+              <label title="The town's password"
+                ><font-awesome-icon icon="key"
+              /></label>
+              <input
+                ref="enterPassInput"
+                v-model="enterPassTry"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="password"
+                @keyup.enter="offerPass"
+              />
+            </div>
+          </div>
+          <div class="acts">
+            <button
+              class="confirm"
+              :class="{ disabled: !enterPassTry.trim() }"
+              title="Enter the town"
+              @click="offerPass"
+            >
+              Enter the town
+            </button>
+          </div>
+        </div>
+
         <div class="panel wait" v-else-if="waitingTown">
           <div class="panel-head">
             <p class="hint">Not open yet</p>
@@ -158,7 +208,7 @@
                 {{ townLabel(t) }}
                 <small class="tid" v-if="townLabel(t) !== t.id">{{ t.id }}</small>
               </span>
-              <small class="yours" v-if="t.editKey">yours</small>
+              <small class="yours" v-if="isYours(t)">yours</small>
               <small>{{ statusLabel(t.id) }}</small>
             </li>
           </ul>
@@ -198,7 +248,7 @@
                     {{ townLabel(t) }}
                     <small class="tid" v-if="townLabel(t) !== t.id">{{ t.id }}</small>
                   </span>
-                  <small class="yours" v-if="t.editKey">yours</small>
+                  <small class="yours" v-if="isYours(t)">yours</small>
                   <span
                     class="forget"
                     :class="{ sure: forgetConfirm === t.id }"
@@ -239,6 +289,61 @@
                ("I think we can remove that message right?") — ownership still
                claims and saves exactly as FT-847 built it; the panel just
                stops saying so. -->
+
+            <!-- FT-1241: the town's optional locks, set at claim. The ENTER
+                 password is the room key players must give; the OPEN password
+                 only appears for a signed-OUT host — signed in, the account
+                 itself is how the host seat re-opens, so the field would be
+                 noise. Neither renders for a town this browser already holds
+                 (edit key / owned account): changing an existing town's locks
+                 is a host-tools job, not a door-side one. -->
+            <div class="field" v-if="!townIsMine && !hostRefusal">
+              <label
+                title="Ask everyone entering this town for a password (optional)"
+                ><font-awesome-icon icon="key"
+              /></label>
+              <input
+                v-model="hostEnterPass"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="password to enter (optional)"
+                @keyup.enter="confirmHost"
+              />
+            </div>
+            <div class="field" v-if="!townIsMine && !hostRefusal && !account">
+              <label
+                title="Anyone knowing this password can open the town as its host — your way back in from another browser (optional)"
+                ><font-awesome-icon icon="lock"
+              /></label>
+              <input
+                v-model="hostOpenPass"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="password to host (optional)"
+                @keyup.enter="confirmHost"
+              />
+            </div>
+            <!-- FT-1241: THE REFUSAL, on the glass. The platform said no to the
+                 host seat; this says exactly why, in the server's own honest
+                 vocabulary, and offers the one thing that could change the
+                 answer — the open password field when one exists, the sign-in
+                 direction when the town belongs to an account. -->
+            <div class="host-refusal" v-if="hostRefusal">
+              <p class="refusal-why">{{ hostRefusalText }}</p>
+              <div class="field" v-if="hostRefusal.openPasswordSet">
+                <label title="This town's open password"
+                  ><font-awesome-icon icon="key"
+                /></label>
+                <input
+                  ref="openTryInput"
+                  v-model="hostOpenTry"
+                  spellcheck="false"
+                  autocomplete="off"
+                  placeholder="open password"
+                  @keyup.enter="confirmHost"
+                />
+              </div>
+            </div>
 
           <div class="field">
             <!-- Golem fork: the chain glyph is a copy button too — the URL
@@ -392,7 +497,13 @@ import {
   // for, not entered.
   enterWhenOpen,
   stopWaitingForTown,
-  townGate
+  townGate,
+  // FT-1241: town ownership + the two optional passwords — the host-seat
+  // check and the player-side password gate.
+  openTown,
+  enterKeyGate,
+  offerEnterPass,
+  stopEnterPassGate
 } from "../golem/towns";
 import { resolveTownRole } from "../golem/townRoute";
 // FT-1032: the shelf row says WHERE a running game stands. Both reads are
@@ -622,6 +733,47 @@ export default {
       const m = this.meta[id];
       return (m && m.name) || id;
     },
+    /** FT-1241: the signed-in account, or null — the towns API records it as
+     *  owner on claim, so the panel's open-password field is guests-only. */
+    account() {
+      return this.session.account || null;
+    },
+    /** FT-1241: the town in the host field is already this browser's — an
+     *  edit key on the shelf, or the account owns it (server meta). The
+     *  lock fields hide for it: its locks are set, not being chosen. */
+    townIsMine() {
+      const id = this.townIdClean;
+      if (!id) return false;
+      if (editKeyFor(id)) return true;
+      const m = this.meta[id];
+      return !!(m && m.ownedByYou);
+    },
+    /** FT-1241: the town whose door is asking for a password ("" = none).
+     *  A panel selector like waitingTown — it outranks mode AND the wait,
+     *  because the key is asked before the waiting starts. */
+    keyGateTown() {
+      return this.enterKeyGate.town;
+    },
+    keyGateLabel() {
+      const id = this.keyGateTown;
+      const m = this.meta[id];
+      return (m && m.name) || id;
+    },
+    /** FT-1241: the refusal, worded from the server's honest booleans. */
+    hostRefusalText() {
+      const r = this.hostRefusal;
+      if (!r) return "";
+      if (r.error === "wrong_password") {
+        return "That's not this town's open password.";
+      }
+      if (r.owned && r.openPasswordSet) {
+        return "This town belongs to an account. Sign in as its owner, or give its open password.";
+      }
+      if (r.owned) {
+        return "This town belongs to an account — sign in as its owner to host it.";
+      }
+      return "This town is protected — its open password takes the host seat.";
+    },
     joinIdClean() {
       let raw = this.joinId.trim();
       if (raw.match(/^https?:\/\//i)) {
@@ -680,6 +832,19 @@ export default {
       // boot parse, which runs before this component exists, so it cannot
       // live in the component.
       townGate,
+      // FT-1241: the player-side password gate — the same shared-module
+      // idiom as townGate above, and for the same reason: an invite-link
+      // boot writes it before this component exists.
+      enterKeyGate,
+      enterPassTry: "", // what the player typed at the gate panel
+      // FT-1241: the host panel's optional locks (set at claim)…
+      hostEnterPass: "",
+      hostOpenPass: "",
+      // …and the refusal state when an existing town says no to the host
+      // seat: {error, owned, openPasswordSet} from the platform, plus the
+      // open password typed at the refusal prompt.
+      hostRefusal: null,
+      hostOpenTry: "",
       // Golem fork: the entry panels.
       mode: null, // null = doors | "host" | "join"
       townId: "",
@@ -717,6 +882,13 @@ export default {
         .replace(/[^a-z0-9_-]+/g, "-")
         .slice(0, 24);
       if (live !== value) this.townId = live;
+      // FT-1241: a refusal speaks about ONE town — typing another name
+      // retires it (and the password offered against it) rather than letting
+      // a stale "not yours" hang over a town it never meant.
+      if (this.hostRefusal) {
+        this.hostRefusal = null;
+        this.hostOpenTry = "";
+      }
     },
     townIdClean() {
       this.syncAttached();
@@ -841,11 +1013,20 @@ export default {
       this.watchTowns();
       this.refreshMeta();
     },
-    /** FT-847: owned towns lead the shelf; recency holds within each group. */
+    /** FT-847: owned towns lead the shelf; recency holds within each group.
+     *  FT-1241: "owned" now also means the ACCOUNT owns it (server meta). */
     sortOwnedFirst(towns) {
       return towns
         .slice()
-        .sort((a, b) => (b.editKey ? 1 : 0) - (a.editKey ? 1 : 0));
+        .sort((a, b) => (this.isYours(b) ? 1 : 0) - (this.isYours(a) ? 1 : 0));
+    },
+    /** FT-1241: the YOURS chip's whole meaning — an edit key on the shelf,
+     *  or true account ownership reported by the platform (`ownedByYou`,
+     *  a boolean computed against THIS session; no account id crosses). */
+    isYours(t) {
+      if (t.editKey) return true;
+      const m = this.meta[t.id];
+      return !!(m && m.ownedByYou);
     },
     /** Best-effort batch meta: display names + attached scripts. */
     refreshMeta() {
@@ -979,14 +1160,43 @@ export default {
       if (!id) return;
       // FT-847: claiming is the default now — best-effort, never blocks
       // hosting. A "taken" name isn't an error: friend groups hosting each
-      // other's towns is expected, so it just hosts as a guest of that town.
+      // other's towns is expected. FT-1241: a fresh claim records the
+      // signed-in account as OWNER (the cookie rides by itself) and may set
+      // the panel's optional passwords; an EXISTING town is no longer walked
+      // into silently — the platform is asked whether this browser may take
+      // the host seat, and a refusal stands the prompt up on the glass.
+      let claimedNow = false;
       if (!editKeyFor(id)) {
         try {
-          await claimTown(id, id);
+          const res = await claimTown(id, id, undefined, {
+            enterPassword: this.hostEnterPass.trim() || undefined,
+            openPassword: this.account
+              ? undefined
+              : this.hostOpenPass.trim() || undefined,
+          });
+          claimedNow = !res.taken;
         } catch (e) {
           // unreachable / server error → host without keeping, quietly
         }
       }
+      if (!claimedNow) {
+        // Ours by key, someone else's, or the API was unreachable — one
+        // question answers all three (openTown sends the held key and fails
+        // open, so pre-FT-1241 towns and offline hosting are unchanged).
+        const verdict = await openTown(
+          id,
+          this.hostOpenTry.trim() || undefined,
+        );
+        if (!verdict.ok) {
+          this.hostRefusal = verdict;
+          this.$nextTick(() => {
+            if (this.$refs.openTryInput) this.$refs.openTryInput.focus();
+          });
+          return;
+        }
+      }
+      this.hostRefusal = null;
+      this.hostOpenTry = "";
       if (
         this.scriptId !== "__custom" &&
         this.scriptId !== "__attached" &&
@@ -1071,6 +1281,23 @@ export default {
      *  re-reads the gate before acting on its answer). */
     stopWaiting() {
       stopWaitingForTown();
+      this.mode = null;
+    },
+    /** FT-1241: the player typed a password at the town's door. Right → the
+     *  gate module remembers it for this browser and the entry continues
+     *  (straight in, or on to the waiting screen); wrong → the panel shows
+     *  the server's refusal and asks again. */
+    async offerPass() {
+      const pass = this.enterPassTry.trim();
+      if (!pass) return;
+      const admitted = await offerEnterPass(pass);
+      if (admitted) this.enterPassTry = "";
+    },
+    /** Leave the password gate for the entry screen — same shape as
+     *  stopWaiting one door over. */
+    stopKeyGate() {
+      stopEnterPassGate();
+      this.enterPassTry = "";
       this.mode = null;
     },
     /** Door/button drop-caps wear their OWN font (the Aa panel is the
@@ -1752,6 +1979,24 @@ export default {
       }
     }
 
+    // ── FT-1241: the host-seat refusal, in the fields' own column ────────
+    // A message in the server's honest vocabulary + the open-password field
+    // when one exists. It rides where the lock fields stood (they hide while
+    // it shows), so the panel never grows two competing stacks.
+    .host-refusal {
+      margin: 2px 0 8px;
+
+      .refusal-why {
+        margin: 0 0 8px;
+        font-size: 85%;
+        line-height: 1.35;
+        color: #f77;
+        text-shadow:
+          0 1px 3px black,
+          0 0 8px black;
+      }
+    }
+
     // ── FT-1038 (user call, 2026-08-21): "move the join town button to the
     //    middle of the disc and much bigger" ────────────────────────────
     // The band sits centred between two EQUAL caps (faceDisc.scss:
@@ -1953,6 +2198,14 @@ export default {
         font-size: 85%;
         line-height: 1.35;
         text-shadow: 0 1px 3px black, 0 0 8px black;
+      }
+
+      // FT-1241: the password ask reuses the panels' `.field` idiom inside
+      // this centred band, which shrinks children to content — so the field
+      // claims a readable row of its own.
+      .field {
+        width: min(100%, 260px);
+        margin-top: 4px;
       }
 
       .wait-pulse {
