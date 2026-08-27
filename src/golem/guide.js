@@ -135,14 +135,14 @@ export const GUIDE_SECTIONS = [
           "Add reminder. Dead seats trade the nomination for a ghost vote.",
       },
       {
-        // prefs.js CONTROL_TOGGLES + Player.vue (FT-1213): every gesture is
-        // its own switch on the Control settings tab; spectators always get
-        // plain click
-        lead: "Six ways to reach them",
+        // prefs.js CONTROL_TOGGLES + Player.vue (FT-1213; FT-1227 split the
+        // coin click in two): every gesture is its own switch on the Control
+        // settings tab; spectators always get plain click
+        lead: "Seven ways to reach them",
         who: "host",
         note:
-          "Coin click, coin hover, plate click, plate hover, both drags. " +
-          "Each has a switch under Control settings.",
+          "Role-name click, coin click, coin hover, plate click, plate " +
+          "hover, both drags. Each has a switch under Control settings.",
       },
     ],
   },

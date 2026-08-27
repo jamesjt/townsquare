@@ -876,16 +876,20 @@
           </span>
         </span>
         <!-- FT-1213: THE CONTROL TOGGLES — the exclusive "Control scheme"
-             dropdown stood down for six independent switches (golem/prefs'
-             CONTROL_TOGGLES; the reasoning lives on that list). Same
-             Game-settings row grammar as the rows around them; each ROW's
+             dropdown stood down for independent switches (golem/prefs'
+             CONTROL_TOGGLES; the reasoning lives on that list — seven now,
+             FT-1227 having split "Click coins" in two). Same Game-settings
+             row grammar as the rows around them; each ROW's
              title teaches its gesture, because half the point of listing
              every gesture is that a storyteller finds out it exists. The
              "Hover coins" row on a device with no resting pointer stays
              OPERABLE but wears the inert dress and says why — the value
-             still rides the account to machines where the gesture works. -->
+             still rides the account to machines where the gesture works.
+             FT-1227: a row named in TOGGLE_MARKS wears the gesture's own
+             baked art (the ring's move icons, the hover's pin) instead of
+             its FA stand-in. -->
         <span
-          class="ht-set-line"
+          class="ht-set-line ht-ctrl-row"
           v-for="t in controlToggles"
           :key="t.key"
           :class="{ 'ht-ctrl-inert': t.inert }"
@@ -893,7 +897,13 @@
         >
           <span class="tw-lead">
             <span class="label">
-              <font-awesome-icon class="row-mark-fa" :icon="t.icon" />
+              <img
+                v-if="t.mark"
+                class="row-mark"
+                :src="t.mark"
+                :alt="t.label"
+              />
+              <font-awesome-icon v-else class="row-mark-fa" :icon="t.icon" />
               <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
             </span>
             <OptionSelect
@@ -1219,6 +1229,20 @@ import {
   prefsState,
   setPref,
 } from "../golem/prefs";
+// FT-1227 (user): the Control rows whose marks are the app's OWN baked art
+// rather than a Font Awesome stand-in — the drag rows wear the hover ring's
+// move icons and the reminder row wears the nameplate hover's pin, so a row
+// teaching a gesture shows the exact mark the gesture itself uses. Keyed by
+// toggle key; a row not named here keeps its FA icon from CONTROL_TOGGLES.
+import uiMoveRole from "../assets/ui-move-role.png";
+import uiMovePlayer from "../assets/ui-move-player.png";
+import uiNote from "../assets/ui-note.png";
+
+const TOGGLE_MARKS = {
+  ctrlDragRoles: uiMoveRole,
+  ctrlDragNames: uiMovePlayer,
+  ctrlReminderHover: uiNote,
+};
 
 /**
  * FT-1168: THE TWO TABS. The user's own two names for them, in their order —
@@ -1465,13 +1489,14 @@ export default {
       }));
     },
     /**
-     * FT-1213: the six toggle rows, dressed for the tab. Each row carries
+     * FT-1213: the toggle rows, dressed for the tab. Each row carries
      * its teaching title (`rowTitle`), its two named options (a checkbox is
      * a selector that refuses to name one of its states — SETUP_LABELS'
      * own rule), and `inert` for the one gesture a coarse-pointer device
      * cannot perform: "Hover coins" has no rest-the-pointer gesture on a
      * finger. The inert row stays OPERABLE — the value follows the account
      * (FT-1202) to machines that do have a pointer — it just says so.
+     * FT-1227: `mark` is the row's baked art where TOGGLE_MARKS names one.
      */
     controlToggles() {
       return CONTROL_TOGGLES.map((t) => {
@@ -1479,6 +1504,7 @@ export default {
         return {
           ...t,
           inert,
+          mark: TOGGLE_MARKS[t.key] || null,
           rowTitle: inert
             ? t.title +
               " — this device has no resting pointer, so the gesture " +
@@ -3538,6 +3564,48 @@ export default {
     // to a machine with a pointer (the row's title says exactly this).
     .ht-ctrl-inert .label {
       opacity: 0.55;
+    }
+  }
+
+  // ── FT-1227: THE CONTROL TOGGLES IN TWO COLUMNS ─────────────────────────
+  // Nine personal rows now (the FT-1227 split made seven toggles) and a
+  // one-per-line list had grown taller than the disc's band wants to be.
+  // THE TOGGLE ROWS ALONE take the two columns (`.ht-ctrl-row`): they are
+  // the long run AND the uniform one — mark + name + On/Off. Setup panel
+  // and Grimoire size keep their full lines, because their selects carry
+  // WORDS ("Names and icons", "Small") and a half-cell cannot hold them —
+  // measured: the first cut put all nine rows in columns and the Setup row
+  // overwrote its neighbour.
+  // Each cell's cluster stretches (`flex: 1 1 auto` against .tw-lead's own
+  // `0 1 auto`) so every On/Off lands on its column's right edge and the
+  // two columns read as columns rather than a rag. Declared AFTER the
+  // `.ht-settings` block above so it wins its equal-specificity
+  // `flex: 1 1 100%`.
+  // WIDE FINE-POINTER WINDOWS ONLY — the narrow-layout call, measured
+  // rather than assumed: the widest row ("Nameplate click" + its switch)
+  // needs ~209px of cell even with its name stepped to 80%, and the band
+  // only affords that from ~1700px of viewport up (1706x960 disc: cell
+  // 209, zero rows over; 1440-1600 disc: cell 196, two rows overwrote
+  // their neighbours; 1280x800 rectangle: cell 176, five rows over). So
+  // BELOW 1700px — the narrow rectangle, the floor disc, and both phone
+  // sheets — the tab keeps the single column it has always had: those
+  // faces scroll or fold, so height is the cheap axis there. From 1700px
+  // the disc and the wide rectangle take the two columns, and the toggle
+  // names step to 80% inside the same gate (the compaction that makes the
+  // widest row fit its cell; the two full-width rows keep the panel size).
+  @media (pointer: fine) and (min-width: 1700px) {
+    .ht-prefs {
+      column-gap: 12px;
+      > .ht-set-line.ht-ctrl-row {
+        flex: 0 1 calc(50% - 6px);
+        > .tw-lead {
+          flex: 1 1 auto;
+          justify-content: space-between;
+        }
+        .row-name {
+          font-size: 80%;
+        }
+      }
     }
   }
 

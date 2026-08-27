@@ -1254,9 +1254,30 @@ export default {
      *     settings tab, so a toggle turned off in some earlier hosting
      *     session must not strand them.
      */
-    ctrlClickCoins() {
+    /**
+     * FT-1227 (user) SPLITS THE COIN CLICK IN TWO: "click role name to
+     * change role. click other areas of coin to toggle dead or not." The
+     * role NAME is the token's own exposed lower arc (`.token`'s click —
+     * the shroud covers the coin's top ~61%, so the name arc is what a
+     * click on `.token` itself reaches); the REST of the coin is the shroud
+     * and the public life face. One switch each, so turning off stray-click
+     * deaths no longer costs the role picker. The spectator override is the
+     * old computed's, kept on both halves.
+     */
+    ctrlClickName() {
       if (this.session.isSpectator) return true;
-      return this.prefs.ctrlClickCoins !== false;
+      return this.prefs.ctrlClickName !== false;
+    },
+    ctrlClickDead() {
+      if (this.session.isSpectator) return true;
+      return this.prefs.ctrlClickDead !== false;
+    },
+    /** FT-1227: the old one-switch computed STANDS DOWN as a stored pref —
+     *  it now answers "is any coin click live", which is what its one
+     *  remaining reader (whisperDiscShown, the click scheme's whisper disc)
+     *  was actually asking. */
+    ctrlClickCoins() {
+      return this.ctrlClickName || this.ctrlClickDead;
     },
     ctrlHoverCoins() {
       if (this.session.isSpectator) return false;
@@ -3195,16 +3216,18 @@ export default {
         this.$store.commit("setDrawerPick", null);
         return;
       }
-      if (!this.ctrlClickCoins) return;
+      // FT-1227: the death toggle is the "Click coin" half of the split
+      if (!this.ctrlClickDead) return;
       this.toggleStatus();
     },
     /**
      * FT-1169: the coin's BOTTOM half — role select — by the same rule as the
      * top half above. `Token` still emits `set-role` in every scheme; the
      * seat decides whether that click is this scheme's job or the menu's.
+     * FT-1227: gated by its OWN half of the split now ("Click role name").
      */
     onCoinSetRole() {
-      if (!this.ctrlClickCoins) return;
+      if (!this.ctrlClickName) return;
       this.$emit("trigger", ["openRoleModal"]);
     },
     /**
@@ -3416,27 +3439,35 @@ export default {
         value: mine && mine.id ? mine : {}
       });
     },
+    /**
+     * FT-1227 (user): DEATH IS BINARY. Upstream's public-view click cycle —
+     * alive → dead → dead-with-spent-ghost-vote → alive — carried the ghost
+     * vote as a THIRD STOP on this toggle, and that stop is retired: a
+     * click kills or revives, nothing else, in every view. The ghost vote
+     * itself is untouched — the cowl's own click and toggleGhostVote (the
+     * seat menu's row) still spend and return it. The old public branch
+     * stands down in the comment below rather than being deleted, per the
+     * house rule:
+     *
+     *   if (this.grimoire.isPublic) {
+     *     if (!this.player.isDead) {
+     *       this.updatePlayer("isDead", true);
+     *       if (this.player.isMarked) this.updatePlayer("isMarked", false);
+     *     } else if (this.player.isVoteless) {
+     *       this.updatePlayer("isVoteless", false);
+     *       this.updatePlayer("isDead", false);
+     *     } else {
+     *       this.updatePlayer("isVoteless", true); // ← the third stop
+     *     }
+     *   }
+     */
     toggleStatus() {
-      if (this.grimoire.isPublic) {
-        if (!this.player.isDead) {
-          this.updatePlayer("isDead", true);
-          if (this.player.isMarked) {
-            this.updatePlayer("isMarked", false);
-          }
-        } else if (this.player.isVoteless) {
-          this.updatePlayer("isVoteless", false);
-          this.updatePlayer("isDead", false);
-        } else {
-          this.updatePlayer("isVoteless", true);
-        }
-      } else {
-        this.updatePlayer("isDead", !this.player.isDead);
-        if (this.player.isMarked) {
-          this.updatePlayer("isMarked", false);
-        }
-        if (this.player.isVoteless) {
-          this.updatePlayer("isVoteless", false);
-        }
+      this.updatePlayer("isDead", !this.player.isDead);
+      if (this.player.isMarked) {
+        this.updatePlayer("isMarked", false);
+      }
+      if (this.player.isVoteless) {
+        this.updatePlayer("isVoteless", false);
       }
     },
     changeName() {

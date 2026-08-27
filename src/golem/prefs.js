@@ -86,8 +86,9 @@ export const CONTROL_SCHEMES = [
 /**
  * FT-1213: THE CONTROL TOGGLES — every seat gesture, its own switch.
  *
- * SIX ROWS, ONE GRAMMAR. The first three are the old schemes as independent
- * switches; the last three gate gestures that were unconditional until now.
+ * SEVEN ROWS, ONE GRAMMAR (six until FT-1227 split "Click coins" in two).
+ * The first four are the old schemes as independent switches; the last
+ * three gate gestures that were unconditional until now.
  * Each row's `title` TEACHES its gesture — discoverability is half the point
  * of the list (the user found the drags by accident; nobody should have to).
  * The `icon` is the row's font-awesome mark in the Control settings tab.
@@ -97,13 +98,26 @@ export const CONTROL_SCHEMES = [
  * account sync exactly the way every other pref does.
  */
 export const CONTROL_TOGGLES = [
+  // ── FT-1227 SPLITS "Click coins" IN TWO ──────────────────────────────────
+  // The user: "click role name to change role. click other areas of coin to
+  // toggle dead or not." One switch was gating two different acts on two
+  // different targets — the FT-1213 argument for unbundling the schemes,
+  // applied one level deeper. The old `ctrlClickCoins` key STANDS DOWN the
+  // way `controlScheme` did: read once per stash/bag to migrate its value
+  // onto BOTH halves (on = both on), never consulted by a live gesture.
   {
-    key: "ctrlClickCoins",
-    label: "Click coins",
-    icon: "mouse-pointer",
+    key: "ctrlClickName",
+    label: "Click role name",
+    icon: "theater-masks",
     title:
-      "Click a coin's top half to kill or revive the seat; click its lower " +
-      "edge to choose the character",
+      "Click the character's name on a coin's lower edge to choose the " +
+      "character",
+  },
+  {
+    key: "ctrlClickDead",
+    label: "Click coin",
+    icon: "skull",
+    title: "Click a coin anywhere outside its name to kill or revive the seat",
   },
   {
     key: "ctrlHoverCoins",
@@ -123,6 +137,10 @@ export const CONTROL_TOGGLES = [
   {
     key: "ctrlDragRoles",
     label: "Drag roles",
+    // FT-1227: the FA mark stands down — the Control tab paints the hover
+    // ring's own baked art over this row (ui-move-role.png, HostTools'
+    // TOGGLE_MARKS), so the row teaching the gesture wears the gesture's
+    // own icon. `icon` stays as the fallback for a surface with no art map.
     icon: "exchange-alt",
     title:
       "Drag a character coin onto another seat to swap the two characters, " +
@@ -131,23 +149,28 @@ export const CONTROL_TOGGLES = [
   {
     key: "ctrlDragNames",
     label: "Drag names",
+    // FT-1227: stands down for ui-move-player.png — same note as Drag roles.
     icon: "people-arrows",
     title:
       "Drag a seat's name plate onto another seat to move or swap the two " +
       "players",
   },
   {
+    // FT-1227 (user): the row must SAY it is the pin on the nameplate hover
+    // — "Reminder button" named a control nobody could place. The FA
+    // plus-circle stands down for the pin the hover actually shows
+    // (ui-note.png, HostTools' TOGGLE_MARKS).
     key: "ctrlReminderHover",
-    label: "Reminder button",
+    label: "Reminder pin",
     icon: "plus-circle",
-    title:
-      "Resting on a seat's name plate reveals the add-reminder button beside " +
-      "it",
+    title: "The pin on a name plate's hover that adds a reminder",
   },
 ];
 
-/** The six keys alone — the migration's "has this stash been converted?"
- *  probe and the sanitize switch's membership test. */
+/** The live toggle keys alone — the migration's "has this stash been
+ *  converted?" probe and the sanitize switch's membership test. (FT-1227:
+ *  the stood-down `ctrlClickCoins` is deliberately NOT here any more — its
+ *  own migration probes for it by name.) */
 const CONTROL_TOGGLE_KEYS = CONTROL_TOGGLES.map((t) => t.key);
 
 /**
@@ -160,7 +183,10 @@ const CONTROL_TOGGLE_KEYS = CONTROL_TOGGLES.map((t) => t.key);
  */
 function schemeToggles(scheme) {
   return {
-    ctrlClickCoins: scheme === "click",
+    // FT-1227: the "click" scheme was both coin-click acts at once, so it
+    // lands on both halves of the split.
+    ctrlClickName: scheme === "click",
+    ctrlClickDead: scheme === "click",
     ctrlHoverCoins: scheme === "hover",
     ctrlNameplateClick: scheme === "nameplate",
   };
@@ -247,7 +273,13 @@ export const DEFAULT_PREFS = {
   // FT-1213: every gesture ON is the INTERIM default — the user explicitly
   // deferred the defaults conversation ("we can talk about defaults after"),
   // and all-on is the only starting set that hides nothing while it waits.
+  // FT-1227: `ctrlClickCoins` stands down like `controlScheme` above — kept
+  // in the stash and the account bag so an old value still means something,
+  // read once per stash/bag to migrate onto its two halves, never consulted
+  // by a live gesture.
   ctrlClickCoins: true,
+  ctrlClickName: true,
+  ctrlClickDead: true,
   ctrlHoverCoins: true,
   ctrlNameplateClick: true,
   ctrlDragRoles: true,
@@ -272,8 +304,12 @@ function sanitize(key, value) {
       return GRIMOIRE_SIZES.some((s) => s.id === value)
         ? value
         : DEFAULT_PREFS.grimoireSize;
+    // FT-1227: the stood-down key is no longer a CONTROL_TOGGLES row, but an
+    // old stash/bag still carries it and the migrations still read it.
+    case "ctrlClickCoins":
+      return !!value;
     default:
-      // FT-1213: the six control toggles are all plain booleans
+      // FT-1213: the control toggles are all plain booleans
       if (CONTROL_TOGGLE_KEYS.includes(key)) return !!value;
       return undefined;
   }
@@ -417,6 +453,26 @@ async function pullAccountPrefs(id) {
       seed[ACCOUNT_PREFIX + key] = mapped[key];
     });
   }
+  // FT-1227: A BAG FROM BEFORE THE SPLIT — it remembers `ctrlClickCoins` and
+  // holds neither half. Same rule as the scheme conversion above: the
+  // account's remembered switch maps onto BOTH new keys, replaces whatever
+  // the loop queued for seeding, and the PATCH carries the converted pair
+  // up so the bag is post-conversion from here on.
+  const coinsWireKey = ACCOUNT_PREFIX + "ctrlClickCoins";
+  if (
+    coinsWireKey in bag &&
+    !(ACCOUNT_PREFIX + "ctrlClickName" in bag) &&
+    !(ACCOUNT_PREFIX + "ctrlClickDead" in bag)
+  ) {
+    const on = sanitize("ctrlClickCoins", bag[coinsWireKey]);
+    ["ctrlClickName", "ctrlClickDead"].forEach((key) => {
+      if (prefsState[key] !== on) {
+        prefsState[key] = on;
+        changed = true;
+      }
+      seed[ACCOUNT_PREFIX + key] = on;
+    });
+  }
   if (changed) {
     persistLocal();
     notifyPrefs();
@@ -463,6 +519,22 @@ export function loadPrefs() {
       !CONTROL_TOGGLE_KEYS.some((key) => key in raw)
     ) {
       Object.assign(prefsState, schemeToggles(prefsState.controlScheme));
+      persistLocal();
+    }
+    // FT-1227: A STASH FROM BEFORE THE SPLIT — it carries `ctrlClickCoins`
+    // and neither of its two halves. The one remembered switch maps onto
+    // BOTH new keys (on = both on, off = both off) and is persisted at
+    // once, so the conversion runs exactly one time per stash. Runs AFTER
+    // the scheme conversion above so that on the (unlikely) stash carrying
+    // both old keys, the more specific one wins.
+    if (
+      "ctrlClickCoins" in raw &&
+      !("ctrlClickName" in raw) &&
+      !("ctrlClickDead" in raw)
+    ) {
+      const on = sanitize("ctrlClickCoins", raw.ctrlClickCoins);
+      prefsState.ctrlClickName = on;
+      prefsState.ctrlClickDead = on;
       persistLocal();
     }
   }
