@@ -70,11 +70,25 @@
           <!-- the server's own words, in the app's error red -->
           <p class="error" v-if="error">{{ error }}</p>
           <div class="acts">
-            <button class="button" type="submit" :class="{ disabled: busy }">
+            <!-- FT-1222: the disc-foot family's skin (HostTools' .start /
+                 the night sheet's finish button), not the App.vue pill —
+                 dark plate, purple edge, the checklist's own #f4ecff ink.
+                 The quill (the entry strip's ui-chronicle mark) signs it:
+                 signing in IS putting your name to the page. -->
+            <button class="submit" type="submit" :class="{ disabled: busy }">
+              <img class="quill" :src="quill" alt="" />
               {{ creating ? "Create account" : "Sign in" }}
             </button>
           </div>
         </form>
+        <!-- FT-1222: the account pitch — why sign in, in two sentences.
+             Sits under the form on the sign-in view only; the create view
+             already carries its own note. -->
+        <p class="note pitch" v-if="!creating">
+          No account needed to play. Your table name and settings live in this
+          browser — clear it and they're gone. An account carries them between
+          devices and keeps your games yours.
+        </p>
         <p class="swap" v-if="!creating">
           New here?
           <a @click="swapMode(true)">Create an account</a>
@@ -91,6 +105,9 @@
 <script>
 import { mapState } from "vuex";
 import { login, signup, logout } from "../golem/account";
+// FT-1222: the quill in its inkwell — the entry strip's own mark
+// (Menu.vue imports this same file), signing the submit button.
+import quill from "../assets/ui-chronicle.png";
 
 export default {
   data() {
@@ -101,13 +118,16 @@ export default {
       name: "",
       error: "",
       busy: false,
+      quill,
     };
   },
   computed: {
     ...mapState("session", ["account"]),
     heading() {
       if (this.account) return "Your account";
-      return this.creating ? "Create your account" : "Sign in to Golem";
+      // FT-1222 (user call): just "Sign In" — the golem mark that opened
+      // this door already says whose account it is.
+      return this.creating ? "Create your account" : "Sign In";
     },
   },
   mounted() {
@@ -167,6 +187,10 @@ export default {
 // the glass — the same material the guide, the seat plate and the corner
 // menus wear (FT-1193's mixin).
 @import "../faceDisc.scss";
+// FT-1222: the control tokens — the submit button's purple edge is
+// $control-edge-hover, the same edge every plated control acknowledges the
+// pointer with (and HostTools' Start button wears when ready).
+@import "../controls.scss";
 
 .account-door {
   position: fixed;
@@ -242,6 +266,12 @@ form {
   text-align: center;
 }
 
+// FT-1222: the pitch stands a step off the button above it — same note
+// voice, its own breath.
+.pitch {
+  margin-top: 10px;
+}
+
 .whoami {
   margin: 4px 0;
   text-align: center;
@@ -264,11 +294,47 @@ form {
   margin-top: 4px;
 }
 
-// the app's shared .button chrome arrives unscoped from App.vue; the form's
-// submit only needs its native chrome stripped so the pill is the pill.
-button.button {
+// FT-1222: THE SUBMIT WEARS THE DISC-FOOT FAMILY'S SKIN, not App.vue's grey
+// pill — the recipe is HostTools' `.start` in its ready state (dark plate,
+// 3px edge, 10px radius, PiratesBay), scaled to a panel: the disc's 120%
+// display size belongs to a button standing alone on a clock face, and here
+// the button sits in a form column. The ready register comes with it:
+// $control-edge-hover purple on the edge (controls.scss — the grimoire's own
+// edge), #f4ecff ink (the night checklist's finish-button bone), red under
+// the pointer — the app's one acknowledgement for "press me".
+.submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font: inherit;
-  font-weight: bold;
+  font-family: PiratesBay, sans-serif;
+  letter-spacing: 1px;
+  font-size: 105%;
+  padding: 6px 18px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 3px solid $control-edge-hover;
+  border-radius: 10px;
+  color: #f4ecff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 200ms,
+    opacity 200ms;
+  &:hover {
+    color: red;
+  }
+  &.disabled {
+    opacity: 0.62;
+    cursor: default;
+  }
+  // the quill is ART, not a glyph (ScriptView's rule) — it carries its own
+  // box at the label's own size so it never renders at natural scale.
+  .quill {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    display: block;
+  }
 }
 
 .swap {

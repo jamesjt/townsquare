@@ -85,6 +85,17 @@ export const GUIDE_SECTIONS = [
           "you play count toward your own record. No account? Guests play " +
           "exactly the same — games just aren't yours to look back on.",
       },
+      {
+        // FT-1222: the panel's pitch, said once in the guide too — without
+        // an account everything lives in this browser's local storage
+        // (golem.playerName, prefs) and clearing the browser clears it; an
+        // account (AccountDoor.vue) is what carries it across devices.
+        lead: "Where it lives",
+        note:
+          "Without an account, your name and settings live in this browser " +
+          "alone — clear it and they're gone. Signed in, they follow you to " +
+          "any device.",
+      },
     ],
   },
   {
