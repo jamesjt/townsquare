@@ -571,7 +571,10 @@
            marks never want the corner at once (the vocabulary's own rule). -->
       <div
         class="has-vote ghost-vote"
-        :class="{ spent: player.isVoteless, 'points-right': nominateMarkMirrored }"
+        :class="{
+          spent: player.isVoteless,
+          'points-right': nominateMarkMirrored,
+        }"
         v-if="!showBallotVote && player.isDead"
         @click="updatePlayer('isVoteless', !player.isVoteless)"
         :title="player.isVoteless ? 'Ghost vote spent' : 'Ghost vote'"
