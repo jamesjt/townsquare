@@ -623,6 +623,8 @@ export default {
 </script>
 
 <style lang="scss">
+@import "../faceDisc.scss";
+
 /* NOT SCOPED, deliberately: this element is re-parented to document.body, so
    a scoped rule's data attribute still rides on it but every DESCENDANT
    selector written against an ancestor in the seat would stop matching. The
@@ -659,12 +661,27 @@ export default {
   border-radius: 50%;
   cursor: pointer;
   color: #f4eeff;
-  /* A LITTLE COIN, and it is the seat coin's own vocabulary at small scale:
-     a dark ground, the grimoire's plum edge (#4b3565 — RoleDrawer's own
-     border, which faceDisc.scss also names as `--fd-edge-color`'s ship), and
-     a bronze thread outside it seating the piece on whatever it lies over.
-     Not a new material: the same three layers the centre disc's bevel uses,
-     drawn at coin size. */
+  /* FT-1223: THE COIN IS GLASS NOW — "can we make the hover coin controls
+     glass?" (user). The material is `face-disc-menu-plate`, the exact plate
+     the seat menu, the top-right menus and the sign-in panel wear, at coin
+     size: the same backdrop frost (0.05 x $r — ~1.5px here, real glass, not
+     the disc's near-clear 0.008r, because what shows through a coin is
+     whatever it happens to hang over), the same dark tint ramp, the same plum
+     hairline + bronze thread edge. Two dials are the coin's own:
+       $r: 30px      the material's scale — the coin's own size, so the frost
+                     is proportionally what the 200px menu's 10px is.
+       $bevel: 0.3   the FT-1223 scale on the plate's six shadow lengths; at
+                     coin size the menu-scale crescents were a smudge and the
+                     16px halo a lantern. 0.3 lands the bevel where this
+                     coin's old hand-drawn one sat (~1-2px, on the edge).
+     THE STATES KEEP THEIR INKS but speak them through the plate's own edge
+     tokens (`--fd-edge-color` / `--fd-edge-glow`, FT-1125's "the edge is the
+     one part a surface can honestly own") instead of border-color, because
+     the plate's edge is a shadow ring, not a border. */
+  border: none;
+  @include face-disc-menu-plate($r: 30px, $radius: 50%, $bevel: 0.3);
+  /* STOOD DOWN (FT-1223): the flat purple disc this coin wore before the
+     glass — kept whole for the next reader, not deleted.
   background: radial-gradient(
     circle at 50% 34%,
     rgba(58, 44, 74, 0.97) 0%,
@@ -677,10 +694,14 @@ export default {
     inset 0 -2px 3px rgba(0, 0, 0, 0.6),
     0 0 0 1px rgba(150, 120, 60, 0.3),
     0 2px 6px rgba(0, 0, 0, 0.66);
+  */
+  /* box-shadow joined the ride (it was border-color's): the edge tokens are
+     custom properties, and a var flip animates through the property that
+     reads it, never through the var itself. */
   transition:
     transform 90ms ease,
     color 90ms ease,
-    border-color 90ms ease;
+    box-shadow 90ms ease;
 
   svg {
     /* the glyph is sized by the inline font-size the solve computes, so the
@@ -726,15 +747,12 @@ export default {
   &:focus {
     outline: none;
     color: #fff;
-    border-color: #a78fcd;
     /* FT-1167's purple — the picked-ring colour this fork already uses for
-       "this is the one you are on". Not a new accent. */
-    box-shadow:
-      inset 0 1px 2px rgba(250, 246, 255, 0.34),
-      inset 0 -2px 3px rgba(0, 0, 0, 0.6),
-      0 0 0 1px rgba(167, 143, 205, 0.55),
-      0 0 10px rgba(167, 143, 205, 0.45),
-      0 2px 6px rgba(0, 0, 0, 0.66);
+       "this is the one you are on". Not a new accent; FT-1223 moved it from
+       border-color onto the plate's own edge tokens, so the hairline AND the
+       halo both take it and the glass underneath is untouched. */
+    --fd-edge-color: #a78fcd;
+    --fd-edge-glow: rgba(167, 143, 205, 0.55);
     transform: scale(1.08);
   }
 
@@ -742,7 +760,7 @@ export default {
      menu's armed row wears, so the two surfaces say it the same way. */
   &.on {
     color: #ff8a8a;
-    border-color: #8d5a72;
+    --fd-edge-color: #8d5a72;
 
     /* FT-1194: a painted mark cannot take the ink through `color`, so it
        wears the same red as a glow — the plate's armed rows do the same. */
@@ -762,13 +780,12 @@ export default {
     &:hover,
     &:focus {
       color: #f4eeff;
-      border-color: #4b3565;
       transform: none;
-      box-shadow:
-        inset 0 1px 2px rgba(250, 246, 255, 0.28),
-        inset 0 -2px 3px rgba(0, 0, 0, 0.6),
-        0 0 0 1px rgba(150, 120, 60, 0.3),
-        0 2px 6px rgba(0, 0, 0, 0.66);
+      /* the rest edge, restated — a refused coin does not light up. These
+         are the plate's own `var()` fallbacks (faceDisc.scss), the only way
+         to put a token back where the :hover above has already set it. */
+      --fd-edge-color: #4b3565;
+      --fd-edge-glow: rgba(112, 74, 172, 0.3);
     }
   }
 }

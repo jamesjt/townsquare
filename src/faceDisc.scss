@@ -872,7 +872,7 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
 //                opacity so one number scales the whole ramp.
 //   ::after      THE EDGE: painted light on `screen`, masked to a THIN ring —
 //                85% out, not 46%. A rim, not a glare.
-@mixin face-disc-plate {
+@mixin face-disc-plate($bevel: 1) {
   // THE RECTANGLE'S OWN GROUND MUST NOT SURVIVE INTO THE DISC. All these
   // surfaces set an opaque black background on their rectangle rule
   // (rgba(0, 0, 0, 0.95) on the checklist, 0.8 on the build panel). The plate
@@ -993,13 +993,28 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
   // object meets the table — and the alternative was for that surface to
   // restate all six shadow layers to change one of them, which is the drift
   // this whole file exists to end.
+  //
+  // ── AND THE BEVEL HAS A SCALE NOW (FT-1223) ──────────────────────────────
+  // `$bevel` multiplies every LENGTH in these six layers except the two 1px
+  // rings — the plum hairline and the bronze thread stay hairlines at every
+  // size, because a hairline that scaled would stop being one. The default is
+  // 1 and `4px * 1` emits the literal `4px`, so every existing caller compiles
+  // byte-for-byte what it compiled before (checked by compile-diff, not
+  // assumed: claude_temp_test/2026-08-26-ft1223-mixin-diff/).
+  //
+  // WHO NEEDS IT: the hover ring's little action coins (SeatRing.vue), ~26px
+  // circles wearing this same material. The offsets here were settled on
+  // 200-460px plates; on a 26px coin a 4px/8px crescent is a smudge across a
+  // fifth of the face, and a 16px halo is a lantern. 0.3 puts the bevel back
+  // ON the edge at coin size — the alternative was SeatRing restating all six
+  // layers to shrink four of them, the drift this file exists to end.
   box-shadow:
-    inset 4px 5px 8px -5px rgba(250, 246, 255, 0.82),
-    inset -4px -5px 9px -6px rgba(0, 0, 0, 0.7),
+    inset #{4px * $bevel} #{5px * $bevel} #{8px * $bevel} #{-5px * $bevel} rgba(250, 246, 255, 0.82),
+    inset #{-4px * $bevel} #{-5px * $bevel} #{9px * $bevel} #{-6px * $bevel} rgba(0, 0, 0, 0.7),
     inset 0 0 0 1px var(--fd-edge-color, #4b3565),
     0 0 0 1px rgba(150, 120, 60, 0.22),
-    0 0 16px var(--fd-edge-glow, rgba(112, 74, 172, 0.3)),
-    0 0 24px rgba(0, 0, 0, 0.66);
+    0 0 #{16px * $bevel} var(--fd-edge-glow, rgba(112, 74, 172, 0.3)),
+    0 0 #{24px * $bevel} rgba(0, 0, 0, 0.66);
 
   // ── THE GROUND ─────────────────────────────────────────────────────────────
   // The tint ramp: full strength dead centre, gone by the rim. No mask — the
@@ -1265,7 +1280,10 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
 // `position: fixed` and sets it at the top of its block, while this mixin is
 // included at the bottom, so a `relative` written here would land AFTER it and
 // unfix a plate that is positioned in viewport coordinates.
-@mixin face-disc-menu-plate($r: 200px, $radius: 14px) {
+// `$bevel` (FT-1223) rides through to `face-disc-plate` untouched — see the
+// scale note above the shadow stack. The hover ring's little coins are the
+// caller that passes it; every menu keeps the default and compiles unchanged.
+@mixin face-disc-menu-plate($r: 200px, $radius: 14px, $bevel: 1) {
   --fd-r: #{$r};
   --fd-radius: #{$radius};
   --fd-blur-adj: 42;
@@ -1277,7 +1295,7 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
   // Without this line the backdrop-filter and the bevel would be a hard
   // rectangle behind two rounded layers.
   border-radius: var(--fd-radius);
-  @include face-disc-plate;
+  @include face-disc-plate($bevel);
 }
 
 // ── THE THREE BANDS, exact: cap + (d - 2cap) + cap = d ──────────────────────
