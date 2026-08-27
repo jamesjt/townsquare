@@ -72,7 +72,12 @@ export default {
   position: fixed;
   bottom: 0;
   left: 0;
-  z-index: 15;
+  /* FT-1243 (user report): at 15 the modal backdrop (Chronicles etc.)
+     covered the corner, so a click there CLOSED the modal instead of
+     toggling Labs — which read as "the labs button isn't working". A dev
+     switch may stand over everything; the backdrop loses 28px of corner,
+     which click-to-close never needed. 15 stood down for the record. */
+  z-index: 95;
 
   .ls-hotspot {
     width: 28px;
