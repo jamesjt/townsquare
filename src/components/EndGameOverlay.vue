@@ -37,7 +37,7 @@
 </template>
 
 <script>
-import { recordGame, dealTimeFor, clearDealt } from "../golem/stats";
+import { recordGame, dealTimeFor, clearDealt, isDevGame } from "../golem/stats";
 import { flashHint } from "../golem/hint";
 // the fork's own team art — one definition of "the glyph for team X",
 // already worn by TownInfo's counts, HostTools' composition row, RoleDrawer's
@@ -90,9 +90,17 @@ export default {
       const { session, edition, night } = this.$store.state;
       const players = this.$store.state.players.players;
       const seats = [];
+      // FT-1236: a fake player still seated at the end is the second true
+      // signal that this was a dev run (the first is the mark stamped at the
+      // gesture — see below). `dev-N` ids are minted by exactly one thing,
+      // HostTools' devFillSeats, so this reads STATE, not name strings.
+      let devSeat = false;
       players.forEach((player, index) => {
         const role = player.role;
         if (!role || !role.id || !ROLE_TYPES[role.team]) return;
+        if (typeof player.id === "string" && player.id.indexOf("dev-") === 0) {
+          devSeat = true;
+        }
         const seat = {
           seatNo: index + 1,
           playerName: (player.name || `Seat ${index + 1}`).slice(0, 200),
@@ -166,6 +174,15 @@ export default {
         dayCount: night.day,
         seats
       };
+      // FT-1236: A DEV FIXTURE MAKES THE WHOLE GAME A TEST. Two sources,
+      // either sufficient: the mark stamped the moment a dev gesture happened
+      // (fake fill / shift-Start — survives the host's reload, like the deal
+      // stash beside it), and any `dev-N` seat still on the board now. The
+      // record lands in the dev ledger; the real Chronicles never sees it.
+      // Sent only when true — an absent flag IS the server's false.
+      if (devSeat || isDevGame(session.sessionId)) {
+        payload.isTest = true;
+      }
       // The vault id rides along only when the table is actually playing a
       // vault script (the EditionModal holds the loaded id; an official
       // edition means any stale vault id is not what's being played).

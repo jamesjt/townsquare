@@ -961,7 +961,14 @@ import HotkeyHelp from "./components/HotkeyHelp";
 // FT-1032: clearDealt joins the pair — the deal stash must die with the game
 // (End game / Play again), or a re-entered town greets its host as "running"
 // forever. EndGameOverlay's own clear only runs when the record POST lands.
-import { markDealt, dealTimeFor, clearDealt } from "./golem/stats";
+// FT-1236: clearDevGame is the dev-mark's twin of clearDealt — the "this was
+// a dev/test game" stamp dies at the same two moments the deal stash does.
+import {
+  markDealt,
+  dealTimeFor,
+  clearDealt,
+  clearDevGame,
+} from "./golem/stats";
 // FT-1059: clearPhaseStart joins Play again's day-counter reset — the phase
 // clock's own wall-clock stamp is the OTHER piece of session state that
 // outlives the game it was timing (see towerBells.js's header on the fix).
@@ -1745,6 +1752,10 @@ export default {
       // later re-entry would have greeted the host with a game that ended.
       // Idempotent beside the overlay's clear.
       clearDealt(this.session.sessionId);
+      // FT-1236: the dev/test mark dies with the game too — the overlay has
+      // already read it into the POST by the time this handler runs, and the
+      // NEXT game in this town must start unmarked.
+      clearDevGame(this.session.sessionId);
       // ...and a panel still wearing the greeting face falls back to the
       // build face: there is no running game to greet anyone with now.
       this.reentry = false;
@@ -1877,6 +1888,9 @@ export default {
       // backstop for any older stale entry), so this fresh build can never
       // be mistaken for a running game by a later re-entry.
       clearDealt(this.session.sessionId);
+      // FT-1236: and the dev/test mark with it — the fresh build earns its
+      // own classification from its own gestures.
+      clearDevGame(this.session.sessionId);
       this.building = true;
       this.reentry = false;
     },

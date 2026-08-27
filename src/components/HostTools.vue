@@ -1127,7 +1127,10 @@ import { mapMutations, mapState } from "vuex";
 import { listTowns, editKeyFor, updateTown } from "../golem/towns";
 // the heading's games-played line — the same per-town aggregate StatsOverlay
 // reads, not a new count.
-import { townStats } from "../golem/stats";
+// FT-1236: markDevGame — either dev gesture (fake fill, shift-Start) stamps
+// the running game as a TEST game the moment it happens; the end-of-game
+// record then lands in the dev ledger, not the real Chronicles.
+import { townStats, markDevGame } from "../golem/stats";
 import ScriptPicker from "./ScriptPicker";
 // FT-859: the unseated-role tray that lives under the Roles row.
 import RoleTray from "./RoleTray";
@@ -2356,6 +2359,10 @@ export default {
     /** DEV: shift-click the claimed count — every empty chair gets a fake
      *  player, so a full game can start solo (pair with shift-Start). */
     devFillSeats() {
+      // FT-1236: a dev fixture touched this game — whatever happens after,
+      // the record it posts is a TEST game. Stamped now, at the gesture,
+      // not inferred from seat names at record time.
+      markDevGame(this.session.sessionId);
       this.players.forEach((p, i) => {
         if (!p.id) {
           this.$store.commit("players/update", {
@@ -2454,6 +2461,10 @@ export default {
           flashHint("No seats to fill.");
           return;
         }
+        // FT-1236: the shift-Start bypass is itself a dev fixture — even
+        // with every chair humanly claimed, a game started this way records
+        // as a TEST game. (devFillSeats stamps too; idempotent.)
+        markDevGame(this.session.sessionId);
         this.devFillSeats();
         if (this.rolesAssigned < this.players.length) {
           this.withDrawer((d) => d.assignRandomly());

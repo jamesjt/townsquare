@@ -71,10 +71,34 @@
           <button class="rp-back" v-if="pick" @click="closePick">
             <font-awesome-icon icon="arrow-left" /> The Chronicles
           </button>
-          <p class="rp-sub">
+          <p class="rp-sub" :class="{ dev: testView }">
             <template v-if="pick">one game's record</template>
+            <template v-else-if="testView"
+              >the dev ledger — test games only</template
+            >
             <template v-else>every town on the platform</template>
           </p>
+          <!-- FT-1236: THE DEV LEDGER'S DOOR — labs only (session.labs, the
+               platform's own flag, fetched at boot; FT-1226's gate, reused
+               rather than a second mechanism). Real games are the page's
+               only truth for everyone else; with labs on, this one switch
+               re-asks every read on the page with `test=only` — the games
+               played with fake players / shift-click starts, which the
+               ordinary Chronicles never shows. Hidden inside a record: the
+               ledger question belongs to the landing view. -->
+          <button
+            class="rp-devtoggle"
+            :class="{ on: testView }"
+            v-if="!pick && session.labs"
+            :title="
+              testView
+                ? 'Showing test games (dev fixtures). Click for the real Chronicles.'
+                : 'Show test games — the dev ledger'
+            "
+            @click="toggleTestView"
+          >
+            Test games{{ testView ? " ✓" : "" }}
+          </button>
           <!-- FT-1188: THE PAGE'S OWN CLOSE MARK, stood down rather than
                removed (house rule). The shell paints the × now — the shared
                CloseX at the size and corner every modal in the app puts it,
@@ -688,6 +712,14 @@ export default {
         error: false,
         result: null,
       },
+      /**
+       * FT-1236: WHICH LEDGER the page is reading. False (always, for
+       * everyone without labs) = real games — the Chronicles. True (labs
+       * only, via the header toggle) = the DEV LEDGER: games played with
+       * fake players / shift-click starts, `?test=only` on every read.
+       * Never mixed — the server keeps the two ledgers disjoint.
+       */
+      testView: false,
       /** The opened record: {id, loading, game} or null for the landing. */
       pick: null,
       /** That record's board portraits, read out of its town's log. */
@@ -695,7 +727,9 @@ export default {
     };
   },
   computed: {
-    ...mapState(["recordsPick"]),
+    // FT-1236: `session` rides along for `session.labs` — the platform flag
+    // that gates the dev-ledger toggle (FT-1226's fetch, no new mechanism).
+    ...mapState(["recordsPick", "session"]),
     /** The table shows the platform's regulars, not everyone who ever sat. */
     topPlayers() {
       const players = (this.stats && this.stats.players) || [];
@@ -816,7 +850,7 @@ export default {
       this.loading = true;
       this.error = false;
       this.stats = null;
-      platformBreakdown()
+      platformBreakdown(this.testView)
         .then((stats) => {
           this.stats = stats;
           this.loading = false;
@@ -826,6 +860,29 @@ export default {
           this.error = true;
           this.loading = false;
         });
+    },
+    /**
+     * FT-1236: flip between the Chronicles and the dev ledger (labs only —
+     * the toggle that calls this does not render otherwise). A DIFFERENT
+     * LEDGER IS A DIFFERENT PAGE: the open record, the combination question
+     * and every table are about the other ledger's games, so nothing is
+     * carried across — everything re-asks with the new view.
+     */
+    toggleTestView() {
+      this.testView = !this.testView;
+      this.pick = null;
+      this.boards = { loading: false, start: null, day1: null, end: null };
+      // seq survives the reset so a stale in-flight answer still discards.
+      this.combo = {
+        scriptName: "",
+        roleIds: [],
+        seq: this.combo.seq,
+        loading: false,
+        error: false,
+        result: null,
+      };
+      this.load();
+      this.loadLedger();
     },
     /**
      * THE STOOD-DOWN PLAYERS TABLE'S READ, kept beside its markup.
@@ -930,7 +987,7 @@ export default {
       this.combo.seq = seq;
       this.combo.loading = true;
       this.combo.error = false;
-      roleCombination(script, roles)
+      roleCombination(script, roles, this.testView)
         .then((result) => {
           if (this.combo.seq !== seq) return;
           this.combo.result = result;
@@ -955,7 +1012,7 @@ export default {
      */
     loadLedger() {
       this.ledger = { loading: true, games: [], summary: null };
-      platformGames()
+      platformGames(undefined, this.testView)
         .then((games) => {
           this.ledger = {
             loading: false,
@@ -1122,6 +1179,40 @@ export default {
   &:focus-visible {
     @include control-focus-ring;
   }
+}
+
+// FT-1236: the dev ledger's door — labs only, far right of the head, wearing
+// the same control plate as Back on the far left. Amber when the page is
+// standing in the test ledger, so the state is visible from across the room
+// (the subtitle names it too — see .rp-sub.dev).
+.rp-devtoggle {
+  grid-column: 3;
+  justify-self: end;
+  @include control-plate;
+  font-family: inherit;
+  font-size: 13px;
+  color: #d8cdb4;
+  padding: 4px 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: #fff;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &.on {
+    color: #e6c56b;
+    border-color: rgba(230, 197, 107, 0.55);
+  }
+}
+
+// ...and the subtitle wears the same amber while the dev ledger is open —
+// the page-level "you are not reading the real Chronicles" marking.
+.rp-sub.dev {
+  color: #e6c56b;
+  opacity: 0.85;
 }
 
 // STOOD DOWN with the mark it sized (FT-1188) — the shell's × is 30px in the

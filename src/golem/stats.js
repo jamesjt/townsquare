@@ -19,6 +19,19 @@
 const API = "/api/botc";
 
 const DEAL_KEY = "golem.dealTime";
+const DEV_KEY = "golem.devGame";
+
+/**
+ * FT-1236 — THE TEST-LEDGER PARAM, the client half of the server's one
+ * contract: absent = real games only (every ordinary surface), `test=only` =
+ * test games only (the labs-gated dev view of the Chronicles). Appended by
+ * every read helper below when the caller asks for the dev ledger, so the
+ * question is spelled identically on every route.
+ */
+function withTestView(qs, test) {
+  if (test) qs.set("test", "only");
+  return qs;
+}
 
 /**
  * POST a finished game. The server validates the flat record (seat numbers
@@ -37,8 +50,11 @@ export async function recordGame(payload) {
 }
 
 /** One town's aggregate record → {games, byTeam, byScript, players}. */
-export async function townStats(id) {
-  const res = await fetch(`${API}/stats/town/${encodeURIComponent(id)}`);
+export async function townStats(id, test = false) {
+  const qs = withTestView(new URLSearchParams(), test).toString();
+  const res = await fetch(
+    `${API}/stats/town/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`,
+  );
   if (!res.ok) throw new Error(`stats failed (${res.status})`);
   return res.json();
 }
@@ -48,8 +64,11 @@ export async function townStats(id) {
  * (script, winner, startedAt…) behind the chronicles records band. Same
  * best-effort contract as the aggregates.
  */
-export async function townGames(id, limit = 50) {
-  const qs = new URLSearchParams({ town: id, limit: String(limit) });
+export async function townGames(id, limit = 50, test = false) {
+  const qs = withTestView(
+    new URLSearchParams({ town: id, limit: String(limit) }),
+    test,
+  );
   const res = await fetch(`${API}/games?${qs}`);
   if (!res.ok) throw new Error(`games failed (${res.status})`);
   const body = await res.json();
@@ -78,8 +97,8 @@ export async function gameRecord(id) {
  * every town; each row already carries its own `townId`, so a mixed list needs
  * nothing new to stay readable. The server's ceiling is 50 either way.
  */
-export async function allGames(limit = 50) {
-  const qs = new URLSearchParams({ limit: String(limit) });
+export async function allGames(limit = 50, test = false) {
+  const qs = withTestView(new URLSearchParams({ limit: String(limit) }), test);
   const res = await fetch(`${API}/games?${qs}`);
   if (!res.ok) throw new Error(`games failed (${res.status})`);
   const body = await res.json();
@@ -100,8 +119,9 @@ export async function allGames(limit = 50) {
  * that threshold from here rather than keeping its own copy, so the two can
  * never disagree about which numbers are too thin to read.
  */
-export async function platformBreakdown() {
-  const res = await fetch(`${API}/stats/breakdown`);
+export async function platformBreakdown(test = false) {
+  const qs = withTestView(new URLSearchParams(), test).toString();
+  const res = await fetch(`${API}/stats/breakdown${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error(`breakdown failed (${res.status})`);
   return res.json();
 }
@@ -114,19 +134,23 @@ export async function platformBreakdown() {
  * and 1,540 triples, and the only combination worth an answer is the one a
  * reader just picked.
  */
-export async function roleCombination(scriptName, roleIds) {
-  const qs = new URLSearchParams({
-    script: scriptName,
-    roles: (roleIds || []).join(","),
-  });
+export async function roleCombination(scriptName, roleIds, test = false) {
+  const qs = withTestView(
+    new URLSearchParams({
+      script: scriptName,
+      roles: (roleIds || []).join(","),
+    }),
+    test,
+  );
   const res = await fetch(`${API}/stats/combination?${qs}`);
   if (!res.ok) throw new Error(`combination failed (${res.status})`);
   return res.json();
 }
 
 /** Every town together — same shape as townStats. */
-export async function platformStats() {
-  const res = await fetch(`${API}/stats/platform`);
+export async function platformStats(test = false) {
+  const qs = withTestView(new URLSearchParams(), test).toString();
+  const res = await fetch(`${API}/stats/platform${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error(`stats failed (${res.status})`);
   return res.json();
 }
@@ -160,4 +184,46 @@ export function clearDealt(sessionId) {
   const stash = readStash();
   delete stash[sessionId];
   localStorage.setItem(DEAL_KEY, JSON.stringify(stash));
+}
+
+/**
+ * FT-1236 — THE DEV-GAME MARK (localStorage `golem.devGame`, a map of
+ * session id → true), the deal stash's sibling and lifecycle twin.
+ *
+ * A game that used a dev fixture AT ANY POINT is a TEST GAME: the fake-player
+ * fill (ids `dev-N`) and the shift-click Start both stamp the mark the moment
+ * the gesture happens — the fact is recorded when it exists, not inferred
+ * from seat names at record time. It persists like the deal moment does
+ * (host-side, per town, across the host's own reload) so the end-of-game POST
+ * can still say `isTest: true` however long the game ran, and it dies with
+ * the game exactly where the deal stash dies (App.vue's onGameRecorded and
+ * Play again), so the NEXT game in the same town starts unmarked.
+ */
+function readDevStash() {
+  try {
+    return JSON.parse(localStorage.getItem(DEV_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+/** Stamp this session's running game as a dev/test game. */
+export function markDevGame(sessionId) {
+  if (!sessionId) return;
+  const stash = readDevStash();
+  stash[sessionId] = true;
+  localStorage.setItem(DEV_KEY, JSON.stringify(stash));
+}
+
+/** Was a dev fixture used in this session's running game? */
+export function isDevGame(sessionId) {
+  return !!(sessionId && readDevStash()[sessionId]);
+}
+
+/** Forget the mark (the game was recorded or abandoned). */
+export function clearDevGame(sessionId) {
+  if (!sessionId) return;
+  const stash = readDevStash();
+  delete stash[sessionId];
+  localStorage.setItem(DEV_KEY, JSON.stringify(stash));
 }
