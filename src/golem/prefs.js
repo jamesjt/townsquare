@@ -107,7 +107,11 @@ export const CONTROL_TOGGLES = [
   // onto BOTH halves (on = both on), never consulted by a live gesture.
   {
     key: "ctrlClickName",
-    label: "Click role name",
+    // FT-1230 (user): "that should say 'click role name to change role' and
+    // use the role icon not the masks icon" — the label says what the click
+    // DOES, and the mark is the app's own role coin (worn via HostTools'
+    // TOGGLE_MARKS; the FA name below stands down as the record).
+    label: "Click role name to change role",
     icon: "theater-masks",
     title:
       "Click the character's name on a coin's lower edge to choose the " +

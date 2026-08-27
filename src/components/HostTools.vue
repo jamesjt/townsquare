@@ -1234,11 +1234,15 @@ import {
 // move icons and the reminder row wears the nameplate hover's pin, so a row
 // teaching a gesture shows the exact mark the gesture itself uses. Keyed by
 // toggle key; a row not named here keeps its FA icon from CONTROL_TOGGLES.
+import uiRoleMark from "../assets/ui-role.png";
 import uiMoveRole from "../assets/ui-move-role.png";
 import uiMovePlayer from "../assets/ui-move-player.png";
 import uiNote from "../assets/ui-note.png";
 
 const TOGGLE_MARKS = {
+  // FT-1230 (user): the change-role click wears the app's own role coin,
+  // not the FA masks.
+  ctrlClickName: uiRoleMark,
   ctrlDragRoles: uiMoveRole,
   ctrlDragNames: uiMovePlayer,
   ctrlReminderHover: uiNote,
