@@ -24,7 +24,13 @@
           Seats you claim prefill this name, and finished games count toward
           your record.
         </p>
-        <div class="button" @click="doLogout">Sign out</div>
+        <!-- FT-1233 (user): "make that signout button in our style. but
+             red." — the submit's own disc-foot dress (below) with the
+             leaving-red edge and ink; hover brightens rather than reddens,
+             since red is already its resting statement. -->
+        <button type="button" class="submit signout" @click="doLogout">
+          Sign out
+        </button>
       </template>
 
       <!-- ── signed out: sign in, or create an account ───────────────── -->
@@ -326,6 +332,17 @@ form {
   &.disabled {
     opacity: 0.62;
     cursor: default;
+  }
+  // FT-1233: the sign-out variant — same plate, the app's blood red on edge
+  // and ink ("but red"). Hover brightens instead of reddening: red is this
+  // button's resting statement, so the acknowledgement is light, not colour.
+  &.signout {
+    border-color: rgba(178, 34, 34, 0.85);
+    color: #e8a0a0;
+    &:hover {
+      color: #ff6b6b;
+      border-color: rgba(220, 60, 60, 0.95);
+    }
   }
   // the quill is ART, not a glyph (ScriptView's rule) — it carries its own
   // box at the label's own size so it never renders at natural scale.
