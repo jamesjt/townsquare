@@ -110,7 +110,11 @@ import uiNote from "../assets/ui-note.png";
 // pale raised hand the coin's unspent-vote pip is drawn from — instead of the
 // stock ballot glyph. One meaning, one mark: the row toggles exactly the
 // thing that hand depicts.
-import uiGhostVote from "../assets/ui-ghost-vote-cowl.png";
+// FT-1248 (user): "the use ghost vote in the player name click menu should
+// be the same one as next to the coin" — and the coin's mark IS the cowl
+// (FT-996 made ui-ghost-cowl the one meaning of an unspent ghost vote; the
+// old hand, ui-ghost-vote-cowl, is a retiree). The row now wears the cowl.
+import uiGhostVote from "../assets/ui-ghost-cowl.png";
 
 /**
  * The seat facts every guard reads. Player.vue builds one of these
