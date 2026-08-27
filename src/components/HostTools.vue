@@ -3869,7 +3869,22 @@ export default {
     }
 
     > .start-dock {
-      @include face-disc-foot;
+      // FT-1214: THE DOCK STEPS OUT OF THE LAYOUT (`display: contents`) and
+      // `.start` itself becomes the disc's foot flex item, wearing the
+      // SHARED `face-disc-foot-button` mixin — the block this rule and
+      // NightSheet's End night solved separately now lives in faceDisc.scss,
+      // because the third foot button (End day) arrived and three copies is
+      // what that file exists to end. The dock keeps its element (the phone
+      // sheets' sticky footer and the hint both hang off it, other media);
+      // here it simply stops generating a box, so the button lands in the
+      // column exactly where the dock used to.
+      //
+      // The width and margin lines below are INERT on a contents box (it
+      // generates no box for them to size) and stand as the record of what
+      // the dock carried before the fold, per the house rule. The
+      // derivations they explain (the 0.583 coefficient, the 150px label
+      // floor, the FT-938 fd-rx correction) also live in the mixin's header.
+      display: contents;
       // NARROWER THAN THE MIXIN'S 0.95r (2026-08-19, user call). The dock IS
       // the button's width — `.start` is a block inside it — and 0.95r drew a
       // 262px slab under a two-word label at 1920x1080.
@@ -3918,10 +3933,17 @@ export default {
       // and being sheared by it, and the three primary buttons on this face
       // should be one object anyway. The label is two short words; it is the
       // padding that comes off, not the reading size.
+      //
+      // FT-1214: those numbers ARE the mixin now — one box for the three
+      // primary buttons, geometry only (Start keeps its own black/purple
+      // skin). The dock is display:contents (above), so the foot translate
+      // and the width floor land HERE, on the button that was always their
+      // real subject. One visible change rides along, and it is the shared
+      // rule's own: the width is a FLOOR (FT-1143), so a long blocked label
+      // ("3 seats still open") widens the button instead of overflowing the
+      // fixed dock it used to sit in.
       .start {
-        margin-top: 0;
-        font-size: 100%;
-        padding: 4px 14px;
+        @include face-disc-foot-button;
       }
       // THE REASON LINE FOLDS INTO THE BUTTON'S TOOLTIP HERE, and this is a
       // fold rather than a loss: it is the same string as the button's own

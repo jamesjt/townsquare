@@ -594,20 +594,33 @@ function readStash() {
   }
 }
 
-/** One town's stored log, or null. */
+/** One town's stored log, or null.
+ *
+ *  FT-1173: `staged` rides the same stash — the deaths the storyteller has
+ *  queued for the night's end but not yet committed (see night.js's staged
+ *  state). Stored beside the log because it has the same owner (the host),
+ *  the same scope (one town) and the same lifetime question: the brief's
+ *  rule is that an uncommitted stage PERSISTS until End night or explicit
+ *  removal, and a stash that forgot it across a reload would silently apply
+ *  nothing. A log written before this field existed reads as "nothing
+ *  staged", never as a migration. */
 export function loadLog(sessionId) {
   if (!sessionId) return null;
   const stash = readStash();
   const log = stash[sessionId];
   if (!log || !Array.isArray(log.entries)) return null;
-  return { day: log.day || 0, entries: log.entries };
+  return {
+    day: log.day || 0,
+    entries: log.entries,
+    staged: Array.isArray(log.staged) ? log.staged : [],
+  };
 }
 
-/** Stash one town's log. */
-export function saveLog(sessionId, day, entries) {
+/** Stash one town's log (and its staged, uncommitted deaths — FT-1173). */
+export function saveLog(sessionId, day, entries, staged) {
   if (!sessionId) return;
   const stash = readStash();
-  stash[sessionId] = { day, entries };
+  stash[sessionId] = { day, entries, staged: staged || [] };
   try {
     localStorage.setItem(LOG_KEY, JSON.stringify(stash));
   } catch (e) {

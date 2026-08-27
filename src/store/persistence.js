@@ -37,7 +37,10 @@ function applyTownNight(store, townId) {
     "night/setRequireChecks",
     loadRequireChecks(townId) || DEFAULT_CHECK_MODE
   );
-  store.commit("night/setLog", loadLog(townId) || { day: 0, entries: [] });
+  store.commit(
+    "night/setLog",
+    loadLog(townId) || { day: 0, entries: [], staged: [] },
+  );
 }
 
 module.exports = store => {
@@ -366,13 +369,24 @@ module.exports = store => {
         if (!state.session.isSpectator)
           saveRequireChecks(state.session.sessionId, state.night.requireChecks);
         break;
+      // FT-1173: the staged-deaths queue rides the same stash (see night.js's
+      // staged note) — staging, un-staging and the End-night commit's clear
+      // all rewrite it, and every existing writer now carries it along.
       case "toggleNight":
       case "night/setDay":
       case "night/setLog":
       case "night/addEntry":
       case "night/patchEntry":
       case "night/removeEntry":
-        saveLog(state.session.sessionId, state.night.day, state.night.entries);
+      case "night/stageDeath":
+      case "night/unstageDeath":
+      case "night/clearStaged":
+        saveLog(
+          state.session.sessionId,
+          state.night.day,
+          state.night.entries,
+          state.night.staged,
+        );
         break;
       case "session/setPlayerId":
         if (payload) {

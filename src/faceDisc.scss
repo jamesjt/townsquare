@@ -505,7 +505,15 @@ $face-disc-foot-dy: 14px;
 //
 // The map's own `r` / `width` px offsets and both lab `-adj` reads survive
 // intact on the end of either form, so zero still means "what ships".
-@mixin face-disc-frame($geo: $face-disc-geo-town) {
+// ── AND A CALLER MAY NOW ASK FOR GEOMETRY WITHOUT THE PLATE (FT-1214) ──────
+// `$plate: false` emits everything the frame IS — position, radii, the flex
+// column, every `--fd-*` the furniture mixins read — and paints NOTHING: no
+// glass, no bevel, no tint. The night sheet's DAY state is the consumer: the
+// disc's foot has to hold the End-day button in exactly the spot Start game
+// and End night occupy, but the day has no plate to draw. Default true, so
+// every existing include emits byte-identical CSS (the @if only wraps the
+// one include that was already last).
+@mixin face-disc-frame($geo: $face-disc-geo-town, $plate: true) {
   $ns: map-get($geo, ns);
   $scale: if(map-has-key($geo, scale), map-get($geo, scale), 1);
   $scale-x: if(map-has-key($geo, scale-x), map-get($geo, scale-x), null);
@@ -614,7 +622,9 @@ $face-disc-foot-dy: 14px;
   flex-direction: column;
   align-items: center;
 
-  @include face-disc-plate;
+  @if $plate {
+    @include face-disc-plate;
+  }
 }
 
 // ── THE TINT: ONE NUMBER, EVERY SURFACE, EVERY PHASE ────────────────────────
@@ -1365,4 +1375,33 @@ $face-disc-tint-rgb: "var(--fd-tint-rgb, 255, 255, 255)";
   } @else {
     transform: translateY(calc(#{$dy} + var(--fd-foot-adj, 0px)));
   }
+}
+
+// ── THE FOOT BUTTON (FT-1214) ───────────────────────────────────────────────
+// The third foot button appeared (End day joined Start game and End night in
+// the disc's foot), so the block NightSheet's FT-1111 comment promised this
+// file finally lives here: the foot translate above, plus the one box every
+// primary button on this face wears. GEOMETRY ONLY — colour and skin stay
+// per-button, per that comment's own rule.
+//
+// The values are the pair the two originals solved by hand and then matched:
+//   · the width is a FLOOR, not a width (FT-1143): the buttons agree at their
+//     common size — max(150px, 0.583 * rx), HostTools' own label-floor and
+//     arc-clearance expression (see .start-dock's derivation) — and a longer
+//     label ("Finish night checks", a blocked Start's reason line) takes the
+//     room it needs instead of wrapping inside a disc.
+//   · the type/box metrics are the disc's own button size (100% PiratesBay in
+//     4px/14px padding, 3px border, 10px radius) — the difference between
+//     clearing the arc and being sheared by it, measured in FT-1111.
+@mixin face-disc-foot-button($dy: null) {
+  @include face-disc-foot($dy);
+  width: auto;
+  min-width: max(150px, 0.583 * var(--fd-rx));
+  max-width: 100%;
+  white-space: nowrap;
+  margin-top: 0;
+  font-size: 100%;
+  padding: 4px 14px;
+  border-width: 3px;
+  border-radius: 10px;
 }

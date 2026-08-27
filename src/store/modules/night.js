@@ -92,6 +92,21 @@ const state = () => ({
   // FT-874 name — every consumer already reads `night.requireChecks`, and
   // what it holds is still "how much this town requires the checks".
   requireChecks: DEFAULT_CHECK_MODE,
+  // FT-1173: STAGED DEATHS — the storyteller's queue of shrouds (and lifted
+  // shrouds) for THIS night, applied only when the night ends. Entries are
+  // { seat, playerId, name, roleName, dir: "death"|"revive" }; the direction
+  // is decided when the entry is STAGED, from the seat's own state at that
+  // moment (a living seat stages a death, a dead one a revive).
+  //
+  // HOST-LOCAL BY CONSTRUCTION: none of the three staged mutations appears in
+  // socket.js's subscription table, so nothing about a staged (i.e. merely
+  // intended) death ever crosses the wire — the town learns of a death when
+  // End night commits it through the same players/update path the direct
+  // shroud click takes, and not a frame sooner. Persisted beside the log
+  // (see golem/nightLog's saveLog) so a stage survives the sheet closing any
+  // way but End night; only the commit — or the storyteller removing the
+  // entry — clears it.
+  staged: [],
   // FT-1005: A PLAYER'S OWN NIGHT ROWS, AS DELIVERED — the receiving half of
   // the host's "night" frame, and the ONLY night data a spectator client ever
   // holds. `live` is the host's actual sharing verdict (their mode is
@@ -563,10 +578,45 @@ const mutations = {
     state.playerNight = { ...state.playerNight, sentAt: Date.now() };
   },
 
+  /**
+   * FT-1173: queue one seat's death (or revive) for the night's end. A seat
+   * already staged is REPLACED rather than doubled — re-picking the same
+   * chair refreshes its direction from the chair's current state, which is
+   * what a storyteller re-picking means.
+   */
+  stageDeath(state, entry) {
+    if (!entry || typeof entry.seat !== "number") return;
+    state.staged = state.staged
+      .filter((s) => s.seat !== entry.seat)
+      .concat([
+        {
+          seat: entry.seat,
+          playerId: entry.playerId || "",
+          name: entry.name || "",
+          roleName: entry.roleName || "",
+          dir: entry.dir === "revive" ? "revive" : "death",
+        },
+      ]);
+  },
+  /** FT-1173: un-stage one entry — nothing has happened yet, so nothing is
+   *  undone; the queued intention simply leaves the list. */
+  unstageDeath(state, index) {
+    if (index < 0 || index >= state.staged.length) return;
+    state.staged = state.staged
+      .slice(0, index)
+      .concat(state.staged.slice(index + 1));
+  },
+  /** FT-1173: the commit emptied the queue (End night applied every entry). */
+  clearStaged(state) {
+    state.staged = [];
+  },
+
   /** Restore a stashed log (persistence only). */
-  setLog(state, { day, entries } = {}) {
+  setLog(state, { day, entries, staged } = {}) {
     state.day = day || 0;
     state.entries = Array.isArray(entries) ? entries : [];
+    // FT-1173: the staged queue rides the same stash — see its state note.
+    state.staged = Array.isArray(staged) ? staged : [];
   }
 };
 

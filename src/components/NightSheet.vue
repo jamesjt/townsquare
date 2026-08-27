@@ -112,15 +112,15 @@
             }
           ]"
         >
-          <!-- THE DONE STATE. FT-874: ONE control, spanning BOTH lines of
-               the row (grid-area "state" now names both rows in column 1,
-               see the style block) — not a small glyph beside the identity
-               line, so the click/tap target is the row's own full height.
-               The row's own dimming (see .done below) already says
-               "finished" at a glance, so the mark itself only needs to be
-               findable, not loud. Blood red (#800000, user-named) once
-               checked. -->
+          <!-- (FT-874's DONE CHECKBOX stood here, spanning both lines of the
+               row in the LEFT column. FT-1173 replaces it with the SEND
+               button below — same grid area, now a fixed RIGHT-hand column —
+               because the tick's job changed: a row's controls edit a local
+               draft now, and "this row is done" and "deliver what I
+               composed" became one press. Stood down per the house rule, not
+               torn out; its styles remain below under the same name.) -->
           <span
+            v-if="false"
             class="ns-check"
             :class="{ checked: entryFor(row).done }"
             :title="entryFor(row).done ? 'Done — click to reopen' : 'Mark this one done'"
@@ -135,6 +135,40 @@
               :icon="entryFor(row).done ? 'check-square' : 'square'"
             />
           </span>
+
+          <!-- FT-1173: THE SEND BUTTON — one control, one meaning: "this row
+               is done." It spans both of the row's lines (grid-area "state",
+               now the FIXED right-hand column, so the buttons form a column
+               down rows of differing content widths).
+
+               WHAT A PRESS DOES depends on what is in front of it:
+               · edits staged (dirty) — commit the draft to the log, mark the
+                 row done, and — where the town is asking its players
+                 (mode "everyone") — the ask/answer lands on that one seat's
+                 own night surface through the delivery lane the log has
+                 always had. Nothing reached anybody while it was being
+                 composed; the drafts live in this component's own data.
+               · nothing staged — a plain done tick (and on a done row, the
+                 reopen), exactly the job the old checkbox did.
+               In storyteller-only mode there is no ask to deliver, so the
+               button honestly reads as a tick — same column, same meaning.
+               (Per FT-1107's user call the RECORD still reaches the seat's
+               own player when a row is committed in that mode — the tick is
+               about who is being ASKED, not about hiding their own log.) -->
+          <button
+            type="button"
+            class="ns-send"
+            :class="{
+              sent: entryFor(row).done,
+              dirty: isDirty(row),
+              tickonly: !isSendMode,
+            }"
+            :title="sendHint(row)"
+            @click="sendRow(row)"
+          >
+            <font-awesome-icon :icon="sendIcon(row)" />
+            <span class="ns-send-word">{{ sendWord(row) }}</span>
+          </button>
 
           <!-- IDENTITY (top-left): order, icon, "Role · Player" on ONE line
                (FT-874 — was two stacked lines) plus the performance/belief
@@ -258,13 +292,19 @@
                    so this rule does not reach it. The grimoire itself still
                    holds everything; this is one control not lying about its
                    own subject. -->
+              <!-- FT-1173: every control on this line reads viewFor(row) —
+                   the stored entry with this component's own uncommitted
+                   draft laid over it. A player's arriving pick still shows
+                   (it lands in the store), the storyteller's own edits show
+                   (they land in the draft), and nothing the storyteller
+                   stages leaves this browser until the row's Send. -->
               <SeatPicker
                 v-for="slot in row.slots"
                 :key="'seat' + slot"
                 class="ns-target"
                 :class="{ 'from-player': targetBy(row, slot - 1) === 'player' }"
                 :players="players"
-                :picked-seat="entryFor(row).targets[slot - 1]"
+                :picked-seat="viewFor(row).targets[slot - 1]"
                 :show-role="false"
                 :icon-for="p => roleIconUrl(p.role)"
                 :title="targetHint(row, slot)"
@@ -320,8 +360,8 @@
                   :key="'f' + fi"
                   class="ns-charpick"
                   :roles="scriptRoles"
-                  :picked-id="entryFor(row).told.characterId"
-                  :picked-name="entryFor(row).told.characterName"
+                  :picked-id="viewFor(row).told.characterId"
+                  :picked-name="viewFor(row).told.characterName"
                   :icon-for="roleIconUrl"
                   title="What you showed them — a character"
                   @pick="c => setCharacter(row, c.id, c.name)"
@@ -377,7 +417,7 @@
                   class="ns-free"
                   placeholder="What you told them"
                   spellcheck="false"
-                  :value="entryFor(row).told.text"
+                  :value="viewFor(row).told.text"
                   @input="setNote(row, $event.target.value)"
                 />
               </template>
@@ -447,7 +487,7 @@
                 class="ns-lie"
                 :class="{
                   on: lieOn(row),
-                  byhand: entryFor(row).lieBy === 'storyteller',
+                  byhand: viewFor(row).lieBy === 'storyteller',
                 }"
                 tabindex="0"
                 role="checkbox"
@@ -551,6 +591,65 @@
         </span>
       </div>
 
+      <!-- FT-1173: STAGED DEATHS — the storyteller's queue for the night's
+           end, standing directly ABOVE the button that commits it. Picking a
+           seat stages it; a living seat stages a DEATH, a dead one a REVIVE
+           (the entry knows its direction from the chair's state at the
+           moment it is staged). NOTHING HAPPENS at stage time — no shroud,
+           no broadcast, no frame: End night is the commit, and each applied
+           entry goes through the exact players/update path the direct
+           shroud click takes today. Removing a chip un-stages it; a queue
+           the sheet loses any other way (a reload, the mode flipped)
+           persists in the log's own stash until End night or removal.
+
+           THE PICKER SHOWS NAME + CHARACTER (show-role), and that is a
+           stated decision rather than an oversight of FT-1150's names-only
+           rule: that rule binds controls that COMPOSE WHAT A PLAYER IS
+           TOLD, and this list is the storyteller's own bookkeeping — no
+           player ever receives a rendering of it, so it shows what helps
+           the storyteller pick the right chair. -->
+      <div class="ns-staged" v-if="roster.length || staged.length">
+        <span
+          class="ns-staged-label"
+          title="Deaths (and revives) staged for this night — applied when you press End night, not before"
+        >
+          <font-awesome-icon icon="skull" class="ns-staged-mark" />
+          Deaths
+        </span>
+        <SeatPicker
+          class="ns-staged-add"
+          :players="players"
+          :picked-seat="-1"
+          :show-role="true"
+          :icon-for="(p) => roleIconUrl(p.role)"
+          title="Stage a seat — a living seat dies at End night, a dead one revives"
+          @pick="stageSeat"
+        />
+        <span
+          v-for="(s, i) in staged"
+          :key="'staged' + s.seat + s.dir"
+          class="ns-staged-chip"
+          :class="s.dir"
+          :title="stagedHint(s)"
+        >
+          <font-awesome-icon
+            :icon="s.dir === 'revive' ? 'heartbeat' : 'skull'"
+          />
+          <span class="ns-staged-name">{{ s.name || "Open seat" }}</span>
+          <small v-if="s.roleName" class="ns-staged-role">{{
+            s.roleName
+          }}</small>
+          <button
+            type="button"
+            class="ns-staged-x"
+            title="Un-stage — nothing happens to this seat"
+            @click="unstage(i)"
+          >
+            ×
+          </button>
+        </span>
+      </div>
+
       <button
         type="button"
         class="phase-flip bottom"
@@ -567,6 +666,32 @@
       </button>
 
     </template>
+
+    <!-- FT-1214: END DAY, IN THE DISC'S FOOT. During the day (and during a
+         night whose sheet is off) the disc's foot holds THE phase button —
+         Start game (building, HostTools) → this (day) → End night (night,
+         the checklist's own foot button above). One primary button that
+         changes its word, always in the same place, wearing the same
+         geometry (the shared face-disc-foot-button mixin) and its own skin.
+
+         DESKTOP-DISC ONLY, by CSS rather than by a second condition here:
+         below the face-disc gate this button is display:none and App.vue's
+         storyteller-post keeps its own End day control — the move is the
+         disc's, not every layout's. Same flipPhase as everything else; the
+         sun/moon marks are FT-882's own pf-* pair, standing since the
+         flanking marks came off the old pill ("the marks may yet come back
+         somewhere on this sheet" — they are back). -->
+    <button
+      v-if="!showList"
+      type="button"
+      class="phase-flip foot-day"
+      :title="isNight ? 'End the night' : 'End the day'"
+      @click="flipPhase"
+    >
+      <font-awesome-icon v-if="!isNight" icon="sun" class="pf-mark pf-sun" />
+      <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
+      {{ footDayLabel }}
+    </button>
 
     <!-- (THE DISC'S SIZE LAB used to stand here, as `#night-lab`. It moved to
          App.vue — `src/components/FaceDiscLab.vue`, the "Fd" door — in FT-888,
@@ -636,6 +761,18 @@ export default {
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
       flashing: {},
+      // FT-1173: THE DRAFTS — what the storyteller has composed on each row
+      // and not yet sent, keyed by the row's own render key. Component data,
+      // deliberately: the store is watched by the socket plugin (every
+      // night/write lands on the seat it names), so "nothing reaches the
+      // player until Send" is enforced by WHERE the draft lives, not by a
+      // flag someone could forget. Shape per key:
+      //   { targets: { [slot]: { seat, name } },  — only the touched slots
+      //     told: { ...only the touched told keys },
+      //     lie: { isFalseInfo, lieBy } | null }  — only if the mask was taken
+      // A draft dies on Send (committed) and with the component (a redraw
+      // mid-composition costs the draft, never the log).
+      drafts: {},
       // FT-1067: the day-length control's furniture — same shape as
       // HostTools' own (tower snapshot + the last-set minutes, so Timed
       // returns to it rather than an arbitrary number). No new persistence:
@@ -679,6 +816,32 @@ export default {
     /** The checklist shows at night, and only when the sheet is switched on. */
     showList() {
       return this.night.mode !== "off" && this.isNight;
+    },
+    /**
+     * FT-1173: is the town ASKING its players (mode "everyone")? Decides the
+     * row button's face: a Send (there is an ask/answer to deliver) against a
+     * plain done tick (storyteller-only — nobody is being asked, so there is
+     * nothing to "send"; per FT-1107 the committed RECORD still reaches the
+     * seat's own player, which is about their log, not the ask).
+     */
+    isSendMode() {
+      return this.night.mode === "everyone";
+    },
+    /** FT-1173: the staged-deaths queue — the night store owns it (it must
+     *  outlive this component; see night.js's staged note). */
+    staged() {
+      return this.night.staged || [];
+    },
+    /**
+     * FT-1214: the disc-foot phase button's word during the day (or a night
+     * whose sheet is off) — the same label App.vue's storyteller-post button
+     * carries (phaseActionLabel), so the control reads identically wherever
+     * a layout draws it.
+     */
+    footDayLabel() {
+      return (
+        (this.isNight ? "End night " : "End day ") + Math.max(this.night.day, 1)
+      );
     },
     /** Rows carry their own render key so the note map survives re-sorts. */
     roster() {
@@ -773,10 +936,13 @@ export default {
       const rows = this.roster;
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
+        // FT-1173: judged against the DRAFT VIEW, not the stored entry — the
+        // mask has to light while the storyteller is composing the lie, not
+        // only after they have sent it.
         out[row.key] = lieVerdictFor({
           players: this.players,
           row,
-          entry: this.entryFor(row),
+          entry: this.viewFor(row),
         });
       }
       return out;
@@ -927,6 +1093,146 @@ export default {
       };
     },
     /**
+     * FT-1173: THE ROW AS THE STORYTELLER SEES IT — the stored entry with
+     * this component's own uncommitted draft laid over it. Every control on
+     * a row reads this; only Send turns it into a store write.
+     *
+     * The layering rules mirror the send itself:
+     *   · a drafted slot overrides the stored one AND drops its player mark
+     *     ("" in targetsBy) — the storyteller's edit is the authority, and
+     *     the gold seam must not claim a value they have retyped (the same
+     *     rule setTarget has always applied at write time);
+     *   · drafted told keys merge over the stored told;
+     *   · a taken mask (draft.lie) overrides isFalseInfo/lieBy whole.
+     * Everything untouched — a player's arriving pick, their own words —
+     * reads straight from the store, so the row stays live under the
+     * storyteller's hands.
+     */
+    viewFor(row) {
+      const entry = this.entryFor(row);
+      const d = this.drafts[row.key];
+      if (!d) return entry;
+      const view = {
+        ...entry,
+        told: { ...entry.told, ...(d.told || {}) },
+      };
+      if (d.targets && Object.keys(d.targets).length) {
+        const targets = entry.targets.slice();
+        const names = entry.targetNames.slice();
+        const by = (entry.targetsBy || new Array(row.slots).fill("")).slice();
+        while (by.length < row.slots) by.push("");
+        Object.keys(d.targets).forEach((k) => {
+          const i = parseInt(k, 10);
+          targets[i] = d.targets[k].seat;
+          names[i] = d.targets[k].name;
+          by[i] = "";
+        });
+        view.targets = targets;
+        view.targetNames = names;
+        view.targetsBy = by;
+      }
+      if (d.lie) {
+        view.isFalseInfo = d.lie.isFalseInfo;
+        view.lieBy = d.lie.lieBy;
+      }
+      return view;
+    },
+    /** FT-1173: this row's draft, born on first touch. `$set` because Vue 2
+     *  cannot see keys added later. */
+    draftFor(row) {
+      if (!this.drafts[row.key]) {
+        this.$set(this.drafts, row.key, { targets: {}, told: {}, lie: null });
+      }
+      return this.drafts[row.key];
+    },
+    /** FT-1173: has this row got anything composed and unsent? */
+    isDirty(row) {
+      const d = this.drafts[row.key];
+      if (!d) return false;
+      return (
+        Object.keys(d.targets || {}).length > 0 ||
+        Object.keys(d.told || {}).length > 0 ||
+        !!d.lie
+      );
+    },
+    /**
+     * FT-1173: THE SEND — the one place a row's composition becomes a store
+     * write (and therefore the one moment anything about it can reach the
+     * seat it names, through the delivery lane night/write has always had).
+     *
+     * A press with nothing staged is the old checkbox: mark done, or reopen
+     * a done row. A press with a draft commits exactly the TOUCHED fields —
+     * a slot the player filled and the storyteller left alone is not in the
+     * patch, so the merge can never clobber what is theirs — and marks the
+     * row done in the same write.
+     */
+    sendRow(row) {
+      const entry = this.entryFor(row);
+      if (!this.isDirty(row)) {
+        this.write(row, { done: !entry.done });
+        return;
+      }
+      const d = this.drafts[row.key];
+      const patch = { done: true };
+      if (d.targets && Object.keys(d.targets).length) {
+        const targets = entry.targets.slice();
+        const names = entry.targetNames.slice();
+        const by = (entry.targetsBy || new Array(row.slots).fill("")).slice();
+        while (by.length < row.slots) by.push("");
+        Object.keys(d.targets).forEach((k) => {
+          const i = parseInt(k, 10);
+          targets[i] = d.targets[k].seat;
+          names[i] = d.targets[k].name;
+          by[i] = "";
+        });
+        patch.targets = targets;
+        patch.targetNames = names;
+        patch.targetsBy = by;
+      }
+      if (d.told && Object.keys(d.told).length) {
+        patch.told = { ...entry.told, ...d.told };
+      }
+      if (d.lie) {
+        patch.isFalseInfo = d.lie.isFalseInfo;
+        patch.lieBy = d.lie.lieBy;
+      }
+      this.write(row, patch);
+      this.$delete(this.drafts, row.key);
+    },
+    /** FT-1173: the button's glyph — a paper plane while there is an ask to
+     *  deliver, the checkbox pair where it is only a tick. */
+    sendIcon(row) {
+      if (!this.isSendMode) {
+        return this.entryFor(row).done && !this.isDirty(row)
+          ? "check-square"
+          : "square";
+      }
+      if (this.isDirty(row)) return "paper-plane";
+      return this.entryFor(row).done ? "check" : "paper-plane";
+    },
+    /** FT-1173: ...and its word, so the column explains itself at a glance. */
+    sendWord(row) {
+      if (!this.isSendMode) return "Done";
+      if (this.isDirty(row)) return "Send";
+      return this.entryFor(row).done ? "Sent" : "Send";
+    },
+    sendHint(row) {
+      const done = this.entryFor(row).done;
+      const dirty = this.isDirty(row);
+      if (!this.isSendMode) {
+        if (dirty) return "Log what you composed and mark this row done";
+        return done ? "Done — click to reopen" : "Mark this one done";
+      }
+      if (dirty) {
+        return done
+          ? "Send the changes to this player and keep the row done"
+          : "Send this to the player — nothing has reached them yet";
+      }
+      return done
+        ? "Sent — click to reopen the row"
+        : "Mark this row done — nothing was composed, so nothing new is delivered";
+    },
+    /**
      * FT-1121: writes now also KEEP THE STORED MARK HONEST.
      *
      * The lie mark is DERIVED for display (lieOn), but it is also a stored
@@ -1003,10 +1309,19 @@ export default {
     },
     /** Patch `told` by merging over the row's CURRENT told, so setting one
      *  field (a number) never clobbers another already on the entry (a
-     *  note). Every told-writing method below goes through this. */
+     *  note). Every told-writing method used to go through this; since
+     *  FT-1173 the row's controls STAGE instead (stageTold below) and this
+     *  is the commit path Send's write() takes via the merged patch. Kept
+     *  for the stood-down cyclePing and any future immediate write. */
     writeTold(row, patch) {
       const told = this.entryFor(row).told;
       this.write(row, { told: { ...told, ...patch } });
+    },
+    /** FT-1173: stage one or more told fields on the row's local draft —
+     *  nothing reaches the store (or the wire) until Send. */
+    stageTold(row, patch) {
+      const d = this.draftFor(row);
+      this.$set(d, "told", { ...d.told, ...patch });
     },
     roleIconUrl(role) {
       if (!role) return "";
@@ -1052,7 +1367,9 @@ export default {
      * and that nobody has touched is never lit.
      */
     lieOn(row) {
-      const entry = this.entryFor(row);
+      // FT-1173: the DRAFT VIEW answers — a mask taken while composing shows
+      // taken, before and after Send alike.
+      const entry = this.viewFor(row);
       if (entry.lieBy === "storyteller") return !!entry.isFalseInfo;
       return this.verdictFor(row).auto;
     },
@@ -1066,9 +1383,15 @@ export default {
      * third control on a row that has no room for one.
      */
     toggleLie(row) {
+      // FT-1173: staged, not written. The release-to-auto rule is unchanged
+      // (a hand that lands where the oracle already is clears `lieBy`); it
+      // just waits with everything else for Send. The mark is storyteller-
+      // only data, so nothing about this ever reached a player anyway — it
+      // drafts with the rest so the row commits as ONE thing.
       const next = !this.lieOn(row);
       const auto = this.verdictFor(row).auto;
-      this.write(row, {
+      const d = this.draftFor(row);
+      this.$set(d, "lie", {
         isFalseInfo: next,
         lieBy: next === auto ? "" : "storyteller",
       });
@@ -1082,7 +1405,7 @@ export default {
      *  because the row is a performance, or lit because what was told differs
      *  from the grimoire. A mark that sets itself has to be able to say so. */
     lieHint(row) {
-      const entry = this.entryFor(row);
+      const entry = this.viewFor(row);
       const on = this.lieOn(row);
       if (entry.lieBy === "storyteller") {
         return on
@@ -1129,29 +1452,29 @@ export default {
       );
     },
     setNote(row, text) {
-      this.writeTold(row, { text });
+      // FT-1173: staged, not written — see the drafts note in data().
+      this.stageTold(row, { text });
     },
     setTarget(row, slot, seat) {
-      const entry = this.entryFor(row);
+      // FT-1173: staged, not written. The name is stamped ALONGSIDE the seat
+      // at stage time, exactly as the write used to (seats move; a replay
+      // needs the person the storyteller was pointing at tonight), and the
+      // slot's player mark clears in the VIEW (viewFor) and in the eventual
+      // patch (sendRow) — FT-1005's authority rule, moved to the new commit
+      // point rather than dropped.
       const s = Number.isInteger(seat) ? seat : -1;
-      const targets = entry.targets.slice();
-      const names = entry.targetNames.slice();
-      // FT-1005: the storyteller's own edit clears the slot's player mark —
-      // their record is the authority, and the gold seam must not claim a
-      // value the player no longer owns.
-      const by = (entry.targetsBy || new Array(row.slots).fill("")).slice();
-      while (by.length <= slot) by.push("");
-      targets[slot] = s;
-      by[slot] = "";
-      // the name is stamped ALONGSIDE the seat because seats move: a replay
-      // needs the person the storyteller was pointing at tonight
       const player = this.players[s];
-      names[slot] = player ? player.name : "";
-      this.write(row, { targets, targetNames: names, targetsBy: by });
+      const d = this.draftFor(row);
+      this.$set(d.targets, String(slot), {
+        seat: s,
+        name: player ? player.name : "",
+      });
     },
-    /** FT-1005: who filled a slot — "" (storyteller/nothing) or "player". */
+    /** FT-1005: who filled a slot — "" (storyteller/nothing) or "player".
+     *  FT-1173: read off the draft view, so the storyteller's own staging
+     *  clears the gold seam the moment they retake a slot. */
     targetBy(row, i) {
-      const by = this.entryFor(row).targetsBy || [];
+      const by = this.viewFor(row).targetsBy || [];
       return by[i] || "";
     },
     /** FT-1005: the slot's hover text says whose pick it holds. */
@@ -1167,11 +1490,13 @@ export default {
      * `pingValue` and `setPing` are the only two places that know it.
      */
     pingValue(row) {
-      const p = this.entryFor(row).told.ping;
+      const p = this.viewFor(row).told.ping;
       return p === null ? "" : p ? "yes" : "no";
     },
     setPing(row, v) {
-      this.writeTold(row, { ping: v === "" ? null : v === "yes" });
+      // FT-1173: staged, not written — the dropdown already could not leak a
+      // cycled value (FT-1114); now even the chosen one waits for Send.
+      this.stageTold(row, { ping: v === "" ? null : v === "yes" });
     },
     /**
      * FT-1114: STOOD DOWN, not deleted (house rule). The cycle is what leaked
@@ -1188,11 +1513,11 @@ export default {
       return p === null ? "—" : p ? "Yes" : "No";
     },
     pingClass(row) {
-      const p = this.entryFor(row).told.ping;
+      const p = this.viewFor(row).told.ping;
       return { yes: p === true, no: p === false, none: p === null };
     },
     pingHint(row) {
-      const p = this.entryFor(row).told.ping;
+      const p = this.viewFor(row).told.ping;
       if (p === null) return "Nothing signalled yet — click to log what you told them";
       return p
         ? "You told them YES. Click for no."
@@ -1203,7 +1528,8 @@ export default {
      *  <input type="number">'s @input handler and moved into the shared
      *  component's own clamp(). */
     setNumber(row, n) {
-      this.writeTold(row, { number: n });
+      // FT-1173: staged, not written.
+      this.stageTold(row, { number: n });
     },
     /** NumberScrub's `value` prop is required and must be a concrete number
      *  — never null. Before the storyteller has touched this row nothing is
@@ -1212,7 +1538,7 @@ export default {
      *  than showing nothing; no store write happens until it's interacted
      *  with either way. */
     numberValue(row, field) {
-      const n = this.entryFor(row).told.number;
+      const n = this.viewFor(row).told.number;
       return n === null || n === undefined ? field.min || 0 : n;
     },
     numberHint(field) {
@@ -1228,7 +1554,8 @@ export default {
       return labelFor(row.role.id);
     },
     setCharacter(row, id, name) {
-      this.writeTold(row, { characterId: id, characterName: name });
+      // FT-1173: staged, not written.
+      this.stageTold(row, { characterId: id, characterName: name });
     },
     /** golem/nightInfo's field list for this row, minus PLAYER fields —
      *  those are already the SeatPickers rendered just above this call. */
@@ -1312,10 +1639,91 @@ export default {
         this.flashUnchecked();
         return;
       }
+      // FT-1173: END NIGHT IS THE COMMIT for the staged deaths — the one
+      // moment intentions become shrouds. Only this path applies them; every
+      // other way off the sheet leaves the queue standing (see the staged
+      // note in night.js).
+      if (this.isNight) this.applyStagedDeaths();
       this.$store.commit("toggleNight");
       if (this.grimoire.isNight) {
         this.$store.commit("session/setMarkedPlayer", -1);
       }
+    },
+    /**
+     * FT-1173: a seat picked into the staged-deaths list. The DIRECTION is
+     * read off the chair at this moment — living stages a death, dead stages
+     * a revive — and stamped on the entry, so the chip says what will happen
+     * rather than making the reader derive it at commit time.
+     */
+    stageSeat(seat) {
+      if (!Number.isInteger(seat) || seat < 0) return;
+      const player = this.players[seat];
+      if (!player) return;
+      this.$store.commit("night/stageDeath", {
+        seat,
+        playerId: player.id || "",
+        name: player.name || "",
+        roleName: (player.role && player.role.name) || "",
+        dir: player.isDead ? "revive" : "death",
+      });
+    },
+    /** FT-1173: remove one staged entry — it simply never happens. */
+    unstage(index) {
+      this.$store.commit("night/unstageDeath", index);
+    },
+    stagedHint(s) {
+      return s.dir === "revive"
+        ? s.name + " rises when the night ends — staged, nothing applied yet"
+        : s.name + " dies when the night ends — staged, no shroud yet";
+    },
+    /**
+     * FT-1173: THE COMMIT. Each staged entry goes through the exact
+     * players/update path the direct shroud click takes today (Player.vue's
+     * toggleStatus) — the same commits, the same wire sync, the same one-
+     * click reversibility on the seat itself, which is the whole of the undo
+     * the direct shroud has ever had. The seat is resolved by its durable
+     * playerId first (chairs move during a night), the staged index second.
+     * An entry whose seat already matches its direction (the storyteller
+     * shrouded it by hand mid-night) applies as a no-op rather than a
+     * double-toggle.
+     */
+    applyStagedDeaths() {
+      const staged = this.staged;
+      if (!staged.length) return;
+      staged.forEach((s) => {
+        let seat = -1;
+        if (s.playerId) {
+          seat = this.players.findIndex((p) => p.id && p.id === s.playerId);
+        }
+        if (seat < 0) seat = s.seat;
+        const player = this.players[seat];
+        if (!player) return;
+        const dead = s.dir !== "revive";
+        if (!!player.isDead !== dead) {
+          this.$store.commit("players/update", {
+            player,
+            property: "isDead",
+            value: dead,
+          });
+        }
+        // toggleStatus's own two riders, mirrored: a state change clears the
+        // execution mark, and a revive hands the ghost vote back.
+        if (player.isMarked) {
+          this.$store.commit("players/update", {
+            player,
+            property: "isMarked",
+            value: false,
+          });
+        }
+        if (!dead && player.isVoteless) {
+          this.$store.commit("players/update", {
+            player,
+            property: "isVoteless",
+            value: false,
+          });
+        }
+      });
+      this.$store.commit("night/clearStaged");
     },
     /** Scroll the first unticked row into view and flash every unticked row
      *  briefly — the guided escape for a blocked "end night" press. */
@@ -1459,8 +1867,45 @@ $ns-team-colors: (
       // THE BAND — the checklist itself. The drip runs down the band's own
       // inside edge (the directive reserves its 30px lane in the host's
       // padding), so it lands well inside the circle rather than on the rim.
+      // FT-1173: THE BAND PAYS FOR THE STAGED ROW. The staged-deaths line is
+      // a standing fixture of every night now (it renders whenever the night
+      // has rows), and it stands between the band and the foot button — so
+      // its 30px comes out of the band's own slice, not out of the bottom
+      // cap, or the End-night button would sit 30px lower than the position
+      // FT-1108 solved against the arc and its corners would shear. The rows
+      // scroll; the button must clear the rim; the band is the one child
+      // that can pay. (30px = the line's 24px height + its 6px margin,
+      // pinned below so the sum cannot drift.)
       > .ns-rows {
         @include face-disc-band;
+        flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) - 30px);
+        flex-shrink: 1;
+        min-height: 0;
+      }
+
+      // FT-1173: the staged row, ONE line on the disc — its height is the
+      // number the band's carve-out above depends on, so it is pinned: no
+      // wrap, overflowing chips scroll sideways inside the line.
+      > .ns-staged {
+        // the line stands in the bottom CAP, below the band's own vertical
+        // range — the chord there is narrower than --fd-band (measured: the
+        // second chip ran through the rim at 1280x800). 1.4rx is the chord
+        // at this line's own height with margin to spare, scaling with the
+        // disc the way every other chord expression in faceDisc.scss does.
+        max-width: calc(1.4 * var(--fd-rx));
+        flex: 0 0 24px;
+        height: 24px;
+        margin-top: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        justify-content: flex-start;
+        // a native scrollbar under a 24px strip would cost the line its own
+        // height — overflow stays reachable (wheel/drag), just not furnished
+        scrollbar-width: none;
+        &::-webkit-scrollbar {
+          display: none;
+        }
       }
 
       // NOBODY WAKES TONIGHT. There is no header on this night (the progress
@@ -1479,8 +1924,10 @@ $ns-team-colors: (
       }
 
       // THE PRIMARY BUTTON — End night, in the bottom cap.
+      // (FT-1214: the bare `face-disc-foot` include that stood first here is
+      // carried inside `face-disc-foot-button` now, included at the bottom
+      // of this block.)
       > .phase-flip.bottom {
-        @include face-disc-foot;
         // FT-1108 (user): "end night button doesn't need to be that wide it
         // should fit within the disc". The mixin sizes the foot button to
         // 0.95 of the disc's HORIZONTAL RADIUS — but the button sits near the
@@ -1517,15 +1964,16 @@ $ns-team-colors: (
         // than the width: the two buttons still agree at their common size,
         // and the longer label takes the room it needs instead of breaking
         // across two lines inside a disc.
-        width: auto;
-        min-width: max(150px, 0.583 * var(--fd-rx));
-        max-width: 100%;
-        white-space: nowrap;
-        margin-top: 0;
-        font-size: 100%;
-        padding: 4px 14px;
-        border-width: 3px;
-        border-radius: 10px;
+        //
+        // FT-1214: THE THIRD FOOT BUTTON APPEARED (End day joined the foot),
+        // so the copied block above did what its own comment promised and
+        // moved into faceDisc.scss as `face-disc-foot-button` — the foot
+        // translate, the width expression and the box/type metrics, one
+        // definition for all three primary buttons. The values are byte-
+        // identical to the lines that stood here; the comments above remain
+        // the record of how they were solved. Colour is still NOT shared:
+        // geometry travels, skin stays per-button.
+        @include face-disc-foot-button;
       }
 
 
@@ -1576,12 +2024,23 @@ $ns-team-colors: (
       //   control type        12.5px  -> 15px
       //   information row     98.8px tall (three lines) -> two lines
       .ns-row {
-        grid-template-columns: 28px 1fr;
+        // FT-1173: the state column crossed to the right with the send
+        // button (see the base grid's own note); on the band it runs a
+        // little narrower — every wasted pixel here is band the controls
+        // fought FT-1150 to win.
+        grid-template-columns: 1fr 46px;
         grid-template-areas:
-          "state identity"
-          "state work";
+          "identity state"
+          "work state";
         column-gap: 8px;
         padding: 6px 2px 7px;
+
+        .ns-send {
+          font-size: 13px;
+          .ns-send-word {
+            font-size: 9.5px;
+          }
+        }
 
         // the controls' line. `min-width: 0` is still load-bearing and it was
         // measured (2026-08-19-night-disc-overlap.mjs): without it this zone's
@@ -1626,6 +2085,46 @@ $ns-team-colors: (
         .ns-who b {
           font-size: 15.5px;
         }
+      }
+    }
+
+    // ── FT-1214: THE DAY (AND THE SHEET-OFF NIGHT) ON THE DISC ────────────
+    // The phase button moves to the disc's foot, where Start game and End
+    // night already stand — so the foot always holds THE primary button,
+    // whichever word it currently wears. The sheet's day box becomes the
+    // disc's own GEOMETRY with NO PLATE ($plate: false — no glass, no edge,
+    // nothing painted): an invisible flex column whose ::before stands in
+    // for the head and the band, so the one real child lands exactly where
+    // the other two buttons land. pointer-events stays off the box (it
+    // covers the whole face and must not eat the town's clicks — FT-975's
+    // own lesson); only the button takes the pointer back.
+    &:not(.has-list) {
+      @include face-disc-frame($plate: false);
+      pointer-events: none;
+
+      // "move the end day button to where the end night button is" — the
+      // user's words, taken literally: the night column reaches the flip
+      // button after its band and the 34px day-length line (FT-1067's
+      // standing fixture), so the day's stand-in reserves the same 34px and
+      // the phase button holds ONE height across the flip (measured equal
+      // in the rig; Start game stands 8px off both, a pre-existing FT-1111
+      // residual this pass reports rather than moves).
+      &::before {
+        content: "";
+        flex: 0 0 calc(var(--fd-d) - var(--fd-caph) + 34px);
+      }
+
+      // the retired FT-975 pill steps out of the flex flow — its box-keeping
+      // job belonged to the old translateY(105px) rectangle state, and in
+      // this column it would push the foot button off its mark.
+      .phase.pill.retired {
+        position: absolute;
+      }
+
+      > .phase-flip.foot-day {
+        @include face-disc-foot-button;
+        display: inline-flex;
+        pointer-events: auto;
       }
     }
   }
@@ -1824,6 +2323,14 @@ $ns-team-colors: (
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
 
+  // FT-1214: the disc-foot phase button exists ONLY where the disc does —
+  // below the face-disc gate it is display:none and App.vue's storyteller-
+  // post column keeps the End day job it has had since FT-1063. The gated
+  // rule that turns it on lives with the rest of the disc geometry above.
+  &.foot-day {
+    display: none;
+  }
+
   // FT-874: BLOCKED — "Require checks" is on and something is still
   // unticked. Reads as disabled but ISN'T: the click still lands (see
   // flipPhase/flashUnchecked) rather than the native `disabled` attribute,
@@ -1994,6 +2501,122 @@ $ns-team-colors: (
   opacity: 0.7;
 }
 
+// ── FT-1173: STAGED DEATHS — one quiet line above the button that commits
+// it. Same furniture idiom as the day-length row it stands beside: dimmed at
+// rest, full ink under a pointer, everything on one wrapping line so the
+// disc's bottom cap pays as little as possible. The chips carry the DATA
+// colours the sheet already speaks — blood for a death, sage (the truth
+// chip's own green family) for a revive — while the boxes stay chrome.
+.ns-staged {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 6px;
+  flex-shrink: 0;
+  font-size: 80%;
+  opacity: 0.75;
+  transition: opacity 150ms;
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+}
+
+.ns-staged-label {
+  font-family: PiratesBay, sans-serif;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ns-staged-mark {
+  width: 12px;
+  height: 12px;
+  color: rgb(154, 146, 133);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+// the adder is a SeatPicker in miniature — its trigger squeezes to the
+// line's height so the row never towers over the finish button below it
+.ns-staged-add ::v-deep .sp-trigger {
+  height: 24px;
+  font-size: 12px;
+  padding: 0 6px;
+  @media (pointer: coarse) {
+    height: 38px;
+    font-size: 14px;
+  }
+}
+
+.ns-staged-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 4px 0 7px;
+  border: 1px solid rgba(120, 105, 135, 0.3);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  svg {
+    width: 11px;
+    height: 11px;
+  }
+  // a staged DEATH wears the blood — it is a statement about the town, not
+  // chrome, and red is what death already means on this dial
+  &.death svg {
+    color: #c73838;
+  }
+  // a staged REVIVE wears the truth chip's sage — the seat comes back
+  &.revive svg {
+    color: #8fbfa8;
+  }
+  .ns-staged-name {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-staged-role {
+    opacity: 0.6;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-staged-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1;
+    color: #d8cdb4;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    opacity: 0.55;
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+      color: $control-edge-hover;
+      outline: none;
+    }
+  }
+  @media (pointer: coarse) {
+    height: 38px;
+    .ns-staged-x {
+      width: 26px;
+      height: 26px;
+      font-size: 16px;
+    }
+  }
+}
+
 // ── the checklist ───────────────────────────────────────────────────────────
 .ns-empty {
   opacity: 0.6;
@@ -2033,10 +2656,19 @@ $ns-team-colors: (
   // and 12.5px type, because it was sharing every line it stood on. It now
   // gets the band. Measured before/after in
   // claude_temp_test/2026-08-25-ft1150-nightrow-proof.mjs.
-  grid-template-columns: 34px minmax(150px, 1fr);
+  //
+  // FT-1173: THE STATE COLUMN CROSSED THE ROW. It was 34px on the LEFT (the
+  // done checkbox); it is a FIXED right-hand column now, because the control
+  // in it became the row's SEND — the last thing a storyteller presses on a
+  // row, where the hand ends up, and a fixed width is what keeps the buttons
+  // forming a straight column down rows whose content widths differ. The
+  // area keeps its name ("state" still spans both lines), so everything else
+  // about the grid — the full-height press target, the fade's reach — is
+  // untouched by the crossing.
+  grid-template-columns: minmax(150px, 1fr) 54px;
   grid-template-areas:
-    "state identity"
-    "state work";
+    "identity state"
+    "work state";
   column-gap: 10px;
   row-gap: 3px;
   align-items: center;
@@ -2057,7 +2689,10 @@ $ns-team-colors: (
   // opacity on it would silently do nothing and a done row would stop
   // dimming its sentence and controls; where it IS a box (the disc), it
   // would dim them a second time on top of their own 0.45.
-  &.done > *:not(.ns-check):not(.ns-work),
+  // FT-1173: `.ns-send` joins `.ns-check` in the carve-out — it is the
+  // control that reopens a done row, so it is the one thing that must never
+  // recede with the row it finished.
+  &.done > *:not(.ns-check):not(.ns-send):not(.ns-work),
   &.done > .ns-work > * {
     opacity: 0.45;
   }
@@ -2147,6 +2782,87 @@ $ns-team-colors: (
       }
       // hover-after-ticking stays in the purple family (undo it) rather
       // than reading as a different control
+      &:hover,
+      &:focus-visible {
+        color: $control-edge-hover;
+      }
+    }
+  }
+  // (FT-1173: `.ns-check` above STOOD DOWN with its element — the template's
+  // v-if="false". Its dress carried on into `.ns-send` below, which took the
+  // grid area and the job.)
+
+  // FT-1173: THE SEND BUTTON — the row's one press, in the fixed right-hand
+  // column. It inherits .ns-check's whole idiom (full-height cell, plum
+  // hairline, glyph-brightness states) because it IS that control with a
+  // bigger meaning: glyph over word, stacked, so the column reads at a
+  // glance. Colour rules unchanged from the sheet's own line: purple is
+  // chrome (a thing you press); the SENT state borrows the tick's own lit
+  // treatment rather than inventing a third.
+  .ns-send {
+    grid-area: state;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 15px;
+    color: #d8cdb4;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba($grimoire-plum, 0.3);
+    border-radius: 4px;
+    padding: 0;
+    transition:
+      color 130ms,
+      border-color 130ms,
+      background 130ms;
+    svg {
+      opacity: 0.55;
+    }
+    .ns-send-word {
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+    &:hover,
+    &:focus-visible {
+      border-color: $control-edge-hover;
+      background: rgba($grimoire-plum, 0.12);
+      color: $control-edge-hover;
+      outline: none;
+      svg {
+        opacity: 1;
+      }
+    }
+    // something is composed and unsent — the button is the row's next step,
+    // and it says so the way the finish button does: lit purple, readable
+    // across a scanned list rather than only under the cursor.
+    &.dirty {
+      color: #f4ecff;
+      border-color: rgba(150, 130, 175, 0.85);
+      background: rgba(120, 105, 135, 0.28);
+      box-shadow: 0 0 7px rgba(120, 105, 135, 0.4);
+      svg {
+        opacity: 1;
+      }
+      .ns-send-word {
+        opacity: 1;
+      }
+    }
+    // sent (and nothing new staged): the tick's own lit dress — quiet,
+    // findable, the reopen control on a row whose fade already says done.
+    &.sent:not(.dirty) {
+      color: rgb(120, 105, 135);
+      border-color: rgba($grimoire-plum, 0.55);
+      background: rgba(0, 0, 0, 0.35);
+      box-shadow: none;
+      svg {
+        opacity: 0.95;
+      }
       &:hover,
       &:focus-visible {
         color: $control-edge-hover;
@@ -2749,13 +3465,18 @@ $ns-team-colors: (
   // identity line here as well, wrapping under the name rather than
   // truncating, since a phone has no band to fight over.
   @media (pointer: coarse) {
-    grid-template-columns: 48px 1fr;
+    // FT-1173: the state column keeps its finger-sized width and follows the
+    // send button to the ROW'S RIGHT, same as the desktop grid above.
+    grid-template-columns: 1fr 58px;
     grid-template-areas:
-      "state identity"
-      "state work";
+      "identity state"
+      "work state";
     row-gap: 6px;
 
     .ns-check {
+      font-size: 18px;
+    }
+    .ns-send {
       font-size: 18px;
     }
     .ns-answer {

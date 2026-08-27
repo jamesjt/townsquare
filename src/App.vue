@@ -3171,6 +3171,22 @@ video#background {
   color: #d8b45a;
 }
 
+// FT-1214: THE END-DAY BUTTON MOVED TO THE DISC'S FOOT — where the disc
+// exists. Under the face-disc gate the clock face's foot always holds THE
+// phase button (Start game → End day → End night, one geometry via
+// faceDisc.scss's face-disc-foot-button; NightSheet draws the day copy), so
+// the left column's LIVE copy stands down there — display:none, in place,
+// never unmounted. The non-live copy (the plain "Night N" readout while the
+// checklist carries its own End night button) keeps standing: it is a
+// readout, not the button, and the column still wants the phase word at
+// night. BELOW the gate nothing changes — phones and small windows have no
+// disc foot to move to, and this column keeps the job FT-1063 gave it.
+@include face-disc-gate {
+  .storyteller-post .post-phase.is-live {
+    display: none;
+  }
+}
+
 // ── FT-1168 (user): GRIMOIRE SIZE — LARGE ────────────────────────────────
 // "Grimoire Size: Small, large (this affects the storytellers grimoire size,
 // the end day and bell button size)". All three of those are this one column
