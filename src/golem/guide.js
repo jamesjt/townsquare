@@ -138,13 +138,16 @@ export const GUIDE_SECTIONS = [
           "nomination for its ghost vote.",
       },
       {
-        // prefs.js CONTROL_SCHEMES + Player.vue: click / hover ring /
-        // nameplate plate; spectators always get plain click
-        lead: "Three ways to reach them",
+        // prefs.js CONTROL_TOGGLES + Player.vue (FT-1213): every gesture is
+        // its own switch on the Control settings tab; spectators always get
+        // plain click
+        lead: "Six ways to reach them",
         who: "host",
         note:
-          "Click the coin, rest on the coin, or click the nameplate — pick " +
-          "yours behind the cog.",
+          "Click the coin, rest on the coin, click the name plate, drag a " +
+          "role coin, drag a name plate, or rest on a plate for its " +
+          "reminder button — each gesture has its own switch under " +
+          "Control settings.",
       },
     ],
   },
@@ -367,12 +370,14 @@ export const GUIDE_SECTIONS = [
         note: "Names and icons, or icons alone once you have learned them.",
       },
       {
-        // prefs.js CONTROL_SCHEMES (see the Seats section for what they do)
-        lead: "Control scheme",
+        // prefs.js CONTROL_TOGGLES (FT-1213; the Seats section lists the
+        // gestures themselves)
+        lead: "Control settings",
         who: "host",
         note:
-          "Click coins, hover coins, or nameplate click — how a seat offers " +
-          "its actions.",
+          "Six switches, one per gesture — coin clicks, the hover ring, the " +
+          "nameplate menu, both drags and the reminder button. All on to " +
+          "start; turn off what gets in your way.",
       },
       {
         // prefs.js GRIMOIRE_SIZES: the book, the day's-end button and the
