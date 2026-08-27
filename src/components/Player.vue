@@ -4354,8 +4354,23 @@ html.veil-glass .circle .player .shroud:before {
     // the stray red nub and the thing peeking from behind the disc, all one
     // bug (user diagnosis 2026-08-18). The shadow follows the art's alpha for
     // the same reason the coin's does — a box-shadow draws a circle.
-    background: url("../assets/token-golem.png") center center / contain
-      no-repeat;
+    //
+    // FT-1224 — THE THIRD "cut teeth", and this one was never CSS. This rule
+    // was the ONE coin face still hardcoding token-golem.png, and that BAKE
+    // is itself edge-cropped: the coin_4 art was scaled past the 512 canvas,
+    // shaving the side teeth flat IN THE BITMAP (measured: 98/105px of
+    // flush-opaque run down the left/right edges, 19px across the top —
+    // vs 48/51/0 for coins/coin4.png, the art every OTHER coin face shows
+    // via the coin lab's --coin). No border-radius/overflow/clip anywhere on
+    // the chain (probed live, FT-1224); the clip rode in with the art.
+    // So: read --coin like Token.vue and the dead face below already do.
+    // GUARD for the next editor: toothed coin art tolerates NO box shape on
+    // its container (no border-radius, no overflow:hidden — glow via
+    // drop-shadow only, see Token.vue) AND no bake that runs the art off its
+    // own canvas. If teeth look cut and the CSS chain is clean, measure the
+    // bitmap's edge alpha before touching any rule.
+    background: var(--coin, url("../assets/token-golem.png")) center center /
+      contain no-repeat;
     border: 3px solid transparent;
     filter: drop-shadow(0 0 7px rgba(0, 0, 0, 0.55));
     cursor: pointer;
