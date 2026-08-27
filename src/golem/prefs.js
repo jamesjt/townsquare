@@ -119,13 +119,17 @@ export const CONTROL_TOGGLES = [
   },
   {
     key: "ctrlClickDead",
-    label: "Click coin",
+    // FT-1230 (user): "click Cog to kill" — the user's own word for the
+    // gear-toothed player coin — wearing the app's death mark (ui-dead via
+    // TOGGLE_MARKS; the FA name stands down as the record).
+    label: "Click Cog to kill",
     icon: "skull",
     title: "Click a coin anywhere outside its name to kill or revive the seat",
   },
   {
     key: "ctrlHoverCoins",
-    label: "Hover coins",
+    // FT-1230 (user): their wording.
+    label: "Hover Player Cog Menu",
     icon: "hand-pointer",
     title:
       "Rest the pointer on a coin and a ring of small action coins opens " +
@@ -133,7 +137,8 @@ export const CONTROL_TOGGLES = [
   },
   {
     key: "ctrlNameplateClick",
-    label: "Nameplate click",
+    // FT-1230 (user): their wording.
+    label: "Player name click menu",
     icon: "address-card",
     title:
       "Click a seat's name plate and a plate of its actions opens on the coin",
