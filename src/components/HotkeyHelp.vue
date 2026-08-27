@@ -125,8 +125,17 @@ export default {
   bottom: 0;
   z-index: 90;
   display: flex;
-  align-items: center;
+  // FT-1246 (user): "the height of that panel can change based on the tab's
+  // contents but not where it starts — that needs to stay consistent so it
+  // doesn't move on users as they are clicking." Centring meant every
+  // chapter's height moved the TOP: a tall Storytelling and a short Keys
+  // put the rail (the thing being clicked) at different heights, so the
+  // target walked under the pointer. The panel now hangs from a fixed top
+  // (10vh — the centred position of the TALLEST chapter at 80vh max-height,
+  // so nothing moved for the fullest case) and only grows DOWNWARD.
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 10vh;
   // FT-1193: 0.7 -> 0.5. THE SCRIM IS WHAT THE GLASS LOOKS THROUGH, and that
   // is the whole reason it had to move. A backdrop-filter samples everything
   // painted behind it, this wash included, so at 0.7 the panel's glass was
