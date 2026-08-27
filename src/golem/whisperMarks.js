@@ -35,6 +35,39 @@
  *  TOWER_EVENT idiom: the socket speaks, whoever renders listens. */
 export const WHISPER_MARK_EVENT = "golem:whisper-mark";
 
+/**
+ * FT-1263: THE PLANE'S MEMORY — a whisper's traffic as a Chronicle row.
+ *
+ * The plane is gone in seconds; the Chronicle keeps the day scannable. Each
+ * whisper reads in the stream as "Ana ✈ Bea" — WHO whispered WHOM, WHEN,
+ * never what — and the row derives from what each viewer ALREADY receives,
+ * so nothing new crosses the wire:
+ *
+ *   · the three PARTIES (sender, recipient, storyteller) hold the whisper
+ *     row itself in their log — that row, names and content, IS their
+ *     record of the traffic. No second row stands beside it.
+ *   · a BYSTANDER holds nothing — their row is the plane's memory: when a
+ *     validated `whisperMark` lands (marks on, so they saw the plane fly),
+ *     the store keeps a LOCAL row of this kind (chatMarkTraffic). Client
+ *     ephemera, never a log row: it has no seq of its own, never crossed
+ *     the wire as a row, and a reload forgets it — exactly as honest as
+ *     the plane it remembers.
+ *
+ * Marks Off is quiet on the wire (above), so Off also means no rows — the
+ * same fact, enforced structurally. The "Count whispers" setting gates the
+ * RENDER besides (ChroniclesDrawer's trafficRows): both settings say "the
+ * town may know whispering happened", and the row obeys the pair of them.
+ * A finished game publishes its real whisper rows to everyone (chat.js's
+ * canSee), so the drawer shows a game's traffic rows only while that game
+ * is live — the published rows supersede the memory, and nothing is said
+ * twice. Structurally so: the game boundary re-reads the log (socket.js's
+ * chatSetGameId subscriber → chatReset), and the reset forgets the marks
+ * in the same breath it forgets the log. Between-games whispers never
+ * publish, so their memory rows stand — until the next game boundary or a
+ * reload, which is as long as any plane's memory lives.
+ */
+export const TRAFFIC_KIND = "whisper-traffic";
+
 /** A whisper REACHED THIS BROWSER — `detail` is the store's own row. Fired by
  *  socket.js only for LIVE rows addressed to this viewer (never on catch-up,
  *  so a reload does not replay a night's worth of toasts). */

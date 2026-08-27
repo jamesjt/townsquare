@@ -1019,8 +1019,10 @@ export default {
       // FT-1057's opening board and FT-1101's night blocks are both SYNTHETIC
       // — rows this client computes from what it alone holds, spliced into
       // the stream at the seq they belong to. Neither ever crossed the wire.
+      // FT-1263's traffic rows are the third of the kind.
       const synthetic = this.openingRow ? [this.openingRow] : [];
       synthetic.push(...this.nightBlockRows);
+      synthetic.push(...this.trafficRows);
       synthetic.forEach((extra) => {
         if (!inFilter(extra, this.filter)) return;
         const at = rows.findIndex((row) => row.seq > extra.seq);
@@ -1398,6 +1400,31 @@ export default {
     whisperPairCounts() {
       if (!this.countsOn || this.mode !== "current") return [];
       return whisperCountsFor(this.chat.log, this.chat.gameId);
+    },
+    /**
+     * FT-1263: WHISPER TRAFFIC A BYSTANDER SAW FLY — "Ana ✈ Bea" as dim
+     * stream rows, the plane's memory (store's chat.marks; only a viewer who
+     * was NOT a party holds any, and only when the marks were on to fly).
+     * Two gates besides:
+     *
+     *   countsOn — the town's "Count whispers" setting says whether whisper
+     *   METADATA reads in the Chronicle, and this is metadata; the tally
+     *   band above obeys the same switch and the two must not disagree.
+     *
+     *   the live game only — a FINISHED game publishes its real whisper
+     *   rows to everyone (canSee), and the memory standing beside the
+     *   published row would say every whisper twice. Current's own gameId
+     *   rule enforces it; between-games marks (gameId null) stand, because
+     *   no publish ever supersedes them.
+     */
+    trafficRows() {
+      if (!this.countsOn || this.mode !== "current") return [];
+      const anchor = this.anchorSeq;
+      const live = this.chat.gameId;
+      return this.chat.marks.filter((row) => {
+        if (anchor && row.seq < anchor) return false;
+        return !row.gameId || row.gameId === live;
+      });
     },
     topPlayers() {
       const players = (this.records.stats && this.records.stats.players) || [];
@@ -2256,6 +2283,13 @@ export default {
 // FT-1023 (user call): the own-line purple hairline is GONE — "you" in the
 // name slot already says whose line it is. (Whispers below keep their own
 // mine mark; that one distinguishes sender from recipient in a pair.)
+
+// FT-1263: WHISPER TRAFFIC lies flat and slim — no talk plate, no recess:
+// a bystander's thin memory of a plane, between the lines people said.
+.cr-row.is-whisper-traffic {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
 
 // A WHISPER IS VISIBLY NOT ROOM TALK — recessed purple, both ends named.
 .cr-row.is-whisper {

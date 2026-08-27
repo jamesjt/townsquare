@@ -1858,6 +1858,12 @@ class LiveSession {
     if (!(towerState.whisperMarkSec > 0)) return;
     const mark = cleanMark(params, this._store.state.players.players.length);
     if (!mark) return;
+    // FT-1263: the plane's MEMORY — a bystander keeps a local traffic row
+    // ("Ana ✈ Bea", metadata only) so the day's whispering reads in the
+    // Chronicle after the plane is gone. The mutation itself refuses the
+    // storyteller and the whisper's own seats: their log holds the whisper
+    // row, which is already their record of this traffic.
+    this._store.commit("chatMarkTraffic", mark);
     try {
       window.dispatchEvent(
         new CustomEvent(WHISPER_MARK_EVENT, { detail: mark }),

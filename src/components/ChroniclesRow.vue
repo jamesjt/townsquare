@@ -86,6 +86,24 @@
         <span class="crr-body">{{ row.body }}</span>
       </template>
 
+      <!-- ── WHISPER TRAFFIC (FT-1263) — a plane's memory: who whispered
+           whom, never what. A bystander's row, local ephemera (see
+           golem/whisperMarks): dim and small, traffic rather than talk.
+           The mark between the names is the PLANE — the log of a sent
+           thing wears the plane (FT-1211's ruling), as the whisper-count
+           band already does. -->
+      <template v-else-if="isTraffic">
+        <span class="crr-traffic">
+          {{ nameFor(row.senderKey) }}
+          <font-awesome-icon
+            class="crr-traffic-plane"
+            icon="paper-plane"
+            title="whispered — you saw the plane; what it carried stays theirs"
+          />
+          {{ nameFor(row.recipientKey) }}
+        </span>
+      </template>
+
       <!-- ── A PERSON TALKING ─────────────────────────────────────────── -->
       <template v-else>
         <span class="crr-who">{{ nameFor(row.senderKey) }}</span>
@@ -218,6 +236,8 @@
 <script>
 import { timeOf } from "../golem/chat";
 import { decodeEvent, eventTextOf, gallowsThreadOf } from "../golem/chronicles";
+// FT-1263: the traffic row's kind — a bystander's memory of a plane.
+import { TRAFFIC_KIND } from "../golem/whisperMarks";
 // FT-1037: a board row's real face — the mini ring its data describes.
 import ChroniclesPortrait from "./ChroniclesPortrait";
 // FT-1019: the ghost-vote cowl — the same hand that drew the seat's own mark
@@ -335,6 +355,10 @@ export default {
     },
     event() {
       return this.row.kind === "system" ? decodeEvent(this.row.body) : null;
+    },
+    /** FT-1263: a whisper-traffic row — metadata only, rendered dim. */
+    isTraffic() {
+      return this.row.kind === TRAFFIC_KIND;
     },
     text() {
       return eventTextOf(this.row);
@@ -537,6 +561,21 @@ img.crr-beat-mark {
     content: ":";
     opacity: 0.5;
   }
+}
+
+// FT-1263: whisper traffic — the whisper palette turned well down. A row
+// that is deliberately quieter than every kind of talk around it: the eye
+// scanning the day catches the rhythm of the planes without reading them
+// as lines anyone said.
+.crr-traffic {
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: rgba(180, 160, 205, 0.55);
+}
+.crr-traffic-plane {
+  font-size: 10px;
+  margin: 0 3px;
+  opacity: 0.8;
 }
 
 // ── THE TOWN'S OWN LINES ───────────────────────────────────────────────────

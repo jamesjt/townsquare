@@ -18,8 +18,11 @@ import {
   levelSilences,
   mergeLog,
   SCOPES,
+  seatOf,
   viewerOf,
 } from "../golem/chat";
+// FT-1263: a bystander's traffic row — the plane's memory in the Chronicle.
+import { TRAFFIC_KIND } from "../golem/whisperMarks";
 // FT-1206: the town's chat level rides the tower shelf; ingest reads it as a
 // plain snapshot (towerState is the module's own single copy, sanitized on
 // every write), the same way the components snapshot it.
@@ -253,6 +256,15 @@ export default new Vuex.Store({
       scope: "town",
       gameId: null,
       error: "",
+      /**
+       * FT-1263: WHISPER TRAFFIC THIS BYSTANDER SAW FLY — local rows of
+       * golem/whisperMarks' TRAFFIC_KIND, written by `chatMarkTraffic` when
+       * a validated whisperMark lands and this viewer is NOT a party to it
+       * (a party's own log holds the whisper row itself — that is their
+       * record). Client ephemera, never merged into `log`: no store seq, no
+       * wire row, forgotten on reload — the plane's memory, no more.
+       */
+      marks: [],
     },
     // FT-854: the role drawer's click-to-place selection (a role object,
     // or null) — clicking a seat's token places it
@@ -591,6 +603,49 @@ export default new Vuex.Store({
       );
       state.chat.log = mergeLog(state.chat.log, allowed);
     },
+    /**
+     * FT-1263: A PLANE FLEW AND THIS VIEWER WAS NOT ON IT — keep its memory
+     * as a local traffic row. Called by socket.js beside the plane dispatch,
+     * so the gate chain is the plane's own: marks on at SEND (Off is quiet
+     * on the wire), shape validated (cleanMark). Here only the party test
+     * remains: the storyteller and the whisper's two seats hold the whisper
+     * row itself — their record — and write nothing.
+     *
+     * The row wears the whisper row's own field names (senderKey /
+     * recipientKey carry SEAT NAMES, read from the ring at the moment the
+     * plane flew) so the Chronicle renders it with the machinery it already
+     * has. `seq` is synthetic — after the newest row this client holds,
+     * clear of the +0.5/+0.6 the opening board and the night blocks use,
+     * monotonic across marks — the FT-1057 splice idiom exactly.
+     */
+    chatMarkTraffic(state, mark) {
+      const viewer = viewerOf(state);
+      if (viewer.isStoryteller) return;
+      const seat = seatOf(state);
+      if (seat === mark.from || seat === mark.to) return;
+      const players = state.players.players;
+      const nameAt = (i) => (players[i] && players[i].name) || `Seat ${i + 1}`;
+      const log = state.chat.log;
+      const base = log.length ? log[log.length - 1].seq : 0;
+      const marks = state.chat.marks;
+      const prev = marks.length ? marks[marks.length - 1].seq : 0;
+      const seq = Math.max(base + 0.7, prev + 0.001);
+      marks.push({
+        id: "traffic:" + seq,
+        seq,
+        kind: TRAFFIC_KIND,
+        gameId: state.chat.gameId,
+        senderKey: nameAt(mark.from),
+        recipientKey: nameAt(mark.to),
+        senderSeat: mark.from,
+        recipientSeat: mark.to,
+        createdAt: new Date().toISOString(),
+        // the moment, stamped the way sendChat stamps a row's: the running
+        // phase and day, and no day at all once the game has ended
+        phase: state.grimoire.isNight ? "night" : "day",
+        dayNumber: state.session.isEnded ? null : state.night.day,
+      });
+    },
     chatSyncing(state, on) {
       state.chat.syncing = !!on;
     },
@@ -615,6 +670,9 @@ export default new Vuex.Store({
       state.chat.syncedSeq = 0;
       state.chat.syncing = false;
       state.chat.error = "";
+      // FT-1263: another town's (or another identity's) planes are not this
+      // viewer's memory — the party test was made against the old identity.
+      state.chat.marks = [];
     },
     chatSetGameId(state, id) {
       state.chat.gameId = id || null;
