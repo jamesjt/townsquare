@@ -154,6 +154,16 @@ export const DEFAULT_TOWER = {
   // bell machinery tolls once and the readout flashes — AND NOTHING ELSE:
   // the day never auto-ends; the human storyteller keeps control, always.
   dayLengthMin: 0,
+  // FT-1229: HOW the day timer is driven — the Game settings row's own mode.
+  //   off    no countdown (dayLengthMin is 0)
+  //   timed  one fixed length, set once in Game settings
+  //   perday the storyteller sets each coming day's length on the night
+  //          sheet, night by night (the sheet's own row shows ONLY here)
+  // The COUNTDOWN machinery keeps reading dayLengthMin alone — this key only
+  // decides which surface owns the minutes. A stored/synced tower without it
+  // (every town from before FT-1229) is derived from its minutes: 0 → off,
+  // anything else → timed — nothing becomes "perday" silently.
+  dayTimerMode: "off",
   // FT-1206: THE CHAT LEVEL — how much talking this town allows (golem/chat's
   // CHAT_LEVELS: off / no-whispers / neighbors / anyone). The player↔story-
   // teller lane stays open at every level; see chat.js for the whole rule.
@@ -171,6 +181,10 @@ export const DEFAULT_TOWER = {
  *  button, not by the scrub). */
 export const DAY_LENGTH_MIN = 1;
 export const DAY_LENGTH_MAX = 60;
+
+/** FT-1229: the day timer's three modes — the sanitizer's whitelist and the
+ *  Game settings row's option order, one list. */
+export const DAY_TIMER_MODES = ["off", "timed", "perday"];
 
 /** FT-1210: the whisper-plane linger scrub's bounds, in seconds — the same
  *  shape as the Day length's (0 — Off — is the select's write, never the
@@ -265,6 +279,11 @@ function sanitize(key, value) {
       if (!isFinite(n) || n <= 0) return 0;
       return Math.max(DAY_LENGTH_MIN, Math.min(DAY_LENGTH_MAX, n));
     }
+    // FT-1229: one of the three timer modes, nothing else.
+    case "dayTimerMode":
+      return DAY_TIMER_MODES.includes(value)
+        ? value
+        : DEFAULT_TOWER.dayTimerMode;
     // FT-1206: the chat level is one of golem/chat's own ids, nothing else.
     case "chatLevel":
       return CHAT_LEVELS.some((l) => l.id === value)
@@ -306,6 +325,12 @@ function readTowerForTown(townId) {
     Object.keys(DEFAULT_TOWER).forEach((key) => {
       if (key in raw) out[key] = sanitize(key, raw[key]);
     });
+    // FT-1229: a town stored before the timer had modes is derived from its
+    // minutes — an Off town stays Off, a Timed one stays Timed at its own
+    // minutes. Nothing ever migrates INTO "perday"; that is a choice.
+    if (!("dayTimerMode" in raw)) {
+      out.dayTimerMode = out.dayLengthMin > 0 ? "timed" : "off";
+    }
   }
   return out;
 }
@@ -359,6 +384,11 @@ export function applyTowerSync(data) {
   Object.keys(DEFAULT_TOWER).forEach((key) => {
     if (key in data) towerState[key] = sanitize(key, data[key]);
   });
+  // FT-1229: an older host syncing a tower without the timer-mode key is
+  // migrated the same way a legacy stored town is — derived from its minutes.
+  if (!("dayTimerMode" in data)) {
+    towerState.dayTimerMode = towerState.dayLengthMin > 0 ? "timed" : "off";
+  }
   notifyTower();
 }
 

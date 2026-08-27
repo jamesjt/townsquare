@@ -67,8 +67,13 @@
             @click="copyTownLink"
             :title="linkCopied ? 'Copied!' : 'Copy the town link'"
           >
+            <!-- FT-1229 rider: the label names the THING ("Town link"), and
+                 the copied flash says what just happened ("Copied") — word
+                 and check-glyph swap together on the same linkCopied state. -->
             <font-awesome-icon :icon="linkCopied ? 'check' : 'link'" />
-            <span class="ra-name" v-if="!iconsOnly">Copy link</span>
+            <span class="ra-name" v-if="!iconsOnly">{{
+              linkCopied ? "Copied" : "Town link"
+            }}</span>
           </button>
           <!-- FT-1202 (user): THE SETTINGS GEAR LIVES HERE NOW — "remove it
                from the main page, and in while a user is hosting a game put it
@@ -685,11 +690,14 @@
                 />
                 <span class="row-name" v-if="!iconsOnly">Day timer</span>
               </span>
+              <!-- FT-1229: the VALUE is the stored mode now, no longer derived
+                 from the minutes — "Per day" keeps a length set (the coming
+                 day's) and still is not "Timed". -->
               <OptionSelect
                 name="day-length"
                 aria-label="Day length"
                 :options="dayLengthOptions"
-                :value="tower.dayLengthMin ? 'timed' : 'off'"
+                :value="tower.dayTimerMode"
                 @input="setDayMode"
               />
             </span>
@@ -1523,6 +1531,14 @@ export default {
           label: "Timed",
           title: "The day gets a length — every readout counts down to it",
         },
+        // FT-1229: the third answer — the length is set NIGHT BY NIGHT, on
+        // the night sheet's own "Day N timer" row (which shows only here).
+        {
+          value: "perday",
+          label: "Per day",
+          title:
+            "You set each coming day's length on the night sheet, night by night",
+        },
       ];
     },
     /** THE MERGED BELL LIST — Off, then the bells themselves. TOWER_BELLS is
@@ -1898,16 +1914,26 @@ export default {
       setTowerField(this.session.sessionId || "", key, value);
     },
     /** FT-1055: the minutes scrubbed (or typed) — a length being set is a
-     *  length wanted, so scrubbing while Off also turns the countdown on. */
+     *  length wanted, so scrubbing while Off also turns the countdown on.
+     *  FT-1229: "on" means Timed here; a Per-day town keeps its mode (this
+     *  scrub is then just the second door to the same minutes the night
+     *  sheet's row owns). */
     setDayLength(n) {
       this.dayLenDraft = n;
       this.setTower("dayLengthMin", n);
+      if (this.tower.dayTimerMode === "off") {
+        this.setTower("dayTimerMode", "timed");
+      }
     },
     /** FT-1087: Off or Timed, off the row's select. Exactly what the two
      *  segment cells wrote — 0, or the draft the scrub is showing — so the
-     *  "Timed returns to the last length you set" behaviour is unchanged. */
+     *  "Timed returns to the last length you set" behaviour is unchanged.
+     *  FT-1229: the mode is STORED now (three answers), and the minutes ride
+     *  along: Off zeroes them, Timed and Per day both restore the draft —
+     *  the countdown machinery still keys off dayLengthMin alone. */
     setDayMode(v) {
-      this.setTower("dayLengthMin", v === "timed" ? this.dayLenDraft : 0);
+      this.setTower("dayTimerMode", v);
+      this.setTower("dayLengthMin", v === "off" ? 0 : this.dayLenDraft);
     },
     /** FT-1087: one pick off the merged bell list. Off is the On/Off
      *  segment's own write (`bellOn` false, `bellId` untouched, so the town

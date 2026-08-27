@@ -94,7 +94,11 @@ export default {
     pickedSeat: { type: Number, default: -1 },
     showRole: { type: Boolean, default: false },
     iconFor: { type: Function, default: () => null },
-    title: { type: String, default: "" }
+    title: { type: String, default: "" },
+    // FT-1229: what the empty trigger SAYS. "—" (the default) reads as "no
+    // pick"; a caller whose empty state means "add one" (the night sheet's
+    // staged-deaths adder) passes its own word instead.
+    placeholder: { type: String, default: "—" }
   },
   computed: {
     pickedPlayer() {
@@ -110,7 +114,7 @@ export default {
       return this.showRole && p && p.role && p.role.name ? p.role.name : "";
     },
     pickedLabel() {
-      if (!this.pickedPlayer) return "—";
+      if (!this.pickedPlayer) return this.placeholder;
       return this.pickedPlayer.name || "Open seat";
     }
   },

@@ -78,12 +78,23 @@
 
              Storyteller-only, like everything else in this component. It
              travels: see setDay() below. -->
+        <!-- FT-1229 (user): NIGHTS COUNT FROM 1. The store's day counter is
+             born at 0 ("the town has not reached its first night") and
+             toggleNight moves it to 1 on the way into the first night — but
+             leftover state could stand this sheet up at 0 (a game that ended
+             mid-night, then Play again's setDay(0)), and the scrub's old
+             min=0 let a correcting hand LAND on 0. Both doors close: the
+             value shown floors at 1 (nightNumber) and the scrub cannot go
+             below 1. History never shifts — this changes what the counter
+             SAYS, never any entry's id; anything already logged stays under
+             the night it was logged on (the scrub's own tooltip). The model
+             half is the showList watcher below. -->
         <span class="ns-day" :title="dayHint">
           <span class="pp-label">Night</span>
           <NumberScrub
             preset="night"
-            :value="night.day"
-            :min="0"
+            :value="nightNumber"
+            :min="1"
             :max="99"
             :title="dayHint"
             @input="setDay"
@@ -93,7 +104,19 @@
 
       <p class="ns-empty" v-if="!roster.length">Nobody wakes tonight.</p>
 
-      <ul class="ns-rows" v-else v-blood-scroll>
+      <!-- FT-1229 (user): "more clearly its own area if there is a scroll bar
+           present ... sink it or elevate it". SUNK — the app's own recessed
+           vocabulary (the toggle wells): a region whose contents continue
+           below the surface sits below the surface. The `scrolls` class lands
+           only when the rows actually overflow (measured, see
+           measureRowsOverflow) — a short list that fits wears no well. -->
+      <ul
+        class="ns-rows"
+        :class="{ scrolls: rowsOverflow }"
+        ref="rows"
+        v-else
+        v-blood-scroll
+      >
         <li
           v-for="row in roster"
           :key="row.key"
@@ -255,7 +278,25 @@
               <!-- FT-874: what's being recorded, stated rather than implied by
                    the ability text — golem/nightInfo's per-character label,
                    immediately before this row's first control. -->
-              <span v-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
+              <!-- FT-1229 (user): THE ROW'S GRAMMAR SPLITS where a row holds
+                   both halves of a night action. The seat pickers are the
+                   PLAYER'S choice (the Fortune Teller points at two seats),
+                   and the told control is what the character is TOLD back —
+                   two different speakers, so two labels: "Selects:" before
+                   the pickers, the role's own verb (usually "Learns:")
+                   before the answer. A row with only one half keeps its one
+                   label exactly as before. The labels' titles carry the
+                   provenance lesson — a gold-seamed slot arrived from the
+                   player's own hand (FT-1005's mark), a plain one is the
+                   storyteller's entry. No new chrome; the seam was already
+                   the mark. -->
+              <span
+                v-if="splitLabels(row)"
+                class="ns-label ns-label-selects"
+                :title="selectsHint(row)"
+                >Selects:</span
+              >
+              <span v-else-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
 
               <!-- FT-1005: a slot the seat's own player filled wears the gold
                    seam (see .from-player below) — the quiet mark that says
@@ -310,6 +351,16 @@
                 :title="targetHint(row, slot)"
                 @pick="seat => setTarget(row, slot - 1, seat)"
               />
+
+              <!-- FT-1229: the told half's own label — see the Selects note
+                   above. The role's verb where nightInfo wrote one, plain
+                   "Learns:" where it did not. -->
+              <span
+                v-if="splitLabels(row)"
+                class="ns-label ns-label-learns"
+                :title="learnsHint(row)"
+                >{{ rowLabel(row) || "Learns:" }}</span
+              >
 
               <template v-for="(field, fi) in extraFieldsFor(row).fields">
                 <!-- FT-1114 (user): "the yes, no can't be a tri-state
@@ -544,13 +595,29 @@
            Kept quiet on purpose (a side control, not the main action): the
            row dims to match the checklist's own muted furniture (`.ns-day`'s
            idiom) and only comes to full ink under the pointer/keyboard. -->
+      <!-- FT-1229 (user): THIS ROW IS THE "PER DAY" MODE'S OWN SURFACE, and
+           it shows ONLY there. The Game settings Day timer grew a third
+           answer (Off / Timed / Per day, HostTools' row); Off and Timed
+           both take this row off the sheet — Off has no clock to set, and
+           Timed runs every day at the one fixed length Game settings holds.
+           Per day is what this row is FOR: the storyteller sets the coming
+           day's minutes night by night, right before ending the night. -->
       <div
+        v-if="tower.dayTimerMode === 'perday'"
         class="ns-daylen-row"
         title="How long the next day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
       >
         <font-awesome-icon class="ns-daylen-mark" icon="hourglass-half" />
         <span class="ns-daylen-title">{{ dayTimerLabel }}</span>
-        <span class="ns-daylen-seg" role="radiogroup" aria-label="Day length">
+        <!-- FT-1229: the Off/Timed segment STOOD DOWN — the MODE lives on
+             Game settings' three-way select now; on a row that only exists
+             in Per day mode, a second mode switch was one control too many. -->
+        <span
+          v-if="false"
+          class="ns-daylen-seg"
+          role="radiogroup"
+          aria-label="Day length"
+        >
           <button
             type="button"
             class="ns-daylen-opt"
@@ -576,7 +643,6 @@
         </span>
         <span
           class="ns-daylen-min"
-          :class="{ idle: !tower.dayLengthMin }"
           title="Minutes in the next day — drag sideways to scrub, click to type"
         >
           <NumberScrub
@@ -612,8 +678,15 @@
            line (FT-1173) already stands directly above End night, so the
            bell tops the FOOT STACK instead of colliding with it: bell /
            Deaths line / End night, one centred column. Same emitted ring,
-           same shared skin as the day copy below the list. -->
+           same shared skin as the day copy below the list.
+
+           FT-1229 (user): STOOD DOWN — "the call back bell doesn't need to
+           exist at night." Nobody is summoned DURING a night; the town is
+           called back when a day starts, and the DAY copy below the list
+           keeps the job. The night foot stack is Deaths / End night now.
+           Left mounted-but-off per the house rule, not torn out. -->
       <button
+        v-if="false"
         type="button"
         class="post-bell foot-bell"
         :class="{ cooling: callBackCooling }"
@@ -623,7 +696,20 @@
       >
         <font-awesome-icon icon="bell" class="post-bell-mark" />
       </button>
-      <div class="ns-staged" v-if="roster.length || staged.length">
+      <!-- FT-1229 (user): the staged line's design pass. The strip reads
+           label → chips → adder now: the chips are the CONTENT (each one a
+           statement — the direction mark, the name, the character, its own
+           remove), so they stand next to the label that names them, and the
+           ADD affordance closes the line the way "+ add" rows do everywhere
+           — a dashed, quiet control that cannot be mistaken for a chip.
+           With nothing staged the whole strip dims to a whisper (see
+           `.ns-staged.empty`): the storyteller who wants it finds it; the
+           one who doesn't is not shouted at by an empty control. -->
+      <div
+        class="ns-staged"
+        :class="{ empty: !staged.length }"
+        v-if="roster.length || staged.length"
+      >
         <span
           class="ns-staged-label"
           title="Deaths (and revives) staged for this night — applied when you press End night, not before"
@@ -631,15 +717,6 @@
           <font-awesome-icon icon="skull" class="ns-staged-mark" />
           Deaths
         </span>
-        <SeatPicker
-          class="ns-staged-add"
-          :players="players"
-          :picked-seat="-1"
-          :show-role="true"
-          :icon-for="(p) => roleIconUrl(p.role)"
-          title="Stage a seat — a living seat dies at End night, a dead one revives"
-          @pick="stageSeat"
-        />
         <span
           v-for="(s, i) in staged"
           :key="'staged' + s.seat + s.dir"
@@ -663,6 +740,16 @@
             ×
           </button>
         </span>
+        <SeatPicker
+          class="ns-staged-add"
+          :players="players"
+          :picked-seat="-1"
+          :show-role="true"
+          placeholder="+ Add"
+          :icon-for="(p) => roleIconUrl(p.role)"
+          title="Stage a seat — a living seat dies at End night, a dead one revives"
+          @pick="stageSeat"
+        />
       </div>
 
       <button
@@ -833,7 +920,12 @@ export default {
       ],
       dayLenMin: DAY_LENGTH_MIN,
       dayLenMax: DAY_LENGTH_MAX,
-      dayLenDraft: towerState.dayLengthMin || 10
+      dayLenDraft: towerState.dayLengthMin || 10,
+      // FT-1229: do the checklist's rows actually overflow their band right
+      // now? Measured (never assumed from the count — row heights vary), and
+      // it is what puts the sunken well on the scroll region. See
+      // measureRowsOverflow.
+      rowsOverflow: false
     };
   },
   created() {
@@ -843,9 +935,39 @@ export default {
     // sheet can show, a build or a reload has already run one of those).
     this.readTower();
     window.addEventListener(TOWER_EVENT, this.readTower);
+    // FT-1229: the band's height moves with the window (the disc scales),
+    // so overflow is re-asked on resize as well as on every re-render.
+    window.addEventListener("resize", this.measureRowsOverflow);
   },
   beforeDestroy() {
     window.removeEventListener(TOWER_EVENT, this.readTower);
+    window.removeEventListener("resize", this.measureRowsOverflow);
+  },
+  mounted() {
+    this.measureRowsOverflow();
+  },
+  updated() {
+    // Cheap (two property reads against one element) and self-stable: the
+    // flag is only written when it actually changes, so the update this
+    // write itself schedules measures once more and stops.
+    this.measureRowsOverflow();
+  },
+  watch: {
+    // FT-1229: THE MODEL HALF of nights-count-from-1 (the display half is
+    // nightNumber). A sheet standing up at "night zero" can only mean
+    // leftover state — the ordinary road in (toggleNight) already moved the
+    // counter to 1 — so the counter is set straight the moment the list
+    // shows, and rows the storyteller then logs land under Night 1, the
+    // number the header says. Nothing already logged is touched: setDay
+    // moves the COUNTER only, never an entry's id (the dayHint promise).
+    showList: {
+      immediate: true,
+      handler(showing) {
+        if (showing && this.night.day < 1) {
+          this.$store.commit("night/setDay", 1);
+        }
+      },
+    },
   },
   computed: {
     ...mapState(["grimoire", "session", "night", "roles"]),
@@ -867,6 +989,15 @@ export default {
     /** The checklist shows at night, and only when the sheet is switched on. */
     showList() {
       return this.night.mode !== "off" && this.isNight;
+    },
+    /**
+     * FT-1229: the night number as this sheet STATES it — floored at 1, the
+     * same clamp every public phase readout already wears (TownInfo,
+     * FaceHands, the disc-foot button). The store's 0 means "no night yet",
+     * which is a fact about the day phase and never a night's name.
+     */
+    nightNumber() {
+      return Math.max(this.night.day, 1);
     },
     /**
      * FT-1173: is the town ASKING its players (mode "everyone")? Decides the
@@ -1604,6 +1735,31 @@ export default {
     rowLabel(row) {
       return labelFor(row.role.id);
     },
+    /** FT-1229: does this row speak BOTH halves of the grammar — the
+     *  player's seat picks AND a told-back answer? Splits the one label
+     *  into Selects:/Learns: (see the template's own note). */
+    splitLabels(row) {
+      return row.slots > 0 && this.extraFieldsFor(row).fields.length > 0;
+    },
+    /** FT-1229: the Selects label teaches the provenance mark on hover. */
+    selectsHint(row) {
+      const base =
+        "The player's own choice — who " +
+        (row.player.name || "this seat") +
+        " points at.";
+      return this.isSendMode
+        ? base +
+            " A slot with the gold seam arrived from the player's own hand;" +
+            " a plain one is your entry."
+        : base;
+    },
+    /** FT-1229: ...and the Learns label says whose voice the answer is. */
+    learnsHint() {
+      return (
+        "What the character is told back — you compose it here" +
+        (this.isSendMode ? "; nothing reaches them until Send." : ".")
+      );
+    },
     setCharacter(row, id, name) {
       // FT-1173: staged, not written.
       this.stageTold(row, { characterId: id, characterName: name });
@@ -1776,6 +1932,17 @@ export default {
       });
       this.$store.commit("night/clearStaged");
     },
+    /**
+     * FT-1229: does the checklist overflow its band? scrollHeight against
+     * clientHeight on the one scroll container, +1 for the sub-pixel
+     * rounding browsers report on scaled boxes. Guarded write so the
+     * updated() hook that calls this cannot loop.
+     */
+    measureRowsOverflow() {
+      const el = this.$refs.rows;
+      const over = !!el && el.scrollHeight > el.clientHeight + 1;
+      if (over !== this.rowsOverflow) this.rowsOverflow = over;
+    },
     /** Scroll the first unticked row into view and flash every unticked row
      *  briefly — the guided escape for a blocked "end night" press. */
     flashUnchecked() {
@@ -1933,9 +2100,12 @@ $ns-team-colors: (
       // pinned below), and the band pays for it exactly as it pays for the
       // line, for the same reason: End night must stay on the arc-cleared
       // mark.
+      // FT-1229: the 44px HANDED BACK — the night bell stood down (see the
+      // template; the bell is a day fixture now), so the band keeps the
+      // height it was paying for it.
       > .ns-rows {
         @include face-disc-band;
-        flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) - 30px - 44px);
+        flex-basis: calc(var(--fd-d) - 2 * var(--fd-caph) - 30px);
         flex-shrink: 1;
         min-height: 0;
       }
@@ -1946,6 +2116,8 @@ $ns-team-colors: (
       // with the staged line keeping its own place directly above the
       // button). A pinned flex child like the staged line; the band above
       // pays its height. Skin is App.vue's unscoped `.post-bell`.
+      // FT-1229: rule kept for the stood-down template copy — inert while
+      // nothing renders it.
       > .post-bell.foot-bell {
         display: inline-flex;
         flex: 0 0 auto;
@@ -2623,6 +2795,14 @@ $ns-team-colors: (
   &:focus-within {
     opacity: 1;
   }
+
+  // FT-1229: WITH NOTHING STAGED the strip is a whisper — a dim label and a
+  // quiet dashed adder, not an empty control demanding a reading. Chips
+  // arriving bring it up to the standing 0.75; the pointer still brings
+  // either state to full ink.
+  &.empty {
+    opacity: 0.45;
+  }
 }
 
 .ns-staged-label {
@@ -2642,10 +2822,27 @@ $ns-team-colors: (
 
 // the adder is a SeatPicker in miniature — its trigger squeezes to the
 // line's height so the row never towers over the finish button below it
+// FT-1229: ...and it DRESSES as an adder now — dashed edge, no filled
+// ground, the "+ Add" placeholder word (see the template) — so it reads as
+// "put another chip here" instead of as a chip whose value is missing. The
+// caret stays: it is still a picker once pressed.
 .ns-staged-add ::v-deep .sp-trigger {
   height: 24px;
   font-size: 12px;
   padding: 0 6px;
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(150, 130, 175, 0.45);
+  .sp-name {
+    opacity: 0.8;
+  }
+  &:hover,
+  &.open {
+    border-color: $control-edge-hover;
+    .sp-name {
+      opacity: 1;
+    }
+  }
   @media (pointer: coarse) {
     height: 38px;
     font-size: 14px;
@@ -2668,10 +2865,19 @@ $ns-team-colors: (
   }
   // a staged DEATH wears the blood — it is a statement about the town, not
   // chrome, and red is what death already means on this dial
+  // FT-1229: the chip's EDGE takes a wash of the same colour — at chip size
+  // the 11px glyph alone was carrying the whole direction, and the edge is
+  // what makes two adjacent chips read as two statements at a glance.
+  &.death {
+    border-color: rgba(199, 56, 56, 0.4);
+  }
   &.death svg {
     color: #c73838;
   }
   // a staged REVIVE wears the truth chip's sage — the seat comes back
+  &.revive {
+    border-color: rgba(143, 191, 168, 0.4);
+  }
   &.revive svg {
     color: #8fbfa8;
   }
@@ -2679,6 +2885,7 @@ $ns-team-colors: (
     max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: bold;
   }
   .ns-staged-role {
     opacity: 0.6;
@@ -2733,6 +2940,24 @@ $ns-team-colors: (
   @media (pointer: coarse) {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+  }
+
+  // FT-1229 (user): "more clearly its own area if there is a scroll bar
+  // present ... sink it or elevate it" — SUNK, because the app's recessed
+  // vocabulary already means exactly this (the toggle wells,
+  // $control-toggle-well: contents continue below the surface). A soft
+  // inset bite at the top and bottom edges — where the cut-off content
+  // actually is — a hairline black edge, and a slightly recessed ground.
+  // The class lands only when the rows genuinely overflow (measured in
+  // measureRowsOverflow); a short list keeps the sheet's own flat ground.
+  // The blood-drip scrollbar is untouched — it stays the region's signature.
+  &.scrolls {
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 8px;
+    box-shadow:
+      inset 0 9px 10px -7px rgba(0, 0, 0, 0.9),
+      inset 0 -9px 10px -7px rgba(0, 0, 0, 0.9),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -3147,6 +3372,14 @@ $ns-team-colors: (
     white-space: nowrap;
   }
 
+  // FT-1229: the split grammar's two labels (Selects: / Learns:) teach on
+  // hover — the cursor says there is something to learn, nothing else
+  // changes; they are the same quiet furniture every ns-label is.
+  .ns-label-selects,
+  .ns-label-learns {
+    cursor: help;
+  }
+
   // ── FT-1150: THE ROW-CONTROL TYPE SIZE, said once ──────────────────────
   // Every control in the answer zone was 12.5px, which was the size that fit
   // when the zone was half a line wide. It has a whole line now, so the type
@@ -3240,9 +3473,14 @@ $ns-team-colors: (
   // already this sheet's colour for "this came from the other side of the
   // table" (.ns-lie lit, .ns-grim-show open). The storyteller's own edit
   // clears the ring (setTarget empties the slot's mark).
+  // FT-1229: + a faint gold ground — at trigger size the ring alone was
+  // legible only up close, and the whole point of the mark (the user's
+  // Selects/Learns pass) is that "this arrived from the player" reads at a
+  // glance against the storyteller's own plain entries.
   .ns-target.from-player ::v-deep .sp-trigger {
     border-color: #b28f2f;
     box-shadow: inset 0 0 0 1px rgba(212, 175, 85, 0.55);
+    background: rgba(178, 143, 47, 0.14);
   }
 
   .ns-player-said {
