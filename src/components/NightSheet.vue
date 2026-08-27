@@ -714,7 +714,9 @@
           class="ns-staged-label"
           title="Deaths (and revives) staged for this night — applied when you press End night, not before"
         >
-          <font-awesome-icon icon="skull" class="ns-staged-mark" />
+          <!-- FT-1232 (user): the app's own death mark, not the FA skull —
+               the same ui-dead the kill row and the count strip wear. -->
+          <img :src="uiDead" alt="" class="ns-staged-mark" />
           Deaths
         </span>
         <span
@@ -861,6 +863,7 @@ import OptionSelect from "./OptionSelect";
 // redrawing these in place) shows up here too without a second import to
 // keep in sync.
 import moonFirst from "../assets/moon-first.png";
+import uiDead from "../assets/ui-dead.png";
 import moonOther from "../assets/moon-other.png";
 // FT-1067 (user): the day this night ends into gets its own control here,
 // below the flip button — the SAME synced tower field the Tower panel's row
@@ -890,6 +893,8 @@ export default {
   },
   data() {
     return {
+      // FT-1232: the staged-strip label's mark (the app's own death art).
+      uiDead,
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
       flashing: {},
