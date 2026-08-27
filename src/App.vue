@@ -1055,6 +1055,15 @@ export default {
   },
   computed: {
     ...mapState(["grimoire", "session", "modals", "scriptDrawerView", "night"]),
+    /**
+     * FT-1245: ONE labs verdict for the dev-lab column — the old ?labs=1
+     * doorway (devLabsLocal, per-browser) OR the Labs flag's effective value
+     * (session.labs — the server flag through the corner switch's local
+     * override, FT-1226/1237). Every lab's v-if reads this name unchanged.
+     */
+    devLabs() {
+      return this.devLabsLocal || this.session.labs;
+    },
     ...mapState("players", ["players"]),
     ...mapGetters("night", ["isFirstNight"]),
     /**
@@ -1549,7 +1558,12 @@ export default {
       // which shut the user out of their own labs on the live site. Now a
       // doorway: `?labs=1` in the URL turns the column on (`?labs=0` off),
       // and the choice persists per browser so the param is needed once.
-      devLabs: (() => {
+      // FT-1245 (user): "?labs=1 shows the labs but the corner toggle
+      // doesn't" — the dev-labs column predates the Labs flag and read only
+      // this param/stash. The param doorway survives unchanged as the LOCAL
+      // half; the corner switch's verdict (session.labs) joins it through
+      // the `devLabs` computed below, so either door opens the column.
+      devLabsLocal: (() => {
         const q = new URLSearchParams(window.location.search).get("labs");
         if (q !== null)
           localStorage.setItem("golem.devLabs", q === "1" ? "true" : "false");
