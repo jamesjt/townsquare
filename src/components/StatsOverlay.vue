@@ -68,6 +68,10 @@
           <h3 class="almanac-title"><KeyCap letter="C" />hronicles</h3>
         </div>
         <div class="rp-row2">
+          <!-- FT-1244 (the FT-1242 sweep's standard): `arrow-left` STAYS —
+               a directional arrow in a text back-link is control furniture,
+               the same verdict the sweep passed on every chevron, and the
+               app owns no arrow mark of its own to say it better. -->
           <button class="rp-back" v-if="pick" @click="closePick">
             <font-awesome-icon icon="arrow-left" /> The Chronicles
           </button>

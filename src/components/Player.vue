@@ -517,8 +517,14 @@
            side — the chair takes the OPPOSITE of the hand's pointing side
            (hand left → chair right, and vice versa; pure geometry, so it
            holds even while the hand itself is hidden). -->
-      <font-awesome-icon
-        icon="chair"
+      <!-- FT-1244: FA `chair` stood down here too — the badge wears the
+           app's own chair (ui-seat.png) as a CSS mask, painting
+           `currentColor` through the art's alpha, so every colour state
+           this badge has (resting white, `.you` blue, the red-to-white
+           claim animation, the actor hover ink) keeps riding `color`
+           exactly as it did on the font glyph. The FA name stays
+           registered in main.js. -->
+      <span
         v-if="player.id && session.sessionId"
         class="seat"
         :class="{
@@ -528,7 +534,7 @@
         }"
         :title="chairTitle"
         @click="chairClick"
-      />
+      ></span>
 
       <!-- Ghost vote icon.
            FT-974: the ballot box is RETIRED in favour of our own mark — a
@@ -5320,6 +5326,30 @@ li.nominate .player .overlay .nominate-target {
   filter: drop-shadow(0 0 3px black);
   cursor: default;
   z-index: 2;
+  /* FT-1244: the badge is ui-seat.png worn as a mask — the ::before paints
+   * `background-color: currentColor` THROUGH the art's alpha, so the states
+   * below (and `.player.you .seat`) keep setting `color` and the chair
+   * changes colour, animation included. The mask lives on the pseudo, not
+   * the span, because filters apply BEFORE masks on one element — the
+   * drop-shadow above needs to see the already-masked chair shape, which it
+   * does from the parent. Box matches the FA glyph it replaces (1em tall). */
+  width: 1em;
+  height: 1em;
+  &::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: currentColor;
+    -webkit-mask-image: url("../assets/ui-seat.png");
+    mask-image: url("../assets/ui-seat.png");
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
   &.highlight {
     animation-iteration-count: 1;
     animation: redToWhite 1s normal forwards;
