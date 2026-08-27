@@ -27,6 +27,11 @@
  * opaque id, direct to the host (see socket.js's claim path).
  */
 
+// FT-1237: the server's labs verdict routes through the local-override
+// switch now, so a tester's own word (the hidden corner, LabsSwitch.vue)
+// keeps winning across this fetch resolving.
+import { setServerLabs } from "./labsSwitch";
+
 const API = "/api/auth";
 
 /** PublicUser → the app's own slim account fact. */
@@ -88,7 +93,10 @@ export async function initFlags(store) {
     const res = await fetch("/api/flags/self");
     if (!res.ok) return;
     const { flags } = await res.json();
-    store.commit("session/setLabs", !!(flags && flags.labs));
+    // FT-1237: not committed directly any more — the switch computes the
+    // effective verdict (a standing local override wins) and commits the
+    // same session/setLabs every reader has always watched.
+    setServerLabs(store, !!(flags && flags.labs));
   } catch {
     // no platform in reach — labs off, exactly what the flag ships as
   }

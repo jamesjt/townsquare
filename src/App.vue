@@ -602,6 +602,13 @@
          the drawer it opens onto; fed by the socket's live lane only, so a
          reload never replays a night of toasts. -->
     <WhisperToast />
+    <!-- FT-1237: the HIDDEN LABS SWITCH — an invisible bottom-left corner
+         hotspot cycling a local override of the platform's labs flag
+         (follow the account → on → off → follow). Root level on purpose:
+         it exists on the entry screen and in a town alike. Everything it
+         does flows through session.labs, the field every gated surface
+         already watches. -->
+    <LabsSwitch />
     <FabledModal />
     <RolesModal />
     <ReferenceModal />
@@ -873,6 +880,9 @@ import NightSheet from "./components/NightSheet";
 import ChroniclesDrawer from "./components/ChroniclesDrawer";
 // FT-1206: the received-whisper toast (the plane unfolding into the note).
 import WhisperToast from "./components/WhisperToast";
+// FT-1237: the hidden bottom-left labs switch (local override of the
+// platform's labs flag, for testing the gated surfaces).
+import LabsSwitch from "./components/LabsSwitch";
 // FT-1010: the game-end event the winner pick writes into the town's log.
 // FT-1037/FT-1057: plus the two BOARD PORTRAITS posted beside it — the
 // opening ring (stashed by socket.js at the deal; broadcasting it live would
@@ -1014,6 +1024,7 @@ export default {
     NightSheet,
     ChroniclesDrawer,
     WhisperToast,
+    LabsSwitch,
     FaceDiscLab,
     FaceHands,
     FaceHandsLab,
