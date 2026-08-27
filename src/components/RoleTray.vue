@@ -608,6 +608,42 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
             #000 calc(100% - 32px),
             transparent 100%
           );
+
+          // ── FT-1252: THE CUT TRAY COMES IN OFF THE RIM ──────────────────
+          //
+          // The band hands the tray the dead 12px above the Start button now
+          // (HostTools' `> .role-tray` rule — the derivation lives there), so
+          // the box's bottom rows sit where the disc has narrowed. A tray
+          // that FITS is safe there by construction: its bottom row is the
+          // demon line, one or two centred coins, nowhere near the chord. A
+          // tray that SCROLLS is not — a full-width townsfolk line can be
+          // scrolled to the box's bottom edge, and its corner coins' ink
+          // crossed the ellipse, measured before this rule, worst visible
+          // ink point against the disc's own ellipse (rig:
+          // claude_temp_test/2026-08-27-ft1252-measure.mjs; + = inside):
+          //
+          //                          uninset      at 20px
+          //   1920x1080, 139 roles     -3.2        (re-measured below)
+          //   1280x960,  139 roles    -10.1   ← and -5.8 BEFORE the band
+          //                                    extension: the poke predates
+          //                                    this lane; the inset ends it
+          //
+          // So the inset rides the CUT state — the same measured class that
+          // owns the fade — and only on the disc, where there is a rim to
+          // respect. 20px covers the worst measured need (~18px at 1280x960
+          // for +3px of clearance) with a rounding margin. FT-1231's control
+          // tab made the identical move for the identical reason (its well
+          // wears 18px; its box stops higher, so it needs less).
+          //
+          // WHAT IT COSTS A CUT TRAY: nothing it misses. fitTile reads the
+          // narrowed clientWidth, so the solve stays honest; Trouble Brewing
+          // below the disc-closes gate wraps 13 townsfolk into the same two
+          // lines at 8 per line instead of 9, and a 139-role script that
+          // already scrolled simply scrolls a little further. A tray that
+          // fits never wears this rule, so the fitted sizes above are
+          // untouched.
+          margin-left: 20px;
+          margin-right: 20px;
         }
       }
 

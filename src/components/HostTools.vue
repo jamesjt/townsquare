@@ -4074,6 +4074,54 @@ export default {
         margin-top: -14px;
       }
 
+      // ── FT-1252: THE DEAD BAND BELOW THE TRAY IS THE TRAY'S NOW ─────────
+      //
+      // FT-1201 made the tray's coins solve for the biggest size whose
+      // wrapped rows fit the tray's box — and then handed the solver a box
+      // with almost nothing spare at an ordinary script (Trouble Brewing at
+      // 1920x1080: 188px of content in a 187px box, so the fit sat at its
+      // 36px floor). Its return named the next lever exactly: "the band
+      // handing the tray more height in HostTools.vue."
+      //
+      // WHERE THE HEIGHT IS, measured on the live build (rig:
+      // claude_temp_test/2026-08-27-ft1252-measure.mjs): between the tray's
+      // scroller and the Start button sits a 19px band that is the same 19px
+      // at every disc size, because every part of it is a constant — 3px of
+      // the tray's own bottom furniture (2px padding + 1px border), the 2px
+      // tray margin, and the foot mixin's own 14px translate, which opens a
+      // gap that takes no part in layout. Nothing lives there.
+      //
+      // A NEGATIVE BOTTOM MARGIN, NOT A BIGGER FLEX-BASIS, and the choice is
+      // the whole point: the band's basis is a fixed slice plus a constant
+      // whose every pixel pushes Start down by the same pixel (see the +26px
+      // derivation above — Start's clearance at the disc's floor is +2.7px,
+      // so the basis CANNOT grow). A negative margin on the band's own LAST
+      // child leaves the basis — and therefore Start — byte-identical, and
+      // simply lets the one child that grows (`flex: 1 1 auto`) resolve 12px
+      // taller than the leftover, its bottom edge reaching 10px past the
+      // band's own into the dead gap. 4px of breathing room stays above
+      // Start (the same order of gap the coins' transparent corners already
+      // read as).
+      //
+      // WHAT IT BUYS, measured before/after, 7 seats, Trouble Brewing:
+      //   1920x1080  box 187 -> 199px, coins 36 -> 38px (the solver's first
+      //              real step off its floor at an ordinary script)
+      //   1280x960   box 67 -> 79px — coins hold the below-gate 42px floor
+      //              (already LARGER than the disc-gate's 36) and the extra
+      //              12px shows more of the scroll instead
+      //   1642x780   box 48 -> 60px, same 42px floor, same trade
+      //
+      // THE CHORD IS RESPECTED, measured rather than assumed: the tray's new
+      // bottom edge sits where the disc narrows, and every VISIBLE coin's
+      // ink (the inscribed circle — the box corners are transparent) is
+      // checked against the disc's own ellipse in the same rig, worst point
+      // across all three scripts at all three sizes. The scroller clips at
+      // the box's edge, so a row scrolled to the bottom is cut flat by the
+      // fade, never drawn over the rim.
+      > .role-tray {
+        margin-bottom: -10px;
+      }
+
       // THE ROWS WRAP RATHER THAN OVERFLOW, for the size where even the folds
       // below are not enough. The gap comes down from 14px to 8px first, which
       // is spacing rather than type.
