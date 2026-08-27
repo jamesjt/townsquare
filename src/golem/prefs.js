@@ -50,6 +50,20 @@ export const PREFS_EVENT = "golem:prefs";
  * picking a scheme changes what this module reports and nothing else — which
  * is why the menu's own rows say what they do rather than implying a change
  * the app cannot yet make.
+ *
+ * ── FT-1213 STANDS THE EXCLUSIVE SCHEME DOWN ───────────────────────────────
+ * The user's verdict on living with all three: none of them actually CONFLICT
+ * — a click on a coin, a rest on a coin and a click on the plate are three
+ * different gestures on three different targets — so one exclusive choice was
+ * withholding two working controls to protect nothing. The dropdown becomes
+ * CONTROL_TOGGLES below: six independent switches, three for the old schemes
+ * and three for gestures that were never conditional at all (the two drags
+ * and the hover add-reminder disc), because a switch with a teaching tooltip
+ * is also how a gesture gets DISCOVERED. This list and its stored
+ * `controlScheme` key stay in place, stood down: the key is read exactly once
+ * per stash, to migrate the person's old choice onto the toggles (see
+ * migrateSchemeStash / pullAccountPrefs), and Menu.vue's stood-down settings
+ * section still imports the vocabulary.
  */
 export const CONTROL_SCHEMES = [
   {
@@ -68,6 +82,89 @@ export const CONTROL_SCHEMES = [
     title: "Click a seat's name plate rather than its coin",
   },
 ];
+
+/**
+ * FT-1213: THE CONTROL TOGGLES — every seat gesture, its own switch.
+ *
+ * SIX ROWS, ONE GRAMMAR. The first three are the old schemes as independent
+ * switches; the last three gate gestures that were unconditional until now.
+ * Each row's `title` TEACHES its gesture — discoverability is half the point
+ * of the list (the user found the drags by accident; nobody should have to).
+ * The `icon` is the row's font-awesome mark in the Control settings tab.
+ *
+ * `key` is the stored pref key AND the account wire key's tail
+ * (`ui.botc.prefs.<key>`), one per row, so each toggle rides the FT-1202
+ * account sync exactly the way every other pref does.
+ */
+export const CONTROL_TOGGLES = [
+  {
+    key: "ctrlClickCoins",
+    label: "Click coins",
+    icon: "mouse-pointer",
+    title:
+      "Click a coin's top half to kill or revive the seat; click its lower " +
+      "edge to choose the character",
+  },
+  {
+    key: "ctrlHoverCoins",
+    label: "Hover coins",
+    icon: "hand-pointer",
+    title:
+      "Rest the pointer on a coin and a ring of small action coins opens " +
+      "around it",
+  },
+  {
+    key: "ctrlNameplateClick",
+    label: "Nameplate click",
+    icon: "address-card",
+    title:
+      "Click a seat's name plate and a plate of its actions opens on the coin",
+  },
+  {
+    key: "ctrlDragRoles",
+    label: "Drag roles",
+    icon: "exchange-alt",
+    title:
+      "Drag a character coin onto another seat to swap the two characters, " +
+      "or off the circle to unseat it",
+  },
+  {
+    key: "ctrlDragNames",
+    label: "Drag names",
+    icon: "people-arrows",
+    title:
+      "Drag a seat's name plate onto another seat to move or swap the two " +
+      "players",
+  },
+  {
+    key: "ctrlReminderHover",
+    label: "Reminder button",
+    icon: "plus-circle",
+    title:
+      "Resting on a seat's name plate reveals the add-reminder button beside " +
+      "it",
+  },
+];
+
+/** The six keys alone — the migration's "has this stash been converted?"
+ *  probe and the sanitize switch's membership test. */
+const CONTROL_TOGGLE_KEYS = CONTROL_TOGGLES.map((t) => t.key);
+
+/**
+ * FT-1213: the old exclusive choice, said as toggles. The chosen scheme's
+ * switch comes on and the other two come OFF — a person who picked
+ * "Nameplate click" to stop stray coin clicks killing people must not get
+ * those clicks back as a migration gift. The three formerly-unconditional
+ * gestures are not named here because migration leaves them at their default
+ * (ON — they were unconditional, so ON is what the person had).
+ */
+function schemeToggles(scheme) {
+  return {
+    ctrlClickCoins: scheme === "click",
+    ctrlHoverCoins: scheme === "hover",
+    ctrlNameplateClick: scheme === "nameplate",
+  };
+}
 
 /**
  * THE STORYTELLER'S POST, at two sizes.
@@ -142,8 +239,20 @@ export const SETUP_LABELS = [
  */
 export const DEFAULT_PREFS = {
   setupIconsOnly: false,
+  // FT-1213: stood down — read once per stash to migrate onto the toggles
+  // below, kept so an old stash (and Menu.vue's stood-down section) still
+  // means something. Never consulted by any live gesture.
   controlScheme: "click",
   grimoireSize: "small",
+  // FT-1213: every gesture ON is the INTERIM default — the user explicitly
+  // deferred the defaults conversation ("we can talk about defaults after"),
+  // and all-on is the only starting set that hides nothing while it waits.
+  ctrlClickCoins: true,
+  ctrlHoverCoins: true,
+  ctrlNameplateClick: true,
+  ctrlDragRoles: true,
+  ctrlDragNames: true,
+  ctrlReminderHover: true,
 };
 
 /** The live copy every surface reads. */
@@ -164,6 +273,8 @@ function sanitize(key, value) {
         ? value
         : DEFAULT_PREFS.grimoireSize;
     default:
+      // FT-1213: the six control toggles are all plain booleans
+      if (CONTROL_TOGGLE_KEYS.includes(key)) return !!value;
       return undefined;
   }
 }
@@ -285,6 +396,27 @@ async function pullAccountPrefs(id) {
       seed[wireKey] = prefsState[key];
     }
   });
+  // FT-1213: AN ACCOUNT BAG FROM BEFORE THE TOGGLES — it remembers the old
+  // exclusive scheme and holds none of the six toggle keys. The person's
+  // choice followed their ACCOUNT here, so it must win over this browser's
+  // defaults the same way any other server value does: map it onto the
+  // toggle set and let those mapped values REPLACE the local ones the loop
+  // above queued for seeding. (A bag that already holds any toggle key is
+  // post-conversion and is left entirely alone.)
+  const oldWireKey = ACCOUNT_PREFIX + "controlScheme";
+  if (
+    oldWireKey in bag &&
+    !CONTROL_TOGGLE_KEYS.some((key) => ACCOUNT_PREFIX + key in bag)
+  ) {
+    const mapped = schemeToggles(sanitize("controlScheme", bag[oldWireKey]));
+    Object.keys(mapped).forEach((key) => {
+      if (prefsState[key] !== mapped[key]) {
+        prefsState[key] = mapped[key];
+        changed = true;
+      }
+      seed[ACCOUNT_PREFIX + key] = mapped[key];
+    });
+  }
   if (changed) {
     persistLocal();
     notifyPrefs();
@@ -320,6 +452,19 @@ export function loadPrefs() {
     Object.keys(DEFAULT_PREFS).forEach((key) => {
       if (key in raw) prefsState[key] = sanitize(key, raw[key]);
     });
+    // FT-1213: A STASH FROM BEFORE THE TOGGLES — it carries the old exclusive
+    // `controlScheme` and none of the six toggle keys. The remembered choice
+    // maps onto the matching toggle set (the chosen scheme on, the other two
+    // off; the three formerly-unconditional gestures stay at their ON
+    // default), and the result is persisted at once so the conversion runs
+    // exactly one time per stash.
+    if (
+      "controlScheme" in raw &&
+      !CONTROL_TOGGLE_KEYS.some((key) => key in raw)
+    ) {
+      Object.assign(prefsState, schemeToggles(prefsState.controlScheme));
+      persistLocal();
+    }
   }
   return prefsState;
 }

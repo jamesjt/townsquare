@@ -60,6 +60,10 @@ const faIcons = [
   "MousePointer",
   "UserCog",
   "HandPaper",
+  // FT-1213: the Control settings tab's "Hover coins" row mark — a resting
+  // hand for a resting pointer (the other five rows reuse marks already
+  // in this list).
+  "HandPointer",
   "HandPointRight",
   "Heartbeat",
   "Home",

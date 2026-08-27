@@ -82,9 +82,12 @@
            value (see roleUnseat.js's onDocDrop for the rest of the
            boundary). `isOwnSeat` is the one case a spectator is still
            refused; the host's `!session.isSpectator` branch is untouched. -->
+      <!-- FT-1213: the three role-drag handles read `canDragCoin` now — the
+           identical expression they each restated, with the "Drag roles"
+           toggle folded in at the one place all four surfaces share. -->
       <div
         class="shroud"
-        :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
+        :draggable="String(canDragCoin)"
         @dragstart="onRoleDragStart"
         @click="onLifeClick"
         @mouseenter="onCoinEnter"
@@ -150,7 +153,7 @@
       <Token
         :role="player.role"
         :hover-card="false"
-        :draggable="String(!!player.role.id && (!session.isSpectator || !isOwnSeat))"
+        :draggable="String(canDragCoin)"
         @dragstart.native="onRoleDragStart"
         @mouseenter.native="onCoinEnter"
         @mouseleave.native="onCoinLeave"
@@ -217,9 +220,7 @@
               ? 'Set what they believe they are'
               : `Believes they are the ${beliefChip.name}`
           "
-          :draggable="
-            String(!!player.role.id && (!session.isSpectator || !isOwnSeat))
-          "
+          :draggable="String(canDragCoin)"
           @dragstart="onRoleDragStart"
           @click.stop="
             hideCard();
@@ -691,13 +692,18 @@
            see onPlateClick. The plate's HOVER is untouched in all three
            schemes (it reveals the add-reminder disc, and the user's own spec
            says the nameplate hover keeps doing what it does today). -->
+      <!-- FT-1213: the plate's drag reads `canDragPlayer` (which now carries
+           the "Drag names" toggle), and the mousedown/dragstart pair below is
+           the click-vs-drag arbiter — the reminder token's own idiom (see
+           onPlateClick). -->
       <div
         class="name"
         @click="onPlateClick"
+        @mousedown="plateDragged = false"
         @mouseenter="nameHover = true"
         @mouseleave="nameHover = false"
         :class="{ active: isMenuOpen || !!seatMenuAnchor }"
-        :draggable="String(!!player.id && !session.isSpectator)"
+        :draggable="String(canDragPlayer)"
         @dragstart="onPlayerDragStart"
       >
         <!-- an unclaimed chair says so instead of a fake name (user call) -->
@@ -735,7 +741,14 @@
            cursor crosses getting here. `mouseleave` still clears the flag,
            so the disc still hides once the cursor leaves the whole plate +
            bridge + disc region out the far side. -->
+      <!-- FT-1213: the disc answers the "Reminder button" toggle — the first
+           of the formerly-unconditional gestures to become switchable. Only
+           the HOVER disc is gated; the menu row / ring coin "Add reminder"
+           doorways stand regardless, so the act itself is never lost. The
+           whisper disc beside it measures off the PLATE (addAnchor), not off
+           this element, so it keeps its dock when this one is off. -->
       <div
+        v-if="ctrlReminderHover"
         class="reminder add"
         :style="addAnchorStyle"
         @click="$emit('trigger', ['openReminderModal'])"
@@ -1218,12 +1231,51 @@ export default {
      *     keeps every row reachable rather than stranding a phone on a
      *     control it cannot perform. Same `(hover: hover)` test showCard
      *     already runs before raising a card.
+     *
+     * ── FT-1213 SUPERSEDES THE EXCLUSIVE SCHEME ────────────────────────────
+     * The user's call: none of the three schemes conflict — three gestures,
+     * three targets — so the one-of-three dropdown became six independent
+     * toggles (golem/prefs' CONTROL_TOGGLES). The computeds below are the
+     * per-gesture answers every call site now reads; each keeps exactly the
+     * override the paragraph above argued for its scheme:
+     *
+     *   · A SPECTATOR still gets the click behaviours and nothing else —
+     *     the ring and the plate are storyteller menus, and every row in
+     *     them is refused for a player by the store call behind it.
+     *   · HOVER ON A TOUCH SCREEN is simply OFF (there is no rest-the-
+     *     pointer gesture to enable); no fallback is needed any more,
+     *     because the nameplate toggle stands on its own and defaults on.
+     *   · THE DRAGS AND THE ADD-REMINDER DISC ignore the toggles for a
+     *     spectator: FT-1025 deliberately granted spectators the role drag
+     *     (their own gate, `!isOwnSeat`, is inside canDragCoin), the plate
+     *     drag already refuses them, and the disc is pointer-dead in the
+     *     public view they live in. A spectator also has no Control
+     *     settings tab, so a toggle turned off in some earlier hosting
+     *     session must not strand them.
      */
-    controlScheme() {
-      if (this.session.isSpectator) return "click";
-      const scheme = this.prefs.controlScheme || "click";
-      if (scheme === "hover" && !this.hasHover) return "nameplate";
-      return scheme;
+    ctrlClickCoins() {
+      if (this.session.isSpectator) return true;
+      return this.prefs.ctrlClickCoins !== false;
+    },
+    ctrlHoverCoins() {
+      if (this.session.isSpectator) return false;
+      if (!this.hasHover) return false;
+      return this.prefs.ctrlHoverCoins !== false;
+    },
+    ctrlNameplateClick() {
+      if (this.session.isSpectator) return false;
+      return this.prefs.ctrlNameplateClick !== false;
+    },
+    ctrlDragRoles() {
+      if (this.session.isSpectator) return true;
+      return this.prefs.ctrlDragRoles !== false;
+    },
+    ctrlDragNames() {
+      return this.prefs.ctrlDragNames !== false;
+    },
+    ctrlReminderHover() {
+      if (this.session.isSpectator) return true;
+      return this.prefs.ctrlReminderHover !== false;
     },
     /**
      * THE ROWS THIS SEAT OFFERS, and what each one is conditional on.
@@ -1354,7 +1406,7 @@ export default {
      */
     whisperDiscShown() {
       return !!(
-        this.controlScheme === "click" &&
+        this.ctrlClickCoins &&
         this.addAnchor &&
         this.player.id &&
         this.player.id !== this.session.playerId
@@ -1417,9 +1469,12 @@ export default {
      * plate and the coin would come to disagree.
      */
     canDragCoin() {
+      // FT-1213: the "Drag roles" toggle joins the gate — for the
+      // STORYTELLER only. A spectator keeps FT-1025's own grant and its own
+      // refusal (their claimed seat), untouched by a setting they cannot see.
       return !!(
         this.player.role.id &&
-        (!this.session.isSpectator || !this.isOwnSeat)
+        (this.session.isSpectator ? !this.isOwnSeat : this.ctrlDragRoles)
       );
     },
     /** FT-1180: …and the name plate's own drag (the seat-to-seat move/swap),
@@ -1427,7 +1482,13 @@ export default {
      *  this handle too on a six-row menu, so it is the FALLBACK the glass
      *  hands on when there is no character to carry. */
     canDragPlayer() {
-      return !!(this.player.id && !this.session.isSpectator);
+      // FT-1213: gated by the "Drag names" toggle (spectators were already
+      // refused, so the toggle only ever speaks for the storyteller).
+      return !!(
+        this.player.id &&
+        !this.session.isSpectator &&
+        this.ctrlDragNames
+      );
     },
     /**
      * ── SUPERSEDED (FT-1180): the CONDITIONAL list ─────────────────────────
@@ -1930,6 +1991,10 @@ export default {
       // may follow it is the drag's own tail and must not remove the token.
       // Cleared by the next mousedown on a reminder — see the template note.
       reminderDragged: false,
+      // FT-1213: the same fact for the NAME PLATE — this gesture on `.name`
+      // passed the browser's drag threshold and became a seat drag, so its
+      // trailing click must not open the plate menu (see onPlateClick).
+      plateDragged: false,
       // FT-1169: this browser's own settings, snapshot-and-refresh (see the
       // import note). Only `controlScheme` is read here.
       prefs: { ...prefsState },
@@ -2107,7 +2172,9 @@ export default {
      * exactly as it is today.
      */
     onCoinEnter(e) {
-      if (this.controlScheme !== "hover") {
+      // FT-1213: "hover coins" is its own toggle now; the menu still wins
+      // the coin over the role card whenever it is on (the rule below).
+      if (!this.ctrlHoverCoins) {
         this.showCard(e);
         return;
       }
@@ -2136,7 +2203,7 @@ export default {
      * seat could acquire.
      */
     onCoinLeave() {
-      if (this.controlScheme !== "hover") {
+      if (!this.ctrlHoverCoins) {
         this.hideCardSoon();
         return;
       }
@@ -2151,7 +2218,10 @@ export default {
      *  scheme the menu was opened by a CLICK and stays until it is dismissed,
      *  which is what a clicked menu means everywhere else in this app. */
     onSeatMenuLeave() {
-      if (this.controlScheme !== "hover") return;
+      // FT-1213: the open MODE decides, not the scheme setting — a ring was
+      // opened by a hover and follows the pointer out; a plate was opened by
+      // a click and stays until dismissed, whatever else is toggled on.
+      if (this.seatMenuMode !== "ring") return;
       this.closeSeatMenuSoon();
     },
     /**
@@ -2162,7 +2232,18 @@ export default {
      * taking it over.
      */
     onPlateClick() {
-      if (this.controlScheme === "nameplate") {
+      // FT-1213 PAIR RULE — nameplate click vs the name drag. Both live on
+      // `.name` now (independent toggles), and this app has measured proof
+      // that a completed drag can deliver a trailing click (the reminder
+      // token's own `reminderDragged` note). The browser's native drag
+      // threshold decides which gesture this was: a press that never moved
+      // far enough stays a click and opens the plate; one that passed the
+      // threshold fired `dragstart` (onPlayerDragStart marks it) and its
+      // trailing click, if any, must not ALSO open the plate over the seat
+      // that was just moved. Cleared by the next mousedown on the plate —
+      // same lifecycle as the reminder's flag.
+      if (this.plateDragged) return;
+      if (this.ctrlNameplateClick) {
         if (this.seatMenuAnchor) this.closeSeatMenu();
         else if (this.canOpenSeatMenu()) this.openSeatMenu("plate");
         return;
@@ -2300,8 +2381,9 @@ export default {
     openSeatWhisper() {
       const coin = this.$el.querySelector(".player .token");
       if (!coin) return;
-      this.whisperFromPlate =
-        this.seatMenuMode === "plate" && this.controlScheme === "nameplate";
+      // FT-1213: the MODE alone says where the box came from — "plate" is
+      // only ever set by the nameplate click's own open path.
+      this.whisperFromPlate = this.seatMenuMode === "plate";
       this.hideCard();
       this.whisperAnchor = coin;
     },
@@ -3112,7 +3194,7 @@ export default {
         this.$store.commit("setDrawerPick", null);
         return;
       }
-      if (this.controlScheme !== "click") return;
+      if (!this.ctrlClickCoins) return;
       this.toggleStatus();
     },
     /**
@@ -3121,7 +3203,7 @@ export default {
      * seat decides whether that click is this scheme's job or the menu's.
      */
     onCoinSetRole() {
-      if (this.controlScheme !== "click") return;
+      if (!this.ctrlClickCoins) return;
       this.$emit("trigger", ["openRoleModal"]);
     },
     /**
@@ -3217,6 +3299,13 @@ export default {
      * definition of the ghost rather than two copies of it.
      */
     onRoleDragStart(e) {
+      // FT-1213: belt for the "Drag roles" toggle — the draggable bindings
+      // already carry canDragCoin, so a refused drag never normally starts;
+      // this catches any path that reaches here with the toggle off.
+      if (!this.canDragCoin) {
+        if (e && e.preventDefault) e.preventDefault();
+        return;
+      }
       startSeatRoleDrag(this.player.role, this.index, e);
     },
     /**
@@ -3230,7 +3319,16 @@ export default {
      * — not a flag it has to check and skip.
      */
     onPlayerDragStart(e) {
-      if (this.session.isSpectator || !this.player.id) return;
+      // FT-1213: canDragPlayer is the one gate (it now carries the "Drag
+      // names" toggle too); a refused gesture must not begin a payload-less
+      // native drag.
+      if (!this.canDragPlayer) {
+        if (e && e.preventDefault) e.preventDefault();
+        return;
+      }
+      // FT-1213 pair rule: passing the drag threshold makes this gesture a
+      // drag — onPlateClick refuses its trailing click (see the note there).
+      this.plateDragged = true;
       e.dataTransfer.setData("golem/player-from", String(this.index));
       e.dataTransfer.effectAllowed = "move";
     },

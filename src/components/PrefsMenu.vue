@@ -51,15 +51,28 @@
           @input="setIconsOnly"
         />
       </li>
-      <li class="setting-row">
-        <span class="setting-name">Control scheme</span>
+      <!-- FT-1213: the exclusive "Control scheme" dropdown stood down for
+           the six independent CONTROL_TOGGLES (golem/prefs carries the
+           reasoning). This plate is the RE-ENTRY face's only settings door,
+           so it shows the same six rows the build face's Control settings
+           tab shows — same keys, same writer, same teaching titles. The
+           hoisted lists' z-index rule lives in Menu.vue's unscoped block,
+           extended with these rows' aria-labels. -->
+      <li
+        class="setting-row"
+        v-for="t in controlToggles"
+        :key="t.key"
+        :class="{ 'pm-inert': t.inert }"
+        :title="t.rowTitle"
+      >
+        <span class="setting-name">{{ t.label }}</span>
         <OptionSelect
-          name="prefs-control-scheme"
-          aria-label="Control scheme"
+          :name="'prefs-' + t.key"
+          :aria-label="t.label"
           hoist
-          :options="controlSchemeOptions"
-          :value="prefs.controlScheme"
-          @input="pickScheme"
+          :options="t.options"
+          :value="prefs[t.key] !== false"
+          @input="setToggle(t.key, $event)"
         />
       </li>
       <li class="setting-row">
@@ -82,6 +95,7 @@
 // copy of this section holds, reading and writing the same one module.
 import {
   CONTROL_SCHEMES,
+  CONTROL_TOGGLES,
   GRIMOIRE_SIZES,
   SETUP_LABELS,
   PREFS_EVENT,
@@ -101,6 +115,9 @@ export default {
   data() {
     return {
       prefs: { ...prefsState },
+      // FT-1213: does this device have a resting pointer? Read in mounted —
+      // Player.vue's idiom; dresses the "Hover coins" row inert on touch.
+      hasHover: true,
       // fixed-position coordinates, refreshed by place()
       top: 0,
       left: 0,
@@ -110,12 +127,34 @@ export default {
     setupLabelOptions() {
       return SETUP_LABELS;
     },
+    /** FT-1213: STOOD DOWN with its dropdown — nothing renders it. */
     controlSchemeOptions() {
       return CONTROL_SCHEMES.map((s) => ({
         value: s.id,
         label: s.label,
         title: s.title,
       }));
+    },
+    /** FT-1213: the six toggle rows — the same dress HostTools'
+     *  controlToggles builds, restated here because the two surfaces are
+     *  deliberately independent components (the FT-1180 rule). */
+    controlToggles() {
+      return CONTROL_TOGGLES.map((t) => {
+        const inert = t.key === "ctrlHoverCoins" && !this.hasHover;
+        return {
+          ...t,
+          inert,
+          rowTitle: inert
+            ? t.title +
+              " — this device has no resting pointer, so the gesture " +
+              "cannot fire here; the setting still follows your account"
+            : t.title,
+          options: [
+            { value: true, label: "On", title: t.title },
+            { value: false, label: "Off", title: "Turn this gesture off" },
+          ],
+        };
+      });
     },
     grimoireSizeOptions() {
       return GRIMOIRE_SIZES.map((g) => ({
@@ -129,6 +168,12 @@ export default {
     },
   },
   mounted() {
+    // FT-1213: one read — a property of the machine, not the session.
+    try {
+      this.hasHover = window.matchMedia("(hover: hover)").matches;
+    } catch (e) {
+      this.hasHover = true;
+    }
     // Hoist: see the template note. Vue tears the node down by its actual
     // parentNode, so moving it does not strand it (OptionSelect's own hoist
     // relies on the same fact for its list).
@@ -241,8 +286,13 @@ export default {
     setIconsOnly(on) {
       setPref("setupIconsOnly", on);
     },
+    /** FT-1213: STOOD DOWN with its dropdown — nothing calls it. */
     pickScheme(id) {
       setPref("controlScheme", id);
+    },
+    /** FT-1213: the six toggles' one writer — same call as every row. */
+    setToggle(key, on) {
+      setPref(key, on);
     },
     pickGrimoireSize(id) {
       setPref("grimoireSize", id);
@@ -311,6 +361,13 @@ export default {
     .setting-name {
       white-space: nowrap;
     }
+  }
+
+  // FT-1213: a toggle whose gesture this device cannot perform ("Hover
+  // coins" under a coarse pointer) — the words dim, the switch stays live
+  // (the value still follows the account; the row's title says so).
+  .pm-inert .setting-name {
+    opacity: 0.55;
   }
 
   // FT-1198's sunken trigger, verbatim — the shared control-plate is

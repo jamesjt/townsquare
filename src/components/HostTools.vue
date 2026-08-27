@@ -81,7 +81,16 @@
              open-glow rule the strip marks wear (FT-1202). On the re-entry
              face there is no tab strip, so the gear keeps its old door there
              — the floating PrefsMenu (see togglePrefs). -->
+        <!-- FT-1213 (user): "we can remove that settings icon now" — the
+             BUILD face loses the gear: the Control settings tab sits in the
+             strip right beside it, so the shortcut was a second door an inch
+             from the first. `v-if="reentry"` rather than deletion: the
+             RE-ENTRY face renders no tab strip, so there the gear stays the
+             returning storyteller's ONLY door to their settings (the
+             floating PrefsMenu). alignTabs already bails without a cog to
+             measure, so the strip simply keeps its natural right edge. -->
         <img
+          v-if="reentry"
           ref="cog"
           class="ht-cog"
           :class="{ on: prefsOpen || prefsTab }"
@@ -185,6 +194,11 @@
            measured gap between the strip's right edge and the gear's (see
            alignTabs), so the rightmost tab (Control settings) stands directly
            above the gear that opens it, one cluster in every layout. -->
+      <!-- FT-1213: MOOT ON THIS FACE — the build face has no gear any more
+           (it renders only on re-entry, where this strip does not), so
+           alignTabs finds nothing to measure, `tabInset` stays 0, and the
+           strip keeps its natural right edge. The machinery stands for the
+           day a head ornament returns. -->
       <div
         ref="tabs"
         class="ht-tabs"
@@ -833,22 +847,33 @@
             />
           </span>
         </span>
-        <span class="ht-set-line">
+        <!-- FT-1213: THE CONTROL TOGGLES — the exclusive "Control scheme"
+             dropdown stood down for six independent switches (golem/prefs'
+             CONTROL_TOGGLES; the reasoning lives on that list). Same
+             Game-settings row grammar as the rows around them; each ROW's
+             title teaches its gesture, because half the point of listing
+             every gesture is that a storyteller finds out it exists. The
+             "Hover coins" row on a device with no resting pointer stays
+             OPERABLE but wears the inert dress and says why — the value
+             still rides the account to machines where the gesture works. -->
+        <span
+          class="ht-set-line"
+          v-for="t in controlToggles"
+          :key="t.key"
+          :class="{ 'ht-ctrl-inert': t.inert }"
+          :title="t.rowTitle"
+        >
           <span class="tw-lead">
             <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="mouse-pointer"
-                title="How you operate a seat"
-              />
-              <span class="row-name" v-if="!iconsOnly">Control scheme</span>
+              <font-awesome-icon class="row-mark-fa" :icon="t.icon" />
+              <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
             </span>
             <OptionSelect
-              name="prefs-control-scheme"
-              aria-label="Control scheme"
-              :options="controlSchemeOptions"
-              :value="prefs.controlScheme"
-              @input="pickScheme"
+              :name="'prefs-' + t.key"
+              :aria-label="t.label"
+              :options="t.options"
+              :value="prefs[t.key] !== false"
+              @input="setToggle(t.key, $event)"
             />
           </span>
         </span>
@@ -1159,6 +1184,7 @@ import { toggleCallBackPreview } from "../golem/callBack";
 // — the same imports PrefsMenu holds, reading and writing the same module.
 import {
   CONTROL_SCHEMES,
+  CONTROL_TOGGLES,
   GRIMOIRE_SIZES,
   SETUP_LABELS,
   PREFS_EVENT,
@@ -1238,6 +1264,13 @@ export default {
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(this.alignTabs);
     }
+    // FT-1213: one read — Player.vue's own idiom and the same media query,
+    // so the tab's inert dress and the seat's refusal can never disagree.
+    try {
+      this.hasHover = window.matchMedia("(hover: hover)").matches;
+    } catch (e) {
+      this.hasHover = true;
+    }
   },
   watch: {
     // the HOST sees assignments as they land — while building, the first
@@ -1274,6 +1307,11 @@ export default {
       // object is not reactive; readPrefs refreshes it on PREFS_EVENT, the
       // same shape `tower` below already runs on.
       prefs: { ...prefsState },
+      // FT-1213: does this device have a resting pointer? Read once in
+      // mounted (a property of the machine, not the session) — Player.vue's
+      // own idiom for the same fact. Dresses the "Hover coins" row inert on
+      // a coarse pointer.
+      hasHover: true,
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
@@ -1389,12 +1427,41 @@ export default {
     setupLabelOptions() {
       return SETUP_LABELS;
     },
+    /** FT-1213: STOOD DOWN — the exclusive scheme dropdown's option list.
+     *  Nothing renders it; `controlToggles` below is what the tab shows. */
     controlSchemeOptions() {
       return CONTROL_SCHEMES.map((s) => ({
         value: s.id,
         label: s.label,
         title: s.title,
       }));
+    },
+    /**
+     * FT-1213: the six toggle rows, dressed for the tab. Each row carries
+     * its teaching title (`rowTitle`), its two named options (a checkbox is
+     * a selector that refuses to name one of its states — SETUP_LABELS'
+     * own rule), and `inert` for the one gesture a coarse-pointer device
+     * cannot perform: "Hover coins" has no rest-the-pointer gesture on a
+     * finger. The inert row stays OPERABLE — the value follows the account
+     * (FT-1202) to machines that do have a pointer — it just says so.
+     */
+    controlToggles() {
+      return CONTROL_TOGGLES.map((t) => {
+        const inert = t.key === "ctrlHoverCoins" && !this.hasHover;
+        return {
+          ...t,
+          inert,
+          rowTitle: inert
+            ? t.title +
+              " — this device has no resting pointer, so the gesture " +
+              "cannot fire here; the setting still follows your account"
+            : t.title,
+          options: [
+            { value: true, label: "On", title: t.title },
+            { value: false, label: "Off", title: "Turn this gesture off" },
+          ],
+        };
+      });
     },
     grimoireSizeOptions() {
       return GRIMOIRE_SIZES.map((g) => ({
@@ -2030,8 +2097,14 @@ export default {
     setIconsOnly(on) {
       setPref("setupIconsOnly", on);
     },
+    /** FT-1213: STOOD DOWN with its dropdown — nothing calls it. */
     pickScheme(id) {
       setPref("controlScheme", id);
+    },
+    /** FT-1213: the six toggles' one writer — the same setPref every other
+     *  row uses, so localStorage and the account sync both hear it. */
+    setToggle(key, on) {
+      setPref(key, on);
     },
     pickGrimoireSize(id) {
       setPref("grimoireSize", id);
@@ -3401,6 +3474,14 @@ export default {
       flex-wrap: wrap;
       gap: 8px;
       row-gap: 0;
+    }
+    // FT-1213: a control toggle whose gesture this DEVICE cannot perform
+    // ("Hover coins" under a coarse pointer). The row's words dim the way
+    // every unavailable control on this panel dims; the switch itself stays
+    // full-strength because it still WORKS — the value follows the account
+    // to a machine with a pointer (the row's title says exactly this).
+    .ht-ctrl-inert .label {
+      opacity: 0.55;
     }
   }
 

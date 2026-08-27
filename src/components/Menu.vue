@@ -2072,6 +2072,16 @@ export default {
 :root .gsel-menu.gsel-menu.hoisted {
   &[aria-label="Setup panel labels"],
   &[aria-label="Control scheme"],
+  /* FT-1213: the six control toggles that replaced the scheme dropdown —
+     PrefsMenu's re-entry plate (z 76) opens their hoisted lists, so they
+     need the same lift over it the original three rows did. The stood-down
+     "Control scheme" label stays listed, per the house rule. */
+  &[aria-label="Click coins"],
+  &[aria-label="Hover coins"],
+  &[aria-label="Nameplate click"],
+  &[aria-label="Drag roles"],
+  &[aria-label="Drag names"],
+  &[aria-label="Reminder button"],
   &[aria-label="Grimoire size"] {
     z-index: 80;
   }
