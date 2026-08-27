@@ -297,6 +297,7 @@
         :anchor="seatMenuAnchor"
         :outward="seatMenuOutward"
         :entries="seatMenuEntries"
+        :nominate-mirrored="nominateMarkMirrored"
         :owner="$el"
         @pick="runSeatAction"
         @dismiss="closeSeatMenu"
@@ -2721,9 +2722,9 @@ export default {
       const cx = rem.offsetLeft + w / 2 + (a * dx + b * dy);
       const cy = rem.offsetTop + h / 2 + (-b * dx + a * dy);
       const coinR = Math.min(tb.width, tb.height) / 2;
-      // A HAIR, PROPORTIONAL. 4% of the coin's radius is ~3px on a 6-seat
-      // town's coins and ~1.7px on a 20-seat ring's — a fixed pixel value
-      // reads as a gutter on one and disappears on the other.
+      // A HAIR, PROPORTIONAL — kept for the PLATE clearance test only
+      // (reminderSwing's `tokenR + pad`); since FT-1219 it no longer opens
+      // the coin-to-token gap.
       const pad = coinR * 0.04;
       /**
        * THE FAN'S STEP, in the two ratios the stylesheet has always drawn.
@@ -2737,7 +2738,27 @@ export default {
       const coarse =
         typeof window.matchMedia === "function" &&
         window.matchMedia("(pointer: coarse)").matches;
-      const radius = coinR + h / 2 + pad;
+      /**
+       * FT-1219 (user, with shot: "the reminder tokens should also touch
+       * gears with the player coin, bring it a bit closer"). rim + rim + pad
+       * LOOKED like a clear gap, because both rims are measured too fat:
+       *
+       *   · `coinR` comes off `.token`'s border box, and `.token` carries a
+       *     3px TRANSPARENT border (the "you" glow / bluff collapse animate
+       *     it) — the gear art's tips end 3px inside the measured rim.
+       *   · `h` is the reminder's offsetHeight, which includes its own 3px
+       *     BLACK border each side — a hoop that reads as background, not
+       *     token, on the dark felt.
+       *
+       * So tips-to-tips daylight was really 6px + pad ≈ 8-9px on a desktop
+       * ring. Subtract both borders (−6) and then a 2%-of-coin hair MORE, so
+       * the tooth tips overlap by ~1px on a roomy ring (~0.6px on a crowded
+       * one) — teeth ~6% of the art radius deep (measured off token-golem.png:
+       * valleys at 236/256 of the rim), so a 1px negative gap is tips
+       * MESHING, art never crossing art. `pad` still guards the name plate
+       * (reminderSwing); it just no longer holds the fan off the coin.
+       */
+      const radius = coinR + h / 2 - 6 - coinR * 0.02;
       const step = w * (coarse ? 0.59 : 1.2);
       /**
        * THE FAN IS AN ARC, NOT A LINE (FT-1167). FT-869 spread the tokens
@@ -5474,11 +5495,23 @@ li.nominate .player .overlay .nominate-target {
          that mean "put a note on this seat" carry one mark. The base
          `.icon` rule above keeps plus.png untouched: it is `.add`'s face
          only through this override, and placed reminders paint their own
-         art inline over it either way. The drop-shadow lifts the bone tone
-         off the bronze coin ground — the sticker plus carried its own white
-         keyline for that job; the baked mark borrows the plate rows' answer
-         (their footing shadow) instead. */
-      background-image: url("../assets/ui-note.png");
+         art inline over it either way.
+
+         FT-1219 (user, with shot: "give the pin icon the same treatment as
+         the other icons… maybe make it slightly tinted purple? so it doesn't
+         look so out of place on the player coin"): the BONE pin sat flat and
+         pale on the bronze — every other mark that lives on a coin ground
+         (the role glyphs, upstream's sticker plus) is a painted object:
+         saturated colour, a dark keyline closing the silhouette, gloss.
+         ui-note-coin.png is the SAME pin geometry (baked from ui-note.png's
+         own alpha, so the FT-1217 silhouette cannot drift) dressed that way,
+         in the fork's pick-ink purple (#a78fcd as the mid tone). Two assets
+         on purpose: the plate rows are a bone-mark FAMILY on dark plum
+         ground — a lone glossy purple row mark would break that family, so
+         the seat menu's "Add reminder" row keeps the bone sheet and only
+         the coin surfaces wear this. The drop-shadow stays for footing —
+         the keyline is baked, the shadow seats it on the metal. */
+      background-image: url("../assets/ui-note-coin.png");
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
     }
   }

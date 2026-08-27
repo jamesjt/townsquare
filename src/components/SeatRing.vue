@@ -29,7 +29,7 @@
   <div class="seat-ring-portal">
     <div class="seat-ring" ref="ring">
       <button
-        v-for="(a, i) in entries"
+        v-for="(a, i) in ringEntries"
         :key="a.id"
         type="button"
         class="sr-coin"
@@ -47,7 +47,18 @@
              drawn from it, the rest keep their glyph. One vocabulary, two
              surfaces, no second mapping to drift. draggable=false: a native
              image-drag from a little coin would open where the CLICK lives. -->
-        <img v-if="a.img" :src="a.img" alt="" draggable="false" />
+        <!-- FT-1219 rider (user): the nominate HAND points at the clock face
+             the same way the coin's own accusing mark does — the seat hands
+             its already-computed side fact down (nominateMarkMirrored,
+             FT-1069d) and this flips exactly that one image. Only the hand:
+             every other painted mark is side-agnostic. -->
+        <img
+          v-if="a.img"
+          :src="a.img"
+          :class="{ mirrored: a.id === 'nominate' && nominateMirrored }"
+          alt=""
+          draggable="false"
+        />
         <font-awesome-icon v-else :icon="a.icon" />
       </button>
       <!-- THE RING HAS NO ROOM FOR WORDS, so the words come to the pointer.
@@ -119,6 +130,11 @@ export default {
      *  ring — the coin under the ring is the ring's own trigger, and it holds
      *  the drag handles that stay live in every scheme. */
     owner: { default: null },
+    /** FT-1219 rider: does this seat's own accusing mark wear the mirror
+     *  (FT-1069d's point-at-the-face rule)? Handed in, never re-derived —
+     *  Player.vue owns the clock trig, and two derivations of "which side of
+     *  the ring am I on" is exactly the drift this fork keeps paying for. */
+    nominateMirrored: { type: Boolean, default: false },
   },
   data() {
     return {
@@ -133,8 +149,49 @@ export default {
     };
   },
   computed: {
+    /**
+     * FT-1219 rider (user, verbatim): "put kill at the top of the hover
+     * coins menu, left of that reminder pin, right of that nominate. So
+     * going left to right: Move role, change role, pin, kill, nominate,
+     * whisper player, move player." Kill is the middle of the seven, so it
+     * sits at the arc's apex.
+     *
+     * RING-SPECIFIC PRESENTATION, deliberately not a reshuffle of
+     * golem/seatActions — the plate menu reads that list and its order was
+     * not asked about. The vocabulary stays presentation-neutral; each
+     * surface owns its own arrangement, and this array is the ring's.
+     * `ghost-vote` trades places with `nominate` by life state in the
+     * vocabulary, so it takes nominate's position here. An id the array
+     * does not name keeps its vocabulary order, after the named ones — a
+     * new act appears at the arc's right end rather than vanishing.
+     *
+     * The mirrored arc (a seat so near the window's top that the ring hangs
+     * below the coin) flips Y only — `place()` keeps every x — so left to
+     * right stays the USER'S left to right in both arcs by construction.
+     */
+    ringEntries() {
+      const ORDER = [
+        "move-role",
+        "role",
+        "reminder",
+        "kill",
+        "nominate",
+        "ghost-vote",
+        "whisper",
+        "move-player",
+      ];
+      const at = (e) => {
+        const i = ORDER.indexOf(e.id);
+        return i < 0 ? ORDER.length : i;
+      };
+      // stable: ties (unlisted ids) keep the vocabulary's own order
+      return this.entries
+        .map((e, i) => [e, i])
+        .sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1])
+        .map((p) => p[0]);
+    },
     hovered() {
-      return this.hover >= 0 ? this.entries[this.hover] : null;
+      return this.hover >= 0 ? this.ringEntries[this.hover] : null;
     },
     /**
      * THE LABEL CHIP rides the hovered coin's own bearing, pushed out past
@@ -645,6 +702,13 @@ export default {
        the painted marks must weigh what the white glyphs beside them weigh */
     filter: brightness(1.3) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
     pointer-events: none;
+
+    /* FT-1219 rider: the nominate hand's point-at-the-face mirror, same
+       scaleX(-1) the coin's own mark art wears (Player.vue's
+       .nominate-mark-art.mirrored). The art alone flips; the coin stays. */
+    &.mirrored {
+      transform: scaleX(-1);
+    }
   }
 
   /* FT-1194: THE ENTRANCE — the little coins slide out of the player coin's
