@@ -58,7 +58,9 @@
         "
         @click="callTownBack"
       >
-        <font-awesome-icon icon="bell" class="call-mark" />
+        <!-- FT-1242: FA `bell` stood down — the fork's own baked bell
+             (ui-bell.png), the one mark every call-back surface rings. -->
+        <img class="call-mark" :src="uiBell" alt="" draggable="false" />
       </button>
     </li>
     <!-- ── FT-1107 (user): THE NIGHT ASKS ON THE CLOCK FACE ──────────────
@@ -397,6 +399,8 @@ import moonOther from "../assets/moon-other.png";
 // because this readout is their only count-row consumer today.
 import ghostCowl from "../assets/ui-ghost-cowl.png";
 import nooseIcon from "../assets/ui-noose.png";
+// FT-1242: the call-back bell — baked this pass; see App.vue's import note.
+import uiBell from "../assets/ui-bell.png";
 // FT-880/FT-1051: the town summons — trigger moved here from the strip
 // (Menu.vue). The storyteller's press plays it locally too, since the relay
 // never echoes a message back to whoever sent it.
@@ -422,6 +426,7 @@ export default {
       countIcons: COUNT_ICONS,
       ghostCowl,
       nooseIcon,
+      uiBell,
       // FT-880/FT-1051: the summons' nervous-double-press guard, moved here
       // with its button — about this one control's feel, not town state.
       callBackCooling: false,
@@ -1366,6 +1371,7 @@ export default {
     .call-mark {
       width: 26px;
       height: 26px;
+      object-fit: contain;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
     }
   }

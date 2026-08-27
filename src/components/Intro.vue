@@ -163,7 +163,11 @@
             </li>
           </ul>
           <div class="field">
-            <label title="Town name"><font-awesome-icon icon="home" /></label>
+            <!-- FT-1242: FA `home` stood down — the town's own mark
+                 (ui-town.png, the count strip's town icon). -->
+            <label title="Town name"
+              ><img class="field-mark" :src="uiTown" alt="Town name"
+            /></label>
             <div class="town-input">
               <input
                 ref="townInput"
@@ -216,7 +220,14 @@
                component the Almanac workbench renders. Change it there,
                change it here. -->
           <div class="field">
-            <label title="Script"><font-awesome-icon icon="scroll" /></label>
+            <!-- FT-1242: FA `scroll` stood down — the app's own script
+                 scroll (ui-script.png, the strip and host panel's mark). -->
+            <label title="Script"
+              ><img
+                class="field-mark field-mark-dark"
+                :src="uiScript"
+                alt="Script"
+            /></label>
             <ScriptPicker
               :cards="scriptCards"
               :picked-id="scriptId"
@@ -294,7 +305,11 @@
             </li>
           </ul>
           <div class="field">
-            <label title="Town name"><font-awesome-icon icon="home" /></label>
+            <!-- FT-1242: FA `home` stood down — the town's own mark
+                 (ui-town.png, the count strip's town icon). -->
+            <label title="Town name"
+              ><img class="field-mark" :src="uiTown" alt="Town name"
+            /></label>
             <input
               v-model="joinId"
               spellcheck="false"
@@ -405,6 +420,11 @@ import bloodLogo from "../assets/title/blood-logo.png";
 import ontheLogo from "../assets/title/onthe-logo.png";
 import ontheLockup from "../assets/title/onthe-lockup.png";
 import uiEnter from "../assets/ui-enter.png";
+// FT-1242: the entry form's field marks in the app's own art — the town
+// (ui-town.png, the count strip's icon) and the script scroll (ui-script.png,
+// the top strip / host panel's mark). FA `home`/`scroll` stood down in place.
+import uiTown from "../assets/ui-town.png";
+import uiScript from "../assets/ui-script.png";
 import bloodLockup from "../assets/title/blood-lockup.png";
 // FT-854: the Open-the-town button's blood O (alphabet archive; ems baked
 // from its metrics at the title conversion — 341x410, baseline 352, /370).
@@ -632,6 +652,9 @@ export default {
   data() {
     return {
       language: window.navigator.userLanguage || window.navigator.language,
+      // FT-1242: the field marks — see the import note.
+      uiTown,
+      uiScript,
       blood: BLOOD,
       bloodLogo,
       ontheLogo,
@@ -1517,6 +1540,21 @@ export default {
         flex-shrink: 0;
         opacity: 0.8;
         text-align: center;
+
+        /* FT-1242: the baked field marks sit in the same 26px label box the
+           FA glyphs held, sized to the glyphs' own optical rank. The scroll
+           is the dark engraved cut and needs a harder lift than the bone
+           town to read at this size on this ground (judged live). */
+        .field-mark {
+          width: 18px;
+          height: 18px;
+          object-fit: contain;
+          vertical-align: middle;
+          filter: brightness(1.25) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
+        .field-mark-dark {
+          filter: brightness(2.1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+        }
       }
 
       // The invite-link glyph is a live copy control, so it invites the hand.

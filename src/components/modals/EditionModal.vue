@@ -843,7 +843,10 @@
                       title="The deal hands this token out when the roles land — nobody has to place it"
                       @click="toggleDealRule"
                     >
-                      <font-awesome-icon icon="hand-point-right" />
+                      <!-- FT-1242: FA `hand-point-right` stood down — the
+                           app's own dealing hand (ui-deal.png), which is
+                           exactly what this toggle promises will happen. -->
+                      <img class="rem-deal-mark" :src="uiDeal" alt="" />
                       The deal places this
                     </button>
                     <div class="rem-pop-rows" v-if="openDealPill.deal">
@@ -1281,6 +1284,9 @@ import { stylizeIcon } from "../../golem/iconStyle";
 import * as iconLib from "../../golem/iconLibrary";
 // The all-of-BOTC card wears the creative director's gold logo.
 import goldLogo from "../../assets/gold/botc-logo-icon.png";
+// FT-1242: the deal-rule chip wears the app's own dealing hand — the same
+// art the tray's Deal button wears (RoleActions.vue).
+import uiDeal from "../../assets/ui-deal.png";
 // The user's demon mask + outsider face (design/red/*, cut + baked).
 import demonGlyph from "../../assets/blood/demon-glyph.png";
 import outsiderGlyph from "../../assets/blood/outsider-glyph.png";
@@ -1593,6 +1599,8 @@ export default {
   data: function () {
     return {
       editions: editionJSON,
+      // FT-1242: the deal-rule chip's mark — the app's own dealing hand.
+      uiDeal,
       // the workbench is the modal's only page now; the flag stays because
       // ensureOpen (and old muscle memory in methods) still sets it
       isCustom: true,
@@ -4520,6 +4528,12 @@ $team-colors: (
     border-color: $control-on-edge;
     background: $control-on-bg;
     color: $control-on-color;
+  }
+  /* FT-1242: the deal-rule chip's baked hand, sized to the chip's text. */
+  .rem-deal-mark {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
   }
 }
 // FT-1040: the night action composer — visible only while a wakes chip is

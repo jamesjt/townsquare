@@ -168,8 +168,10 @@
               <span class="ch-nominee">{{ event.nominee }}</span>
               <span class="ch-type">{{ event.type }}</span>
               <span class="ch-tally">
+                <!-- FT-1242: FA `hand-paper` stood down — the raised hand a
+                     cast vote wears on a seat (ui-vote-yes.png). -->
                 {{ event.votes.length }}
-                <font-awesome-icon icon="hand-paper" />
+                <img class="ch-hand" :src="uiVoteYes" alt="votes" />
                 of {{ event.majority }}
               </span>
               <!-- What the record supports, and nothing more. A nomination
@@ -231,6 +233,8 @@ import bottomSheet from "../golem/bottomSheet";
 import { buildChronicle } from "../golem/chronicle";
 // the strip's own quill — the mark that opens this drawer leads its title
 import quill from "../assets/ui-chronicle.png";
+// FT-1242: the tally's raised hand — the seat's own cast-vote art.
+import uiVoteYes from "../assets/ui-vote-yes.png";
 
 // the same rest-before-it-appears the grimoire rows use
 const HOVER_DELAY = 260;
@@ -249,7 +253,7 @@ export default {
     }),
   ],
   data() {
-    return { quill, cardRole: null, cardAnchor: null };
+    return { quill, uiVoteYes, cardRole: null, cardAnchor: null };
   },
   computed: {
     ...mapState(["session", "grimoire", "night"]),
@@ -543,6 +547,14 @@ export default {
   .ch-tally {
     margin-left: auto;
     white-space: nowrap;
+
+    /* FT-1242: the tally's baked hand, riding the line like the glyph did. */
+    .ch-hand {
+      width: 11px;
+      height: 11px;
+      object-fit: contain;
+      vertical-align: -1px;
+    }
   }
   .ch-outcome {
     flex-basis: 100%;

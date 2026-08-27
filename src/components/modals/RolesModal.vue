@@ -52,7 +52,9 @@
           disabled: selectedRoles > nonTravelers || !selectedRoles
         }"
       >
-        <font-awesome-icon icon="people-arrows" />
+        <!-- FT-1242: FA `people-arrows` stood down — assigning to seats IS
+             the deal, and the deal already has its hand (ui-deal.png). -->
+        <img class="rm-deal-mark" :src="uiDeal" alt="" />
         Assign {{ selectedRoles }} characters randomly
       </div>
       <div class="button" @click="selectRandomRoles">
@@ -72,6 +74,8 @@ import { mapGetters, mapMutations, mapState } from "vuex";
 // own build-panel list reads the same function, so this picker cannot list
 // (and randomly re-deal) a role a seat already holds while Duplicates is off.
 import { placedCount } from "../../golem/duplicates";
+// FT-1242: the assign button wears the deal's own hand (RoleActions' mark).
+import uiDeal from "../../assets/ui-deal.png";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -82,6 +86,7 @@ export default {
   },
   data: function() {
     return {
+      uiDeal,
       roleSelection: {},
       game: gameJSON
     };
@@ -230,6 +235,14 @@ export default {
 
 <style lang="scss" scoped>
 @import "../../vars.scss";
+
+/* FT-1242: the assign button's baked dealing hand, sized to its text line. */
+.rm-deal-mark {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  vertical-align: -2px;
+}
 
 ul.tokens {
   padding-left: 5%;

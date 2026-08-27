@@ -694,7 +694,9 @@
         :aria-label="bellTitle"
         @click="$emit('call-back')"
       >
-        <font-awesome-icon icon="bell" class="post-bell-mark" />
+        <!-- FT-1242: FA `bell` stood down — the fork's own baked bell
+             (ui-bell.png) rings the call-back everywhere it is offered. -->
+        <img class="post-bell-mark" :src="uiBell" alt="" draggable="false" />
       </button>
       <!-- FT-1229 (user): the staged line's design pass. The strip reads
            label → chips → adder now: the chips are the CONTENT (each one a
@@ -805,7 +807,8 @@
       :aria-label="bellTitle"
       @click="$emit('call-back')"
     >
-      <font-awesome-icon icon="bell" class="post-bell-mark" />
+      <!-- FT-1242: FA `bell` stood down for ui-bell.png (see above). -->
+      <img class="post-bell-mark" :src="uiBell" alt="" draggable="false" />
     </button>
     <button
       v-if="!showList"
@@ -814,7 +817,9 @@
       :title="isNight ? 'End the night' : 'End the day'"
       @click="flipPhase"
     >
-      <font-awesome-icon v-if="!isNight" icon="sun" class="pf-mark pf-sun" />
+      <!-- FT-1242: FA `sun` stood down — the baked sun (ui-sun.png), so the
+           phase flip's day face is art like its night face already was. -->
+      <img v-if="!isNight" class="pf-mark pf-sun" :src="uiSun" alt="" />
       <img v-else class="pf-mark pf-moon" :src="moonMarkSrc" alt="" />
       {{ footDayLabel }}
     </button>
@@ -865,6 +870,10 @@ import OptionSelect from "./OptionSelect";
 import moonFirst from "../assets/moon-first.png";
 import uiDead from "../assets/ui-dead.png";
 import moonOther from "../assets/moon-other.png";
+// FT-1242: the fork's own bell (baked this pass) rings the call-back, and
+// the baked sun gives the phase flip a day face to match its moon.
+import uiBell from "../assets/ui-bell.png";
+import uiSun from "../assets/ui-sun.png";
 // FT-1067 (user): the day this night ends into gets its own control here,
 // below the flip button — the SAME synced tower field the Tower panel's row
 // (HostTools.vue) writes. towerState is the single copy (a plain module
@@ -895,6 +904,9 @@ export default {
     return {
       // FT-1232: the staged-strip label's mark (the app's own death art).
       uiDead,
+      // FT-1242: the call-back bell and the day-phase sun — baked marks.
+      uiBell,
+      uiSun,
       // FT-874: rows the "end night" button just pointed at because the
       // storyteller pressed it early — view state, not log state.
       flashing: {},

@@ -440,7 +440,9 @@
         "
       >
         <template v-if="!askName">
-          <font-awesome-icon icon="chair" />
+          <!-- FT-1242: FA `chair` stood down — the seat vocabulary's own
+               chair (ui-seat.png, HostTools' Seats row) says it instead. -->
+          <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
           <span>{{ isSeatedElsewhere ? "Move" : "Claim" }}</span>
         </template>
         <!-- First claim on this browser: ask the name in place, no dialog. -->
@@ -853,8 +855,10 @@
                row in it, at the size a row gets. It is not gated on being the
                storyteller — the disc never was — but it follows the same
                public-view rule the reminders themselves follow. -->
+          <!-- FT-1242: FA `plus` stood down — the note sheet (ui-note.png) is
+               what this row puts on the seat, same mark the plate row wears. -->
           <li class="rem-act" v-if="!grimoire.isPublic" @click="addReminder()">
-            <font-awesome-icon icon="plus" />
+            <img class="pm-mark" :src="uiNote" alt="" draggable="false" />
             Add reminder
           </li>
           <template v-if="!session.isSpectator">
@@ -873,7 +877,15 @@
                 title="Pick this character up — then tap another seat to trade them over"
                 @click="armCharacter()"
               >
-                <font-awesome-icon icon="people-arrows" />
+                <!-- FT-1242: FA `people-arrows` stood down — the same act on
+                     the seat plate wears ui-move-role.png (seatActions'
+                     move-role row), so this row says it with the same art. -->
+                <img
+                  class="pm-mark"
+                  :src="uiMoveRole"
+                  alt=""
+                  draggable="false"
+                />
                 {{ roleArmed ? "Put character back" : "Move character" }}
               </li>
               <li
@@ -907,7 +919,14 @@
               </li>
             </template>
             <li @click="movePlayer()" :class="{ disabled: session.lockedVote }">
-              <font-awesome-icon icon="redo-alt" />
+              <!-- FT-1242: FA `redo-alt` stood down — ui-move-player.png, the
+                   plate row's own chair-with-arrow (seatActions move-player). -->
+              <img
+                class="pm-mark"
+                :src="uiMovePlayer"
+                alt=""
+                draggable="false"
+              />
               Move player
             </li>
             <li @click="swapPlayer()" :class="{ disabled: session.lockedVote }">
@@ -918,12 +937,22 @@
               @click="updatePlayer('id', '', true)"
               v-if="player.id && session.sessionId"
             >
-              <font-awesome-icon icon="chair" />
+              <!-- FT-1242: FA `chair` stood down for ui-seat.png here and on
+                   the claim rows below — one chair mark everywhere. -->
+              <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
               Empty seat
             </li>
             <template v-if="!session.nomination">
               <li @click="nominatePlayer()">
-                <font-awesome-icon icon="hand-point-right" />
+                <!-- FT-1242: FA `hand-point-right` stood down — the app's own
+                     accusing manicule (ui-nominate-hand.png), same as the
+                     plate row and the coin's nominate mark. -->
+                <img
+                  class="pm-mark"
+                  :src="uiNominateHand"
+                  alt=""
+                  draggable="false"
+                />
                 Nomination
               </li>
             </template>
@@ -937,7 +966,8 @@
             v-if="session.isSpectator && !(seatMoveLocked && !isOwnSeat)"
             :class="{ disabled: player.id && player.id !== session.playerId }"
           >
-            <font-awesome-icon icon="chair" />
+            <!-- FT-1242: FA `chair` stood down for ui-seat.png (see above). -->
+            <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
             <template v-if="!player.id">
               Claim seat
             </template>
@@ -1047,6 +1077,16 @@ import { TOWER_EVENT, towerState } from "../golem/towerBells";
 // FT-1180: the six things a storyteller can do to a seat — every one of them
 // present on every seat, with the guards deciding DISABLED rather than absent.
 import { seatActions } from "../golem/seatActions";
+// FT-1242: the seat menu's rows say their meanings with the app's own marks —
+// the same art the plate/ring rows (golem/seatActions) already wear for the
+// same acts, plus the chair for the seat rows. The FA names they replace
+// (chair, plus, people-arrows, redo-alt, hand-point-right) stay registered in
+// main.js and stand down in place in the template.
+import uiSeat from "../assets/ui-seat.png";
+import uiNote from "../assets/ui-note.png";
+import uiMoveRole from "../assets/ui-move-role.png";
+import uiMovePlayer from "../assets/ui-move-player.png";
+import uiNominateHand from "../assets/ui-nominate-hand.png";
 // FT-1169: THE CONTROL SCHEME — this browser's own answer to "how do I work a
 // seat". FT-1168 built the setting and deliberately left it inert; this is the
 // lane that reads it. One stash, one writer (golem/prefs), and the snapshot
@@ -2049,6 +2089,12 @@ export default {
       // FT-1206: the town's chat level, snapshotted — a town rule off the
       // tower shelf, refreshed on TOWER_EVENT like every tower reader.
       chatLevel: towerState.chatLevel,
+      // FT-1242: the menu rows' own marks — see the import note.
+      uiSeat,
+      uiNote,
+      uiMoveRole,
+      uiMovePlayer,
+      uiNominateHand,
     };
   },
   mounted() {
@@ -3953,6 +3999,14 @@ li.swap:not(.from) .player::after {
     height: 28px;
     width: auto;
   }
+  /* FT-1242: the claim invitation's chair is the baked one now — same box
+     the FA chair took, brightened toward the overlay's bone ink. */
+  img.pm-mark {
+    height: 28px;
+    width: auto;
+    object-fit: contain;
+    filter: brightness(1.35) drop-shadow(0 0 4px black);
+  }
   span {
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
@@ -5511,6 +5565,17 @@ li.nominate .player .overlay .nominate-target {
 
   svg {
     margin-right: 2px;
+  }
+
+  /* FT-1242: the rows' baked marks — sized to sit where the FA glyphs sat,
+     lifted the same way SeatMenu's .sm-img is (the menu grounds match). */
+  img.pm-mark {
+    width: 1.15em;
+    height: 1.15em;
+    object-fit: contain;
+    vertical-align: -0.2em;
+    margin-right: 2px;
+    filter: brightness(1.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
 }
 

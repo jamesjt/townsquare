@@ -528,7 +528,10 @@
         "
         @click="callTownBack"
       >
-        <font-awesome-icon icon="bell" class="post-bell-mark" />
+        <!-- FT-1242: FA `bell` stood down — the fork's own baked bell
+             (ui-bell.png) rings the call-back on every surface that offers
+             it (this pill, TownInfo's clock button, NightSheet's feet). -->
+        <img class="post-bell-mark" :src="uiBell" alt="" draggable="false" />
       </button>
       <div
         class="drawer-tab"
@@ -670,7 +673,11 @@
         @click="openGallows"
         :title="session.voteHistory.length + ' recent nominations'"
       >
-        <font-awesome-icon icon="book-dead" /> {{ session.voteHistory.length }}
+        <!-- FT-1242: FA `book-dead` stood down — the gallows (ui-votes.png)
+             is this app's one mark for "open the vote history", the same art
+             the top strip's door wears (Menu.vue, VoteDrawer.vue). -->
+        <img class="nomlog-mark" :src="uiVotes" alt="" draggable="false" />
+        {{ session.voteHistory.length }}
       </span>
       <!-- TOWN RECORDS is reached from the top strip's own door (Menu.vue),
            and only from there. The pill used to carry a second door to the
@@ -794,6 +801,11 @@
 <script>
 import { mapState, mapGetters } from "vuex";
 import { version } from "../package.json";
+// FT-1242: the session pill's marks in the app's own art — the baked bell
+// (call the town back) and the gallows door (open the vote history), the
+// same gallows the top strip and the vote drawer already wear.
+import uiBell from "./assets/ui-bell.png";
+import uiVotes from "./assets/ui-votes.png";
 // FT-993: the centre-face splat's own picker, moved here with the element --
 // see the template's own comment on <FaceHands> for why.
 import { pickFaceSplat, hashString, seededRandoms } from "./golem/faceSplat";
@@ -1469,6 +1481,9 @@ export default {
     return {
       booted: false,
       version,
+      // FT-1242: the pill's own marks — see the import note.
+      uiBell,
+      uiVotes,
       pillCopied: false,
       // the tile the armed character's card is pinned to (null = no card)
       armedAnchor: null,
@@ -3156,7 +3171,16 @@ video#background {
 .post-bell-mark {
   width: 20px;
   height: 20px;
+  object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+}
+
+// FT-1242: the pill's gallows door, sized to ride the pill's own text line.
+.nomlog-mark {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  vertical-align: -3px;
 }
 
 // FT-1063: the end-phase chip, riding below the book — the SAME

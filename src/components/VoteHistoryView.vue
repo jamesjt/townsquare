@@ -57,8 +57,10 @@
             <td class="vh-nominee" data-label="Nominee">{{ vote.nominee }}</td>
             <td class="vh-type">{{ vote.type }}</td>
             <td class="vh-votes" data-label="Votes">
+              <!-- FT-1242: FA `hand-paper` stood down — the raised hand a
+                   cast vote wears on a seat (ui-vote-yes.png). -->
               {{ vote.votes.length }}
-              <font-awesome-icon icon="hand-paper" />
+              <img class="vh-hand" :src="uiVoteYes" alt="votes" />
             </td>
             <td class="vh-majority" data-label="Majority">
               {{ vote.majority }}
@@ -81,6 +83,8 @@
 
 <script>
 import { mapState } from "vuex";
+// FT-1242: the votes column's raised hand — the seat's own cast-vote art.
+import uiVoteYes from "../assets/ui-vote-yes.png";
 
 export default {
   name: "VoteHistoryView",
@@ -89,6 +93,7 @@ export default {
   },
   data() {
     return {
+      uiVoteYes,
       // set by measure() — the seven-column table becomes a stack of cards
       // once the surface is too narrow to hold it (a 300px drawer)
       narrow: false
@@ -214,6 +219,14 @@ tbody {
   .vh-votes,
   .vh-majority {
     text-align: center;
+  }
+
+  /* FT-1242: the votes column's baked hand, inline with its number. */
+  .vh-hand {
+    width: 12px;
+    height: 12px;
+    object-fit: contain;
+    vertical-align: -1px;
   }
 }
 

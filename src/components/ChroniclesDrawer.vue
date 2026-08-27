@@ -719,7 +719,9 @@
               title="Send"
               @click="send"
             >
-              <font-awesome-icon icon="hand-point-right" />
+              <!-- FT-1242: the pointing hand stood down — that manicule is
+                   the nominate mark here. Send wears the plane (FT-1211). -->
+              <font-awesome-icon icon="paper-plane" />
             </button>
           </div>
           <p class="cr-error" v-if="error">{{ error }}</p>

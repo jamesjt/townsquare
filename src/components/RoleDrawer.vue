@@ -103,7 +103,9 @@
           @click="shuffleSeated"
           title="Shuffle the roles among the seats — nobody moves chair, the characters do"
         >
-          <font-awesome-icon icon="random" />
+          <!-- FT-1242: FA `random` stood down — the same act one surface over
+               (RoleActions' Shuffle roles) wears ui-shuffle-role.png. -->
+          <img class="act-glyph" :src="shuffleRoleGlyph" alt="" />
           Shuffle
         </button>
         <label
@@ -243,6 +245,8 @@
 <script>
 import gameJSON from "../game";
 import dealGlyph from "../assets/ui-deal.png";
+// FT-1242: the drawer's Shuffle wears the same baked mark RoleActions' does.
+import shuffleRoleGlyph from "../assets/ui-shuffle-role.png";
 // The bluffs mask — the SAME file the clock face's own bluff cluster wears
 // (TownSquare's `.bluffs-toggle`), so the drawer section and the cluster it
 // edits cannot drift apart.
@@ -304,7 +308,8 @@ export default {
       // the grimoire is waiting behind the character picker it opened — see
       // `tapBluff` / the `modals.role` watcher below
       reopenAfterPicker: false,
-      dealGlyph
+      dealGlyph,
+      shuffleRoleGlyph
     };
   },
   watch: {

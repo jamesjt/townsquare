@@ -151,7 +151,11 @@
               title="Send"
               @click="send"
             >
-              <font-awesome-icon icon="hand-point-right" />
+              <!-- FT-1242: the pointing hand stood down — in this app that
+                   manicule means "nominate" (ui-nominate-hand). The send
+                   button wears the plane, per FT-1211's own ruling: the
+                   plane keeps the places that mean "send/sent". -->
+              <font-awesome-icon icon="paper-plane" />
             </button>
           </div>
           <!-- THE SENDER IS TOLD. A relay refusal means the store never took

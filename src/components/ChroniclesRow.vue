@@ -40,10 +40,14 @@
             :src="moonFull"
             alt=""
           />
-          <font-awesome-icon
+          <!-- FT-1242: FA `sun` stood down — day breaks under the fork's own
+               baked sun (ui-sun.png), so the phase pair is art on both
+               sides of the sky instead of art at night, stock glyph by day. -->
+          <img
             v-else-if="isPhaseDay"
-            icon="sun"
-            class="crr-sun"
+            class="crr-sun crr-sun-img"
+            :src="uiSun"
+            alt=""
           />
           <img v-else-if="isNoosed" class="crr-noose" :src="noose" alt="" />
           <!-- FT-1037 (user call): a game beginning wears the SAME mark the
@@ -52,6 +56,17 @@
                line, and the pair reads as arrival/finish rather than one
                glyph doing both. -->
           <img v-else-if="isStart" class="crr-enter" :src="uiEnter" alt="" />
+          <!-- FT-1242: rows whose meaning already owns baked art wear it —
+               death/revive (ui-dead/ui-alive, the kill row's pair) and the
+               nomination's accusing manicule. EV_ICONS keeps the FA names
+               as the stood-down record and the fallback for the rest. -->
+          <img
+            v-else-if="evImg"
+            class="crr-ev-img"
+            :class="evClass"
+            :src="evImg"
+            alt=""
+          />
           <font-awesome-icon v-else-if="evIcon" :icon="evIcon" />
           <template v-else>◆</template>
         </span>
@@ -99,7 +114,10 @@
         "
         @click="hasRoster && (open = !open)"
       >
-        {{ event.votes }} <font-awesome-icon icon="hand-paper" /> of
+        <!-- FT-1242: FA `hand-paper` stood down — the raised hand a cast vote
+             actually wears on a seat (ui-vote-yes.png) counts the tally. -->
+        {{ event.votes }}
+        <img class="crr-hand" :src="uiVoteYes" alt="votes" /> of
         {{ event.majority }}
         <font-awesome-icon
           v-if="hasRoster"
@@ -180,12 +198,14 @@
         <img class="crr-beat-mark crr-noose" :src="noose" alt="" />
         {{ beatText(thread.mark) }}
       </span>
+      <!-- FT-1242: FA `heartbeat`/`skull` stood down — the beats wear the
+           kill row's own pair (ui-alive/ui-dead), one death vocabulary. -->
       <span class="crr-beat" v-if="thread.unmark">
-        <font-awesome-icon class="crr-beat-mark ev-unmark" icon="heartbeat" />
+        <img class="crr-beat-mark crr-beat-img" :src="uiAlive" alt="" />
         {{ beatText(thread.unmark) }}
       </span>
       <span class="crr-beat" v-if="thread.death">
-        <font-awesome-icon class="crr-beat-mark ev-death" icon="skull" />
+        <img class="crr-beat-mark crr-beat-img" :src="uiDead" alt="" />
         {{ beatText(thread.death) }}
       </span>
       <span class="crr-beat crr-none" v-if="!thread.mark && !thread.death">
@@ -211,10 +231,22 @@ import moonFull from "../assets/moon-full.png";
 // FT-1037 (user call): the game-start mark IS the join button's mark — the
 // figure on the road into town (Intro.vue's enter art, reused as-is).
 import uiEnter from "../assets/ui-enter.png";
+// FT-1242: the rows whose meanings already own baked art wear it — death and
+// revive wear the kill row's own pair (ui-alive/ui-dead, golem/seatActions),
+// the nomination wears the accusing manicule, and day breaks under the baked
+// sun (ui-sun.png, baked this pass — its night partner was already an <img>).
+import uiAlive from "../assets/ui-alive.png";
+import uiDead from "../assets/ui-dead.png";
+import uiNominateHand from "../assets/ui-nominate-hand.png";
+import uiSun from "../assets/ui-sun.png";
+// FT-1242: the tally's hand is the raised hand a cast vote wears on a seat.
+import uiVoteYes from "../assets/ui-vote-yes.png";
 import { effectiveHourFlags, hourAllOff } from "../golem/towerBells";
 
 /** Event type → the registered FA icon that marks it. Only icons main.js
- *  already registers — this file adds none. */
+ *  already registers — this file adds none. FT-1242: rows named in EV_IMGS
+ *  below wear baked art instead; the FA names here are the stood-down record
+ *  and the fallback should an image ever fail to resolve. */
 const EV_ICONS = {
   // FT-1037 (user call): start wears the join button's own road-into-town
   // art (the <img> branch in the template), not an FA glyph.
@@ -238,6 +270,15 @@ const EV_ICONS = {
   nights: null,
 };
 
+/** FT-1242: event type → the fork's own baked mark. Checked before EV_ICONS
+ *  in the template; a type absent here falls through to the FA record. */
+const EV_IMGS = {
+  death: uiDead,
+  revive: uiAlive,
+  unmark: uiAlive,
+  nomination: uiNominateHand,
+};
+
 export default {
   name: "ChroniclesRow",
   components: { ChroniclesPortrait },
@@ -252,7 +293,16 @@ export default {
     rows: { type: Array, default: null },
   },
   data() {
-    return { cowl, noose, uiEnter, open: false };
+    return {
+      cowl,
+      noose,
+      uiEnter,
+      uiAlive,
+      uiDead,
+      uiSun,
+      uiVoteYes,
+      open: false,
+    };
   },
   computed: {
     time() {
@@ -316,6 +366,10 @@ export default {
     },
     evIcon() {
       return this.event ? EV_ICONS[this.event.t] || null : null;
+    },
+    /** FT-1242: the row's baked mark, where its meaning owns one. */
+    evImg() {
+      return this.event ? EV_IMGS[this.event.t] || null : null;
     },
     /** FT-1024: does this row's mark wear the noose art? Only the
      *  marked-for-execution event does. */
@@ -403,6 +457,37 @@ export default {
   width: 14px;
   height: 14px;
   object-fit: contain;
+}
+// FT-1242: the baked event marks — the moon's rank (14px) for the sun and
+// the row marks, the noose's rank (13px) for the fold-out beats, and the
+// tally's little raised hand inline with its numbers.
+.crr-sun-img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+.crr-ev-img {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  vertical-align: -2px;
+  /* the nominate manicule is the dark purple cut and vanishes at 13px on
+     this ground without the same lift the seat surfaces give it */
+  &.ev-nomination {
+    filter: brightness(2.1) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.9));
+  }
+}
+img.crr-beat-mark {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+  vertical-align: -2px;
+}
+.crr-hand {
+  width: 11px;
+  height: 11px;
+  object-fit: contain;
+  vertical-align: -1px;
 }
 .crr-sun {
   color: #e8c15a;

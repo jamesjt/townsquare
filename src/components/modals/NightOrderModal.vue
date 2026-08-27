@@ -12,7 +12,9 @@
     />
     <h3>
       Night Order
-      <font-awesome-icon icon="cloud-moon" />
+      <!-- FT-1242: FA `cloud-moon` stood down — the fork's own night mark
+           (ui-night.png, the strip and drawer's crescent). -->
+      <img class="nom-night-mark" :src="uiNight" alt="" />
       {{ edition.name || "Custom Script" }}
     </h3>
     <div class="night">
@@ -101,10 +103,15 @@
 <script>
 import Modal from "./Modal";
 import { mapMutations, mapState } from "vuex";
+// FT-1242: the header's night mark — the app's own crescent.
+import uiNight from "../../assets/ui-night.png";
 
 export default {
   components: {
     Modal
+  },
+  data() {
+    return { uiNight };
   },
   computed: {
     rolesFirstNight: function() {
@@ -185,6 +192,16 @@ export default {
   &:hover {
     color: red;
   }
+}
+
+/* FT-1242: the header's baked crescent, sized to the h3's glyph rank and
+   lifted a touch so grey art reads on the modal's dark ground. */
+.nom-night-mark {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  vertical-align: -3px;
+  filter: brightness(1.35) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
 }
 
 h3 {

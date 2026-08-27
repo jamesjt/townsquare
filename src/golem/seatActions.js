@@ -106,6 +106,11 @@ import uiNominateHand from "../assets/ui-nominate-hand.png";
 import uiDead from "../assets/ui-dead.png";
 import uiAlive from "../assets/ui-alive.png";
 import uiNote from "../assets/ui-note.png";
+// FT-1242: the ghost-vote row wears the seat's OWN ghost-vote art — the same
+// pale raised hand the coin's unspent-vote pip is drawn from — instead of the
+// stock ballot glyph. One meaning, one mark: the row toggles exactly the
+// thing that hand depicts.
+import uiGhostVote from "../assets/ui-ghost-vote-cowl.png";
 
 /**
  * The seat facts every guard reads. Player.vue builds one of these
@@ -241,7 +246,9 @@ const ENTRIES = [
     id: "ghost-vote",
     slot: 5,
     only: (f) => f.isDead,
+    // FT-1242: vote-yea stood down for the ghost hand — see the import note.
     icon: () => "vote-yea",
+    img: () => uiGhostVote,
     label: (f) => (f.isVoteless ? "Give ghost vote back" : "Use ghost vote"),
     hint: (f) =>
       f.isVoteless

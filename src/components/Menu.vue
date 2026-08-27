@@ -479,9 +479,12 @@
              than being deleted, per the house rule. -->
         <template v-if="tab === 'settings'">
           <li class="headline headline-plain">
-            <font-awesome-icon :icon="['fas', 'cog']" class="hl-clock" />
+            <!-- FT-1242: FA `cog` stood down — the app's own gear
+                 (ui-cog.png, the host panel's settings mark) flanks the
+                 word, the same way the strip says "settings" everywhere. -->
+            <img class="hl-clock hl-mark" :src="uiCog" alt="" />
             Your settings
-            <font-awesome-icon :icon="['fas', 'cog']" class="hl-clock" />
+            <img class="hl-clock hl-mark" :src="uiCog" alt="" />
           </li>
           <!-- ── FT-1174 (user): ONE ROW PER SETTING, ITS OPTIONS BESIDE IT ─
                "Those should just have a selector next to them for their
@@ -1681,6 +1684,13 @@ export default {
       .hl-clock {
         font-size: 75%;
         opacity: 0.75;
+      }
+      /* FT-1242: the settings headline's flanking gears are the baked art
+         now — img needs its box stated where FA rode font-size. */
+      img.hl-mark {
+        width: 13px;
+        height: 13px;
+        object-fit: contain;
       }
     }
 
