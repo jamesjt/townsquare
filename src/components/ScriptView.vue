@@ -235,12 +235,29 @@
             :class="{ open: !foldedGroups[group.label] }"
           />
         </h4>
+        <!-- FT-1270 (user: "let non-hosts drag roles from the script to seats
+             as well"). A card on the SCRIPT tab is a character you can pick up
+             and carry to a chair. It is the same gesture, the same payload and
+             the same drop target the grimoire drawer's rows and the build
+             panel's tray already use (`golem/roleDrag`); what a drop MEANS
+             then depends on who dropped it — the storyteller seats a
+             character, a player writes down a guess (Player.placeRole).
+
+             EVERY SURFACE, NOT JUST THE READ-ONLY ONE. `editable` gates the
+             night tabs' reorder because that drag WRITES the script; this one
+             only reads it, so the workbench's copy of this list offers the
+             same handle. The two never meet: reorder lives on the night tabs
+             (`view !== 'team'`), this lives on the Script tab, and no row is
+             ever both. -->
         <ul class="wb-cards" v-show="!foldedGroups[group.label]">
           <li
             v-for="role in group.roles"
             :key="role.id"
             class="wb-card"
             :class="'team-' + role.team"
+            draggable="true"
+            :title="dragHint"
+            @dragstart="onCardDragStart(role, $event)"
           >
             <span
               class="icon"
@@ -300,6 +317,11 @@ import { teamGlyph as teamGlyphSrc } from "../golem/glyphs";
 // same predicate the workbench's night chips and the hover card's chip read,
 // so the meter's night counts can never disagree with either.
 import { wakesOn } from "../golem/nightInfo";
+// FT-1270: THE shared "pick a character up and carry it to a chair" opener —
+// the same one the grimoire drawer's rows and the build panel's tray call, so
+// a card dragged out of the script is indistinguishable at the seat from a
+// character dragged off either of those.
+import { startRoleDrag } from "../golem/roleDrag";
 
 export default {
   name: "ScriptView",
@@ -351,6 +373,18 @@ export default {
     };
   },
   computed: {
+    /**
+     * FT-1270: what the Script tab's drag is FOR, in the reader's own terms.
+     * The gesture is one gesture; its meaning is not. A storyteller seats the
+     * character for real and everyone sees it; a player writes a note to
+     * themselves that never leaves their browser — so the hint says which,
+     * rather than making them find out by doing it.
+     */
+    dragHint() {
+      return this.$store.state.session.isSpectator
+        ? "Drag onto a seat to note your guess"
+        : "Drag onto a seat to give them this character";
+    },
     teamCounts() {
       return countTeams(this.roles);
     },
@@ -488,6 +522,19 @@ export default {
       const base = this.$store.getters.rolesJSONbyId;
       if (base.has(role.id)) return this.iconUrl(role.id);
       return this.iconUrl(role.imageAlt || "custom");
+    },
+    /**
+     * FT-1270: pick a character up off the SCRIPT tab and carry it to a chair.
+     *
+     * `startRoleDrag` is the shared opener — it writes the `golem/role`
+     * payload and hangs the role's own icon off the pointer — so this list
+     * behaves exactly like the grimoire drawer's rows and the build panel's
+     * tray, and Player.onRoleDrop needs to know nothing about where a drag
+     * came from. Whether the drop is allowed, and what it means, is entirely
+     * the SEAT's decision.
+     */
+    onCardDragStart(role, e) {
+      startRoleDrag(role, e);
     },
     // ── FT-854: night-order drag-reorder (editable surfaces only) ────────
     onDragStart(role) {
@@ -786,6 +833,13 @@ $team-colors: (
     grid-template-rows: auto 1fr;
     column-gap: 10px;
     padding: 4px 26px 4px 6px;
+    // FT-1270: the card is a handle now — the only affordance it needs, since
+    // the row already looks like an object and the tooltip says what happens.
+    // `grabbing` on :active is the same pair the night list's grip uses.
+    cursor: grab;
+    &:active {
+      cursor: grabbing;
+    }
     .icon {
       grid-row: 1 / span 2;
       width: 64px;

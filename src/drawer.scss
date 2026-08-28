@@ -23,6 +23,13 @@
 // `bottom-sheet` directly — that is why this lives on its own rather than
 // inside the right-hand mixin.
 
+// FT-1270: the glass a right-hand drawer may opt into (`right-drawer-glass`,
+// below) is `face-disc-menu-plate`'s, so this file reads that one. faceDisc
+// declares NO rules of its own — variables and mixins only, exactly as
+// surface.scss does — so every component already importing drawer.scss pays
+// nothing for this line.
+@import "faceDisc.scss";
+
 // THE PHONE SHEET's condition, written once and used by every surface that
 // changes shape for it. Deliberately identical to HostTools's and NightSheet's
 // portrait rules: all four surfaces must change form at the same instant, or
@@ -35,6 +42,15 @@ $phone-sheet: "(pointer: coarse) and (orientation: portrait)";
 // rather than a Sass one because App.vue does not import this file — the
 // declaration lives on `#app` there, and this is the reader.
 $sheet-h: var(--sheet-h, 52vh);
+
+// A SHEET'S GROUND, named because two rules now have to agree on it. It was a
+// literal inside `bottom-sheet` alone until FT-1270 gave the desktop rail a
+// glass plate: the plate sets `background: transparent`, and a mixin included
+// after `right-drawer` outranks the sheet's own declaration however the media
+// queries are written (a media query adds no specificity). So the glass hands
+// this back explicitly at phone size, and both readers take it from here
+// rather than from a second copy that can drift.
+$sheet-ground: rgba(6, 6, 8, 0.96);
 
 @mixin right-drawer($accent: #4a0d0d) {
   position: fixed;
@@ -263,6 +279,71 @@ $sheet-h: var(--sheet-h, 52vh);
   }
 }
 
+// ── THE GLASS, for a drawer that asks for it (FT-1270) ────────────────────
+// "Lets make that the glass overlay" (user), pointing at the script drawer.
+//
+// The material is `face-disc-menu-plate` — the same plate the seat's menu, the
+// top-right menus, the sign-in panels and the hotkey guide wear. One include,
+// no copy of its numbers; the whole reason that mixin exists is that the next
+// surface reaches for it rather than for whichever lookalike it finds first.
+//
+// IT IS OPT-IN, NOT PART OF `right-drawer`. Six drawers include that mixin and
+// only one was pointed at, so the glass is a second, separate line a drawer
+// adds. The next drawer that wants it adds the same line; nothing about this
+// says the other five have to move, and nothing about it lets them drift if
+// they do.
+//
+// ── `--fd-r` IS THE DRAWER'S LIVE WIDTH, and that is the whole trick ───────
+// The plate's blur is a fraction of the scale it is given (0.05r once the menu
+// dial's `--fd-blur-adj` is in), which is what keeps ONE setting ONE material
+// at every size. A drawer is the only surface in the family whose size the
+// user drags, so handing the mixin a fixed pixel count would make the glass a
+// different material at every width the grip stops at — thick frost at 300px,
+// thin at 900px.
+//
+// `--sd-w` is that width, already published on this element by `rightDrawer`
+// (the mixin that owns the grip and the persistence), so the material follows
+// the drag for free — no resize observer, no JS, nothing to keep in step. At
+// the 400px default it computes 20px of blur; the hotkey guide's 560px panel
+// computes 28px, which is the same material at a bigger box, which is the
+// point. The `400px` fallback is the same default `right-drawer` uses, so a
+// drawer that never publishes the property still gets the shipped glass.
+//
+// ── THE CORNER IS A THREE-SIDED ONE ───────────────────────────────────────
+// A rail is flush against the window's right edge, so only its left corners
+// are corners at all. `--fd-radius` is token substitution rather than a
+// number, so the four-value set reaches the plate's ground and rim layers
+// intact (Menu.vue's notched corner is the precedent).
+//
+// ── AND IT STOPS AT THE PHONE SHEET ───────────────────────────────────────
+// Deliberately, not by omission. `bottom-sheet` states its own reason for
+// being opaque — "the town is directly above it, not behind it — opaque enough
+// to be a plate on the table rather than a pane of glass" — and a sheet
+// standing on the bottom edge of a phone is looking at the town square it just
+// covered, not at art. So the filter and both layers stand down there and the
+// sheet keeps the ground it argued for. Turning them off explicitly matters:
+// `bottom-sheet` re-declares `background`, but it says nothing about
+// `backdrop-filter` or two absolutely positioned children, and those would
+// otherwise survive into a surface that never asked for them.
+@mixin right-drawer-glass {
+  @include face-disc-menu-plate(
+    $r: var(--sd-w, 400px),
+    $radius: 10px 0 0 10px
+  );
+
+  @media #{$phone-sheet} {
+    // the sheet's own ground, handed back — see $sheet-ground's note for why
+    // this cannot be left to `bottom-sheet`'s own declaration
+    background: $sheet-ground;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    &::before,
+    &::after {
+      display: none;
+    }
+  }
+}
+
 // ── THE BOTTOM SHEET ──────────────────────────────────────────────────────
 // The phone form of a drawer: full width, standing on the bottom edge, a fixed
 // share of the height. Included by `right-drawer` above (for the script, vote
@@ -290,7 +371,7 @@ $sheet-h: var(--sheet-h, 52vh);
   // the town is directly above it, not behind it — opaque enough to be a
   // plate on the table rather than a pane of glass (the build panel's 0.93
   // is the same call)
-  background: rgba(6, 6, 8, 0.96);
+  background: $sheet-ground;
   padding: 0 10px 8px;
   // the home indicator sits in the bottom few millimetres of an iPhone
   padding-bottom: max(8px, env(safe-area-inset-bottom));

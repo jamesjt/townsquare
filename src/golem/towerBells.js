@@ -131,7 +131,22 @@ function legacyHourFlags(mode) {
 export const DEFAULT_TOWER = {
   // FT-1052: the three hour-display layers, each its own flag (the old
   // four-value `hourMode` enum retired; legacyHourFlags migrates it).
-  hourClock: true,
+  //
+  // FT-1270 (user: "default the timer to off if it isn't"): all three ship
+  // FALSE now, so a town nobody has configured shows the bare dial. `clock`
+  // was the odd one out — the only hour layer that was on out of the box.
+  //
+  // ONLY THE DEFAULT MOVES, and that is the whole of the change. Every read
+  // path merges a town's STORED value over this object key by key —
+  // `readTowerForTown` walks `Object.keys(DEFAULT_TOWER)` and takes `raw`'s
+  // value wherever the key is present, and `applyTowerSync` does the same for
+  // the wire — so a town that has ever been saved carries its own `hourClock`
+  // and is untouched by this line whichever way it was set. What changes is a
+  // town with NO stored shelf: it used to start with the hands showing and now
+  // starts bare. `legacyHourFlags` is likewise untouched — a pre-1052 town
+  // stored under the retired enum still migrates to exactly the flags that
+  // enum named, including "clock" -> hourClock: true.
+  hourClock: false,
   hourDigital: false,
   hourNumerals: false,
   minuteTick: true,

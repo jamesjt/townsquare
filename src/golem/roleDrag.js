@@ -206,3 +206,41 @@ export const startSeatRoleDrag = (role, index, e) => {
   e.dataTransfer.effectAllowed = "move";
   setRoleDragImage(role, e);
 };
+
+/**
+ * FT-1270: IS THIS SEAT THE VIEWER'S OWN CLAIMED CHAIR — the one rule that
+ * bounds everything a plain player is allowed to do to a coin.
+ *
+ * A player's client renders every other seat's character from LOCAL data and
+ * nothing else: the grimoire is never sent to a player (socket.js's
+ * `sendGamestate` / `sendPlayer`), so what they see on their neighbours' coins
+ * is their own guesswork, and scribbling on it is free. Their OWN seat is the
+ * exception, and the only one — that character was dealt to them by the
+ * storyteller over the wire, it is the single piece of real game state on
+ * their screen, and overwriting it locally would be lying to themselves about
+ * the one fact they actually have.
+ *
+ * THE STORYTELLER IS NEVER REFUSED. `isSpectator` is this app's only
+ * host/not-host flag (RoleDrawer's own note: it "catches every non-host
+ * client, a seated player included"), so a false there ends the question
+ * before the seat is even looked at.
+ *
+ * WHY IT LIVES HERE. It was written out inline in `golem/roleUnseat.js`
+ * (FT-1025, the drop-outside-to-unseat path) and FT-1270 needed the identical
+ * four-clause test for the drop-ONTO-a-seat path. Two copies of a rule about
+ * who may write what is exactly the kind of pair that drifts apart and leaves
+ * one half of a gesture stricter than the other, so both halves read this. It
+ * sits in the drag module because both callers are ends of the same drag.
+ *
+ * Takes the raw session state rather than a store, so a component with
+ * `mapState(["session"])` and a bare document listener can both call it.
+ */
+export const isOwnClaimedSeat = (session, player) =>
+  !!(
+    session &&
+    session.isSpectator &&
+    session.playerId &&
+    player &&
+    player.id &&
+    player.id === session.playerId
+  );

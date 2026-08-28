@@ -666,8 +666,64 @@ export default {
      the same thing for the `role-picker` class this component passes to
      `<Modal>`. -->
 <style lang="scss">
+// FT-1270: the glass this picker is made of — `face-disc-menu-plate`, the same
+// material the seat's plate, the top-right menus, the sign-in panels and the
+// hotkey guide wear.
+@import "../../faceDisc.scss";
+
 .modal-backdrop.role-picker .modal {
   width: min(560px, 92vw);
+
+  // ── THE GLASS ────────────────────────────────────────────────────────────
+  // "Lets make that the glass overlay" (user), pointing at this picker.
+  //
+  // WHAT IT REPLACES was not really a plate at all. `Modal.vue` gives every
+  // dialog `background: rgba(0, 0, 0, 0.8)` over a `rgba(0, 0, 0, 0.3)`
+  // backdrop, and measured over a real town that leaves the tower's own dial
+  // art reading straight through the character list — the script's logo and
+  // the "End day" button were legible THROUGH the rows (the before shots:
+  // claude_temp_test/2026-08-27-ft1270-glass-shots/before). Worse, a flat
+  // wash has no edge: there was no line anywhere saying where the dialog
+  // started. The plate brings a ground, a plum hairline and a lit rim, so the
+  // thing becomes an object standing over the town rather than a darker
+  // patch of it.
+  //
+  // `--fd-r` IS THE BOX'S OWN WIDTH, written as the same expression the
+  // `width` above uses rather than as a second number that can drift. The
+  // material's blur is a fraction of the scale it is handed (0.05r with the
+  // menu dial's `--fd-blur-adj` in), which is what keeps one setting one
+  // material at every size — 28px of frost at the desktop's 560px, and about
+  // 17px on a phone, where the same fraction of a smaller box is the same
+  // material rather than a heavier one.
+  //
+  // 10px, NOT THE MIXIN'S DEFAULT 14px: the corner `.modal` already had.
+  //
+  // NOTHING ABOUT POSITIONING IS NEEDED HERE, and that is worth stating
+  // because the mixin insists a caller bring it. App.vue's global
+  // `* { position: relative; }` already makes every element its own
+  // containing block, so the plate's two `inset: 0` layers land on `.modal`
+  // and not on the full-window backdrop — measured, not assumed, and the same
+  // fact is why the close × was already sitting in this dialog's own corner
+  // rather than the window's (probe in the shots rig; the mark does not move).
+  //
+  // THE SCRIM STAYS AT 0.3. FT-1193 had to LIGHTEN the hotkey guide's wash
+  // (0.7 -> 0.5) because a backdrop-filter samples everything painted behind
+  // it, that wash included, and glass over a near-black rectangle is a
+  // near-black rectangle. Modal's backdrop was already lighter than the value
+  // that lane settled on, so there is nothing to fix on this one.
+  //
+  // NO `overflow: hidden` HERE, deliberately. The guide needed it because it
+  // moved its scroller off the plate; this dialog never scrolled on `.modal`
+  // in the first place (`Modal.vue` gives that only to `.roles`,
+  // `.characters`, `.vote-history` and `.night-reference`) — the picker's
+  // scroller is `.rm-groups`, several levels in. Adding a clip here would buy
+  // nothing and would cut off the ability card that hangs outside this box.
+  //
+  // AND IT IS THIS DIALOG'S, NOT EVERY DIALOG'S. The material is a shared
+  // mixin precisely so the next modal that wants it adds this one include
+  // under its own class; the other nine keep the ground they have until
+  // somebody looks at them over a real town.
+  @include face-disc-menu-plate($r: min(560px, 92vw), $radius: 10px);
 }
 // FULL-SCREEN ON A PHONE: the default dialog's 96%/92% cap still frames it
 // as a floating box; a grouped list of a whole script reads better as the
@@ -679,6 +735,11 @@ export default {
     max-width: 100%;
     max-height: 100%;
     border-radius: 0;
+    // …and the plate's own two layers square off with it. `--fd-radius` is
+    // what the ground and the rim read (the element's `border-radius` above
+    // is only the box's), so without this line a full-bleed screen would
+    // carry a 10px-rounded ground inside a square frame.
+    --fd-radius: 0;
   }
 }
 </style>

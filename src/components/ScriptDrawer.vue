@@ -97,6 +97,23 @@ export default {
 
 .script-drawer {
   @include right-drawer(#4a0d0d);
+  // FT-1270 (user: "lets make that the glass overlay"). THE app's glass —
+  // `face-disc-menu-plate`, by way of drawer.scss's own opt-in wrapper, which
+  // is where the drawer-shaped part of the answer lives (the live width as the
+  // material's scale, the three-sided corner, the phone sheet's stand-down).
+  //
+  // IT COMES AFTER `right-drawer` ON PURPOSE. That mixin's flat ground and
+  // directional shadow are still declared — nothing was cut — and the plate's
+  // own `background: transparent` and six-layer shadow stack simply outrank
+  // them from here. Drop this one line and the drawer is exactly what it was.
+  //
+  // THE SCROLL IS SAFE WHERE IT IS. A plate cannot carry its own scroller —
+  // the ground and rim are absolutely positioned children, so they ride the
+  // content and slide off the top of their own box (the hotkey guide paid for
+  // that lesson in FT-1193). This drawer never scrolls at the root: it is a
+  // column of head + `.sd-view`, and the scrolling happens inside ScriptView's
+  // own `.wb-groups`. Nothing here had to move.
+  @include right-drawer-glass;
   // the phone sheet's grab handle (drawer.scss owns its look; it is
   // display:none anywhere the drawer is not a sheet)
   @include sheet-handle;

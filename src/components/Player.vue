@@ -1098,6 +1098,10 @@ import {
   // FT-1117: a reminder token drags too, on the same pre-warmed ghost stage
   setDragImageSrc,
   warmIconSrc,
+  // FT-1270: "is this the viewer's own claimed chair" — the one rule that
+  // bounds what a plain player may write on a coin, shared with the unseat
+  // half of the same gesture (golem/roleUnseat)
+  isOwnClaimedSeat,
 } from "../golem/roleDrag";
 // FT-1169: the seat's actions as one menu — the object BOTH the nameplate
 // click and the coin hover open. See SeatMenu.vue for why it is one component
@@ -3579,8 +3583,22 @@ export default {
      *  each one policing itself. */
     placeRole(role) {
       if (!role || !role.id) return;
+      // FT-1270: A PLAYER MAY NOT RELABEL THEIR OWN COIN. This is THE writer
+      // every path into "put a character on this chair" runs through, which is
+      // why the rule sits here and not at each caller — a drag, a tap that
+      // lands an armed character, and anything added later all obey it from
+      // one line. The rule itself and the reasoning behind it are
+      // `isOwnClaimedSeat`'s (golem/roleDrag), shared with the unseat half of
+      // the same gesture.
+      if (isOwnClaimedSeat(this.session, this.player)) return;
       if (!this.$store.state.allowDupRoles) {
         this.players.forEach(p => {
+          // …AND NOT SIDEWAYS EITHER. With duplicates off this sweep clears
+          // the role off whatever chair already had it, and for a player that
+          // chair can be their OWN — so dropping their real character onto a
+          // neighbour would have wiped their own coin by the back door. Same
+          // rule, same one line, applied to the seat being cleared.
+          if (isOwnClaimedSeat(this.session, p)) return;
           if (p !== this.player && p.role && p.role.id === role.id) {
             this.$store.commit("players/update", {
               player: p,
@@ -3596,8 +3614,35 @@ export default {
         value: role
       });
     },
+    /**
+     * A drop on this seat: a role from a LIST assigns, another seat's role
+     * SWAPS chairs with ours.
+     *
+     * ── FT-1270: THE LIST DROP IS THE PLAYER'S TOO NOW ──────────────────
+     * "Let non-hosts drag roles from the script to seats as well. Doing this
+     * for a non-host just is like what they do when they click a coin to bring
+     * up that menu to take their guesses." (user.)
+     *
+     * That last sentence is the specification, and it is already true of the
+     * code: a plain player clicking a coin gets the character grid straight
+     * (Player.onCoinSetRole → RoleModal), picks a character, and that pick
+     * commits the very same `players/update` role write this branch does. It
+     * never reaches another client, because `sendPlayer` — the one dispatcher
+     * for that mutation — opens with `if (this._isSpectator …) return;`
+     * (store/socket.js). So a player's grimoire is already a private notebook,
+     * and this only adds a second way to write in it.
+     *
+     * NOTHING NEW GOES ON THE WIRE. No guard was added for the sync, for the
+     * same reason FT-1025's drop-outside-to-unseat added none: the existing
+     * spectator gate on the dispatcher already does the job, and a second
+     * guard would be a second thing to keep true.
+     *
+     * THE SWAP BRANCH BELOW STAYS THE STORYTELLER'S. Trading two chairs'
+     * characters is a grimoire edit that reads and writes seats the dragger
+     * does not own; the list drop writes ONE seat, the one they dropped on.
+     * A player's own seat refuses either way — placeRole enforces that.
+     */
     onRoleDrop(e) {
-      if (this.session.isSpectator) return;
       const roleId = e.dataTransfer.getData("golem/role");
       const from = e.dataTransfer.getData("golem/from");
       if (roleId) {
@@ -3607,6 +3652,8 @@ export default {
         if (role) this.placeRole(role);
         return;
       }
+      // FT-1270: the swap keeps the gate the whole handler used to carry.
+      if (this.session.isSpectator) return;
       if (from !== "" && Number(from) !== this.index) {
         this.swapRolesWith(Number(from));
       }

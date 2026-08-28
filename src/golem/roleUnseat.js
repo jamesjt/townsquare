@@ -18,6 +18,10 @@
 // see onDocDrop's own doc comment for the seat-ownership boundary and why
 // nothing about this ever reaches the wire.
 import Vue from "vue";
+// FT-1270: the own-seat rule, shared with the drop-ONTO-a-seat half of the
+// same gesture (Player.placeRole). It was written out inline below until this
+// lane needed the identical test in a second place — see its own note.
+import { isOwnClaimedSeat } from "./roleDrag";
 
 /** Live, read by RoleTray's template (Vue 2 reactivity via Vue.observable —
  *  the same trick golem/coinArt.js and golem/bloodScrollbar.js use for their
@@ -120,13 +124,10 @@ export function installRoleUnseat(store) {
     // is a bare document listener with no view of which seat a drag came
     // from until now, so the same rule is re-checked here as the real
     // enforcement point.
-    const session = store.state.session;
-    if (
-      session.isSpectator &&
-      session.playerId &&
-      player.id &&
-      player.id === session.playerId
-    ) {
+    // FT-1270: the same four clauses, now read from one place
+    // (golem/roleDrag's `isOwnClaimedSeat`) so this rule and the drop-onto-a-
+    // seat rule cannot drift apart. Byte-for-byte the same test as before.
+    if (isOwnClaimedSeat(store.state.session, player)) {
       return;
     }
     e.preventDefault();
