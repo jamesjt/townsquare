@@ -136,6 +136,40 @@
       <div class="ec-fpx-probe" ref="fpxProbe"></div>
     </div>
 
+    <!-- FT-1280 (user, from a game-end screenshot): "lets put the disck up
+         behind evil/good wins, and above everything else on the clock face."
+
+         THE DISC WAS NOT AN ELEMENT. The ornate carved dial is the PAGE'S
+         BACKGROUND ART — `background-clocktower-blank-centered.png`, painted
+         by `#app` itself (App.vue's `#app.in-game` rule) — and a background
+         paints beneath every one of its own element's descendants. There is
+         no z-index that lifts it above the readout, because it is not in the
+         z-order at all. So the ask needs a disc that CAN stack, and this is
+         it: the same art, re-declared and clipped to the dial.
+
+         The idiom is `.ec-shard`'s, a few lines of CSS below — that already
+         re-declares this exact background inside an element so each shatter
+         piece can fall on its own transform, with the same position/size
+         expressions so the art lands pixel-for-pixel where `#app` painted it.
+         This is the unbroken version of the same trick: `inset: 0` (the same
+         box `#app` registers its background against, so no re-registration),
+         then a `clip-path: circle()` on the dial's own measured centre and
+         radius. The result is a real element that IS the disc.
+
+         WHAT THE ORDER THEN COSTS, and it is the user's to keep or undo: the
+         disc now covers everything the face carried underneath it — the
+         script emblem (`li.edition`), the count rows, the blood splat and the
+         dial stains, and the clock hands. Nothing is hidden by a rule and
+         nothing left the DOM; they are simply BELOW the plate now, which is
+         what "above everything else on the clock face" means. Outside the
+         disc's radius every one of them still paints exactly as before.
+
+         UP EXACTLY WHEN THE BANNER IS (`bannerOn` — the settle and the
+         standing verdict). The show itself is untouched: the shatter, the
+         hunt and the procession all play against the real face, and the
+         plate arrives with the words it stands behind. -->
+    <div v-if="bannerOn" class="ec-face-disc"></div>
+
     <!-- FT-1053d: THE VERDICT SHOUTS. A display-voice banner over the clock
          face — arriving with the settle (the fade phase), standing over the
          settled town until the next game clears isEnded. Composition call:
@@ -1578,6 +1612,58 @@ export default {
     transform: translate(-50%, -46vh) scale(1.05);
     opacity: 0;
   }
+}
+
+/* ══ THE FACE DISC (FT-1280) ═══════════════════════════════════════════════
+   The user's ordering, top to bottom: the verdict banner, then THE DISC, then
+   everything else on the clock face. The template's own comment says why this
+   element has to exist at all (the dial is `#app`'s background image, not a
+   stacking participant); this is where the two halves of the order are set.
+
+   ABOVE EVERYTHING ELSE ON THE FACE comes free from the parent: `#end-ceremony`
+   is z-index 85 and forms its own stacking context, so anything inside it
+   outranks the readout (`ul.info`, z 2), the splat and dial stains (z 0), the
+   hands (z 0) and the seat ring (auto) in one move — no z-index on any of
+   those is touched. BEHIND THE VERDICT is the 5 against `.ec-banner`'s 10.
+
+   THE ART IS NOT RE-REGISTERED, it is repeated. Box, background-position and
+   background-size are `.ec-shard`'s verbatim (which are `#app`'s verbatim), so
+   the plate's pixels land exactly on the pixels it covers — the disc reads as
+   the dial being LIFTED, not as a second dial drawn over the first. No filter:
+   a shard dims to 0.62 because it is falling away; this one is the face.
+
+   THE CLIP IS ONE MEASUREMENT, BOTH HALVES OF IT. `--face-r` (238 face-px)
+   is App.vue's ray-cast of the outer bronze rim, and it was cast from
+   `--face-cx/--face-cy` — so the circle has to be centred THERE, not on
+   `--ec-cx/--ec-cy`. Those two points are not the same: the ceremony's centre
+   carries FaceHands' measured -11,-20 correction (the dial the hands turn on
+   sits slightly off the art's own centre), and the first version of this rule
+   used it because everything else in this file does. That put the circle 20px
+   high, and its top edge cut the bottom off the 12 o'clock seat's name plate
+   — measured at 1280x800 before the correction, and the reason the radius and
+   the centre are now read off the same measurement instead of two.
+
+   THE RADIUS IS THE PUBLISHED NUMBER, unpadded. Everything the face carries
+   is comfortably inside it (measured at 1280x800: the readout's whole box
+   163px, the script emblem 152, the counts 138, the splat 120, against a
+   211px disc), and the nearest thing on the SEAT RING — a name plate's inner
+   corner, not a token — is the constraint at the other end: 210 / 243 / 298px
+   at 1280x800 / 1440x900 / 1920x1080 against a disc of 211 / 238 / 286. The
+   1280 case grazes a rounded plate corner by a pixel or two; padding the
+   radius out to cover the rim's widest ray (the cast ran 230–249) would eat
+   that plate for real, and there is nothing in the crescent to hide. */
+.ec-face-disc {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: #0b0d12 url("../assets/background-clocktower-blank-centered.png");
+  background-position: calc(50% + 7px + var(--bg-off-x, 0px))
+    calc(50% + var(--bg-off-y, 0px));
+  background-size: auto calc(max(100vh, 100vw / 1.8244) + var(--bg-h, 0px));
+  clip-path: circle(
+    calc(var(--face-r, 238) * var(--fpx)) at var(--face-cx) var(--face-cy)
+  );
 }
 
 /* ══ THE VERDICT BANNER (FT-1053d) ═════════════════════════════════════════
