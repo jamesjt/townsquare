@@ -2105,11 +2105,18 @@ export default {
           this.$store.commit("toggleModal", "roleDrawer");
           break;
         case "r":
+          // FT-1282 (user): R IS THE CHARACTERS PICKER NOW — it moved off C so
+          // that C could mean the Chronicle everywhere (see the c case). The
+          // letter reads as ROLES, which is what the rest of the app calls
+          // them; the panel keeps its published "Characters" name in the key
+          // table because that is the word on its own heading.
+          //
           // FT-1207 (user): "disable that for now, always have it revealed."
-          // The face-down flip is stood down — the grimoire rests revealed
-          // and R does nothing. The old branch, for the day it returns:
-          //   if (!isHost) return;
+          // The face-down flip is stood down and R was free for the taking.
+          // The old branch, for the day it returns — it needs a new letter:
           //   this.$store.commit("toggleGrimoire");
+          if (!isHost) return;
+          this.$store.commit("toggleModal", "roles");
           break;
         case "e":
           // END THE DAY / END THE NIGHT — see endPhase() above, which this
@@ -2159,23 +2166,32 @@ export default {
           else if (this.$refs.intro) this.$refs.intro.openJoin();
           break;
         case "c":
-          // FT-1162: C READS BY WHERE YOU ARE STANDING, the same way S already
-          // does. Off any town — the entry screen, where the corner quill
-          // lives — it opens THE CHRONICLE, the cross-town page; the page's
-          // own title wears a C drop-cap saying so. In a town it is unchanged:
-          // the storyteller's Characters picker, which has held this letter
-          // since FT-880 and is published as "Characters" in the key table.
+          // FT-1282 (user): C MEANS THE CHRONICLE, WHEREVER YOU STAND. Off any
+          // town — the entry screen, where the corner quill lives — it opens
+          // the cross-town page, whose title wears a C drop-cap saying so. In
+          // a town it opens the town's own Chronicle drawer, unaimed: every
+          // line, the All filter, the plain door.
           //
-          // Deliberately NOT dual-purpose inside a town. The Chronicle is a
-          // place you LEAVE the town for, and a letter that means two things
-          // at once mid-game is the collision worth avoiding, not the feature.
+          // This supersedes FT-1162, which kept the letter single-purpose in a
+          // town on the reasoning that "a letter that means two things at once
+          // mid-game is the collision worth avoiding". The two things were the
+          // Chronicle and the Characters picker — genuinely unrelated, which
+          // is what made it a collision. Both readings of C are now the same
+          // idea (the record of what happened) told at two scopes, which is
+          // exactly the shape S already has and nobody trips on. The picker
+          // moved to R, which the stood-down reveal flip left free.
+          //
+          // V still opens this drawer AIMED at the gallows; C is the plain
+          // door beside it, and pressing C on an open drawer closes it.
           if (!inSession) {
             this.$store.commit("setRecordsPick", null);
             this.$store.commit("toggleModal", "records");
             break;
           }
-          if (!isHost) return;
-          this.$store.commit("toggleModal", "roles");
+          if (!this.modals.chroniclesDrawer) {
+            this.$store.commit("setChroniclesFilter", "all");
+          }
+          this.$store.commit("toggleModal", "chroniclesDrawer");
           break;
         case "v":
           // FT-1019: V opens the CHRONICLES with the gallows filter armed —

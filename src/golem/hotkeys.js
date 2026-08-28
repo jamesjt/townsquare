@@ -152,7 +152,18 @@ export const HOTKEYS = [
   //   note: "Turn the coins on the seats face up or face down",
   // },
   {
+    // FT-1282 (user): C is THE CHRONICLE in a town too now — the plain door,
+    // every line, no filter aimed. V opens the same drawer at the gallows.
     key: "C",
+    who: "all",
+    label: "Chronicle",
+    note: "This town's own record — everything said and done",
+  },
+  {
+    // FT-1282: the Characters picker moved off C to make room. R reads as
+    // ROLES, the word the rest of the app uses, and the stood-down reveal
+    // flip above left the letter free.
+    key: "R",
     who: "host",
     label: "Characters",
     note: "Choose and assign characters",
