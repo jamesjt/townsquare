@@ -2385,11 +2385,9 @@ export default {
   background: rgba(32, 24, 38, 0.85);
   box-shadow: inset 0 0 0 1px rgba(150, 130, 175, 0.28);
   color: #ddd3ea;
-  &.mine {
-    box-shadow:
-      inset 0 0 0 1px rgba(150, 130, 175, 0.28),
-      inset 2px 0 0 rgba(150, 130, 175, 0.75);
-  }
+  // FT-1278 (user): the own-whisper left bar is GONE. "you" in the pair
+  // already says which end of it you were; the bar was a second answer to
+  // a question nobody asked. (Same call as FT-1023 on own talk lines.)
 }
 
 .cr-empty {
