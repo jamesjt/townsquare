@@ -809,13 +809,16 @@ $digital-y-face: -122;
        veil at NIGHT strength (0.5)      3 615 px
        veil forced fully OPAQUE (1.0)        0 px    <- buried
 
-   A WARNING FOR WHOEVER MEASURES THIS NEXT: `.backdrop::after` is an ANIMATED
-   CLOUD layer, invisible at its daytime opacity 0. Forcing the veil opaque also
-   switches the clouds on, and their drift changes ~35 000 px between any two
-   consecutive screenshots — which swamps the few thousand the hands are worth
-   and makes every configuration look identical. Stop animation before
+   A WARNING FOR WHOEVER MEASURES THIS NEXT: `.backdrop` carries ANIMATED
+   layers, invisible at its daytime opacity 0. Forcing the veil opaque also
+   switches them on, and their drift changes tens of thousands of px between any
+   two consecutive screenshots — which swamps the few thousand the hands are
+   worth and makes every configuration look identical. Stop animation before
    diffing anything against this element. The first three runs of that rig
    "proved" the exact opposite of the truth.
+   (Those layers were `.backdrop::after`, one cloud tile, until FT-1277 replaced
+   them with three `.backdrop > .mist` banks. The warning is unchanged in
+   substance — there is simply more than one of them to stop now.)
 
    WHAT IT OVERLAPS, stated plainly because the centre is busy: the boss and the
    innermost part of all three blades sit BEHIND the town readout's demon head.

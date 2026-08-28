@@ -152,7 +152,27 @@
       :style="faceSplatStyle"
     ></div>
     <FaceHands v-if="inGame" />
-    <div class="backdrop"></div>
+    <!-- FT-1277 (user: "the night clouds are cool but they aren't ours, can we
+         do something that is more like mist?"): three drifting mist banks,
+         replacing the single cloud layer that used to be `.backdrop::after`.
+         They are CHILDREN rather than pseudo-elements only because three of
+         them are needed for parallax and an element has two pseudos.
+
+         THEY SIT IN EXACTLY THE SLOT THE CLOUD LAYER SAT IN, and that is the
+         point of putting them inside `.backdrop` rather than beside it.
+         `.backdrop` never reaches opacity 1 (0 by day, .5 at night), so it is
+         always a STACKING CONTEXT — everything in here paints as part of it, at
+         its position in the document. So the FaceHands ordering measured in
+         FaceHands.vue is untouched: the veil still dims the hands along with
+         the art, exactly as when the clouds lived here.
+
+         They also inherit the night fade for free, which is why there is no
+         second piece of state anywhere for this. -->
+    <div class="backdrop">
+      <i class="mist mist-far" aria-hidden="true"></i>
+      <i class="mist mist-mid" aria-hidden="true"></i>
+      <i class="mist mist-near" aria-hidden="true"></i>
+    </div>
     <!-- Golem fork (FT-852): the dial's CLOCKTOWER letters are static DOM
          now, not baked into the art — positions are plain numbers in
          image-pixels (see --fpx below), adjustable in devtools and scaling
@@ -3790,19 +3810,128 @@ video#background {
   );
   opacity: 0;
   transition: opacity 1s ease-in-out;
-  &:after {
-    content: " ";
+
+  /* ── FT-1277: THE MIST ──────────────────────────────────────────────────
+     Replaces the cloud layer that was `&:after` here — upstream's
+     `assets/clouds.png`, panned 2000px/120s at opacity .3. The asset is still
+     in the tree at `src/assets/clouds.png`, deliberately unreferenced; nothing
+     imports it any more.
+
+     WHY IT HAD TO GO, and it is not that it was stock art. It was the WRONG
+     LAYER. `background-clocktower-blank.png` already paints its own clouds
+     around the moon, so that tile laid a SECOND sky over a sky that had one —
+     which is what made it read as borrowed, and why it greyed the tower's
+     blacks into a flat film.
+
+     WHAT MIST IS *HERE* WAS MEASURED OFF THAT SAME ART, not invented. Its
+     village mist pools LOW and rises in soft plumes between the roofs; sampling
+     that zone (cool pixels only, warm window light discarded) gives a veil tone
+     of rgb(47,53,63) lifting near-black by ~50 luminance at its densest. The
+     tiles below are baked in that hue, normalised to an overlay tone of
+     rgb(160,180,214), and deliberately budgeted UNDER the painted mist — ours
+     thickens the art's, so it has to sit below it or it competes.
+
+     THE TILES are `mist-billow.png` (wide flat banks) and `mist-veil.png`
+     (tall filament plumes), both baked by
+     claude_temp_test/2026-08-27-ft1277-bake.mjs from periodic fBm — the
+     horizontal wrap is seamless BY CONSTRUCTION, not by retouching, and it is
+     measured: the join's column delta is smoother than the median interior
+     column (p37 / p25). Re-run that script to change the mist; do not paint on
+     the PNGs.
+
+     THREE BANKS, AND THE PARALLAX RUNS THE RIGHT WAY: the NEAR bank is the
+     largest in scale and the fastest, the FAR bank is compressed and slow.
+     Their heights differ too, so the horizon is layered rather than one flat
+     lid. One bank alone reads as a filter over the picture; three read as depth.
+
+     EACH TILE IS STRETCHED TO ITS BANK'S FULL HEIGHT (`background-size: Wpx
+     100%`) and repeats only in X. That is what lets the vertical falloff be
+     baked into the tile's own alpha instead of costing a CSS mask — a mask on a
+     layer this size would have forced an offscreen buffer under the whole app,
+     all night.
+
+     COST: transform and opacity only, no per-frame JS, no backdrop-filter, no
+     blend mode. On-screen overdraw is 1.4 viewport-heights against the single
+     cloud layer's 1.0, and the drift is far slower than the tile it replaces
+     (5-8 px/s against 16.7). */
+  > .mist {
+    position: absolute;
+    left: 0;
+    bottom: 0;
     display: block;
-    width: 100%;
-    padding-right: 2000px;
-    height: 100%;
-    background: url("assets/clouds.png") repeat;
-    background-size: 2000px auto;
-    animation: move-background 120s linear infinite;
-    opacity: 0.3;
+    pointer-events: none;
+    background-repeat: repeat-x;
+  }
+  /* far — compressed, high, slow */
+  > .mist-far {
+    height: 60%;
+    width: calc(100% + 1400px);
+    background-image: url("assets/mist-billow.png");
+    background-size: 1400px 100%;
+    opacity: 0.22;
+    animation: mist-drift-far 460s linear infinite;
+  }
+  /* mid — counter-drifting, so the banks shear past each other instead of
+     sliding as one sheet */
+  > .mist-mid {
+    height: 46%;
+    width: calc(100% + 2100px);
+    background-image: url("assets/mist-billow.png");
+    background-size: 2100px 100%;
+    opacity: 0.22;
+    animation: mist-drift-mid 320s linear infinite reverse;
+  }
+  /* near — the veil grain rather than the billow, because this is the band that
+     meets the rooftops and the art's mist has FILAMENT down there, not banks */
+  > .mist-near {
+    height: 34%;
+    width: calc(100% + 3200px);
+    background-image: url("assets/mist-veil.png");
+    background-size: 3200px 100%;
+    opacity: 0.2;
+    animation: mist-drift-near 210s linear infinite;
   }
 }
 
+/* Each pan travels exactly one tile width, which is the shortest distance that
+   can loop without a jump. The bank is that much wider than the viewport, so
+   both ends of the travel still cover it. */
+@keyframes mist-drift-far {
+  from {
+    transform: translate3d(-1400px, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes mist-drift-mid {
+  from {
+    transform: translate3d(-2100px, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes mist-drift-near {
+  from {
+    transform: translate3d(-3200px, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Stilled, not hidden: the mist is atmosphere, and the drift is the only part
+   of it that anyone asked to be able to switch off. At `animation: none` each
+   bank rests at translate 0, where it still covers the viewport. */
+@media (prefers-reduced-motion: reduce) {
+  #app > .backdrop > .mist {
+    animation: none;
+  }
+}
+
+/* Unused since FT-1277 — the cloud layer's pan. Left standing rather than
+   removed; `assets/clouds.png` is still in the tree beside it. */
 @keyframes move-background {
   from {
     transform: translate3d(-2000px, 0px, 0px);
