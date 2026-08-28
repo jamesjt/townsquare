@@ -84,7 +84,17 @@
            learn once that the ring is the control. It counts DOWN as they
            pick, so the line is also the progress readout — one element doing
            both, because the hub has room for neither twice. -->
-      <span class="nf-ask" v-if="action.slots">{{ askLine }}</span>
+      <!-- FT-1291: ...and once the storyteller has SENT, this same line is
+           what says so. It is the only line on the face that was ever going
+           to carry it: the instruction and the report are already one element
+           here, and "the choice is closed" is the last thing in that series.
+           A control that stops answering with nothing said is the failure the
+           night sheet argues against at its own ping dropdown; the ring goes
+           quiet at the same moment these words change, so the player is told
+           why rather than left tapping. -->
+      <span class="nf-ask" :class="{ settled: sent }" v-if="action.slots">{{
+        askLine
+      }}</span>
       <span class="nf-chosen" v-if="action.slots && chosenNames.length">
         <span class="nf-chip" v-for="(n, i) in chosenNames" :key="'c' + i">{{
           n
@@ -100,13 +110,26 @@
         v-if="action.freeText"
         type="text"
         class="nd-free nf-free"
-        placeholder="Your choice, in your own words"
+        :placeholder="
+          sent
+            ? 'The storyteller has answered'
+            : 'Your choice, in your own words'
+        "
         spellcheck="false"
         maxlength="280"
+        :disabled="sent"
+        :title="sent ? sentLine : ''"
         :value="freeTextValue"
         @input="typeText($event.target.value)"
         @blur="flushText"
       />
+      <!-- FT-1291: the words path needs the line too. `action.freeText` and
+           `action.slots` are mutually exclusive by construction (see the note
+           above), so the ask line above never renders on this branch and this
+           seat would otherwise have a dead box and no sentence. -->
+      <span class="nf-ask settled" v-if="action.freeText && sent">{{
+        sentLine
+      }}</span>
       <!-- AND THE ANSWER LANDS HERE TOO. The storyteller's echo — the
            Fortune Teller's "Yes", the Empath's number, the character an
            Undertaker was shown — read where the question was asked, so
@@ -137,21 +160,30 @@
           <span class="nd-your">{{
             action.slots > 1 ? "Your choices:" : "Your choice:"
           }}</span>
+          <!-- FT-1291: locked once the row has been sent, on the picker's own
+               `disabled` — the prop FT-1272 put there for the night sheet's
+               half of exactly this rule. It rides the trigger's native
+               `disabled` rather than a guard in the handler, so the popup
+               cannot be opened by keyboard either. -->
           <SeatPicker
             v-for="slot in action.slots"
             :key="'t' + slot"
             class="nd-pick"
             :players="players"
             :picked-seat="slotValue(slot - 1)"
+            :disabled="sent"
             :title="
-              'Your own pick (' +
-              slot +
-              ' of ' +
-              action.slots +
-              ') — the storyteller sees it as yours'
+              sent
+                ? sentLine
+                : 'Your own pick (' +
+                  slot +
+                  ' of ' +
+                  action.slots +
+                  ') — the storyteller sees it as yours'
             "
             @pick="(seat) => pickSeat(slot - 1, seat)"
           />
+          <span class="nd-settled" v-if="sent">{{ sentLine }}</span>
         </div>
         <!-- the universal fallback where no control was ever designed for this
              character: their choice in their own words -->
@@ -159,13 +191,20 @@
           <input
             type="text"
             class="nd-free"
-            placeholder="Your choice, in your own words"
+            :placeholder="
+              sent
+                ? 'The storyteller has answered'
+                : 'Your choice, in your own words'
+            "
             spellcheck="false"
             maxlength="280"
+            :disabled="sent"
+            :title="sent ? sentLine : ''"
             :value="freeTextValue"
             @input="typeText($event.target.value)"
             @blur="flushText"
           />
+          <span class="nd-settled" v-if="sent">{{ sentLine }}</span>
         </div>
         <!-- what the storyteller has answered so far — everything on the row
              except whether it was a lie, live as they fill it -->
@@ -273,6 +312,34 @@ export default {
       const t = (this.action.role && this.action.role.team) || "";
       return TEAMS.includes(t) ? t : "townsfolk";
     },
+    /**
+     * FT-1291: THE STORYTELLER HAS ANSWERED AND SENT IT — so this seat's
+     * choice is closed.
+     *
+     * Read off the HOST's echoed row, never decided here: `sent` is projected
+     * onto a player's own row by golem/nightLog and arrives with every night
+     * frame. That is what makes the lock follow the row in BOTH directions —
+     * a reopen clears the storyteller's tick, the next frame carries `sent`
+     * false, and these controls come live again with no second flag to keep
+     * in step and nothing latched on this side.
+     *
+     * The host refuses the write regardless (night/applyPlayerAction); this is
+     * the honest face on that refusal, not the enforcement of it.
+     */
+    sent() {
+      return !!(this.row && this.row.sent);
+    },
+    /**
+     * FT-1291: ...and what the player is TOLD about it. One short sentence, in
+     * the app's own voice, saying the two things a locked control has to say —
+     * that the answer came, and that the choice it was about is settled.
+     *
+     * Past tense and no apology: nothing has gone wrong here. This is the
+     * ordinary end of a night action, and the line reads like the end of one.
+     */
+    sentLine() {
+      return "The storyteller has answered — your choice stands.";
+    },
     /** The free box shows the local draft while typing, the host's echo
      *  otherwise. */
     freeTextValue() {
@@ -309,6 +376,12 @@ export default {
      * two lines tall and a "done!" is a line that says nothing.
      */
     askLine() {
+      // FT-1291: THE SENT ROW'S LINE COMES FIRST, ahead of every count — the
+      // counts are instructions and there is nothing left to instruct. This
+      // is the third state the original note said would never exist, and it
+      // earns the place the other two shared because it is not a "done!": it
+      // is the reason the ring stopped answering.
+      if (this.sent) return this.sentLine;
       const left = this.slotsLeft;
       // ONE LINE, ALWAYS. The hub's vertical budget is the gap between the
       // counts and the seat at six o'clock; a wrapped instruction pushed the
@@ -375,8 +448,16 @@ export default {
       return -1;
     },
     /** One pick, up the wire. The commit is the event (the callBack idiom);
-     *  socket.js sends it direct to the host and stamps our playerId. */
+     *  socket.js sends it direct to the host and stamps our playerId.
+     *
+     *  FT-1291: and it stops at a sent row. Belt and braces behind the
+     *  picker's own `disabled`, the same shape NightSheet's `sendRow` keeps
+     *  behind its button: this method is the component's only write path, and
+     *  a later caller must not be able to route round the predicate. The host
+     *  refuses it anyway — that is the truth; this only keeps the client from
+     *  sending a frame it already knows will be turned down. */
     pickSeat(i, seat) {
+      if (this.sent) return;
       const targets = new Array(this.action.slots).fill(null);
       targets[i] = Number.isInteger(seat) ? seat : -1;
       this.$store.commit("night/playerAction", {
@@ -389,8 +470,15 @@ export default {
       clearTimeout(this._textTimer);
       this._textTimer = setTimeout(this.flushText, 400);
     },
+    /** FT-1291: the debounce can be MID-AIR when the Send lands — the box
+     *  goes `disabled` at that instant but a 400ms timer is already running
+     *  and blur fires on the way out. Both routes come through here, so the
+     *  guard is here, once. (The watcher below drops the stranded draft so the
+     *  disabled box shows the host's words rather than words that will never
+     *  be sent.) */
     flushText() {
       clearTimeout(this._textTimer);
+      if (this.sent) return;
       if (this.textDraft === null) return;
       this.$store.commit("night/playerAction", {
         roleId: this.action.role.id,
@@ -401,8 +489,20 @@ export default {
     },
   },
   watch: {
-    /** FT-1005: hand the free box back to the echo once it caught up. */
+    /** FT-1005: hand the free box back to the echo once it caught up.
+     *
+     *  FT-1291: ...and hand it back UNCONDITIONALLY once the row has been
+     *  sent. A draft that was still local when the storyteller sent will never
+     *  be committed now (the host refuses it), so leaving it on screen would
+     *  show the player their own unsent words in a locked box and let them
+     *  believe those words were what the answer was about. The echo is the
+     *  truth; on a sent row it is the only thing there is. */
     row(row) {
+      if (row && row.sent) {
+        this.textDraft = null;
+        clearTimeout(this._textTimer);
+        return;
+      }
       if (
         this.textDraft !== null &&
         row &&
@@ -535,6 +635,18 @@ $face-pick: #a78fcd;
   &:focus-visible {
     outline: none;
     border-color: #b28f2f;
+  }
+  // FT-1291: a sent row's box. It KEEPS ITS WORDS at full strength — they are
+  // what the storyteller answered about and the player still has to be able to
+  // read them — and stands down the frame instead: no gold focus edge to
+  // invite a click, a flatter ground, and the cursor says so on the way past.
+  // Dimming the text would have hidden the record along with the control.
+  &:disabled {
+    cursor: default;
+    opacity: 1;
+    color: white;
+    border-color: #303030;
+    background: rgba(0, 0, 0, 0.32);
   }
 }
 
@@ -741,6 +853,39 @@ $face-pick: #a78fcd;
     opacity: 0.6;
     font-weight: normal;
   }
+}
+
+// ── FT-1291: THE SETTLED LINE ────────────────────────────────────────────
+//
+// The ask line's last state, and it is the one state that must NOT take the
+// dimming above. `.told` stands the instruction down because an instruction
+// already followed is spent — but this sentence is not an instruction, it is
+// the ANSWER TO "why did the ring stop responding to me", and a player only
+// reads it at the moment they try to change a pick and cannot. Dimmed to 0.6
+// it would be the quietest thing on the face at exactly the moment it is the
+// most wanted. The specificity beats `.nc.face.told .nf-ask` on the extra
+// class, so it stands whether or not an answer chip is showing.
+//
+// It leaves the PICK INK behind, and that is the whole message in a colour:
+// $face-pick means "this is the one you are choosing" everywhere it appears
+// on this square (the cog overlay, the seat ring's edge, the name chips), and
+// there is no choosing left. Parchment is the face's ordinary speaking voice.
+// Readable, not loud — the storyteller's answer is still the loudest thing on
+// the dial, which is the hierarchy FT-1113 built and this does not disturb.
+.nf-ask.settled {
+  color: #f6dfbd;
+  opacity: 0.82;
+  font-weight: normal;
+}
+
+// The band form's twin, on its own line under a row of dead pickers. Same
+// sentence, same job — the band has no ask line of its own to reuse, so it
+// gets the element the face gets the state.
+.nd-settled {
+  flex: 1 1 100%;
+  font-size: 12px;
+  color: #f6dfbd;
+  opacity: 0.8;
 }
 
 .nf-chosen {

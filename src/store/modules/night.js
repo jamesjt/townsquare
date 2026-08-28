@@ -113,9 +113,11 @@ const state = () => ({
   // "everyone"), which gates the drawer's input surface — a player's own
   // localStorage mode default says nothing about the town they joined.
   // `rows` are projectPlayerRow shapes, re-projected on the way in (see
-  // setPlayerNight) so the lie mark and the done tick cannot exist in this
-  // state no matter what arrives. Transient by design: not persisted, emptied
-  // with the frame that says so.
+  // setPlayerNight) so the lie mark cannot exist in this state no matter what
+  // arrives. FT-1291: the storyteller's tick DOES arrive, as `sent`, and only
+  // ever on this seat's own row — it is what closes this seat's picker once
+  // the answer has gone out. Transient by design: not persisted, emptied with
+  // the frame that says so.
   playerNight: { live: false, rows: [] }
 });
 
@@ -252,12 +254,14 @@ const getters = {
    *   only when the row predates a claim.
    *
    *   WHICH FIELDS — `isFalseInfo` is the storyteller's private mark that
-   *   what they said was a lie, and `done` is their walk-the-list state.
-   *   Neither may reach a player, so this returns a NEW object that never
-   *   carries them rather than a filtered entry a template might spread.
-   *   The rule is that a secret must not be in the page at all; hiding a
-   *   rendered one with CSS is the bug class this whole feature was warned
-   *   about.
+   *   what they said was a lie. It may not reach a player, so this returns a
+   *   NEW object that never carries it rather than a filtered entry a template
+   *   might spread. The rule is that a secret must not be in the page at all;
+   *   hiding a rendered one with CSS is the bug class this whole feature was
+   *   warned about. (FT-1291: the storyteller's tick crosses as `sent` — a
+   *   fact about this player's OWN row and the reason their picker stands
+   *   down. projectPlayerRow holds the reasoning for why that one is not a
+   *   secret.)
    */
   myEntries(state, getters, rootState) {
     // FT-1005: A CONNECTED PLAYER READS WHAT THE HOST DELIVERED, nothing
@@ -365,6 +369,28 @@ const getters = {
     return row.targets;
   },
 
+  /**
+   * FT-1291: HAS THE STORYTELLER ANSWERED THIS SEAT AND SENT IT?
+   *
+   * The one question the ring and the face both have to ask before offering a
+   * pick, asked once here — the FT-1101 rule that put `myCall` in this module
+   * rather than in two components. Player.vue owns the coins and NightCall
+   * owns the words; they must not be able to disagree about whether tonight's
+   * choice is still open.
+   *
+   * It reads the HOST's echoed row (`sent`, projected by golem/nightLog), so
+   * this is the delivered truth and never a local guess — and it comes back
+   * false the moment the storyteller reopens, because reopening clears the
+   * same flag and the next frame carries it. The lock follows the row.
+   *
+   * False before anything is echoed, which is the honest answer: a row that
+   * does not exist yet has not been sent.
+   */
+  myCallSent(state, getters) {
+    const row = getters.myCallRow;
+    return !!(row && row.sent);
+  },
+
   /** How much of tonight the storyteller has walked. */
   progress(state, getters) {
     const rows = getters.roster;
@@ -440,9 +466,45 @@ const actions = {
    * always applies; the storyteller's free note (told.text) is a different
    * field and never collides.
    *
-   * Silent when the town is not sharing (mode !== "everyone"), when nothing
-   * on tonight's roster matches, or when nothing actually changes — the last
-   * so an idle re-send does not restamp `at` on every entry it grazes.
+   * ── FT-1291 (user): A SENT ROW IS CLOSED TO THE PLAYER TOO ─────────────
+   *
+   * "After a storyteller has sent a message to a user they shouldn't be able
+   * to change their selection. Fortune teller can change theirs after the
+   * send."
+   *
+   * FT-1272 locked every control on the STORYTELLER's half of a sent row, for
+   * the reason written at NightSheet's `isLocked`: the row composed something
+   * that has already been delivered, and letting it change silently rewrites
+   * an answer somebody was given. The player's half was never locked, so the
+   * identical damage was still one click away from the other side — and worse
+   * shaped, because what changes there are the PICKS the answer was computed
+   * from. A Fortune Teller told "no" about seats 3 and 6 could point at seat 5
+   * and be left holding a "no" that was never about seat 5.
+   *
+   * So the refusal lives HERE, at the merge, and not only in the picker that
+   * calls it. This is the host's own store — the one authority in the room —
+   * and a client can always be lied to, or be running an older bundle, or be
+   * mid-flight when the Send lands. The UI lock is the courtesy; this is the
+   * truth.
+   *
+   * WHOLE-ROW, NOT PER-SLOT, and deliberately: `done` is a fact about the row,
+   * the storyteller's own lock is whole-row (every seat picker on a sent row
+   * goes dead, filled or empty), and a half-open row would let a Fortune
+   * Teller add a second seat to an answer that has already been given about
+   * the first. The two halves have to close on the same boundary or they
+   * disagree about what "sent" means.
+   *
+   * IT FOLLOWS THE ROW BOTH WAYS. Reopening is the same Send button's other
+   * job and clears `done` through the ordinary patch, so the player's picks
+   * come live again with the storyteller's — no latch, no second flag, and
+   * nothing to keep in step.
+   *
+   * Silent when the town is not sharing (mode !== "everyone"), when the row
+   * has been sent, when nothing on tonight's roster matches, or when nothing
+   * actually changes — the last so an idle re-send does not restamp `at` on
+   * every entry it grazes. Every one of those refusals is answered anyway:
+   * socket.js re-sends this seat's rows after the merge either way, so a
+   * refused pick is told the standing truth rather than left hanging.
    */
   applyPlayerAction(
     { state, getters, dispatch, rootState },
@@ -455,6 +517,10 @@ const actions = {
     if (!row) return;
     const id = entryId(state.day, seat, roleId);
     const existing = state.entries.find(e => e.id === id);
+    // FT-1291: the sent row refuses — see the note above. Ahead of the patch
+    // build so it covers BOTH the picks and the player's own words: `text`
+    // rides the same frame and the same delivered answer.
+    if (existing && existing.done) return;
     const cur = existing || {
       targets: new Array(row.slots).fill(-1),
       targetNames: new Array(row.slots).fill(""),
@@ -555,9 +621,11 @@ const mutations = {
    *
    * RE-PROJECTED ON THE WAY IN, not trusted: every row is passed back through
    * projectPlayerRow, which builds a fresh object holding exactly the allowed
-   * keys — so `isFalseInfo` (the lie mark) and `done` cannot exist anywhere
-   * in this client's state even if a frame carried them. Absent, not hidden:
-   * the same rule the projection has enforced since FT-860.
+   * keys — so `isFalseInfo` (the lie mark) cannot exist anywhere in this
+   * client's state even if a frame carried them. Absent, not hidden: the same
+   * rule the projection has enforced since FT-860. FT-1291 added `sent` to the
+   * allowed set, and the whitelist is what makes that a decision rather than a
+   * leak — one named key crossed, everything else still refused by default.
    */
   setPlayerNight(state, { live, rows } = {}) {
     state.playerNight = {

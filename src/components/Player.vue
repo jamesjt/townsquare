@@ -35,7 +35,14 @@
           // the overlay would sit at the disc's own square edge, not the
           // coin's).
           'night-target': nightPickable,
-          'night-chosen': nightSlot >= 0
+          'night-chosen': nightSlot >= 0,
+          // FT-1291: ...and the storyteller has sent their answer, so the
+          // ring is a READOUT now and not a control. The two classes above
+          // both stay: a chosen coin must go on wearing its ring after the
+          // send, because those picks are what the answer was about and
+          // taking the marks away at the moment the answer arrives would
+          // leave the player unable to see what they had chosen.
+          'night-sent': nightPickLocked
         },
         player.role.team
       ]"
@@ -490,9 +497,17 @@
            is mid-answer is far likelier to be pointing at an empty chair's
            character than to be changing seats at three in the morning, and
            the claim is one click away again the moment the ask closes. -->
+      <!-- FT-1291: the overlay STAYS UP on a sent row rather than being
+           v-if'd away, and that is a deliberate choice about what the ring is
+           for. Dropping it would hand the seat's ordinary handlers back at the
+           worst possible moment — the tap that was meant to change a pick
+           would land on a nomination or a vote instead — and it would take the
+           chosen marks down with it (`nightSlot` reads -1 without it). So it
+           stands, inert: it still covers the seat, it still shows what was
+           chosen, and it no longer answers. -->
       <div
         class="night-pick"
-        :class="{ picked: nightSlot >= 0 }"
+        :class="{ picked: nightSlot >= 0, locked: nightPickLocked }"
         v-if="nightPickable"
         :title="nightPickTitle"
         @click.stop="nightPick"
@@ -1214,6 +1229,10 @@ export default {
     ...mapGetters({
       nightCall: "night/myCall",
       nightTargets: "night/myCallTargets",
+      // FT-1291: has the storyteller sent this seat's answer? The getter is
+      // the shared definition (night/myCallSent) so the coins and the words on
+      // the face cannot disagree about whether tonight's choice is still open.
+      nightSent: "night/myCallSent",
     }),
     /** Retired with the night checklist (user call 2026-08-18) — flip to
      *  `this.grimoire.isNightOrder` to bring the seat badges back. */
@@ -2029,6 +2048,20 @@ export default {
       const call = this.nightCall;
       return !!(call && call.slots > 0);
     },
+    /**
+     * FT-1291: THE ASK IS OVER — the storyteller has sent their answer, so a
+     * coin is a record of what was chosen and no longer an offer to choose.
+     *
+     * Not folded into `nightPickable`, on purpose. That predicate answers "is
+     * the night asking this client to point at players", and everything it
+     * gates is still wanted here: the overlay must go on covering the seat (or
+     * a tap meant for a pick lands on a nomination), and `nightSlot` — and so
+     * the chosen ring and the slot numeral — reads off it. What changes at the
+     * send is whether the overlay ANSWERS, which is one class and one guard.
+     */
+    nightPickLocked() {
+      return this.nightPickable && this.nightSent;
+    },
     /** The slot this seat is sitting in, or -1. The HOST's record, never a
      *  local guess — an unanswered or refused tap leaves the coin dark. */
     nightSlot() {
@@ -2046,6 +2079,15 @@ export default {
     nightPickTitle() {
       if (!this.nightPickable) return "";
       const who = this.player.name || "seat " + (this.index + 1);
+      // FT-1291: the hover says WHY on a sent row. Same sentence NightCall
+      // puts on the face, so a player who hunts for the reason on the coin
+      // they just tried to tap finds the words they already read in the
+      // middle of the dial rather than a second, differently-worded one.
+      if (this.nightPickLocked) {
+        const stands = "The storyteller has answered — your choice stands";
+        if (this.nightSlot < 0) return stands;
+        return "You chose " + who + " — " + stands;
+      }
       return this.nightSlot >= 0
         ? "You chose " + who + " — tap again to take it back"
         : "Choose " + who;
@@ -3472,6 +3514,12 @@ export default {
     nightPick() {
       const call = this.nightCall;
       if (!call || !call.slots) return;
+      // FT-1291: a sent row does not take picks. The host refuses it too
+      // (night/applyPlayerAction) and that is the authority — this is here so
+      // the tap dies where the player made it rather than travelling to be
+      // turned down, and so the overlay's inertness is a fact about the
+      // handler and not only about a CSS class somebody could later change.
+      if (this.nightPickLocked) return;
       const cur = this.nightTargets;
       const targets = new Array(call.slots).fill(null);
       const at = cur.indexOf(this.index);
@@ -4151,6 +4199,42 @@ li.swap:not(.from) .player::after {
   }
 }
 
+/* ── FT-1291: THE RING AFTER THE ANSWER ────────────────────────────────────
+
+   The storyteller has sent, so the ring stops being a control and becomes a
+   record. Two things change and nothing else does:
+
+     · THE OFFER GOES. The hover ring and its wash are the coin saying "you may
+       pick me", and that is now false on every coin — so the hover rule is
+       cancelled outright and the cursor stops being a pointer. A control that
+       still lights under the mouse but refuses the click is worse than a dead
+       one: it says the tap will work and then eats it.
+     · THE CHOSEN COINS STAY EXACTLY AS THEY WERE. Full ring, full halo, full
+       slot numeral. They are the picks the storyteller's answer was computed
+       from, and they are the only place the player can still read what they
+       chose — fading them at the moment the answer lands would take the
+       question away along with the ability to change it.
+
+   `pointer-events` is deliberately NOT dropped: the overlay has a second job
+   (it covers the seat, which is what keeps a stray night tap off the vote
+   buttons and the nomination hand — see the markup note), and letting clicks
+   fall through would hand those back at the one moment a player is most
+   likely to be tapping coins. It stays in the way and says nothing. */
+.player.night-sent > .night-pick {
+  cursor: default;
+
+  &:hover {
+    background: none;
+    box-shadow: inset 0 0 0 0 rgba(167, 143, 205, 0);
+  }
+}
+
+.player.night-sent.night-chosen > .night-pick,
+.player.night-sent.night-chosen > .night-pick:hover {
+  box-shadow: inset 0 0 0 4px #a78fcd;
+  background: rgba(167, 143, 205, 0.14);
+}
+
 /* the slot number, and ONLY when the character has more than one choice to
    make (nightPickMark) — a lone "1" on a Monk's single pick is a numeral
    answering a question nobody asked */
@@ -4187,6 +4271,19 @@ li.swap:not(.from) .player::after {
     }
   }
   .player.night-chosen > .night-pick {
+    box-shadow: inset 0 0 0 4px #a78fcd;
+  }
+  /* FT-1291: on a touch screen the OFFER is the faint standing ring, since
+     there is no hover to reveal one — so on a sent row that ring is what has
+     to go, and the press-flash with it. An unchosen coin goes bare; a chosen
+     one keeps its mark, exactly as on a pointer. */
+  .player.night-sent > .night-pick {
+    box-shadow: inset 0 0 0 0 rgba(167, 143, 205, 0);
+    &:active {
+      background: none;
+    }
+  }
+  .player.night-sent.night-chosen > .night-pick {
     box-shadow: inset 0 0 0 4px #a78fcd;
   }
 }

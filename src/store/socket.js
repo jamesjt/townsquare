@@ -1563,8 +1563,14 @@ class LiveSession {
    * per recipient, so no seat can receive another seat's rows by any path
    * through here. Each recipient's payload is built by projectEntriesFor,
    * which filters to THAT player's own readable rows and projects away
-   * everything a player may not know (the lie mark, the done tick, the
-   * true/shown pair — absent from the frame, not hidden by the client).
+   * everything a player may not know (the lie mark, the true/shown pair —
+   * absent from the frame, not hidden by the client).
+   *
+   * FT-1291: the storyteller's tick DOES cross now, as `sent`, and only ever
+   * on a row this recipient already owns — so the frame gained one boolean
+   * about that seat's own row and no socket receives anything it did not
+   * receive before. It is what lets the seat's own picker stand down once the
+   * answer has gone out. projectPlayerRow holds the reasoning.
    *
    * `live` is the town's sharing verdict (mode === "everyone"). When it is
    * off every seat still gets a frame — with `live: false` and no rows —
@@ -1595,8 +1601,9 @@ class LiveSession {
     //
     // The PRIVACY is unchanged and does not depend on which gate is open:
     // projectEntriesFor scopes to this seat's own rows and strips the lie
-    // mark and the walk-the-list tick, and every seat gets its own direct
-    // frame — never a broadcast.
+    // mark, and every seat gets its own direct frame — never a broadcast.
+    // (FT-1291 added `sent` to a row's own shape; scoping is what makes that
+    // safe, and scoping is what has not changed.)
     const share = night.mode !== "off";
     const message = {};
     players.players.forEach((player, seat) => {

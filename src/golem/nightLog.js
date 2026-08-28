@@ -402,19 +402,53 @@ export function makeEntry({
  * now shared between the host's sender and the receiving client's mutation so
  * the two cannot drift. The rules it encodes:
  *
- *   · `isFalseInfo` (the storyteller's lie mark) and `done` (their walk-the-
- *     list state) DO NOT EXIST here — not false, ABSENT. The receiving
- *     mutation re-projects through this same function, so even a malformed or
- *     hostile frame cannot seed the key into a player's store.
+ *   · `isFalseInfo` (the storyteller's lie mark) DOES NOT EXIST here — not
+ *     false, ABSENT. The receiving mutation re-projects through this same
+ *     function, so even a malformed or hostile frame cannot seed the key into
+ *     a player's store.
  *   · `trueRole*` / `shownRole*` are absent for the same reason: a readable
  *     row is by definition about the character the player was told they have,
  *     and the pair would name the deception.
  *   · `told` is flattened to the delivered values (never the truth of them);
  *     characterId stays behind — the player gets the NAME they were shown.
  *
- * Accepts either a full log entry (nested `told`) or an already-projected
- * row (flat), so the client-side re-projection is the identity on honest
- * frames.
+ * ── FT-1291: `sent` — THE ONE FACT THAT CROSSED ──────────────────────────
+ *
+ * The storyteller's `done` tick used to be on the absent list beside the lie
+ * mark, described as "walk-the-list bookkeeping, never information". FT-1272
+ * gave it a second job and that description stopped being true: `done` is now
+ * the SENT flag, and on a sent row every control on the storyteller's side
+ * locks, because an answer already delivered must not silently change under
+ * the player who was given it.
+ *
+ * The player's own controls stayed live, so the same answer could be made to
+ * disagree with the picks it was computed from — the storyteller sends "no"
+ * to a Fortune Teller who picked seats 3 and 6, and the player then points at
+ * seat 5 and reads a "no" that was never about seat 5.
+ *
+ * So the fact crosses, under the name it has on the receiving side. It is
+ * carried, not leaked, and the distinction is the whole of the privacy rule:
+ *
+ *   · it is a fact about THIS SEAT'S OWN ROW, and a row only reaches a client
+ *     that already owns it (projectEntriesFor filters first). Nothing here
+ *     widens what any socket receives — the frame gains one boolean about a
+ *     row its recipient was already being sent.
+ *   · it says "the storyteller has finished with your row", which is a thing
+ *     the player is entitled to know: it is the reason their control stopped
+ *     answering. A dead control with no explanation is the failure this fork
+ *     argues against wherever it can (see NightSheet's own note at the ping
+ *     dropdown).
+ *   · it says nothing about ANOTHER seat, nothing about the truth of what was
+ *     delivered, and nothing about the storyteller's judgement of it. The lie
+ *     mark stays exactly where it was: absent.
+ *
+ * `chronicleLineOf` is unchanged and still names neither — a published row is
+ * a record of what happened, and "the storyteller had finished writing it" is
+ * not part of what happened.
+ *
+ * Accepts either a full log entry (nested `told`, the tick under `done`) or an
+ * already-projected row (flat, the tick under `sent`), so the client-side
+ * re-projection is the identity on honest frames.
  */
 export function projectPlayerRow(e) {
   const told = e.told || e;
@@ -435,6 +469,10 @@ export function projectPlayerRow(e) {
     characterName: told.characterName || "",
     text: told.text || "",
     playerText: e.playerText || "",
+    // FT-1291: the storyteller has sent this row. `done` on a full entry,
+    // `sent` on a row that has already been through here — read both so the
+    // re-projection on the client stays the identity it is documented to be.
+    sent: e.done === true || e.sent === true,
   };
 }
 
@@ -508,9 +546,14 @@ export function projectEntriesFor(entries, playerId, seat) {
  *   · `isFalseInfo` — the storyteller's private judgement that what they said
  *     was a lie. It is not part of what HAPPENED, and it stays theirs even
  *     after the reveal makes everything else public.
- *   · `done` — walk-the-list bookkeeping, never information.
- * Neither can arrive on a player's copy at all (projectPlayerRow drops them);
- * dropping them here means the STORYTELLER's copy cannot leak them into a
+ *   · `done` / `sent` — whether the storyteller had finished writing the row.
+ *     That is bookkeeping about the WRITING, not about what happened, and a
+ *     published row is a record of the latter. (FT-1291 lets this one fact
+ *     reach the seat it belongs to, as `sent`, so that seat's own controls can
+ *     stand down honestly — see projectPlayerRow. It still has no business in
+ *     a sentence about the night.)
+ * The lie mark cannot arrive on a player's copy at all (projectPlayerRow drops
+ * it); dropping both here means the STORYTELLER's copy cannot leak them into a
  * published row either.
  *
  * @param own STOOD DOWN (FT-1274), not deleted — every caller still passes it
