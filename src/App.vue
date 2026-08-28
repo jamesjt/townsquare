@@ -1550,6 +1550,16 @@ export default {
       this.building && !!this.dealAt && !this.$store.state.session.isEnded;
   },
   mounted() {
+    // FT-1301: a bookmarked Chronicle — the records page stamps `?chronicle`
+    // (plus its filter params) into the URL while it is open, so a shared or
+    // bookmarked link re-opens the page on boot. The overlay itself reads the
+    // filter params; this only opens the door they ride behind.
+    if (
+      new URLSearchParams(window.location.search).has("chronicle") &&
+      !this.modals.records
+    ) {
+      this.$store.commit("toggleModal", "records");
+    }
     // the face lab's persisted dials, published to <html> — see applyBgOff
     this.applyBgOff();
     // FT-1015: the shipped veil is bent glass — mount its filter for everyone

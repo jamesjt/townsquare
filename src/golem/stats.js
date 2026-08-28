@@ -173,6 +173,24 @@ export async function roleCombination(
   return res.json();
 }
 
+/**
+ * FT-1301: THE FACT ROWS — every game in the asked-for view, with per-seat
+ * ROLE facts (role id/type, side at end, survived; never a name), in one
+ * read. The records page's model inverted: filters define a set CLIENT-side
+ * and every figure is computed over it, so what the server serves is scoping
+ * + facts, not aggregates. Same view params as every other read.
+ */
+export async function gameFacts(test = false, mine = false) {
+  const qs = withMineScope(
+    withTestView(new URLSearchParams(), test),
+    mine,
+  ).toString();
+  const res = await fetch(`${API}/games/facts${qs ? `?${qs}` : ""}`);
+  if (!res.ok) throw new Error(`facts failed (${res.status})`);
+  const body = await res.json();
+  return Array.isArray(body.games) ? body.games : [];
+}
+
 /** Every town together — same shape as townStats. */
 export async function platformStats(test = false) {
   const qs = withTestView(new URLSearchParams(), test).toString();
