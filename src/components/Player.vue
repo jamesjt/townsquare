@@ -5385,15 +5385,30 @@ li.nominate .player .overlay .nominate-target {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  /* FT-1285 (user): “whisper icon needs the same treatment as the chair.”
+   * The chair badge’s finding applies here unchanged — white ink beside a
+   * lit name plate reads as a lit object no matter how far the opacity comes
+   * down, so the quiet has to live in the INK. #9a9285 is the strip marks’
+   * own average tone (see `.player .seat`, FT-1283), which is what makes
+   * these two marks read as the same furniture rather than two brightnesses.
+   *
+   * This one keeps its hover, and gains the ink half of it: the chair had to
+   * go without because its claim animation’s `forwards` fill outranks a
+   * plain hover declaration. Nothing animates this mark, so it can brighten
+   * the way the strip marks do — to the app’s bone, the same colour the
+   * chair’s own actor hover uses. */
+  color: #9a9285;
   font-size: 22px;
   cursor: pointer;
   z-index: 2;
-  opacity: 0.62;
+  opacity: 0.75;
   filter: drop-shadow(0 0 3px black);
-  transition: opacity 250ms;
+  transition:
+    opacity 250ms,
+    color 250ms;
 
   &:hover {
+    color: #d8cdb4;
     opacity: 1;
   }
 
