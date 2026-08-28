@@ -203,14 +203,59 @@
 
                The button itself is never disabled on a done row: it is the
                REOPEN, and it is the only way back into a locked row's
-               controls. See `isLocked`. -->
+               controls. See `isLocked`.
+
+               ── FT-1296 (user): AND IT ONLY SAYS "SEND" WHERE SOMETHING IS ──
+               ──                 ACTUALLY SENT.                            ──
+
+               "the imp doesn't get info from the story teller so send is the
+               wrong there. Same with poisoner and some other roles" — and the
+               other roles are the Monk and the Butler. Four rows in the
+               shipped table choose a seat and are told nothing back, so their
+               press delivers nothing and the word named an act that does not
+               happen.
+
+               The question is put to golem/nightInfo (`nightExchange`), which
+               reads it off the `by` every field has always carried — it is
+               `seatPickOwner`'s move a second time, not a role-name list here.
+               Three faces, and the row's OWN nature picks one:
+
+                 TELLS    Send / Sent, the paper plane. Something composed here
+                          reaches that seat.
+                 RECORDS  Received, the checkbox pair. The storyteller is
+                          writing down the player's own choice; the tick is the
+                          acknowledgement, and nothing leaves this browser.
+                 NEITHER  Done, the checkbox pair — the plain tick, identical
+                          to storyteller-only mode's, because that is what it
+                          is (unreachable on today's roster; see nightExchange).
+
+               WHY THE CHECKBOX PAIR AND NOT A NEW MARK. The plane means SENT
+               and only sent (FT-1211's ruling, still in force), so it cannot
+               go on a row that sends nothing. The bare tick is already the
+               DELIVERED row's done face, so borrowing it would put one glyph
+               on two meanings. `square`/`check-square` is the fork's own
+               existing "this is a tick, nothing travels" mark — it is what
+               THIS BUTTON already wears in storyteller-only mode — and it was
+               free in send mode. No new metaphor was needed.
+
+               REOPEN IS UNCHANGED ON BOTH (FT-1291): a done row of either kind
+               is never disabled, and its press is still the way back in.
+
+               ON THE CLASSES: `tickonly` widened from "the town is not asking
+               anybody" to its actual meaning — this press is a tick, nothing
+               travels — which is true of a RECORDS or NEITHER row in send mode
+               for exactly the same reason. `records` is new beside it. Both
+               are unstyled seams (the dress is carried by the glyph and by
+               `.sent`), kept so a later pass can separate the two ticks
+               without re-deriving which is which. -->
           <button
             type="button"
             class="ns-send"
             :class="{
               sent: entryFor(row).done,
               dirty: isDirty(row),
-              tickonly: !isSendMode,
+              tickonly: !rowTells(row),
+              records: rowRecords(row),
             }"
             :disabled="sendDisabled(row)"
             :title="sendHint(row)"
@@ -939,6 +984,10 @@ import {
   renderableType,
   labelFor,
   seatPickOwner,
+  // FT-1296: whether the row delivers anything to the player at all — the
+  // schema question the Send button had been guessing at.
+  nightExchange,
+  NIGHT_EXCHANGE,
   FIELD_OWNERS,
 } from "../golem/nightInfo";
 // FT-986: the seat pickers' own colour reads WHAT THE VIEWER IS TOLD, never
@@ -1470,7 +1519,18 @@ export default {
     answerFields(row) {
       const { fields, known } = this.extraFieldsFor(row);
       if (!known || this.isGrimoireRow(row)) return [];
-      return fields;
+      // FT-1296: ...and a THIRD exclusion, of the same kind — a field the
+      // PLAYER fills is not an answer the storyteller owes. On the shipped
+      // schema this filter removes nothing (every non-seat field in the table
+      // is `by:"storyteller"`; the four record-only rows have no non-seat
+      // field at all, which is why FT-1272's carve-out worked), so nothing
+      // changes today. It closes a hole a FORGED role can walk into: a
+      // hand-authored entry may carry, say, a NUMBER the player supplies, and
+      // that would have greyed the button out and asked the storyteller to
+      // "choose what they learn" on a row where the answer is not theirs to
+      // give. The predicate is "an owed answer", and only a storyteller field
+      // can be one.
+      return fields.filter((f) => f.by === FIELD_OWNERS.STORYTELLER);
     },
     /**
      * FT-1272 (user): IS THE TOLD-ANSWER FILLED IN?
@@ -1580,10 +1640,43 @@ export default {
       this.write(row, patch);
       this.$delete(this.drafts, row.key);
     },
+    /**
+     * FT-1296: WHAT THIS ROW EXCHANGES — the schema's own answer (see
+     * golem/nightInfo's `nightExchange`), asked of the role the row SHOWS.
+     * On a believing seat's performance row that is the character the player
+     * thinks they have, which is right for exactly the reason the roster
+     * getter gives: the storyteller is playing out that character's wake, so
+     * it is that character's exchange that is happening.
+     */
+    exchangeFor(row) {
+      return nightExchange(row.role.id);
+    },
+    /**
+     * FT-1296: does pressing this row's button actually deliver something to
+     * the player? Both halves matter and both are already facts the component
+     * holds — the TOWN must be asking its players at all (`isSendMode`), and
+     * the ROW must have something the storyteller fills. Every send-word,
+     * glyph and tooltip below branches on this one predicate.
+     */
+    rowTells(row) {
+      return this.isSendMode && this.exchangeFor(row) === NIGHT_EXCHANGE.TELLS;
+    },
+    /** FT-1296: ...and is it the other kind — the storyteller writing down a
+     *  choice the player made, with nothing going back? (The Monk, the
+     *  Butler, the Poisoner, the Imp.) */
+    rowRecords(row) {
+      return (
+        this.isSendMode && this.exchangeFor(row) === NIGHT_EXCHANGE.RECORDS
+      );
+    },
     /** FT-1173: the button's glyph — a paper plane while there is an ask to
-     *  deliver, the checkbox pair where it is only a tick. */
+     *  deliver, the checkbox pair where it is only a tick.
+     *  FT-1296: ...and "an ask to deliver" is now the ROW's question, not the
+     *  town's alone — a Poisoner row in send mode delivers nothing, so it
+     *  takes the checkbox pair with every other tick. The plane never appears
+     *  where nothing flies (FT-1211). */
     sendIcon(row) {
-      if (!this.isSendMode) {
+      if (!this.rowTells(row)) {
         return this.entryFor(row).done && !this.isDirty(row)
           ? "check-square"
           : "square";
@@ -1591,9 +1684,17 @@ export default {
       if (this.isDirty(row)) return "paper-plane";
       return this.entryFor(row).done ? "check" : "paper-plane";
     },
-    /** FT-1173: ...and its word, so the column explains itself at a glance. */
+    /** FT-1173: ...and its word, so the column explains itself at a glance.
+     *  FT-1296: three words now, one per kind of row. "Received" does not
+     *  change on the press — the checkbox's own idiom is a fixed label beside
+     *  a box that fills, and the state is already carried by the glyph, the
+     *  row's done fade and the tooltip. A verb that changed tense would also
+     *  have to be the storyteller's ("Receive"), which is not an instruction
+     *  anyone acts on: what they are doing is acknowledging. */
     sendWord(row) {
       if (!this.isSendMode) return "Done";
+      if (this.rowRecords(row)) return "Received";
+      if (!this.rowTells(row)) return "Done";
       if (this.isDirty(row)) return "Send";
       return this.entryFor(row).done ? "Sent" : "Send";
     },
@@ -1611,7 +1712,23 @@ export default {
           " learns before you send"
         );
       }
-      if (!this.isSendMode) {
+      // FT-1296: A ROW THAT DELIVERS NOTHING SAYS SO, in the tooltip as well
+      // as in the word. The old text on these rows read "Send this to the
+      // player — nothing has reached them yet", which promised a delivery
+      // that never comes; and its done face read "Sent", of a thing never
+      // sent. Both are replaced with what the press actually is: the
+      // storyteller taking down a choice that was made at the table.
+      if (this.rowRecords(row)) {
+        const who = row.player.name || "this seat";
+        if (done && !dirty) return "Received — click to reopen the row";
+        return "Take down what " + who + " chose — nothing goes back to them";
+      }
+      // FT-1296: one condition where there were two. `rowTells` is false in
+      // storyteller-only mode (nobody is being asked) AND on a send-mode row
+      // that exchanges nothing at all — and the plain-tick wording is the
+      // honest one for both, so they share the branch rather than the second
+      // case falling through to a promise of delivery.
+      if (!this.rowTells(row)) {
         if (dirty) return "Log what you composed and mark this row done";
         return done ? "Done — click to reopen" : "Mark this one done";
       }

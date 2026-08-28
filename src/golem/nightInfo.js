@@ -1333,6 +1333,68 @@ export function seatPickOwner(roleId) {
 }
 
 /**
+ * FT-1296 (user): DOES ANYTHING ACTUALLY GO BACK TO THE PLAYER ON THIS ROW?
+ *
+ * The night sheet's per-row button read "Send" on every row, and on most of
+ * them that is a lie: the Imp chooses a kill and is told nothing; the Poisoner
+ * picks a target and is told nothing. Nothing travels, so "Send" names an act
+ * that does not happen. The button's own tooltip had already half-admitted it
+ * ("nothing was composed, so nothing new is delivered").
+ *
+ * THE RULE WAS ALREADY IN THE DATA — this is `seatPickOwner`'s move again, a
+ * question about a ROW put to the `by` every field has always carried. A row
+ * tells the player something exactly when one of its fields is filled by the
+ * STORYTELLER: the Fortune Teller's yes/no, the Empath's number, the
+ * Undertaker's character. Where every field is `by:"player"` the row is only
+ * the storyteller writing down a choice that was made at the table.
+ *
+ * THREE ANSWERS, and the third is not a shrug — same shape as seatPickOwner:
+ *   TELLS     a storyteller-filled field exists; something is delivered.
+ *   RECORDS   fields exist and every one is the player's own; nothing goes
+ *             back. The Monk, the Butler, the Poisoner, the Imp — all four of
+ *             the shipped table's, plus any forged role whose composed action
+ *             is "Chooses players" filled BY THE PLAYER.
+ *   NEITHER   the row has no fields at all (`fields: []` — the deliberate
+ *             "records nothing" the day-ability and passive entries carry).
+ *             Nothing is chosen and nothing is told, so it is a plain tick.
+ *
+ * WHY IT READS THROUGH `fieldsFor()` AND NOT `entryOf()`: an unlisted or
+ * line-only character falls through to one free-text box filled by the
+ * STORYTELLER, so it answers TELLS — and that is the honest answer, because
+ * that box is a message the storyteller composes and the row does deliver it.
+ * The safe fallback direction here is the same one fieldsFor documents.
+ *
+ * NEITHER IS UNREACHABLE ON THE CHECKLIST TODAY, and that is recorded rather
+ * than assumed: all eight `fields: []` entries (Virgin, Slayer, Soldier,
+ * Mayor, Drunk, Recluse, Saint, Baron) carry firstNight 0 and otherNight 0,
+ * and the roster getter drops any role with neither. `sanitizeAuthoredNight`
+ * rejects an empty field list outright, so a forged role cannot reach it
+ * either. It is answered anyway because the alternative is folding it in with
+ * RECORDS and telling a storyteller their Baron "received" something.
+ *
+ * GROUP_INFO — the first night's Minion info and Demon info & bluffs — is
+ * every-field-storyteller on both keys, so both are TELLS whenever the roster
+ * getter learns to render them. Neither key is a role id, so nothing routes
+ * through here today; the answer is stated so that pass has one less thing to
+ * decide.
+ */
+export const NIGHT_EXCHANGE = {
+  TELLS: "tells",
+  RECORDS: "records",
+  NEITHER: "neither",
+};
+
+/** FT-1296: which of the three this character's row is. Never throws, always
+ *  one of NIGHT_EXCHANGE's values — see the note above for the fallback. */
+export function nightExchange(roleId) {
+  const { fields } = fieldsFor(roleId);
+  if (fields.some((f) => f.by === FIELD_OWNERS.STORYTELLER)) {
+    return NIGHT_EXCHANGE.TELLS;
+  }
+  return fields.length ? NIGHT_EXCHANGE.RECORDS : NIGHT_EXCHANGE.NEITHER;
+}
+
+/**
  * The fields a row needs a NEW control for. PLAYER fields are excluded
  * regardless of `by` — every one of them, chosen by the player or set by the
  * storyteller, is already a seat someone points at, and the row already
