@@ -390,6 +390,20 @@
          corner radius. See src/golem/statsPlate.js. Behind `devLabs` from
          the start, for the column's shared reason. -->
     <StatsPlateLab v-if="devLabs && labsListOpen" />
+    <!-- THE MIST LAB (Mi) — one notch below the stats-plate lab, same column,
+         same shell. FT-1287: the night mist GROWS, denser and taller each
+         night, and this dials the curve — its reach, each bank's night-1 look
+         and ceiling, the tiles and the drifts — plus a NIGHT OVERRIDE, so any
+         night can be looked at without playing to it. See
+         src/golem/nightMist.js.
+
+         UNLIKE THE REST OF THE COLUMN, ITS SUBJECT SHIPS. The other labs hunt
+         a look that then gets baked and takes the lab out with it; the growth
+         curve is live behaviour, so what comes out here one day is the lab,
+         not the mist.
+
+         Behind `devLabs` from the start, for the column's shared reason. -->
+    <MistLab v-if="devLabs && labsListOpen" />
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div
       id="font-debug"
@@ -987,6 +1001,16 @@ import NumeralGlowLab from "./components/NumeralGlowLab";
 // FT-1071: the stats-plate lab — TEMPORARY, and it comes out with
 // TownInfo.vue's `var(--sp-*)` reads and src/golem/statsPlate.js.
 import StatsPlateLab from "./components/StatsPlateLab";
+// FT-1287: the mist lab. Unlike the labs above it, its SUBJECT ships — the
+// night-mist growth curve is live behaviour, not a look waiting to be baked —
+// so this pair does not come out together; one day the lab goes and the
+// curve stays. See src/golem/nightMist.js.
+import MistLab from "./components/MistLab";
+// FT-1287: the night mist's growth. `publishNightMist` is the ONE writer of
+// the `--mist-*` custom properties — the shipped curve here, the lab's
+// override through the same call — and on night 0/1 with no lab it writes
+// nothing at all, which is what keeps a night-1 town identical to FT-1277.
+import { publishNightMist } from "./golem/nightMist";
 // FT-1015: the baked veil refracts, so its displacement filter mounts at boot
 import { bootVeilGlass } from "./golem/veilGlass";
 import {
@@ -1114,6 +1138,7 @@ export default {
     VeilLab,
     NumeralGlowLab,
     StatsPlateLab,
+    MistLab,
     Gradients,
   },
   computed: {
@@ -1404,6 +1429,30 @@ export default {
   // FT-850: hosting or joining a (different) session re-reads that session's
   // stashed deal moment and drops any overlay left open from the last one.
   watch: {
+    /**
+     * FT-1287: THE MIST GROWS WITH THE NIGHT.
+     *
+     * `night.day` is the town's own counter — moved in exactly one place (the
+     * root `toggleNight` mutation) and carried over the wire on its own
+     * channel, so a joiner and a spectator get the same fog the host has.
+     * Watching it rather than deriving a style in the template is what keeps
+     * the write to ONE place: `publishNightMist` is also what the lab calls,
+     * so the lab's night override and the town's real night never contest.
+     *
+     * `immediate` because a client that reconnects into night 5 has to open
+     * on night 5's sky, not build up to it.
+     *
+     * The change lands as the phase flips, which is the instant `.backdrop`
+     * starts from opacity 0 — so the banks' height (a layout property, and
+     * deliberately not transitioned) resizes while the layer is invisible.
+     * See golem/nightMist.js's COST note.
+     */
+    "night.day": {
+      handler(day) {
+        publishNightMist(day);
+      },
+      immediate: true,
+    },
     /**
      * Arming a character raises its card; disarming puts it away.
      *
@@ -3691,7 +3740,8 @@ video#background {
   // FT-1258: into the labs rail — the bottom rung (font, then the engraver
   // chip below it). It keeps its column flow: its panels drop BELOW the
   // chips, and below is empty here at the rail's foot.
-  top: 254px;
+  // FT-1287: down one rung, for the mist lab above it. Still the foot.
+  top: 278px;
   left: 0;
   z-index: 96;
   font-size: 13px;
@@ -3868,7 +3918,30 @@ video#background {
      COST: transform and opacity only, no per-frame JS, no backdrop-filter, no
      blend mode. On-screen overdraw is 1.4 viewport-heights against the single
      cloud layer's 1.0, and the drift is far slower than the tile it replaces
-     (5-8 px/s against 16.7). */
+     (5-8 px/s against 16.7).
+
+     ── FT-1287: AND IT GROWS WITH THE NIGHT ─────────────────────────────────
+     Every number below is now the NIGHT-1 value, standing as the fallback of
+     a `var()` read. On later nights `src/golem/nightMist.js` publishes
+     `--mist-*-a` (denser) and `--mist-*-h` (taller) onto <html>, on a
+     saturating curve off the town's own `night.day` — see that file for the
+     curve, the ceiling and where the ceiling's numbers came from. A night-1
+     town publishes NOTHING, so these fallbacks are the whole story there and
+     the DOM is exactly what FT-1277 shipped.
+
+     TALLER COSTS NOTHING EXTRA because of the `background-size: Wpx 100%`
+     above: the tile stretches to whatever height the bank is given, so a
+     taller bank raises the whole plume rather than revealing more tile. And
+     the height is deliberately NOT transitioned — it changes only on the
+     day->night flip, when this whole layer is starting from opacity 0, so the
+     one relayout it costs happens on an invisible surface. Opacity keeps a
+     short ease so a change made in the lab reads as a change.
+
+     `--mist-*-tile` and `--mist-*-dur` are LAB-ONLY (the shipped curve never
+     moves them) but are read here rather than in the lab so there is one
+     place the mist's geometry is written. The tile var appears three times
+     per bank — width, background-size, and the keyframe's travel — and those
+     three must always agree, which is exactly why it is one name. */
   > .mist {
     position: absolute;
     left: 0;
@@ -3876,44 +3949,53 @@ video#background {
     display: block;
     pointer-events: none;
     background-repeat: repeat-x;
+    transition: opacity 1.2s ease-in-out;
   }
-  /* far — compressed, high, slow */
+  /* far — compressed, high, slow; the bank that climbs highest as the nights
+     stack, because it is the one already nearest the roofline */
   > .mist-far {
-    height: 60%;
-    width: calc(100% + 1400px);
+    height: var(--mist-far-h, 60%);
+    width: calc(100% + var(--mist-far-tile, 1400px));
     background-image: url("assets/mist-billow.png");
-    background-size: 1400px 100%;
-    opacity: 0.22;
-    animation: mist-drift-far 460s linear infinite;
+    background-size: var(--mist-far-tile, 1400px) 100%;
+    opacity: var(--mist-far-a, 0.22);
+    animation: mist-drift-far var(--mist-far-dur, 460s) linear infinite;
   }
   /* mid — counter-drifting, so the banks shear past each other instead of
      sliding as one sheet */
   > .mist-mid {
-    height: 46%;
-    width: calc(100% + 2100px);
+    height: var(--mist-mid-h, 46%);
+    width: calc(100% + var(--mist-mid-tile, 2100px));
     background-image: url("assets/mist-billow.png");
-    background-size: 2100px 100%;
-    opacity: 0.22;
-    animation: mist-drift-mid 320s linear infinite reverse;
+    background-size: var(--mist-mid-tile, 2100px) 100%;
+    opacity: var(--mist-mid-a, 0.22);
+    animation: mist-drift-mid var(--mist-mid-dur, 320s) linear infinite reverse;
   }
   /* near — the veil grain rather than the billow, because this is the band that
-     meets the rooftops and the art's mist has FILAMENT down there, not banks */
+     meets the rooftops and the art's mist has FILAMENT down there, not banks.
+     It is also the bank held LOWEST at the ceiling: this is the one that
+     crosses the seats, so it is the one that is not allowed to swallow them */
   > .mist-near {
-    height: 34%;
-    width: calc(100% + 3200px);
+    height: var(--mist-near-h, 34%);
+    width: calc(100% + var(--mist-near-tile, 3200px));
     background-image: url("assets/mist-veil.png");
-    background-size: 3200px 100%;
-    opacity: 0.2;
-    animation: mist-drift-near 210s linear infinite;
+    background-size: var(--mist-near-tile, 3200px) 100%;
+    opacity: var(--mist-near-a, 0.2);
+    animation: mist-drift-near var(--mist-near-dur, 210s) linear infinite;
   }
 }
 
 /* Each pan travels exactly one tile width, which is the shortest distance that
    can loop without a jump. The bank is that much wider than the viewport, so
-   both ends of the travel still cover it. */
+   both ends of the travel still cover it.
+
+   FT-1287: the travel reads the SAME `--mist-*-tile` name the width and the
+   background-size read, so the three cannot drift apart — a custom property
+   inside a keyframe resolves against the element it is running on, so the
+   loop stays exact at whatever tile width the lab is holding. */
 @keyframes mist-drift-far {
   from {
-    transform: translate3d(-1400px, 0, 0);
+    transform: translate3d(calc(-1 * var(--mist-far-tile, 1400px)), 0, 0);
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -3921,7 +4003,7 @@ video#background {
 }
 @keyframes mist-drift-mid {
   from {
-    transform: translate3d(-2100px, 0, 0);
+    transform: translate3d(calc(-1 * var(--mist-mid-tile, 2100px)), 0, 0);
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -3929,7 +4011,7 @@ video#background {
 }
 @keyframes mist-drift-near {
   from {
-    transform: translate3d(-3200px, 0, 0);
+    transform: translate3d(calc(-1 * var(--mist-near-tile, 3200px)), 0, 0);
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -3938,10 +4020,16 @@ video#background {
 
 /* Stilled, not hidden: the mist is atmosphere, and the drift is the only part
    of it that anyone asked to be able to switch off. At `animation: none` each
-   bank rests at translate 0, where it still covers the viewport. */
+   bank rests at translate 0, where it still covers the viewport.
+
+   FT-1287: the GROWTH is not motion and is not switched off here — a night-5
+   town under reduced motion still gets night 5's fog, it just gets it
+   standing still. What does go is the density's ease-in, so the change lands
+   as a cut rather than a fade. */
 @media (prefers-reduced-motion: reduce) {
   #app > .backdrop > .mist {
     animation: none;
+    transition: none;
   }
 }
 
