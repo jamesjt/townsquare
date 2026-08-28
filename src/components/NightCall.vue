@@ -273,17 +273,19 @@ export default {
       // storyteller's answer down behind that coin (measured at 1280x900,
       // first pass). The chips below already say the choices are in, so the
       // sentence that said it too came out.
+      // FT-1272 (user): "select" rather than "tap" — the app is played on
+      // a mouse as often as a finger, and select names the act either way.
       if (!left) {
         return this.action.slots > 1
-          ? "Tap a coin to change one."
-          : "Tap another coin to change it.";
+          ? "Select a coin to change one."
+          : "Select another coin to change it.";
       }
       if (!this.chosenNames.length) {
         return this.action.slots > 1
-          ? "Tap " + this.action.slots + " players on the clock."
-          : "Tap a player on the clock.";
+          ? "Select " + this.action.slots + " players on the clock."
+          : "Select a player on the clock.";
       }
-      return "Tap " + left + " more.";
+      return "Select " + left + " more.";
     },
     /**
      * FT-1107: WHAT THE STORYTELLER HAS SAID BACK, as chips — the same four

@@ -388,7 +388,9 @@ export const NIGHT_INFO = {
     mayBeFalse: true,
     label: "Learns:",
     // the red herring is the rule this row exists to stop you forgetting
-    line: "Yes if either is the Demon — or the red herring.",
+    // FT-1272 (user): their own wording — an ellipsis where the em dash
+// was, and the pause reads as the storyteller's own hesitation.
+    line: "Yes if either is the demon...or the red herring.",
   },
   undertaker: {
     wakes: ["other"],
