@@ -524,6 +524,15 @@
            claim animation, the actor hover ink) keeps riding `color`
            exactly as it did on the font glyph. The FA name stays
            registered in main.js. -->
+      <!-- FT-1271 (user): `chair-right` now does TWO jobs — it has always
+           picked the corner opposite the hand, and it now also FLIPS the art
+           so the chair FACES THE CLOCK, the same point-at-the-face rule the
+           nominate hand obeys. No new binding was needed: the class already
+           carried exactly the fact the flip wants (`!nominateMarkMirrored` =
+           this seat is on the ring's right half, so the clock's centre is to
+           its left). Which way the art is drawn, and why the transform lands
+           on the pseudo rather than the span, are in the `.player .seat` rule.
+           The badge is also quieter at rest there — same rule. -->
       <span
         v-if="player.id && session.sessionId"
         class="seat"
@@ -630,6 +639,30 @@
           class="nominate-mark-art"
           :class="{ mirrored: nominateMarkMirrored }"
         ></i>
+      </div>
+
+      <!-- FT-1271: THE WHISPER MARK — the same corner, for the other viewer.
+           The hand above is the storyteller's; this is the player's, and it
+           rides the identical geometry and the identical `points-right`
+           mirroring so the two read as siblings on the same slot rather than
+           as two marks that happen to be near each other. Its click is the
+           click scheme's disc's own handler (`onWhisperDiscClick` — open,
+           toggle shut, and re-check the refusal), so the seat still has ONE
+           whisper path: `openSeatWhisper` → SeatWhisper.vue → the Chronicle's
+           own `whisperFrame`/`chatSay` funnel (FT-1206's one-send-path rule).
+           `stacked` steps it clear of the ghost-vote cowl on a dead seat —
+           see whisperMarkStacked. -->
+      <div
+        class="whisper-mark"
+        :class="{
+          'points-right': nominateMarkMirrored,
+          stacked: whisperMarkStacked,
+        }"
+        v-if="whisperMarkShown"
+        @click="onWhisperDiscClick"
+        :title="whisperDiscTitle"
+      >
+        <font-awesome-icon icon="comment-dots" />
       </div>
 
       <!-- On block icon.
@@ -1090,7 +1123,14 @@ import { seatOf, viewerOf, whisperFrame, whisperRefusal } from "../golem/chat";
 import { TOWER_EVENT, towerState } from "../golem/towerBells";
 // FT-1180: the six things a storyteller can do to a seat — every one of them
 // present on every seat, with the guards deciding DISABLED rather than absent.
-import { seatActions, SEAT_SLOT_BY_ID } from "../golem/seatActions";
+// FT-1271: …and the one guard the seat's own writer re-asks — "may this viewer
+// change the character on this coin" — so the menus' disabled row and the
+// click's refusal are one expression rather than two that drift.
+import {
+  seatActions,
+  SEAT_SLOT_BY_ID,
+  roleChangeRefusal,
+} from "../golem/seatActions";
 // FT-1242: the seat menu's rows say their meanings with the app's own marks —
 // the same art the plate/ring rows (golem/seatActions) already wear for the
 // same acts, plus the chair for the seat rows. The FA names they replace
@@ -1447,6 +1487,12 @@ export default {
         // FT-1206: why this seat cannot be whispered, or null — the chat
         // level's own answer, computed once here for every surface.
         whisperRefusal: this.whisperRefusalText,
+        // FT-1271: the two facts the own-coin rule reads, and they travel as a
+        // pair because the rule is about PLAYERS — the storyteller keeps every
+        // power on every seat. `isStoryteller` is the same sense golem/chat's
+        // `viewerOf` gives the word (`!isSpectator`).
+        isOwnSeat: this.isOwnSeat,
+        isStoryteller: !this.session.isSpectator,
       };
     },
     /** FT-1206: which chair this seat is — the roster's own index, the same
@@ -1520,6 +1566,48 @@ export default {
       const label = `Whisper ${this.player.name || "this player"}`;
       const why = this.whisperRefusalText;
       return why ? `${label} — ${why}` : label;
+    },
+    /**
+     * FT-1271: THE WHISPER MARK — the nominate corner, filled in for a PLAYER.
+     *
+     * That corner is the vocabulary's one shared slot and its occupant has
+     * always been decided by seat state: a living seat wears the accusing hand,
+     * a dead one the ghost-vote cowl. The hand is STORYTELLER-ONLY (its own
+     * `v-if` carries `!session.isSpectator`, and nominating is a power a player
+     * does not have), so for every player the corner on a living seat is simply
+     * empty. This mark is what belongs there: whispering is the one seat act a
+     * PLAYER owns, and it now sits in the seat's own vocabulary corner rather
+     * than only on the nameplate's hover.
+     *
+     * ONE GATE, AND IT IS NOT A NEW ONE. `whisperRefusalText` is already the
+     * chat's whole answer for this seat — golem/chat's `whisperRefusal` (the
+     * level: Off / No whispers / Neighbors / Anyone) plus the seat's two
+     * permanent facts (an open chair, your own chair) and the viewer's own
+     * identity. Nothing about the level is re-derived here; the mark simply
+     * renders when that answer is null.
+     *
+     * REFUSED IS ABSENT HERE, deliberately breaking the fixed-list rule the
+     * MENUS keep — and it is the user's own call for this mark. A menu row has
+     * a place to say why; a bare mark on a coin does not, and twenty dim marks
+     * ringing the dial saying "not your neighbour" would be noise on every seat
+     * in the town. The settings row and the menus already teach why whispering
+     * may be off.
+     */
+    whisperMarkShown() {
+      return !!(this.session.isSpectator && !this.whisperRefusalText);
+    },
+    /**
+     * FT-1271: does the cowl already have the corner? A DEAD seat is still
+     * whisperable — golem/chat says so in as many words ("a dead neighbor is
+     * still a neighbor") — but its corner is taken by the ghost-vote cowl, and
+     * a player's view is exactly the view that cowl is visible in (a player's
+     * `grimoire.isPublic` is false; the join path commits it, golem/townRoute).
+     * So on a dead seat the mark steps DOWN the same corner column instead of
+     * landing on top of the cowl. The living case is untouched: the mark sits
+     * precisely where the hand does on the storyteller's own screen.
+     */
+    whisperMarkStacked() {
+      return !!this.player.isDead;
     },
     /**
      * FT-1206: THE WHISPER DISC'S OWN BRIDGE — FT-923's lesson, paid again by
@@ -2555,6 +2643,24 @@ export default {
      *  only ever an inline `$emit` had no name to reach. Same emit the coin's
      *  own click makes. */
     openRoleModal() {
+      // FT-1271: THE SEAT'S OWN WRITER ASKS THE VOCABULARY'S OWN QUESTION.
+      //
+      // Every seat-originated way of repainting this coin ends here — the
+      // plate row's act, the ring coin's act, the assigned coin click
+      // (runSeatClickAction → runSeatAction) and the player's direct coin
+      // click below — so this is the one place the own-coin rule has to hold
+      // for the seat, and it holds it with the SAME function the `role`
+      // entry's guard calls. The menus' disabled row and this refusal can
+      // therefore never disagree; what the row adds is the sentence, which a
+      // click has nowhere to put (runSeatClickAction's own note).
+      //
+      // NOT A DOUBLE GUARD, and the distinction matters for whoever adds the
+      // next path: this covers gestures that start ON THE SEAT. A drag that
+      // starts somewhere else and lands on a chair — the script drawer's
+      // characters, say — never comes through this component, and must ask
+      // roleChangeRefusal at its own writer (TownSquare's openRoleModal /
+      // placeRole are where those land).
+      if (roleChangeRefusal(this.seatActionContext)) return;
       this.$emit("trigger", ["openRoleModal"]);
     },
     /** FT-1180: likewise the add-reminder disc's own emit. */
@@ -3310,8 +3416,13 @@ export default {
       // spectator keeps the direct role modal (claiming a seat's character
       // is their own affordance and the guarded runner has no entries for
       // them).
+      // FT-1271: the spectator branch goes through the seat's NAMED writer now
+      // rather than emitting past it. The emit and the method are the same one
+      // line, but only the method carries the own-coin refusal — and this
+      // branch is precisely the path a player takes to their own coin, so it
+      // is the path that had to stop asking a second way.
       if (this.session.isSpectator) {
-        this.$emit("trigger", ["openRoleModal"]);
+        this.openRoleModal();
         return;
       }
       this.runSeatClickAction(this.ctrlClickNameAction);
@@ -5195,6 +5306,55 @@ li.nominate .player .overlay .nominate-target {
   }
 }
 
+/* FT-1271 — THE WHISPER MARK: the nominate corner's PLAYER-side occupant.
+ * Deliberately the hand's own numbers (`margin-top: -15%`, the 2px side
+ * anchor, the same `points-right` flip, the same muted-at-rest / bright-under-
+ * the-cursor opacity and the same load-bearing dark halo) — the two marks are
+ * one slot worn by two viewers, and a second set of numbers is how they would
+ * come to sit differently on the same coin.
+ *
+ * NOT `.has-vote`, for the reason FT-1206's whisper disc gives: `.has-vote`
+ * goes dark and pointer-dead on the public grimoire, and whispering is the one
+ * seat act a player owns — it must survive every view they live in.
+ *
+ * The glyph is comment-dots, the seat vocabulary's own Whisper mark (FT-1211),
+ * so the corner, the plate row, the ring coin and the nameplate disc all open
+ * a message with the same word. It is a FONT glyph rather than a baked bitmap
+ * like its sibling, so the box sizes the icon rather than a background.
+ *
+ * `.stacked` is the dead seat: the cowl holds the corner, so the mark drops one
+ * cowl-height (30px) plus a hair of air below it, keeping the column.
+ */
+.player .whisper-mark {
+  position: absolute;
+  margin-top: -15%;
+  left: 2px;
+  &.points-right {
+    left: auto;
+    right: 2px;
+  }
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 2;
+  opacity: 0.62;
+  filter: drop-shadow(0 0 3px black);
+  transition: opacity 250ms;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &.stacked {
+    margin-top: calc(-15% + 34px);
+  }
+}
+
 /****** Session seat glow *****/
 // WHICH SEAT IS YOURS — a soft breath of light around your own coin.
 //
@@ -5377,13 +5537,49 @@ li.nominate .player .overlay .nominate-target {
 .player .seat {
   position: absolute;
   left: 2px;
-  /* FT-1073c: opposite the hand — see the template note. */
+  /* FT-1073c: opposite the hand — see the template note.
+   * FT-1271 (user): "lets make the chair also face the clock so right side
+   * coins need to flip it". The chair now obeys the same point-at-the-face
+   * rule the nominate hand and the accuser's coin mark already obey, and it
+   * needs no new fact to do it: `chair-right` is bound to
+   * `!nominateMarkMirrored`, which IS "this seat is on the ring's right half".
+   *
+   * WHICH WAY IS NATIVE. ui-seat.png is a side-view chair with its back on the
+   * left and its seat running right — it faces RIGHT, the opposite native
+   * direction to the hand's. So the flip lands on the opposite group too: a
+   * right-half seat (centre of the clock is to its LEFT) is the one that must
+   * mirror, and a left-half seat keeps the art as drawn. One class, already
+   * bound, already on the right seats.
+   *
+   * THE TRANSFORM GOES ON THE ::before, not here, and the reason is the same
+   * one FT-1244 gives for putting the mask there: filters apply BEFORE
+   * transforms on a single element, so flipping the span would hand the
+   * drop-shadow an unflipped shape to trace. Flipping the pseudo lets the
+   * parent's filter see the already-mirrored chair. */
   &.chair-right {
     left: auto;
     right: 2px;
+    &::before {
+      transform: scaleX(-1);
+    }
   }
   margin-top: -15%;
   color: #fff;
+  /* FT-1271 (user): "and lets make it more subtle" — the badge read as bright
+   * white beside the name plate. The quiet is spent on OPACITY rather than on
+   * the ink, deliberately: every ink state this badge has is load-bearing and
+   * still has to be told apart — `.player.you`'s townsfolk blue, `.actor`'s
+   * bone hover, and the claim flash's own red. Dimming the whole element keeps
+   * all three exactly as they were, one step back. 0.55 is a touch below the
+   * nominate mark's 0.62 because this badge is a solid shape sitting right
+   * beside the lit name plate, where the hand sits alone on a coin rim.
+   *
+   * No hover brighten, and that is a decision rather than an omission: the
+   * claim flash below runs `forwards`, and an animation's fill outranks a
+   * plain `:hover` declaration — an opacity hover would work on a chair that
+   * had never flashed and silently do nothing on every seat in a dealt town.
+   * One behaviour on every seat beats two. */
+  opacity: 0.55;
   filter: drop-shadow(0 0 3px black);
   cursor: default;
   z-index: 2;
@@ -5428,12 +5624,19 @@ li.nominate .player .overlay .nominate-target {
 }
 
 // highlight animation
+// FT-1271: the flash keeps its full strength and SETTLES INTO the badge's new
+// resting quiet — the claim is an event and still reads as one, and because
+// the animation's `forwards` fill holds its last frame, that last frame has to
+// BE the resting value or every dealt town would sit at a different opacity
+// from an undealt one. The ink half of the flash is untouched.
 @keyframes redToWhite {
   from {
     color: $demon;
+    opacity: 1;
   }
   to {
     color: white;
+    opacity: 0.55;
   }
 }
 

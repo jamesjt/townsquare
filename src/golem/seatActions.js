@@ -149,7 +149,48 @@ import uiGhostVote from "../assets/ui-ghost-cowl.png";
  *                                    rule is the chat's, not the seat's; this
  *                                    file only carries the answer, exactly as
  *                                    every other guard carries a store fact.
+ * @property {boolean} isOwnSeat     FT-1271: this chair is the VIEWER'S OWN —
+ *                                   Player.vue's `isOwnSeat`, the same
+ *                                   three-part identity test the "you" class
+ *                                   and the coin drag already run.
+ * @property {boolean} isStoryteller FT-1271: the viewer is the storyteller
+ *                                   (`!session.isSpectator`, the same sense
+ *                                   golem/chat's `viewerOf` gives the word).
+ *                                   The two facts arrive as a PAIR because
+ *                                   every own-seat rule below is a rule about
+ *                                   PLAYERS: the storyteller keeps every power
+ *                                   on every seat, their own included.
  */
+
+/**
+ * FT-1271: MAY THIS VIEWER CHANGE THE CHARACTER ON THIS COIN — null, or the
+ * reason not.
+ *
+ * A PLAYER MAY NOT REWRITE THEIR OWN COIN. The user's call, and the reason is
+ * information rather than permission: their own coin carries the one fact the
+ * storyteller gave them, and overwriting it destroys something they cannot get
+ * back. Guessing is about OTHER seats — every surface that lets a player put a
+ * character on a coin is a guess at somebody else's, and a guess at your own is
+ * not a guess.
+ *
+ * The storyteller is never refused: theirs is the hand that deals, and a seated
+ * storyteller's chair is still a chair they must be able to correct.
+ *
+ * EXPORTED, and that is the point of it being a function rather than three
+ * lines inside the `role` entry's guard: the vocabulary's guard decides what
+ * the MENUS draw (a disabled row carrying this exact sentence), while the
+ * seat's own writer re-asks the same question before it emits — one expression,
+ * so a row that says "refused" and a click that fires anyway can never both be
+ * true. See Player.vue's `openRoleModal`.
+ *
+ * @param {SeatFacts} facts
+ * @returns {?string}
+ */
+export function roleChangeRefusal(facts) {
+  const f = facts || {};
+  if (f.isStoryteller) return null;
+  return f.isOwnSeat ? "This is your own character" : null;
+}
 
 /**
  * THE SIX, in the order they are drawn — the user's own order, from their
@@ -206,7 +247,10 @@ const ENTRIES = [
     label: () => "Change role",
     setLabel: "Change role",
     hint: () => "Pick the character sitting on this chair",
-    guard: () => null,
+    // FT-1271: the one seat a PLAYER may not repaint is their own — see
+    // roleChangeRefusal above for why, and for why the seat's writer asks the
+    // same function rather than repeating the test.
+    guard: (f) => roleChangeRefusal(f),
     act: "openRoleModal",
   },
   {
