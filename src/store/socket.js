@@ -94,6 +94,10 @@ class LiveSession {
     this._reconnectTimer = null;
     this._players = {}; // map of players connected to a session
     this._pings = {}; // map of player IDs to ping
+    // FT-1289: armed by a spectator's _onOpen, spent by the first roster that
+    // arrives after it — the one-shot permission to take a chair back. See
+    // _updateGamestate.
+    this._reclaimOnSync = false;
     // reconnect to previous session
     if (this._store.state.session.sessionId) {
       this.connect(this._store.state.session.sessionId);
@@ -194,6 +198,11 @@ class LiveSession {
    */
   _onOpen() {
     if (this._isSpectator) {
+      // FT-1289: A RETURN IS THE ONLY MOMENT A CHAIR MAY BE TAKEN BACK. The
+      // roster this asks for is the one allowed to put this client back in
+      // the seat it holds — and no later one, which is what keeps the
+      // re-claim from ever fighting the storyteller (see _updateGamestate).
+      this._reclaimOnSync = true;
       this._sendDirect(
         "host",
         "getGamestate",
@@ -723,6 +732,63 @@ class LiveSession {
     const account = this._store.state.session.account;
     if (account && me && gamestate.some((seat) => seat.id === me)) {
       this._sendDirect("host", "accountId", [me, account.id]);
+    }
+    // FT-1289: TAKE THE CHAIR BACK.
+    //
+    // The host's own ping sweep empties any claimed seat whose player has
+    // stopped pinging (`_handlePing`, above). That is right, and it is the
+    // only way a chair is ever freed for somebody else. What was missing is
+    // the other half: when that player's socket comes back, NOTHING
+    // re-asserted the seat. The client went on believing it held chair N
+    // (`session.claimedSeat` is not touched by a dropped socket), the host's
+    // roster had chair N standing open under the same NAME, and the deal —
+    // addressed per seat id, see `distributeRoles` — simply had no address
+    // for them. A blank coin on a chair with your own name on it.
+    //
+    // PLAY AGAIN is where this bites, which is why it was reported as a Play
+    // again bug: the stretch between one game ending and the next being dealt
+    // is the one time nobody is watching the town square. Phones lock, laptops
+    // sleep, tabs are backgrounded — and two ping intervals later the host has
+    // quietly emptied half the ring. Mid-game the same drop is harmless,
+    // because the player is looking at the screen and re-claims by hand.
+    //
+    // ONCE, ON THE RETURN ITSELF — never on any later sync. `_reclaimOnSync`
+    // is armed by `_onOpen` and spent here, so the only roster that can seat
+    // this client is the first one after a socket opens. That is what keeps
+    // this from FIGHTING THE STORYTELLER: emptying a chair is one of their
+    // tools (Player.vue's Empty seat), it reaches players as the same
+    // "id: ''" this would otherwise read as a sweep, and a condition that
+    // re-fired on every sync put the player straight back in the chair the
+    // storyteller had just cleared. Measured, not reasoned about — that is
+    // exactly what the first version of this fix did.
+    //
+    // THE REST OF THE CONDITION IS DELIBERATELY NARROW TOO. Only a client
+    // that believes it holds a chair, holds NO chair in the roster that just
+    // arrived, and finds that chair still EMPTY says anything. So a player
+    // who stood up (Leave commits claimedSeat -1), a player the storyteller
+    // moved to a different chair, and a chair somebody else has taken in the
+    // meantime are all silent.
+    //
+    // It reuses `claimSeat` rather than putting a frame of its own on the
+    // wire. That method already carries the same "seat must be free" test and
+    // the remembered name, so the re-claim is exactly the claim the player
+    // would have made by hand — nothing new crosses the wire, and nothing
+    // about who may hold a chair changes. The host's side of an id landing on
+    // a chair already hands that chair its character (`sendPlayer`'s
+    // `_sendBelief` on a claimed id, FT-1105), so a return that lands AFTER
+    // the deal is dealt in by that existing path rather than a second one.
+    if (this._reclaimOnSync) {
+      this._reclaimOnSync = false;
+      const mySeat = this._store.state.session.claimedSeat;
+      if (
+        me &&
+        mySeat >= 0 &&
+        gamestate[mySeat] &&
+        !gamestate[mySeat].id &&
+        !gamestate.some((seat) => seat.id === me)
+      ) {
+        this.claimSeat(mySeat);
+      }
     }
   }
 
@@ -2083,6 +2149,16 @@ export default (store) => {
         // another would claim a completeness that was never fetched. The next
         // catch-up starts from zero in the town actually being entered.
         store.commit("chatReset");
+        // FT-1289: ...and the chair goes with the room. `claimedSeat` is this
+        // browser's own note of WHERE IT SITS, and it survived every town
+        // change — sit in seat 3 of one town, leave, join another, and the
+        // note still said 3. Harmless while nothing acted on it alone; not
+        // harmless now that a resync re-asserts an empty chair from it (see
+        // `_updateGamestate`), which would have walked this client into a
+        // stranger's town and sat down in seat 3. Cleared on the same
+        // mutation, for the same reason the log above is: a town is a room,
+        // and nothing about the last one comes into the next.
+        store.commit("session/claimSeat", -1);
         break;
       case "session/claimSeat":
         session.claimSeat(payload);

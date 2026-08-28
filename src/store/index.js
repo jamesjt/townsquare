@@ -453,7 +453,32 @@ export default new Vuex.Store({
     clearEnded(state) {
       state.session.isEnded = false;
       state.session.winningTeam = null;
-      state.grimoire.isPublic = true;
+      // FT-1289: BACK TO THIS VIEWER'S OWN RESTING REVEAL — which is not the
+      // same state for the two of them, and a flat `true` here only ever
+      // described the storyteller's.
+      //
+      // `isPublic` is the app's "the coins are face down" switch. The
+      // STORYTELLER rests at true (a hidden grimoire; the R toggle and Menu's
+      // Hide/Show are theirs). A PLAYER rests at FALSE — their entry path
+      // commits `toggleGrimoire(false)` on the way in (golem/townRoute's
+      // enterTown) — because face-up is how a player sees the one coin they
+      // are entitled to: their own.
+      //
+      // This mutation runs on EVERY client, not just the host's: a player's
+      // socket applies it on the Play again resync (socket.js's
+      // `_updateGamestate` un-ends a client that still holds isEnded). So
+      // Play again was setting every player's grimoire face DOWN and nothing
+      // ever set it back — enterTown had already run, games later. The next
+      // deal then delivered their character exactly as it always had, onto a
+      // coin that was no longer showing it. A blank coin on their own named,
+      // claimed seat, and every player in the town reporting they never got a
+      // character. (The role really was there: the wire and the store both
+      // carried it. Only the face was wrong, which is why it read as a
+      // delivery bug and was not one.)
+      //
+      // `endGame` above sets false for both of them and needs no such split —
+      // the end reveal is the one moment the two views agree.
+      state.grimoire.isPublic = !state.session.isSpectator;
       // FT-1003: a new game starts with no grimoire windows open anywhere —
       // the roles a grant delivered go through players/clearRoles alongside
       // this, exactly as the end reveal's do.
