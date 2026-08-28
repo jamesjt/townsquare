@@ -80,6 +80,9 @@
             <template v-else-if="testView"
               >the dev ledger — test games only</template
             >
+            <!-- FT-1299: the subtitle is the page's scope line — under the
+                 towns filter it must not keep claiming the whole platform. -->
+            <template v-else-if="mineView">the towns you have sat in</template>
             <template v-else>every town on the platform</template>
           </p>
           <!-- FT-1236: THE DEV LEDGER'S DOOR — labs only (session.labs, the
@@ -228,8 +231,33 @@
 
       <!-- ── THE LANDING VIEW ─────────────────────────────────────────────── -->
       <div class="rp-body" v-blood-scroll v-else>
+        <!-- FT-1299: THE TOWNS FILTER — the whole page's scope, chosen once at
+             the top. "All towns" is today's view and stays the default; "My
+             towns" re-asks EVERY read on the page with `scope=mine`, the
+             identity-aware narrowing FT-1161 ruled and FT-1199's seat rows
+             record ("towns you have been in" = towns a seat of yours was
+             recorded in). Signed-out browsers never see the control — the
+             anonymous page is exactly what it always was. -->
+        <div class="rp-scopebar" v-if="session.account">
+          <button
+            class="rp-chip"
+            :class="{ on: !mineView }"
+            title="Every town on the platform"
+            @click="setMineView(false)"
+          >
+            All towns
+          </button>
+          <button
+            class="rp-chip"
+            :class="{ on: mineView }"
+            title="Only the towns you have sat in"
+            @click="setMineView(true)"
+          >
+            My towns
+          </button>
+        </div>
         <section class="rp-band">
-          <h3>Every town together</h3>
+          <h3>{{ mineView ? "Your towns together" : "Every town together" }}</h3>
           <p class="rp-state" v-if="loading">Consulting the archives…</p>
           <p class="rp-state" v-else-if="error">
             Chronicles unavailable — server unreachable
@@ -269,25 +297,114 @@
                 ><span>of {{ stats.games }} recorded their length</span>
               </li>
             </ul>
-            <div class="rp-columns">
-              <!-- FT-1164: the script table grew from four columns to seven.
-                   Each rate cell prints "63 · 64%" — the count first, because
-                   that is the fact, and the share second, because that is the
-                   reading of it. A script under the thin line wears the mark
-                   defined in the legend below the table. "Ran" is the median
-                   number of nights, over the games that recorded one; when none
-                   did it reads "no data", never a zero. -->
+          </template>
+        </section>
+
+        <!-- ── THE RECORD — ONE SECTION, MANY VIEWS (FT-1298) ───────────────
+             The page used to stack every table down an endless scroll: the
+             Scripts table inside the headline band, then Roles, then Roles
+             together, then The games. ONE filtered region now — the chips
+             pick the view, the headline figures above stay always visible,
+             and each view keeps its own loading/empty states because the
+             ledger's read must still land when the aggregates miss. The
+             chosen view persists per browser (localStorage, best-effort). -->
+        <section class="rp-band rp-record">
+          <div class="rp-views">
+            <button
+              v-for="view in recordViews"
+              :key="view.id"
+              class="rp-chip rp-viewchip"
+              :class="{ on: recordView === view.id }"
+              @click="setRecordView(view.id)"
+            >
+              {{ view.label }}
+            </button>
+          </div>
+
+          <!-- ── SCRIPTS ─────────────────────────────────────────────────── -->
+          <template v-if="recordView === 'scripts'">
+            <p class="rp-state" v-if="loading">Consulting the archives…</p>
+            <p class="rp-state" v-else-if="error">
+              Chronicles unavailable — server unreachable
+            </p>
+            <p class="rp-state" v-else-if="!stats || !stats.games">
+              No games recorded yet
+            </p>
+            <div class="rp-columns" v-else>
+              <!-- FT-1164: each rate cell prints "63 · 64%" — the count first,
+                   because that is the fact, and the share second, because that
+                   is the reading of it. A script under the thin line wears the
+                   mark defined in the legend below the table.
+
+                   FT-1297: "Ran" split into its three statistics — median,
+                   mean and mode, all over the games that recorded a length;
+                   when none did they read "no data", never a zero, and a TIED
+                   mode prints "tied" rather than an arbitrary pick (the death
+                   columns' own discipline). "Players" is the median seats at
+                   the table, over every game — its title says which statistic
+                   it is. The Columns button opens a chip per column; hidden
+                   ones persist per browser (localStorage, best-effort). -->
               <div class="rp-col rp-col-wide" v-if="stats.scripts.length">
-                <h4>Scripts</h4>
+                <div class="rp-tablehead">
+                  <h4>Scripts</h4>
+                  <button
+                    class="rp-colbtn"
+                    :class="{ on: colsOpen.scripts }"
+                    title="Choose which columns the table shows"
+                    @click="colsOpen.scripts = !colsOpen.scripts"
+                  >
+                    Columns
+                  </button>
+                </div>
+                <div class="rp-chips rp-colchips" v-if="colsOpen.scripts">
+                  <button
+                    v-for="col in scriptColumns"
+                    :key="col.key"
+                    class="rp-chip"
+                    :class="{ on: colOn('scripts', col.key) }"
+                    :title="col.title"
+                    @click="toggleCol('scripts', col.key)"
+                  >
+                    {{ col.label }}
+                  </button>
+                </div>
                 <table class="rp-table">
                   <thead>
                     <tr>
                       <th>Script</th>
-                      <th>Games</th>
-                      <th title="Share of every recorded game">Share</th>
-                      <th>Good</th>
-                      <th>Evil</th>
-                      <th title="Median nights the town reached">Ran</th>
+                      <th v-if="colOn('scripts', 'games')">Games</th>
+                      <th
+                        v-if="colOn('scripts', 'share')"
+                        title="Share of every recorded game"
+                      >
+                        Share
+                      </th>
+                      <th v-if="colOn('scripts', 'good')">Good</th>
+                      <th v-if="colOn('scripts', 'evil')">Evil</th>
+                      <th
+                        v-if="colOn('scripts', 'players')"
+                        title="Median players at the table, over every game"
+                      >
+                        Players
+                      </th>
+                      <th
+                        v-if="colOn('scripts', 'ranMedian')"
+                        title="Median nights the town reached, over the games that recorded a length"
+                      >
+                        Ran · median
+                      </th>
+                      <th
+                        v-if="colOn('scripts', 'ranMean')"
+                        title="Mean nights the town reached, over the games that recorded a length"
+                      >
+                        Ran · mean
+                      </th>
+                      <th
+                        v-if="colOn('scripts', 'ranMode')"
+                        title="The most common nights count and how many games reached it — 'tied' when no single count leads"
+                      >
+                        Ran · mode
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -296,18 +413,46 @@
                         {{ row.scriptName
                         }}<ThinMark v-if="row.thin" :n="row.games" />
                       </td>
-                      <td>{{ row.games }}</td>
-                      <td class="dim">{{ pct(row.share) }}</td>
-                      <td class="good">
+                      <td v-if="colOn('scripts', 'games')">{{ row.games }}</td>
+                      <td v-if="colOn('scripts', 'share')" class="dim">
+                        {{ pct(row.share) }}
+                      </td>
+                      <td v-if="colOn('scripts', 'good')" class="good">
                         {{ row.wins.good }}
                         <i class="rp-pct">{{ pct(row.winRate.good) }}</i>
                       </td>
-                      <td class="evil">
+                      <td v-if="colOn('scripts', 'evil')" class="evil">
                         {{ row.wins.evil }}
                         <i class="rp-pct">{{ pct(row.winRate.evil) }}</i>
                       </td>
-                      <td :class="{ dim: !row.length.n }">
+                      <td
+                        v-if="colOn('scripts', 'players')"
+                        :class="{ dim: !row.players || !row.players.n }"
+                      >
+                        {{ playersLabel(row.players) }}
+                      </td>
+                      <td
+                        v-if="colOn('scripts', 'ranMedian')"
+                        :class="{ dim: !row.length.n }"
+                      >
                         {{ nights(row.length) }}
+                      </td>
+                      <td
+                        v-if="colOn('scripts', 'ranMean')"
+                        :class="{ dim: !row.length.n }"
+                      >
+                        {{ row.length.n ? num(row.length.mean) : "no data" }}
+                      </td>
+                      <td
+                        v-if="colOn('scripts', 'ranMode')"
+                        :class="{
+                          dim:
+                            !row.length.n ||
+                            !row.length.mode ||
+                            row.length.mode.tied,
+                        }"
+                      >
+                        {{ ranModeLabel(row.length) }}
                       </td>
                     </tr>
                   </tbody>
@@ -356,9 +501,8 @@
               </div>
             </div>
           </template>
-        </section>
 
-        <!-- ── ROLES, WITHIN THEIR SCRIPT ───────────────────────────────────
+          <!-- ── ROLES, WITHIN THEIR SCRIPT ─────────────────────────────────
              A role only means anything inside the script it was played on: the
              Imp's win rate on Trouble Brewing and on a homebrew that also
              contains it are two different facts about two different games, and
@@ -376,107 +520,210 @@
              day N: a night-2 kill and a day-2 execution share a number and are
              not the same moment, and a median over the two mixed would claim
              they were. Both columns show their own count, so a median over one
-             death is visibly a median over one death. -->
-        <section
-          class="rp-band"
-          v-if="!loading && !error && stats && stats.games"
-        >
-          <h3>Roles</h3>
-          <p class="rp-scope">
-            Per script: how often each role was in play, how often its team won,
-            and when it died. Death figures are taken only over the deaths whose
-            moment was recorded — the count beside each is that sample, and
-            {{ stats.gamesTimed }} of {{ stats.games }} games recorded it.
-          </p>
-          <div
-            class="rp-rolescript"
-            v-for="script in scriptsWithRoles"
-            :key="script.scriptName"
-          >
-            <h4>
-              {{ script.scriptName }} · {{ script.games }}
-              {{ script.games === 1 ? "game" : "games" }}
-            </h4>
-            <div class="rp-scroll">
-              <table class="rp-table rp-roles">
-                <thead>
-                  <tr>
-                    <th rowspan="2">Role</th>
-                    <th rowspan="2">Kind</th>
-                    <th rowspan="2" title="Games this role was in play">In</th>
-                    <th rowspan="2" title="Share of this script's games">
-                      Share
-                    </th>
-                    <th rowspan="2">Won</th>
-                    <th rowspan="2">Win rate</th>
-                    <th rowspan="2" title="Seats that did not survive">Died</th>
-                    <th colspan="3" class="rp-group">Died at night</th>
-                    <th colspan="3" class="rp-group">Died by day</th>
-                    <th rowspan="2" title="The most common recorded moment">
-                      Most common
-                    </th>
-                  </tr>
-                  <tr>
-                    <th class="rp-sub-th" title="Deaths with a recorded moment">
-                      n
-                    </th>
-                    <th class="rp-sub-th">median</th>
-                    <th class="rp-sub-th">mean</th>
-                    <th class="rp-sub-th" title="Deaths with a recorded moment">
-                      n
-                    </th>
-                    <th class="rp-sub-th">median</th>
-                    <th class="rp-sub-th">mean</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="role in script.roles" :key="role.roleId">
-                    <td>{{ roleNameOf(role.roleId) }}</td>
-                    <td class="dim">{{ role.roleType }}</td>
-                    <td>{{ role.games }}</td>
-                    <td class="dim">{{ pct(role.share) }}</td>
-                    <td>{{ role.wins }}</td>
-                    <td>
-                      {{ pct(role.winRate)
-                      }}<ThinMark v-if="role.thin" :n="role.games" />
-                    </td>
-                    <td :class="{ dim: !role.deaths.died }">
-                      {{ role.deaths.died }}
-                    </td>
-                    <td :class="{ dim: !role.deaths.night.n }">
-                      {{ role.deaths.night.n }}
-                    </td>
-                    <td>{{ num(role.deaths.night.median) }}</td>
-                    <td>{{ num(role.deaths.night.mean) }}</td>
-                    <td :class="{ dim: !role.deaths.day.n }">
-                      {{ role.deaths.day.n }}
-                    </td>
-                    <td>{{ num(role.deaths.day.median) }}</td>
-                    <td>{{ num(role.deaths.day.mean) }}</td>
-                    <!-- A TIED MODE IS NOT A FACT and is not printed as one. With
-                         four deaths spread over four moments every one of them is
-                         modal; naming one would invent a typical death out of an
-                         arbitrary pick. When the server says the top count was
-                         shared, this says "tied" and stops. -->
-                    <td :class="{ dim: !role.deaths.mode }">
-                      {{ modeLabel(role.deaths.mode) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="rp-legend">
-              <ThinMark :n="threshold" bare /> fewer than {{ threshold }} games
-              — the rate is not yet worth reading.
-              <template v-if="!script.gamesTimed">
-                No game on this script recorded how long it ran, so every death
-                figure above reads as no data rather than as a zero.
-              </template>
-            </p>
-          </div>
-        </section>
+             death is visibly a median over one death.
 
-        <!-- ── ROLES TOGETHER ───────────────────────────────────────────────
+             FT-1297: the same Columns control as the Scripts table — one
+             mechanism, not two. The two death scales toggle as WHOLE GROUPS
+             (n/median/mean travel together — a median without its sample is
+             exactly the bare number this page refuses to print), and the
+             header collapses to one row when both groups are hidden. -->
+          <template v-else-if="recordView === 'roles'">
+            <p class="rp-state" v-if="loading">Consulting the archives…</p>
+            <p class="rp-state" v-else-if="error">
+              Chronicles unavailable — server unreachable
+            </p>
+            <p class="rp-state" v-else-if="!stats || !stats.games">
+              No games recorded yet
+            </p>
+            <template v-else>
+              <div class="rp-tablehead">
+                <p class="rp-scope">
+                  Per script: how often each role was in play, how often its
+                  team won, and when it died. Death figures are taken only over
+                  the deaths whose moment was recorded — the count beside each
+                  is that sample, and {{ stats.gamesTimed }} of
+                  {{ stats.games }} games recorded it.
+                </p>
+                <button
+                  class="rp-colbtn"
+                  :class="{ on: colsOpen.roles }"
+                  title="Choose which columns the tables show"
+                  @click="colsOpen.roles = !colsOpen.roles"
+                >
+                  Columns
+                </button>
+              </div>
+              <div class="rp-chips rp-colchips" v-if="colsOpen.roles">
+                <button
+                  v-for="col in roleColumns"
+                  :key="col.key"
+                  class="rp-chip"
+                  :class="{ on: colOn('roles', col.key) }"
+                  :title="col.title"
+                  @click="toggleCol('roles', col.key)"
+                >
+                  {{ col.label }}
+                </button>
+              </div>
+              <div
+                class="rp-rolescript"
+                v-for="script in scriptsWithRoles"
+                :key="script.scriptName"
+              >
+                <h4>
+                  {{ script.scriptName }} · {{ script.games }}
+                  {{ script.games === 1 ? "game" : "games" }}
+                </h4>
+                <div class="rp-scroll">
+                  <table class="rp-table rp-roles">
+                    <thead>
+                      <tr>
+                        <th :rowspan="rolesHeadRows">Role</th>
+                        <th
+                          :rowspan="rolesHeadRows"
+                          class="rp-word"
+                          v-if="colOn('roles', 'kind')"
+                        >
+                          Kind
+                        </th>
+                        <th
+                          :rowspan="rolesHeadRows"
+                          v-if="colOn('roles', 'in')"
+                          title="Games this role was in play"
+                        >
+                          In
+                        </th>
+                        <th
+                          :rowspan="rolesHeadRows"
+                          v-if="colOn('roles', 'share')"
+                          title="Share of this script's games"
+                        >
+                          Share
+                        </th>
+                        <th :rowspan="rolesHeadRows" v-if="colOn('roles', 'won')">
+                          Won
+                        </th>
+                        <th
+                          :rowspan="rolesHeadRows"
+                          v-if="colOn('roles', 'winRate')"
+                        >
+                          Win rate
+                        </th>
+                        <th
+                          :rowspan="rolesHeadRows"
+                          v-if="colOn('roles', 'died')"
+                          title="Seats that did not survive"
+                        >
+                          Died
+                        </th>
+                        <th
+                          colspan="3"
+                          class="rp-group"
+                          v-if="colOn('roles', 'night')"
+                        >
+                          Died at night
+                        </th>
+                        <th
+                          colspan="3"
+                          class="rp-group"
+                          v-if="colOn('roles', 'day')"
+                        >
+                          Died by day
+                        </th>
+                        <th
+                          :rowspan="rolesHeadRows"
+                          v-if="colOn('roles', 'mode')"
+                          title="The most common recorded moment"
+                        >
+                          Most common
+                        </th>
+                      </tr>
+                      <tr v-if="rolesHeadRows === 2">
+                        <template v-if="colOn('roles', 'night')">
+                          <th
+                            class="rp-sub-th"
+                            title="Deaths with a recorded moment"
+                          >
+                            n
+                          </th>
+                          <th class="rp-sub-th">median</th>
+                          <th class="rp-sub-th">mean</th>
+                        </template>
+                        <template v-if="colOn('roles', 'day')">
+                          <th
+                            class="rp-sub-th"
+                            title="Deaths with a recorded moment"
+                          >
+                            n
+                          </th>
+                          <th class="rp-sub-th">median</th>
+                          <th class="rp-sub-th">mean</th>
+                        </template>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="role in script.roles" :key="role.roleId">
+                        <td>{{ roleNameOf(role.roleId) }}</td>
+                        <td class="dim rp-word" v-if="colOn('roles', 'kind')">
+                          {{ role.roleType }}
+                        </td>
+                        <td v-if="colOn('roles', 'in')">{{ role.games }}</td>
+                        <td class="dim" v-if="colOn('roles', 'share')">
+                          {{ pct(role.share) }}
+                        </td>
+                        <td v-if="colOn('roles', 'won')">{{ role.wins }}</td>
+                        <td v-if="colOn('roles', 'winRate')">
+                          {{ pct(role.winRate)
+                          }}<ThinMark v-if="role.thin" :n="role.games" />
+                        </td>
+                        <td
+                          v-if="colOn('roles', 'died')"
+                          :class="{ dim: !role.deaths.died }"
+                        >
+                          {{ role.deaths.died }}
+                        </td>
+                        <template v-if="colOn('roles', 'night')">
+                          <td :class="{ dim: !role.deaths.night.n }">
+                            {{ role.deaths.night.n }}
+                          </td>
+                          <td>{{ num(role.deaths.night.median) }}</td>
+                          <td>{{ num(role.deaths.night.mean) }}</td>
+                        </template>
+                        <template v-if="colOn('roles', 'day')">
+                          <td :class="{ dim: !role.deaths.day.n }">
+                            {{ role.deaths.day.n }}
+                          </td>
+                          <td>{{ num(role.deaths.day.median) }}</td>
+                          <td>{{ num(role.deaths.day.mean) }}</td>
+                        </template>
+                        <!-- A TIED MODE IS NOT A FACT and is not printed as one.
+                         With four deaths spread over four moments every one of
+                         them is modal; naming one would invent a typical death
+                         out of an arbitrary pick. When the server says the top
+                         count was shared, this says "tied" and stops. -->
+                        <td
+                          v-if="colOn('roles', 'mode')"
+                          :class="{ dim: !role.deaths.mode }"
+                        >
+                          {{ modeLabel(role.deaths.mode) }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="rp-legend">
+                  <ThinMark :n="threshold" bare /> fewer than
+                  {{ threshold }} games — the rate is not yet worth reading.
+                  <template v-if="!script.gamesTimed">
+                    No game on this script recorded how long it ran, so every
+                    death figure above reads as no data rather than as a zero.
+                  </template>
+                </p>
+              </div>
+            </template>
+          </template>
+
+          <!-- ── ROLES TOGETHER ─────────────────────────────────────────────
              The user's own example: "Trouble Brewing: Fortune Teller, Raven
              Keeper. And get number of games with both relative to the total for
              the script, and wins and % wins of games with both."
@@ -488,91 +735,101 @@
 
              ALL of the picked roles, not any — a game counts only if it contained
              every one of them. -->
-        <section
-          class="rp-band"
-          v-if="!loading && !error && stats && stats.games"
-        >
-          <h3>Roles together</h3>
-          <p class="rp-scope">
-            Pick a script and the roles that must all have been in play. The
-            answer is over the games that contained every one of them.
-          </p>
-
-          <div class="rp-combo">
-            <label class="rp-combo-script">
-              <span>Script</span>
-              <select v-model="combo.scriptName" @change="onComboScript">
-                <option
-                  v-for="script in scriptsWithRoles"
-                  :key="script.scriptName"
-                  :value="script.scriptName"
-                >
-                  {{ script.scriptName }} ({{ script.games }})
-                </option>
-              </select>
-            </label>
-
-            <p class="rp-state" v-if="!comboRoleChoices.length">
-              No roles have been recorded on this script yet.
+          <template v-else-if="recordView === 'together'">
+            <p class="rp-state" v-if="loading">Consulting the archives…</p>
+            <p class="rp-state" v-else-if="error">
+              Chronicles unavailable — server unreachable
             </p>
-            <div class="rp-chips" v-else>
-              <button
-                v-for="role in comboRoleChoices"
-                :key="role.roleId"
-                class="rp-chip"
-                :class="{ on: combo.roleIds.indexOf(role.roleId) >= 0 }"
-                :disabled="
-                  combo.roleIds.length >= maxComboRoles &&
-                  combo.roleIds.indexOf(role.roleId) < 0
-                "
-                @click="toggleComboRole(role.roleId)"
-              >
-                {{ roleNameOf(role.roleId) }}
-                <i class="rp-chip-n">{{ role.games }}</i>
-              </button>
-            </div>
-
-            <p class="rp-state" v-if="!combo.roleIds.length">
-              Pick at least one role.
+            <p class="rp-state" v-else-if="!stats || !stats.games">
+              No games recorded yet
             </p>
-            <p class="rp-state" v-else-if="combo.loading">
-              Counting the games…
-            </p>
-            <p class="rp-state" v-else-if="combo.error">
-              That query could not be run.
-            </p>
-            <div class="rp-combo-out" v-else-if="combo.result">
-              <ul class="rp-figures">
-                <li>
-                  <b>{{ combo.result.games }}</b
-                  ><span>
-                    of {{ combo.result.scriptGames }} games ·
-                    {{ pct(combo.result.share) }}
-                  </span>
-                </li>
-                <li class="good">
-                  <b>{{ combo.result.wins.good }}</b
-                  ><span>good wins · {{ pct(combo.result.winRate.good) }}</span>
-                </li>
-                <li class="evil">
-                  <b>{{ combo.result.wins.evil }}</b
-                  ><span>evil wins · {{ pct(combo.result.winRate.evil) }}</span>
-                </li>
-              </ul>
-              <p class="rp-legend" v-if="combo.result.games === 0">
-                No recorded game on this script had all of them in play at once.
+            <template v-else>
+              <p class="rp-scope">
+                Pick a script and the roles that must all have been in play. The
+                answer is over the games that contained every one of them.
               </p>
-              <p class="rp-legend" v-else-if="combo.result.thin">
-                <ThinMark :n="combo.result.games" bare />
-                {{ combo.result.games }} games is under the {{ threshold }}-game
-                line. The count is a fact; the win split off it is not yet a
-                pattern.
-              </p>
-            </div>
-          </div>
-        </section>
 
-        <!-- THE PER-GAME LEDGER. It used to be its own band with its own,
+              <div class="rp-combo">
+                <label class="rp-combo-script">
+                  <span>Script</span>
+                  <select v-model="combo.scriptName" @change="onComboScript">
+                    <option
+                      v-for="script in scriptsWithRoles"
+                      :key="script.scriptName"
+                      :value="script.scriptName"
+                    >
+                      {{ script.scriptName }} ({{ script.games }})
+                    </option>
+                  </select>
+                </label>
+
+                <p class="rp-state" v-if="!comboRoleChoices.length">
+                  No roles have been recorded on this script yet.
+                </p>
+                <div class="rp-chips" v-else>
+                  <button
+                    v-for="role in comboRoleChoices"
+                    :key="role.roleId"
+                    class="rp-chip"
+                    :class="{ on: combo.roleIds.indexOf(role.roleId) >= 0 }"
+                    :disabled="
+                      combo.roleIds.length >= maxComboRoles &&
+                      combo.roleIds.indexOf(role.roleId) < 0
+                    "
+                    @click="toggleComboRole(role.roleId)"
+                  >
+                    {{ roleNameOf(role.roleId) }}
+                    <i class="rp-chip-n">{{ role.games }}</i>
+                  </button>
+                </div>
+
+                <p class="rp-state" v-if="!combo.roleIds.length">
+                  Pick at least one role.
+                </p>
+                <p class="rp-state" v-else-if="combo.loading">
+                  Counting the games…
+                </p>
+                <p class="rp-state" v-else-if="combo.error">
+                  That query could not be run.
+                </p>
+                <div class="rp-combo-out" v-else-if="combo.result">
+                  <ul class="rp-figures">
+                    <li>
+                      <b>{{ combo.result.games }}</b
+                      ><span>
+                        of {{ combo.result.scriptGames }} games ·
+                        {{ pct(combo.result.share) }}
+                      </span>
+                    </li>
+                    <li class="good">
+                      <b>{{ combo.result.wins.good }}</b
+                      ><span
+                        >good wins · {{ pct(combo.result.winRate.good) }}</span
+                      >
+                    </li>
+                    <li class="evil">
+                      <b>{{ combo.result.wins.evil }}</b
+                      ><span
+                        >evil wins · {{ pct(combo.result.winRate.evil) }}</span
+                      >
+                    </li>
+                  </ul>
+                  <p class="rp-legend" v-if="combo.result.games === 0">
+                    No recorded game on this script had all of them in play at
+                    once.
+                  </p>
+                  <p class="rp-legend" v-else-if="combo.result.thin">
+                    <ThinMark :n="combo.result.games" bare />
+                    {{ combo.result.games }} games is under the
+                    {{ threshold }}-game line. The count is a fact; the win
+                    split off it is not yet a pattern.
+                  </p>
+                </div>
+              </div>
+            </template>
+          </template>
+
+          <!-- THE PER-GAME LEDGER. It used to be its own band with its own,
            SMALLER claim: the numbers above were every game in the store, while
            these rows were only the games from the towns THIS BROWSER had been
            in — because the games list was a per-town endpoint and nothing
@@ -582,47 +839,54 @@
            same claim: these rows are the newest games on the platform, in one
            read, and the scope line below says the one true thing rather than
            apologising for a shortfall. The ceiling is the API's own (50), so
-           this is the newest page of the archive, not the whole of it. -->
-        <section class="rp-band">
-          <h3>The games</h3>
-          <p class="rp-scope">{{ ledgerScope }}</p>
-          <p class="rp-state" v-if="ledger.loading">Reading the ledgers…</p>
-          <p class="rp-state" v-else-if="!ledger.games.length">
-            No games have been recorded yet.
-          </p>
+           this is the newest page of the archive, not the whole of it.
+
+           FT-1298: a view of the record section now, not a band of its own —
+           but still its own read and its own failure, exactly as before. -->
           <template v-else>
-            <table class="rp-table rp-ledger">
-              <thead>
-                <tr>
-                  <th>Ended</th>
-                  <th>Town</th>
-                  <th>Script</th>
-                  <th>Seats</th>
-                  <th>Ran</th>
-                  <th>Winner</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="game in ledger.games"
-                  :key="game.id"
-                  class="jump"
-                  :class="{ here: game.townId === townId }"
-                  :data-record-row="game.id"
-                  title="Open this game's record"
-                  @click="openPick(game.id)"
-                >
-                  <td>{{ whenLabel(game.endedAt) }}</td>
-                  <td>{{ game.townId }}</td>
-                  <td>{{ game.scriptName }}</td>
-                  <td>{{ game.playerCount }}</td>
-                  <td>{{ lengthLabel(lengthOf(game)) }}</td>
-                  <td class="rp-win" :class="game.winningTeam">
-                    {{ game.winningTeam === "good" ? "Good" : "Evil" }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <p class="rp-scope">{{ ledgerScope }}</p>
+            <p class="rp-state" v-if="ledger.loading">Reading the ledgers…</p>
+            <p class="rp-state" v-else-if="!ledger.games.length">
+              {{
+                mineView
+                  ? "No games have been recorded in your towns yet."
+                  : "No games have been recorded yet."
+              }}
+            </p>
+            <template v-else>
+              <table class="rp-table rp-ledger">
+                <thead>
+                  <tr>
+                    <th>Ended</th>
+                    <th>Town</th>
+                    <th>Script</th>
+                    <th>Seats</th>
+                    <th>Ran</th>
+                    <th>Winner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="game in ledger.games"
+                    :key="game.id"
+                    class="jump"
+                    :class="{ here: game.townId === townId }"
+                    :data-record-row="game.id"
+                    title="Open this game's record"
+                    @click="openPick(game.id)"
+                  >
+                    <td>{{ whenLabel(game.endedAt) }}</td>
+                    <td>{{ game.townId }}</td>
+                    <td>{{ game.scriptName }}</td>
+                    <td>{{ game.playerCount }}</td>
+                    <td>{{ lengthLabel(lengthOf(game)) }}</td>
+                    <td class="rp-win" :class="game.winningTeam">
+                      {{ game.winningTeam === "good" ? "Good" : "Evil" }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </template>
           </template>
         </section>
       </div>
@@ -668,6 +932,71 @@ import {
 } from "../golem/records";
 
 const TOP_PLAYERS = 15;
+
+/**
+ * FT-1298: the record section's views — one filtered region instead of an
+ * endless scroll of bands. Ids are the persisted vocabulary (localStorage),
+ * labels are what the chips say.
+ */
+const RECORD_VIEWS = [
+  { id: "scripts", label: "Scripts" },
+  { id: "roles", label: "Roles" },
+  { id: "together", label: "Roles together" },
+  { id: "games", label: "The games" },
+];
+
+/**
+ * FT-1297: the toggleable columns, per table. The first column (the row's
+ * NAME — script or role) is deliberately not here: a table of unlabelled
+ * numbers is not a view anyone asked for. Each entry's title is the same
+ * sentence the column header carries, so the chip explains itself.
+ */
+const SCRIPT_COLUMNS = [
+  { key: "games", label: "Games" },
+  { key: "share", label: "Share", title: "Share of every recorded game" },
+  { key: "good", label: "Good" },
+  { key: "evil", label: "Evil" },
+  {
+    key: "players",
+    label: "Players",
+    title: "Median players at the table, over every game",
+  },
+  {
+    key: "ranMedian",
+    label: "Ran · median",
+    title: "Median nights the town reached, over the games that recorded a length",
+  },
+  {
+    key: "ranMean",
+    label: "Ran · mean",
+    title: "Mean nights the town reached, over the games that recorded a length",
+  },
+  {
+    key: "ranMode",
+    label: "Ran · mode",
+    title: "The most common nights count — 'tied' when no single count leads",
+  },
+];
+// The two death scales toggle as WHOLE GROUPS: n/median/mean travel together,
+// because a median without its sample is exactly the bare number this page
+// refuses to print.
+const ROLE_COLUMNS = [
+  { key: "kind", label: "Kind" },
+  { key: "in", label: "In", title: "Games this role was in play" },
+  { key: "share", label: "Share", title: "Share of this script's games" },
+  { key: "won", label: "Won" },
+  { key: "winRate", label: "Win rate" },
+  { key: "died", label: "Died", title: "Seats that did not survive" },
+  { key: "night", label: "Died at night" },
+  { key: "day", label: "Died by day" },
+  { key: "mode", label: "Most common", title: "The most common recorded moment" },
+];
+
+// The page's persisted preferences — which view, which columns. Best-effort
+// localStorage like every stash in this fork: a browser that refuses it
+// simply gets the defaults every visit.
+const VIEW_KEY = "golem.records.view";
+const COLS_KEY = "golem.records.cols";
 
 export default {
   name: "StatsOverlay",
@@ -724,6 +1053,29 @@ export default {
        * Never mixed — the server keeps the two ledgers disjoint.
        */
       testView: false,
+      /**
+       * FT-1299: WHOSE TOWNS the page is counting. False (the default,
+       * always) = every town — the anonymous page, unchanged. True (signed-in
+       * only; the control does not render otherwise) = `scope=mine` on every
+       * read: just the towns this viewer has sat in. Not persisted — the
+       * scope is a fact about a session's account, not about a browser.
+       */
+      mineView: false,
+      /**
+       * FT-1298: which view of the record section is open. Persisted
+       * (VIEW_KEY) so the ledger a reader lives in is the one that greets
+       * them.
+       */
+      recordView: "scripts",
+      /**
+       * FT-1297: the HIDDEN columns, per table — hidden rather than shown so
+       * a column added later defaults to visible instead of vanishing for
+       * every browser that ever saved a choice. Persisted (COLS_KEY).
+       */
+      colsHidden: { scripts: [], roles: [] },
+      /** Whether each table's column chips are unfolded. Not persisted — an
+       *  open control is a gesture, not a preference. */
+      colsOpen: { scripts: false, roles: false },
       /** The opened record: {id, loading, game} or null for the landing. */
       pick: null,
       /** That record's board portraits, read out of its town's log. */
@@ -772,17 +1124,41 @@ export default {
     maxComboRoles() {
       return 8;
     },
+    /** FT-1298: the record section's views, for the chip row. */
+    recordViews() {
+      return RECORD_VIEWS;
+    },
+    /** FT-1297: the two tables' toggleable columns, for the chip rows. */
+    scriptColumns() {
+      return SCRIPT_COLUMNS;
+    },
+    roleColumns() {
+      return ROLE_COLUMNS;
+    },
+    /**
+     * The roles table's header is two rows only while a death-scale group is
+     * visible — with both hidden, every remaining header spans one row and a
+     * phantom empty second row would misalign the whole head.
+     */
+    rolesHeadRows() {
+      return this.colOn("roles", "night") || this.colOn("roles", "day") ? 2 : 1;
+    },
     /** The ledger's honest one-liner: how much it covers, and how typical a
      *  game in it looks. FT-1155: "the towns this browser has been in" is gone
      *  from it, because the read behind it is no longer that. */
     ledgerScope() {
       const s = this.ledger.summary;
+      // FT-1299: under the towns filter the ledger's claim narrows with it,
+      // and the line says so — the scope line is this table's honesty.
+      const where = this.mineView ? " of your towns" : "";
       if (!s || !s.games) {
-        return "The newest recorded games, across every town.";
+        return this.mineView
+          ? "The newest recorded games, across the towns you have sat in."
+          : "The newest recorded games, across every town.";
       }
       const parts = [
         "The newest " + s.games + (s.games === 1 ? " game" : " games"),
-        "across " + s.towns + (s.towns === 1 ? " town" : " towns"),
+        "across " + s.towns + (s.towns === 1 ? " town" : " towns") + where,
       ];
       const typical = [];
       if (s.seats !== null) typical.push(s.seats + " seats");
@@ -795,6 +1171,9 @@ export default {
     },
   },
   created() {
+    // FT-1297/FT-1298: the persisted view + column choices, before the first
+    // render — a flash of the default view would read as the page forgetting.
+    this.restorePrefs();
     this.load();
     this.loadLedger();
     // FT-1146: the Chronicles drawer's boards line hands a game in — the page
@@ -854,7 +1233,7 @@ export default {
       this.loading = true;
       this.error = false;
       this.stats = null;
-      platformBreakdown(this.testView)
+      platformBreakdown(this.testView, this.mineView)
         .then((stats) => {
           this.stats = stats;
           this.loading = false;
@@ -874,6 +1253,25 @@ export default {
      */
     toggleTestView() {
       this.testView = !this.testView;
+      this.reask();
+    },
+    /**
+     * FT-1299: flip the whole page between every town and the viewer's own.
+     * The same "a different scope is a different page" rule the dev-ledger
+     * toggle follows: nothing is carried across, everything re-asks.
+     */
+    setMineView(mine) {
+      if (this.mineView === mine) return;
+      this.mineView = mine;
+      this.reask();
+    },
+    /**
+     * FT-1236/FT-1299: a DIFFERENT LEDGER IS A DIFFERENT PAGE — shared by the
+     * dev-ledger toggle and the towns filter. The open record, the
+     * combination question and every table are about the other view's games,
+     * so nothing is carried across; everything re-asks under the new view.
+     */
+    reask() {
       this.pick = null;
       this.boards = { loading: false, start: null, day1: null, end: null };
       // seq survives the reset so a stale in-flight answer still discards.
@@ -887,6 +1285,60 @@ export default {
       };
       this.load();
       this.loadLedger();
+    },
+    /** FT-1298: open one view of the record section, and remember it. */
+    setRecordView(id) {
+      this.recordView = id;
+      try {
+        localStorage.setItem(VIEW_KEY, id);
+      } catch (e) {
+        // a browser that refuses storage still gets the view, this visit
+      }
+    },
+    /** FT-1297: is a table's column visible? Hidden is the stored fact. */
+    colOn(table, key) {
+      return this.colsHidden[table].indexOf(key) < 0;
+    },
+    /** FT-1297: show/hide one column, and remember the choice. */
+    toggleCol(table, key) {
+      const hidden = this.colsHidden[table];
+      const at = hidden.indexOf(key);
+      if (at >= 0) hidden.splice(at, 1);
+      else hidden.push(key);
+      try {
+        localStorage.setItem(COLS_KEY, JSON.stringify(this.colsHidden));
+      } catch (e) {
+        // storage refused — the choice lives for this visit only
+      }
+    },
+    /**
+     * The persisted view + column choices, defensively read: an unknown view
+     * id (a retired view, a hand-edited stash) falls back to the default, and
+     * only known column keys survive — junk in storage must never be able to
+     * hide a column no chip can bring back.
+     */
+    restorePrefs() {
+      try {
+        const view = localStorage.getItem(VIEW_KEY);
+        if (RECORD_VIEWS.some((v) => v.id === view)) this.recordView = view;
+      } catch (e) {
+        // no storage — defaults stand
+      }
+      try {
+        const raw = JSON.parse(localStorage.getItem(COLS_KEY)) || {};
+        const legal = {
+          scripts: SCRIPT_COLUMNS.map((c) => c.key),
+          roles: ROLE_COLUMNS.map((c) => c.key),
+        };
+        ["scripts", "roles"].forEach((table) => {
+          if (!Array.isArray(raw[table])) return;
+          this.colsHidden[table] = raw[table].filter(
+            (key) => legal[table].indexOf(key) >= 0,
+          );
+        });
+      } catch (e) {
+        // no storage or junk — defaults stand
+      }
     },
     /**
      * THE STOOD-DOWN PLAYERS TABLE'S READ, kept beside its markup.
@@ -932,6 +1384,24 @@ export default {
       }
       const nights = length.median;
       return nights + (nights === 1 ? " night" : " nights");
+    },
+    /**
+     * FT-1297: the most common nights count, as "3 ×2" — the count that made
+     * it modal rides along, the roles table's own mode idiom. A TIED mode is
+     * not a fact and prints "tied"; an empty sample prints "no data".
+     */
+    ranModeLabel(length) {
+      if (!length || !length.n || !length.mode) return "no data";
+      if (length.mode.tied) return "tied";
+      return length.mode.nights + " ×" + length.mode.count;
+    },
+    /** FT-1297: the median seats at the table — over every game, so the only
+     *  empty case is a row with no games, which the table never shows. */
+    playersLabel(players) {
+      if (!players || !players.n || typeof players.median !== "number") {
+        return "no data";
+      }
+      return String(players.median);
     },
     /**
      * The most common recorded death moment, in words.
@@ -991,7 +1461,7 @@ export default {
       this.combo.seq = seq;
       this.combo.loading = true;
       this.combo.error = false;
-      roleCombination(script, roles, this.testView)
+      roleCombination(script, roles, this.testView, this.mineView)
         .then((result) => {
           if (this.combo.seq !== seq) return;
           this.combo.result = result;
@@ -1016,7 +1486,7 @@ export default {
      */
     loadLedger() {
       this.ledger = { loading: true, games: [], summary: null };
-      platformGames(undefined, this.testView)
+      platformGames(undefined, this.testView, this.mineView)
         .then((games) => {
           this.ledger = {
             loading: false,
@@ -1398,9 +1868,87 @@ h4 {
 }
 // FT-1164: the scripts table grew from four columns to six and needs the
 // room. Still capped — the width buys columns, never stretched ones.
+// FT-1297: nine columns now (Ran split three ways, Players added) — the cap
+// grows with them, and the column switch is the reader's own remedy when a
+// window cannot hold all nine.
 .rp-col-wide {
   flex-basis: 560px;
-  max-width: 820px;
+  max-width: 980px;
+}
+
+// ── FT-1299: THE TOWNS FILTER ───────────────────────────────────────────────
+// Two chips above everything — the whole page's scope, so it stands outside
+// every band. The chips are the app's own control plate; the chosen one is
+// filled, the same on-state every chip on this page speaks.
+.rp-scopebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+// ── FT-1298: THE RECORD'S VIEW CHIPS ────────────────────────────────────────
+// The section's head IS the filter: one chip per view, the open one filled.
+// The chips wear the title face at a smaller size — they are this band's
+// heading as much as its control, replacing the four h3s the page used to
+// stack.
+.rp-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.rp-viewchip {
+  font-family: PiratesBay, sans-serif;
+  font-size: 16px;
+  padding: 4px 14px;
+}
+
+// ── FT-1297: THE COLUMN SWITCH ──────────────────────────────────────────────
+// A small "Columns" plate by the table's head; open, it unfolds a chip per
+// column — the combination picker's own idiom, reused rather than invented
+// twice. Amber while open, like every armed control on this page.
+.rp-tablehead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+
+  > h4,
+  > .rp-scope {
+    margin-bottom: 6px;
+  }
+}
+.rp-colbtn {
+  @include control-plate;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d8cdb4;
+  padding: 2px 10px;
+  cursor: pointer;
+  opacity: 0.75;
+  flex: 0 0 auto;
+
+  &:hover {
+    color: #fff;
+    opacity: 1;
+    @include control-plate-hover;
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &.on {
+    color: #e8b23a;
+    border-color: rgba(232, 178, 58, 0.55);
+    opacity: 1;
+  }
+}
+// Doubled selector on purpose: `.rp-chips` sets its own margin later in this
+// sheet, and the column chips need to win that tie without `!important`.
+.rp-chips.rp-colchips {
+  margin-bottom: 12px;
 }
 
 // FT-1164: the roles table is WIDE — fourteen columns, six of them the two
@@ -1441,9 +1989,12 @@ h4 {
     letter-spacing: 0.04em;
   }
   // Role and Kind read as words; everything after them is a number and lines
-  // up on the right, which the base table already does.
-  th:nth-child(2),
-  td:nth-child(2) {
+  // up on the right, which the base table already does. Kind is addressed BY
+  // CLASS, not by position — FT-1297 made the columns hideable, and with Kind
+  // hidden an nth-child(2) rule would left-align whichever number inherited
+  // its seat.
+  th.rp-word,
+  td.rp-word {
     text-align: left;
     padding-left: 0;
     padding-right: 14px;

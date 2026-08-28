@@ -73,10 +73,16 @@ export async function crossTownGames(ids) {
  * list. The ceiling is the API's own (50), so this is the newest page of the
  * archive rather than the whole of it — which is what a page wants.
  */
-export async function platformGames(limit = PER_TOWN, test = false) {
+export async function platformGames(
+  limit = PER_TOWN,
+  test = false,
+  mine = false,
+) {
   // FT-1236: `test` asks for the dev ledger (`?test=only`) — the Chronicles'
   // labs-gated test view. Default stays the real archive.
-  const games = await allGames(limit, test);
+  // FT-1299: `mine` narrows the read to the towns the signed-in viewer has
+  // sat in (`?scope=mine`) — the ledger half of the page's towns filter.
+  const games = await allGames(limit, test, mine);
   return games.filter((game) => game && game.id);
 }
 

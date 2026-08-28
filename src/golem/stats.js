@@ -34,6 +34,18 @@ function withTestView(qs, test) {
 }
 
 /**
+ * FT-1299 — THE TOWNS-SCOPE PARAM, the test param's sibling: absent = every
+ * town (the anonymous default, always), `scope=mine` = only the towns the
+ * signed-in caller has sat in. The server answers 401 to an anonymous
+ * `scope=mine` rather than silently widening, so callers only pass `mine`
+ * when the session store says an account is present.
+ */
+function withMineScope(qs, mine) {
+  if (mine) qs.set("scope", "mine");
+  return qs;
+}
+
+/**
  * POST a finished game. The server validates the flat record (seat numbers
  * unique, playerCount === seats.length, role types in the shared taxonomy —
  * note its BotC spelling is "traveller", double L). Throws on network or
@@ -97,8 +109,11 @@ export async function gameRecord(id) {
  * every town; each row already carries its own `townId`, so a mixed list needs
  * nothing new to stay readable. The server's ceiling is 50 either way.
  */
-export async function allGames(limit = 50, test = false) {
-  const qs = withTestView(new URLSearchParams({ limit: String(limit) }), test);
+export async function allGames(limit = 50, test = false, mine = false) {
+  const qs = withMineScope(
+    withTestView(new URLSearchParams({ limit: String(limit) }), test),
+    mine,
+  );
   const res = await fetch(`${API}/games?${qs}`);
   if (!res.ok) throw new Error(`games failed (${res.status})`);
   const body = await res.json();
@@ -119,8 +134,11 @@ export async function allGames(limit = 50, test = false) {
  * that threshold from here rather than keeping its own copy, so the two can
  * never disagree about which numbers are too thin to read.
  */
-export async function platformBreakdown(test = false) {
-  const qs = withTestView(new URLSearchParams(), test).toString();
+export async function platformBreakdown(test = false, mine = false) {
+  const qs = withMineScope(
+    withTestView(new URLSearchParams(), test),
+    mine,
+  ).toString();
   const res = await fetch(`${API}/stats/breakdown${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error(`breakdown failed (${res.status})`);
   return res.json();
@@ -134,13 +152,21 @@ export async function platformBreakdown(test = false) {
  * and 1,540 triples, and the only combination worth an answer is the one a
  * reader just picked.
  */
-export async function roleCombination(scriptName, roleIds, test = false) {
-  const qs = withTestView(
-    new URLSearchParams({
-      script: scriptName,
-      roles: (roleIds || []).join(","),
-    }),
-    test,
+export async function roleCombination(
+  scriptName,
+  roleIds,
+  test = false,
+  mine = false,
+) {
+  const qs = withMineScope(
+    withTestView(
+      new URLSearchParams({
+        script: scriptName,
+        roles: (roleIds || []).join(","),
+      }),
+      test,
+    ),
+    mine,
   );
   const res = await fetch(`${API}/stats/combination?${qs}`);
   if (!res.ok) throw new Error(`combination failed (${res.status})`);
