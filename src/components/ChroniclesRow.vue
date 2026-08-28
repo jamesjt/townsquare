@@ -670,7 +670,16 @@ img.crr-beat-mark {
   width: 13px;
   height: 13px;
   object-fit: contain;
-  align-self: center;
+  // BASELINE, not centre. This mark is a flex item of `.crr-line`, so its
+  // align-self decides where it sits when a whisper runs to two lines —
+  // and centred, it floats to the vertical middle of the block and comes
+  // away from the pair name it belongs to (measured: a three-line whisper
+  // put the mark level with line two). Baseline keeps it beside the names
+  // at any length; the 2px is the nudge that lands a replaced element on
+  // the same line as 12px text.
+  align-self: baseline;
+  position: relative;
+  top: 2px;
 }
 .crr-pair {
   margin-right: 6px;
