@@ -72,19 +72,36 @@ export function demonSeatIndex(players) {
  * May this client see the three bluffs?
  *
  *   STORYTELLER — yes. The bluffs are their own working note.
- *   A PLAYER    — only if their OWN chair believes it is the demon.
+ *   A PLAYER    — if their OWN chair believes it is the demon, or if the
+ *                 storyteller has shown them the grimoire.
  *
- * THE TWO BRANCHES ANSWER DIFFERENT QUESTIONS, and that is the whole of this
+ * THE BRANCHES ANSWER DIFFERENT QUESTIONS, and that is the whole of this
  * function: `!session.isSpectator` asks "is this the storyteller", and the
- * player branch asks "does this seat believe it is the demon". Neither has
- * ever leaned on the other, and the player branch below is untouched.
+ * player branches ask "does this seat believe it is the demon" and "has this
+ * client been shown the grimoire". None has ever leaned on another.
  *
  * FT-1294: the storyteller branch used to read `return !grimoire.isPublic` —
  * "yes, unless the grimoire is face down", the mirrored-display case. The
  * face-down state is retired (see store/index.js), so what is left is the
  * question that branch was really asking all along: are you the storyteller.
- * The player branch never consulted the flag, so nothing there widened — a
- * player still reaches this only through their own chair's belief.
+ *
+ * FT-1295: THE GRIMOIRE IS THE THIRD READER, and it is a genuinely new one.
+ * The user's report — "spy isn't seeing reminder tokens or demon bluffs and
+ * they should when shown the grimoire" — is right about what a grimoire is: a
+ * storyteller looking at their own screen sees the three, so a window onto it
+ * that hid them would be showing something other than the grimoire.
+ *
+ * IT READS THE MEMORY, NOT THE OPEN WINDOW (`hasGrimoireMemory`, not
+ * `isGrimoireGranted`), and the distinction is the point. The close stops the
+ * host updating this client; it takes nothing away (store/index.js's
+ * revokeGrimoire — the user's call). A gate on the live flag would hide the
+ * three at the moment the night ends while the characters beside them stayed,
+ * which is the half-wipe this lane exists to remove. What a client may LOOK at
+ * follows from what it is holding.
+ *
+ * THE BLUFFS THEMSELVES STILL ARRIVE BY EXACTLY TWO ROUTES — the demon's own
+ * channel, unwidened, and the grant frame (store/socket.js) — so this gate
+ * never turns true for a client that holds nothing to show.
  *
  * @param state the root store state
  */
@@ -92,6 +109,7 @@ export function canSeeBluffs(state) {
   if (!state) return false;
   const { session } = state;
   if (!session.isSpectator) return true;
+  if (session.hasGrimoireMemory) return true;
   const players = state.players.players;
   const seat = ownSeatIndex(players, session);
   return seat >= 0 && believesDemon(players[seat]);

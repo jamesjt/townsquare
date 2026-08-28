@@ -6472,9 +6472,17 @@ li.nominate .player .overlay .nominate-target {
 // FT-1294: `#townsquare.public .circle .reminder` stood here, fading the seat
 // reminders away while the coins were face down (FT-944 had narrowed it to
 // `.circle` so it stopped catching ReminderModal's own picker tiles). The
-// face-down state is retired — see store/index.js — and reminders never cross
-// the wire anyway (socket.js's sendPlayer drops the property), so a player's
-// ring only ever carries the ones that client placed itself.
+// face-down state is retired — see store/index.js — so there is no state left
+// for that rule to key off.
+//
+// FT-1295: and the second half of that note has changed. A player's ring used
+// to carry only the tokens that client placed itself, because reminders never
+// crossed the wire at all. They cross exactly one now: a seat the storyteller
+// GRANTED THE GRIMOIRE to receives the town's tokens in its own direct frame
+// (store/socket.js's sendGrimoire), where they land on the same `reminders`
+// field and are painted by the same template above. Nothing else changed —
+// there is still no broadcast, still nothing on their own chair, and the
+// tokens are theirs to move or bin once they hold them.
 
 // Night order is STORYTELLER information — the numbers say who wakes and in
 // what order, and the badge text names the character outright ("The Imp

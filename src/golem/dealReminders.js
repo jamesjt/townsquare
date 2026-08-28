@@ -56,13 +56,25 @@
  * commit what comes back.
  *
  * PRIVACY IS NOT THIS FILE'S PROBLEM, AND UNLIKE THE LIES IT NEVER WAS.
- * Reminders are grimoire furniture: socket.js's `sendPlayer` drops the
- * `reminders` property on the floor before anything else looks at it
- * (`if (this._isSpectator || property === "reminders") return;`), and no other
- * frame carries them — the gamestate blob sends name/id/isDead/isVoteless/
- * pronouns/roleId, and a granted grimoire window sends `{index, roleId}` pairs.
- * Choosing a placement earlier does not move that line; it only means the
- * storyteller's own grimoire already has the token on it.
+ * Reminders are grimoire furniture: socket.js's `sendPlayer` still refuses to
+ * broadcast the `reminders` property, and the gamestate blob still carries
+ * only name/id/isDead/isVoteless/pronouns/roleId. Choosing a placement earlier
+ * does not move that line; it only means the storyteller's own grimoire
+ * already has the token on it.
+ *
+ * FT-1295 AMENDS ONE HALF OF THAT. A token now has exactly one way to leave
+ * the host's screen: a GRANTED GRIMOIRE WINDOW, direct to the one seat the
+ * storyteller opened it for (socket.js's `sendGrimoire`, which now sends
+ * `{ seats: [{index, roleId, reminders}], bluffs }`). That is a storyteller
+ * deliberately showing one person their grimoire, and a grimoire without its
+ * tokens is a role list — the user's report. Nothing broadcasts, no other
+ * frame carries a token, and the recipient's own chair is skipped entirely so
+ * a seat can never read its own "Drunk" or "Poisoned" off its own grant.
+ *
+ * A DEALT TOKEN DOES NOT TRAVEL AS A DEALT ONE. `DEALT_MARK` below is host
+ * bookkeeping — which tokens a re-deal may draw again — and it is cut off the
+ * wire (socket.js's `_reminderForWire`), so a granted seat cannot tell a token
+ * the rules placed from one the storyteller decided on.
  */
 
 // Fisher-Yates, borrowed rather than re-derived — the deal's other chooser

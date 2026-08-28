@@ -52,13 +52,32 @@ const state = () => ({
   // because "undo" here IS the revoke, and the revoke rebuilds the normal
   // view rather than restoring a stash.
   //
-  // `isGrimoireGranted` is the PLAYER's flag — this client is currently shown
-  // the grimoire. Written only by the root grantGrimoire/revokeGrimoire
-  // mutations (store/index.js), which also write the granted ROLES onto the
-  // roster — the same "root mutation reaches into a submodule" shape isEnded
-  // documents above.
+  // `isGrimoireGranted` is the PLAYER's flag — the window is OPEN right now,
+  // meaning the host is still pushing changes to this client. Written only by
+  // the root grantGrimoire/revokeGrimoire mutations (store/index.js), which
+  // also write what the grant delivered onto the roster — the same "root
+  // mutation reaches into a submodule" shape isEnded documents above.
+  //
+  // FT-1295: `hasGrimoireMemory` is the SECOND half, and the two are different
+  // questions on purpose:
+  //
+  //   isGrimoireGranted   is the window open — is the host still updating me
+  //   hasGrimoireMemory   have I ever been shown it — do I still HOLD what I saw
+  //
+  // The close stops updating instead of wiping (user's call: "memory for spy,
+  // and it would update again in the next night phase when the storyteller
+  // shows it to them"), so everything the grant delivered outlives the window
+  // and stays editable on the Spy's own board. The first flag goes false at the
+  // close; the second stays true for as long as the DATA does, and is cleared
+  // in exactly one place — `clearEnded`, beside the `players/clearRoles` that
+  // wipes the table for a new game.
+  //
+  // The render side reads the second, never the first (golem/bluffs.js's
+  // `canSeeBluffs`), because what a client may look at follows from what it is
+  // holding, not from whether a socket is still feeding it.
   grimoireGrants: {},
   isGrimoireGranted: false,
+  hasGrimoireMemory: false,
   // FT-1200: THE ACCOUNT — who this browser is on the platform, or null.
   // `{ id, name, email }`, written only by golem/account.js (boot /me, the
   // door's sign-in/out). Session state, not game state: not synced, not

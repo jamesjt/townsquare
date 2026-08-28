@@ -486,6 +486,14 @@ export default new Vuex.Store({
       // this, exactly as the end reveal's do.
       state.session.grimoireGrants = {};
       state.session.isGrimoireGranted = false;
+      // FT-1295: ...and the MEMORY dies here, in the one place the data it
+      // describes dies. `players/clearRoles` (dispatched alongside this from
+      // App.vue) wipes every non-traveller role, every reminder and all three
+      // bluffs on a spectator's client — so a flag saying "I still hold what I
+      // was shown" would be describing an empty table. `endGame` deliberately
+      // does NOT clear it: ending the town wipes nothing, and a Spy who was
+      // shown the grimoire still holds it while the result sits on screen.
+      state.session.hasGrimoireMemory = false;
     },
     /*
      * FT-1294: `toggleGrimoire` STOOD DOWN AND REMOVED. It was FT-931's
@@ -497,46 +505,87 @@ export default new Vuex.Store({
      */
     /**
      * FT-1003: THE GRANTED GRIMOIRE ARRIVES — one seat's client is shown the
-     * whole town face-up. `seats` is [{index, role}] with roles already
-     * resolved by the socket layer (never this client's own seat: the sender
-     * skips it, so a seat whose belief differs from its truth can never learn
-     * the difference from its own grant). The render path is FT-931's end
-     * reveal verbatim — the true roles being PRESENT is the whole of it —
-     * scoped to the live `isGrimoireGranted` flag instead of isEnded.
+     * whole town face-up. Never this client's own seat: the sender skips it,
+     * so a seat whose belief differs from its truth can never learn the
+     * difference from its own grant. The render path is FT-931's end reveal
+     * verbatim — the true roles being PRESENT is the whole of it.
      *
      * FT-1294: this too used to write `isPublic = false` alongside. The coins
-     * are always revealed now, so the grant is exactly what it always really
-     * was: a delivery of roles.
+     * are always revealed now.
+     *
+     * FT-1295: THE GRIMOIRE IS NOT A ROLE LIST, and this is where it stops
+     * being one. The payload is `{ seats, bluffs }`:
+     *
+     *   seats   [{ index, role, reminders }] — every seat the grimoire has
+     *           something to say about, with the tokens laid beside it
+     *   bluffs  the demon's three, as resolved role objects
+     *
+     * WHAT A GRANT WRITES, IT OWNS. `reminders` is set for every seat in the
+     * list, empty array included: a seat the storyteller has cleared must
+     * lose the token the Spy remembers from last night, or the memory quietly
+     * becomes a compost heap of everything ever true. Seats NOT in the list
+     * are untouched — see revokeGrimoire for why that silence is the feature.
+     *
+     * THE BLUFFS ARE WRITTEN STRAIGHT INTO THE PLAYERS MODULE, in order from
+     * slot 0: `setBluff` splices, and splicing index 2 of an empty array
+     * appends at 0, so out-of-order writes arrive shuffled (socket.js's
+     * `_updateBluffs` carries the same loop for the same reason). Reaching
+     * into the submodule from a root mutation is the shape `endGame` and
+     * `toggleNight` already use, and it is what lets ONE commit be the whole
+     * arrival — the alternative is three mutations that can each land alone.
      */
-    grantGrimoire(state, seats) {
-      (seats || []).forEach(({ index, role }) => {
+    grantGrimoire(state, { seats, bluffs } = {}) {
+      (seats || []).forEach(({ index, role, reminders }) => {
         const player = state.players.players[index];
-        if (player) player.role = role;
+        if (!player) return;
+        player.role = role;
+        player.reminders = reminders || [];
       });
+      if (Array.isArray(bluffs)) {
+        bluffs.forEach((role, index) => {
+          state.players.bluffs.splice(index, 1, role || {});
+        });
+      }
       state.session.isGrimoireGranted = true;
+      state.session.hasGrimoireMemory = true;
     },
     /**
-     * FT-1003: the window closes. Clears every role the grant delivered —
-     * everything except this client's own seat (their dealt view, which the
-     * grant never touched) and travelers (public knowledge). Idempotent, so
-     * a revoke frame arriving at a client that was never granted (a joiner's
-     * self-healing sync) is a no-op.
+     * FT-1003 / FT-1295: THE WINDOW CLOSES AND NOTHING IS WIPED.
      *
-     * The granted view and the normal view differ only in which roles this
-     * client holds, so clearing the roles is the whole revoke. (FT-1294: it
-     * always was. This note used to explain why the revoke deliberately did
-     * not turn the coins back over — there is no longer a face to turn.)
+     * This used to walk every seat that was not the viewer's own and not a
+     * traveller and set `player.role = {}`. That slot is the SAME one the
+     * player's own guesses live in — a player's role edits never leave their
+     * browser (socket.js's `sendPlayer` returns early for a spectator), so on
+     * their client `player.role` IS their guess about that chair. The grant
+     * wrote truth over the guesses when it opened, and this wiped both when it
+     * closed: the user's report, verbatim — "ending the night resets the spy's
+     * grimoire so they are losing the 'guesses' they made for the users roles".
+     *
+     * A MEMORY, NOT A CAMERA — the user's call, made against a read-only
+     * overlay ("it needs to be editable by the spy and when night ends it
+     * would just be the same thing basically"). So the close stops UPDATING:
+     * the host stops pushing, and what the Spy saw stays on their own board,
+     * theirs to edit, until the storyteller shows them the grimoire again and
+     * a fresh look overwrites what it speaks about.
+     *
+     * TWO CONSEQUENCES, BOTH DELIBERATE:
+     *   · a fresh look OVERWRITES their edits on any seat it speaks about —
+     *     correct, they just looked at that seat;
+     *   · a seat the grant is SILENT about keeps the old memory. Their own
+     *     chair (the sender skips it), and any seat holding no character at
+     *     that moment. That staleness is the difference between the memory
+     *     the user chose and the camera they rejected.
+     *
+     * The old wipe's traveller exemption went with the wipe: it existed
+     * because traveller roles are public knowledge and clearing them would
+     * have taken away something the client was entitled to anyway. Nothing is
+     * cleared now, so there is nothing to exempt.
+     *
+     * Still idempotent, and still commits nothing when no window was open — a
+     * revoke frame arriving at a client that was never granted (a joiner's
+     * self-healing sync) leaves `hasGrimoireMemory` exactly as it found it.
      */
     revokeGrimoire(state) {
-      if (!state.session.isGrimoireGranted) return;
-      const own = state.players.players.findIndex(
-        (p) => p.id === state.session.playerId,
-      );
-      state.players.players.forEach((player, index) => {
-        if (index === own) return;
-        if (player.role && player.role.team === "traveler") return;
-        player.role = {};
-      });
       state.session.isGrimoireGranted = false;
     },
     toggleImageOptIn: toggle("isImageOptIn"),

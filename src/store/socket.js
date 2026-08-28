@@ -76,6 +76,36 @@ import {
 // mark, the done tick, or the true/shown pair (see golem/nightLog).
 import { projectEntriesFor } from "../golem/nightLog";
 
+/**
+ * FT-1295: ONE REMINDER TOKEN, CUT DOWN TO WHAT A GRIMOIRE WINDOW SHOWS.
+ *
+ * A token on the storyteller's board is `{ role, image, imageAlt, name }` —
+ * ReminderModal's `mapReminder` and golem/dealReminders' `dealtToken` build the
+ * same four, deliberately, so a hand-placed token and a dealt one render alike.
+ * All four travel: the receiver paints a token from `image`/`imageAlt`/`role`
+ * (Player.vue's `reminderIcon`), so sending a name to look up would leave it
+ * with a broken require for every token whose role it cannot resolve — a
+ * bluff's character, a custom role out of its edition.
+ *
+ * THE DEAL'S MARK IS THE ONE FIELD LEFT BEHIND. `dealReminders` stamps
+ * `dealt: true` on a token the DEAL placed, so a re-deal knows which of them to
+ * draw again and which are the storyteller's own notes. That is host
+ * bookkeeping — and worse, on a Spy's board it would be a genuine tell: it
+ * separates "the rules put this here at deal time" from "the storyteller
+ * decided this mid-game", which is a distinction the grimoire itself does not
+ * show anyone. So the mark stops here.
+ *
+ * Rebuilt field by field rather than spread-and-delete: whatever a future
+ * token grows, it does not reach a player until someone adds it to this list
+ * on purpose.
+ */
+const _reminderForWire = (reminder) => ({
+  role: (reminder && reminder.role) || "",
+  image: (reminder && reminder.image) || "",
+  imageAlt: (reminder && reminder.imageAlt) || "",
+  name: (reminder && reminder.name) || "",
+});
+
 class LiveSession {
   constructor(store) {
     // Golem fork: live sessions go through OUR relay on the same host the app
@@ -871,7 +901,23 @@ class LiveSession {
    * @param value
    */
   sendPlayer({ player, property, value }) {
-    if (this._isSpectator || property === "reminders") return;
+    if (this._isSpectator) return;
+    // FT-1295: THE REMINDERS STILL DO NOT BROADCAST — and this early return,
+    // the oldest guard in the file, is why. It used to be the whole story:
+    // `if (this._isSpectator || property === "reminders") return;`, a token
+    // dropped on the floor before anything else looked at it, so a reminder
+    // was grimoire furniture on the host's screen and nowhere else.
+    //
+    // It stays a refusal to broadcast. What changed is that there is now
+    // exactly ONE path a token may travel — a granted grimoire window, direct
+    // to the one seat the storyteller opened it for (see sendGrimoire) — so a
+    // token moved or removed mid-grant refreshes that window instead of
+    // vanishing here. Nothing is added to the frame the town gets, because
+    // this branch still never reaches the broadcast below.
+    if (property === "reminders") {
+      this._refreshGrimoire();
+      return;
+    }
     const index = this._store.state.players.players.indexOf(player);
     // FT-871: a player object that is no longer in the roster (evicted while an
     // update was in flight) has no seat to name — indexOf hands back -1 and
@@ -1433,6 +1479,15 @@ class LiveSession {
     if (Object.keys(message).length) {
       this._send("direct", message);
     }
+    // FT-1295: a granted window carries the three as part of the grimoire
+    // (sendGrimoire), so a bluff the storyteller just changed has to reach it
+    // through that frame — this channel says nothing to a seat that is not a
+    // demon, which is exactly the point of carrying them over there instead.
+    // Almost always an empty loop; the ledger holds a key only while a window
+    // is open. The one path that reaches here twice (a role edit: sendPlayer
+    // refreshes, then _sendBelief lands here and refreshes again) sends one
+    // extra idempotent frame to one seat, which is cheaper than a flag.
+    this._refreshGrimoire();
   }
 
   /**
@@ -1445,6 +1500,21 @@ class LiveSession {
   _updateBluffs(ids) {
     if (!this._isSpectator) return;
     const list = Array.isArray(ids) ? ids : [];
+    // FT-1295: AN EMPTY LIST DOES NOT ERASE A GRIMOIRE MEMORY.
+    //
+    // This channel clears a seat by sending nothing — that is how a client
+    // which stops being the demon loses what it was holding, and it is right.
+    // But it goes to EVERY seated player on every bluff edit, so after a
+    // granted window closed it would reach the Spy carrying an empty set and
+    // wipe the three they were shown. Exactly the loss this lane removed from
+    // the roles; the same answer here.
+    //
+    // NARROW ON PURPOSE — only the empty list, only for a client that has been
+    // shown the grimoire. A real set still writes (a Spy who later becomes the
+    // demon gets the demon's three), and a client that was never granted is
+    // untouched in both directions. What overwrites a memory is a fresh look,
+    // and nothing else.
+    if (!list.length && this._store.state.session.hasGrimoireMemory) return;
     // Set every slot in order, 0 upward, including the empty ones: `setBluff`
     // splices, and splicing index 2 of an empty array appends at 0 — so slots
     // must be filled in sequence or the three arrive shuffled.
@@ -1465,16 +1535,45 @@ class LiveSession {
    *
    * NEVER A BROADCAST, structurally — the same rule sendBluffs states above:
    * this only ever calls `_sendDirect` with a concrete playerId, so the
-   * broadcast-on-empty branch is unreachable. A grant payload is the list of
-   * every OTHER seat's true role — the recipient's own seat is skipped, so a
-   * seat whose belief differs from its truth (a Lunatic granted by mistake)
-   * cannot learn what it really is from its own grant.
+   * broadcast-on-empty branch is unreachable. A grant payload describes every
+   * OTHER seat — the recipient's own seat is skipped, so a seat whose belief
+   * differs from its truth (a Lunatic granted by mistake) cannot learn what it
+   * really is from its own grant.
    *
    * A REVOKE IS SENT WHEN THE LEDGER HOLDS NOTHING, deliberately: the client
    * side is idempotent (revokeGrimoire no-ops when nothing is granted), so a
    * revoke frame doubles as the self-healing answer for a joiner and for a
    * host that reloaded and lost its ledger — a stale window always closes on
    * the holder's next full sync.
+   *
+   * FT-1295: A GRIMOIRE IS NOT A ROLE LIST. The payload was `[{index,roleId}]`
+   * — characters and nothing else — and the user reported the hole: "spy isn't
+   * seeing reminder tokens or demon bluffs and they should when shown the
+   * grimoire". A storyteller's grimoire is the characters, the tokens laid
+   * beside them and the three the demon may claim; a window onto it that shows
+   * one of the three is a role list with a nicer name. So the frame is now
+   * `{ seats, bluffs }` and carries all three.
+   *
+   * THIS IS THE FIRST AND ONLY PATH A REMINDER TRAVELS. `sendPlayer` has
+   * dropped the property since the fork began and still does — see its own
+   * note — and no broadcast anywhere carries one. A token reaches exactly the
+   * seats this method addresses, one at a time, by name.
+   *
+   * THE BLUFFS RIDE IN THIS FRAME rather than through `sendBluffs`, and that
+   * is a privacy decision, not a plumbing one. The bluffs channel exists to
+   * answer one question — does this chair believe it is the demon — and it
+   * clears a seat by sending an empty list. Teaching it a second entitlement
+   * would mean the close had to clear the Spy, which is the wipe this lane
+   * exists to remove. Carried here instead, the REASON a granted seat holds
+   * bluffs is the grant frame itself, revoking removes that reason (no later
+   * frame carries them), and `sendBluffs` is left exactly as it was: no new
+   * sender, no widened predicate, nothing to re-argue.
+   *
+   * WHICH SEATS THE GRIMOIRE SPEAKS ABOUT: those holding a character. A seat
+   * with no character is one the grant is silent about, so the holder keeps
+   * whatever they remember there — the same rule the recipient's own chair
+   * gets, and the reason `grantGrimoire` can safely own every field of the
+   * seats it DOES name.
    *
    * @param playerId REQUIRED — the one seat this frame is for.
    */
@@ -1489,12 +1588,35 @@ class LiveSession {
     }
     const seats = [];
     this._store.state.players.players.forEach((player, index) => {
+      // THE OWN-SEAT RULE, and it covers the tokens as well as the character.
+      // Skipping the recipient's own chair is FT-1003's guard against a seat
+      // reading its own truth out of its own grant (a Lunatic, a Drunk); their
+      // REMINDERS would reopen that hole from the side, because the tokens are
+      // the same secret written in words — "Drunk", "Poisoned", "Is the
+      // Demon", "Red herring" sitting on their own chair. One skip, both,
+      // which is also why this is a `return` on the seat rather than two
+      // filters that could drift apart. The Spy ends up complete about the
+      // town and silent about themselves, which is the shape of every other
+      // information character in the game.
       if (player.id === playerId) return;
-      if (player.role && player.role.id) {
-        seats.push({ index, roleId: player.role.id });
-      }
+      if (!player.role || !player.role.id) return;
+      seats.push({
+        index,
+        roleId: player.role.id,
+        // Sent VERBATIM (minus the deal's own bookkeeping — see
+        // `_reminderForWire`) rather than as names to look up: the receiving
+        // client resolves a token's art from `image`/`imageAlt`/`role`, and an
+        // id it cannot resolve — a bluff's role, a custom character out of its
+        // edition — would land as a broken require rather than a token.
+        reminders: (player.reminders || []).map(_reminderForWire),
+      });
     });
-    this._sendDirect(playerId, "grimoire", seats);
+    const bluffs = this._store.state.players.bluffs || [];
+    const bluffIds = [];
+    for (let i = 0; i < BLUFF_COUNT; i++) {
+      bluffIds.push((bluffs[i] && bluffs[i].id) || "");
+    }
+    this._sendDirect(playerId, "grimoire", { seats, bluffs: bluffIds });
   }
 
   /**
@@ -1531,29 +1653,56 @@ class LiveSession {
   }
 
   /**
-   * FT-1003: the grimoire window opening (an array of {index, roleId}) or
-   * closing (anything else) on this client. Player only — the storyteller's
-   * own grimoire is the authority and is never written from the wire.
-   * Roles resolve here, the same session-then-global lookup _updateGamestate
-   * uses; an id this client cannot resolve is skipped rather than rendered
-   * as a blank coin.
+   * FT-1003: the grimoire window opening or closing on this client. Player
+   * only — the storyteller's own grimoire is the authority and is never
+   * written from the wire. Roles resolve here, the same session-then-global
+   * lookup _updateGamestate uses; an id this client cannot resolve is skipped
+   * rather than rendered as a blank coin.
+   *
+   * FT-1295: the open payload is `{ seats, bluffs }` (see sendGrimoire) and
+   * anything that is not that shape is the close. Reminders arrive already
+   * whole — they are display objects, not ids — so they are copied through
+   * the same field-by-field cut the sender applied rather than trusted as
+   * they stand: a client applies to its own board only the four fields a
+   * token is, whatever a frame happens to carry.
    * @private
    */
-  _updateGrimoireGrant(seats) {
+  _updateGrimoireGrant(payload) {
     if (!this._isSpectator) return;
-    if (!Array.isArray(seats)) {
+    if (!payload || !Array.isArray(payload.seats)) {
       this._store.commit("revokeGrimoire");
       return;
     }
-    const resolved = [];
-    seats.forEach((seat) => {
+    const seats = [];
+    payload.seats.forEach((seat) => {
       if (!seat || typeof seat.index !== "number") return;
       const role =
         this._store.state.roles.get(seat.roleId) ||
         this._store.getters.rolesJSONbyId.get(seat.roleId);
-      if (role) resolved.push({ index: seat.index, role });
+      if (!role) return;
+      seats.push({
+        index: seat.index,
+        role,
+        reminders: (Array.isArray(seat.reminders) ? seat.reminders : []).map(
+          _reminderForWire,
+        ),
+      });
     });
-    this._store.commit("grantGrimoire", resolved);
+    // The three, in slot order and including the empty ones — a storyteller
+    // who cleared a bluff has to be able to clear it here too, and the
+    // mutation's splice needs slot 0 filled before slot 2 exists.
+    const ids = Array.isArray(payload.bluffs) ? payload.bluffs : [];
+    const bluffs = [];
+    for (let index = 0; index < BLUFF_COUNT; index++) {
+      const id = ids[index];
+      bluffs.push(
+        (id &&
+          (this._store.state.roles.get(id) ||
+            this._store.getters.rolesJSONbyId.get(id))) ||
+          {},
+      );
+    }
+    this._store.commit("grantGrimoire", { seats, bluffs });
   }
 
   /**

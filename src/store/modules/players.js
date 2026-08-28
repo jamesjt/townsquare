@@ -252,10 +252,16 @@ const actions = {
    * so the storyteller moves it (drag, FT-1117) or removes it (click) exactly
    * as they always could, and the next deal draws a fresh seat.
    *
-   * NO WIRE TRAFFIC, BY THE OLDEST GUARD IN THE FILE. socket.js's `sendPlayer`
-   * drops `reminders` before it looks at anything else, so a dealt token is
-   * grimoire furniture on the host's screen and nowhere else — the same as a
+   * NO BROADCAST, BY THE OLDEST GUARD IN THE FILE. socket.js's `sendPlayer`
+   * still refuses to put `reminders` on a frame the town receives, so a dealt
+   * token is grimoire furniture on the host's screen — the same as a
    * hand-placed one has always been.
+   *
+   * FT-1295: with one door, opened on purpose. A token reaches a seat the
+   * storyteller has GRANTED THE GRIMOIRE to, in that seat's own direct frame
+   * (socket.js's `sendGrimoire`), because a grimoire is its tokens as much as
+   * its characters. A dealt token is indistinguishable from a hand-placed one
+   * there too — the deal's own mark is cut off the wire.
    */
   dealReminders({ state, commit, rootState }) {
     if (rootState.session.isSpectator) return;
