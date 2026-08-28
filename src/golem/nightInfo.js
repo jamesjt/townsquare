@@ -454,7 +454,7 @@ export const NIGHT_INFO = {
     ],
     mayBeFalse: false,
     label: "Sees:",
-    line: "The whole grimoire, for as long as they want.",
+    line: "Each night the Storyteller will show you the Grimoire.",
   },
   scarletwoman: {
     wakes: ["other"],
