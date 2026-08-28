@@ -423,13 +423,38 @@
            alignTabs finds nothing to measure, `tabInset` stays 0, and the
            strip keeps its natural right edge. The machinery stands for the
            day a head ornament returns. -->
-      <div
-        ref="tabs"
-        class="ht-tabs"
-        v-if="!reentry"
-        role="tablist"
-        :style="{ paddingRight: tabInset + 'px' }"
-      >
+      <!-- ── FT-1266 (user): "those tabs aren't centered in the disc — can we
+           center them?" THE STRIP STANDS DOWN FROM THE GEAR and centres on
+           the disc's own axis instead.
+
+           WHAT WAS ACTUALLY HOLDING IT: nothing. FT-1209 parked the cluster
+           over the head's settings gear with a measured right inset
+           (`tabInset`, written by alignTabs); FT-1225 moved that gear and
+           FT-1213 took it off the build face altogether, since when alignTabs
+           has had nothing to measure and `tabInset` has computed 0 at every
+           size (measured at HEAD, rig
+           claude_temp_test/2026-08-27-ft1266-shots.mjs: `padR 0px` on all
+           six layouts). So the leaves were not aligned to anything — they
+           were sitting at the strip's natural RIGHT edge, which the
+           `justify-content: flex-end` below put them at, and which landed
+           them off the panel's axis by a measured -23.4px to +80.3px
+           depending on layout.
+
+           THE CENTRING RULE IS THE TOWN NAME'S OWN. The strip's box is
+           already centred on `.host-tools`'s box centre — the exact point
+           FT-1098's three-column h3 pins the name to (measured: strip centre
+           == panel axis == name centre, 0.0px apart, at every layout) — so
+           the only change needed is which end of that box the cluster hugs:
+           `justify-content: center` (see the `.ht-tabs` rule). No JS, no
+           second measurement, and nothing new to keep in sync with the head.
+
+           `:style="{ paddingRight: tabInset + 'px' }"` CAME OFF THIS ELEMENT.
+           It was the one reader of alignTabs' measurement; a padding of 0
+           is what it wrote anyway, but leaving a live binding to a stood-down
+           rule invites the next pass to trust it. alignTabs itself is kept
+           (see its own note) — the day a head ornament returns, the strip
+           will want to know where it is. -->
+      <div ref="tabs" class="ht-tabs" v-if="!reentry" role="tablist">
         <button
           v-for="t in setupTabs"
           :key="t.id"
@@ -824,14 +849,62 @@
       <!-- FT-1168: `settingsTab` is `reentry || setupTab === 'settings'` —
            the tab when the panel is building, and unconditional on the
            re-entry face, which is exactly where this row already stood. -->
-      <div class="row ht-settings" v-if="settingsTab">
+      <!-- ── FT-1266 (user): "do the same clean up we did to the control
+           settings to the game settings, they are ragged." FT-1264's grid,
+           applied here: `ht-game` opts this block into the same LABEL TRACK +
+           CONTROL TRACK the Control tab wears (the rule is written once, for
+           both — see `.ht-prefs, .ht-game` in the styles), so every control
+           starts on one common x while still sizing to its own content.
+
+           HOW RAGGED IT WAS, measured at HEAD (rig:
+           claude_temp_test/2026-08-27-ft1266-shots.mjs, 1920x1080): the seven
+           rows' labels all began at x710.5 — it was never the labels — and
+           their controls began at NINE different x positions, 778.3 through
+           931.0, a 152.7px spread, because each control was clustered against
+           its own label's end by flex.
+
+           THE COMPOUND ROWS LAND IN THE SAME TRACKS, which is the whole test
+           of the shape: a row whose control side is three things (Day timer's
+           select + minutes scrub + "min", Whisper marks' select + seconds
+           scrub + "sec") wraps that side in ONE `.ht-set-ctl` — an inner flex
+           row that is itself the control track's single grid item. So the
+           compound's first control starts on exactly the x every simple row's
+           select starts on, and the pieces after it read left to right as the
+           sentence they always were. Night checklist is the same idea from
+           the other side: its two selects are already one box
+           (`.nm-controls`, inside NightModeRow), so that box becomes the
+           track's item — see that component's own FT-1266 block, which is
+           where the placement has to be written because a parent's scoped
+           styles reach a child's root and nothing below it.
+
+           GROUPING IS SPACING, NOT HEADERS (`ht-group-start`, FT-1264's own
+           hook): a breath of air above Day bell and above Chat splits the
+           seven rows into the night's checklist / the day's sounds and clock /
+           what the town may say. No new words on the panel, no row moved.
+
+           AND THE TAB IS ITS OWN SCROLLER WHERE THE BAND CANNOT HOLD IT.
+           FT-1231 built that ladder for the Control tab only; this tab was
+           never wired to it and has been OVERRUNNING the disc's band at HEAD
+           — measured +28.1px at 1440x900 / 1600x900 / 1642x780 and +9.7px at
+           1280x960 (rig: claude_temp_test/2026-08-27-ft1266-band.mjs), which
+           is the last row painting through the Start button. Same ref, same
+           measured class, same drip scrollbar and sunken well as the Control
+           tab now (`gameOverflow`, measureTabOverflow). -->
+      <div
+        class="row ht-settings ht-game"
+        v-if="settingsTab"
+        ref="gameRows"
+        :class="{ scrolls: gameOverflow }"
+        v-blood-scroll
+      >
         <span class="ht-set-line ht-set-line-night">
           <!-- FT-860: the night sheet's three-state switch. Its own component so
              the setting travels with the rest of the night code. -->
           <NightModeRow />
         </span>
 
-        <span class="ht-set-line ht-set-line-bell">
+        <!-- FT-1266: the day's group opens here — air above, no header. -->
+        <span class="ht-set-line ht-set-line-bell ht-group-start">
           <!-- FT-1087: THE DAY-BREAK BELL IS ONE SELECT — Off / One / Two /
              Custom — where it was two segments standing side by side, an
              On/Off pair and a which-bell trio. Every state the pair could
@@ -890,35 +963,46 @@
                 />
                 <span class="row-name" v-if="!iconsOnly">Day timer</span>
               </span>
-              <!-- FT-1229: the VALUE is the stored mode now, no longer derived
-                 from the minutes — "Per day" keeps a length set (the coming
-                 day's) and still is not "Timed". -->
-              <OptionSelect
-                name="day-length"
-                aria-label="Day length"
-                hoist
-                :options="dayLengthOptions"
-                :value="tower.dayTimerMode"
-                @input="setDayMode"
-              />
-            </span>
-            <!-- the minutes themselves — dimmed while Off, and scrubbing it is
-               itself the "on" gesture (a length you are setting is a length
-               you want). -->
-            <span
-              class="tw-daylen"
-              :class="{ idle: !tower.dayLengthMin }"
-              title="Minutes in a day — drag sideways to scrub, click to type"
-            >
-              <NumberScrub
-                class="tw-daylen-scrub"
-                :value="tower.dayLengthMin || dayLenDraft"
-                :min="dayLenMin"
-                :max="dayLenMax"
-                title="Minutes in a day — drag sideways to scrub, click to type"
-                @input="setDayLength"
-              />
-              <span class="tw-daylen-unit">min</span>
+              <!-- FT-1266: THE CONTROL TRACK'S ONE ITEM. The select and the
+                   minutes were siblings a level apart — the select inside
+                   `.tw-lead` with the label, the scrub outside it — which is
+                   exactly what the grid cannot place: two things wanting one
+                   cell. Wrapped together they are a single inner flex row
+                   that starts on the common control x, and the sentence
+                   ("hourglass — Off — 10 min") reads the same as it always
+                   did. Whisper marks below carries the identical wrapper, and
+                   Night checklist's `.nm-controls` is already one. -->
+              <span class="ht-set-ctl">
+                <!-- FT-1229: the VALUE is the stored mode now, no longer
+                   derived from the minutes — "Per day" keeps a length set (the
+                   coming day's) and still is not "Timed". -->
+                <OptionSelect
+                  name="day-length"
+                  aria-label="Day length"
+                  hoist
+                  :options="dayLengthOptions"
+                  :value="tower.dayTimerMode"
+                  @input="setDayMode"
+                />
+                <!-- the minutes themselves — dimmed while Off, and scrubbing
+                   it is itself the "on" gesture (a length you are setting is a
+                   length you want). -->
+                <span
+                  class="tw-daylen"
+                  :class="{ idle: !tower.dayLengthMin }"
+                  title="Minutes in a day — drag sideways to scrub, click to type"
+                >
+                  <NumberScrub
+                    class="tw-daylen-scrub"
+                    :value="tower.dayLengthMin || dayLenDraft"
+                    :min="dayLenMin"
+                    :max="dayLenMax"
+                    title="Minutes in a day — drag sideways to scrub, click to type"
+                    @input="setDayLength"
+                  />
+                  <span class="tw-daylen-unit">min</span>
+                </span>
+              </span>
             </span>
           </span>
         </span>
@@ -947,7 +1031,17 @@
           </span>
         </span>
 
-        <span class="ht-set-line ht-set-line-chat">
+        <!-- FT-1266: the talking group opens here — air above, no header.
+             AND THE WHISPER-MARKS ROW MOVES OUT OF THIS LINE into its own
+             `.ht-set-line-whisper` below. The two settings shared one line
+             because `.ht-set-line` was the flex WRAP UNIT (FT-1099) and this
+             tab's last three rows were short enough to pair; under the grid
+             every `.ht-set-line` dissolves (`display: contents`) and the wrap
+             unit is the grid row itself, so the shared element decided
+             nothing about layout any more — it only meant the group's air
+             landed on both settings at once. Same rows, same order, same
+             handlers; one wrapper became two. -->
+        <span class="ht-set-line ht-set-line-chat ht-group-start">
           <!-- ── FT-1206: THE CHAT LEVEL — how much talking this town allows.
              Off / No whispers / Neighbors / Anyone (golem/chat's CHAT_LEVELS;
              neighbors are the two chairs beside yours, dead or alive). The
@@ -972,6 +1066,9 @@
               @input="pickChatLevel"
             />
           </span>
+        </span>
+
+        <span class="ht-set-line ht-set-line-whisper">
           <!-- FT-1206: THE WHISPER MARKS — the paper plane every browser sees
              when two players whisper (metadata only: seats, never content),
              and how long it rests by the recipient's coin. Off keeps the
@@ -993,31 +1090,38 @@
                 />
                 <span class="row-name" v-if="!iconsOnly">Whisper marks</span>
               </span>
-              <OptionSelect
-                name="whisper-marks"
-                aria-label="Whisper marks"
-                hoist
-                :options="whisperMarkModeOptions"
-                :value="tower.whisperMarkSec ? 'on' : 'off'"
-                @input="setWhisperMarkMode"
-              />
-            </span>
-            <!-- the seconds themselves — dimmed while Off, and scrubbing is
-               itself the "on" gesture, exactly as the Day timer's minutes. -->
-            <span
-              class="tw-daylen"
-              :class="{ idle: !tower.whisperMarkSec }"
-              title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
-            >
-              <NumberScrub
-                class="tw-daylen-scrub"
-                :value="tower.whisperMarkSec || whisperSecDraft"
-                :min="whisperSecMin"
-                :max="whisperSecMax"
-                title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
-                @input="setWhisperMarkSec"
-              />
-              <span class="tw-daylen-unit">sec</span>
+              <!-- FT-1266: the control track's one item — the Day timer row's
+                   own wrapper, for the same reason and with the same effect.
+                   FT-1210 asked these two rows to share an anatomy; they now
+                   share it down to which grid cell each piece lands in. -->
+              <span class="ht-set-ctl">
+                <OptionSelect
+                  name="whisper-marks"
+                  aria-label="Whisper marks"
+                  hoist
+                  :options="whisperMarkModeOptions"
+                  :value="tower.whisperMarkSec ? 'on' : 'off'"
+                  @input="setWhisperMarkMode"
+                />
+                <!-- the seconds themselves — dimmed while Off, and scrubbing
+                   is itself the "on" gesture, exactly as the Day timer's
+                   minutes. -->
+                <span
+                  class="tw-daylen"
+                  :class="{ idle: !tower.whisperMarkSec }"
+                  title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
+                >
+                  <NumberScrub
+                    class="tw-daylen-scrub"
+                    :value="tower.whisperMarkSec || whisperSecDraft"
+                    :min="whisperSecMin"
+                    :max="whisperSecMax"
+                    title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
+                    @input="setWhisperMarkSec"
+                  />
+                  <span class="tw-daylen-unit">sec</span>
+                </span>
+              </span>
             </span>
           </span>
         </span>
@@ -1705,6 +1809,9 @@ export default {
     // the tab switch that mounts the rows at all), and once the display
     // fonts land (same reason alignTabs waits for them: the rows' names are
     // type, and a fallback-font transient must not latch the answer).
+    // FT-1266: the same three triggers now answer for BOTH settings tabs —
+    // one hook, two boxes (measurePrefsOverflow), because exactly one of them
+    // is ever mounted and the things that change either height are the same.
     window.addEventListener("resize", this.measurePrefsOverflow);
     this.$nextTick(this.measurePrefsOverflow);
     if (document.fonts && document.fonts.ready) {
@@ -1793,6 +1900,9 @@ export default {
       // FT-1209: the strip's measured right inset — how far the tabs come in
       // off the strip's right edge so the last one stands over the gear
       // (alignTabs writes it; 0 until something is measured).
+      // FT-1266: NOTHING READS IT. The strip centres on the panel's axis now
+      // and the template's binding came off — see alignTabs' own note for why
+      // the measurement is kept rather than removed.
       tabInset: 0,
       // FT-1168: this browser's own settings, snapshotted — a plain module
       // object is not reactive; readPrefs refreshes it on PREFS_EVENT, the
@@ -1840,6 +1950,13 @@ export default {
       // (measurePrefsOverflow); drives the `scrolls` well, the same contract
       // NightSheet's rowsOverflow and RoleTray's overflowing keep.
       prefsOverflow: false,
+      // FT-1266: the same question for the GAME settings tab, which was never
+      // wired to the FT-1231 ladder and has been overrunning the disc's band
+      // by a measured 28.1px at the pinched discs (see the tab's own template
+      // note). One flag per tab rather than one shared flag: the two boxes are
+      // different heights and only one is ever mounted, so a shared flag would
+      // be a value that means different things depending on which tab is up.
+      gameOverflow: false,
       // the picker's vault selection (officials read from the store)
       vaultPickedId: null,
       grimoireClosed,
@@ -1941,13 +2058,15 @@ export default {
     if (passEl && passEl.parentElement === document.body) passEl.remove();
     // FT-1209: the strip's alignment listener (bound in mounted)
     window.removeEventListener("resize", this.alignTabs);
-    // FT-1231: the Control tab's overflow listener (bound in mounted)
+    // FT-1231: the settings tabs' overflow listener (bound in mounted;
+    // FT-1266: it asks for both tabs now)
     window.removeEventListener("resize", this.measurePrefsOverflow);
   },
-  /** FT-1231: any re-render can change the Control tab's content height (a
+  /** FT-1231: any re-render can change a settings tab's content height (a
    *  toggle's row count never changes, but the tab mounts/unmounts and the
    *  disc gate flips the box it lives in) — re-ask after the DOM settles.
-   *  Guarded write in measurePrefsOverflow, so this cannot loop. */
+   *  Guarded write in measurePrefsOverflow, so this cannot loop.
+   *  FT-1266: "a settings tab" is now either of the two. */
   updated() {
     this.measurePrefsOverflow();
   },
@@ -3118,7 +3237,23 @@ export default {
      *  THE TARGET IS CENTRE-OVER-CENTRE — the last tab's midpoint on the
      *  gear's, not edge-on-edge: the tab is several times the gear's width,
      *  and an edge-aligned leaf reads as standing NEXT TO the gear's spot
-     *  rather than over it. */
+     *  rather than over it.
+     *
+     *  ── FT-1266: STOOD DOWN. NOTHING READS `tabInset` ANY MORE. ──────────
+     *  The gear this aligns to left the build face at FT-1213 (it renders on
+     *  re-entry only, where the strip does not render at all), so the `!cog`
+     *  guard below has bailed on every call since — `tabInset` has been a
+     *  measured 0 at every layout, and the strip was simply parked at its own
+     *  right edge by `justify-content: flex-end`, off the disc's axis. The
+     *  strip centres on the panel's axis now (see the template's own FT-1266
+     *  note and the `.ht-tabs` rule), which needs no measurement at all.
+     *
+     *  KEPT, NOT DELETED, and still wired to its resize/rename/fonts
+     *  triggers: this is the only code in the fork that knows how to stand a
+     *  tab strip over a head ornament, and the head has grown ornaments twice
+     *  (FT-1225's copy-link plate, FT-1262's key). It writes `tabInset` into
+     *  data as before; the template no longer binds it, so the write is inert
+     *  until something asks for it again. */
     alignTabs() {
       const strip = this.$refs.tabs;
       const cog = this.$refs.cog;
@@ -3162,16 +3297,27 @@ export default {
      * `scrolls` can only ever land there.
      */
     measurePrefsOverflow() {
-      const el = this.$refs.prefsRows;
-      if (!el) {
-        if (this.prefsOverflow) this.prefsOverflow = false;
-        return;
-      }
+      this.prefsOverflow = this.measureTabOverflow(this.$refs.prefsRows);
+      // FT-1266: …and the Game settings tab, on the same trigger. One hook
+      // asking both boxes rather than a second listener set: exactly one of
+      // the two is ever mounted, the absent one answers false, and the
+      // triggers that can change either height (resize, the disc gate
+      // flipping, the tab switch, the fonts landing) are the same triggers.
+      this.gameOverflow = this.measureTabOverflow(this.$refs.gameRows);
+    },
+    /**
+     * FT-1266: the measurement itself, lifted out of measurePrefsOverflow
+     * unchanged so both setup tabs can ask it. The write stays guarded — a
+     * reactive setter handed the value it already holds notifies nothing, so
+     * the updated() hook that calls this still cannot loop.
+     */
+    measureTabOverflow(el) {
+      if (!el) return false;
       const had = el.classList.contains("scrolls");
       if (had) el.classList.remove("scrolls");
       const over = el.scrollHeight > el.clientHeight + 1;
       if (had) el.classList.add("scrolls");
-      if (over !== this.prefsOverflow) this.prefsOverflow = over;
+      return over;
     },
     startRename() {
       if (!this.ownedKey) return;
@@ -3586,7 +3732,36 @@ export default {
     // gear — the strip keeps its full width (the rule runs the whole row and
     // on under the gear's own x), and the measured `tabInset` padding (see
     // alignTabs) is what parks the last leaf directly above the gear.
-    justify-content: flex-end;
+    //
+    // ── FT-1266 (user): "those tabs aren't centered in the disc — can we
+    // center them?" `flex-end` -> `center`, and that is the whole fix.
+    //
+    // THE STRIP'S BOX IS ALREADY ON THE AXIS. Its bleed is symmetric at every
+    // face (the `width: calc(100% + 44px)` / `margin: 0 -22px` pair here, the
+    // two sheets' own 28px/24px restatements below, and the disc's plain
+    // `width: 100%`), so the box centre lands exactly on `.host-tools`'s own
+    // box centre — the same point FT-1098's three-column h3 pins the town's
+    // NAME to. Measured at HEAD, `strip centre` against `panel axis`: 951/951
+    // at 1920x1080, 711/711 at 1440x900, 631/631 at 1280x960, 640/640 at the
+    // rectangle, 195/195 and 660.8/660.8 at the two sheets — 0.0px apart on
+    // all six. Centring the CLUSTER inside that box therefore puts the leaves
+    // on the disc's axis without measuring anything, and it is the same axis
+    // the name is measured against rather than a second one that could drift.
+    //
+    // WHAT IT REPLACES (rig: claude_temp_test/2026-08-27-ft1266-shots.mjs) —
+    // the cluster's centre against the panel's axis, before and after:
+    //
+    //                     before    after
+    //   1920x1080          +15.3      0.0
+    //   1440x900           -23.4      0.0
+    //   1280x960           -10.5      0.0
+    //   rect 1280x800       +7.3      0.0
+    //   phone 390x844      +80.3      0.0
+    //   phone 844x390      +27.6      0.0
+    //
+    // The strip's own painted rule (the 2px bottom edge) is untouched — it
+    // still runs the full width of the box, as it has since FT-1175.
+    justify-content: center;
     gap: 4px;
     // FT-1209: BELOW THE DISC the strip takes the panel's own side padding
     // too (the 25px flanks) — three word-bearing leaves are wider than the
@@ -4687,7 +4862,18 @@ export default {
   // vocabulary (NightSheet `.ns-rows.scrolls`, FT-1229). The class lands
   // only when the rows genuinely overflow (measurePrefsOverflow) — a tab
   // that fits keeps the panel's own flat ground.
-  .ht-prefs {
+  // FT-1266 (user): "do the same clean up we did to the control settings to
+  // the game settings, they are ragged." SO THE BLOCK BELOW NAMES BOTH TABS.
+  // Everything FT-1264 wrote here is a statement about a settings TAB, not
+  // about the Control tab in particular — one label track, one control track,
+  // rows that dissolve into them, a control that sizes to its own content and
+  // ellipsizes rather than sliding under the drip's lane — so the Game
+  // settings tab opts in by carrying `ht-game` instead of restating any of
+  // it. What differs between the two tabs is written under `.ht-game` after
+  // this block (the compound rows' inner flex row, and the group air landing
+  // on that wrapper rather than reaching the select inside it).
+  .ht-prefs,
+  .ht-game {
     // ── FT-1264: THE TAB IS A GRID — the ragged labels' actual fix ────────
     // The flex rows clustered each select against its own label, so nine
     // rows put nine controls at nine x positions (user: "Control settings
@@ -4784,6 +4970,75 @@ export default {
         inset 0 9px 10px -7px rgba(0, 0, 0, 0.9),
         inset 0 -9px 10px -7px rgba(0, 0, 0, 0.9),
         inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  // ── FT-1266: WHAT THE GAME SETTINGS TAB ADDS TO THE SHARED GRID ─────────
+  //
+  // THE THREE COMPOUND ROWS ARE THE WHOLE PROBLEM, and they are why simply
+  // handing this tab FT-1264's rule would have moved the raggedness rather
+  // than removed it. A simple row is label + select, which the shared rule
+  // places in two cells and is done. Three rows here are not:
+  //
+  //   Night checklist   label + TWO selects (visibility, enforcement)
+  //   Day timer         label + select + minutes scrub + the word "min"
+  //   Whisper marks     label + select + seconds scrub + the word "sec"
+  //
+  // THE ANSWER IS ONE ITEM PER TRACK, ALWAYS: whatever a row's control side
+  // is made of, it enters the grid as a SINGLE box, and that box is an inner
+  // flex row starting on the common control x. So the compound rows' first
+  // control shares an edge with every simple row's select, and the pieces
+  // after it read left to right as the sentence they always were, sized to
+  // themselves. `.ht-set-ctl` is that box in this file (template: the Day
+  // timer and Whisper marks rows); `.nm-controls` already was one inside
+  // NightModeRow, which is why that row needs no wrapper — only the
+  // placement, written in that component (a parent's scoped styles reach a
+  // child's ROOT and nothing below it).
+  //
+  // The alternative considered and rejected: `display: contents` all the way
+  // down, letting the scrub become its own grid item. It auto-flows into the
+  // NEXT row's label track — a scrub sitting where "Call back"'s mark
+  // belongs. Two things wanting one cell is exactly what a wrapper is for.
+  .ht-game {
+    // the rows dissolve one level DEEPER than the Control tab's do: a
+    // compound row wears `.ht-set-pair` (the FT-1055 sentence wrapper, which
+    // also carries the row's title) between the line and its lead, and both
+    // have to generate no box for the label and the control box to be the
+    // grid's own items. The title still answers on hover — `display: contents`
+    // removes the BOX, not the element, and a tooltip resolves up the DOM.
+    > .ht-set-line > .ht-set-pair,
+    > .ht-set-line > .ht-set-pair > .tw-lead {
+      display: contents;
+    }
+    // …and NightModeRow's root, the one child-component element a parent's
+    // scoped style can address at all. Its own block takes it from here.
+    > .ht-set-line > .night-mode {
+      display: contents;
+    }
+    // THE CONTROL TRACK'S ONE ITEM (see the block comment above).
+    // `justify-self: start` refuses the track's stretch exactly as the shared
+    // rule does for a lone select, so a compound row is as wide as its own
+    // three pieces and no wider.
+    .ht-set-ctl {
+      grid-column: 2;
+      justify-self: start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    // THE GROUP AIR LANDS ON THE WRAPPER, NOT THE SELECT INSIDE IT. The
+    // shared rule above reaches `.ht-group-start .gsel`, which on a compound
+    // row is the select nested inside `.ht-set-ctl` — pushing it 7px below
+    // its own scrub and shearing the sentence in half. The wrapper takes the
+    // margin as one object instead. (No compound row is a group's first row
+    // today; this is the rule holding for the day one is.)
+    .ht-group-start .ht-set-ctl {
+      margin-top: 7px;
+    }
+    .ht-group-start .ht-set-ctl > .gsel {
+      margin-top: 0;
     }
   }
 
@@ -5429,6 +5684,76 @@ export default {
           .ht-group-start .gsel,
           .ht-group-start .ht-menu-sum {
             margin-top: 0;
+          }
+        }
+      }
+
+      // ── FT-1266: THE GAME SETTINGS TAB FITS THE BAND THE SAME WAY ───────
+      //
+      // IT NEVER DID. FT-1231 built the shock-absorber for the Control tab
+      // alone, and this tab — seven rows, three of them compound — has been
+      // running straight past the band's bottom into the Start button at
+      // every pinched disc. Measured at HEAD, the tab's own bottom against
+      // the band's (rig: claude_temp_test/2026-08-27-ft1266-band.mjs;
+      // positive = overrun):
+      //
+      //                     band   tab wants   overrun
+      //   1920x1080        364.1       287.0     -35.1   fits
+      //   1000x900         300.9       260.0      -2.9   fits
+      //   1280x960         319.3       287.0      +9.7   OVERRUNS
+      //   1440x900         300.9       287.0     +28.1   OVERRUNS
+      //   1600x900         300.9       287.0     +28.1   OVERRUNS
+      //   1642x780         300.9       287.0     +28.1   OVERRUNS
+      //
+      // So this is the FT-1231 contract restated for the second tab, not a
+      // new mechanism: the band's "nothing shrinks except the tray" rule is
+      // overridden on this ONE row (there is no tray on either settings
+      // tab), the box becomes its own scroller under the fork's drip bar,
+      // and the sunken well lands only when the rows genuinely overflow —
+      // measured in measureTabOverflow, class `scrolls`, exactly as the
+      // Control tab's is.
+      //
+      // NO TWO-COLUMN DRESS HERE, and that is the one place the two tabs
+      // deliberately differ. The Control tab's cells hold label + a switch,
+      // which halves cleanly; three of these seven rows hold a select AND a
+      // scrub AND a unit word, and a half-cell cannot carry that sentence —
+      // the same founding rule that already keeps the Control tab's two
+      // PICKER rows on full lines ("a select carrying words cannot live in a
+      // half-cell"). One column, and the well where one column does not fit.
+      > .row.ht-settings.ht-game {
+        flex-shrink: 1;
+        min-height: 0;
+        overflow-y: auto;
+        // a grid told to shrink must not SPREAD its rows over slack height
+        // (`normal` stretches auto rows); a settings list floats apart
+        // exactly when it has room to spare, the one state it should look
+        // calmest in — `.ht-prefs`'s own reasoning, same words.
+        align-content: start;
+
+        &.scrolls {
+          // the drip's 30px lane, and the well coming in off the rim — the
+          // Control tab's numbers, unchanged: same box, same corner, same
+          // ellipse (see that block for the derivation).
+          padding-right: 30px !important;
+          margin-left: 18px;
+          margin-right: 18px;
+          // the well is the narrowest dress this tab has: the margins and
+          // the lane take 66px, and a compound row's control side is a
+          // select plus a scrub plus a word. So the label track caps and the
+          // names take the 80% type, exactly as the Control tab's well does
+          // — what width is left goes to the controls.
+          grid-template-columns: fit-content(6.6em) minmax(0, 1fr);
+          column-gap: 10px;
+          .row-name {
+            font-size: 80%;
+            text-align: left;
+            line-height: 1.25;
+          }
+          ::v-deep .gsel .trigger {
+            font-size: 80%;
+          }
+          .tw-daylen-unit {
+            font-size: 70%;
           }
         }
       }

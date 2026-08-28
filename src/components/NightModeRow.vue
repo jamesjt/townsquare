@@ -217,6 +217,74 @@ export default {
     }
   }
 
+  // ── FT-1266: INSIDE THE GAME SETTINGS GRID, THIS ROW IS THE GRID'S ──────
+  //
+  // The tab became a two-track grid (HostTools' `.ht-prefs, .ht-game` block:
+  // one label track, one control track, so every control on the tab starts on
+  // a common x). This row has to land in those same two tracks or the tab is
+  // still ragged — a row that keeps its own space-between while six others
+  // share an edge is the raggedness, just wearing a component.
+  //
+  // WRITTEN HERE BECAUSE IT CANNOT BE WRITTEN THERE. A parent's scoped styles
+  // reach a child's ROOT element and nothing below it — the same fact this
+  // file already restates `.nm-row`, `.row-mark` and `.row-name` for. So
+  // HostTools dissolves `.night-mode` (the root, which does carry its scope
+  // id) and this block dissolves the row inside it and places the two halves:
+  // the label in track 1, and `.nm-controls` — already ONE box holding both
+  // selects — as the control track's single item, which is precisely the
+  // shape HostTools' own compound rows had to grow a wrapper to get.
+  //
+  // `.ht-game` is HostTools' own class on the tab's box; naming it here is
+  // narrower than a bare `.host-tools` gate, which would also catch the row
+  // on the re-entry face if that face ever stops being the settings tab.
+  // Outside the grid — and on the re-entry face today — nothing below
+  // matches and the flex row underneath is untouched.
+  .ht-game & {
+    .nm-row {
+      display: contents;
+    }
+    .label {
+      grid-column: 1;
+      justify-self: start;
+    }
+    .nm-controls {
+      grid-column: 2;
+      justify-self: start;
+      // …AND THE GROUP ANCHORS LEFT NOW. `justify-content: flex-end` (see
+      // the rule's own note below) was right while the row was a
+      // space-between flex line: the group was pinned to the row's RIGHT
+      // edge, so a wrapped second select shared an edge with the first by
+      // hugging that side. In the grid the group is pinned to the control
+      // track's LEFT edge — the common x every other control on the tab
+      // starts at — so a right-hugging wrap put the enforcement select's
+      // start somewhere no other control on the tab starts. Flush left it
+      // shares that edge with the select above it and with all six rows
+      // below. (Measured on the rectangle and in the disc's scroll well,
+      // the two dresses narrow enough to wrap this row: FT-959's own
+      // fallback, now landing on the tab's own column.)
+      justify-content: flex-start;
+    }
+    // the mode's one-line explanation is a SHELF under both tracks, the full
+    // width of the tab — it explains the row, it is not a third control. (It
+    // folds away entirely on the disc; see the face-disc gate above.)
+    .nm-hint {
+      grid-column: 1 / -1;
+    }
+  }
+
+  // …AND THE SCROLL WELL'S ONE TYPE SIZE REACHES IN HERE TOO. When the disc's
+  // band cannot hold the tab it becomes a scroller and every name on it drops
+  // to 80% (HostTools' `.ht-game.scrolls .row-name`) — every name except this
+  // one, because `.row-name` is restated inside this component at 90% and a
+  // parent's scoped rule cannot reach it. Left alone, the checklist's name
+  // painted a step larger than the six names under it, which reads as an
+  // error rather than as emphasis. The triggers already follow the well's
+  // size (that rule is written `::v-deep` over there and does cross in).
+  .ht-game.scrolls & .row-name {
+    font-size: 80%;
+    line-height: 1.25;
+  }
+
   // the build panel's own row shape, restated here — see the template note on
   // why the parent's `.row` rules cannot reach inside this component
   .nm-row {
