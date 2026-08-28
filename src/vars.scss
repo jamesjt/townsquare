@@ -4,3 +4,48 @@ $outsider: #46d5ff;
 $minion: #ff6900;
 $demon: #ce0100;
 $traveler: #cc04ff;
+
+// ── THE TEAM TOKENS WRITTEN SMALL (FT-1275) ────────────────────────────────
+//
+// The six above are the team colours as FT-1167 ruled them: raw, unwashed,
+// and measured on a 22px BOLD name — which is LARGE text by WCAG's definition
+// (>= 18.66px bold) and answers to 3:1. Below that rank the bar is 4.5:1, and
+// on every dark surface in this fork some of the raw tokens miss it. The
+// demon misses it worst: its token sits ~16 points of HSL lightness below
+// every other team's, which is why it has carried a hand-written lift on
+// three separate surfaces (NightSheet's checklist, the script cards, the
+// meter's chips) since long before anyone measured it.
+//
+// So the lift is ONE rule now instead of a copy per surface. A uniform HSL
+// lightness shift moves every hue by the same amount and therefore PRESERVES
+// the separation between them — which is the property that matters, since
+// telling a Minion from a Demon at a glance is the colour's whole job. That
+// is what makes it not the wash toward white FT-1167 rejected.
+//
+// THE AMOUNT BELONGS TO THE GROUND, NOT TO THE TEAM, so it is the argument.
+// Two ranks are already established in the fork and both are measured:
+//   14%  FT-1274's chronicle rows, on a dark plate — rgb(24, 19, 30)
+//   22%  the role / edition modals; and what the script meter's chips need on
+//        the script drawer's glass, whose ground reads ~rgb(33, 33, 40)
+//        because the chip's own plate is a white 8% wash (FT-1275)
+//
+// Usage — it writes the `&.team-*` rules for you, six of them:
+//
+//   .chip { @include team-ink(22%); }
+//
+$team-tokens: (
+  "townsfolk": $townsfolk,
+  "outsider": $outsider,
+  "minion": $minion,
+  "demon": $demon,
+  "traveler": $traveler,
+  "fabled": $fabled
+);
+
+@mixin team-ink($lift: 14%) {
+  @each $team, $color in $team-tokens {
+    &.team-#{$team} {
+      color: lighten($color, $lift);
+    }
+  }
+}

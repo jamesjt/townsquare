@@ -681,20 +681,39 @@ $team-colors: (
         height: 17px;
         object-fit: contain;
       }
-      // the PROPER team colors (user call on the blue); demon's dark red
-      // alone gets a small lift for dark-ground legibility
-      &.team-townsfolk {
-        color: #1f65ff;
-      }
-      &.team-outsider {
-        color: #46d5ff;
-      }
-      &.team-minion {
-        color: #ff6900;
-      }
-      &.team-demon {
-        color: lighten(#ce0100, 14%);
-      }
+      // The PROPER team colors (user call on the blue) — but written at 14px
+      // bold, which is SMALL text by WCAG (large is >= 24px, or >= 18.66px
+      // bold), so the bar here is 4.5:1 rather than the 3:1 FT-1167 measured
+      // its raw-token ruling against.
+      //
+      // FT-1275: MEASURED AGAINST THE PIXELS ACTUALLY BEHIND THE DIGITS —
+      // which are not the drawer's glass but this chip's own plate, a white
+      // 8% wash over it, reading ~rgb(33, 33, 40). Two of the four failed:
+      //
+      //             raw     +14%    +22%
+      //   townsfolk  3.32 x   5.60    7.58
+      //   outsider   9.31    11.26   12.69
+      //   minion     5.55     7.26    8.62
+      //   demon      2.82 x   4.19 x  4.71
+      //
+      // What shipped was the raw token for three of them and +14% for the
+      // demon, so the row that was actually on screen read 3.32 / 9.31 /
+      // 5.55 / 4.19 — two of the four under the bar.
+      //
+      // The demon is the one that decides the amount: 14% — FT-1274's rank,
+      // measured on a DARKER plate — leaves it at 4.19, still under. 22% is
+      // the fork's other established lift (the role and edition modals wear
+      // it) and clears all four here. The lift is uniform, so the hues stay
+      // the same distance apart; see vars.scss, which now owns this rule
+      // instead of each surface keeping a copy of it.
+      @include team-ink(22%);
+      // Stood down rather than deleted (house rule) — the four literals the
+      // mixin above supersedes. The demon's own +14% has been hand-written
+      // here since before the meter had a measurement.
+      // &.team-townsfolk { color: #1f65ff; }
+      // &.team-outsider  { color: #46d5ff; }
+      // &.team-minion    { color: #ff6900; }
+      // &.team-demon     { color: lighten(#ce0100, 14%); }
     }
     .verdict {
       margin-left: 8px;
