@@ -62,7 +62,23 @@
   <div class="nc" :class="{ pinned, face, told: face && answer.length > 0 }">
     <!-- ── THE FACE FORM (FT-1107) ─────────────────────────────────────── -->
     <template v-if="face">
-      <span class="nf-role">{{ action.role.name }}</span>
+      <!-- FT-1272 (user): THE HEADER LEADS WITH THE CHARACTER, then names it
+           in the character's OWN TEAM COLOUR.
+             · the icon, because a player who has been handed a character they
+               have never played reads the picture faster than the word, and
+               the ring below is already all pictures — the header was the one
+               place on this face that was text alone.
+             · the team, because "am I good or evil" is the second thing after
+               "who am I", and the face had been saying it in the same gold
+               every other line wears. See `.nf-role`'s note below for why the
+               colour is the raw token rather than a wash. -->
+      <span class="nf-role" :class="'team-' + teamOf">
+        <span
+          class="nf-role-icon"
+          :style="{ backgroundImage: `url(${iconUrl})` }"
+        ></span>
+        {{ action.role.name }}
+      </span>
       <span class="nf-line">{{ action.line }}</span>
       <!-- WHAT TO DO, in the imperative, naming the clock: the player has to
            learn once that the ring is the control. It counts DOWN as they
@@ -184,6 +200,19 @@
 import { mapState } from "vuex";
 import SeatPicker from "./SeatPicker";
 import moonFull from "../assets/moon-full.png";
+import { roleIconUrl } from "../golem/roleIcon";
+
+/** FT-1272: the teams this face has a colour for (see `.nf-role`'s SCSS map —
+ *  the two must stay in step, and they are both built off vars.scss's tokens).
+ *  Anything else floors to townsfolk rather than rendering an unstyled name. */
+const TEAMS = [
+  "townsfolk",
+  "outsider",
+  "minion",
+  "demon",
+  "traveler",
+  "fabled",
+];
 
 export default {
   name: "NightCall",
@@ -231,6 +260,19 @@ export default {
     moonFull() {
       return moonFull;
     },
+    /** FT-1272: the header's icon — golem/roleIcon owns the three-source
+     *  lookup (forged artwork, the shipped PNG, a borrowed one). */
+    iconUrl() {
+      return roleIconUrl(this.action.role, this.$store.getters.rolesJSONbyId);
+    },
+    /** FT-1272: the character's team, floored to one this face has a colour
+     *  for. A traveller or a fabled reaching this ask keeps its own token
+     *  (both are in the map below); anything else reads as townsfolk rather
+     *  than as an unstyled name. */
+    teamOf() {
+      const t = (this.action.role && this.action.role.team) || "";
+      return TEAMS.includes(t) ? t : "townsfolk";
+    },
     /** The free box shows the local draft while typing, the host's echo
      *  otherwise. */
     freeTextValue() {
@@ -275,10 +317,16 @@ export default {
       // sentence that said it too came out.
       // FT-1272 (user): "select" rather than "tap" — the app is played on
       // a mouse as often as a finger, and select names the act either way.
+      // FT-1272 (user, second pass): and the thing you select is a COG. That
+      // is the user's word for a player's own piece on the ring, so it is the
+      // word the ask uses. The COINS this file still names in its comments are
+      // the same objects seen from the art's side; the instruction is the one
+      // place a player has to recognise what is being pointed at, so it takes
+      // the vocabulary they speak.
       if (!left) {
         return this.action.slots > 1
-          ? "Select a coin to change one."
-          : "Select another coin to change it.";
+          ? "Select a cog to change one."
+          : "Select another cog to change it.";
       }
       if (!this.chosenNames.length) {
         return this.action.slots > 1
@@ -375,7 +423,38 @@ export default {
 // blue this fork has and it is already on this very panel (TownInfo's
 // townsfolk count and glyph wear it), so the chips take it rather than
 // inventing a second one.
+//
+// FT-1272: ...and the same palette now dresses the header's NAME by team. The
+// map is built FROM those variables rather than restating their hexes — this
+// file is the third to want a team map (RoleHoverCard and the workbench each
+// hold their own, both with the values typed out by hand), and a copy that
+// reads the tokens cannot drift from them.
 @import "../vars.scss";
+
+$team-colors: (
+  "townsfolk": $townsfolk,
+  "outsider": $outsider,
+  "minion": $minion,
+  "demon": $demon,
+  "traveler": $traveler,
+  "fabled": $fabled,
+);
+
+// ── FT-1272: THE FACE'S PURPLE ───────────────────────────────────────────
+//
+// #a78fcd is the fork's PICK INK — the colour that already means "this is the
+// one you are choosing" wherever a choice is being made on the square: the
+// night-pick overlay on a cog (Player.vue's `.night-pick`, which is the very
+// control this face's instruction is telling the player to use), the seat
+// ring's focused edge (SeatRing's `--fd-edge-color`), and a whisper's picked
+// seat (SeatWhisper). It is not a new value and it is not the plum control
+// edge — the plum dresses SURFACES (a dropdown's rim, a well), and this is
+// INK on a dial.
+//
+// It is one colour for both the instruction and the chosen-name chips on
+// purpose: those two lines are the two halves of one sentence — what to do,
+// and what has been done — and the face reads as one voice when they match.
+$face-pick: #a78fcd;
 
 // FT-1101: the FT-1005 nights-view furniture (.nd-row + the .nd-tonight
 // overrides), moved here WHOLE with the markup it dresses. Scoped styles do
@@ -542,11 +621,70 @@ export default {
   line-height: 1.25;
 }
 
+// ── FT-1272: THE HEADER WEARS THE CHARACTER, AND ITS TEAM ────────────────
+//
+// It was #f0dcae — the parchment gold every other line on this face carries —
+// so the one element that could have told a player which side they are on was
+// saying nothing the neighbouring lines were not already saying.
+//
+// THE TREATMENT IS FT-1167'S, NOT A NEW ONE. That card had the same argument
+// and settled it with measurements: the RAW team token as ink, and a dark halo
+// under it doing the legibility work, rather than `mix(white, $color, 32%)` —
+// because a wash pulls six hues a third of the way toward each other and
+// telling a Minion from a Demon at a glance is the entire point of the colour.
+// Measured against this face's effective ground (the halo's black, since the
+// face disc's own tint is zero and the hand-painted dial varies underneath):
+//
+//   fabled     #ffe91f   16.35:1
+//   outsider   #46d5ff   12.22:1
+//   minion     #ff6900    7.27:1
+//   traveler   #cc04ff    4.86:1
+//   townsfolk  #1f65ff    4.36:1
+//   demon      #ce0100    3.63:1   ← the floor
+//
+// AND THE SIZE MOVED WITH IT, for the same reason FT-1167 went 17 -> 19px on
+// its own compact card. WCAG's 3:1 bar is for LARGE text, which starts at
+// 18.66px bold; at 118% of this face's ambient type the name landed just
+// under, which would have put the demon's #ce0100 against the 4.5:1 bar it
+// does not clear. 132% carries it over the line on the disc, and the name was
+// already the header — being a little louder costs the composition nothing.
+//
+// The halo is BLACK rather than each team's own colour: the answer chips below
+// use a coloured halo to say "bright" (see `.nf-told`), and the header is not
+// competing with them — it is being read.
 .nf-role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   font-family: PiratesBay, sans-serif;
   letter-spacing: 1px;
-  font-size: 118%;
+  font-size: 132%;
   color: #f0dcae;
+
+  @each $team, $color in $team-colors {
+    &.team-#{$team} {
+      color: $color;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.95),
+        0 0 6px rgba(0, 0, 0, 0.85);
+    }
+  }
+}
+
+// sized to the NAME'S OWN LINE (1em of the header's type, not a fixed pixel
+// count) so the two stay proportioned when the disc scales the face's ambient
+// size — the same reason nothing else in this block is in px.
+.nf-role-icon {
+  flex: 0 0 auto;
+  width: 1.5em;
+  height: 1.5em;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  // the art is painted on parchment and goes soft over a dark dial; the same
+  // drop shadow the header's own type wears holds its edge
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
 }
 
 // tight on purpose — see `askLine`'s note on the hub's vertical budget
@@ -557,11 +695,28 @@ export default {
   line-height: 1.2;
 }
 
-// the gold seam again — the ONE line on the face that is an instruction and
-// not a statement, in the same gold the night's own live row wears
+// THE INSTRUCTION LINE — the ONE line on the face that is an imperative and
+// not a statement.
+//
+// IT WAS THE GOLD SEAM (#e2be62, the colour the night's own live row wears in
+// the band form). FT-1272 (user) moves it to the pick ink, and the reason is
+// that gold on this face had stopped meaning anything in particular: the role
+// name was gold, the chips were gold before FT-1113, the seam is gold, the
+// dial's own numerals are gold. Purple is the colour a player is already being
+// asked to LOOK FOR — the cog they are about to select lights in exactly this
+// hue — so the sentence telling them to select one now matches the thing it
+// is pointing at.
+//
+// Measured on the halo's black ground (11.78:1 for the old gold, and 82% of
+// the face's ambient type is ordinary-size text answering to 4.5:1):
+//
+//   #a78fcd   7.45:1   ← comfortably over, dimmer than the gold but not close
+//
+// It stays BOLD while there is picking left to do; `.told` below stands it
+// down to normal weight once the answer has landed, unchanged.
 .nf-ask {
   font-size: 82%;
-  color: #e2be62;
+  color: $face-pick;
   font-weight: bold;
 }
 
@@ -607,21 +762,36 @@ export default {
 // gold thing between two loud ones was the one row on the face with no colour
 // of its own.
 //
-// THE BLUE IS `$townsfolk` (#1f65ff, src/vars.scss) — the fork's only blue,
+// THE BLUE WAS `$townsfolk` (#1f65ff, src/vars.scss) — the fork's only blue,
 // and one already on this panel: TownInfo's own townsfolk count and glyph
-// wear it, four lines under where these chips now stand. Not a new value.
+// wear it, four lines under where these chips now stand.
 //
-// The NAME stays white rather than taking the blue as ink. #1f65ff is a
-// saturated mid-blue, and a seat's name at 78% type is the one thing on this
-// row that has to be read rather than recognised; the ring and the wash carry
-// the colour, the way `.button.townsfolk` (App.vue) has always put white type
-// on this same blue.
+// ── FT-1272 (user): AND THE BLUE HAD TO GO, FOR A REASON FT-1113 COULD ──
+//    NOT HAVE SEEN COMING.
+//
+// $townsfolk is a TEAM colour, and as of this same pass the header directly
+// above these chips is painted in the character's own team colour. A townsfolk
+// blue on the chips under a blue name would have read as "these seats are
+// townsfolk" — which is the one thing a night pick must never say. It is the
+// exact leak the seat pickers were scrubbed of in FT-1150: a control that
+// composes what somebody is TOLD may not render what anybody IS.
+//
+// So the chips take the pick ink instead. That also restores the pairing
+// FT-1113 knowingly spent: the cog lights purple when it is picked (Player's
+// `.night-pick`), and now the chip naming that cog is the same colour — chip
+// and lit cog read as one act again, and this time without a team's hue
+// anywhere near a seat.
+//
+// The NAME stays white rather than taking the purple as ink, unchanged from
+// FT-1113's reasoning: a seat's name at 78% type is the one thing on this row
+// that has to be READ rather than recognised, so the ring and the wash carry
+// the colour and the letters stay at full contrast.
 .nf-chip {
   font-size: 78%;
   padding: 0 7px;
   border-radius: 9px;
-  background: rgba($townsfolk, 0.32);
-  border: 1px solid rgba($townsfolk, 0.9);
+  background: rgba($face-pick, 0.28);
+  border: 1px solid rgba($face-pick, 0.95);
   color: #fff;
 }
 

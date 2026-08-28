@@ -177,7 +177,33 @@
                button honestly reads as a tick — same column, same meaning.
                (Per FT-1107's user call the RECORD still reaches the seat's
                own player when a row is committed in that mode — the tick is
-               about who is being ASKED, not about hiding their own log.) -->
+               about who is being ASKED, not about hiding their own log.)
+
+               ── FT-1272 (user): AND IT WILL NOT SEND AN EMPTY ANSWER. ──
+
+               A press used to deliver whatever was composed, including
+               nothing — and "nothing" reaches the player's own night surface
+               as a row with no answer on it at all, which reads to them as
+               the storyteller having answered and said nothing. The button is
+               disabled while an owed answer is missing; `sendDisabled` states
+               the predicate and `sendHint` says out loud what is missing, so
+               a greyed control never leaves the storyteller guessing.
+
+               ROWS THAT ARE TOLD NOTHING BACK ARE UNAFFECTED — the Monk, the
+               Poisoner, the Butler, the Imp have no answer control, so there
+               is nothing to be empty and they tick exactly as before.
+
+               One consequence, stated rather than discovered: with the
+               checklist set to REQUIRED (NightModeRow), End night was already
+               gated on every row being ticked, so it is now transitively
+               gated on every row being answered. That is the setting doing
+               what it says. In warn/off it stays a warning.
+
+               ── AND A SENT ROW STAYS SENT (FT-1272 item 6) ──
+
+               The button itself is never disabled on a done row: it is the
+               REOPEN, and it is the only way back into a locked row's
+               controls. See `isLocked`. -->
           <button
             type="button"
             class="ns-send"
@@ -186,6 +212,7 @@
               dirty: isDirty(row),
               tickonly: !isSendMode,
             }"
+            :disabled="sendDisabled(row)"
             :title="sendHint(row)"
             @click="sendRow(row)"
           >
@@ -289,12 +316,31 @@
                    provenance lesson — a gold-seamed slot arrived from the
                    player's own hand (FT-1005's mark), a plain one is the
                    storyteller's entry. No new chrome; the seam was already
-                   the mark. -->
+                   the mark.
+
+                   ── FT-1272 (user): "Selects:" WAS WRONG, AND WRONG BY ──
+                       READING THE WRONG FACT.
+
+                   A Librarian selects nothing. A Washerwoman selects nothing.
+                   An Investigator selects nothing. The STORYTELLER decides
+                   which two players to point at and which character to name;
+                   the player sits there with their eyes shut. FT-1229 split
+                   the grammar on whether the row HAS seat slots, and the
+                   checklist draws a slot for every pointing whoever makes it,
+                   so every first-night info role was labelled as if the
+                   player had chosen its targets.
+
+                   The label now asks the ROLE what kind of act its seats are
+                   — golem/nightInfo's `seatPickOwner`, off the `by` each
+                   PLAYER field has always carried — and never the role's
+                   name. See `seatsAreStorytellers` for the verb's own
+                   reasoning ("Points at:" over "Shows:"). -->
               <span
                 v-if="splitLabels(row)"
                 class="ns-label ns-label-selects"
+                :class="{ 'by-storyteller': seatsAreStorytellers(row) }"
                 :title="selectsHint(row)"
-                >Selects:</span
+                >{{ seatVerb(row) }}</span
               >
               <span v-else-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
 
@@ -348,6 +394,7 @@
                 :picked-seat="viewFor(row).targets[slot - 1]"
                 :show-role="false"
                 :icon-for="p => roleIconUrl(p.role)"
+                :disabled="isLocked(row)"
                 :title="targetHint(row, slot)"
                 @pick="seat => setTarget(row, slot - 1, seat)"
               />
@@ -379,7 +426,34 @@
                      exactly one value is ever written — the one that was
                      chosen. Reusing the panel's own OptionSelect rather than
                      rolling a third control, so this row also inherits the
-                     plum the settings dropdowns just took. -->
+                     plum the settings dropdowns just took.
+
+                     ── FT-1272, THE QUESTION THAT LIVES RIGHT HERE ──
+
+                     Asked (user): should this dropdown be disabled for the
+                     storyteller when night actions are set to EVERYONE — the
+                     players are answering for themselves, so why is the
+                     storyteller still filling it in?
+
+                     ANSWERED: NO, AND ON PURPOSE. The storyteller stays able
+                     to fill or correct any row. A player may not answer, may
+                     be absent, may misclick, may hand their phone to someone
+                     — and the storyteller is the authority on what was
+                     actually told at the table, which is the thing this row
+                     records. Taking the control away would leave the one
+                     person who KNOWS the answer unable to enter it.
+
+                     The player's own arrival is already visible without
+                     disabling anything: a slot they filled themselves wears
+                     the gold seam (FT-1005, `.from-player`), so the
+                     storyteller can see at a glance which half of the row
+                     came from the table and which is their own hand. That is
+                     the honest signal — a disabled control would have said
+                     "this is not yours", which is false.
+
+                     (The SENT-row lock below is a different rule and not an
+                     exception to this one: it is about an answer already
+                     delivered, not about whose answer it is.) -->
                 <OptionSelect
                   v-if="kindOf(field) === 'boolean'"
                   :key="'f' + fi"
@@ -390,6 +464,7 @@
                   aria-label="What you told them"
                   :options="pingOptions"
                   :value="pingValue(row)"
+                  :disabled="isLocked(row)"
                   :title="pingHint(row)"
                   @input="v => setPing(row, v)"
                 />
@@ -402,6 +477,7 @@
                   :value="numberValue(row, field)"
                   :min="field.min"
                   :max="field.max"
+                  :disabled="isLocked(row)"
                   :title="numberHint(field)"
                   @input="n => setNumber(row, n)"
                 />
@@ -414,6 +490,7 @@
                   :picked-id="viewFor(row).told.characterId"
                   :picked-name="viewFor(row).told.characterName"
                   :icon-for="roleIconUrl"
+                  :disabled="isLocked(row)"
                   title="What you showed them — a character"
                   @pick="c => setCharacter(row, c.id, c.name)"
                 />
@@ -468,6 +545,7 @@
                   class="ns-free"
                   placeholder="What you told them"
                   spellcheck="false"
+                  :disabled="isLocked(row)"
                   :value="viewFor(row).told.text"
                   @input="setNote(row, $event.target.value)"
                 />
@@ -539,10 +617,12 @@
                 :class="{
                   on: lieOn(row),
                   byhand: viewFor(row).lieBy === 'storyteller',
+                  locked: isLocked(row),
                 }"
-                tabindex="0"
+                :tabindex="isLocked(row) ? -1 : 0"
                 role="checkbox"
                 :aria-checked="String(lieOn(row))"
+                :aria-disabled="String(isLocked(row))"
                 :title="lieHint(row)"
                 @click="toggleLie(row)"
                 @keyup.enter="toggleLie(row)"
@@ -706,7 +786,17 @@
            — a dashed, quiet control that cannot be mistaken for a chip.
            With nothing staged the whole strip dims to a whisper (see
            `.ns-staged.empty`): the storyteller who wants it finds it; the
-           one who doesn't is not shouted at by an empty control. -->
+           one who doesn't is not shouted at by an empty control.
+
+           FT-1272 (user asked whether revives are handled): THEY ARE, and
+           have been since FT-1229 — staging a DEAD seat stages a revive, the
+           direction is stamped at stage time, and the chip wears the sage
+           heartbeat instead of the skull. What was missing was any way to
+           KNOW that without trying it: the strip's label said "Deaths", so
+           the entire revive half lived in a tooltip nobody hovers. The label
+           names both now, which is also what makes the EMPTY state teach —
+           an empty strip reading "Deaths & revives" beside a "+ Add" is the
+           instruction, and needed no second sentence to carry it. -->
       <div
         class="ns-staged"
         :class="{ empty: !staged.length }"
@@ -719,7 +809,7 @@
           <!-- FT-1232 (user): the app's own death mark, not the FA skull —
                the same ui-dead the kill row and the count strip wear. -->
           <img :src="uiDead" alt="" class="ns-staged-mark" />
-          Deaths
+          Deaths &amp; revives
         </span>
         <span
           v-for="(s, i) in staged"
@@ -844,7 +934,13 @@
 <script>
 import { mapState, mapGetters } from "vuex";
 import { entryId } from "../golem/nightLog";
-import { extraFields, renderableType, labelFor } from "../golem/nightInfo";
+import {
+  extraFields,
+  renderableType,
+  labelFor,
+  seatPickOwner,
+  FIELD_OWNERS,
+} from "../golem/nightInfo";
 // FT-986: the seat pickers' own colour reads WHAT THE VIEWER IS TOLD, never
 // what they are — see believedAlignment's own header for why.
 import { believedAlignment } from "../golem/belief";
@@ -1355,6 +1451,87 @@ export default {
       );
     },
     /**
+     * FT-1272: THE FIELDS ON THIS ROW THAT ARE AN ANSWER SOMEBODY IS OWED.
+     *
+     * Not simply "the extra fields" — two of them are excluded, and both
+     * exclusions are the point of the predicate rather than exceptions to it:
+     *
+     *   · an UNKNOWN row (`known: false` — a character golem/nightInfo has
+     *     never heard of, which falls through to a bare free-text box). The
+     *     schema cannot say what that row's answer is supposed to be, so it
+     *     must not claim the row is unanswered. Silence, not a guess — the
+     *     same fallback direction `fieldsFor` documents.
+     *   · a GRIMOIRE row (the Spy, the Widow). Its answer is not a value the
+     *     storyteller composes; it is a view they OPEN on that seat's client,
+     *     and it is already live the moment they press Show. The free-text
+     *     field those rows also carry is not rendered at all (FT-1028), so
+     *     requiring it would demand something the row has no control for.
+     */
+    answerFields(row) {
+      const { fields, known } = this.extraFieldsFor(row);
+      if (!known || this.isGrimoireRow(row)) return [];
+      return fields;
+    },
+    /**
+     * FT-1272 (user): IS THE TOLD-ANSWER FILLED IN?
+     *
+     * THE PREDICATE, stated once: a row is answered when EVERY answer control
+     * it renders holds a value — the yes/no is Yes or No (never the "—" the
+     * dropdown opens on), a count has actually been set (`told.number` starts
+     * `null`; the scrub DISPLAYS its minimum, which is not the same as the
+     * storyteller having chosen it), a character has been picked, and a free
+     * note is not blank or whitespace.
+     *
+     * A row with NO answer control answers TRUE, and that is the carve-out
+     * that matters: the Monk, the Poisoner, the Butler, the Imp are told
+     * nothing back, so `answerFields` is empty, `every` is vacuously true, and
+     * the row sends exactly as it always did. Pure-instruction rows were never
+     * the target — an EMPTY answer being delivered to a player was.
+     */
+    isAnswered(row) {
+      const told = this.viewFor(row).told;
+      return this.answerFields(row).every((f) => {
+        switch (this.kindOf(f)) {
+          case "boolean":
+            return told.ping === true || told.ping === false;
+          case "number":
+            return typeof told.number === "number";
+          case "character":
+            return !!(told.characterId || told.characterName);
+          default:
+            return String(told.text || "").trim() !== "";
+        }
+      });
+    },
+    /**
+     * FT-1272: ...and so the Send button is disabled while an owed answer is
+     * missing. A row already SENT is never disabled: on that row the button is
+     * the reopen (FT-1173's own behaviour, and item 6's lock depends on it —
+     * lock every control and disable the one control that unlocks them and the
+     * row is bricked).
+     */
+    sendDisabled(row) {
+      return !this.entryFor(row).done && !this.isAnswered(row);
+    },
+    /**
+     * FT-1272 (user): A SENT ROW'S CONTROLS ARE LOCKED.
+     *
+     * The row's inputs compose something that HAS ALREADY BEEN DELIVERED to a
+     * player. Leaving them live meant a stray scrub or a mis-click silently
+     * rewriting an answer somebody was given — and worse, doing it invisibly,
+     * because the write only travels on the next Send. Reopening (the same
+     * button, its other job) unlocks them, which makes the edit a decision
+     * rather than an accident.
+     *
+     * THE GRIMOIRE GRANT IS DELIBERATELY NOT LOCKED. It is not a composed
+     * answer at all — it is a window standing open on a seat's client right
+     * now, and a storyteller must be able to close or un-pin it after ticking
+     * the row. Locking it would trap the reveal open.
+     */
+    isLocked(row) {
+      return this.entryFor(row).done;
+    },
+    /**
      * FT-1173: THE SEND — the one place a row's composition becomes a store
      * write (and therefore the one moment anything about it can reach the
      * seat it names, through the delivery lane night/write has always had).
@@ -1366,6 +1543,11 @@ export default {
      * row done in the same write.
      */
     sendRow(row) {
+      // FT-1272: the gate again, behind the disabled attribute. Belt and
+      // braces on purpose — the button is `:disabled`, but this method is also
+      // the row's only write path, and a future caller (a hotkey, a "send all"
+      // sweep) must not be able to route round the predicate.
+      if (this.sendDisabled(row)) return;
       const entry = this.entryFor(row);
       if (!this.isDirty(row)) {
         this.write(row, { done: !entry.done });
@@ -1418,6 +1600,17 @@ export default {
     sendHint(row) {
       const done = this.entryFor(row).done;
       const dirty = this.isDirty(row);
+      // FT-1272: an HONEST title on a disabled button — the one thing a
+      // greyed-out control must never do is leave you guessing why. It names
+      // the missing half rather than saying "fill in the row": the row has
+      // several controls and only one of them is the answer.
+      if (this.sendDisabled(row)) {
+        return (
+          "Nothing to tell them yet — choose what " +
+          (row.player.name || "this seat") +
+          " learns before you send"
+        );
+      }
       if (!this.isSendMode) {
         if (dirty) return "Log what you composed and mark this row done";
         return done ? "Done — click to reopen" : "Mark this one done";
@@ -1582,6 +1775,10 @@ export default {
      * third control on a row that has no room for one.
      */
     toggleLie(row) {
+      // FT-1272: the mask is a `<span role="checkbox">`, not a button, so
+      // there is no native `disabled` to carry the sent-row lock — the guard
+      // is here, and the template drops its tabindex and dims it to match.
+      if (this.isLocked(row)) return;
       // FT-1173: staged, not written. The release-to-auto rule is unchanged
       // (a hand that lands where the oracle already is clears `lieBy`); it
       // just waits with everything else for Send. The mark is storyteller-
@@ -1758,8 +1955,51 @@ export default {
     splitLabels(row) {
       return row.slots > 0 && this.extraFieldsFor(row).fields.length > 0;
     },
-    /** FT-1229: the Selects label teaches the provenance mark on hover. */
+    /**
+     * FT-1272 (user, and this is a REAL BUG being fixed): WHOSE ACT ARE THE
+     * SEAT SLOTS ON THIS ROW?
+     *
+     * FT-1229 split the row's grammar on the PRESENCE of seat slots, and read
+     * every slot as a player's choice. But the checklist renders one picker
+     * per pointing whoever does the pointing (nightInfo's `extraFields` note),
+     * so a Librarian row read "Selects: [seat] [seat]" — and a Librarian
+     * selects nothing at all. The storyteller decides which two players to
+     * point at and which character to name; the player sits with their eyes
+     * shut. Same for the Washerwoman and the Investigator.
+     *
+     * The fix reads the ROLE'S OWN NATURE out of golem/nightInfo — every
+     * PLAYER field has always carried `by`, and `seatPickOwner()` is the row-
+     * level question put to it — rather than testing role names here. A
+     * character the schema has never heard of answers "", and keeps the
+     * shipped word: nightLog derives those slots from "points to N players"
+     * phrasing, which is a PLAYER pointing, so "Selects:" is the right guess
+     * where there is nothing better than a guess.
+     *
+     * "POINTS AT:" RATHER THAN "SHOWS:". Both name the storyteller's act;
+     * "Shows:" collides with what the row's OTHER half already says (the
+     * Librarian is shown a character — "Learns:"), so it would put the same
+     * verb on both sides of one row from two different subjects. "Points at:"
+     * is also literally the instruction at a real table, and it is the very
+     * phrase nightLog reads the slot count out of.
+     */
+    seatsAreStorytellers(row) {
+      return seatPickOwner(row.role.id) === FIELD_OWNERS.STORYTELLER;
+    },
+    /** FT-1272: ...and the word itself. */
+    seatVerb(row) {
+      return this.seatsAreStorytellers(row) ? "Points at:" : "Selects:";
+    },
+    /** FT-1229: the Selects label teaches the provenance mark on hover.
+     *  FT-1272: ...and on a storyteller-pointed row it teaches the opposite —
+     *  that nobody is waiting on the player for this. */
     selectsHint(row) {
+      if (this.seatsAreStorytellers(row)) {
+        return (
+          "Your own pointing — the players you show " +
+          (row.player.name || "this seat") +
+          ". They choose nothing here."
+        );
+      }
       const base =
         "The player's own choice — who " +
         (row.player.name || "this seat") +
@@ -3211,6 +3451,26 @@ $ns-team-colors: (
         color: $control-edge-hover;
       }
     }
+    // FT-1272: NOTHING TO SEND YET. The app's own single "unavailable" dress
+    // (controls.scss's `control-disabled`), and it goes LAST in this block so
+    // it wins over `.dirty` — a row can hold a staged seat pick and still owe
+    // its answer, and in that state the button must read as blocked rather
+    // than as lit and ready. The `:hover` lift is cancelled with it: a
+    // disabled button that still brightens under the cursor is a button that
+    // looks pressable.
+    &:disabled {
+      @include control-disabled;
+      box-shadow: none;
+      &:hover,
+      &:focus-visible {
+        border-color: rgba($grimoire-plum, 0.3);
+        background: rgba(0, 0, 0, 0.35);
+        color: #d8cdb4;
+        svg {
+          opacity: 0.55;
+        }
+      }
+    }
   }
 
   .ns-identity {
@@ -3397,6 +3657,14 @@ $ns-team-colors: (
     cursor: help;
   }
 
+  // FT-1272: the template also puts `.by-storyteller` on that first label
+  // where the seats are the STORYTELLER'S pointing ("Points at:" — the
+  // Washerwoman, the Librarian, the Investigator). It carries NO STYLE, and
+  // that is the decision rather than an omission: the WORD is the whole fix,
+  // and giving the label a look of its own would invite the reading that the
+  // dress means something the word does not already say. The class is a
+  // reviewable hook — somewhere for a later pass to land if one is wanted.
+
   // ── FT-1150: THE ROW-CONTROL TYPE SIZE, said once ──────────────────────
   // Every control in the answer zone was 12.5px, which was the size that fit
   // when the zone was half a line wide. It has a whole line now, so the type
@@ -3479,6 +3747,15 @@ $ns-team-colors: (
       outline: none;
       border-color: rgba(150, 130, 175, 0.75);
       box-shadow: 0 0 7px rgba(120, 105, 135, 0.4);
+    }
+    // FT-1272: the sent-row lock. Native `disabled` does the blocking (this
+    // one IS an input); this is only its dress, and it cancels the hover
+    // border for the same reason as its row-mates.
+    &:disabled {
+      @include control-disabled;
+      &:hover {
+        border-color: rgba(120, 105, 135, 0.3);
+      }
     }
   }
 
@@ -3789,6 +4066,33 @@ $ns-team-colors: (
     }
     &.on.byhand {
       border-color: #b8892f;
+    }
+    // FT-1272: THE SENT-ROW LOCK. Last in the block so it wins over `.on` and
+    // `.byhand` — a lit mask on a sent row must still read as locked, and the
+    // hover lift is cancelled with it for the same reason the Send button's
+    // is. The GLYPH keeps its lit colour under the dimming: the mask is the
+    // record of whether that answer was a lie, and a locked row is exactly
+    // where a storyteller still needs to READ it.
+    &.locked {
+      @include control-disabled;
+      box-shadow: none;
+      &:hover,
+      &:focus-visible {
+        border-color: rgba(120, 105, 135, 0.3);
+        background: rgba(0, 0, 0, 0.55);
+        svg {
+          opacity: 0.42;
+        }
+      }
+    }
+    &.on.locked:hover,
+    &.on.locked:focus-visible {
+      color: #e0b45f;
+      border-color: #8a6f2e;
+      background: rgba(184, 137, 47, 0.16);
+      svg {
+        opacity: 1;
+      }
     }
   }
 

@@ -43,13 +43,14 @@
   <b
     v-else
     class="num-scrub-box num-scrub-label"
-    :class="preset"
+    :class="[preset, { disabled }]"
     :title="title"
-    tabindex="0"
+    :tabindex="disabled ? -1 : 0"
     role="spinbutton"
     :aria-valuemin="min"
     :aria-valuemax="max"
     :aria-valuenow="value"
+    :aria-disabled="String(disabled)"
     @pointerdown="scrub"
     @keydown.enter.prevent="openEdit"
     @keydown.space.prevent="openEdit"
@@ -80,7 +81,13 @@ export default {
     min: { type: Number, default: 0 },
     max: { type: Number, default: 99 },
     title: { type: String, default: "Drag sideways to scrub — click to type" },
-    preset: { type: String, default: "seat" } // "seat" | "night"
+    preset: { type: String, default: "seat" }, // "seat" | "night"
+    // FT-1272: LOCKED — the night sheet freezes a row's controls once it has
+    // been sent. Unlike the two pickers this control's resting state is a
+    // `<b>`, not a button, so there is no native `disabled` to ride: every
+    // entry point (the drag, the click-to-type, the arrow-key nudge) returns
+    // early instead, and the element leaves the tab order.
+    disabled: { type: Boolean, default: false }
   },
   data() {
     return {
@@ -95,6 +102,7 @@ export default {
       return Math.max(this.min, Math.min(this.max, safe));
     },
     openEdit() {
+      if (this.disabled) return;
       this.editVal = String(this.value);
       this.editing = true;
       this.$nextTick(() => {
@@ -109,11 +117,13 @@ export default {
      *  all (a `<b>` reachable only by pointer). Arrow keys step by 1 without
      *  touching any of the pointer/drag behaviour above. */
     step(delta) {
+      if (this.disabled) return;
       this.$emit("input", this.clamp(this.value + delta));
     },
     /** Drag the number sideways — one step per 9px. A plain CLICK (no drag)
      *  opens type-in editing instead (user call, HostTools' own history). */
     scrub(e) {
+      if (this.disabled) return;
       e.preventDefault();
       const el = e.currentTarget;
       el.setPointerCapture(e.pointerId);
@@ -167,6 +177,14 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-1272: read-only import, for `control-disabled` alone.
+@import "../controls.scss";
+
+// FT-1272: the locked dress, controls.scss's own — see SeatPicker's note.
+.num-scrub-label.disabled {
+  @include control-disabled;
+}
+
 // the label and the type-in input share ONE footprint — same box, same
 // padding, same border width — so clicking in only makes the field VISIBLE;
 // nothing moves. (FT-847-era fix; carried over verbatim into this extract.)

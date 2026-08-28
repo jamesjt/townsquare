@@ -1291,6 +1291,48 @@ export function playerSlots(roleId) {
 }
 
 /**
+ * FT-1272: WHOSE ACT ARE THIS CHARACTER'S SEAT POINTINGS?
+ *
+ * The fact itself is not new — every PLAYER field has carried `by` since this
+ * file's first shape, and it is the whole reason `playerSlots()` can count the
+ * player's own choices apart from the storyteller's. What was missing is a way
+ * to ask the question about a ROW rather than about a field, and the cost of
+ * that gap was a real bug: FT-1229 split the checklist row's grammar into
+ * "Selects:" / "Learns:" on the presence of seat SLOTS, and slots are rendered
+ * for every pointing whoever makes it (see `extraFields`'s note). So the
+ * Librarian's row read "Selects: [seat] [seat]" — and a Librarian selects
+ * nothing. The storyteller picks the two players to point at.
+ *
+ * Three answers, and the third is not a shrug:
+ *   FIELD_OWNERS.PLAYER       the seats are the player's own choice — the
+ *                             Fortune Teller's two, the Monk's one, the
+ *                             Poisoner's, the Butler's master.
+ *   FIELD_OWNERS.STORYTELLER  the seats are the storyteller's own pick of what
+ *                             to SHOW — the first-night info roles
+ *                             (Washerwoman, Librarian, Investigator) and the
+ *                             Minion-info group reveal.
+ *   ""                        this file has never heard of the character, or
+ *                             it points at nobody. The caller decides what an
+ *                             unknown row says; this function does not guess.
+ *
+ * A row holding BOTH kinds answers PLAYER — the Ravenkeeper points at a seat
+ * itself and is then shown a character, and the seat is unambiguously theirs.
+ * A mixed row where the storyteller ALSO points would need a per-slot answer;
+ * no character in the schema is that shape today, and when one appears this
+ * function is where it gets solved (per-slot, from the same `by` it already
+ * reads), not at a call site.
+ */
+export function seatPickOwner(roleId) {
+  const entry = entryOf(roleId);
+  if (!entry || !entry.fields) return "";
+  const seats = entry.fields.filter((f) => f.type === FIELD_TYPES.PLAYER);
+  if (!seats.length) return "";
+  return seats.some((f) => f.by === FIELD_OWNERS.PLAYER)
+    ? FIELD_OWNERS.PLAYER
+    : FIELD_OWNERS.STORYTELLER;
+}
+
+/**
  * The fields a row needs a NEW control for. PLAYER fields are excluded
  * regardless of `by` — every one of them, chosen by the player or set by the
  * storyteller, is already a seat someone points at, and the row already

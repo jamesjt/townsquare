@@ -9,12 +9,13 @@
        SCRIPT's characters, which every player already knows from the
        Almanac/script sheet. What's secret is which SEAT holds a role, not
        which roles exist — this picker never names a seat. -->
-  <div class="char-pick" ref="wrap">
+  <div class="char-pick" :class="{ disabled }" ref="wrap">
     <button
       type="button"
       class="cp-trigger"
       :class="{ open }"
       :title="title"
+      :disabled="disabled"
       @click="toggle"
     >
       <span
@@ -129,7 +130,10 @@ export default {
     pickedId: { type: String, default: "" },
     pickedName: { type: String, default: "" },
     iconFor: { type: Function, default: () => null },
-    title: { type: String, default: "" }
+    title: { type: String, default: "" },
+    // FT-1272: LOCKED — see SeatPicker's own note. Native `disabled` on the
+    // trigger button, so neither pointer nor keyboard opens the popup.
+    disabled: { type: Boolean, default: false }
   },
   computed: {
     /** Travellers are split out so they can sit at the BOTTOM, folded. */
@@ -173,6 +177,11 @@ export default {
 .char-pick {
   position: relative;
   min-width: 0;
+
+  // FT-1272: the locked dress, controls.scss's own — see SeatPicker's note.
+  &.disabled .cp-trigger {
+    @include control-disabled;
+  }
 }
 
 .cp-trigger {

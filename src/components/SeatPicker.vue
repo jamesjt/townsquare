@@ -13,12 +13,13 @@
        but the gate lives HERE too: a future reuse of this component that
        forgets to check who's viewing still can't leak a role, because the
        default is false. -->
-  <div class="seat-pick" ref="wrap">
+  <div class="seat-pick" :class="{ disabled }" ref="wrap">
     <button
       type="button"
       class="sp-trigger"
       :class="{ open }"
       :title="title"
+      :disabled="disabled"
       @click="toggle"
     >
       <span class="sp-seat" v-if="pickedSeat >= 0">{{ pickedSeat + 1 }}.</span>
@@ -98,7 +99,14 @@ export default {
     // FT-1229: what the empty trigger SAYS. "—" (the default) reads as "no
     // pick"; a caller whose empty state means "add one" (the night sheet's
     // staged-deaths adder) passes its own word instead.
-    placeholder: { type: String, default: "—" }
+    placeholder: { type: String, default: "—" },
+    // FT-1272: LOCKED. The night sheet locks a row's whole control set once
+    // the row has been sent (an answer already delivered must not silently
+    // change under the player who was given it). It rides the native
+    // `disabled` on the trigger BUTTON rather than a guard in `toggle`, so
+    // the popup cannot be opened by keyboard either — a hand-rolled guard
+    // would have left the trigger tabbable and pressable-looking.
+    disabled: { type: Boolean, default: false }
   },
   computed: {
     pickedPlayer() {
@@ -128,12 +136,24 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-1272: read-only import, for `control-disabled` alone — the partial is
+// mixins and tokens, so it emits nothing on its own.
+@import "../controls.scss";
+
 // ROW CONTROL HEIGHT CONTRACT: 30px desktop / 44px coarse-pointer — kept in
 // step by hand across NightSheet.vue, SeatPicker.vue and CharacterPicker.vue.
 // A change to one changes all three.
 .seat-pick {
   position: relative;
   min-width: 0;
+
+  // FT-1272: the locked dress — the app's own one-and-only "unavailable" look
+  // (controls.scss's `control-disabled`: dimmed whole, not-allowed cursor),
+  // so a sent row's pickers read the same as every other disabled control in
+  // the fork rather than inventing a second vocabulary for the same state.
+  &.disabled .sp-trigger {
+    @include control-disabled;
+  }
 }
 
 .sp-trigger {
