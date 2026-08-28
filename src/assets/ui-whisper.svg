@@ -1,0 +1,59 @@
+<!-- FT-1281: source for ui-whisper.png — the mark on a WHISPER row in the
+     Chronicles stream (ChroniclesRow.vue, the `kind === 'whisper'` branch).
+     It replaced Font Awesome's `user-secret`, upstream stock: a fedora and a
+     trench coat, which read "spy". A whisper is not espionage.
+
+     WHAT IT HAD TO SAY, AND WHAT IT COULD NOT BORROW. FT-1211 settled this
+     fork's message vocabulary and every neighbouring slot is spoken for:
+     the PLANE means sent (the flying mark, the toast, the composer's send
+     button, and the whisper-TRAFFIC row directly below this one),
+     comment-dots is the doorway that OPENS a message, `comments` is the chat
+     feature itself, and ui-chat.png — a speech bubble — is the Chronicle
+     drawer's own TALK filter cell. So a bubble was out on sight: it would
+     have said "talk" inside the one drawer where that bubble already does.
+     What was left to say is a PRIVATE THING THAT WAS SAID.
+
+     IT IS THE TOAST'S OWN NOTE. When a whisper lands, WhisperToast.vue flies
+     a paper plane that unfolds into a small note — "bone-warm paper with the
+     grimoire's dark ink". That is already this fork's picture of what a
+     whisper IS, so the Chronicle's mark is that same note at rest, with a
+     wax seal: a page written for one reader and closed to the room. The
+     plane keeps meaning SENT; this means WHAT WAS SENT.
+
+     THE SEAL IS A HOLE, not a drawn-on disc. At 13px — the row's real size,
+     which is the whole design problem — a bone-on-bone detail disappears and
+     only negative space survives. The same trick ui-events' open ring and
+     the skull's sockets use, and it is why the mark still reads as paper
+     rather than as a plain bar at count size. The turned top corner does the
+     other half: it breaks the rectangle, so the silhouette is a SHEET.
+
+     Measured on the real row, not guessed. Two rivals were baked and shown
+     at true size on a real whisper row beside this one:
+       · THE EAR ("for one ear only") — the best drawing of the three at
+         26px and unusable at 13, where the helix collapses into an open
+         ring, which is the events CLOCK's silhouette two rows away.
+       · THE SAME NOTE TILTED — the tilt read as a rendering wobble, not as
+         a loose sheet, and it cost the dog-ear its clarity.
+     A narrower first cut of this sheet (256x392, seal r60) lost the seal at
+     true size; the shipped proportions are 268x388 with the seal at r66.
+
+     TONE: this is the ONE mark in the fork baked in the whisper palette's
+     lilac (#b4a0cd) rather than the family's bone (#cfc4ae). An <img> takes
+     no `color`, and .crr-whisper-mark's colour role is the row's violet —
+     bone was baked too and tested on the plate, where it shouted over the
+     lilac names beside it. Everything else about the bake is the family's:
+     one light origin upper-left, film grain, no traced outline, 128px
+     square. No brightness lift is needed on this ground (the manicule's
+     .ev-nomination lift exists because that art is a DARK cut; this one is
+     not).
+
+     Baked by claude_temp_test/2026-08-27-ft1281-whisper/bake.mjs (its ship
+     flag), which is the FT-1136 events bake verbatim (itself the FT-998 noose
+     bake). Regenerate the PNG through that script if this shape changes. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <g fill="#b4a0cd">
+    <!-- the sheet, its top-right corner turned; the wax seal cut clean
+         through it as negative space -->
+    <path fill-rule="evenodd" d="M122 62 H296 L390 156 V450 H122 Z M256 318 m-66 0 a66 66 0 1 0 132 0 a66 66 0 1 0 -132 0"/>
+  </g>
+</svg>

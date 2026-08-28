@@ -79,7 +79,14 @@
 
       <!-- ── A WHISPER — both ends of the pair named up front ─────────── -->
       <template v-else-if="row.kind === 'whisper'">
-        <font-awesome-icon class="crr-whisper-mark" icon="user-secret" />
+        <!-- FT-1281 (user call): FA `user-secret` STOOD DOWN — a fedora and a
+             trench coat read "spy", and a whisper is not espionage. The row
+             wears the fork's own baked mark instead (ui-whisper.png; its
+             source and the reasoning sit beside it in src/assets). The
+             vocabulary FT-1211 settled is untouched: the plane still means
+             SENT (the traffic row below keeps it), comment-dots still opens
+             a message, and the talk filter's speech bubble stays talk's. -->
+        <img class="crr-whisper-mark" :src="uiWhisper" alt="" />
         <span class="crr-pair"
           >{{ nameFor(row.senderKey) }} → {{ nameFor(row.recipientKey) }}</span
         >
@@ -279,6 +286,9 @@ import uiNominateHand from "../assets/ui-nominate-hand.png";
 import uiSun from "../assets/ui-sun.png";
 // FT-1242: the tally's hand is the raised hand a cast vote wears on a seat.
 import uiVoteYes from "../assets/ui-vote-yes.png";
+// FT-1281: the whisper row's own mark, baked for this fork (see the .svg
+// beside it) — it replaced FA's `user-secret`, which read "spy".
+import uiWhisper from "../assets/ui-whisper.png";
 // FT-1274: the night sentence leads with the character's own icon — the same
 // helper NightSheet's checklist rows and the clock face's night ask read, so
 // one character has one face on every surface.
@@ -343,6 +353,7 @@ export default {
       uiDead,
       uiSun,
       uiVoteYes,
+      uiWhisper,
       open: false,
     };
   },
@@ -644,10 +655,22 @@ img.crr-beat-mark {
   flex: 1;
 }
 
+// FT-1281: the whisper mark is ART now, not a glyph — the `crr-ev-img` shape
+// (13px, contain), with the spacing and the colour ROLE the FA icon held. The
+// colour is baked INTO the file rather than set here, because an <img> takes
+// no `color`: the mark is baked in the whisper palette's own lilac instead of
+// the family's bone, so the row's one violet accent stays violet. `color`
+// stays as the record of the tone that was asked for, and as the ink for the
+// alt text should the image ever fail to resolve.
 .crr-whisper-mark {
   margin-right: 5px;
   font-size: 11px;
   color: rgba(180, 160, 205, 0.9);
+  flex: none;
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  align-self: center;
 }
 .crr-pair {
   margin-right: 6px;
