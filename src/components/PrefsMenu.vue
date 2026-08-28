@@ -66,10 +66,38 @@
         :title="t.rowTitle"
       >
         <span class="setting-name">{{ t.label }}</span>
+        <!-- FT-1268 (user): "lets make all of these a checkbox instead of a
+             drop down if there is only two options." These rows are the
+             Control tab's own seven, restated on the re-entry plate (the
+             FT-1180 independent-surfaces rule), and they convert with it —
+             the same setting must not be a box on one face and a dropdown
+             on the other. Same options pair, same setToggle writer, same
+             stored booleans; nothing about the value moved.
+
+             EXCEPT THE TWO PICKER ROWS. `ctrlClickNameAction` and
+             `ctrlClickDeadAction` do not store a boolean — FT-1260.2 made
+             them hold a seat-action slot id (or "off"), and the Control tab
+             offers the whole vocabulary for them. THIS PLATE STILL BUILDS
+             THEM AN On/Off PAIR (see controlToggles below), which is a
+             divergence that predates this change and is left exactly as it
+             was, per the house rule: not this lane's to fix, and NOT
+             something to dress as a settled checkbox either — a box would
+             state "this is on or off" about a value that is neither. They
+             keep the dropdown they have; the divergence is flagged for its
+             own change. -->
         <OptionSelect
+          v-if="t.action"
           :name="'prefs-' + t.key"
           :aria-label="t.label"
           hoist
+          :options="t.options"
+          :value="prefs[t.key] !== false"
+          @input="setToggle(t.key, $event)"
+        />
+        <OptionCheck
+          v-else
+          :name="'prefs-' + t.key"
+          :aria-label="t.label"
           :options="t.options"
           :value="prefs[t.key] !== false"
           @input="setToggle(t.key, $event)"
@@ -103,10 +131,12 @@ import {
   setPref,
 } from "../golem/prefs";
 import OptionSelect from "./OptionSelect";
+// FT-1268: the two-state twin — every On/Off row on this plate wears it.
+import OptionCheck from "./OptionCheck";
 
 export default {
   name: "PrefsMenu",
-  components: { OptionSelect },
+  components: { OptionSelect, OptionCheck },
   props: {
     /** The gear this menu hangs from — an element, so the panel can follow
      *  its rect across the host panel's four layouts instead of guessing. */
@@ -377,6 +407,15 @@ export default {
     background: rgba(0, 0, 0, 0.42);
     border: 1px solid rgba(120, 105, 135, 0.35);
     box-shadow: $control-toggle-well;
+  }
+  // FT-1268: the checkbox takes the same correction, for the same reason —
+  // the shared plate's black edge disappears into this glass. UNTICKED
+  // only: ticked, the box wears the plum "on" ground and edge (the
+  // component's own `.on`), which is exactly the thing that has to stay
+  // legible here and already is.
+  .setting-row ::v-deep .gcheck:not(.on) {
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(120, 105, 135, 0.35);
   }
 }
 </style>

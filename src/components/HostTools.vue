@@ -1095,10 +1095,19 @@
                    FT-1210 asked these two rows to share an anatomy; they now
                    share it down to which grid cell each piece lands in. -->
               <span class="ht-set-ctl">
-                <OptionSelect
+                <!-- FT-1268 (user): "lets make all of these a checkbox
+                     instead of a drop down if there is only two options."
+                     Off/On is the clearest case there is — the row's own
+                     noun plus a ticked box IS the sentence, and no list
+                     needs opening to say it. Same option pair, same writer,
+                     same values on the wire (`on`/`off` strings, which is
+                     why the control is told which one means checked); only
+                     the control changed. The seconds scrub beside it is
+                     untouched and still reads as the same sentence. -->
+                <OptionCheck
                   name="whisper-marks"
                   aria-label="Whisper marks"
-                  hoist
+                  on-value="on"
                   :options="whisperMarkModeOptions"
                   :value="tower.whisperMarkSec ? 'on' : 'off'"
                   @input="setWhisperMarkMode"
@@ -1141,10 +1150,12 @@
               />
               <span class="row-name" v-if="!iconsOnly">Count whispers</span>
             </span>
-            <OptionSelect
+            <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
+                 above for the user's call and what it does not change). -->
+            <OptionCheck
               name="whisper-counts"
               aria-label="Count whispers"
-              hoist
+              on-value="on"
               :options="whisperCountOptions"
               :value="tower.whisperCounts ? 'on' : 'off'"
               @input="pickWhisperCounts"
@@ -1262,13 +1273,34 @@
                    trigger at its widest face ("N buttons") so the summary
                    changing under a click cannot shift the layout —
                    OptionSelect's own FT-1088 rule, restated for one label. -->
+              <!-- FT-1268 (user): "lets make all of these a checkbox instead
+                   of a drop down if there is only two options." THE ROW'S
+                   CONTROL NOW SPLITS THREE WAYS instead of two:
+                     * a PICKER row (`action`) keeps the dropdown — its list
+                       is the whole seat vocabulary, not two states;
+                     * a MENU row (`layoutKey`) keeps the summary button
+                       below, unchanged (FT-1264);
+                     * every other row is a plain On/Off, which is a
+                       checkbox — the row's name plus a ticked box, no list
+                       to open to read a state that is already binary.
+                   Same `t.options` pair, same setToggle writer, same stored
+                   booleans; the option list stays authored where it was so
+                   the two settings surfaces keep one vocabulary. -->
               <OptionSelect
-                v-if="!t.layoutKey"
+                v-if="t.action"
                 :name="'prefs-' + t.key"
                 :aria-label="t.label"
                 hoist
                 :options="t.options"
-                :value="t.action ? prefs[t.key] : prefs[t.key] !== false"
+                :value="prefs[t.key]"
+                @input="setToggle(t.key, $event)"
+              />
+              <OptionCheck
+                v-else-if="!t.layoutKey"
+                :name="'prefs-' + t.key"
+                :aria-label="t.label"
+                :options="t.options"
+                :value="prefs[t.key] !== false"
                 @input="setToggle(t.key, $event)"
               />
               <button
@@ -1325,10 +1357,14 @@
                  inert-but-working grammar (ht-ctrl-inert). -->
             <div class="ht-menu-item ht-menu-master">
               <span class="row-name">This menu</span>
-              <OptionSelect
+              <!-- FT-1268: this is the dropdown the user was pointing AT
+                   ("lets make all of these a checkbox instead of a drop
+                   down if there is only two options"). Same key, same
+                   setToggle writer, same value — and the list stops being
+                   a popup that opens over the popup it lives in. -->
+              <OptionCheck
                 :name="'prefs-' + t.key"
                 :aria-label="t.label + ' on or off'"
-                hoist
                 :options="t.options"
                 :value="prefs[t.key] !== false"
                 @input="setToggle(t.key, $event)"
@@ -1356,10 +1392,18 @@
               <span class="row-name" :class="{ off: !s.on }">{{
                 s.label
               }}</span>
-              <OptionSelect
+              <!-- FT-1268: the seven per-action toggles, the other half of
+                   what the user pointed at. A checkbox also frees the row
+                   of a hoisted list opening from inside a hoisted list —
+                   the z-index stack `.ht-menu-list` documents (55 under
+                   `.gsel-menu`'s 60) exists for these and now carries only
+                   the two picker rows' lists on the tab behind it. The grip
+                   is untouched: drag is armed by `menuDragArm` on the
+                   grip's own mousedown, so pressing the box cannot start a
+                   reorder. -->
+              <OptionCheck
                 :name="'prefs-' + t.layoutKey + '-' + s.id"
                 :aria-label="s.label"
-                hoist
                 :options="menuOnOptions"
                 :value="s.on"
                 @input="setMenuOn(t, s.id, $event)"
@@ -1588,6 +1632,11 @@ import NumberScrub from "./NumberScrub";
 // idiom, opening a list of words instead of a grid of cards. Every
 // multi-option setting on this panel wears it.
 import OptionSelect from "./OptionSelect";
+// FT-1268: …and its two-state twin. A setting that is genuinely ON or OFF
+// wears this instead — same plate, same plum "on" ink, no list to open.
+// Which rows converted and which kept the dropdown is written on the rows
+// themselves and on the component's own header.
+import OptionCheck from "./OptionCheck";
 import editionJSON from "../editions";
 import { EDITION_ICONS, edCustom, OFFICIAL_BLURBS } from "../golem/editionArt";
 import { getRecents } from "../golem/scripts";
@@ -1780,6 +1829,7 @@ export default {
     NightModeRow,
     NumberScrub,
     OptionSelect,
+    OptionCheck,
     // FT-1202: the settings gear's own menu, anchored to the head
     PrefsMenu,
   },
@@ -4908,7 +4958,15 @@ export default {
       grid-column: 1;
       justify-self: start;
     }
+    // FT-1268: `.gcheck` joins the control track by NAME, not by inheriting
+    // anything — it is a third kind of control item beside the select and
+    // the menu summary, and the track's whole contract is that every one of
+    // them starts on the same x. A checkbox is narrower than the select it
+    // replaced (24px against 56.7-60.8px, measured), which shortens the
+    // control column's own right edge without moving its LEFT one — the
+    // alignment FT-1264/FT-1266 built is the start x, and that is unmoved.
     .tw-lead > .gsel,
+    .tw-lead > .gcheck,
     .tw-lead > .ht-menu-sum {
       grid-column: 2;
       justify-self: start;
@@ -4945,6 +5003,7 @@ export default {
     // zeroes it because rows pair across groups there)
     .ht-group-start .label,
     .ht-group-start .gsel,
+    .ht-group-start .gcheck,
     .ht-group-start .ht-menu-sum {
       margin-top: 7px;
     }
@@ -5037,7 +5096,12 @@ export default {
     .ht-group-start .ht-set-ctl {
       margin-top: 7px;
     }
-    .ht-group-start .ht-set-ctl > .gsel {
+    // FT-1268: the same guard for a compound row whose first control is now
+    // a checkbox (Whisper marks). Its group air must land on the wrapper,
+    // never on the box inside it, or the box would step 7px below its own
+    // seconds scrub and shear the sentence.
+    .ht-group-start .ht-set-ctl > .gsel,
+    .ht-group-start .ht-set-ctl > .gcheck {
       margin-top: 0;
     }
   }
@@ -5667,7 +5731,12 @@ export default {
             .label {
               grid-column: auto;
             }
+            // FT-1268: the checkbox flows into a half-line exactly as the
+            // select it replaced did — and more comfortably, since the
+            // columns' founding rule is that a control carrying WORDS
+            // cannot live in a half-cell, and a box carries none.
             .tw-lead > .gsel,
+            .tw-lead > .gcheck,
             .tw-lead > .ht-menu-sum {
               grid-column: auto;
             }
@@ -5682,6 +5751,7 @@ export default {
           // margin on half a line would shear its partner out of true
           .ht-group-start .label,
           .ht-group-start .gsel,
+          .ht-group-start .gcheck,
           .ht-group-start .ht-menu-sum {
             margin-top: 0;
           }
@@ -5933,7 +6003,10 @@ export default {
   }
   .row-mark,
   .row-mark-fa,
-  .gsel {
+  .gsel,
+  // FT-1268: the rows' On/Off is a checkbox now — same rule, same reason
+  // (the name is the only thing in this row allowed to give up width).
+  .gcheck {
     flex-shrink: 0;
   }
   // FT-1265: the marks' dress RESTATED — inline, these rows inherited it
