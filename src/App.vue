@@ -1345,7 +1345,22 @@ export default {
      * flag stays a plain statement about what is showing.
      */
     faceDiscOpen() {
-      return this.showNightChecklist || this.showHostTools;
+      // FT-1280: …AND THE VERDICT’S PLATE IS A FACE DISC LIKE ANY OTHER.
+      // The end-game plate (EndCeremony’s `.ec-face-disc`) is the same
+      // material standing in the same place, so the readout owes it the same
+      // stand-down — without this the script emblem and the count rows stay
+      // faintly legible THROUGH the glass, directly behind the lettering,
+      // because glass dims what is under it and does not erase it.
+      //
+      // The condition is EndCeremony’s own `bannerOn` said here: the town has
+      // ended, and the show is either settling or already settled. During the
+      // show itself the plate is not up and the readout should not be down.
+      return (
+        this.showNightChecklist ||
+        this.showHostTools ||
+        (this.session.isEnded &&
+          (this.ceremony.phase === "fade" || this.ceremony.phase === "idle"))
+      );
     },
     /** The town has chairs and every one of them holds a character. */
     townCast() {
