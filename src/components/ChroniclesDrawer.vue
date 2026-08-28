@@ -48,10 +48,15 @@
           <img class="sd-mark" :src="quill" alt="" />
           <span>Chronicle</span>
         </h3>
-        <!-- FT-1037 (user redesign): the two READING MODES, at the top beside
-             the title. Current is the town since it was opened this time —
-             the live stream and the composer. History is the reading room:
-             a dropdown per finished game, with stats and messages inside. -->
+      </div>
+
+      <!-- FT-1273 (user): "put the current vs history on a row below the
+           chronicle" — the two READING MODES stood beside the title since
+           FT-1037; on its own row the pair reads as a chooser rather than
+           head furniture, and it sits directly above the filter row it
+           belongs with. Current is the town since it was opened this time;
+           History is the reading room. -->
+      <div class="cr-mode-row">
         <div class="cr-mode" role="group" aria-label="Current or history">
           <button
             class="cr-mode-btn"
@@ -1787,16 +1792,24 @@ export default {
 }
 
 // ── THE MODE TOGGLE (FT-1037) — Current | History, beside the title ────────
+// FT-1273: its own row under the title, and a quarter larger. The old
+// `margin-left: 12px` was the gap to the title beside it — retired with
+// that placement.
+.cr-mode-row {
+  display: flex;
+  flex: none;
+  padding: 0 0 6px;
+}
 .cr-mode {
   @include control-plate;
   display: flex;
   overflow: hidden;
-  margin-left: 12px;
 }
 .cr-mode-btn {
   @include control-cell;
-  padding: 3px 12px;
-  font-size: 12px;
+  // FT-1273 (user): "about 25% bigger" — 12 -> 15px, padding to match.
+  padding: 4px 15px;
+  font-size: 15px;
   line-height: 1.5;
   white-space: nowrap;
   &.on {
@@ -2017,7 +2030,8 @@ export default {
   overflow: hidden;
 }
 .cr-cell-icon {
-  height: 16px;
+  // FT-1273 (user): the filter row a quarter larger too — 16 -> 20px.
+  height: 20px;
   display: block;
   margin: 0 auto;
   opacity: 0.85;
@@ -2026,8 +2040,9 @@ export default {
 .cr-cell {
   @include control-cell;
   flex: 1 1 0;
-  padding: 4px 6px;
-  font-size: 12px;
+  // FT-1273: 12 -> 15px with the padding stepped to match.
+  padding: 5px 8px;
+  font-size: 15px;
   line-height: 1.5;
   white-space: nowrap;
   &.on {
