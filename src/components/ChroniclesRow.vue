@@ -887,8 +887,15 @@ img.crr-beat-mark {
 // and a line the town announced (a mark and serif ink, no ground).
 .crr-nights {
   display: block;
-  margin: 3px 0 5px 18px;
-  padding: 4px 10px 5px 9px;
+  // FT-1284 (user): “make the night actions full width of the chat, or
+  // nearly — it should have much less margin on its left and right, padding
+  // left and right of it needed.” The 18px indent was the plate apologising
+  // for itself; the record is not a reply to the line above it. It now begins
+  // where every other row begins and spends the reclaimed space INSIDE,
+  // where the sentence can use it — which is also what stops long lines
+  // (the Ravenkeeper’s) from wrapping so early.
+  margin: 3px 0 5px 0;
+  padding: 5px 13px 6px 12px;
   border-radius: 9px;
   // FT-1152 (user): "Night info should have the left border as storyteller
   // purple not gold". The night block is the storyteller's own record — the
@@ -897,7 +904,15 @@ img.crr-beat-mark {
   // storyteller control took today. Gold is the checklist's tick, not the
   // record's edge. FT-1274 keeps the rail exactly as it was; the plate grew
   // around it.
-  border-left: 2px solid rgba(167, 143, 205, 0.55);
+  //
+  // FT-1284 (user): “remove the left thick border and never add one again.”
+  // A STANDING RULE, not a one-off: no surface in this app wears a thick
+  // coloured rail down its left edge. This plate already says what it is by
+  // being a plate — the inscribed ground, the bevel, the rim — and the rail
+  // was a second, louder answer to a question the plate had already answered.
+  // The bevel below is untouched; only the rail goes. (Same call the user
+  // made on own-whisper rows, FT-1279, and on own talk lines, FT-1023.)
+  //   border-left: 2px solid rgba(167, 143, 205, 0.55);
   background: linear-gradient(
     to bottom,
     rgba(41, 33, 52, 0.66),
@@ -990,8 +1005,16 @@ img.crr-beat-mark {
 // clears 4.5:1 for all six. A uniform HSL lightness shift is not the wash
 // FT-1167 rejected: it moves every hue by the same amount and so preserves
 // the separation between them, which is the property that mattered.
+// FT-1284 (user): “that text is hard to read, maybe because it is bold?”
+// THEY WERE RIGHT, AND THE CAUSE IS THE FACE. PiratesBay ships as ONE file
+// with no bold cut (App.vue’s @font-face declares a single src and no
+// font-weight), so every `bold` in this block was SYNTHETIC — the browser
+// smearing the outline sideways. At ~13px on a dark plate that reads as a
+// blur, not as weight. So the bold comes off every token here and the
+// emphasis rides what actually survives at this size: ink, colour, and for
+// the answer its capitals and tracking. Nothing about the measured contrast
+// changes — 13px is small text at 4.5:1 whether it is bold or not.
 .tok-role {
-  font-weight: bold;
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.95),
     0 0 6px rgba(0, 0, 0, 0.8);
@@ -1017,8 +1040,9 @@ img.crr-beat-mark {
 
 // the seats a row picked — the other thing the eye hunts for
 .tok-name {
-  color: #e8dcc2;
-  font-weight: bold;
+  // a shade brighter than the bold it replaces, so the seats keep the same
+  // rank in the sentence without the smear (FT-1284)
+  color: #f0e6cf;
 }
 
 // ── THE ANSWER (user call) ─────────────────────────────────────────────────
@@ -1027,7 +1051,6 @@ img.crr-beat-mark {
 // quiet one. This replaces the green/red pair the retired nights view used —
 // green/red said "good news / bad news", which a night answer never means.
 .tok-yes {
-  font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: #f4ead2;
@@ -1039,7 +1062,6 @@ img.crr-beat-mark {
 // same measured reason ($townsfolk raw is 3.79:1 here — under the small-text
 // bar; lifted it is 6.41:1)
 .tok-no {
-  font-weight: bold;
   color: lighten($townsfolk, 14%);
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.95),
@@ -1051,8 +1073,7 @@ img.crr-beat-mark {
 // One dress for "what you were given", whatever kind of thing it was.
 .tok-number,
 .tok-character {
-  font-weight: bold;
-  color: #e8dcc2;
+  color: #f0e6cf;
 }
 .tok-note {
   color: #ddd2ba;
