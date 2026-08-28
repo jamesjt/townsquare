@@ -658,6 +658,7 @@
             <OptionSelect
               name="bell-which"
               aria-label="Day-break bell"
+              hoist
               :options="bellOptions"
               :value="bellChoice"
               @input="pickBellChoice"
@@ -696,6 +697,7 @@
               <OptionSelect
                 name="day-length"
                 aria-label="Day length"
+                hoist
                 :options="dayLengthOptions"
                 :value="tower.dayTimerMode"
                 @input="setDayMode"
@@ -738,6 +740,7 @@
             <OptionSelect
               name="callback"
               aria-label="Call-back voice"
+              hoist
               :options="callOptions"
               :value="tower.callId"
               @input="pickCall"
@@ -764,6 +767,7 @@
             <OptionSelect
               name="chat-level"
               aria-label="Chat level"
+              hoist
               :options="chatOptions"
               :value="tower.chatLevel"
               @input="pickChatLevel"
@@ -793,6 +797,7 @@
               <OptionSelect
                 name="whisper-marks"
                 aria-label="Whisper marks"
+                hoist
                 :options="whisperMarkModeOptions"
                 :value="tower.whisperMarkSec ? 'on' : 'off'"
                 @input="setWhisperMarkMode"
@@ -836,6 +841,7 @@
             <OptionSelect
               name="whisper-counts"
               aria-label="Count whispers"
+              hoist
               :options="whisperCountOptions"
               :value="tower.whisperCounts ? 'on' : 'off'"
               @input="pickWhisperCounts"
@@ -886,6 +892,7 @@
             <OptionSelect
               name="prefs-setup-labels"
               aria-label="Setup panel labels"
+              hoist
               :options="setupLabelOptions"
               :value="prefs.setupIconsOnly"
               @input="setIconsOnly"
@@ -956,6 +963,7 @@
                 v-if="!t.layoutKey"
                 :name="'prefs-' + t.key"
                 :aria-label="t.label"
+                hoist
                 :options="t.options"
                 :value="t.action ? prefs[t.key] : prefs[t.key] !== false"
                 @input="setToggle(t.key, $event)"
@@ -964,10 +972,13 @@
                 v-else
                 type="button"
                 class="ht-menu-sum"
+                :ref="'menuSum-' + t.key"
                 :class="{ open: menuListOpen === t.key }"
                 :aria-expanded="String(menuListOpen === t.key)"
                 :aria-controls="'ht-menu-list-' + t.key"
-                :aria-label="t.label + ' — choose and order this menu\'s buttons'"
+                :aria-label="
+                  t.label + ' — choose and order this menu\'s buttons'
+                "
                 :title="
                   menuListOpen === t.key
                     ? 'Close this menu\'s button list'
@@ -985,9 +996,21 @@
               </button>
             </span>
           </span>
+          <!-- FT-1265 (user: "these shouldn't be an inline addition, they
+               should be an overlay menu like the click cog menu is"). The
+               list is an OVERLAY now — it renders here for Vue's sake, but
+               the menuListOpen watcher hoists it to <body> the moment it
+               opens (hoistMenuList), where placeMenuList hangs it off its
+               own trigger's rect: the tab's rows never move, the disc and
+               the scroll well cannot shear it, and the wheel over it
+               scrolls the list. Same technique as OptionSelect's hoisted
+               list (FT-1167) and golem/floatingPicker; the flat styles it
+               wears on <body> live at the bottom of this file's style
+               block, beside the reasoning. -->
           <div
             class="ht-menu-list"
             :id="'ht-menu-list-' + t.key"
+            :ref="'menuList-' + t.key"
             v-if="t.layoutKey && menuListOpen === t.key"
             :key="t.key + ':list'"
             :class="{ 'ht-menu-off': prefs[t.key] === false }"
@@ -1002,6 +1025,7 @@
               <OptionSelect
                 :name="'prefs-' + t.key"
                 :aria-label="t.label + ' on or off'"
+                hoist
                 :options="t.options"
                 :value="prefs[t.key] !== false"
                 @input="setToggle(t.key, $event)"
@@ -1032,6 +1056,7 @@
               <OptionSelect
                 :name="'prefs-' + t.layoutKey + '-' + s.id"
                 :aria-label="s.label"
+                hoist
                 :options="menuOnOptions"
                 :value="s.on"
                 @input="setMenuOn(t, s.id, $event)"
@@ -1052,6 +1077,7 @@
             <OptionSelect
               name="prefs-grimoire-size"
               aria-label="Grimoire size"
+              hoist
               :options="grimoireSizeOptions"
               :value="prefs.grimoireSize"
               @input="pickGrimoireSize"
@@ -1509,9 +1535,19 @@ export default {
       if (open) {
         document.addEventListener("mousedown", this.onMenuDocDown);
         document.addEventListener("keydown", this.onMenuKey);
+        // FT-1265: the list is a body-level overlay now (see the template
+        // note) — hoist the newly rendered element and track its trigger.
+        // Capture phase for scroll, because the Control tab's own well does
+        // not bubble its scroll to window; re-adding the same handler on a
+        // ring→plate switch is a no-op, so this arm needs no guard.
+        window.addEventListener("scroll", this.trackMenuList, true);
+        window.addEventListener("resize", this.trackMenuList);
+        this.$nextTick(this.hoistMenuList);
       } else {
         document.removeEventListener("mousedown", this.onMenuDocDown);
         document.removeEventListener("keydown", this.onMenuKey);
+        window.removeEventListener("scroll", this.trackMenuList, true);
+        window.removeEventListener("resize", this.trackMenuList);
       }
     },
   },
@@ -1640,6 +1676,14 @@ export default {
     // menuListOpen watcher; a teardown mid-open must not strand them)
     document.removeEventListener("mousedown", this.onMenuDocDown);
     document.removeEventListener("keydown", this.onMenuKey);
+    // FT-1265: the overlay's tracking listeners, same discipline — and the
+    // hoisted list itself, which is no longer this component's DOM child, so
+    // the teardown that removes the panel's own tree would strand it on
+    // <body> (OptionSelect's beforeDestroy makes the same sweep).
+    window.removeEventListener("scroll", this.trackMenuList, true);
+    window.removeEventListener("resize", this.trackMenuList);
+    const openList = this.menuListEl && this.menuListEl();
+    if (openList && openList.parentElement === document.body) openList.remove();
     // FT-1209: the strip's alignment listener (bound in mounted)
     window.removeEventListener("resize", this.alignTabs);
     // FT-1231: the Control tab's overflow listener (bound in mounted)
@@ -2454,6 +2498,107 @@ export default {
     /** One list open at a time — the tab is a band, not a page. */
     toggleMenuList(key) {
       this.menuListOpen = this.menuListOpen === key ? null : key;
+    },
+    // ── FT-1265: THE LIST IS AN OVERLAY (see the template note) ──────────
+    /** The open list's trigger / list elements. `$refs` inside a v-for are
+     *  arrays; each key renders at most one of each. */
+    menuSumEl() {
+      const r = this.$refs["menuSum-" + this.menuListOpen];
+      return (Array.isArray(r) ? r[0] : r) || null;
+    },
+    menuListEl() {
+      const r = this.$refs["menuList-" + this.menuListOpen];
+      return (Array.isArray(r) ? r[0] : r) || null;
+    },
+    /** Move the freshly rendered list to <body> and place it. Vue's own
+     *  patch keeps working on the moved node (v-if teardown removes it via
+     *  its live parentNode) — OptionSelect's mountMenu is the precedent. */
+    hoistMenuList() {
+      const list = this.menuListEl();
+      if (!list) return;
+      if (list.parentElement !== document.body) document.body.appendChild(list);
+      this.placeMenuList();
+      // its natural height isn't known until it has laid out once —
+      // golem/floatingPicker's positionPopup hits the same snag, same fix
+      requestAnimationFrame(this.placeMenuList);
+    },
+    /** Fixed to the trigger's rect, flipping up when below is short and
+     *  clamped to the window — golem/floatingPicker's positionPopup math,
+     *  restated here because that mixin owns a single popup per component
+     *  and this panel has one list per menu row. */
+    placeMenuList() {
+      const trigger = this.menuSumEl();
+      const list = this.menuListEl();
+      if (!trigger || !list) return;
+      const rect = trigger.getBoundingClientRect();
+      const box = list.getBoundingClientRect();
+      const margin = 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // prefer downward unless there plainly isn't room and the other side
+      // has more — a merely tight fit should not make the list jump sides
+      const openDown =
+        spaceBelow >= Math.min(box.height, 220) || spaceBelow >= spaceAbove;
+      const maxH = Math.max(
+        120,
+        (openDown ? spaceBelow : spaceAbove) - margin * 2,
+      );
+      const width = Math.max(
+        rect.width,
+        Math.min(box.width || 260, window.innerWidth - margin * 2),
+      );
+      const left = Math.min(
+        Math.max(rect.left, margin),
+        Math.max(margin, window.innerWidth - width - margin),
+      );
+      list.style.left = `${left}px`;
+      list.style.width = `${width}px`;
+      list.style.maxHeight = `${maxH}px`;
+      if (openDown) {
+        list.style.top = `${rect.bottom + 4}px`;
+        list.style.bottom = "auto";
+      } else {
+        list.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+        list.style.top = "auto";
+      }
+    },
+    /** Reposition on any scroll/resize — and close if the trigger has been
+     *  scrolled more than half out of view (a list left pointing at a row
+     *  that has scrolled away is worse than no list). Both the visibility
+     *  walk and the half-showing rule are OptionSelect's (FT-1167). */
+    trackMenuList() {
+      if (!this.menuListOpen) return;
+      const trigger = this.menuSumEl();
+      if (!trigger) return;
+      const r = trigger.getBoundingClientRect();
+      let top = 0;
+      let left = 0;
+      let right = window.innerWidth;
+      let bottom = window.innerHeight;
+      let el = trigger.parentElement;
+      while (el && el !== document.documentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.overflowX !== "visible" || cs.overflowY !== "visible") {
+          const b = el.getBoundingClientRect();
+          top = Math.max(top, b.top);
+          left = Math.max(left, b.left);
+          right = Math.min(right, b.right);
+          bottom = Math.min(bottom, b.bottom);
+        }
+        el = el.parentElement;
+      }
+      const showingH = Math.min(r.bottom, bottom) - Math.max(r.top, top);
+      const showingW = Math.min(r.right, right) - Math.max(r.left, left);
+      if (
+        !r.width ||
+        !r.height ||
+        showingH < r.height / 2 ||
+        showingW < r.width / 2
+      ) {
+        this.menuListOpen = null;
+        return;
+      }
+      this.placeMenuList();
     },
     /** FT-1264: the one control's face — the menu in a couple of words.
      *  Master off is "Off"; otherwise how many of the vocabulary's buttons
@@ -4077,107 +4222,12 @@ export default {
         min-height: 40px;
       }
     }
-    // The list itself: a full-width sunken shelf under its row (the same
-    // recessed ground the tab's scroll well wears, quieter), one line per
-    // vocabulary action. The GRIP leads each line — reorder lists put the
-    // handle where the reading starts — then the action's own mark, its
-    // settings name, and its On/Off at the line's right edge.
-    .ht-menu-list {
-      flex: 1 1 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin: 2px 0 4px;
-      padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.25);
-      border-radius: 8px;
-      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
-    }
-    .ht-menu-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 2px 4px;
-      border-radius: 6px;
-      position: relative;
-      .row-name {
-        flex: 1 1 auto;
-        min-width: 0;
-        text-align: left;
-        font-size: 80%;
-        // an action turned off stays LISTED (the list is where the whole
-        // vocabulary teaches itself now) — it just dims.
-        &.off {
-          opacity: 0.45;
-        }
-      }
-      .row-mark,
-      .row-mark-fa,
-      .gsel {
-        flex-shrink: 0;
-      }
-      // the drag dress: the grabbed line dims in place (the browser carries
-      // its image), and the drop slot draws a seam in the grimoire's own
-      // purple at the edge it would land on.
-      &.dragging {
-        opacity: 0.4;
-      }
-      &.drop-before::before,
-      &.drop-after::after {
-        content: "";
-        position: absolute;
-        left: 4px;
-        right: 4px;
-        height: 2px;
-        border-radius: 1px;
-        background: $control-edge-hover;
-        pointer-events: none;
-      }
-      &.drop-before::before {
-        top: -2px;
-      }
-      &.drop-after::after {
-        bottom: -2px;
-      }
-    }
-    // the grip: three cast lines, drawn rather than fetched — the icon set
-    // has no grip glyph registered and three 2px rules ARE the mark.
-    .ht-menu-grip {
-      flex-shrink: 0;
-      width: 12px;
-      height: 11px;
-      cursor: grab;
-      background: repeating-linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.4) 0,
-        rgba(255, 255, 255, 0.4) 2px,
-        transparent 2px,
-        transparent 4.5px
-      );
-      &:active {
-        cursor: grabbing;
-      }
-    }
-    // ── FT-1264: the master row at the list's head ───────────────────────
-    // No grip (the whole-menu switch has no order to drag); its words are
-    // indented past where a grip would sit so the action names below still
-    // read down one edge, and a hairline under it separates "the menu" from
-    // "its buttons".
-    .ht-menu-master {
-      padding-left: 24px;
-      padding-bottom: 5px;
-      margin-bottom: 3px;
-      border-radius: 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-      .row-name {
-        opacity: 0.85;
-      }
-    }
-    // Master Off: the slot rows dim but stay operable — the tab's own
-    // inert-but-working grammar (`.ht-ctrl-inert`), worn by a list.
-    .ht-menu-off .ht-menu-item:not(.ht-menu-master) {
-      opacity: 0.45;
-    }
+    // FT-1265: THE LIST'S DRESS MOVED OUT of this nested block — the list is
+    // a body-hoisted overlay now (the template note has the why), and a
+    // nested rule's ancestor combinators stop matching the moment the
+    // element leaves the panel's tree. The whole `.ht-menu-list` subtree
+    // lives as FLAT scoped rules at the bottom of this style block, the same
+    // move OptionSelect's `.gsel-menu` made for the same reason (FT-1167).
   }
 
   // ── FT-1227 → FT-1231: THE CONTROL TOGGLES IN TWO COLUMNS ───────────────
@@ -4279,9 +4329,13 @@ export default {
     ::v-deep .gsel .gsel-sizer {
       overflow: hidden;
     }
-    > .ht-menu-list {
-      grid-column: 1 / -1;
-    }
+    // FT-1265: STOOD DOWN — the list was this grid's full-width shelf
+    // (`grid-column: 1 / -1`); as a body-hoisted overlay it is out of the
+    // grid's flow entirely and the placement rule has nothing to place.
+    // Kept as the record of the shelf era (FT-1260 → FT-1264).
+    // > .ht-menu-list {
+    //   grid-column: 1 / -1;
+    // }
     .row-name {
       white-space: normal;
     }
@@ -5077,5 +5131,168 @@ export default {
       }
     }
   }
+}
+
+// ── FT-1265: THE CUSTOMIZATION LIST IS AN OVERLAY ─────────────────────────
+// (user: "these shouldn't be an inline addition, they should be an overlay
+// menu like the click cog menu is.") Inline, the list pushed the tab's rows
+// down and clipped at the disc's foot and the scroll well's edge; open, it
+// now hoists to <body> (hoistMenuList) and hangs off its own trigger's rect
+// (placeMenuList — golem/floatingPicker's math), so the rows behind it never
+// move and nothing shears it.
+//
+// FLAT RULES, deliberately: a scoped rule stamps its `[data-v-…]` on the
+// LAST compound selector only, so a nested `.ht-settings .ht-menu-list`
+// stopped matching the moment the element moved — written flat, the
+// attribute rides each class itself and the dress follows the element onto
+// <body>. `.gsel-menu` (OptionSelect, FT-1167) is the precedent, and the
+// chrome below is that list's own — ground, plum edge, radius, shadow —
+// because the two popups are the same object at two sizes.
+.ht-menu-list {
+  // fixed BEFORE it is placed, too: for the one microtask between Vue
+  // rendering the element in the tab and hoistMenuList moving it, fixed
+  // takes it out of flow — the rows never jump, even pre-paint.
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  // the wheel over the open list scrolls THE LIST (placeMenuList caps its
+  // height to the window's room); `contain` stops the chain into the panel
+  // behind it whether or not the list has anything left to scroll — the
+  // same pair `.gsel-menu` wears (FT-1265).
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(12, 8, 16, 0.96);
+  border: 2px solid rgba(120, 105, 135, 0.55);
+  border-radius: 8px;
+  box-shadow: 0 0 12px black;
+  // above the panel (19) and the seats' plates (11); BELOW the hoisted
+  // `.gsel-menu`s at 60, because the master row's and the slot rows' own
+  // On/Off lists open from INSIDE this overlay and must paint over it.
+  z-index: 55;
+}
+.ht-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  position: relative;
+  .row-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    font-size: 80%;
+    white-space: nowrap;
+    // an action turned off stays LISTED (the list is where the whole
+    // vocabulary teaches itself now) — it just dims.
+    &.off {
+      opacity: 0.45;
+    }
+  }
+  .row-mark,
+  .row-mark-fa,
+  .gsel {
+    flex-shrink: 0;
+  }
+  // FT-1265: the marks' dress RESTATED — inline, these rows inherited it
+  // from the settings block's own `.row-mark` / `.row-mark-fa` rules, whose
+  // ancestor selectors the hoisted list no longer answers to. Same numbers,
+  // same warm ink, same FA width fight (the two-class match — see the
+  // settings block's FT-1100 note for why 18px needs it).
+  .row-mark {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+  .row-mark-fa {
+    width: 18px;
+    height: 18px;
+    color: rgb(154, 146, 133);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    &.svg-inline--fa {
+      width: 18px;
+      height: 18px;
+    }
+  }
+  // the drag dress: the grabbed line dims in place (the browser carries
+  // its image), and the drop slot draws a seam in the grimoire's own
+  // purple at the edge it would land on.
+  &.dragging {
+    opacity: 0.4;
+  }
+  &.drop-before::before,
+  &.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    border-radius: 1px;
+    background: $control-edge-hover;
+    pointer-events: none;
+  }
+  &.drop-before::before {
+    top: -2px;
+  }
+  &.drop-after::after {
+    bottom: -2px;
+  }
+}
+// the grip: the conventional 2×3 dot grid, drawn rather than fetched — the
+// icon set has no grip glyph registered and one dot plus five box-shadow
+// copies ARE the mark. (FT-1265: it was three cast lines, which read as a
+// hamburger MENU — the user's call; dots are the drag-handle convention.)
+// Same 12×11 hit box as the lines wore; the dots sit centred inside it.
+.ht-menu-grip {
+  flex-shrink: 0;
+  position: relative;
+  width: 12px;
+  height: 11px;
+  cursor: grab;
+  &::before {
+    content: "";
+    position: absolute;
+    // two tight columns of three: 2px dots, columns 4px apart on centre,
+    // rows 3.5px — the top-left dot anchors, the shadows place the rest
+    left: 3px;
+    top: 1px;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow:
+      4px 0 0 rgba(255, 255, 255, 0.4),
+      0 3.5px 0 rgba(255, 255, 255, 0.4),
+      4px 3.5px 0 rgba(255, 255, 255, 0.4),
+      0 7px 0 rgba(255, 255, 255, 0.4),
+      4px 7px 0 rgba(255, 255, 255, 0.4);
+  }
+  &:active {
+    cursor: grabbing;
+  }
+}
+// ── FT-1264: the master row at the list's head ───────────────────────────
+// No grip (the whole-menu switch has no order to drag); its words are
+// indented past where a grip would sit so the action names below still
+// read down one edge, and a hairline under it separates "the menu" from
+// "its buttons".
+.ht-menu-master {
+  padding-left: 24px;
+  padding-bottom: 5px;
+  margin-bottom: 3px;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  .row-name {
+    opacity: 0.85;
+  }
+}
+// Master Off: the slot rows dim but stay operable — the tab's own
+// inert-but-working grammar (`.ht-ctrl-inert`), worn by a list.
+.ht-menu-off .ht-menu-item:not(.ht-menu-master) {
+  opacity: 0.45;
 }
 </style>

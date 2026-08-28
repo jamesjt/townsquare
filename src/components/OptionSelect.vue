@@ -139,11 +139,15 @@ export default {
      *  sheet's existing answer, worn by a third control, rather than a new
      *  technique.
      *
-     *  OFF BY DEFAULT. The panel's other five dropdowns (HostTools,
-     *  NightModeRow, EditionModal) sit in containers that do not clip them and
-     *  style their options through `::v-deep`, which a hoisted list is by
-     *  definition out of reach of. Opting in per caller keeps this change to
-     *  the one control that reported the bug.
+     *  OFF BY DEFAULT, opted into per caller. FT-1265 widened the roster:
+     *  the setup panel scrolls in every dress (its body is `overflow-y:
+     *  auto`, and the Control tab adds its own scroll well), so every
+     *  HostTools instance hoists now — the Click-role-name picker's 8-row
+     *  list was shearing at the tab's edge exactly the way the checklist's
+     *  did. PrefsMenu's rows came aboard with FT-1213. The default stays
+     *  off for the callers that style their options through `::v-deep`
+     *  (NightModeRow), which a hoisted list is by definition out of reach
+     *  of.
      *
      *  A HOISTED LIST TRACKS ITS TRIGGER (`placeMenu` on scroll-capture and
      *  resize) and CLOSES when the trigger is scrolled more than half out of
@@ -495,6 +499,15 @@ export default {
   min-width: max-content;
   max-height: 48vh;
   overflow-y: auto;
+  // FT-1265: the wheel over an open list belongs to the LIST. Without this,
+  // a wheel turn that runs past the list's own scroll (or lands on a list
+  // short enough to have none) chains to the scroller behind it — the
+  // Control tab's well, the panel — and the page moves under an open popup.
+  // `contain` cuts the chain at this box on both counts: an overflow:auto
+  // element is a scroll container even when its content fits, so the chain
+  // stops here whether or not there is anything to scroll. The panel's own
+  // body wears the same rule for the same reason (HostTools, FT-1160-era).
+  overscroll-behavior: contain;
   padding: 4px;
   // FT-1108 (user): ground and edge come off the blood accent and onto
   // the grimoire's plum — the edge this panel's own buttons already
