@@ -532,8 +532,20 @@
         <!-- ── YOUR NIGHTS (FT-1037b, user call) — the retired night
              drawer's whole surface, behind the moon cell: viewer-local
              night learnings plus the FT-1005 live Tonight inputs, in the
-             stream's place while the cell is lit. -->
-        <ChroniclesNights v-if="mode === 'current' && filter === 'nights'" />
+             stream's place while the cell is lit.
+
+             FT-1274: STOOD DOWN, not deleted — the house rule. This was the
+             SECOND RENDERER of the night, and having two is the literal bug
+             the user reported: this surface said "Fortune Teller / You chose
+             Fake 3 and Fake 6" while the stream's own night block said "You
+             (Fortune Teller) chose Fake 3 and Fake 6" about the same event.
+             One sentence, built once (golem/nightLog's chronicleLineOf) and
+             rendered in one place (ChroniclesRow), leaves this room with
+             nothing to show that the stream does not now show better —
+             including, at last, to the storyteller, who never had this door
+             at all. The moon cell now narrows the stream instead; the
+             component, its import and its registration all stand. -->
+        <ChroniclesNights v-if="false" />
 
         <!-- ── THE STREAM (Current) ────────────────────────────────────── -->
         <div
@@ -541,7 +553,7 @@
           ref="log"
           v-blood-scroll
           @scroll="onScroll"
-          v-if="mode === 'current' && filter !== 'nights'"
+          v-if="mode === 'current'"
         >
           <template v-for="section in sections">
             <!-- A GAME is a chapter: a header that says which, folding the
@@ -1189,11 +1201,31 @@ export default {
       // wearing the moon door's own art. Same gate the door had (FT-860):
       // the town shares night info with everyone, and this viewer holds a
       // chair — its content is that seat's own rows and nothing else.
+      // FT-1274 (user: "the storyteller has no night-actions filter"): the
+      // cell is a FIFTH CELL FOR EVERYONE now, not a player-only door.
+      //
+      // THE CALL, and why. The alternative was an ST-only cell, and it is the
+      // wrong one for the same reason the two-sentence bug this pass fixes was
+      // wrong: it puts the storyteller and a player on different furniture
+      // looking at the same record. After this pass a night row is an ordinary
+      // stream row worded identically for both, so the cell that narrows the
+      // stream to those rows is the same object for both, and there is nothing
+      // left to make reader-specific. A player sees only their OWN night rows
+      // under it — which is honest, because those are the only ones their
+      // client has ever held — and gains nothing they did not already have.
+      //
+      // The GATE is the honest version of the same thought: the cell appears
+      // when this reader is holding night rows at all. That subsumes every
+      // clause the old player-only gate spelled out (no seat, nothing
+      // delivered, the town not sharing) without asking any of them, because
+      // each one already ends in an empty set of rows.
       if (this.canSeeNights) {
         cells.push({
           id: "nights",
           icon: uiNight,
-          title: "Your nights — what you learned, yours alone",
+          title: this.session.isSpectator
+            ? "Your nights — what you were told, yours alone until the game ends"
+            : "The night's record — every seat's action, yours alone until the game ends",
         });
       }
       return cells;
@@ -1227,12 +1259,46 @@ export default {
      * a row for them. The real fix is host-side (sendNightRows now shares a
      * seat's rows in every mode but "off"); this reads whether any arrived.
      */
+    /**
+     * FT-1274: ...AND THE GATE IS NOW "AM I HOLDING ANY NIGHT ROWS?", asked of
+     * every reader with the same question.
+     *
+     * The whole rule above survives inside it rather than being thrown away.
+     * A player with no seat holds no rows; a player whose storyteller has
+     * written nothing for them holds no rows; a town in "off" produces none.
+     * Every clause the old gate tested for ends in the same empty set, so
+     * testing the set tests all of them — and it is the only phrasing that
+     * ALSO answers the question for the storyteller, who was refused outright
+     * by the first line of the old rule and is the reason this changed.
+     *
+     * It reads the synthetic blocks first (the live game — each reader's own),
+     * then falls back to a published night row in the log, so the cell does
+     * not vanish at the moment the host publishes the finished record and the
+     * synthetic copies stand down.
+     *
+     * The old rule's whole note is kept below it, unindented, because the
+     * measurement in it (FT-1101's `night.mode` bug) is the reason this
+     * function is careful and would be lost with the code it explains.
+     */
     canSeeNights() {
-      if (!this.session.isSpectator) return false;
-      const { live, rows } = this.night.playerNight;
-      if (!live && !rows.length) return false;
-      return seatOf(this.$store.state) >= 0;
+      if (this.nightBlockRows.length) return true;
+      return this.chat.log.some((row) => {
+        if (row.kind !== "system") return false;
+        const ev = decodeEvent(row.body);
+        return !!ev && ev.t === "nights";
+      });
     },
+    /* FT-1274: THE OLD GATE, stood down rather than deleted (the house rule),
+       and kept because its note above is the record of a measured bug:
+
+         canSeeNights() {
+           if (!this.session.isSpectator) return false;   // ← the ST, refused
+           const { live, rows } = this.night.playerNight;
+           if (!live && !rows.length) return false;
+           return seatOf(this.$store.state) >= 0;
+         }
+
+       `seatOf` is still imported and still used elsewhere in this file. */
     /**
      * FT-1101: IS THE NIGHT ASKING THIS SEAT FOR SOMETHING RIGHT NOW?
      * The nights view's own question (ChroniclesNights), asked here so the
@@ -1448,6 +1514,14 @@ export default {
     emptyText() {
       if (this.chat.syncing) return "Reading the town's story…";
       if (this.filter === "events") return "Nothing has happened yet.";
+      // FT-1274: the moon cell narrows the stream now, so it has an empty
+      // state like every other cell — and it is owed the two readers' own
+      // words, because "nothing yet" means different things to them.
+      if (this.filter === "nights") {
+        return this.session.isSpectator
+          ? "Nothing yet. What you learn at night will be written down here."
+          : "No night actions recorded yet.";
+      }
       return "Nothing said since the town opened.";
     },
   },

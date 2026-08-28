@@ -149,7 +149,10 @@ export function eventTextOf(row) {
  *  "nights" is THIS VIEWER'S OWN night learnings — the retired night
  *  drawer's history, now a toggle here. It is a viewer-local projection
  *  (night/myEntries), not town-log rows, so under it the surface renders
- *  the nights view instead of the stream. */
+ *  the nights view instead of the stream.
+ *
+ *  FT-1274 CORRECTED THAT LAST SENTENCE. "nights" is a filter over the
+ *  STREAM now, exactly like the other four — see inFilter below. */
 export const FILTERS = ["all", "talk", "gallows", "events", "nights"];
 
 /** The event types that belong to the gallows — the nomination arc. */
@@ -157,9 +160,26 @@ const GALLOWS_T = new Set(["nomination", "execution", "unmark"]);
 
 /** Does a row survive the talk/events filter? System rows ARE the events. */
 export function inFilter(row, filter) {
-  // FT-1037b: night learnings are not log rows — no row survives; the
-  // drawer renders the nights view in the stream's place instead.
-  if (filter === "nights") return false;
+  // FT-1274 (user: the storyteller has no night-actions filter): the moon
+  // cell is a FILTER OVER THE STREAM now, and the same one for every reader.
+  //
+  // It used to be a door to a second surface — ChroniclesNights, which held a
+  // player's own rows and worded them its own way ("Fortune Teller / You chose
+  // …") while the stream's night block said the same event differently ("You
+  // (Fortune Teller) chose …"). One event, two renderers, two sentences. The
+  // fix for that is one sentence built once (golem/nightLog's chronicleLineOf)
+  // and rendered in one place, so the second surface has nothing left to be:
+  // the cell now narrows the stream to the night rows already in it.
+  //
+  // A player's night rows are synthetic and viewer-local (their own seat's,
+  // never anyone else's) and the storyteller's are host-local. So this filter
+  // shows each reader exactly what they were already holding — it decides
+  // WHICH OF YOUR OWN ROWS you are looking at, never who may hold one.
+  if (filter === "nights") {
+    if (row.kind !== "system") return false;
+    const ev = decodeEvent(row.body);
+    return !!ev && ev.t === "nights";
+  }
   if (filter === "talk") return row.kind !== "system";
   if (filter === "gallows") {
     if (row.kind !== "system") return false;

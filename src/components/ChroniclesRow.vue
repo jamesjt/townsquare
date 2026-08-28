@@ -160,28 +160,46 @@
          record everyone can read. -->
     <span class="crr-nights" v-if="hasNights">
       <span class="crr-nights-lines">
-        <span class="crr-nights-line" v-for="(line, i) in event.lines" :key="i">
-          <span class="crr-nights-who"
-            >{{ line.name
-            }}<span class="crr-nights-role" v-if="line.roleName">
-              ({{ line.roleName }})</span
-            ></span
-          >
-          <span class="crr-nights-chose" v-if="line.chose.length"
-            >chose <b>{{ line.chose.join(" and ") }}</b></span
-          >
-          <span class="crr-nights-said" v-if="line.said">{{ line.said }}</span>
-          <span class="crr-nights-given" v-if="line.learned"
-            >given <b>{{ line.learned }}</b></span
-          >
+        <!-- FT-1274: ONE SENTENCE, WALKED AS TOKENS. Every word here comes
+             out of `line.tokens`, which golem/nightLog built once for both
+             readers — so the storyteller's copy and the player's copy of the
+             same action are the same words in the same order, and the flat
+             `line.text` beside them is that same array joined. Nothing on
+             this row decides wording; it only decides dress.
+
+             FT-1274 (user): the privacy footnote came OFF the row and is the
+             row's HOVER now — one line per action, carrying the seat's name
+             where the reader is entitled to it (the storyteller; a player's
+             copy has no seatName to carry, structurally). -->
+        <span
+          class="crr-nights-line"
+          v-for="(line, i) in nightLines"
+          :key="i"
+          :title="hoverFor(line)"
+        >
+          <img
+            class="crr-nights-icon"
+            v-if="roleIconFor(line)"
+            :src="roleIconFor(line)"
+            alt=""
+          />
+          <template v-for="(tok, j) in line.tokens">
+            <span
+              :key="i + ':' + j"
+              class="crr-nights-tok"
+              :class="tokClass(tok, line)"
+              >{{ tok.w }}</span
+            >
+          </template>
         </span>
       </span>
-      <!-- `privacy` is the SENTENCE, not a flag: the storyteller and the seat
-           are both entitled readers of this block and the two are owed
-           different words. A published row carries none. -->
-      <span class="crr-nights-privacy" v-if="event.privacy">{{
-        event.privacy
-      }}</span>
+      <!-- FT-1274 (user: "the privacy footnote comes out of the row"): STOOD
+           DOWN, not deleted — the house rule. `privacy` is still the SENTENCE
+           rather than a flag (the storyteller and the seat are both entitled
+           readers of this block and the two are owed different words) and it
+           is still carried on the event; it is read by `hoverFor` above and
+           printed nowhere. A published row carries none. -->
+      <span class="crr-nights-privacy" v-if="false">{{ event.privacy }}</span>
     </span>
 
     <!-- ── THE GALLOWS THREAD (FT-1019) — the strand under a nomination:
@@ -261,6 +279,10 @@ import uiNominateHand from "../assets/ui-nominate-hand.png";
 import uiSun from "../assets/ui-sun.png";
 // FT-1242: the tally's hand is the raised hand a cast vote wears on a seat.
 import uiVoteYes from "../assets/ui-vote-yes.png";
+// FT-1274: the night sentence leads with the character's own icon — the same
+// helper NightSheet's checklist rows and the clock face's night ask read, so
+// one character has one face on every surface.
+import { roleIconUrl } from "../golem/roleIcon";
 import { effectiveHourFlags, hourAllOff } from "../golem/towerBells";
 
 /** Event type → the registered FA icon that marks it. Only icons main.js
@@ -418,11 +440,24 @@ export default {
      *  empty block never renders — nightBlocksOf drops a night nobody did
      *  anything in, and a row that arrived empty says nothing worth a line. */
     hasNights() {
-      return (
-        !!this.event &&
-        this.event.t === "nights" &&
-        Array.isArray(this.event.lines) &&
-        this.event.lines.length > 0
+      return this.nightLines.length > 0;
+    },
+    /**
+     * FT-1274: the lines of a night block that this build can actually SAY.
+     *
+     * A line is the token list golem/nightLog built for it, so a row whose
+     * lines carry no tokens is one a DIFFERENT build wrote — a published
+     * night sitting in the town's log from before the sentence had this
+     * shape. Those are skipped rather than half-rendered: the night's own
+     * "Night 2 — 4 actions." row still stands in the stream above them, so
+     * the record does not go quiet, and no line is drawn from parts this
+     * renderer no longer knows how to word.
+     */
+    nightLines() {
+      if (!this.event || this.event.t !== "nights") return [];
+      if (!Array.isArray(this.event.lines)) return [];
+      return this.event.lines.filter(
+        (line) => line && Array.isArray(line.tokens) && line.tokens.length > 0,
       );
     },
     /** FT-1037: is this a board row with a ring actually aboard? */
@@ -459,6 +494,65 @@ export default {
         Array.isArray(this.event.ghosts) && this.event.ghosts.includes(name)
       );
     },
+    /**
+     * FT-1274: THE CHARACTER A NIGHT LINE IS ABOUT, resolved at RENDER time
+     * from the id the line carries — never stamped into the stored row.
+     *
+     * That is deliberate and it is what keeps a live block and a published one
+     * dressed identically: the same lookup runs for both, so a night read
+     * during the game and the same night read out of the finished record wear
+     * the same icon and the same team colour. Stamping the team into the event
+     * would have given a published row whatever the script said at publish
+     * time and a live row whatever it says now — two answers to one question.
+     *
+     * The script's own table first (a homebrew or forged character is only
+     * ever there), then the base edition, then a bare id so the icon helper's
+     * own custom.png fallback can do its job.
+     */
+    roleOf(line) {
+      const id = line && line.roleId;
+      if (!id) return null;
+      const state = this.$store.state;
+      const base = this.$store.getters.rolesJSONbyId;
+      return (
+        (state.roles && state.roles.get(id)) || base.get(id) || { id, team: "" }
+      );
+    },
+    /** FT-1274: the icon that leads the sentence — NightSheet's own approach,
+     *  through the shared helper (golem/roleIcon), so the chronicle and the
+     *  checklist can never show a character two different faces. */
+    roleIconFor(line) {
+      const role = this.roleOf(line);
+      return role ? roleIconUrl(role, this.$store.getters.rolesJSONbyId) : "";
+    },
+    /**
+     * FT-1274: one token's dress. The kinds that carry meaning get a class;
+     * the connectives get the muted one.
+     *
+     * The ROLE token also takes its team, which is the only class on this row
+     * computed from anything but the token itself.
+     */
+    tokClass(tok, line) {
+      if (tok.k !== "role") return "tok-" + tok.k;
+      const role = this.roleOf(line);
+      return ["tok-role", "team-" + ((role && role.team) || "townsfolk")];
+    },
+    /**
+     * FT-1274: the row's HOVER — where the privacy footnote went.
+     *
+     * Two facts, and the second one is only ever present for a reader who
+     * already holds it: `line.who` is the seat's name, and a PLAYER's copy of
+     * a row has none at all (projectPlayerRow does not carry seatName, so
+     * chronicleLineOf reads "" — structurally, not by a test here). So this
+     * cannot show a player a seat they could not already see, and it gives the
+     * storyteller back the one thing the role-first sentence stopped printing.
+     */
+    hoverFor(line) {
+      const privacy = this.event && this.event.privacy;
+      const who = line && line.who;
+      if (who && privacy) return who + " — " + privacy;
+      return who || privacy || "";
+    },
     beatText(row) {
       return eventTextOf(row);
     },
@@ -467,6 +561,9 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// FT-1274: the team tokens, for the night sentence's role name.
+@import "../vars.scss";
+
 .crr {
   display: block;
 }
@@ -766,57 +863,211 @@ img.crr-beat-mark {
 // sentence, the gallows thread's shape (a rail on the left, lines stacked
 // against it) because it is the same kind of thing: what followed the row
 // above it.
+//
+// ── FT-1274: AND IT IS A PLATE NOW ─────────────────────────────────────────
+// The user's ask was "put these lines in the glass maybe? or make them stand
+// out?", and the "or" is the judgement. THE ANSWER IS NOT THE GLASS, for two
+// reasons and one of them is what the material MEANS on this fork:
+//
+//   · `face-disc-menu-plate` is the FLOATING-SURFACE material here — the
+//     account door, the hotkey panel, the top-right menus, the role picker.
+//     Every one of them sits ABOVE the page. A chronicle row is IN the page,
+//     and dressing it in the glass would say "this is a popup", which is the
+//     wrong sentence about the one row that is the game's own record.
+//   · it is a `backdrop-filter` per element, and this element repeats down a
+//     scrolling log — one compositing pass per night, per game, forever. The
+//     brief's own qualifier is "calm enough to repeat down a long log", and a
+//     stack of blurred panes is not calm at any count.
+//
+// So it is an INSCRIBED plate rather than a floating one: the glass's own
+// tint family (`--fd-tint-rgb`'s 26,20,33) and its bevel — a lit hairline at
+// the top, a hairline rim, a shadow beneath — with no blur behind it. That
+// reads as something CUT INTO the stream rather than laid over it, which is
+// exactly what "the record speaking" is next to a line somebody said (bare)
+// and a line the town announced (a mark and serif ink, no ground).
 .crr-nights {
   display: block;
-  margin: 2px 0 4px 18px;
-  padding-left: 8px;
+  margin: 3px 0 5px 18px;
+  padding: 4px 10px 5px 9px;
+  border-radius: 9px;
   // FT-1152 (user): "Night info should have the left border as storyteller
   // purple not gold". The night block is the storyteller's own record — the
   // one thing on this row that only they and the acting seat can read until
   // the game ends — so it wears the book's colour, the same plum every other
   // storyteller control took today. Gold is the checklist's tick, not the
-  // record's edge.
+  // record's edge. FT-1274 keeps the rail exactly as it was; the plate grew
+  // around it.
   border-left: 2px solid rgba(167, 143, 205, 0.55);
+  background: linear-gradient(
+    to bottom,
+    rgba(41, 33, 52, 0.66),
+    rgba(20, 16, 26, 0.74)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(216, 205, 180, 0.1),
+    inset 0 0 0 1px rgba(216, 205, 180, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+  // FT-1274 (user): "use the font from the events, not the night actions tab".
+  // The events' face is PiratesBay at 0.3px tracking (`.crr-sys` above) and
+  // this block inherited the drawer's body font instead — the one visible
+  // difference between the town's own lines and the town's own record. Set on
+  // the plate so every token inside it takes it, the answer's YES included:
+  // PiratesBay IS the display face the join and host doors wear, so the user's
+  // "YES in the display face" costs nothing extra once the block is in it, and
+  // the word stands out on CAPS and colour rather than on a second family.
+  font-family: PiratesBay, sans-serif;
+  letter-spacing: 0.3px;
 }
 
 .crr-nights-lines {
   display: block;
 }
 
+// A BLOCK WITH A HANGING INDENT, not a flex row — measured (the first cut of
+// this was `flex-wrap: wrap` and the Ravenkeeper's line, the one long enough
+// to wrap, restarted hard against the plate's left edge under its own icon,
+// so a wrapped sentence read as two sentences). The overhang is exactly the
+// icon's own width plus its gap, so the first line begins where the icon does
+// and every wrapped line begins where the WORDS do.
 .crr-nights-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 5px;
-  padding: 1px 0;
+  display: block;
+  padding: 2px 0 2px 21px;
+  text-indent: -21px;
   font-size: 95%;
+  line-height: 1.5;
 }
 
-.crr-nights-who {
+// FT-1274: the icon leads the sentence — the checklist's own approach
+// (roleIconUrl). A rank above the hand-drawn 13px marks this row's other art
+// wears (the noose, the cowl, the road into town), because those are one
+// glyph each and a character icon is a whole small picture.
+.crr-nights-icon {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  vertical-align: -4px;
+  margin-right: 4px;
+  text-indent: 0;
+}
+
+// ── THE SENTENCE'S TOKENS ──────────────────────────────────────────────────
+// Muted by default: the connective words ("and") and the clause verbs
+// ("chose", "said", "was given") are grammar, not information. Everything the
+// reader is actually scanning for lifts out of them.
+.crr-nights-tok {
+  color: #cdc4b2;
+  // the word gap, set here rather than by whitespace in the markup: the
+  // token list is a `v-for` with no text nodes between its spans, which is
+  // also what makes `tokens.map(w).join(" ")` and the DOM the same sentence
+  margin-right: 4px;
+}
+.tok-join,
+.tok-lead {
+  opacity: 0.6;
+}
+
+// THE ROLE NAME WEARS ITS TEAM (user call). FT-1167's ruling is the precedent
+// — raw tokens, legibility bought with a HALO rather than with hue, because a
+// wash toward white pulls six hues a third of the way toward each other and
+// the whole point of the colour is telling a Minion from a Demon at a glance.
+//
+// BUT ITS MEASUREMENT DOES NOT CARRY, and the honest thing is to say why.
+// FT-1167 measured a 22px BOLD name, which is LARGE TEXT by WCAG's own
+// definition (>= 18.66px bold) and answers to 3:1. This name is ~13px bold —
+// SMALL text, 4.5:1 — and against this plate's ground (rgb(24,19,30)) three
+// of the six raw tokens fail it:
+//
+//              raw     +14%
+//   fabled     14.71   15.56
+//   outsider   10.62   12.85
+//   minion      6.32    8.27
+//   traveler    4.37 ✗  5.62
+//   townsfolk   3.79 ✗  6.41
+//   demon       3.15 ✗  4.69
+//
+// So every token takes the SAME +14% lightness lift the demon already takes
+// on two other surfaces (NightSheet's checklist, ScriptView's cards), which
+// clears 4.5:1 for all six. A uniform HSL lightness shift is not the wash
+// FT-1167 rejected: it moves every hue by the same amount and so preserves
+// the separation between them, which is the property that mattered.
+.tok-role {
+  font-weight: bold;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 0.8);
+  &.team-townsfolk {
+    color: lighten($townsfolk, 14%);
+  }
+  &.team-outsider {
+    color: lighten($outsider, 14%);
+  }
+  &.team-minion {
+    color: lighten($minion, 14%);
+  }
+  &.team-demon {
+    color: lighten($demon, 14%);
+  }
+  &.team-traveler {
+    color: lighten($traveler, 14%);
+  }
+  &.team-fabled {
+    color: lighten($fabled, 14%);
+  }
+}
+
+// the seats a row picked — the other thing the eye hunts for
+.tok-name {
+  color: #e8dcc2;
   font-weight: bold;
 }
 
-.crr-nights-role {
-  font-weight: normal;
-  opacity: 0.65;
+// ── THE ANSWER (user call) ─────────────────────────────────────────────────
+// YES SHOUTS AND no DOES NOT, and the asymmetry is the whole design: these
+// two words are not a matched pair of pills, they are a loud answer and a
+// quiet one. This replaces the green/red pair the retired nights view used —
+// green/red said "good news / bad news", which a night answer never means.
+.tok-yes {
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #f4ead2;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 0.7);
+}
+// the town's own blue, lifted by the same 14% the role names take and for the
+// same measured reason ($townsfolk raw is 3.79:1 here — under the small-text
+// bar; lifted it is 6.41:1)
+.tok-no {
+  font-weight: bold;
+  color: lighten($townsfolk, 14%);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 0.8);
 }
 
-.crr-nights-chose {
-  opacity: 0.85;
+// THE ANSWERS THAT ARE NOT YES/NO read in the same grammar and the same rank:
+// an Empath's number, an Undertaker's character, a storyteller's free note.
+// One dress for "what you were given", whatever kind of thing it was.
+.tok-number,
+.tok-character {
+  font-weight: bold;
+  color: #e8dcc2;
+}
+.tok-note {
+  color: #ddd2ba;
 }
 
-.crr-nights-said {
-  opacity: 0.8;
+// the player's OWN words, quoted — the one token that is somebody talking, so
+// it is the one token that leans
+.tok-said {
   font-style: italic;
+  color: #cfc6b4;
 }
 
-.crr-nights-given {
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 9px;
-  padding: 0 8px;
-  font-weight: bold;
-}
-
+// FT-1274: STOOD DOWN with the markup above (`v-if="false"`) — the privacy
+// sentence is the row's hover now, not printed text. The rule stays so the
+// span can be put back without re-deriving it.
 .crr-nights-privacy {
   display: block;
   font-size: 85%;

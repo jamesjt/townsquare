@@ -456,18 +456,53 @@ export function projectEntriesFor(entries, playerId, seat) {
 }
 
 /**
- * FT-1101: ONE NIGHT ACTION, AS A SENTENCE'S WORTH OF PARTS.
+ * FT-1274: THE NIGHT SENTENCE, written once and said the same way to everyone.
  *
- * The chronicle needs the same row the sheet holds said in the reader's
- * language: who acted, as what, what they chose, and what they were given.
- * Kept as PARTS rather than a finished string so the surface decides the
- * punctuation — and so a published row can be re-rendered later by a build
- * that words it differently.
+ * The template, stated (user call — this is the shape, verbatim):
+ *
+ *   [role icon] [Role name] chose [pick] and [pick] and was given [answer]
+ *
+ * Every clause is dropped when its part is empty, and the only connector is
+ * "and" — there are no commas in this grammar, because the user's own
+ * sentence has none and one connector is one thing to get wrong:
+ *
+ *   Fortune Teller chose Fake 3 and Fake 6 and was given YES
+ *   Empath was given 1
+ *   Undertaker chose Sara and was given Baron
+ *   Ojo said “the Imp” and was given a Fool token
+ *
+ * THE ACTOR IS THE ROLE, NOT THE SEAT, and that one choice is what makes the
+ * sentence reader-independent. Before FT-1274 the same event was two
+ * different sentences: the storyteller read "Nadia (Fortune Teller) chose…"
+ * and the player read "Fortune Teller / You chose…" from a second renderer
+ * one room over. Naming the actor by the character it acted as removes the
+ * only reader-dependent word there was — and it is unambiguous, because a
+ * character is on exactly one seat in a game, and a player's own row is
+ * theirs by definition. The seat's NAME survives on the row's hover, where
+ * the storyteller (the only reader who holds it) can still read it.
+ *
+ * WHAT COMES BACK IS A TOKEN LIST, not a formatted string and not loose
+ * parts. `tokens` IS the sentence: `text` is `tokens.map(w).join(" ")`, and
+ * the renderer walks the same array and styles each token by its kind. One
+ * array, so the words a reader SEES and the words the fallback line SAYS
+ * cannot drift by construction — which is the whole property this pass was
+ * asked to guarantee.
+ *
+ * Token kinds:
+ *   role       the character that acted — wears its team's colour
+ *   lead       a clause's verb ("chose", "said", "was given")
+ *   name       a seat this action picked
+ *   join       the connector, always "and"
+ *   yes / no   the answer given — the two the user dressed by hand
+ *   number     a numeric readout (an Empath's count, a Chef's number)
+ *   character  a character shown (an Undertaker's, a Ravenkeeper's)
+ *   said       the player's own words, quoted
+ *   note       the storyteller's free-text answer
  *
  * Reads a FULL log entry (nested `told`) or an already-projected player row
  * (flat), the same either-shape contract projectPlayerRow has, because the
  * storyteller's copy and the player's copy of the same action are exactly
- * those two shapes.
+ * those two shapes — and both must come out as the same tokens.
  *
  * WHAT IS DELIBERATELY NOT HERE:
  *   · `isFalseInfo` — the storyteller's private judgement that what they said
@@ -478,27 +513,74 @@ export function projectEntriesFor(entries, playerId, seat) {
  * dropping them here means the STORYTELLER's copy cannot leak them into a
  * published row either.
  *
- * @param own true when this is the reader's own action — the line says "You".
+ * @param own STOOD DOWN (FT-1274), not deleted — every caller still passes it
+ *   and it no longer changes a single word. It used to swap the actor's name
+ *   to "You" for the reader's own row, which is precisely the divergence this
+ *   pass exists to remove. Kept in the signature so the two callers
+ *   (ChroniclesDrawer's live blocks, App.vue's published ones) compile
+ *   unchanged, and so the reason it went is written where the next reader of
+ *   this function will look for it.
  */
+// eslint-disable-next-line no-unused-vars
 export function chronicleLineOf(entry, { own = false } = {}) {
   const told = entry.told || entry;
   const chose = (
     Array.isArray(entry.targetNames) ? entry.targetNames : []
   ).filter(Boolean);
-  const learned = [];
-  if (told.ping === true) learned.push("Yes");
-  else if (told.ping === false) learned.push("No");
+
+  // The GIVEN clause's own parts, in the order a row records them. A row can
+  // carry more than one (a Ravenkeeper shown a character with a note beside
+  // it), so this is a list and never a single value.
+  const given = [];
+  if (told.ping === true) given.push({ k: "yes", w: "YES" });
+  else if (told.ping === false) given.push({ k: "no", w: "no" });
   if (told.number !== null && told.number !== undefined && told.number !== "")
-    learned.push(String(told.number));
-  if (told.characterName) learned.push(told.characterName);
-  if (told.text) learned.push(told.text);
+    given.push({ k: "number", w: String(told.number) });
+  if (told.characterName) given.push({ k: "character", w: told.characterName });
+  if (told.text) given.push({ k: "note", w: String(told.text) });
+
+  const said = entry.playerText || "";
+
+  // ── THE SENTENCE, ASSEMBLED ──────────────────────────────────────────────
+  const tokens = [];
+  const roleName = entry.roleName || "Someone";
+  tokens.push({ k: "role", w: roleName });
+  /** One clause: its verb, then its parts with "and" between them. */
+  const clause = (lead, parts) => {
+    if (!parts.length) return;
+    // the connector BETWEEN clauses is the same "and" that stands between
+    // parts — see the template note above
+    if (tokens.length > 1) tokens.push({ k: "join", w: "and" });
+    tokens.push({ k: "lead", w: lead });
+    parts.forEach((part, i) => {
+      if (i) tokens.push({ k: "join", w: "and" });
+      tokens.push(part);
+    });
+  };
+  clause(
+    "chose",
+    chose.map((name) => ({ k: "name", w: name })),
+  );
+  clause("said", said ? [{ k: "said", w: "“" + said + "”" }] : []);
+  clause("was given", given);
+
   return {
     seat: entry.seat,
-    name: own ? "You" : entry.seatName || "Seat " + ((entry.seat || 0) + 1),
+    // FT-1274: the seat's own name, for the HOVER and nothing else. Empty on
+    // a player's copy by construction — projectPlayerRow does not carry
+    // seatName — so a player's row cannot show one even if a surface asked.
+    who: entry.seatName || "",
+    // the character this row is about: its id drives the leading icon and the
+    // team colour, its name is the sentence's subject
+    roleId: entry.roleId || "",
     roleName: entry.roleName || "",
     chose,
-    said: entry.playerText || "",
-    learned: learned.join(" · "),
+    said,
+    given,
+    tokens,
+    // the flat line — the EV1 envelope's required `text` for this action, the
+    // hover fallback, and the thing a byte-comparison proof reads
+    text: tokens.map((t) => t.w).join(" "),
   };
 }
 
@@ -511,13 +593,18 @@ export function chronicleLineOf(entry, { own = false } = {}) {
  * and a chronicle line saying a character acted and doing nothing else is
  * noise in a stream people read under time pressure.
  *
+ * FT-1274: `own` is passed straight through to chronicleLineOf, where it is
+ * now inert — see the stand-down note there. The CALLER's own use of it (which
+ * set of entries to read: the storyteller's whole log, or one seat's projected
+ * rows) is untouched and is the only thing it ever really decided.
+ *
  * @returns [{ day, lines }] ascending by night.
  */
 export function nightBlocksOf(entries, { own = false } = {}) {
   const byDay = new Map();
   (entries || []).forEach((entry) => {
     const line = chronicleLineOf(entry, { own });
-    if (!line.chose.length && !line.learned && !line.said) return;
+    if (!line.chose.length && !line.given.length && !line.said) return;
     const day = entry.day || 0;
     if (!byDay.has(day)) byDay.set(day, []);
     byDay.get(day).push(line);
