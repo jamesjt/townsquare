@@ -75,6 +75,60 @@
               linkCopied ? "Copied" : "Town link"
             }}</span>
           </button>
+          <!-- FT-1262 (user): "put a key icon next to the town link for that
+               maybe with a drop down like we just made for control settings
+               to change them." "That" is the town's TWO PASSWORDS, which
+               FT-1241 could only set at CLAIM time (Intro's host panel) — a
+               town already running had no way to add, change or clear one.
+               This is that way, and it sits beside the town link because the
+               link and the door key are the same errand: what you hand
+               someone so they can get in.
+
+               THE SAME PLATE AS ITS SIBLING (`.ra-act` via control-icon-btn),
+               deliberately — it is the Copy link button's twin in the same
+               cluster, and a second dress here would read as a different
+               KIND of control. `key` is the app's own mark for the enter
+               password already (Intro's claim field wears it, FT-1241), and
+               FA rather than a bone bake because it stands immediately
+               beside FA's own `link` glyph: two marks from one set read as a
+               pair, where a baked key beside a wireframe link reads as two
+               unrelated ornaments. Registered since FT-1241 — no new icon.
+
+               HOST-ONLY FOR FREE: a player never renders this panel. The
+               button is NOT gated on holding a key, though — see the
+               overlay's note. -->
+          <button
+            type="button"
+            ref="passBtn"
+            class="ht-copy-link ht-pass-btn"
+            :class="{ open: passOpen }"
+            :aria-expanded="String(passOpen)"
+            @click="togglePassMenu"
+            title="The town's passwords — the door key players give, and the host seat's own"
+          >
+            <!-- ICON-ONLY, and MEASURED so (rig:
+                 claude_temp_test/2026-08-27-ft1262-fit.mjs). A labelled
+                 "Passwords" plate makes the ornament cluster 192px wide, and
+                 at that width it leaves the panel's own box on both the
+                 rectangle (+8.9px) and the phone (+15.8px) — widening the
+                 head does not rescue it (measured too; the label variant is
+                 still outside at both). Icon-only lands the cluster at 132px
+                 with 44-96px of room to spare at every width, and the town's
+                 name stays exactly on the disc's axis:
+
+                              cluster   outside panel (rect / phone)
+                   labelled     192px          +8.9 / +15.8   ✗
+                   icon-only    132px         -51.0 / -44.1   ✓
+
+                 The word is not lost — it is in the tooltip, and the gear
+                 sharing this cluster is already a bare mark, so a labelled
+                 plate beside a bare one is the grammar the head ALREADY
+                 speaks. `.ra-name` is deliberately not rendered rather than
+                 hidden by CSS: the button's own `:has(.ra-name)` width rule
+                 (see `.ht-copy-link`) keys off its presence, and this button
+                 wants the compact 34px plate that rule is the exception to. -->
+            <font-awesome-icon icon="key" />
+          </button>
           <!-- FT-1202 (user): THE SETTINGS GEAR LIVES HERE NOW — "remove it
                from the main page, and in while a user is hosting a game put it
                inline with the town name." Every row behind it (Setup panel /
@@ -149,6 +203,151 @@
       <small v-if="!renaming && renameNote" class="ht-rename-note">{{
         renameNote
       }}</small>
+    </div>
+
+    <!-- FT-1262: THE PASSWORDS OVERLAY. Rendered here for Vue's sake and
+         hoisted to <body> the moment it opens (the passOpen watcher →
+         hoistPassMenu), where placePopupAt hangs it off the key button's own
+         rect — FT-1265's technique and FT-1265's chrome, so the disc's foot,
+         the head's grid and the panel's scroll can none of them shear it.
+         OUTSIDE `.ht-head` on purpose: the head's geometry is measured (the
+         disc's three flex children, the h3's three grid columns), and even
+         though this is `position: fixed` from its very first paint, it has
+         no business being counted among them.
+
+         NOT GATED ON HOLDING A KEY (brief's call, and the right one): the
+         host-seat ladder also admits the OWNER SESSION, whose cookie needs
+         no edit key at all, so a hide-unless-keyed rule would lock signed-in
+         owners out of their own locks. The server decides; a caller with no
+         standing gets the route's real 403 in the row's own note, which is
+         what a host who lost their key needs to be told.
+
+         PASSWORDS ARE NEVER RENDERED BACK. The wire speaks booleans only
+         (`requiresEnterPassword` / `openPasswordSet`) — there is nothing to
+         render even if we wanted to — so each row states SET or NOT SET, and
+         the input empties itself the moment a set succeeds. -->
+    <div class="ht-pass-menu" ref="passMenu" v-if="passOpen">
+      <div class="ht-pass-title">This town's passwords</div>
+      <!-- The two rows are the same shape twice. Written out rather than
+           v-for'd over a pair: each carries its own teaching line, its own
+           mark and its own vocabulary, and a loop over two items would hide
+           three differences to save six lines. -->
+      <div class="ht-pass-row">
+        <div class="ht-pass-head">
+          <font-awesome-icon class="row-mark-fa" icon="key" />
+          <span class="ht-pass-name">Door password</span>
+          <span
+            class="ht-pass-state"
+            :class="{ set: passState.enter === true }"
+            >{{
+              passState.enter === null
+                ? "checking…"
+                : passState.enter
+                ? "Set"
+                : "Not set"
+            }}</span
+          >
+        </div>
+        <p class="ht-pass-teach">
+          What players must type to enter this town. Without it, anyone with the
+          link walks in.
+        </p>
+        <div class="ht-pass-do">
+          <input
+            v-model="passDraft.enter"
+            type="password"
+            spellcheck="false"
+            autocomplete="new-password"
+            :disabled="passBusy === 'enter'"
+            :placeholder="
+              passState.enter ? 'new door password' : 'door password'
+            "
+            @keyup.enter="savePass('enter')"
+          />
+          <button
+            type="button"
+            class="ht-pass-set"
+            :disabled="passBusy === 'enter' || !passDraft.enter.trim()"
+            @click="savePass('enter')"
+          >
+            {{ passState.enter ? "Change" : "Set" }}
+          </button>
+          <button
+            type="button"
+            class="ht-pass-clear"
+            v-if="passState.enter"
+            :disabled="passBusy === 'enter'"
+            @click="clearPass('enter')"
+          >
+            Clear
+          </button>
+        </div>
+        <p
+          v-if="passNote.enter"
+          class="ht-pass-note"
+          :class="passNote.enter.kind"
+        >
+          {{ passNote.enter.text }}
+        </p>
+      </div>
+      <div class="ht-pass-row">
+        <div class="ht-pass-head">
+          <font-awesome-icon class="row-mark-fa" icon="lock" />
+          <span class="ht-pass-name">Host password</span>
+          <span
+            class="ht-pass-state"
+            :class="{ set: passState.open === true }"
+            >{{
+              passState.open === null
+                ? "checking…"
+                : passState.open
+                ? "Set"
+                : "Not set"
+            }}</span
+          >
+        </div>
+        <p class="ht-pass-teach">
+          Your way back into the host seat from another browser. Anyone who
+          knows it can take the seat.
+        </p>
+        <div class="ht-pass-do">
+          <input
+            v-model="passDraft.open"
+            type="password"
+            spellcheck="false"
+            autocomplete="new-password"
+            :disabled="passBusy === 'open'"
+            :placeholder="
+              passState.open ? 'new host password' : 'host password'
+            "
+            @keyup.enter="savePass('open')"
+          />
+          <button
+            type="button"
+            class="ht-pass-set"
+            :disabled="passBusy === 'open' || !passDraft.open.trim()"
+            @click="savePass('open')"
+          >
+            {{ passState.open ? "Change" : "Set" }}
+          </button>
+          <button
+            type="button"
+            class="ht-pass-clear"
+            v-if="passState.open"
+            :disabled="passBusy === 'open'"
+            @click="clearPass('open')"
+          >
+            Clear
+          </button>
+        </div>
+        <p
+          v-if="passNote.open"
+          class="ht-pass-note"
+          :class="passNote.open.kind"
+        >
+          {{ passNote.open.text }}
+        </p>
+      </div>
     </div>
 
     <!-- FT-1202: the gear's menu — Menu.vue's settings section moved out
@@ -1257,7 +1456,15 @@
 
 <script>
 import { mapMutations, mapState } from "vuex";
-import { listTowns, editKeyFor, updateTown } from "../golem/towns";
+import {
+  listTowns,
+  editKeyFor,
+  updateTown,
+  // FT-1262: the head's passwords overlay — read the two locks' state
+  // (townMeta's booleans) and change them (setTownPasswords).
+  townMeta,
+  setTownPasswords,
+} from "../golem/towns";
 // the heading's games-played line — the same per-town aggregate StatsOverlay
 // reads, not a new count.
 // FT-1236: markDevGame — either dev gesture (fake fill, shift-Start) stamps
@@ -1550,6 +1757,25 @@ export default {
         window.removeEventListener("resize", this.trackMenuList);
       }
     },
+    // FT-1262: the head's passwords overlay keeps the SAME discipline as the
+    // menu lists above — listeners only while it is open, hoisted to <body>
+    // on the tick after it renders. Its trigger sits in the head rather than
+    // in a scrolling tab, so the capture-phase scroll listener matters less
+    // here; it is kept anyway, because the panel itself scrolls on a phone.
+    passOpen(open) {
+      if (open) {
+        document.addEventListener("mousedown", this.onPassDocDown);
+        document.addEventListener("keydown", this.onPassKey);
+        window.addEventListener("scroll", this.trackPassMenu, true);
+        window.addEventListener("resize", this.trackPassMenu);
+        this.$nextTick(this.hoistPassMenu);
+      } else {
+        document.removeEventListener("mousedown", this.onPassDocDown);
+        document.removeEventListener("keydown", this.onPassKey);
+        window.removeEventListener("scroll", this.trackPassMenu, true);
+        window.removeEventListener("resize", this.trackPassMenu);
+      }
+    },
   },
   data() {
     return {
@@ -1586,6 +1812,27 @@ export default {
       menuDrag: null,
       menuDropAt: null,
       menuDragArm: null,
+      // ── FT-1262: the head's PASSWORDS overlay ──────────────────────────
+      // Until FT-1262 the two town passwords could only be set at CLAIM
+      // (Intro's host panel, FT-1241) — a running town had no way to add,
+      // change or clear one. This is that way: the head's key button opens
+      // a hoisted overlay (the FT-1265 dress) holding one row per lock.
+      passOpen: false,
+      // What the SERVER says is set, never what was typed — the wire speaks
+      // booleans only (`requiresEnterPassword` / `openPasswordSet`), so
+      // `null` is the honest "not asked yet" and the rows say so.
+      passState: { enter: null, open: null },
+      // The two inputs. Cleared after a successful set: a password already
+      // stored is never rendered back, so leaving the typed text sitting
+      // there would be the only place in the app showing one.
+      passDraft: { enter: "", open: "" },
+      // Which row is mid-flight ("enter" | "open" | null) — disables that
+      // row's own controls without freezing the other lock's.
+      passBusy: null,
+      // The last word per row: {kind: "ok"|"err", text}. The server's own
+      // refusal when it refuses (golem/towns' setTownPasswords translates
+      // the status), never a guess.
+      passNote: { enter: null, open: null },
       // FT-1231: does the Control tab hold more rows than its box can show?
       // Only ever true on the disc, where the band is a fixed slice of the
       // circle and the tab is its own scroller — everywhere else the panel
@@ -1684,6 +1931,14 @@ export default {
     window.removeEventListener("resize", this.trackMenuList);
     const openList = this.menuListEl && this.menuListEl();
     if (openList && openList.parentElement === document.body) openList.remove();
+    // FT-1262: the passwords overlay is hoisted the same way and needs the
+    // same sweep — listeners, then the stranded node.
+    document.removeEventListener("mousedown", this.onPassDocDown);
+    document.removeEventListener("keydown", this.onPassKey);
+    window.removeEventListener("scroll", this.trackPassMenu, true);
+    window.removeEventListener("resize", this.trackPassMenu);
+    const passEl = this.$refs.passMenu;
+    if (passEl && passEl.parentElement === document.body) passEl.remove();
     // FT-1209: the strip's alignment listener (bound in mounted)
     window.removeEventListener("resize", this.alignTabs);
     // FT-1231: the Control tab's overflow listener (bound in mounted)
@@ -2525,10 +2780,21 @@ export default {
     /** Fixed to the trigger's rect, flipping up when below is short and
      *  clamped to the window — golem/floatingPicker's positionPopup math,
      *  restated here because that mixin owns a single popup per component
-     *  and this panel has one list per menu row. */
+     *  and this panel has one list per menu row.
+     *
+     *  FT-1262: the MATH moved down into `placePopupAt` so the head's
+     *  passwords overlay can hang off its own button by the same rules —
+     *  this stays the menu rows' door to it, unchanged in behaviour. */
     placeMenuList() {
-      const trigger = this.menuSumEl();
-      const list = this.menuListEl();
+      this.placePopupAt(this.menuSumEl(), this.menuListEl());
+    },
+    /** FT-1262: place ANY hoisted popup against ANY trigger — FT-1265's own
+     *  geometry, lifted out of `placeMenuList` verbatim (prefer-down unless
+     *  the other side plainly has more room, height capped to the window's
+     *  remainder, width at least the trigger's, left clamped to the
+     *  viewport). Two callers now: the Control tab's menu lists and the
+     *  head's passwords overlay. */
+    placePopupAt(trigger, list) {
       if (!trigger || !list) return;
       const rect = trigger.getBoundingClientRect();
       const box = list.getBoundingClientRect();
@@ -2570,6 +2836,122 @@ export default {
       if (!this.menuListOpen) return;
       const trigger = this.menuSumEl();
       if (!trigger) return;
+      if (this.popupTriggerHidden(trigger)) {
+        this.menuListOpen = null;
+        return;
+      }
+      this.placeMenuList();
+    },
+    // ── FT-1262: THE TOWN'S TWO LOCKS, changeable mid-game ───────────────
+    /** Open/close the head's passwords overlay. Opening re-reads the two
+     *  locks from the server rather than trusting anything cached: the wire
+     *  speaks booleans, and they are the only truth about what is set. */
+    togglePassMenu() {
+      this.passOpen = !this.passOpen;
+      if (!this.passOpen) return;
+      this.passNote = { enter: null, open: null };
+      this.passDraft = { enter: "", open: "" };
+      this.refreshPassState();
+    },
+    /** Ask the server which locks this town wears. Best-effort, like every
+     *  towns read: a failed ask leaves the rows saying "checking…" rather
+     *  than claiming a state nobody confirmed. */
+    async refreshPassState() {
+      const id = this.session.sessionId;
+      if (!id) return;
+      const meta = await townMeta([id]);
+      const town = meta && meta[id];
+      if (!town) return;
+      this.passState = {
+        enter: !!town.requiresEnterPassword,
+        open: !!town.openPasswordSet,
+      };
+    },
+    /** Set one lock from its input. `which` is "enter" (the room key
+     *  players give) or "open" (the host seat's own); the PUT carries ONLY
+     *  that lock's field, so the other is left exactly as it stands. */
+    async savePass(which) {
+      if (this.passBusy) return;
+      const value = (this.passDraft[which] || "").trim();
+      if (!value) return;
+      this.passBusy = which;
+      this.$set(this.passNote, which, null);
+      const field = which === "enter" ? "setEnterPassword" : "setOpenPassword";
+      const r = await setTownPasswords(this.session.sessionId, {
+        [field]: value,
+      });
+      this.applyPassResult(which, r, "Set.");
+    },
+    /** Clear one lock — the explicit `null` FT-1241's route reads as
+     *  "remove it" (an ABSENT field means "leave it alone", so null is the
+     *  only way to say this). */
+    async clearPass(which) {
+      if (this.passBusy) return;
+      this.passBusy = which;
+      this.$set(this.passNote, which, null);
+      const field = which === "enter" ? "setEnterPassword" : "setOpenPassword";
+      const r = await setTownPasswords(this.session.sessionId, {
+        [field]: null,
+      });
+      this.applyPassResult(which, r, "Cleared.");
+    },
+    /** One landing for both writes: the new state is read back off the
+     *  RESPONSE's booleans (never off what was typed), the input is emptied
+     *  so no password sits on screen, and a refusal shows the server's own
+     *  words. */
+    applyPassResult(which, r, okText) {
+      this.passBusy = null;
+      if (!r.ok) {
+        this.$set(this.passNote, which, { kind: "err", text: r.error });
+        return;
+      }
+      this.passState = {
+        enter: !!r.town.requiresEnterPassword,
+        open: !!r.town.openPasswordSet,
+      };
+      this.$set(this.passDraft, which, "");
+      this.$set(this.passNote, which, { kind: "ok", text: okText });
+    },
+    /** The overlay's own hoist/place/track — the same three moves the menu
+     *  lists make (FT-1265), through the shared `placePopupAt`. */
+    hoistPassMenu() {
+      const el = this.$refs.passMenu;
+      if (!el) return;
+      if (el.parentElement !== document.body) document.body.appendChild(el);
+      this.placePassMenu();
+      requestAnimationFrame(this.placePassMenu);
+    },
+    placePassMenu() {
+      this.placePopupAt(this.$refs.passBtn, this.$refs.passMenu);
+    },
+    trackPassMenu() {
+      if (!this.passOpen) return;
+      const trigger = this.$refs.passBtn;
+      if (!trigger) return;
+      if (this.popupTriggerHidden(trigger)) {
+        this.passOpen = false;
+        return;
+      }
+      this.placePassMenu();
+    },
+    /** Click-out closes — unless the click landed inside the overlay or on
+     *  the button itself (whose own click is the toggle; closing here first
+     *  would make it reopen). `.ht-menu-sum`'s counterpart, FT-1264. */
+    onPassDocDown(e) {
+      const t = e.target;
+      if (t && t.closest && t.closest(".ht-pass-menu, .ht-pass-btn")) return;
+      this.passOpen = false;
+    },
+    onPassKey(e) {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      this.passOpen = false;
+    },
+    /** FT-1262: has the trigger been scrolled more than half out of view?
+     *  The clipping walk + half-showing rule lifted out of `trackMenuList`
+     *  verbatim (originally OptionSelect's, FT-1167) so both hoisted popups
+     *  close by the same rule. A popup left pointing at a row that has
+     *  scrolled away is worse than no popup. */
+    popupTriggerHidden(trigger) {
       const r = trigger.getBoundingClientRect();
       let top = 0;
       let left = 0;
@@ -2589,16 +2971,12 @@ export default {
       }
       const showingH = Math.min(r.bottom, bottom) - Math.max(r.top, top);
       const showingW = Math.min(r.right, right) - Math.max(r.left, left);
-      if (
+      return (
         !r.width ||
         !r.height ||
         showingH < r.height / 2 ||
         showingW < r.width / 2
-      ) {
-        this.menuListOpen = null;
-        return;
-      }
-      this.placeMenuList();
+      );
     },
     /** FT-1264: the one control's face — the menu in a couple of words.
      *  Master off is "Off"; otherwise how many of the vocabulary's buttons
@@ -3396,7 +3774,34 @@ export default {
   h3 {
     margin: 0;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    // FT-1262: `minmax(0, 1fr)`, NOT the bare `1fr` FT-1225 shipped — this is
+    // what makes the line above ("at ANY ornament width") literally true.
+    //
+    // A bare `1fr` track is `minmax(auto, 1fr)`, and that `auto` MINIMUM is
+    // min-content: a flank whose content is wider than its fair share stops
+    // being a fair share and takes what it needs, out of the other flank.
+    // FT-1225's two-ornament cluster fitted, so the promise held by luck;
+    // FT-1262's third (the key button) did not, and the name went off the
+    // disc's axis by a measured 65.5px — the exact half-difference between
+    // the forced right track and the collapsed left one:
+    //
+    //                    tracks (disc)              name off panel axis
+    //   before FT-1262   127.0 / 79.3 / 127.0                  0.0px
+    //   key btn + `1fr`   61.2 / 79.3 / 192.3                -65.5px
+    //   key btn + minmax 127.0 / 79.3 / 127.0                  0.0px
+    //
+    //   (rig: claude_temp_test/2026-08-27-ft1262-axis.mjs, which isolates the
+    //    button's own contribution by re-measuring with it display:none — the
+    //    HEAD head — rather than trusting a remembered number.)
+    //
+    // `minmax(0, …)` floors the minimum at zero, so both flanks are exactly
+    // one fr whatever they hold, and a cluster too wide for its track simply
+    // OVERFLOWS it (visible, into the panel's own generous margin: the h3 is
+    // 349px inside a 1009px panel on the disc) instead of shoving the name.
+    // Centring the name is the invariant; the ornament's own right edge is
+    // not, and when the two disagree the name wins — that is the whole point
+    // of FT-1098's three-column structure.
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     justify-items: center;
     column-gap: 8px;
@@ -3477,6 +3882,16 @@ export default {
       letter-spacing: 0.2px;
       white-space: nowrap;
     }
+  }
+
+  // FT-1262: the PASSWORDS button — its sibling's plate exactly (it shares
+  // `.ht-copy-link`), plus the open-glow every dropdown trigger in this panel
+  // wears while its popup stands (`.ht-menu-sum.open`, the gear's `.on`, the
+  // strip marks' lit — one register, FT-1202). Nothing else is overridden:
+  // being visibly the same control as Copy link is the point.
+  .ht-pass-btn.open {
+    border-color: rgba(202, 166, 98, 0.75);
+    box-shadow: 0 0 6px rgba(202, 166, 98, 0.45);
   }
 
   // ── FT-1202: THE SETTINGS GEAR, inline with the town's name ─────────────
@@ -5294,5 +5709,174 @@ export default {
 // inert-but-working grammar (`.ht-ctrl-inert`), worn by a list.
 .ht-menu-off .ht-menu-item:not(.ht-menu-master) {
   opacity: 0.45;
+}
+
+// ── FT-1262: THE PASSWORDS OVERLAY ────────────────────────────────────────
+// The head's key button opens this; it hoists to <body> and hangs off that
+// button (hoistPassMenu → placePopupAt). FLAT RULES for the same reason
+// `.ht-menu-list` above is flat: a scoped rule stamps its `[data-v-…]` on
+// the last compound selector only, so any ancestor-nested rule stops
+// matching the moment the element moves to <body>.
+//
+// THE CHROME IS `.ht-menu-list`'s, restated rather than shared: same ground,
+// same plum edge, same radius, shadow and z-55 (above the panel's 19 and the
+// seats' 11). Restated because the two popups' INSIDES have nothing in
+// common — that one is a drag-orderable list of switches, this is two little
+// forms — and a shared base class would have to be undone in half the rules
+// it set. The layer number is the part that must not drift, and it is
+// commented in both places.
+.ht-pass-menu {
+  // fixed before it is placed, too — the one microtask between Vue rendering
+  // it and hoistPassMenu moving it (see `.ht-menu-list`'s own note)
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  // a comfortable reading width, and the floor placePopupAt measures: that
+  // math takes the popup's NATURAL width (`box.width`), so the min-width is
+  // what stops two inputs and three buttons from being squeezed into the
+  // key button's own ~110px.
+  min-width: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(12, 8, 16, 0.96);
+  border: 2px solid rgba(120, 105, 135, 0.55);
+  border-radius: 8px;
+  box-shadow: 0 0 12px black;
+  z-index: 55;
+  // The head this opens from is `em`-scaled and enormous on the disc (~27px)
+  // — inheriting it would give the overlay giant prose. A fixed 15px base
+  // keeps the two forms the same size wherever the button is pressed, which
+  // is what `.gsel-menu` and `.ht-menu-list` effectively get from the tab.
+  font-size: 15px;
+  color: rgb(230, 225, 215);
+  text-align: left;
+}
+.ht-pass-title {
+  font-size: 80%;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.ht-pass-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  // the two locks are separate errands — a hairline says so, the same
+  // separator the menu list's master row wears
+  & + & {
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+.ht-pass-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  // the FA mark's dress, restated for the hoisted element exactly as
+  // `.ht-menu-item`'s is (same numbers, same warm ink, same width fight)
+  .row-mark-fa {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: rgb(154, 146, 133);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    &.svg-inline--fa {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+.ht-pass-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 92%;
+  white-space: nowrap;
+}
+// The state word carries the whole answer for this row, so it is the one
+// thing here allowed colour: "Set" in the grimoire's own gold, "Not set" (and
+// the honest "checking…") dimmed to the furniture.
+.ht-pass-state {
+  flex-shrink: 0;
+  font-size: 78%;
+  opacity: 0.5;
+  &.set {
+    opacity: 1;
+    color: rgb(202, 166, 98);
+  }
+}
+.ht-pass-teach {
+  margin: 0;
+  font-size: 76%;
+  line-height: 1.35;
+  opacity: 0.55;
+}
+.ht-pass-do {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 4px 7px;
+    font-family: inherit;
+    font-size: 85%;
+    color: inherit;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(120, 105, 135, 0.5);
+    border-radius: 5px;
+    &:focus {
+      outline: none;
+      border-color: rgba(202, 166, 98, 0.8);
+    }
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+  button {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 82%;
+    color: inherit;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(120, 105, 135, 0.5);
+    border-radius: 5px;
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(202, 166, 98, 0.7);
+    }
+    // the keyboard's own ring — this overlay is reachable by Tab and must
+    // say where the focus is (the panel's buttons all carry one)
+    &:focus-visible {
+      outline: 2px solid rgba(202, 166, 98, 0.9);
+      outline-offset: 1px;
+    }
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+  // Clearing is the destructive half — red on hover, the same register the
+  // panel's other undoing controls use, and only on hover so the row does
+  // not read as an alarm at rest.
+  .ht-pass-clear:hover:not(:disabled) {
+    color: rgb(230, 130, 130);
+    border-color: rgba(200, 90, 90, 0.7);
+  }
+}
+.ht-pass-note {
+  margin: 2px 0 0;
+  font-size: 76%;
+  &.ok {
+    color: rgb(150, 200, 150);
+  }
+  // the server's own refusal, in the colour a refusal is owed
+  &.err {
+    color: rgb(230, 130, 130);
+  }
 }
 </style>

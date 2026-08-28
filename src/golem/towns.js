@@ -124,6 +124,77 @@ export async function updateTown(id, patch) {
 }
 
 /**
+ * FT-1262 — CHANGE A RUNNING TOWN'S LOCKS. The same PUT `updateTown` rides,
+ * carrying only FT-1241's two MUTATION fields: `setEnterPassword` (the room
+ * key players give at the door) and `setOpenPassword` (the host seat's own).
+ * A string sets, an explicit null clears, an absent field leaves that lock
+ * exactly as it was — so the caller passes ONE of them and never disturbs
+ * the other.
+ *
+ * TWO THINGS SEPARATE THIS FROM `updateTown`, and both are why it is its own
+ * function rather than a flag on that one:
+ *
+ *   1. IT DOES NOT DEMAND AN EDIT KEY. `updateTown` throws before it fetches
+ *      when the shelf holds no key, which is right for the rename it was
+ *      written for. Here it would be wrong: the host-seat ladder
+ *      (routes.ts holdsHostSeat) also accepts the OWNER SESSION, whose
+ *      cookie rides fetch's same-origin default with no header at all. A
+ *      signed-in owner on a fresh browser holds no edit key and is still
+ *      entitled to change these locks — so the key rides WHEN HELD (the
+ *      `openTown` precedent below) and the server, not this shelf, decides.
+ *
+ *   2. IT RETURNS THE SERVER'S REFUSAL INSTEAD OF THROWING IT AWAY.
+ *      `updateTown` collapses every non-ok into one status string; a host
+ *      who lost their edit key deserves the real answer, so the body's own
+ *      `error` comes back for the caller to show.
+ *
+ * → { ok: true, town } | { ok: false, error }. `town` is the flat DTO, whose
+ * booleans (`openPasswordSet`, `requiresEnterPassword`) are the ONLY report
+ * of the new state — the wire never carries password material in either
+ * direction's response, so the caller re-reads state from here and never
+ * from what it just typed.
+ */
+export async function setTownPasswords(id, patch) {
+  const clean = normalizeTownId(id);
+  if (!clean) return { ok: false, error: "no town" };
+  const key = editKeyFor(clean);
+  try {
+    const res = await fetch(`${API}/${clean}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(key ? { "x-botc-edit-key": key } : {}),
+      },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) {
+      // The route answers {error, hint?}; say what it said, in words a host
+      // can act on. A body that will not parse still leaves the status.
+      const body = await res.json().catch(() => ({}));
+      const said = body && body.error;
+      if (res.status === 403)
+        return {
+          ok: false,
+          error: "Not yours to change — this browser holds no key for it.",
+        };
+      if (res.status === 404)
+        return { ok: false, error: "That town is not on the server." };
+      return {
+        ok: false,
+        error: said
+          ? `Save refused (${said}).`
+          : `Save failed (${res.status}).`,
+      };
+    }
+    const town = await res.json();
+    rememberTown(town.id, "host", { name: town.name });
+    return { ok: true, town };
+  } catch (e) {
+    return { ok: false, error: "Server unreachable." };
+  }
+}
+
+/**
  * Batch public meta for shelf ids (≤30; unknown ids silently absent).
  * → { id: {id, name, scriptId, version, ...} }. Also refreshes the shelf's
  * cached display names in place — without reordering it.
