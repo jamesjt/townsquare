@@ -35,10 +35,11 @@ const state = () => ({
   calledBackAt: 0,
   // FT-931: THE TOWN HAS ENDED. Written only by the root `endGame` /
   // `clearEnded` mutations (store/index.js) — never here directly — because
-  // ending the game also forces `grimoire.isPublic` off (the reveal), a
-  // different module's state that a namespaced mutation in this file cannot
-  // reach. See store/index.js's `toggleNight` for the same "root mutation
-  // reaches into a submodule" shape already used in this app.
+  // ending the game also clears the grimoire grants, another module's state
+  // that a namespaced mutation in this file cannot reach. See store/index.js's
+  // `toggleNight` for the same "root mutation reaches into a submodule" shape
+  // already used in this app. (FT-1294: it used to reach for the face-down
+  // flag as well; that flag is retired.)
   isEnded: false,
   // 'good' | 'evil' | null — who won, set alongside isEnded and cleared with it.
   winningTeam: null,
@@ -53,8 +54,9 @@ const state = () => ({
   //
   // `isGrimoireGranted` is the PLAYER's flag — this client is currently shown
   // the grimoire. Written only by the root grantGrimoire/revokeGrimoire
-  // mutations (store/index.js), which also touch grimoire.isPublic — the same
-  // "root mutation reaches into a submodule" shape isEnded documents above.
+  // mutations (store/index.js), which also write the granted ROLES onto the
+  // roster — the same "root mutation reaches into a submodule" shape isEnded
+  // documents above.
   grimoireGrants: {},
   isGrimoireGranted: false,
   // FT-1200: THE ACCOUNT — who this browser is on the platform, or null.

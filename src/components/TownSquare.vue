@@ -3,7 +3,6 @@
     id="townsquare"
     class="square"
     :class="{
-      public: grimoire.isPublic,
       spectator: session.isSpectator,
       vote: session.nomination,
       // the host is still building the town — no death affordances yet
@@ -60,9 +59,9 @@
          `canSeeBluffs` (STORYTELLER ONLY, by construction — see below) is a
          v-if, not a CSS rule: a player's DOM never contains the Tokens
          inside, so there is no role name or icon to find even by
-         inspecting devtools, unlike the old `#townsquare.public > .bluffs`
-         CSS-only hide (still in the stylesheet, untouched, and still the
-         right belt for the host's own public/mirrored screen). -->
+         inspecting devtools. That is the whole guard now — FT-1294 retired
+         the face-down grimoire and the CSS-only hide that rode on it, which
+         had never been more than a belt over these braces. -->
     <!-- Golem fork (2026-08-19, user call): gated on a DEMON SEATED, not just
          a dealt town. Un-gated, the no-demon case fell to the static corner
          CSS below (bluffAnchor null) — a floating "Demon bluffs" box with
@@ -254,18 +253,20 @@ export default {
      *
      * A v-if downstream, not a CSS rule: the bluff Tokens simply never render
      * for anyone this returns false for, so an ordinary player's DOM contains
-     * no role name and no icon to find even in devtools — the leak the old
-     * CSS-only `#townsquare.public > .bluffs` hide left open.
+     * no role name and no icon to find even in devtools — the leak a CSS-only
+     * hide leaves open.
      */
     canSeeBluffs() {
       return canSeeBluffs(this.$store.state);
     },
     /**
      * Is this client's cluster its OWN (the demon's / the Lunatic's) rather
-     * than the storyteller's? Only used to spare it the public-view hide
-     * below: `grimoire.isPublic` starts TRUE and only the HOST ever flips it,
-     * so a player's copy is true forever and the old rule would blank the one
-     * cluster that is supposed to be theirs.
+     * than the storyteller's? It marks the cluster with `.own`.
+     *
+     * FT-1294: this existed to spare that cluster the face-down grimoire's
+     * CSS hide, which is retired along with the state behind it. The computed
+     * and its class are left standing — they read the viewer's role, not the
+     * retired flag, and they name a distinction the panel may want again.
      */
     isOwnBluffs() {
       return this.session.isSpectator;
@@ -1510,17 +1511,10 @@ export default {
   }
 }
 
-/* The host's own mirrored/face-down grimoire. `:not(.own)` (2026-08-19): a
-   demon's or Lunatic's own cluster carries `.own`, and their client's
-   `isPublic` is true FOREVER — it starts true and only the HOST ever flips it
-   (HostTools, on the deal) — so an unscoped rule blanked the one cluster that
-   is supposed to be theirs. The storyteller's own copy can never reach this
-   rule anyway now (canSeeBluffs already refuses while isPublic), which makes
-   this exactly what it was: belt on top of braces. */
-#townsquare.public > .bluffs:not(.own) {
-  opacity: 0;
-  transform: scale(0.1);
-}
+/* FT-1294: `#townsquare.public > .bluffs:not(.own)` stood here — the cluster's
+   fade for the host's own mirrored/face-down grimoire. It was belt on top of
+   braces even before this (canSeeBluffs is a v-if and keeps a player's DOM
+   empty), and the face-down state it hung on is retired. */
 
 /***** Demon bluffs — anchored to the demon's own seat (2026-08-19) *****
    The corner rules above are UNTOUCHED and still fire whenever there is no
@@ -1767,10 +1761,11 @@ export default {
     padding-top: 100%;
   }
 
-  #townsquare.public & {
-    opacity: 0;
-    pointer-events: none;
-  }
+  /* FT-1294: a `#townsquare.public &` fade stood here, taking the night
+     numbers off the ring while the coins were face down. That state is
+     retired. Night order is still kept off a PLAYER's screen — by
+     `#townsquare.spectator .night-order` in Player.vue, which is the guard
+     that was doing the real work. */
 
   &:hover ~ .token .ability {
     opacity: 0;

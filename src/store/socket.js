@@ -683,12 +683,14 @@ class LiveSession {
       }
       // FT-931: apply the ended state exactly as the host set it — but only
       // ever UN-end on an explicit "not ended" from the host (the `else if`
-      // guard). A resync during a perfectly ordinary, never-ended game must
-      // never touch `grimoire.isPublic`: that flag is also a storyteller's
-      // own local R-toggle, and committing `clearEnded` on every sync that
-      // simply has no opinion (isEnded undefined/false because the game
-      // never ended) would stomp it on every reconnect. This only fires on a
-      // genuine transition either way.
+      // guard). `clearEnded` is a real reset — it clears the town's result
+      // AND every grimoire grant standing on this client — so committing it
+      // on every sync that simply has no opinion (isEnded undefined/false
+      // because the game never ended) would stomp that state on every
+      // reconnect. This only fires on a genuine transition either way.
+      // (FT-1294: the flag this guard used to protect first was the
+      // face-down grimoire, which is retired; the guard still earns its keep
+      // for the grants.)
       if (isEnded) {
         this._store.commit("endGame", winningTeam);
       } else if (this._store.state.session.isEnded) {
@@ -2350,9 +2352,9 @@ export default (store) => {
         // first night touches it.
         break;
       // FT-931: THE TOWN ENDS / PLAY AGAIN. Both mutations live at the root
-      // (store/index.js — endGame also forces grimoire.isPublic, a
-      // different module's state) and both fire the SAME response: one full
-      // gamestate resync. That single call carries the ended flag + result
+      // (store/index.js — they reach into the session module's own state)
+      // and both fire the SAME response: one full gamestate resync. That
+      // single call carries the ended flag + result
       // AND (via sendGamestate's own change, above) every seat's TRUE role,
       // so the reveal and the "game over" state reach every connected
       // client together — the same full sync a joining spectator already

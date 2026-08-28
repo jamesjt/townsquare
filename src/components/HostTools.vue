@@ -1879,11 +1879,11 @@ export default {
     }
   },
   watch: {
-    // the HOST sees assignments as they land — while building, the first
-    // assigned role flips the grimoire face-up (G still toggles freely)
-    rolesAssigned(n) {
-      if (n > 0 && this.grimoire.isPublic) this.$store.commit("toggleGrimoire");
-    },
+    // FT-1294: a `rolesAssigned` watcher stood here, flipping the grimoire
+    // face-up the moment the host's first role landed while building. There
+    // is no face-down state left for it to correct — the coins are always
+    // revealed — so the watcher went with it. `rolesAssigned` itself is
+    // untouched; the seat counter and the deal's own gates still read it.
     // FT-1209: the gear's position is the h3's width — a rename (or the
     // rename input coming down) moves it; a tab switch re-weights a label
     // (the chosen leaf is bold). All re-measure after the DOM settles.

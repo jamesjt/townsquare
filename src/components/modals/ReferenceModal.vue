@@ -327,8 +327,7 @@ ul {
   }
 }
 
-/** hide players when town square is set to "public" **/
-#townsquare.public ~ .characters .modal .player {
-  display: none;
-}
+/* FT-1294: a `#townsquare.public ~ .characters` rule stood here, hiding the
+   seat names on this sheet while the coins were face down. That state is
+   retired — see store/index.js. */
 </style>

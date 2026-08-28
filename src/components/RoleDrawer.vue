@@ -351,15 +351,11 @@ export default {
      * carries (App.vue's `.drawer-tab`), so this drawer was never a
      * spectator's surface to begin with.
      *
-     * The face cluster's OTHER half — `!grimoire.isPublic` — deliberately
-     * does not carry over. `isPublic` starts TRUE and stays true until the
-     * host deals a town (HostTools flips it on `rolesAssigned`), so the
-     * cluster is dark for the whole BUILD phase — which is precisely when a
-     * storyteller picks bluffs, and precisely the gap this section exists to
-     * fill. The public-display worry it guards against cannot reach here
-     * anyway: this drawer already prints who is playing what next to every
-     * row (`seatedNames`), so it is a face-up surface by construction and a
-     * host mirroring a face-down grimoire has it shut.
+     * The face cluster's OTHER half — a face-down check — deliberately did
+     * not carry over, and FT-1294 has since retired that state everywhere:
+     * the clock face's own guard is now the same single spectator question
+     * this one is. The drawer prints who is playing what next to every row
+     * (`seatedNames`), so it was a face-up surface by construction anyway.
      */
     canSetBluffs() {
       return !this.session.isSpectator;

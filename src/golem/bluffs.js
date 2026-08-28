@@ -71,19 +71,27 @@ export function demonSeatIndex(players) {
 /**
  * May this client see the three bluffs?
  *
- *   STORYTELLER — yes, unless the grimoire is face-down (`isPublic`), which is
- *                 the mirrored-display case the panel has always hidden for.
- *   A PLAYER    — only if their OWN chair believes it is the demon. `isPublic`
- *                 is deliberately NOT consulted on this branch: it starts true
- *                 and only the HOST ever flips it (HostTools, on the deal), so
- *                 a player's copy is true forever and would refuse every demon.
+ *   STORYTELLER — yes. The bluffs are their own working note.
+ *   A PLAYER    — only if their OWN chair believes it is the demon.
+ *
+ * THE TWO BRANCHES ANSWER DIFFERENT QUESTIONS, and that is the whole of this
+ * function: `!session.isSpectator` asks "is this the storyteller", and the
+ * player branch asks "does this seat believe it is the demon". Neither has
+ * ever leaned on the other, and the player branch below is untouched.
+ *
+ * FT-1294: the storyteller branch used to read `return !grimoire.isPublic` —
+ * "yes, unless the grimoire is face down", the mirrored-display case. The
+ * face-down state is retired (see store/index.js), so what is left is the
+ * question that branch was really asking all along: are you the storyteller.
+ * The player branch never consulted the flag, so nothing there widened — a
+ * player still reaches this only through their own chair's belief.
  *
  * @param state the root store state
  */
 export function canSeeBluffs(state) {
   if (!state) return false;
-  const { session, grimoire } = state;
-  if (!session.isSpectator) return !grimoire.isPublic;
+  const { session } = state;
+  if (!session.isSpectator) return true;
   const players = state.players.players;
   const seat = ownSeatIndex(players, session);
   return seat >= 0 && believesDemon(players[seat]);

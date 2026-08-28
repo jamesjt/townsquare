@@ -1272,7 +1272,8 @@ export default {
     enterAsPlayer(id) {
       this.$store.commit("session/clearVoteHistory");
       this.$store.commit("session/setSpectator", true);
-      this.$store.commit("toggleGrimoire", false);
+      // FT-1294: the entering player's `toggleGrimoire(false)` went with the
+      // face-down state — the coins rest revealed for everyone now.
       this.$store.commit("session/setSessionId", id);
     },
     /** Leave the waiting panel for the entry screen. The gate's timer stops

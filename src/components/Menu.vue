@@ -605,17 +605,9 @@
         <template v-if="tab === 'grimoire'">
           <!-- Grimoire -->
           <li class="headline">Grimoire</li>
-          <!-- FT-1207 (user): the face-down flip is stood down with the R
-               key — the grimoire always rests revealed, so the Hide/Show
-               item hides with it (v-if false, kept whole). -->
-          <li @click="toggleGrimoire" v-if="false && players.length">
-            <template v-if="!grimoire.isPublic">Hide</template>
-            <template v-if="grimoire.isPublic">Show</template>
-            <!-- FT-880: the coins moved off G (which is the grimoire drawer
-                 now) onto R, and the badge wears the index page's own key
-                 treatment rather than bracketed plain text. -->
-            <em><KeyCap letter="R" /></em>
-          </li>
+          <!-- FT-1207 stood the Hide/Show item down beside the R key; FT-1294
+               (user grant) removes it, with the face-down state it drove. The
+               grimoire is always revealed and there is nothing here to flip. -->
           <!-- Golem fork (2026-08-18, user call): Switch to Night, Select
                Edition, Show Custom Images and Disable Animations left the
                menu — redundant beside the workbench/host tools (the S and E
@@ -1237,12 +1229,10 @@ export default {
       // apply to it — there is no wire path to be early or late for.
       this.$store.dispatch("players/dealReminders");
       this.$store.commit("session/distributeRoles", true);
-      // FT-999 (user call, 2026-08-20): a game STARTS with the grimoire
-      // revealed — dealing is the moment the storyteller starts running the
-      // town, and face-down coins on their own screen were one more G press
-      // every single game. Local to this client (isPublic is never synced),
-      // and only ever the host reaches this line (spectators bailed above).
-      this.$store.commit("toggleGrimoire", false);
+      // FT-999 revealed the grimoire here, because dealing is the moment the
+      // storyteller starts running the town and face-down coins were one more
+      // key press every single game. FT-1294: they rest revealed always now,
+      // so the deal has nothing to reveal.
       setTimeout(
         (() => {
           this.$store.commit("session/distributeRoles", false);
@@ -1291,7 +1281,8 @@ export default {
         const enter = () => {
           this.$store.commit("session/clearVoteHistory");
           this.$store.commit("session/setSpectator", true);
-          this.$store.commit("toggleGrimoire", false);
+          // FT-1294: the joiner's own `toggleGrimoire(false)` went with the
+          // face-down state — see golem/townRoute, the other entry path.
           this.$store.commit("session/setSessionId", sessionId);
         };
         // 2026-08-19: THE SAME GATE the Join panel and an invite link answer
@@ -1429,7 +1420,6 @@ export default {
       }
     },
     ...mapMutations([
-      "toggleGrimoire",
       "toggleMenu",
       "toggleImageOptIn",
       "toggleMuted",

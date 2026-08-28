@@ -109,8 +109,8 @@ export function capFor(letter) {
  *   sessionless — the index page, before any town
  *
  * `note` is the one-line description the panel prints. Keep them in the
- * user's language, not the code's ("the coins on the seats", never
- * "isPublic").
+ * user's language, not the code's — "the coins on the seats", never the name
+ * of the flag underneath.
  */
 export const HOTKEYS = [
   {

@@ -139,8 +139,10 @@ import uiGhostVote from "../assets/ui-ghost-cowl.png";
  * @property {boolean} roleArmed     that character is currently in hand
  * @property {boolean} lockedVote    a vote is running and locked
  * @property {boolean} nomination    a nomination is already up
- * @property {boolean} grimoireHidden `grimoire.isPublic` — the coins are face
- *                                    down, i.e. the room is looking at this
+ * (FT-1294: `grimoireHidden` stood here, carrying the face-down flag in for
+ *  the reminder row's guard. The face-down state is retired — see
+ *  store/index.js — so the fact has nothing left to report and the seat no
+ *  longer computes it.)
  * @property {?string} whisperRefusal FT-1206: why this seat cannot be
  *                                    whispered right now, or null when it can.
  *                                    COMPUTED BY THE SEAT (Player.vue, from
@@ -334,18 +336,18 @@ const ENTRIES = [
     setLabel: "Add reminder",
     hint: () => "Put a reminder token on this seat",
     /**
-     * THE ROW THE USER FOUND MISSING. FT-1169 gated it on
+     * THE ROW THE USER FOUND MISSING, twice over. FT-1169 gated it on
      * `!grimoire.isPublic` and let the guard delete it, so with the coins
-     * face down — which is what "Play again" leaves behind (store/index.js's
-     * `clearEnded`) and what the G key does — the seat's menu quietly lost an
-     * entry and never said why. The gate itself is right and is kept: a
-     * reminder token is the storyteller's own writing and the public view is
-     * the room's. It just says so now instead of vanishing.
+     * face down the seat's menu quietly lost an entry and never said why;
+     * FT-1212 made it say so instead of vanishing.
+     *
+     * FT-1294: the gate is gone with the state behind it. Face-down is
+     * retired (store/index.js), so the row was already unrefusable on every
+     * client a person could actually be sitting at — a player's flag was
+     * false, and the host had no way left to turn it true. Refusing on a
+     * condition nothing can produce is a guard that only ever lies.
      */
-    guard: (f) =>
-      f.grimoireHidden
-        ? "Not while the grimoire is hidden — the room can see this seat"
-        : null,
+    guard: () => null,
     act: "openReminderModal",
   },
   {

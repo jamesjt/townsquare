@@ -107,7 +107,10 @@ export function enterTown(store, id) {
   const role = resolveTownRole(clean);
   store.commit("session/clearVoteHistory");
   store.commit("session/setSpectator", role === "player");
-  if (role === "player") store.commit("toggleGrimoire", false);
+  // FT-1294: a player used to commit `toggleGrimoire(false)` here — turning
+  // their own coins face UP on the way in, because face-up is how a player
+  // sees the one coin they are entitled to. The coins are always face up now,
+  // for everyone, so the entry path has nothing to correct.
   store.commit("session/setSessionId", clean);
 }
 

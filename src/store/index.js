@@ -154,13 +154,23 @@ export default new Vuex.Store({
     grimoire: {
       isNight: false,
       isNightOrder: true,
-      // FT-999b (2026-08-20, user call): a game starts with the grimoire
-      // REVEALED. FT-999 already reveals on deal, but isPublic was not
-      // restored across a reload, so every host refresh reset to face-down
-      // until the next deal or a G press. Revealed is the resting state now;
-      // the streaming hide stays one G away. Players are unaffected — their
-      // join path commits toggleGrimoire(false) anyway (golem/townRoute).
-      isPublic: false,
+      // FT-1294 (2026-08-28, user grant): THE FACE-DOWN GRIMOIRE IS RETIRED,
+      // flag and all. `isPublic` used to live here — the app's "the coins are
+      // turned away from the viewer" switch, true meaning face DOWN. FT-1207
+      // had already shut both doors to it (the R hotkey's branch and Menu's
+      // Hide/Show), FT-999b had made revealed the resting state, and a
+      // player's entry path committed false on the way in — so nothing any
+      // user could reach ever set it. What was left was a dormant flag that
+      // four code paths still WROTE and a dozen still READ, and it caused a
+      // real bug (FT-1289: Play again turned every player's coins face down
+      // and nothing turned them back). The coins are revealed, for everyone,
+      // always; there is no state that can say otherwise.
+      //
+      // The readers it had were not all asking the same question — most were
+      // standing in for "is this viewer the storyteller" (`!isSpectator`) or
+      // "is a character sitting on this chair", and each was given its own
+      // question directly rather than inheriting this one. See the notes at
+      // golem/bluffs.js, golem/seatActions.js and Player.vue's belief chip.
       isMenuOpen: false,
       // Golem fork (2026-08-19): the demon's bluffs cluster, shown or hidden.
       // In the store rather than on TownSquare because the switch is a mark in
@@ -427,18 +437,21 @@ export default new Vuex.Store({
      * exact mutation on receipt, the same "one type, two callers" shape
      * `toggleNight` above already uses).
      *
-     * It sets the result AND forces the grimoire's reveal flag off in the
-     * same commit, atomically — `isPublic` is Player.vue/TownSquare.vue's
-     * existing "does a seat's coin show its character" switch (see
-     * `#townsquare.public` in TownSquare.vue), reused rather than replaced:
-     * once it is false and the true role has reached this client (the
-     * gamestate sync, socket.js), the existing render pipeline draws the
-     * reveal on its own — nothing here touches how a role is drawn.
+     * It sets the result, and the reveal follows from the roles alone: once
+     * the true role has reached this client (the gamestate sync, socket.js)
+     * the existing render pipeline draws it — nothing here touches how a role
+     * is drawn.
+     *
+     * FT-1294: this used to force `grimoire.isPublic = false` in the same
+     * commit, because the coins could be face down. They cannot any more —
+     * the flag is retired (see the state block above) — so the line went with
+     * it. The reveal is unchanged: it was always the ARRIVAL OF THE ROLES
+     * that made it, and the flag was already false on every client that could
+     * reach this.
      */
     endGame(state, winningTeam) {
       state.session.isEnded = true;
       state.session.winningTeam = winningTeam === "evil" ? "evil" : "good";
-      state.grimoire.isPublic = false;
       // FT-1003: the end reveal shows everyone everything — a per-seat
       // grimoire grant has nothing left to grant, on either side of the wire.
       state.session.grimoireGrants = {};
@@ -453,58 +466,47 @@ export default new Vuex.Store({
     clearEnded(state) {
       state.session.isEnded = false;
       state.session.winningTeam = null;
-      // FT-1289: BACK TO THIS VIEWER'S OWN RESTING REVEAL — which is not the
-      // same state for the two of them, and a flat `true` here only ever
-      // described the storyteller's.
+      // FT-1294: THE LINE THAT USED TO SIT HERE IS GONE, and its whole class
+      // of bug with it. This mutation runs on EVERY client, not just the
+      // host's — a player's socket applies it on the Play again resync
+      // (socket.js's `_updateGamestate` un-ends a client that still holds
+      // isEnded) — so whatever face it wrote, it wrote on every screen in the
+      // town. FT-1289 was exactly that: it wrote the coins face DOWN for
+      // every player and nothing turned them back, and the next deal
+      // delivered each character onto a coin that had stopped showing it. A
+      // blank coin on their own named, claimed seat, and a whole town
+      // reporting they never got a character. The role was always there; only
+      // the face was wrong.
       //
-      // `isPublic` is the app's "the coins are face down" switch. The
-      // STORYTELLER rests at true (a hidden grimoire; the R toggle and Menu's
-      // Hide/Show are theirs). A PLAYER rests at FALSE — their entry path
-      // commits `toggleGrimoire(false)` on the way in (golem/townRoute's
-      // enterTown) — because face-up is how a player sees the one coin they
-      // are entitled to: their own.
-      //
-      // This mutation runs on EVERY client, not just the host's: a player's
-      // socket applies it on the Play again resync (socket.js's
-      // `_updateGamestate` un-ends a client that still holds isEnded). So
-      // Play again was setting every player's grimoire face DOWN and nothing
-      // ever set it back — enterTown had already run, games later. The next
-      // deal then delivered their character exactly as it always had, onto a
-      // coin that was no longer showing it. A blank coin on their own named,
-      // claimed seat, and every player in the town reporting they never got a
-      // character. (The role really was there: the wire and the store both
-      // carried it. Only the face was wrong, which is why it read as a
-      // delivery bug and was not one.)
-      //
-      // `endGame` above sets false for both of them and needs no such split —
-      // the end reveal is the one moment the two views agree.
-      state.grimoire.isPublic = !state.session.isSpectator;
+      // FT-1289 fixed it by writing each viewer's own resting face. This
+      // retires the question: there is no face to write. Play again leaves
+      // the coins exactly as they were — revealed, for everyone.
       // FT-1003: a new game starts with no grimoire windows open anywhere —
       // the roles a grant delivered go through players/clearRoles alongside
       // this, exactly as the end reveal's do.
       state.session.grimoireGrants = {};
       state.session.isGrimoireGranted = false;
     },
-    /**
-     * FT-931: the R hotkey's mutation (and Menu's Hide/Show), guarded so the
-     * game-end reveal cannot be hidden again while the town is still ended.
-     * `endGame` / `clearEnded` below are the only other writers of
-     * `grimoire.isPublic` during an ended town, and both always leave it
-     * revealed — this is what makes that irreversible rather than a rule
-     * every future isPublic writer has to remember to respect.
+    /*
+     * FT-1294: `toggleGrimoire` STOOD DOWN AND REMOVED. It was FT-931's
+     * mutation for the R hotkey and Menu's Hide/Show — the only two ways a
+     * human could ever turn the coins over — and both of those doors were
+     * shut in FT-1207. With the flag itself retired there is nothing left for
+     * it to write, and leaving a mutation that could put the town back into a
+     * state nothing else understands is precisely what this lane is for.
      */
-    toggleGrimoire(state, val) {
-      if (state.session.isEnded) return;
-      toggle("isPublic")(state, val);
-    },
     /**
      * FT-1003: THE GRANTED GRIMOIRE ARRIVES — one seat's client is shown the
      * whole town face-up. `seats` is [{index, role}] with roles already
      * resolved by the socket layer (never this client's own seat: the sender
      * skips it, so a seat whose belief differs from its truth can never learn
      * the difference from its own grant). The render path is FT-931's end
-     * reveal verbatim — true roles present + isPublic off — scoped to the
-     * live `isGrimoireGranted` flag instead of isEnded.
+     * reveal verbatim — the true roles being PRESENT is the whole of it —
+     * scoped to the live `isGrimoireGranted` flag instead of isEnded.
+     *
+     * FT-1294: this too used to write `isPublic = false` alongside. The coins
+     * are always revealed now, so the grant is exactly what it always really
+     * was: a delivery of roles.
      */
     grantGrimoire(state, seats) {
       (seats || []).forEach(({ index, role }) => {
@@ -512,7 +514,6 @@ export default new Vuex.Store({
         if (player) player.role = role;
       });
       state.session.isGrimoireGranted = true;
-      state.grimoire.isPublic = false;
     },
     /**
      * FT-1003: the window closes. Clears every role the grant delivered —
@@ -521,12 +522,10 @@ export default new Vuex.Store({
      * a revoke frame arriving at a client that was never granted (a joiner's
      * self-healing sync) is a no-op.
      *
-     * isPublic is deliberately NOT touched here: a player's normal state IS
-     * isPublic=false (their join path commits toggleGrimoire(false) —
-     * golem/townRoute), so the granted view and the normal view differ only
-     * in which roles this client holds. Clearing the roles is the whole
-     * revoke; writing isPublic=true would have flipped the seat into the
-     * face-down streaming view no player ever sits in.
+     * The granted view and the normal view differ only in which roles this
+     * client holds, so clearing the roles is the whole revoke. (FT-1294: it
+     * always was. This note used to explain why the revoke deliberately did
+     * not turn the coins back over — there is no longer a face to turn.)
      */
     revokeGrimoire(state) {
       if (!state.session.isGrimoireGranted) return;

@@ -44,10 +44,12 @@ function applyTownNight(store, townId) {
 }
 
 module.exports = store => {
-  const updatePagetitle = isPublic =>
-    (document.title = `Blood on the Clocktower ${
-      isPublic ? "Town Square" : "Grimoire"
-    }`);
+  // FT-1294: THE PAGE TITLE NO LONGER MOVES. `updatePagetitle` lived here and
+  // flipped the tab between "Town Square" and "Grimoire" off `grimoire.isPublic`
+  // — the face-down flag, now retired. It only ever ran off that flag, so with
+  // the flag gone the title is whatever the document was served with, which is
+  // the better answer anyway: the server writes the town's own name into the
+  // page for link previews (FT-930), and this used to overwrite it on boot.
 
   // FT-889: the town named by the URL — a clean /<town> path, or a legacy
   // #<town> link. Empty means this url names no town at all.
@@ -94,10 +96,10 @@ module.exports = store => {
   if (localStorage.getItem("zoom")) {
     store.commit("setZoom", parseFloat(localStorage.getItem("zoom")));
   }
-  if (localStorage.getItem("isGrimoire")) {
-    store.commit("toggleGrimoire", false);
-    updatePagetitle(false);
-  }
+  // FT-1294: the `isGrimoire` stash is retired with the flag it held. It was
+  // this browser's standing preference for which face the coins rested on;
+  // there is one face now. An old key left in a browser's storage is simply
+  // never read again — nothing writes it, nothing acts on it.
   if (localStorage.roles !== undefined) {
     store.commit("setCustomRoles", JSON.parse(localStorage.roles));
     store.commit("setEdition", { id: "custom" });
@@ -194,22 +196,9 @@ module.exports = store => {
   // listen to mutations
   store.subscribe(({ type, payload }, state) => {
     switch (type) {
-      case "toggleGrimoire":
-        if (!state.grimoire.isPublic) {
-          localStorage.setItem("isGrimoire", 1);
-        } else {
-          localStorage.removeItem("isGrimoire");
-        }
-        updatePagetitle(state.grimoire.isPublic);
-        break;
-      // FT-931: the game-end reveal writes grimoire.isPublic directly (a
-      // different mutation, not toggleGrimoire — see store/index.js), so it
-      // needs its own case to keep the tab title in step. isPublic itself is
-      // deliberately NOT stashed to localStorage.isGrimoire here — that key
-      // is a browser's standing preference, and the reveal's isPublic value
-      // is a CONSEQUENCE of isEnded, not an independent preference; restoring
-      // gameEnded (below) on boot re-derives it via the same endGame mutation
-      // that set it live, rather than two stashes that could disagree.
+      // FT-931 / FT-1294: the ended town is stashed so a reload lands back in
+      // it. The tab-title half of this case went with the face-down flag —
+      // see the note at the top of this plugin.
       case "endGame":
       case "clearEnded":
         if (state.session.isEnded) {
@@ -220,7 +209,6 @@ module.exports = store => {
         } else {
           localStorage.removeItem("gameEnded");
         }
-        updatePagetitle(state.grimoire.isPublic);
         break;
       case "setBackground":
         if (payload) {

@@ -2162,9 +2162,10 @@ export default {
      * documentation of it changing too.
      *
      * What moved, and why the old letters could not simply stay:
-     *  - G was the seat COINS (upstream's toggleGrimoire / isPublic), which is
-     *    not what the grimoire tab does. G is the drawer now, and the coins —
-     *    which are not being dropped, only rehomed — take R, freed below.
+     *  - G was upstream's turn-the-seat-coins-over key, which is not what the
+     *    grimoire tab does. G is the drawer now, and the coins took R. (That
+     *    letter has since moved on again — the coins no longer turn over at
+     *    all, FT-1294 — and R is the characters picker; see the r case.)
      *  - E was the edition picker; it is the phase flip now (the day's most
      *    used action deserves the letter that names it). The edition moved to
      *    D, still reachable and still host-only.
@@ -2196,9 +2197,9 @@ export default {
           // table because that is the word on its own heading.
           //
           // FT-1207 (user): "disable that for now, always have it revealed."
-          // The face-down flip is stood down and R was free for the taking.
-          // The old branch, for the day it returns — it needs a new letter:
-          //   this.$store.commit("toggleGrimoire");
+          // The face-down flip stood down and R was free for the taking;
+          // FT-1294 (user grant) retired the state itself, so there is no
+          // stood-down branch left to keep here.
           if (!isHost) return;
           this.$store.commit("toggleModal", "roles");
           break;

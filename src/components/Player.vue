@@ -107,11 +107,12 @@
            the grimoire is revealed, so everything inside it went with it.
            The numeral is now `.player`'s own child, below the coin — see
            `showSeatNumeral`. -->
-      <!-- FT-990: the second of the coin's three boxes. In the storyteller's
-           grimoire this face is turned away and takes no pointer at all; in
-           the PUBLIC view it is the coin the room is looking at, and it is
-           what a traveler's card has to be raised from. showCard's public-view
-           guard is what keeps every other seat silent there. -->
+      <!-- FT-990: the second of the coin's three boxes — the blank face. It
+           is turned away and takes no pointer at all, and since FT-1294 (the
+           face-down grimoire's retirement) there is no view that turns it
+           back: the coins always show their characters. The box stays because
+           it is half of the coin's flip geometry and the dead-coin art hangs
+           on it; see the `.life` rules in the style block. -->
       <div
         class="life"
         @click="onLifeClick"
@@ -146,12 +147,11 @@
            the drawer (unassign) -->
       <!-- FT-990: `hover-card` STAYS FALSE. The coin component has its own
            working hover card, and turning it on here would have been the
-           one-word version of this change — but that card carries no
-           public-view guard (Token.vue has no reason to know about
-           `grimoire.isPublic`), so a player's own client would raise a card
-           for every seat in the room. The seat keeps ONE card, with one
-           guard and one anchor; the coin just becomes a third way to ask
-           for it. -->
+           one-word version of this change — but the seat's card is the one
+           with the anchor logic, the traveler rule and the plate/coin lean
+           (see showCard below), and two cards on one seat is two answers to
+           the same hover. The seat keeps ONE card, with one anchor; the coin
+           just becomes a third way to ask for it. -->
       <!-- FT-1080: `belief` IS NO LONGER PASSED, and that is the whole fix —
            see the belief dock below. Token.vue still takes the prop and still
            carries the chip's markup, computed and styles; nothing there was
@@ -827,10 +827,12 @@
            doorway, docked beside the add-reminder disc on the plate's own
            hover surface (the user: "an icon left of the custom note on
            hover nameplate"). Its own class, NOT `.reminder`: the reminders
-           are storyteller writing and go dark when the grimoire faces the
-           room (`#townsquare.public .circle .reminder`), while whispering is
-           the one seat act a PLAYER owns — it must survive exactly the view
-           the players live in. Same measured geometry as the add disc, one
+           are the storyteller's own writing and used to go dark when the
+           coins faced the room, while whispering is the one seat act a PLAYER
+           owns and had to survive exactly the view the players live in.
+           (FT-1294 retired that rule with the face-down state; the separate
+           class stays — the two discs are different acts.) Same measured
+           geometry as the add disc, one
            disc further out (whisperDiscStyle). Refused states stay drawn,
            dim, with the reason on the tooltip — the fixed-list rule. -->
       <!-- FT-1206: the corridor-keeper — renders BEFORE the disc so the
@@ -915,11 +917,14 @@
                8 on the hub, 24px across, one of them unreachable behind
                another). The seat already opens a menu on tap; the plus is a
                row in it, at the size a row gets. It is not gated on being the
-               storyteller — the disc never was — but it follows the same
-               public-view rule the reminders themselves follow. -->
+               storyteller — the disc never was. (FT-1294: it used to carry
+               the face-down grimoire's guard as well, which on every client a
+               person could actually sit at was already open — a player's
+               coins were face up and the host had no way left to turn them
+               over. The state is retired and so is the guard.) -->
           <!-- FT-1242: FA `plus` stood down — the note sheet (ui-note.png) is
                what this row puts on the seat, same mark the plate row wears. -->
-          <li class="rem-act" v-if="!grimoire.isPublic" @click="addReminder()">
+          <li class="rem-act" @click="addReminder()">
             <img class="pm-mark" :src="uiNote" alt="" draggable="false" />
             Add reminder
           </li>
@@ -1365,9 +1370,8 @@ export default {
      *     because the nameplate toggle stands on its own and defaults on.
      *   · THE DRAGS AND THE ADD-REMINDER DISC ignore the toggles for a
      *     spectator: FT-1025 deliberately granted spectators the role drag
-     *     (their own gate, `!isOwnSeat`, is inside canDragCoin), the plate
-     *     drag already refuses them, and the disc is pointer-dead in the
-     *     public view they live in. A spectator also has no Control
+     *     (their own gate, `!isOwnSeat`, is inside canDragCoin) and the plate
+     *     drag already refuses them. A spectator also has no Control
      *     settings tab, so a toggle turned off in some earlier hosting
      *     session must not strand them.
      */
@@ -1506,7 +1510,8 @@ export default {
         roleArmed: !!this.roleArmed,
         lockedVote: !!this.session.lockedVote,
         nomination: !!this.session.nomination,
-        grimoireHidden: !!this.grimoire.isPublic,
+        // FT-1294: `grimoireHidden` was reported here for the reminder row's
+        // guard. The face-down state is retired; the row is unconditional.
         // FT-1206: why this seat cannot be whispered, or null — the chat
         // level's own answer, computed once here for every surface.
         whisperRefusal: this.whisperRefusalText,
@@ -1623,8 +1628,7 @@ export default {
      * FT-1271: does the cowl already have the corner? A DEAD seat is still
      * whisperable — golem/chat says so in as many words ("a dead neighbor is
      * still a neighbor") — but its corner is taken by the ghost-vote cowl, and
-     * a player's view is exactly the view that cowl is visible in (a player's
-     * `grimoire.isPublic` is false; the join path commits it, golem/townRoute).
+     * a player's view is exactly the view that cowl is visible in.
      * So on a dead seat the mark steps DOWN the same corner column instead of
      * landing on top of the cowl. The living case is untouched: the mark sits
      * precisely where the hand does on the storyteller's own screen.
@@ -1635,11 +1639,13 @@ export default {
     /**
      * FT-1206: THE WHISPER DISC'S OWN BRIDGE — FT-923's lesson, paid again by
      * this lane's rig: the cursor's path from the plate to the whisper disc
-     * crosses the ADD DISC'S footprint, and in the public view (which is the
-     * view every PLAYER lives in) that disc is pointer-dead
-     * (`#townsquare.public .circle .reminder`), so `nameHover` dropped
-     * mid-corridor and the whisper disc hid before the cursor reached it —
-     * measured, not guessed: the proof rig's click timed out on exactly this.
+     * crosses the ADD DISC'S footprint, and wherever that disc takes no
+     * pointer the hover dropped mid-corridor and the whisper disc hid before
+     * the cursor reached it — measured, not guessed: the proof rig's click
+     * timed out on exactly this. (FT-1294: the rule that made the add disc
+     * pointer-dead was the face-down grimoire's, now retired. The bridge
+     * stays — it is the corridor's own geometry, and the gaps either side of
+     * the disc were always part of what it covers.)
      * One invisible strip covers the whole corridor (both gaps plus the add
      * disc between them); the same x-arithmetic works on both sides because
      * `addAnchor.left` is the add disc's own left on either.
@@ -1755,14 +1761,15 @@ export default {
           title: "This player nominates — then pick who they point at",
         });
       }
-      if (!this.grimoire.isPublic) {
-        out.push({
-          id: "reminder",
-          icon: "plus",
-          label: "Add reminder",
-          title: "Put a reminder token on this seat",
-        });
-      }
+      // FT-1294: unconditional. This used to sit behind the face-down
+      // grimoire, which is retired — see the seat menu's own row above and
+      // golem/seatActions' reminder guard.
+      out.push({
+        id: "reminder",
+        icon: "plus",
+        label: "Add reminder",
+        title: "Put a reminder token on this seat",
+      });
       return out;
     },
     index: function() {
@@ -1823,14 +1830,19 @@ export default {
      * FT-861: the chip on this seat's coin — the character its player was TOLD
      * they are, and null on the overwhelming majority of chairs.
      *
-     * STORYTELLER, IN THE GRIMOIRE, ONLY. A player's own client is never sent
-     * anybody's belief (see socket.js), so this is belt-and-braces there — but
-     * the public grimoire is a real surface the whole room looks at, and a mark
-     * saying "this seat does not know what it is" belongs on neither.
+     * STORYTELLER ONLY. A player's own client is never sent anybody's belief
+     * (see socket.js), so the spectator refusal below is belt-and-braces —
+     * and it STAYS, because it is the one asking the question that matters:
+     * is this viewer entitled to the grimoire's own marks.
+     *
+     * FT-1294: a second refusal stood beside it for the face-down grimoire —
+     * the streaming case, where the whole room is looking at the host's
+     * screen. That state is retired, so the question it asked no longer
+     * exists. Nothing widened: the storyteller-only test is untouched, and it
+     * is the test that was ever keeping this off a player's ring.
      */
     beliefChip() {
       if (this.session.isSpectator) return null;
-      if (this.grimoire.isPublic) return null;
       if (isBelieving(this.player)) return this.player.believedRole;
       // FT-1021 (user call): a believing-class seat ALWAYS wears the chip —
       // before a belief is set it stands as the "?" placeholder, which is
@@ -1865,12 +1877,12 @@ export default {
      * and they are different questions: the character DEMANDS a lie (schema —
      * a freshly seated Drunk has no belief yet and needs one), or a lie is
      * already on the seat (so it can be changed or cleared even after the
-     * character underneath was swapped away). Same two guards as the chip:
-     * never for a player, never on the public grimoire.
+     * character underneath was swapped away). Same guard as the chip above,
+     * and for the same reason: never for a player. (FT-1294: the chip's
+     * second guard, the face-down grimoire, is retired here too.)
      */
     canSetBelief() {
       if (this.session.isSpectator) return false;
-      if (this.grimoire.isPublic) return false;
       return believesOther(this.player.role) || isBelieving(this.player);
     },
     /** This chair's character is the one currently in hand. */
@@ -1903,30 +1915,16 @@ export default {
       );
     },
     /**
-     * FT-985: WHEN THE CHAIR NUMBERS ITSELF — the storyteller's grimoire is
-     * revealed AND no character is sitting there.
+     * WHEN THE CHAIR NUMBERS ITSELF — ALWAYS, unless a character is sitting on
+     * it (user's rule, 2026-08-20: "always show the numerals unless there is a
+     * role token on them — reveal or hide just hides the role tokens").
      *
-     * `grimoire.isPublic` is the app's "coins are face down" switch (see
-     * `#townsquare.public` below and the store's own note on it), so revealed
-     * is `!isPublic` — the state in which the role coin faces the viewer and
-     * an empty chair is a blank coin with nothing to say. That blank is what
-     * the numeral is for.
-     *
-     * It is therefore a STORYTELLER-SIDE mark now: a player's client is held
-     * at `isPublic: true`, so the ring a player sees carries no numerals at
-     * all. That is the ask, and it is the read the numeral was always giving
-     * the storyteller — it simply used to give it on the wrong face.
-     */
-    /**
-     * ALWAYS, unless a character is sitting on the chair (user's cleaner rule,
-     * 2026-08-20: "always show the numerals unless there is a role token on
-     * them — reveal or hide just hides the role tokens").
-     *
-     * The reveal state is deliberately NOT part of this. Revealing and hiding
-     * is about the ROLE TOKENS; the numeral is the chair's own name and does
-     * not come and go with them. The earlier pass tied it to the reveal, which
-     * meant a player — whose view is always hidden — lost seat numbers
-     * entirely, and with them table talk like "four nominates nine".
+     * The numeral is the CHAIR'S OWN NAME, on both sides of the table: it is
+     * what "four nominates nine" means, so a player needs it as much as the
+     * storyteller does. FT-985 first tied it to the grimoire's reveal state,
+     * which cost a player their seat numbers entirely; the user's rule above
+     * untied it. FT-1294 has since retired that state altogether, so this
+     * reads what it always should have — is anybody sitting here.
      */
     showSeatNumeral() {
       return !(this.player.role && this.player.role.id);
@@ -2731,29 +2729,36 @@ export default {
      *             this div's `:before` and is `pointer-events: none`, so
      *             hovering the ghost IS hovering this div.
      *   .life     the whole coin square. Turned away (`rotateY(180deg)` +
-     *             `backface-visibility: hidden`) in the storyteller's grimoire,
-     *             which takes it out of hit-testing entirely; face-on and
-     *             frontmost in the public view.
-     *   .token    the coin itself. Frontmost in the grimoire below the shroud —
-     *             so on its own it would have answered for the coin's bottom
-     *             third and nothing else.
+     *             `backface-visibility: hidden`), which takes it out of
+     *             hit-testing entirely.
+     *   .token    the coin itself. Frontmost below the shroud — so on its own
+     *             it would have answered for the coin's bottom third and
+     *             nothing else.
      *   .overlay / .marked / .seat-numeral   all `pointer-events: none`.
      *
      * So the coin is not ONE box, and binding to `<Token>` alone would have
      * given a hover that works on the bottom of a coin and dies on the top —
      * which is the shape of the original complaint, not its fix. All three
-     * boxes carry it; together they are the coin, whichever face is showing.
+     * boxes carry it; together they are the coin.
      *
-     * The two refusals below are kept exactly as they were. The public-view one
-     * is a LEAK GUARD, not a nicety: a player's own client renders every seat,
-     * and the coins being turned away is the only thing standing between them
-     * and the whole grimoire. A traveler is the one character whose role is
-     * public knowledge, so it is the one exception.
+     * FT-1294: A REFUSAL CAME OUT OF THIS METHOD, and it is worth being exact
+     * about what it was, because its own comment called it a leak guard.
+     *
+     *   if (this.grimoire.isPublic && role.team !== "traveler") return;
+     *
+     * What actually keeps the grimoire off a player's screen is the WIRE: a
+     * role reaches only the socket holding that chair (socket.js), so every
+     * other seat in a player's roster carries `role: {}` and is refused one
+     * line above this, by `if (!role || !role.id) return`. The face-down flag
+     * was a SECOND line in front of that one — and in this fork it had not
+     * fired for a player in a long time, because a player's coins were face
+     * UP (their entry path committed it, so they could see their own). The
+     * comment described upstream's arrangement, not ours. Retiring it takes
+     * nothing away from the guard that is doing the work.
      */
     showCard(e) {
       const role = this.player.role;
       if (!role || !role.id) return;
-      if (this.grimoire.isPublic && role.team !== "traveler") return;
       if (!window.matchMedia("(hover: hover)").matches) return;
       const fromPlate =
         !!e.currentTarget && e.currentTarget.classList.contains("name");
@@ -3770,6 +3775,13 @@ export default {
      *       this.updatePlayer("isVoteless", true); // ← the third stop
      *     }
      *   }
+     *
+     * FT-1294 rider: that branch's condition names `grimoire.isPublic`, the
+     * face-down grimoire, which is now retired throughout (store/index.js).
+     * The snippet is left exactly as FT-1227 stood it down — it is a record
+     * of upstream's behaviour, not code waiting to be switched back on — but
+     * anyone reviving it needs a new question to hang it from. There is no
+     * public view any more.
      */
     toggleStatus() {
       this.updatePlayer("isDead", !this.player.isDead);
@@ -4880,26 +4892,13 @@ html.veil-glass .circle .player .shroud:before {
   }
 }
 
-#townsquare.public .player {
-  .shroud {
-    transform: perspective(400px) rotateX(90deg);
-    pointer-events: none;
-  }
-
-  .life {
-    transform: perspective(400px) rotateY(0deg);
-  }
-
-  &.traveler:not(.dead) .token {
-    transform: perspective(400px) scale(0.8);
-    pointer-events: none;
-    transition-delay: 0s;
-  }
-
-  &.traveler.dead .token {
-    transition-delay: 0s;
-  }
-}
+/* FT-1294: THE FLIP ITSELF STOOD HERE. `#townsquare.public .player` swung the
+   blank face forward — shroud folded away, `.life` turned to the viewer, the
+   traveler's coin shrunk behind it — and `#townsquare.public .circle .token`
+   below turned the character's face out of sight. That is the face-down
+   grimoire, in three rules. It is retired (see store/index.js): the coins show
+   their characters, on every client, always, and the base rules a few lines up
+   are now the only faces there are. */
 
 /***** Role token ******/
 .player .token {
@@ -4910,10 +4909,6 @@ html.veil-glass .circle .player .shroud:before {
   transition: transform 200ms ease-in-out;
   transform: perspective(400px) rotateY(0deg);
   backface-visibility: hidden;
-}
-
-#townsquare.public .circle .token {
-  transform: perspective(400px) rotateY(-180deg);
 }
 
 /****** FT-1080 — THE BELIEF DOCK AND THE CHIP IT HOLDS ******/
@@ -5262,10 +5257,8 @@ li.nominate .player .overlay .nominate-target {
   transition: opacity 250ms;
   z-index: 2;
 
-  #townsquare.public & {
-    opacity: 0;
-    pointer-events: none;
-  }
+  /* FT-1294: a `#townsquare.public &` hide stood here, taking the vote mark
+     off the seats while the coins were face down. That state is retired. */
 }
 
 .has-vote {
@@ -6053,9 +6046,10 @@ li.nominate .player .overlay .nominate-target {
 }
 
 /***** Ability text *****/
-#townsquare.public .circle .ability {
-  display: none;
-}
+/* FT-1294: `#townsquare.public .circle .ability { display: none }` stood here.
+   The ability text is the character's own, so it can only ever appear on a
+   coin whose character this client actually holds — the face-down state was
+   never what kept it off a player's ring, and it is retired. */
 .circle .player .shroud:hover ~ .token .ability,
 .circle .player .token:hover .ability {
   opacity: 1;
@@ -6475,26 +6469,23 @@ li.nominate .player .overlay .nominate-target {
   }
 }
 
-// FT-944: scoped to `.circle` — the seat ring — not every `.reminder`
-// anywhere under #townsquare. This file's style block is unscoped, and
-// ReminderModal's own tiles (`ul.reminders > li.reminder`) render as
-// TownSquare's sibling, inside #townsquare but outside `.circle` — so the
-// bare selector this replaced also caught the picker itself, making the
-// whole token list (custom note included) invisible and unclickable
-// whenever the grimoire went public. The seat reminders this rule is FOR —
-// placed tokens and the add-disc — are `.circle .reminder` already (see the
-// FT-869/FT-911 rules above), so this narrowing changes nothing for them.
-#townsquare.public .circle .reminder {
-  opacity: 0;
-  pointer-events: none;
-}
+// FT-1294: `#townsquare.public .circle .reminder` stood here, fading the seat
+// reminders away while the coins were face down (FT-944 had narrowed it to
+// `.circle` so it stopped catching ReminderModal's own picker tiles). The
+// face-down state is retired — see store/index.js — and reminders never cross
+// the wire anyway (socket.js's sendPlayer drops the property), so a player's
+// ring only ever carries the ones that client placed itself.
 
 // Night order is STORYTELLER information — the numbers say who wakes and in
 // what order, and the badge text names the character outright ("The Imp
-// points to a player"). The public grimoire and any spectator's own view
-// must never carry it. (user report 2026-08-18: it was showing to players —
-// the fork hid .ability and .reminder here but never covered this.)
-#townsquare.public .night-order,
+// points to a player"). A spectator's own view must never carry it. (user
+// report 2026-08-18: it was showing to players — the fork hid .ability and
+// .reminder but never covered this.)
+//
+// FT-1294: `#townsquare.public .night-order` was the first half of this rule
+// and went with the face-down state. The `.spectator` half is the one that
+// was ever keeping this off a player's screen, and it STAYS — it asks the
+// real question, which is who is looking, not which way the coins face.
 #townsquare.spectator .night-order {
   display: none;
 }
@@ -6503,9 +6494,8 @@ li.nominate .player .overlay .nominate-target {
    collar on its name plate — enough to find at a glance while sweeping the
    ring, quiet enough that a town with three of them does not shout. The chip
    on the coin says WHAT they believe; this says only WHO. The `believing`
-   class is already storyteller-and-grimoire-only (see beliefChip), so no
-   `.public` / `.spectator` guard is needed here — but the coin's chip flips
-   away with the coin in the public view for the same reason. */
+   class is already storyteller-only (see beliefChip), so no `.spectator`
+   guard is needed here. */
 /* FT-1076 (user): the scan mark RETIRES — the belief CHIP on the coin
    already says a seat is living a lie, and louder; a second signal on the
    plate was redundant. Rule kept, unmatched, per never-delete. */
