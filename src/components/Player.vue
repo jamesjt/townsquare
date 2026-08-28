@@ -5611,7 +5611,23 @@ li.nominate .player .overlay .nominate-target {
     }
   }
   margin-top: -15%;
-  color: #fff;
+  /* FT-1283 (user): “the chairs still need to be more subtle, maybe give
+   * them the same treatment as most of these icons got?” — the strip's
+   * marks are baked stone-grey art, and their quiet lives in the ART, not in
+   * a filter. This badge is a MASK painted with `currentColor`, and that ink
+   * was pure white, so no amount of opacity could stop it reading as a lit
+   * white shape rather than a piece of the app's furniture.
+   *
+   * The ink is the fix: #9a9285 is the strip marks' own average tone (the
+   * measured mean of ui-chat.png's opaque pixels, rgb 154/146/133), so the
+   * chair is now made of the same material as every mark beside it. The
+   * opacity goes UP as the ink comes down — stone at 0.75 sits quieter than
+   * white at 0.55 while keeping enough body to read as a shape at all.
+   *
+   * Every ink state still rides `color` untouched: `.player.you`'s townsfolk
+   * blue, `.actor`'s bone hover (which now genuinely BRIGHTENS, the same
+   * gesture the strip marks make), and the claim flash's red. */
+  color: #9a9285;
   /* FT-1271 (user): "and lets make it more subtle" — the badge read as bright
    * white beside the name plate. The quiet is spent on OPACITY rather than on
    * the ink, deliberately: every ink state this badge has is load-bearing and
@@ -5626,7 +5642,7 @@ li.nominate .player .overlay .nominate-target {
    * plain `:hover` declaration — an opacity hover would work on a chair that
    * had never flashed and silently do nothing on every seat in a dealt town.
    * One behaviour on every seat beats two. */
-  opacity: 0.55;
+  opacity: 0.75;
   filter: drop-shadow(0 0 3px black);
   cursor: default;
   z-index: 2;
@@ -5682,8 +5698,12 @@ li.nominate .player .overlay .nominate-target {
     opacity: 1;
   }
   to {
-    color: white;
-    opacity: 0.55;
+    /* FT-1283: the flash still settles INTO the resting state, which is now
+     * stone rather than white — `forwards` holds this last frame, so it has
+     * to BE the resting pair or a dealt town would sit brighter than an
+     * undealt one. */
+    color: #9a9285;
+    opacity: 0.75;
   }
 }
 
