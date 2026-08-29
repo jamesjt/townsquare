@@ -247,9 +247,23 @@
           role="toolbar"
           aria-label="Filter the record"
         >
-          <div class="rp-toolgroup">
+          <!-- FT-1308 (user call): THE DIMENSIONS STAND IN ONE ENCLOSURE —
+               the editor toolbar's grouped-segment look, worn gothic. A
+               passive funnel glyph fronts the cluster as its label (armed +
+               counted when ANY dimension filters, never clickable), and each
+               dimension button keeps its own popover, armed state and badge,
+               now wearing a small caret that says "I open". -->
+          <div class="rp-toolcluster">
+            <span
+              class="rp-tool rp-tool-funnel"
+              :class="{ armed: funnelCount > 0 }"
+              title="Filters"
+            >
+              <font-awesome-icon icon="filter" />
+              <i class="rp-toolbadge" v-if="funnelCount">{{ funnelCount }}</i>
+            </span>
             <button
-              class="rp-tool"
+              class="rp-tool rp-tool-dim"
               :class="{
                 open: openFilter === 'scripts',
                 armed: filterCount('scripts') > 0,
@@ -258,12 +272,13 @@
               @click="togglePop('scripts')"
             >
               <font-awesome-icon icon="scroll" />
+              <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
               <i class="rp-toolbadge" v-if="filterCount('scripts')">{{
                 filterCount("scripts")
               }}</i>
             </button>
             <button
-              class="rp-tool"
+              class="rp-tool rp-tool-dim"
               :class="{
                 open: openFilter === 'roles',
                 armed: filterCount('roles') > 0,
@@ -272,17 +287,19 @@
               @click="togglePop('roles')"
             >
               <font-awesome-icon icon="theater-masks" />
+              <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
               <i class="rp-toolbadge" v-if="filterCount('roles')">{{
                 filterCount("roles")
               }}</i>
             </button>
             <button
-              class="rp-tool"
+              class="rp-tool rp-tool-dim"
               :class="{ open: openFilter === 'players', armed: playersActive }"
               title="Players — bound the seats at the table"
               @click="togglePop('players')"
             >
               <font-awesome-icon icon="user-friends" />
+              <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
               <i class="rp-toolbadge" v-if="playersActive">1</i>
             </button>
             <!-- FT-1304: THE TOWNS FILTER (user call), wearing the home mark
@@ -292,7 +309,7 @@
                  are the towns THIS viewer has sat in (one scope=mine facts
                  read, cached per page open — see loadMyTowns). -->
             <button
-              class="rp-tool"
+              class="rp-tool rp-tool-dim"
               v-if="session.account"
               :class="{
                 open: openFilter === 'towns',
@@ -302,25 +319,80 @@
               @click="togglePop('towns')"
             >
               <font-awesome-icon icon="home" />
+              <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
               <i class="rp-toolbadge" v-if="filterCount('towns')">{{
                 filterCount("towns")
               }}</i>
             </button>
           </div>
-          <!-- FT-1304 (user call): THE SEARCH LIVES ON THE BAR, not inside
-               each popover — one input beside the icons it serves. It renders
-               only while a LIST popover is open (scripts / roles / towns):
-               present always, it would read as searching the games themselves;
-               beside an open list, it can only mean that list. The players
-               popover is a pair of bounds and has nothing to search. -->
-          <input
-            class="rp-toolsearch"
-            v-if="listPopOpen"
-            ref="search"
-            type="search"
-            :placeholder="'Search ' + openFilter + '…'"
-            v-model="filterSearch"
-          />
+          <!-- FT-1308 (user call): THE SEARCH IS ALWAYS ON THE BAR and is the
+               PRIMARY way to filter — the omnibar. It grew out of FT-1304's
+               popover-bound list search: typing now opens SUGGESTIONS grouped
+               by dimension, each row wearing the entry's own catalog art and
+               its faceted count, so picking here IS picking in a popover.
+               Enter takes the lit row (an include); Alt+Enter, Alt+click or
+               the row's − add an EXCLUDE instead; ↑↓ walk; Esc clears. After
+               a pick the input empties and keeps focus so the next term can
+               follow. A NUMBER offers the seat bounds (at least / exactly /
+               at most). The popovers stay the browse surface; this is the
+               speed one. -->
+          <span class="rp-omniwrap">
+            <input
+              class="rp-toolsearch"
+              ref="search"
+              type="search"
+              placeholder="Filter by script, role, town, seats…"
+              autocomplete="off"
+              v-model="filterSearch"
+              @focus="onSearchFocus"
+              @keydown="onOmniKeydown"
+            />
+            <div class="rp-pop rp-omni" v-if="omniShown">
+              <template v-for="group in omniGroups">
+                <p class="rp-pop-group" :key="'og-' + group.label">
+                  {{ group.label }}
+                </p>
+                <button
+                  v-for="entry in group.entries"
+                  :key="entry.key"
+                  class="rp-omni-row"
+                  :class="{ lit: entry.flat === omniIndex }"
+                  :title="
+                    entry.kind === 'players'
+                      ? 'Bound the seats at the table'
+                      : 'Add as a filter — Alt adds it as an exclude'
+                  "
+                  @mousemove="omniIndex = entry.flat"
+                  @click="pickSuggestion(entry, $event.altKey)"
+                >
+                  <img
+                    class="rp-pop-icon"
+                    v-if="entry.icon"
+                    :src="entry.icon"
+                    alt=""
+                  />
+                  <span class="rp-omni-fa" v-else-if="entry.fa"
+                    ><font-awesome-icon :icon="entry.fa"
+                  /></span>
+                  <span class="rp-pop-name">{{ entry.label }}</span>
+                  <i class="rp-chip-n">{{ entry.count }}</i>
+                  <span
+                    class="rp-omni-minus"
+                    v-if="entry.kind !== 'players'"
+                    title="Exclude it instead (Alt+Enter)"
+                    @click.stop="pickSuggestion(entry, true)"
+                    >−</span
+                  >
+                </button>
+              </template>
+              <p class="rp-pop-note" v-if="!omniFlat.length">
+                Nothing matches "{{ filterSearch.trim() }}".
+              </p>
+              <p class="rp-pop-note" v-else>
+                Enter adds the lit row · Alt (or −) excludes · ↑↓ walk
+              </p>
+            </div>
+          </span>
           <template v-if="session.labs">
             <span class="rp-tooldiv"></span>
             <div class="rp-toolgroup">
@@ -359,14 +431,11 @@
               Reading your towns…
             </p>
             <!-- FT-1305: scripts and roles list a CATALOG now (below), so
-                 their list is never empty except under a search — the
-                 "Nothing to filter yet." state is towns-only, honestly. -->
+                 their list is never empty — the "Nothing to filter yet."
+                 state is towns-only, honestly. (FT-1308: the search left
+                 the popovers, so "Nothing matches." left with it.) -->
             <p class="rp-state" v-else-if="!popChoices.length">
-              {{
-                openFilter === "towns" && !filterSearch.trim()
-                  ? "Nothing to filter yet."
-                  : "Nothing matches."
-              }}
+              Nothing to filter yet.
             </p>
             <div class="rp-pop-list" v-else>
               <!-- TRI-STATE: off → include (the game must have it) → exclude
@@ -427,32 +496,74 @@
               scripts drop out.
             </p>
           </div>
+          <!-- FT-1308 (user call): the two number boxes became a SEAT-COUNT
+               HISTOGRAM — bars are games per seat count over the set the
+               OTHER filters keep (the popovers' own faceted discipline), so
+               the graph shows what a bound would actually catch. Click one
+               bar = exactly that count (click it again = off); drag across
+               bars = that span; the dual-handle rail beneath drags either
+               bound, and a handle parked at its rail's end leaves that side
+               OPEN — both parked is no bound at all, exactly what the empty
+               boxes used to mean. The selected span tints the include green
+               and out-of-range bars dim, the readback chip's own grammar. -->
           <div class="rp-pop rp-pop-players" v-if="openFilter === 'players'">
-            <label>
-              <span>At least</span>
-              <input
-                type="number"
-                min="1"
-                max="25"
-                placeholder="any"
-                :value="filters.players.min"
-                @change="setPlayersBound('min', $event)"
-              />
-            </label>
-            <label>
-              <span>At most</span>
-              <input
-                type="number"
-                min="1"
-                max="25"
-                placeholder="any"
-                :value="filters.players.max"
-                @change="setPlayersBound('max', $event)"
-              />
-            </label>
-            <p class="rp-pop-note">
-              Seats at the table. Leave a side empty for no bound.
+            <p class="rp-state" v-if="!seatHistogram.bars.length">
+              No games to graph.
             </p>
+            <div class="rp-hist" v-else>
+              <div class="rp-hist-bars">
+                <div
+                  class="rp-hist-col"
+                  v-for="bar in seatHistogram.bars"
+                  :key="bar.seats"
+                  :class="barClass(bar.seats)"
+                  :title="
+                    bar.count +
+                    (bar.count === 1 ? ' game of ' : ' games of ') +
+                    bar.seats +
+                    ' seats'
+                  "
+                  @mousedown.prevent="onBarDown(bar.seats)"
+                  @mouseenter="onBarEnter(bar.seats)"
+                >
+                  <span class="rp-hist-n" v-if="bar.count">{{
+                    bar.count
+                  }}</span>
+                  <div
+                    class="rp-hist-bar"
+                    :style="{ height: barHeight(bar.count) }"
+                  ></div>
+                  <span class="rp-hist-x">{{ bar.seats }}</span>
+                </div>
+              </div>
+              <div
+                class="rp-hist-track"
+                ref="histTrack"
+                v-if="seatHistogram.bars.length > 1"
+                :style="histTrackStyle"
+              >
+                <div class="rp-hist-fill" :style="histFillStyle"></div>
+                <button
+                  class="rp-hist-handle"
+                  :style="{ left: handleLeft('min') }"
+                  title="Lower bound — drag; park at the left end for no bound"
+                  @mousedown.prevent="onHandleDown('min')"
+                  @keydown="onHandleKey('min', $event)"
+                ></button>
+                <button
+                  class="rp-hist-handle"
+                  :style="{ left: handleLeft('max') }"
+                  title="Upper bound — drag; park at the right end for no bound"
+                  @mousedown.prevent="onHandleDown('max')"
+                  @keydown="onHandleKey('max', $event)"
+                ></button>
+              </div>
+              <p class="rp-pop-note">
+                Games per seat count, under the other filters. Click a bar for
+                exactly that count, drag across bars for a span; a handle
+                parked at its end leaves that side open.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -917,6 +1028,13 @@ const COLS_KEY = "golem.records.cols";
 const LIST_MAX = 200;
 
 /**
+ * FT-1308: how many suggestions the omnibar offers PER DIMENSION GROUP. Five
+ * keeps three groups on screen at once; the popovers hold the full catalogs
+ * for anything a fragment cannot reach.
+ */
+const OMNI_MAX = 5;
+
+/**
  * FT-1301: THE FILTER STATE'S URL GRAMMAR — the page's question is a link.
  *
  *   ?chronicle=1        the records page is open (App.vue re-opens it on boot)
@@ -1050,8 +1168,29 @@ export default {
       /** Which filter popover is open ('scripts' | 'roles' | 'players'), or
        *  null. A gesture, not a preference — never persisted. */
       openFilter: null,
-      /** The open popover's search text; reset on every open. */
+      /**
+       * FT-1308: THE OMNIBAR'S TEXT. FT-1304 had this filtering whichever
+       * popover list was open; the search is permanent and primary now, and
+       * this is its query — the suggestions (see `omni`) are computed from
+       * it, and the popover lists browse their FULL catalogs unfiltered.
+       */
       filterSearch: "",
+      /** Esc closed the suggestions without leaving the input — typing again
+       *  (or refocusing) reopens them. A gesture, never persisted. */
+      omniDismissed: false,
+      /** The lit suggestion (an index into omniFlat); Enter takes it. */
+      omniIndex: 0,
+      /** One Escape does ONE thing: when the omnibar's keydown consumed it
+       *  (clearing the query), this swallows the document keyup so the page
+       *  itself does not also step back. */
+      escSwallow: false,
+      /**
+       * FT-1308: the histogram's live gesture — {type: 'bars'|'min'|'max',
+       * anchor, preview:{min,max}} while a bar-drag or a handle-drag is under
+       * way, null at rest. The bars tint from the PREVIEW during the drag and
+       * the filter commits once, on release.
+       */
+      histDrag: null,
       /**
        * FT-1236: WHICH LEDGER the page is reading. False (always, for
        * everyone without labs) = real games — the Chronicles. True (labs
@@ -1263,8 +1402,9 @@ export default {
             count: counts.get(name) || 0,
           }),
         );
-      const q = this.filterSearch.trim().toLowerCase();
-      return entries.filter((e) => !q || e.label.toLowerCase().indexOf(q) >= 0);
+      // (FT-1308: no search narrowing here any more — the popover browses
+      // the whole catalog; the omnibar's suggestions do the matching.)
+      return entries;
     },
     /**
      * FT-1305: the roles popover's GROUPS — the full role registry (the same
@@ -1308,17 +1448,10 @@ export default {
         .filter((id) => !seen.has(id))
         .forEach((id) => custom.entries.push(entryOf(id, null)));
       groups.push(custom);
-      const q = this.filterSearch.trim().toLowerCase();
+      // (FT-1308: the search left this list — see scriptChoices' note.)
       return groups
         .map((g) => {
           g.entries.sort((a, b) => a.label.localeCompare(b.label));
-          if (q) {
-            g.entries = g.entries.filter(
-              (e) =>
-                e.label.toLowerCase().indexOf(q) >= 0 ||
-                e.id.toLowerCase().indexOf(q) >= 0,
-            );
-          }
           return g;
         })
         .filter((g) => g.entries.length);
@@ -1338,10 +1471,9 @@ export default {
         if (!this.inSet(game, "towns")) return;
         counts.set(game.townId, counts.get(game.townId) + 1);
       });
-      const q = this.filterSearch.trim().toLowerCase();
+      // (FT-1308: the search left this list — see scriptChoices' note.)
       return [...counts.entries()]
         .map(([id, count]) => ({ id, label: id, count }))
-        .filter((e) => !q || e.label.toLowerCase().indexOf(q) >= 0)
         .sort((a, b) => b.count - a.count || (a.label < b.label ? -1 : 1));
     },
     /** The open popover's flat entry list — scripts, roles or towns (players
@@ -1442,6 +1574,212 @@ export default {
         this.playersActive
       );
     },
+    /** FT-1308: the funnel glyph's badge — every active entry, every
+     *  dimension, one count for the cluster it fronts. */
+    funnelCount() {
+      return (
+        this.filterCount("scripts") +
+        this.filterCount("roles") +
+        this.filterCount("towns") +
+        (this.playersActive ? 1 : 0)
+      );
+    },
+    /**
+     * FT-1308: THE SUGGESTIONS — the omnibar's answer to its query, grouped
+     * by dimension (Scripts / Roles / Towns), each entry the popovers' own
+     * {id, label, icon, count} shape so a pick here is exactly a pick there.
+     *
+     * RANKING (the your-call slot, exercised): within a group, best PREFIX
+     * first — exact name (0), name-start (1), word-start (2), substring (3),
+     * id-only (4) — ties broken by faceted count (descending: the likelier
+     * pick first), then name. Five per group (OMNI_MAX). Entries already
+     * filtered on are OMITTED — they are chips already, and re-offering them
+     * here would make Enter a no-op tease.
+     *
+     * A NUMBER asks about seats instead: one Players group with the three
+     * bounds (at least / exactly / at most), each carrying the faceted count
+     * of games it would keep.
+     */
+    omni() {
+      const groups = [];
+      const flat = [];
+      const q = this.filterSearch.trim();
+      if (!q) return { groups, flat };
+      if (/^\d+$/.test(q)) {
+        const n = parseInt(q, 10);
+        if (Number.isFinite(n) && n > 0 && n <= 99) {
+          const faceted = this.facts.games.filter((g) =>
+            this.inSet(g, "players"),
+          );
+          const bound = (op, label, keep) => ({
+            kind: "players",
+            op,
+            n,
+            label,
+            fa: "user-friends",
+            icon: null,
+            key: "pl-" + op,
+            count: faceted.filter(keep).length,
+            flat: -1,
+          });
+          groups.push({
+            label: "Players",
+            entries: [
+              bound(
+                "min",
+                "At least " + n + " seats",
+                (g) => g.playerCount >= n,
+              ),
+              bound("exact", "Exactly " + n + " seats", (g) => {
+                return g.playerCount === n;
+              }),
+              bound("max", "At most " + n + " seats", (g) => {
+                return g.playerCount <= n;
+              }),
+            ],
+          });
+        }
+      } else {
+        const ql = q.toLowerCase();
+        const scoreOf = (label, id) => {
+          const l = label.toLowerCase();
+          if (l === ql) return 0;
+          if (l.indexOf(ql) === 0) return 1;
+          if (l.split(/[\s'&-]+/).some((w) => w.indexOf(ql) === 0)) return 2;
+          if (l.indexOf(ql) >= 0) return 3;
+          if (id && String(id).toLowerCase().indexOf(ql) >= 0) return 4;
+          return -1;
+        };
+        const build = (dim, label, source, fa) => {
+          const matched = [];
+          source.forEach((e) => {
+            if (this.stateOf(dim, e.id) !== "") return; // already a chip
+            const score = scoreOf(e.label, e.id);
+            if (score < 0) return;
+            matched.push({
+              kind: "dim",
+              dim,
+              id: e.id,
+              label: e.label,
+              icon: e.icon || null,
+              fa: e.icon ? null : fa,
+              count: e.count,
+              key: dim + "-" + e.id,
+              score,
+              flat: -1,
+            });
+          });
+          matched.sort(
+            (a, b) =>
+              a.score - b.score ||
+              b.count - a.count ||
+              a.label.localeCompare(b.label),
+          );
+          if (matched.length) {
+            groups.push({ label, entries: matched.slice(0, OMNI_MAX) });
+          }
+        };
+        build("scripts", "Scripts", this.scriptChoices, null);
+        build(
+          "roles",
+          "Roles",
+          this.roleGroups.reduce((all, g) => all.concat(g.entries), []),
+          null,
+        );
+        if (this.session.account) {
+          build("towns", "Towns", this.townChoices, "home");
+        }
+      }
+      groups.forEach((g) =>
+        g.entries.forEach((e) => {
+          e.flat = flat.length;
+          flat.push(e);
+        }),
+      );
+      return { groups, flat };
+    },
+    omniGroups() {
+      return this.omni.groups;
+    },
+    /** The suggestions as one list — what ↑↓ walk and Enter takes from. */
+    omniFlat() {
+      return this.omni.flat;
+    },
+    /** Is the suggestion dropdown on screen? Text present and not Esc'd. */
+    omniShown() {
+      return !!this.filterSearch.trim() && !this.omniDismissed;
+    },
+    /**
+     * FT-1308: THE SEAT HISTOGRAM's model — games per seat count over the
+     * set the OTHER filters keep (the faceted-count discipline: the graph
+     * shows what a players bound would actually catch). The domain runs
+     * CONTINUOUSLY from the lowest observed count to the highest — a seat
+     * count nobody played renders as an empty column, never silently
+     * skipped, so the axis cannot lie about the spacing.
+     */
+    seatHistogram() {
+      const counts = new Map();
+      this.facts.games.forEach((game) => {
+        if (!Number.isFinite(game.playerCount)) return;
+        if (!this.inSet(game, "players")) return;
+        counts.set(
+          game.playerCount,
+          (counts.get(game.playerCount) || 0) + 1,
+        );
+      });
+      if (!counts.size) return { bars: [], lo: 0, hi: 0, max: 0 };
+      const seats = [...counts.keys()];
+      const lo = Math.min(...seats);
+      const hi = Math.max(...seats);
+      const bars = [];
+      let max = 0;
+      for (let s = lo; s <= hi; s += 1) {
+        const count = counts.get(s) || 0;
+        if (count > max) max = count;
+        bars.push({ seats: s, count });
+      }
+      return { bars, lo, hi, max };
+    },
+    /** The range the histogram paints — the drag's preview while one is
+     *  under way, the committed filter otherwise. */
+    histRange() {
+      return this.histDrag ? this.histDrag.preview : this.filters.players;
+    },
+    /** Is any seat bound live (committed or previewed)? Off = every bar
+     *  neutral; on = the span green, the rest dim. */
+    histActive() {
+      return this.histRange.min !== null || this.histRange.max !== null;
+    },
+    /** The rail's selected stretch, between the handles. */
+    histFillStyle() {
+      if (!this.histActive) return { display: "none" };
+      const { lo, hi } = this.seatHistogram;
+      const r = this.histRange;
+      const a = this.histPct(r.min === null ? lo : r.min);
+      const b = this.histPct(r.max === null ? hi : r.max);
+      return { left: a + "%", width: Math.max(0, b - a) + "%" };
+    },
+    /** Half a column's inset each side, so the rail's 0%–100% runs under
+     *  the bar CENTRES and a handle stands under its own bar. */
+    histTrackStyle() {
+      const n = this.seatHistogram.bars.length || 1;
+      const inset = 50 / n + "%";
+      return { marginLeft: inset, marginRight: inset };
+    },
+  },
+  watch: {
+    /** Typing re-arms the suggestions, re-lights the top row, and (signed
+     *  in) warms the towns list so town suggestions can answer; a non-empty
+     *  keystroke also closes any browse popover — the two surfaces never
+     *  stand open together. */
+    filterSearch() {
+      this.omniDismissed = false;
+      this.omniIndex = 0;
+      if (this.filterSearch.trim()) {
+        this.openFilter = null;
+        if (this.session.account) this.loadMyTowns();
+      }
+    },
   },
   created() {
     // FT-1297: the persisted column choices, before the first render — a
@@ -1469,6 +1807,10 @@ export default {
   destroyed() {
     document.removeEventListener("keyup", this.onKeyup);
     document.removeEventListener("mousedown", this.onAwayClick, true);
+    // FT-1308: a histogram drag's document listeners, if the page closes
+    // mid-gesture (they are otherwise removed on the gesture's own mouseup).
+    document.removeEventListener("mousemove", this.onHandleMove);
+    document.removeEventListener("mouseup", this.onHistUp);
     // FT-1301: a closed page stops claiming the URL — its flag and filter
     // params leave with it, so a copied link only ever says what is on
     // screen. (replaceState: closing the page is not a history event.)
@@ -1497,12 +1839,22 @@ export default {
       }
       return days === 1 ? "1 day" : days + " days";
     },
-    /** Escape steps BACK one level — out of a record to the landing, out of
-     *  the landing to wherever the reader came from. A single key that closed
-     *  the whole page from inside a record would throw away the click that
-     *  opened it. */
+    /** Escape steps BACK one level — out of the omnibar's suggestions
+     *  (FT-1308, swallowed at the input's own keydown), out of an open
+     *  popover, out of a record to the landing, out of the landing to
+     *  wherever the reader came from. A single key that closed the whole
+     *  page from inside a record would throw away the click that opened
+     *  it. */
     onKeyup(e) {
       if (e.key !== "Escape") return;
+      if (this.escSwallow) {
+        this.escSwallow = false;
+        return;
+      }
+      if (this.openFilter) {
+        this.openFilter = null;
+        return;
+      }
       if (this.pick) this.closePick();
       else this.$emit("close");
     },
@@ -1563,15 +1915,86 @@ export default {
     /** Open one filter's popover (closing any other); a second click closes. */
     togglePop(id) {
       this.openFilter = this.openFilter === id ? null : id;
-      this.filterSearch = "";
+      // FT-1308: opening a browse popover stands the suggestions down (the
+      // query keeps; typing again brings them back) — the two surfaces never
+      // stand open together. FT-1304's search-focus went with the coupling.
+      if (this.openFilter) this.omniDismissed = true;
       // FT-1304: the towns list is fetched on first need, cached per page
-      // open; and the bar's search input takes focus with the list it serves.
+      // open.
       if (this.openFilter === "towns") this.loadMyTowns();
-      if (this.openFilter) {
-        this.$nextTick(() => {
-          if (this.$refs.search) this.$refs.search.focus();
-        });
+    },
+    /** FT-1308: clicking into the search is choosing the speed surface —
+     *  any browse popover closes, and a dismissed dropdown re-arms. */
+    onSearchFocus() {
+      this.openFilter = null;
+      this.omniDismissed = false;
+    },
+    /**
+     * FT-1308: the omnibar's keyboard — ↑↓ walk the flat suggestion list,
+     * Enter takes the lit row (Alt+Enter as an exclude), Escape clears the
+     * query and closes the dropdown (swallowing the page's own Escape step
+     * via escSwallow — one press, one action).
+     */
+    onOmniKeydown(e) {
+      if (e.key === "Escape") {
+        if (this.omniShown || this.filterSearch) {
+          this.filterSearch = "";
+          this.omniDismissed = true;
+          this.escSwallow = true;
+        }
+        return;
       }
+      if (!this.omniShown || !this.omniFlat.length) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.omniIndex = (this.omniIndex + 1) % this.omniFlat.length;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.omniIndex =
+          (this.omniIndex + this.omniFlat.length - 1) % this.omniFlat.length;
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const at = Math.min(this.omniIndex, this.omniFlat.length - 1);
+        this.pickSuggestion(this.omniFlat[at], e.altKey);
+      }
+    },
+    /**
+     * FT-1308: take one suggestion. A dimension row lands the entry in
+     * exactly one list — include normally, exclude on the Alt path (the −
+     * affordance, Alt+click, Alt+Enter). A players row sets the bound it
+     * names, dropping a bound the pick would contradict (at least 9 with
+     * "at most 7" standing would define an empty set — the pick wins).
+     * Then the input CLEARS AND KEEPS FOCUS, so the next term can follow
+     * without a click.
+     */
+    pickSuggestion(entry, exclude) {
+      if (!entry) return;
+      if (entry.kind === "players") {
+        const p = this.filters.players;
+        if (entry.op === "exact") {
+          p.min = entry.n;
+          p.max = entry.n;
+        } else if (entry.op === "min") {
+          p.min = entry.n;
+          if (p.max !== null && p.max < entry.n) p.max = null;
+        } else {
+          p.max = entry.n;
+          if (p.min !== null && p.min > entry.n) p.min = null;
+        }
+      } else {
+        const f = this.filters[entry.dim];
+        [f.include, f.exclude].forEach((list) => {
+          const at = list.indexOf(entry.id);
+          if (at >= 0) list.splice(at, 1);
+        });
+        (exclude ? f.exclude : f.include).push(entry.id);
+      }
+      this.writeFiltersToUrl();
+      this.filterSearch = "";
+      this.omniIndex = 0;
+      this.$nextTick(() => {
+        if (this.$refs.search) this.$refs.search.focus();
+      });
     },
     /**
      * FT-1304: the towns the signed-in viewer has sat in — ONE scope=mine
@@ -1592,12 +2015,14 @@ export default {
           this.myTowns = { loading: false, loaded: false, ids: [] };
         });
     },
-    /** A click outside the filter bar closes whatever popover is open. */
+    /** A click outside the filter bar closes whatever popover is open — and
+     *  (FT-1308) stands the suggestion dropdown down the same way. */
     onAwayClick(e) {
-      if (!this.openFilter) return;
+      if (!this.openFilter && !this.omniShown) return;
       const bar = this.$refs.toolbar;
       if (bar && bar.contains(e.target)) return;
       this.openFilter = null;
+      this.omniDismissed = true;
     },
     /** An entry's tri-state: "in" (include), "out" (exclude), or "". */
     stateOf(dim, id) {
@@ -1629,10 +2054,147 @@ export default {
       const f = this.filters[dim];
       return f.include.length + f.exclude.length;
     },
-    /** One bound of the players filter; empty (or junk) clears that side. */
+    /** One bound of the players filter; empty (or junk) clears that side.
+     *  (FT-1308: STOOD DOWN with the number boxes it read — the histogram's
+     *  bars, handles and the omnibar's number suggestions set the bounds
+     *  now. Kept, house rule, as the working input-parsing version.) */
     setPlayersBound(side, event) {
       const n = parseInt(event.target.value, 10);
       this.filters.players[side] = Number.isFinite(n) && n > 0 ? n : null;
+      this.writeFiltersToUrl();
+    },
+    // ── FT-1308: the seat histogram's gestures ──────────────────────────────
+    /** A bar's paint: "sel" inside the live range, "off" outside it, bare
+     *  when no bound is live at all. */
+    barClass(seats) {
+      if (!this.histActive) return "";
+      const { min, max } = this.histRange;
+      const inRange =
+        (min === null || seats >= min) && (max === null || seats <= max);
+      return inRange ? "sel" : "off";
+    },
+    /** A bar's height, scaled to the tallest count. Zero games is zero
+     *  height (the axis label still stands); anything counted keeps at
+     *  least a readable stub. */
+    barHeight(count) {
+      if (!count) return "0px";
+      const max = this.seatHistogram.max || 1;
+      return Math.max(4, Math.round((count / max) * 64)) + "px";
+    },
+    /** A seat count's place on the rail, percent across the domain. */
+    histPct(seats) {
+      const { lo, hi } = this.seatHistogram;
+      if (hi <= lo) return 50;
+      const s = Math.max(lo, Math.min(hi, seats));
+      return ((s - lo) / (hi - lo)) * 100;
+    },
+    /** Where a handle stands: its bound's own bar centre, or parked at the
+     *  rail's end when that side is open. */
+    handleLeft(side) {
+      const { lo, hi } = this.seatHistogram;
+      const r = this.histRange;
+      const seats =
+        side === "min"
+          ? r.min === null
+            ? lo
+            : r.min
+          : r.max === null
+            ? hi
+            : r.max;
+      return this.histPct(seats) + "%";
+    },
+    /** Press on a bar: begin a bar-drag whose span is that bar alone —
+     *  released in place it is a click (exactly N), swept across bars it
+     *  is a span. */
+    onBarDown(seats) {
+      this.histDrag = {
+        type: "bars",
+        anchor: seats,
+        preview: { min: seats, max: seats },
+      };
+      document.addEventListener("mouseup", this.onHistUp);
+    },
+    /** Sweep across a bar mid-drag: the span runs anchor→here, either way. */
+    onBarEnter(seats) {
+      if (!this.histDrag || this.histDrag.type !== "bars") return;
+      const a = this.histDrag.anchor;
+      this.histDrag = {
+        ...this.histDrag,
+        preview: { min: Math.min(a, seats), max: Math.max(a, seats) },
+      };
+    },
+    /** Press on a rail handle: begin dragging that bound. */
+    onHandleDown(side) {
+      this.histDrag = { type: side, preview: { ...this.filters.players } };
+      document.addEventListener("mousemove", this.onHandleMove);
+      document.addEventListener("mouseup", this.onHistUp);
+    },
+    /** Drag a handle along the rail: the nearest seat count takes the
+     *  bound; the rail's outer 2% is the PARK — that side goes open. A
+     *  bound never crosses its partner; it stops against it. */
+    onHandleMove(e) {
+      if (!this.histDrag || this.histDrag.type === "bars") return;
+      const track = this.$refs.histTrack;
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      if (!rect.width) return;
+      const { lo, hi } = this.seatHistogram;
+      const f = (e.clientX - rect.left) / rect.width;
+      const seats = Math.round(Math.max(0, Math.min(1, f)) * (hi - lo)) + lo;
+      const side = this.histDrag.type;
+      const preview = { ...this.histDrag.preview };
+      if (side === "min") {
+        if (f <= 0.02) preview.min = null;
+        else {
+          preview.min =
+            preview.max === null ? seats : Math.min(seats, preview.max);
+        }
+      } else if (f >= 0.98) preview.max = null;
+      else {
+        preview.max =
+          preview.min === null ? seats : Math.max(seats, preview.min);
+      }
+      this.histDrag = { ...this.histDrag, preview };
+    },
+    /** Release: commit the preview ONCE. A plain click on the bar that is
+     *  already the exact bound toggles the bound off — the tri-state
+     *  entries' own second-click instinct. */
+    onHistUp() {
+      document.removeEventListener("mousemove", this.onHandleMove);
+      document.removeEventListener("mouseup", this.onHistUp);
+      const drag = this.histDrag;
+      this.histDrag = null;
+      if (!drag) return;
+      const { min, max } = drag.preview;
+      const p = this.filters.players;
+      if (drag.type === "bars" && min === max && p.min === min && p.max === max) {
+        p.min = null;
+        p.max = null;
+      } else {
+        p.min = min;
+        p.max = max;
+      }
+      this.writeFiltersToUrl();
+    },
+    /** ←/→ on a focused handle nudge its bound one seat; stepping past the
+     *  rail's end parks it open, the drag's own grammar. */
+    onHandleKey(side, e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const { lo, hi } = this.seatHistogram;
+      const delta = e.key === "ArrowRight" ? 1 : -1;
+      const p = this.filters.players;
+      if (side === "min") {
+        const cur = p.min === null ? lo - 1 : p.min;
+        const next = cur + delta;
+        p.min =
+          next < lo ? null : Math.min(next, p.max === null ? hi : p.max);
+      } else {
+        const cur = p.max === null ? hi + 1 : p.max;
+        const next = cur + delta;
+        p.max =
+          next > hi ? null : Math.max(next, p.min === null ? lo : p.min);
+      }
       this.writeFiltersToUrl();
     },
     /** FT-1305: one readback chip's ×. Clearing the last chip leaves the
@@ -2283,6 +2845,55 @@ h4 {
     border-color: rgba(230, 197, 107, 0.55);
   }
 }
+// FT-1308: THE CLUSTER — the four dimension buttons in ONE enclosure, the
+// editor toolbar's grouped-segment look in this page's dress: a rounded
+// inner plate whose first segment is the funnel, the group's passive label.
+.rp-toolcluster {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(216, 205, 180, 0.22);
+  border-radius: 5px;
+  background: rgba(216, 205, 180, 0.05);
+}
+// the funnel: a GLYPH, not a button — always plated so it reads as the
+// cluster's identity, amber-armed (with the total count riding its corner)
+// the moment any dimension filters. No hover states: it does nothing.
+.rp-tool-funnel {
+  cursor: default;
+  opacity: 0.85;
+  background: rgba(216, 205, 180, 0.1);
+  border-color: rgba(216, 205, 180, 0.18);
+  font-size: 12px;
+  width: 26px;
+  margin-right: 1px;
+
+  // it does nothing, so hovering changes nothing — the .rp-tool hover
+  // treatment is a button's promise and this glyph must not make it.
+  &:hover {
+    opacity: 0.85;
+    color: #d8cdb4;
+    background: rgba(216, 205, 180, 0.1);
+  }
+  &.armed,
+  &.armed:hover {
+    opacity: 1;
+    color: #fff;
+    background: rgba(232, 178, 58, 0.25);
+    border-color: rgba(232, 178, 58, 0.55);
+  }
+}
+// a dimension button wears a small caret — "I open" — beside its mark.
+.rp-tool-dim {
+  width: auto;
+  padding: 0 5px 0 6px;
+  gap: 3px;
+}
+.rp-tool-caret {
+  font-size: 8px;
+  opacity: 0.45;
+}
 // the count of active entries, riding the icon's corner
 .rp-toolbadge {
   position: absolute;
@@ -2300,13 +2911,20 @@ h4 {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-// FT-1304 (user call): THE SEARCH RIDES THE BAR — one input beside the icons,
-// rendered only while a list popover is open (it filters that list). It took
-// the popover search's plate treatment with it (`.rp-pop-search`, stood down
-// below with a note).
+// FT-1304 (user call): THE SEARCH RIDES THE BAR — one input beside the icons.
+// FT-1308 (user call): PERMANENT AND PRIMARY now — it no longer filters an
+// open popover's list; it is the omnibar, and its dropdown below is the fast
+// way to every filter. The plate treatment is FT-1304's, widened for the
+// promotion.
+.rp-omniwrap {
+  position: relative;
+  display: inline-flex;
+}
 .rp-toolsearch {
   @include control-plate;
-  width: 180px;
+  // wide enough for its own placeholder — a promoted control that truncates
+  // its one sentence reads as a squeezed afterthought.
+  width: 340px;
   box-sizing: border-box;
   font-family: inherit;
   font-size: 13px;
@@ -2319,6 +2937,87 @@ h4 {
   }
   &::placeholder {
     color: rgba(216, 205, 180, 0.4);
+  }
+}
+// FT-1308: THE SUGGESTIONS — the omnibar's dropdown, anchored under its own
+// input (the .rp-pop base supplies the plate; the wrap supplies the anchor).
+// Rows are the popover entries' shape wearing a keyboard: the LIT row is
+// what Enter takes, and the − at its edge is the exclude door.
+// (doubled selector on purpose: the shared .rp-pop plate is declared LATER
+// in this sheet, and the omni's own anchor must win that source-order tie.)
+.rp-pop.rp-omni {
+  top: calc(100% + 9px);
+  left: -2px;
+  width: 320px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.rp-omni-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: #d8cdb4;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 3px 8px;
+  cursor: pointer;
+
+  .rp-pop-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  // the lit row is the keyboard's cursor AND the hover state — one look,
+  // whichever hand is driving.
+  &.lit,
+  &:hover {
+    color: #fff;
+    background: rgba(216, 205, 180, 0.12);
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  .rp-omni-minus {
+    visibility: hidden;
+  }
+  &.lit .rp-omni-minus,
+  &:hover .rp-omni-minus {
+    visibility: visible;
+  }
+}
+// a suggestion with no catalog art (towns, the players bounds) wears its
+// dimension's own toolbar mark instead, at the icon's seat and size.
+.rp-omni-fa {
+  flex: 0 0 auto;
+  width: 20px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.7;
+}
+// the exclude door: rides the row's edge, amber like every "must not".
+.rp-omni-minus {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(232, 178, 58, 0.55);
+  border-radius: 4px;
+  color: #e8b23a;
+  font-size: 13px;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(232, 178, 58, 0.25);
+    color: #fff;
   }
 }
 .rp-toolclear {
@@ -2515,11 +3214,13 @@ h4 {
   opacity: 0.45;
 }
 .rp-pop-players {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px;
+  // FT-1308: the histogram wants the popover's full width, and a little
+  // more of it than a pair of number boxes did.
+  width: 360px;
 
+  // (FT-1308: the label/input pair below dressed the two number boxes the
+  // histogram replaced — STOOD DOWN with setPlayersBound, kept as the
+  // working plate treatment if a typed bound ever returns.)
   label {
     display: flex;
     flex-direction: column;
@@ -2544,8 +3245,121 @@ h4 {
       }
     }
   }
-  .rp-pop-note {
-    flex-basis: 100%;
+}
+
+// ── FT-1308: THE SEAT HISTOGRAM ─────────────────────────────────────────────
+// Games per seat count over the otherwise-filtered set; the selected span
+// wears the include GREEN (the tri-state entries' own "must have" colour),
+// out-of-range bars dim, and the dual-handle rail beneath drags the bounds.
+.rp-hist-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  // the tallest bar (64px) + its hover count + the hanging axis labels —
+  // no dead headroom above the data.
+  height: 82px;
+  border-bottom: 1px solid rgba(216, 205, 180, 0.25);
+}
+.rp-hist-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+  user-select: none;
+
+  .rp-hist-n {
+    font-size: 9px;
+    opacity: 0;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  &:hover .rp-hist-n {
+    opacity: 0.75;
+  }
+  .rp-hist-bar {
+    width: 100%;
+    border-radius: 2px 2px 0 0;
+    background: rgba(216, 205, 180, 0.45);
+  }
+  &:hover .rp-hist-bar {
+    background: rgba(216, 205, 180, 0.65);
+  }
+  &.sel .rp-hist-bar {
+    background: rgba(94, 179, 110, 0.75);
+  }
+  &.sel:hover .rp-hist-bar {
+    background: rgba(94, 179, 110, 0.95);
+  }
+  &.off .rp-hist-bar {
+    background: rgba(216, 205, 180, 0.14);
+  }
+  &.off:hover .rp-hist-bar {
+    background: rgba(216, 205, 180, 0.3);
+  }
+}
+// the axis label hangs BELOW the baseline the bars stand on
+.rp-hist-x {
+  font-size: 10px;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  margin-bottom: -17px;
+  padding-top: 3px;
+
+  .rp-hist-col.sel & {
+    opacity: 0.9;
+    color: #b7e0bf;
+  }
+  .rp-hist-col.off & {
+    opacity: 0.3;
+  }
+}
+// THE RAIL — a dual-handle range under the bars, its 0%–100% inset half a
+// column each side (inline style) so every stop lands under a bar's centre.
+.rp-hist-track {
+  position: relative;
+  height: 16px;
+  margin-top: 22px;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 7px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgba(216, 205, 180, 0.25);
+  }
+}
+.rp-hist-fill {
+  position: absolute;
+  top: 7px;
+  height: 2px;
+  background: rgba(94, 179, 110, 0.8);
+}
+.rp-hist-handle {
+  position: absolute;
+  top: 1px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  padding: 0;
+  border: 1px solid rgba(94, 179, 110, 0.9);
+  border-radius: 50%;
+  background: #16211a;
+  cursor: ew-resize;
+
+  &:hover {
+    background: rgba(94, 179, 110, 0.5);
+  }
+  &:focus-visible {
+    @include control-focus-ring;
   }
 }
 

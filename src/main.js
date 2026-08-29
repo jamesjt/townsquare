@@ -53,6 +53,10 @@ const faIcons = [
   "FileCode",
   "FileUpload",
   "FlagCheckered",
+  // FT-1308: the Chronicle filter bar's funnel — the passive glyph fronting
+  // the dimension-button cluster (there is no funnel in the fork's own art
+  // set — the Bell/BellSlash standing note applies).
+  "Filter",
   // FT-1301: the Chronicle filter bar's dev-ledger switch (test games are
   // lab fixtures; there is no flask in the fork's own art set — the
   // Bell/BellSlash standing note applies).
