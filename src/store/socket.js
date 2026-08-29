@@ -128,8 +128,60 @@ class LiveSession {
     // arrives after it — the one-shot permission to take a chair back. See
     // _updateGamestate.
     this._reclaimOnSync = false;
+    // FT-1312: the seat the HOST'S SWEEP took from this client while it was
+    // away (a direct "swept" frame said so — see _handleSwept). -1 means
+    // none. Spent by the wake handler below: the re-claim waits for the
+    // player to actually come back to the tab, so a pocketed phone never
+    // sits itself back down in a loop against the sweep.
+    this._sweptSeat = -1;
+    // FT-1312: HOST side — who the sweep unseated, playerId → seat index.
+    // A frozen tab (locked phone) DROPS frames delivered while it sleeps,
+    // so the "swept" notice sent at sweep time can vanish; the one thing a
+    // waking client provably sends is its resumed ping, so the ping is what
+    // re-offers the notice (see _handlePing). Cleared when the player
+    // claims a chair again, leaves, or the offer stops being true.
+    this._swept = {};
+    // FT-1312: when this client last put a ping on the wire — the guard that
+    // keeps the answer-the-host's-ping path (see the "ping" case) from ever
+    // doubling traffic.
+    this._lastPingSent = 0;
+    // FT-1312: A PHONE WAKING UP IS AN EVENT, NOT A TIMER. Background tabs
+    // throttle setTimeout (Chrome pins chained timers to ~1/minute after
+    // five minutes; a locked iPhone suspends JS outright), so both the 30s
+    // ping loop and the 3s reconnect timer sleep exactly when a player's
+    // seat is most at risk. The moment the tab is visible again — or the
+    // network returns — presence is re-asserted NOW instead of whenever the
+    // throttled timer next fires.
+    this._onWake = this._onWake.bind(this);
+    window.addEventListener("visibilitychange", this._onWake);
+    window.addEventListener("pageshow", this._onWake);
+    window.addEventListener("online", this._onWake);
     // reconnect to previous session
     if (this._store.state.session.sessionId) {
+      this.connect(this._store.state.session.sessionId);
+    }
+  }
+
+  /**
+   * FT-1312: the tab came back (visibility/pageshow/online). Three cases:
+   * socket open → ping immediately (refresh this player's presence on the
+   * host before its sweep can judge the silence) and take back a seat the
+   * sweep freed while we were away; socket gone with a reconnect pending →
+   * the 3s timer was throttled along with everything else, so reconnect NOW
+   * (the FT-1289 reclaim-on-open path then reseats us); anything else →
+   * leave the ordinary machinery alone.
+   * @private
+   */
+  _onWake() {
+    if (document.visibilityState === "hidden") return;
+    if (!this._store.state.session.sessionId) return;
+    if (this._socket && this._socket.readyState === 1) {
+      this._ping();
+      if (this._isSpectator && this._sweptSeat >= 0) {
+        this._reclaimSeat(this._sweptSeat);
+      }
+    } else if (!this._socket && this._store.state.session.isReconnecting) {
+      clearTimeout(this._reconnectTimer);
       this.connect(this._store.state.session.sessionId);
     }
   }
@@ -280,6 +332,7 @@ class LiveSession {
    */
   _ping() {
     this._handlePing();
+    this._lastPingSent = new Date().getTime();
     this._send("ping", [
       this._isSpectator
         ? this._store.state.session.playerId
@@ -333,6 +386,22 @@ class LiveSession {
         break;
       case "ping":
         this._handlePing(params);
+        // FT-1312: ANSWER THE HOST'S PING, don't wait for our own timer.
+        // Message events still fire in a backgrounded tab whose TIMERS are
+        // throttled — which was exactly the tab the old timer-only cadence
+        // starved: its pings stretched past the host's sweep grace and the
+        // sweep freed a chair whose player was still connected. Replying to
+        // the host's own 30s ping makes presence request-response — a
+        // socket that can hear the host can always prove it is alive. The
+        // 5s guard keeps a ping burst from ever doubling into one, and
+        // _ping() reschedules the fallback timer, so total traffic stays
+        // one ping per player per interval.
+        if (
+          this._isSpectator &&
+          new Date().getTime() - this._lastPingSent > 5000
+        ) {
+          this._ping();
+        }
         break;
       case "nomination":
         if (!this._isSpectator) return;
@@ -405,6 +474,12 @@ class LiveSession {
         break;
       case "bye":
         this._handleBye(params);
+        break;
+      // FT-1312: the host's sweep freed THIS client's chair — the one unseat
+      // that is nobody's decision, so the one unseat the client may undo on
+      // its own. Always a direct frame from the host to the swept player.
+      case "swept":
+        this._handleSwept(params);
         break;
       case "callback":
         // FT-880: THE RECEIVER'S REFUSAL. A call-back travels storyteller →
@@ -819,6 +894,10 @@ class LiveSession {
         !gamestate[mySeat].id &&
         !gamestate.some((seat) => seat.id === me)
       ) {
+        // FT-1312: breadcrumb — this is the reconnect path taking the chair
+        // back (FT-1289), as opposed to the swept-while-connected path
+        // (_handleSwept) or a claim by hand.
+        console.info(`[seat] re-claiming seat ${mySeat + 1} on reconnect`);
         this.claimSeat(mySeat);
       }
     }
@@ -999,6 +1078,20 @@ class LiveSession {
     // sends one — refusing it here means a future sender cannot create the
     // leak by accident either.
     if (property === "believedRole") return;
+    // FT-1312: breadcrumb — OUR OWN chair just emptied on a frame from the
+    // host. Which path did it (sweep vs storyteller) is said by whether a
+    // direct "swept" frame follows; this line is the constant.
+    if (
+      property === "id" &&
+      !value &&
+      index === this._store.state.session.claimedSeat &&
+      player.id === this._store.state.session.playerId
+    ) {
+      console.warn(
+        `[seat] the host emptied your chair (seat ${index + 1}) — ` +
+          `sweep or storyteller`,
+      );
+    }
     // special case where a player stops being a traveler
     if (property === "role") {
       if (!value && player.role.team === "traveler") {
@@ -1097,26 +1190,86 @@ class LiveSession {
   _handlePing([playerIdOrCount = 0, latency] = []) {
     const now = new Date().getTime();
     if (!this._isSpectator) {
-      // remove players that haven't sent a ping in twice the timespan
+      // FT-1312: REGISTER THE ARRIVING PING BEFORE JUDGING ANYONE. The old
+      // order was sweep-then-register, so a ping arriving just past the
+      // grace unseated its own sender — the frame that proved a player was
+      // alive was the very thing that swept them. Chrome's background
+      // throttling pins a hidden tab's pings to ~one a minute, which sat
+      // exactly on the old 60s boundary: tonight's players lost their seats
+      // to their own late pings, repeatedly.
+      if (playerIdOrCount && typeof playerIdOrCount === "string") {
+        this._players[playerIdOrCount] = now;
+        // FT-1312: A SWEPT PLAYER'S PING IS THEIR RETURN. The "swept"
+        // notice sent at sweep time is lost on a frozen tab (frames
+        // delivered to a sleeping page are dropped), so it is re-offered
+        // on the first ping that proves the player is back — and on every
+        // one after, until the offer resolves or stops being true. One
+        // tiny direct frame per ping, at most.
+        if (this._swept[playerIdOrCount] !== undefined) {
+          const seat = this._swept[playerIdOrCount];
+          const players = this._store.state.players.players;
+          const stillOpen =
+            players[seat] &&
+            !players[seat].id &&
+            !players.some((p) => p.id === playerIdOrCount);
+          if (stillOpen) {
+            this._sendDirect(playerIdOrCount, "swept", seat);
+          } else {
+            // the chair was taken, or they sat somewhere else — the offer
+            // is dead, and keeping it could only fight the living roster
+            delete this._swept[playerIdOrCount];
+          }
+        }
+      }
+      // FT-1312: the sweep grace is THREE intervals (90s), not two. Two was
+      // exactly the worst-case spacing of a throttled-but-connected phone's
+      // pings; the margin now covers real phones, while a genuinely gone
+      // player (dead socket — the relay terminates those in ≤60s, and a
+      // dead socket sends nothing) still frees their chair ≤2 minutes after
+      // they vanish. That is the sweep's actual job, kept.
       for (let player in this._players) {
-        if (now - this._players[player] > this._pingInterval * 2) {
+        if (now - this._players[player] > this._pingInterval * 3) {
           delete this._players[player];
           delete this._pings[player];
         }
       }
       // remove claimed seats from players that are no longer connected
-      this._store.state.players.players.forEach((player) => {
+      this._store.state.players.players.forEach((player, index) => {
         if (player.id && !this._players[player.id]) {
+          // FT-1312: EVERY SWEEP LEAVES A TRAIL. The console line is the
+          // host-side forensic (which path freed the chair); the direct
+          // "swept" frame tells the player's own client — if its socket
+          // still lives — that THE SWEEP did this, not the storyteller, so
+          // it may take the chair back on its own (see _handleSwept). The
+          // storyteller's Empty-seat never sends this frame, which is what
+          // keeps the recovery from ever fighting their decision. Sent
+          // AFTER the commit so the freed-seat broadcast lands first and
+          // the returning claim sees the chair open. The id is captured
+          // BEFORE the commit clears it — a "" address would broadcast.
+          const sweptId = player.id;
+          this._swept[sweptId] = index;
+          console.warn(
+            `[seat] sweep freed seat ${index + 1} (${player.name}) — ` +
+              `no ping for ${(this._pingInterval * 3) / 1000}s`,
+          );
           this._store.commit("players/update", {
             player,
             property: "id",
             value: "",
           });
+          this._sendDirect(sweptId, "swept", index);
+          // FT-1312: ...and the town's own log gets the plain sentence, so
+          // a game where chairs empty can be read back afterwards. Untyped
+          // on purpose — an unknown event type would render as raw
+          // envelope; a plain announcement renders everywhere.
+          this.systemMessage(
+            `${player.name || `Seat ${index + 1}`}'s chair was freed — ` +
+              `connection lost.`,
+          );
         }
       });
       // store new player data
       if (playerIdOrCount) {
-        this._players[playerIdOrCount] = now;
         const ping = parseInt(latency, 10);
         if (ping && ping > 0 && ping < 30 * 1000) {
           // ping to Players
@@ -1142,6 +1295,69 @@ class LiveSession {
   }
 
   /**
+   * FT-1312: THE SWEEP TOOK YOUR CHAIR — the host said so, by name, on the
+   * direct lane. Player only.
+   *
+   * This frame exists because a swept client whose SOCKET never dropped has
+   * no other way to know: FT-1289's reclaim only arms on a socket reopening,
+   * and the freed-seat broadcast is byte-identical to the storyteller's own
+   * Empty-seat. The sweep is the one sender of this frame, so acting on it
+   * can never fight a storyteller's decision.
+   *
+   * Visible tab → take the chair back immediately (the player is looking at
+   * the screen; the silence was a hiccup, not an absence). Hidden tab → note
+   * the seat and let the wake handler re-claim when the player actually
+   * returns — re-claiming from a pocketed phone would just be swept again,
+   * a slow flicker war with the host.
+   * @private
+   */
+  _handleSwept(index) {
+    if (!this._isSpectator) return;
+    if (typeof index !== "number" || index < 0) return;
+    if (this._store.state.session.claimedSeat !== index) return;
+    console.warn(
+      `[seat] the host's sweep freed your chair (seat ${index + 1}) — ` +
+        `no pings reached it`,
+    );
+    if (document.visibilityState !== "hidden") {
+      this._reclaimSeat(index);
+    } else {
+      this._sweptSeat = index;
+    }
+  }
+
+  /**
+   * FT-1312: take back a chair the sweep freed — the same narrow conditions
+   * FT-1289's reclaim-on-open uses: we still believe we hold that seat, the
+   * seat is still empty, and no other chair holds us. Anything else stays
+   * silent (someone took it, the storyteller moved us, we stood up).
+   * @private
+   */
+  _reclaimSeat(index) {
+    this._sweptSeat = -1;
+    const players = this._store.state.players.players;
+    const me = this._store.state.session.playerId;
+    if (this._store.state.session.claimedSeat !== index) return;
+    if (!me || !players[index]) return;
+    // FT-1312: a frozen tab drops the freed-seat broadcast along with
+    // everything else, so this client's OWN roster may still show it in the
+    // chair the host has already emptied. The "swept" frame is the host's
+    // word; bring the local seat to the host's truth first, or claimSeat's
+    // own is-it-free check would refuse the very recovery it exists for.
+    if (players[index].id === me) {
+      this._store.commit("players/update", {
+        player: players[index],
+        property: "id",
+        value: "",
+      });
+    }
+    if (players[index].id) return;
+    if (players.some((p) => p.id === me)) return;
+    console.info(`[seat] re-claiming seat ${index + 1} after the sweep`);
+    this.claimSeat(index);
+  }
+
+  /**
    * Handle a player leaving the sessions. ST only
    * @param playerId
    * @private
@@ -1149,6 +1365,8 @@ class LiveSession {
   _handleBye(playerId) {
     if (this._isSpectator) return;
     delete this._players[playerId];
+    // FT-1312: leaving the town retires any standing swept-seat offer.
+    delete this._swept[playerId];
     this._store.commit(
       "session/setPlayerCount",
       Object.keys(this._players).length,
@@ -1199,6 +1417,9 @@ class LiveSession {
    */
   _updateSeat([index, value, name]) {
     if (this._isSpectator) return;
+    // FT-1312: a claim of ANY chair (or a deliberate stand-up) settles the
+    // swept-seat offer — the player has spoken for themselves now.
+    delete this._swept[value];
     const property = "id";
     const players = this._store.state.players.players;
     // remove previous seat
@@ -1245,6 +1466,13 @@ class LiveSession {
       return;
     }
     if (oldIndex >= 0 && oldIndex !== index) {
+      // FT-1312: breadcrumb — every unseat names its path.
+      console.info(
+        index >= 0
+          ? `[seat] claim moved a player: seat ${oldIndex + 1} freed for ` +
+              `seat ${index + 1}`
+          : `[seat] player stood up from seat ${oldIndex + 1}`,
+      );
       this._store.commit("players/update", {
         player: players[oldIndex],
         property,
@@ -1273,7 +1501,17 @@ class LiveSession {
       }
     }
     // update player session list as if this was a ping
-    this._handlePing([true, value, 0]);
+    //
+    // FT-1312: THE CLAIM NOW REGISTERS THE CLAIMANT. This call has passed
+    // `[true, value, 0]` since upstream — which registered the literal key
+    // "true" in `_players` and never the claimant, so the one act that
+    // proves a player is present counted for nothing. Worse: the sweep
+    // inside this very call then saw a seat whose id was absent from
+    // `_players` and emptied the chair in the same tick it was claimed —
+    // FT-1292's "a claim on a seat the sweep has not freed dies silently".
+    // Passing the real id (registered FIRST, see _handlePing's reorder)
+    // makes the claim its own proof of life.
+    this._handlePing([value, 0]);
   }
 
   /**
