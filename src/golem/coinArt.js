@@ -4,6 +4,14 @@
 // The choice is published as CSS custom properties on the document root, so
 // swapping is a repaint: Token and the seat's life face both read var(--coin)
 // / var(--coin-dead) rather than importing one file. Persisted per browser.
+//
+// FT-1318: the choice is a PLAYER SETTING now — golem/prefs owns the
+// remembered value (the `coinArt` pref, account-synced, picked in the player
+// settings' Appearance row) and calls applyCoin on every prefs landing.
+// This module keeps the looks, the painter and its "golem.coin" stash:
+// still written by applyCoin (the dev coin lab's warm cache), still read at
+// import below — which is what lets loadPrefs seed a pre-pref browser's lab
+// pick into the new pref via coinChoice.id.
 import Vue from "vue";
 
 const req = require.context("../assets/coins", false, /\.png$/);

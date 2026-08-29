@@ -42,6 +42,13 @@
 // dependency: seatActions imports assets only, never this module.
 import { seatActionSlots } from "./seatActions";
 
+// FT-1318: the coin-art vocabulary and its painter — the `coinArt` pref
+// below is the REMEMBERED choice; golem/coinArt owns the looks (COINS), the
+// repaint (applyCoin → var(--coin) on the root) and its own legacy
+// "golem.coin" stash, which loadPrefs migrates from. One-way dependency:
+// coinArt imports Vue only, never this module.
+import { COINS, coinChoice, applyCoin } from "./coinArt";
+
 const KEY = "golem.prefs";
 
 /** Fired on every write, so every surface showing a pref can re-read it. */
@@ -434,6 +441,13 @@ export const DEFAULT_PREFS = {
   ctrlReminderHover: true,
   // FT-1319: the pin rests VISIBLE by default — see PIN_VISIBILITY above.
   pinVisibility: "always",
+  // FT-1318: WHICH COIN this viewer's town wears — the coin lab's looks
+  // (golem/coinArt's COINS), offered as thumbnails in the player settings'
+  // Appearance section. LOCAL DRESS: the choice repaints every
+  // var(--coin) surface on THIS browser — seat coins, life faces, reminder
+  // tokens, bluff coins, the belief chips — and nobody else's view. The
+  // default is the app's standing look, COINS[0].
+  coinArt: COINS[0].id,
   // FT-1260: the per-menu layouts — everything on, at each menu's standing
   // order (the plate's is the vocabulary's own; the ring's is FT-1219's).
   ctrlRingLayout: defaultLayout(RING_DEFAULT_ORDER),
@@ -475,6 +489,9 @@ function sanitize(key, value) {
       return PIN_VISIBILITY.some((o) => o.value === value)
         ? value
         : DEFAULT_PREFS.pinVisibility;
+    // FT-1318: the coin dress — one of the lab's own looks, or the default.
+    case "coinArt":
+      return COINS.some((c) => c.id === value) ? value : DEFAULT_PREFS.coinArt;
     // FT-1260: the per-menu layouts — vocabulary-checked, missing slots
     // appended in that menu's default order. Always returns a NEW array.
     case "ctrlRingLayout":
@@ -780,6 +797,17 @@ export function loadPrefs() {
       persistLocal();
     }
   }
+  // FT-1318: A STASH FROM BEFORE THE COIN PREF — the coin lab persisted its
+  // pick under coinArt's own "golem.coin" key, which that module has already
+  // read and sanitized by the time this runs (coinChoice.id IS that value).
+  // A stash without the key seeds from it, so a browser that chose a coin in
+  // the lab keeps its look; persisted at once, the conversions' own rule.
+  // (Runs outside the raw check on purpose: a browser with a lab pick and no
+  // stash at all deserves the same seeding.)
+  if (!(raw && "coinArt" in raw) && prefsState.coinArt !== coinChoice.id) {
+    prefsState.coinArt = sanitize("coinArt", coinChoice.id);
+    persistLocal();
+  }
   return prefsState;
 }
 
@@ -798,3 +826,15 @@ export function setPref(key, value) {
 // Read once at import. There is no town to wait for and no socket to hear from
 // — a personal setting is knowable the moment the page has a localStorage.
 loadPrefs();
+
+// FT-1318: the coin pref PAINTS. Repaint on every landing — this load, a
+// setPref from any surface, an account pull — through the same event every
+// prefs surface already listens on, so no landing path needs its own call.
+// applyCoin sanitizes again and keeps the lab's "golem.coin" key warm, so
+// the dev coin lab's highlight and this pref never disagree at rest.
+try {
+  window.addEventListener(PREFS_EVENT, () => applyCoin(prefsState.coinArt));
+} catch (e) {
+  // no window (tests): the pref still holds; there is nothing to paint
+}
+applyCoin(prefsState.coinArt);

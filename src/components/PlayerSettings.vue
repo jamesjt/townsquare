@@ -18,9 +18,8 @@
        has no ceiling to solve here.
 
        STRUCTURED IN SECTIONS from day one — sub-headline groups, the corner
-       menu's own register — because FT-1318 fills the Appearance section
-       with the coin-art picker next; its placeholder row stands there now
-       so the menu's shape does not reshuffle under that lane. -->
+       menu's own register — and FT-1318 filled the Appearance section with
+       the coin-art picker its placeholder row was holding open. -->
   <div class="player-settings" :style="posStyle">
     <ul class="ps-plate">
       <li class="headline headline-plain">
@@ -78,11 +77,33 @@
         </li>
       </template>
 
-      <!-- ── Appearance ── FT-1318's ground, held open ── -->
+      <!-- ── Appearance ── FT-1318: the coin dress, the lab's own looks ──
+           THE LOOKS THEMSELVES, NOT THEIR NAMES: each button is its coin at
+           thumb size (the same require.context the dev coin lab reads), the
+           pick wearing a lit ring. A LOCAL choice — setPref("coinArt") lands
+           in golem/prefs, whose PREFS_EVENT listener repaints var(--coin) on
+           this browser's root, so every coin instance here (seats, reminder
+           tokens, bluffs) re-dresses and nobody else's view moves. -->
       <li class="sub-headline">Appearance</li>
-      <li class="setting-row ps-coming" title="Coin art arrives with FT-1318">
+      <li
+        class="setting-row ps-coins"
+        title="Which coin your town wears — every coin on YOUR screen (seats, reminder tokens, bluffs) repaints; nobody else's view changes"
+      >
         <span class="setting-name">Coin art</span>
-        <span class="ps-soon">coming with FT-1318</span>
+        <span class="ps-coin-row" role="radiogroup" aria-label="Coin art">
+          <button
+            v-for="c in coinOptions"
+            :key="c.id"
+            type="button"
+            class="ps-coin"
+            :class="{ on: prefs.coinArt === c.id }"
+            :title="c.label"
+            :aria-pressed="prefs.coinArt === c.id ? 'true' : 'false'"
+            @click="setCoinArt(c.id)"
+          >
+            <img :src="coinThumb(c.id)" :alt="c.label" />
+          </button>
+        </span>
       </li>
     </ul>
   </div>
@@ -97,11 +118,19 @@ import {
   prefsState,
   setPref,
 } from "../golem/prefs";
+// FT-1318: the coin looks the Appearance row offers — the same vocabulary
+// golem/prefs sanitizes the pref against and the dev coin lab shows. The
+// thumbnails read the coin PNGs directly; the pick itself rides setPref.
+import { COINS } from "../golem/coinArt";
 import OptionSelect from "./OptionSelect";
 // The vote card's own number control — the timer row is that control's
 // second mount, not a sibling implementation.
 import NumberScrub from "./NumberScrub";
 import uiCog from "../assets/ui-cog.png";
+
+// the coin thumbnails — App.vue's coin lab reads the same directory the
+// same way, so the row shows exactly the art the choice will paint
+const coinThumbs = require.context("../assets/coins", false, /\.png$/);
 
 export default {
   name: "PlayerSettings",
@@ -131,6 +160,10 @@ export default {
     },
     pinOptions() {
       return PIN_VISIBILITY;
+    },
+    /** FT-1318: the Appearance row's looks — the vocabulary itself. */
+    coinOptions() {
+      return COINS;
     },
     pinRowTitle() {
       return this.hasHover
@@ -217,6 +250,17 @@ export default {
     },
     setPinVisibility(v) {
       setPref("pinVisibility", v);
+    },
+    // ── FT-1318: the coin picker ─────────────────────────────────────────
+    /** The look's own art, at thumb size — never a name where the thing
+     *  itself can stand. */
+    coinThumb(id) {
+      return coinThumbs("./" + id + ".png");
+    },
+    /** One write: golem/prefs sanitizes, persists, syncs the account bag,
+     *  and its own PREFS_EVENT listener repaints every coin surface. */
+    setCoinArt(id) {
+      setPref("coinArt", id);
     },
     // ── the timer row: Vote.vue's own two methods, verbatim ─────────────
     setVotingSpeed(diff) {
@@ -315,16 +359,41 @@ export default {
     opacity: 0.55;
   }
 
-  // the FT-1318 placeholder: a named row with a dim promise where its
-  // control will stand — dev dress, retired by that lane.
-  .ps-coming .setting-name {
-    opacity: 0.55;
+  // FT-1318: the coin picker — a row of the looks themselves. The resting
+  // coins sit dim and brighten on hover; the pick stands at full strength
+  // inside a lit ring. NO overflow/clip on the buttons: the coins are
+  // toothed wheels and carry their own edge (Token.vue's rule) — the ring
+  // is a box-shadow, which clips nothing.
+  .ps-coin-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .ps-soon {
-    font-size: 11px;
-    font-style: italic;
-    opacity: 0.45;
-    white-space: nowrap;
+  .ps-coin {
+    width: 34px;
+    height: 34px;
+    padding: 2px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0.55;
+    transition:
+      opacity 150ms,
+      box-shadow 150ms;
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    &:hover {
+      opacity: 0.85;
+    }
+    &.on {
+      opacity: 1;
+      box-shadow: 0 0 0 2px rgba(246, 232, 200, 0.65);
+    }
   }
 
   // the timer row's scrub + unit, the Vote card's vo-timing pair at row scale
