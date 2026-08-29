@@ -1,11 +1,24 @@
-<!-- ui-hand-up — the raised hand: an open palm, fingers up.
-     Base: Phosphor hand-palm-fill (256 grid, filled) — user-picked metaphor
-     (2026-08-28, superseding the pointing-finger first cut): you raise an
-     OPEN hand to vote. The waving variant (hand-waving-fill, tilted with
-     motion arcs — closer to the user's reference image) lost on the contact
-     sheet: the tilt + arcs read "hello", the straight palm reads "raised".
-     Twin: ui-hand-down.svg (hand-fist-fill) — same Phosphor family, so the
-     pair is one hand open vs closed. currentColor; 256 grid (stated
-     deviation: ships beside FontAwesome solids in the townsquare fork, not
-     beside Golem's 24-grid set). -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,104v48a88,88,0,0,1-176,0V64a16,16,0,0,1,32,0v56a8,8,0,0,0,16,0V32a16,16,0,0,1,32,0v80a8,8,0,0,0,16,0V48a16,16,0,0,1,32,0v80.67A48.08,48.08,0,0,0,128,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V104a16,16,0,0,1,32,0Z"/></svg>
+<!-- ui-hand-up v3 (user, 2026-08-28): the raised hand in the NOMINATE
+     HAND'S own painted language — ui-nominate-hand.svg's idiom verbatim:
+     overlapping primitives (tapered capsule fingers, palm/cuff rects, a
+     low splayed thumb), single bone tone #cfc4ae carried in-file, the
+     same swappable-art pattern. ALL FIVE fingers, open palm, fingers up.
+     Consumed two ways: as a MASK on the coin's vote mark (alpha is what
+     counts) and inlined with currentColor in Vote.vue's Hand UP cell —
+     keep the inline copy in sync when editing. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420">
+  <g fill="#cfc4ae">
+    <!-- cuff: the wrist mass under the palm -->
+    <rect x="95" y="340" width="110" height="64" rx="26"/>
+    <!-- palm: connects cuff, four finger roots and the thumb -->
+    <rect x="72" y="210" width="156" height="148" rx="46"/>
+    <!-- four raised fingers: capsules, heights receding index→pinky -->
+    <rect x="76"  y="76"  width="38" height="180" rx="19"/>
+    <rect x="120" y="52"  width="38" height="204" rx="19"/>
+    <rect x="164" y="64"  width="38" height="192" rx="19"/>
+    <rect x="208" y="98"  width="36" height="158" rx="18"/>
+    <!-- thumb: splayed low off the palm's left edge, angled up -->
+    <rect x="8" y="212" width="116" height="46" rx="23"
+          transform="rotate(-42 66 235)"/>
+  </g>
+</svg>
