@@ -383,6 +383,7 @@
         <div
           class="vote-mark yes"
           title="Hand UP"
+          :style="{ '--vote-aim': voteAimDeg + 'deg' }"
           @click="vote()"
           v-if="!showGlyphVotes"
         ></div>
@@ -1532,6 +1533,27 @@ export default {
      *  number the chat rows carry as senderSeat/recipientSeat. */
     seatIndex() {
       return this.players.indexOf(this.player);
+    },
+    /**
+     * User call 2026-08-28: a raised hand POINTS AT THE NOMINATED. Seats sit
+     * on the ring at k·(360/n) from the top; the chord from this seat to the
+     * nominee's, in screen space, gives the hand's rotation (the art points
+     * up at 0). The seat's inner content is a pure translation of the screen
+     * frame (the FT-911 note), so a plain CSS rotate lands true. No
+     * nomination, or the nominee's own chair, stays upright.
+     */
+    voteAimDeg() {
+      const nomination = this.session.nomination;
+      if (!nomination) return 0;
+      const n = this.players.length;
+      const me = this.seatIndex;
+      const target = nomination[1];
+      if (!n || target == null || target < 0 || target === me) return 0;
+      const a = (me / n) * 2 * Math.PI;
+      const b = (target / n) * 2 * Math.PI;
+      const dx = Math.sin(b) - Math.sin(a);
+      const dy = -Math.cos(b) - -Math.cos(a);
+      return Math.round((Math.atan2(dx, -dy) * 180) / Math.PI);
     },
     /**
      * FT-1206: MAY THIS VIEWER WHISPER THIS SEAT — null, or the reason not,
@@ -5190,7 +5212,11 @@ $belief-blood: #970000;
   opacity: 0;
   pointer-events: none;
   transition: all 250ms;
-  transform: scale(0.2);
+  /* --vote-aim (user call 2026-08-28): the yes-hand rotates to point at the
+     nominated seat — set inline per seat; the X never sets it, so var() falls
+     back to upright. Rotation rides INSIDE the same transform as the scale
+     states so the reveal animation keeps working. */
+  transform: scale(0.2) rotate(var(--vote-aim, 0deg));
   background-position: center center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -5224,7 +5250,7 @@ $belief-blood: #970000;
 // other player voted yes, but is not locked yet
 #townsquare.vote .player.vote-yes .overlay .vote-mark.yes {
   opacity: 0.5;
-  transform: scale(1);
+  transform: scale(1) rotate(var(--vote-aim, 0deg));
 }
 
 // you voted yes | a locked vote yes | a locked vote no
@@ -5232,7 +5258,7 @@ $belief-blood: #970000;
 #townsquare.vote .player.vote-lock.vote-yes .overlay .vote-mark.yes,
 #townsquare.vote .player.vote-lock:not(.vote-yes) .overlay .vote-mark.no {
   opacity: 1;
-  transform: scale(1);
+  transform: scale(1) rotate(var(--vote-aim, 0deg));
 }
 
 // a locked vote can be clicked on by the ST
