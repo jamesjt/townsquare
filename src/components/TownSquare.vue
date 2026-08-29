@@ -976,6 +976,20 @@ export default {
             ]);
           }
         }
+        // FT-1311 (the stuck noose): markedPlayer is a seat INDEX and the
+        // splice below shifts every seat past the removed one — this
+        // bookkeeping existed for the nomination and never for the mark, so
+        // removing a seat below the marked one slid the noose onto the next
+        // player, and removing the marked seat itself hanged whoever
+        // inherited its index. Same remap the nomination gets, committed
+        // through session/setMarkedPlayer so it broadcasts and leaves its
+        // breadcrumb.
+        const marked = this.session.markedPlayer;
+        if (marked === playerIndex) {
+          this.$store.commit("session/setMarkedPlayer", -1);
+        } else if (marked > playerIndex) {
+          this.$store.commit("session/setMarkedPlayer", marked - 1);
+        }
         this.$store.commit("players/remove", playerIndex);
       }
     },
@@ -1001,7 +1015,25 @@ export default {
           this.$store.commit("session/setNomination", updatedNomination);
         }
       }
+      // FT-1311 (the stuck noose): the mark is a seat index too, and this
+      // exchange remapped the nomination while leaving the noose standing on
+      // the CHAIR — swap the marked player away and the mark stayed behind
+      // on whoever arrived. The same two-way remap the nomination gets.
+      this.remapMarked(fromIndex, toIndex);
       this.$store.commit("players/swap", [fromIndex, toIndex]);
+    },
+    /** FT-1311: the mark's half of the exchange bookkeeping doSwap and
+     *  doMove each carry for the nomination — one helper, because the two
+     *  callers are the same gesture (doMove exchanges too; see its note).
+     *  Committed through session/setMarkedPlayer so the change broadcasts
+     *  to every client and logs the noose breadcrumb. */
+    remapMarked(fromIndex, toIndex) {
+      const marked = this.session.markedPlayer;
+      if (marked === fromIndex) {
+        this.$store.commit("session/setMarkedPlayer", toIndex);
+      } else if (marked === toIndex) {
+        this.$store.commit("session/setMarkedPlayer", fromIndex);
+      }
     },
     /** FT-966: movePlayer's own "target picked" branch, split out the same
      *  way doSwap is — see doSwap for why.
@@ -1037,6 +1069,8 @@ export default {
           this.$store.commit("session/setNomination", updatedNomination);
         }
       }
+      // FT-1311: the mark follows the exchange here too — see remapMarked.
+      this.remapMarked(fromIndex, toIndex);
       this.$store.commit("players/swap", [fromIndex, toIndex]);
     },
     swapPlayer(from, to) {

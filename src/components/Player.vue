@@ -1535,12 +1535,27 @@ export default {
       return this.players.indexOf(this.player);
     },
     /**
-     * User call 2026-08-28: a raised hand POINTS AT THE NOMINATED. Seats sit
-     * on the ring at k·(360/n) from the top; the chord from this seat to the
-     * nominee's, in screen space, gives the hand's rotation (the art points
-     * up at 0). The seat's inner content is a pure translation of the screen
-     * frame (the FT-911 note), so a plain CSS rotate lands true. No
-     * nomination, or the nominee's own chair, stays upright.
+     * User call 2026-08-28: a raised hand POINTS AT THE NOMINATED. The chord
+     * from this seat to the nominee's, in screen space, gives the hand's
+     * rotation (the art points up at 0). The seat's inner content is a pure
+     * translation of the screen frame (the FT-911 note), so a plain CSS
+     * rotate lands true. No nomination, or the nominee's own chair, stays
+     * upright.
+     *
+     * FT-1311 — OFF BY ONE SEAT, the same slip the overlay's own arrows had
+     * (Vote.vue's nominatorStyle, fixed 2026-08-20): the ring's on-circle
+     * mixin rotates seat `i` by `((i + 1) * 360) / count` — seat 0 stands
+     * one step PAST twelve o'clock, the way a clock's 1 does — and this
+     * computed placed both endpoints at `i * 360 / count`. Rotating BOTH
+     * ends of a chord by the same slot rotates the CHORD by that slot (it
+     * does not cancel), so every hand pointed one seat's width
+     * counter-clockwise of the accused. The `+ 1` matches the mixin; the
+     * FT-1311 rig measures the rendered hand against the chord between the
+     * two seats' real DOM boxes, so the convention is checked against the
+     * ring itself, not against this comment.
+     *
+     * (Applied only on lock now — the CSS keeps the hand upright until this
+     * seat's vote locks; see the vote-mark rules in the style block.)
      */
     voteAimDeg() {
       const nomination = this.session.nomination;
@@ -1549,8 +1564,8 @@ export default {
       const me = this.seatIndex;
       const target = nomination[1];
       if (!n || target == null || target < 0 || target === me) return 0;
-      const a = (me / n) * 2 * Math.PI;
-      const b = (target / n) * 2 * Math.PI;
+      const a = ((me + 1) / n) * 2 * Math.PI;
+      const b = ((target + 1) / n) * 2 * Math.PI;
       const dx = Math.sin(b) - Math.sin(a);
       const dy = -Math.cos(b) - -Math.cos(a);
       return Math.round((Math.atan2(dx, -dy) * 180) / Math.PI);
@@ -5214,12 +5229,20 @@ $belief-blood: #970000;
   transition: all 250ms;
   /* --vote-aim (user call 2026-08-28): the yes-hand rotates to point at the
      nominated seat — set inline per seat; the X never sets it, so var() falls
-     back to upright. --vote-base is the art's own file orientation (the
-     manicule points right, so .yes carries -90deg). Both ride INSIDE the
-     same transform as the scale states so the reveal animation keeps
-     working. */
-  transform: scale(0.2)
-    rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
+     back to upright. --vote-base is the art's own file orientation. Both
+     ride INSIDE the same transform as the scale states so the reveal
+     animation keeps working.
+
+     FT-1311 (user amendment): the aim is GATED ON THE LOCK now. A raised
+     hand stands STRAIGHT UP while votes are being raised — a ring of hands
+     leaning at nine different angles read as noise, and worse, as
+     information nobody had committed to. Only when the sweep locks this
+     seat's vote (`.vote-lock`) does the hand turn to point at the accused:
+     the pointing is the RECORD, not the raising. So the resting, raised and
+     your-own states below rotate by the base alone, and only the locked
+     rule composes the aim on top — the 250ms transform transition turns the
+     hand from upright to pointing at the moment the lock lands. */
+  transform: scale(0.2) rotate(var(--vote-base, 0deg));
   background-position: center center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -5239,7 +5262,17 @@ $belief-blood: #970000;
        it upside-down). */
     --vote-base: 90deg;
     background-image: url("../assets/ui-nominate-hand.png");
-    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
+    /* FT-1311 item 4: THE VOTE HAND IS NOT THE ACCUSING HAND, at a glance.
+       Same painted manicule (the user's v5 call stands — one family), three
+       deliberate distinctions: (1) it rides the glass disc, which the
+       nominate corner mark never wears; (2) it stands upright until the
+       lock, where the accuser's hand always points; (3) THE INK — this one
+       is washed toward chalk (saturation halved, lifted a step) so it reads
+       as "a hand raised", pale against the accuser's full-blood paint. A
+       filter rather than a second bake: the art stays one file, and the
+       wash is honest about being the same hand. */
+    filter: saturate(0.45) brightness(1.25)
+      drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
   }
 
   &.no {
@@ -5248,7 +5281,8 @@ $belief-blood: #970000;
   }
 
   &.yes:hover {
-    filter: drop-shadow(0 0 7px rgba(0, 0, 0, 1));
+    filter: saturate(0.45) brightness(1.25)
+      drop-shadow(0 0 7px rgba(0, 0, 0, 1));
   }
 
   &.no:hover {
@@ -5256,20 +5290,31 @@ $belief-blood: #970000;
   }
 }
 
-// other player voted yes, but is not locked yet
+// other player voted yes, but is not locked yet — upright (FT-1311: the aim
+// waits for the lock; see the --vote-aim note above)
 #townsquare.vote .player.vote-yes .overlay .vote-mark.yes {
   opacity: 0.5;
-  transform: scale(1)
-    rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
+  transform: scale(1) rotate(var(--vote-base, 0deg));
 }
 
-// you voted yes | a locked vote yes | a locked vote no
-#townsquare.vote .player.you.vote-yes .overlay .vote-mark.yes,
-#townsquare.vote .player.vote-lock.vote-yes .overlay .vote-mark.yes,
-#townsquare.vote .player.vote-lock:not(.vote-yes) .overlay .vote-mark.no {
+// you voted yes (not locked yet) — full ink, still upright
+#townsquare.vote .player.you.vote-yes .overlay .vote-mark.yes {
+  opacity: 1;
+  transform: scale(1) rotate(var(--vote-base, 0deg));
+}
+
+// LOCKED — the sweep has recorded this seat. A locked YES turns to point at
+// the accused (the one place --vote-aim participates); a locked NO is the X,
+// which never aims. This rule sits AFTER the `.you` rule above on purpose:
+// your own locked yes matches both at equal specificity, and the lock wins.
+#townsquare.vote .player.vote-lock.vote-yes .overlay .vote-mark.yes {
   opacity: 1;
   transform: scale(1)
     rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
+}
+#townsquare.vote .player.vote-lock:not(.vote-yes) .overlay .vote-mark.no {
+  opacity: 1;
+  transform: scale(1) rotate(var(--vote-base, 0deg));
 }
 
 // a locked vote can be clicked on by the ST

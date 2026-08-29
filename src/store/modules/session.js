@@ -114,7 +114,42 @@ const mutations = {
   setPing: set("ping"),
   setVotingSpeed: set("votingSpeed"),
   setVoteInProgress: set("isVoteInProgress"),
-  setMarkedPlayer: set("markedPlayer"),
+  /**
+   * FT-1311: THE NOOSE LEAVES A BREADCRUMB. A marked-for-execution state
+   * survived past where it should have died in a real game (2026-08-28, no
+   * repro), and this mutation is the ONE gate every mark transition passes
+   * — host writes, the spectator's "marked" frame, the full-sync copy. So
+   * every transition now says who moved it: old seat, new seat, and the
+   * top of the call stack (trimmed past this frame — enough to name the
+   * committing module). When the noose sticks again, the console holds the
+   * whole history of how it got there. `no-console` is off outside
+   * production builds (.eslintrc.js); the sweep's own hot path never
+   * touches this mutation, so the cost is one line per genuine transition.
+   */
+  setMarkedPlayer(state, index) {
+    if (state.markedPlayer !== index) {
+      // Skip this frame and vuex's own commit plumbing (wrappedMutation-
+      // Handler / commitIterator / commit) — the first frames left are the
+      // component or socket module that asked for the change, which is the
+      // fact the breadcrumb exists to hold. (Measured: without the filter
+      // the trail was three lines of vuex.esm.js and named nobody.)
+      const trail = new Error().stack
+        .split("\n")
+        .slice(2)
+        .filter(
+          (line) => !line.includes("vuex") && !line.includes("Array.forEach"),
+        )
+        .slice(0, 3)
+        .map((line) => line.trim())
+        .join(" « ");
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[noose] markedPlayer ${state.markedPlayer} → ${index}`,
+        trail,
+      );
+    }
+    state.markedPlayer = index;
+  },
   setNomination: set("nomination"),
   setVoteHistoryAllowed: set("isVoteHistoryAllowed"),
   claimSeat: set("claimedSeat"),

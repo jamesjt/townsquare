@@ -27,15 +27,22 @@
                    on a phone the box itself grows to 44px tall, because
                    every other control in that row does the same (the row's
                    OWN contract, restated in NightSheet.vue). -->
+  <!-- FT-1311: a fractional step admits a decimal point in type-in — the
+       inputmode and the strip-regex both follow the step, so an integer
+       scrub types exactly as it always did. -->
   <input
     v-if="editing"
     ref="input"
     class="num-scrub-box num-scrub-input"
     :class="preset"
     type="text"
-    inputmode="numeric"
+    :inputmode="isFractional ? 'decimal' : 'numeric'"
     v-model="editVal"
-    @input="editVal = editVal.replace(/\D/g, '')"
+    @input="
+      editVal = isFractional
+        ? editVal.replace(/[^\d.]/g, '').replace(/\.(?=.*\.)/g, '')
+        : editVal.replace(/\D/g, '')
+    "
     @keyup.enter="commit"
     @keyup.esc="editing = false"
     @blur="commit"
@@ -54,8 +61,8 @@
     @pointerdown="scrub"
     @keydown.enter.prevent="openEdit"
     @keydown.space.prevent="openEdit"
-    @keydown.left.prevent="step(-1)"
-    @keydown.right.prevent="step(1)"
+    @keydown.left.prevent="nudge(-1)"
+    @keydown.right.prevent="nudge(1)"
     >{{ value }}</b
   >
 </template>
@@ -87,7 +94,18 @@ export default {
     // `<b>`, not a button, so there is no native `disabled` to ride: every
     // entry point (the drag, the click-to-type, the arrow-key nudge) returns
     // early instead, and the element leaves the tab order.
-    disabled: { type: Boolean, default: false }
+    disabled: { type: Boolean, default: false },
+    // FT-1311: the scrub's grain. Default 1 keeps every existing caller an
+    // integer control, byte for byte; the vote card's time-per-player passes
+    // 0.5 so a storyteller can run half-second sweeps. Every entry point —
+    // the drag, the arrow keys, the typed commit — snaps to this same grid
+    // through clamp(), so no path can produce an off-step value.
+    step: { type: Number, default: 1 },
+  },
+  computed: {
+    isFractional() {
+      return this.step % 1 !== 0;
+    }
   },
   data() {
     return {
@@ -97,8 +115,12 @@ export default {
   },
   methods: {
     clamp(n) {
-      const r = Math.round(n);
-      const safe = Number.isNaN(r) ? this.min : r;
+      // FT-1311: snap to the step's grid rather than the integer one — for
+      // the default step of 1 this is the original Math.round to the digit.
+      // The final rounding scrubs float dust (0.5 * 3 → 1.5000000000000002)
+      // so the emitted value prints clean.
+      const r = Math.round(n / this.step) * this.step;
+      const safe = Number.isNaN(r) ? this.min : Math.round(r * 1000) / 1000;
       return Math.max(this.min, Math.min(this.max, safe));
     },
     openEdit() {
@@ -116,9 +138,12 @@ export default {
     /** Keyboard nudge — additive: the original scrub had no keyboard path at
      *  all (a `<b>` reachable only by pointer). Arrow keys step by 1 without
      *  touching any of the pointer/drag behaviour above. */
-    step(delta) {
+    nudge(delta) {
       if (this.disabled) return;
-      this.$emit("input", this.clamp(this.value + delta));
+      // FT-1311: one arrow press moves one STEP (renamed from `step` when
+      // the prop of that name arrived — a method and a prop cannot share
+      // the slot on a Vue 2 vm).
+      this.$emit("input", this.clamp(this.value + delta * this.step));
     },
     /** Drag the number sideways — one step per 9px. A plain CLICK (no drag)
      *  opens type-in editing instead (user call, HostTools' own history). */
@@ -146,7 +171,10 @@ export default {
         }
         this.$emit(
           "input",
-          this.clamp(startN + Math.round((ev.clientX - originX) / 9))
+          // FT-1311: one 9px notch of drag moves one STEP, whatever its size
+          this.clamp(
+            startN + Math.round((ev.clientX - originX) / 9) * this.step,
+          ),
         );
       };
       const unbind = () => {
@@ -170,7 +198,10 @@ export default {
     commit() {
       if (!this.editing) return;
       this.editing = false;
-      this.$emit("input", this.clamp(parseInt(this.editVal, 10)));
+      // FT-1311: parseFloat so a typed "2.5" survives on a fractional scrub;
+      // clamp() then snaps it to the step's grid either way, so an integer
+      // scrub still lands on whole numbers exactly as parseInt gave it.
+      this.$emit("input", this.clamp(parseFloat(this.editVal)));
     }
   }
 };

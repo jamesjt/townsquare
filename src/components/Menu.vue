@@ -1398,6 +1398,13 @@ export default {
       if (this.session.nomination) {
         this.$store.commit("session/nomination");
       }
+      // FT-1311 (the stuck noose): the mark is a seat index into the roster
+      // this next commit empties — left standing, it re-hanged whichever
+      // future chair inherited the number the moment enough seats were
+      // added again. An empty town has no one on the block.
+      if (this.session.markedPlayer !== -1) {
+        this.$store.commit("session/setMarkedPlayer", -1);
+      }
       this.$store.commit("players/clear");
     },
     clearRoles(confirmed) {

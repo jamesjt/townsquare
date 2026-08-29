@@ -466,6 +466,23 @@ export default new Vuex.Store({
     clearEnded(state) {
       state.session.isEnded = false;
       state.session.winningTeam = null;
+      // FT-1311 (the stuck noose): A NEW GAME STARTS WITH NO ONE ON THE
+      // BLOCK. Nothing here or in players/clearRoles ever cleared
+      // markedPlayer, so a town that ended with a mark standing carried it
+      // into the next game — Play again re-dressed the same seat in a noose
+      // it never earned. This mutation runs on EVERY client (the host's own
+      // Play again, and a spectator's socket applies it on the resync), so
+      // clearing it here clears it everywhere, the same reach-into-the-
+      // submodule shape the grant fields below already use. Written direct
+      // rather than through session/setMarkedPlayer so one commit stays the
+      // whole reset; the breadcrumb that mutation logs is covered here:
+      if (state.session.markedPlayer !== -1) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[noose] markedPlayer ${state.session.markedPlayer} → -1 (clearEnded — new game)`,
+        );
+        state.session.markedPlayer = -1;
+      }
       // FT-1294: THE LINE THAT USED TO SIT HERE IS GONE, and its whole class
       // of bug with it. This mutation runs on EVERY client, not just the
       // host's — a player's socket applies it on the Play again resync

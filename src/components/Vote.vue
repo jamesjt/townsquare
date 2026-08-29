@@ -53,9 +53,28 @@
              opacity only, `mode="out-in"`: the card shrinks away downward,
              the strip rises into its dock. When the sweep ends (or Reset is
              pressed) the same motion runs in reverse. -->
-    <audio src="../assets/sounds/countdown.mp3" preload="auto"></audio>
+    <!-- FT-1311 (real-game note: "the countdown is too quiet"): the clip is
+         now countdown-loud.mp3 — the same take normalized from a measured
+         max of -14.7dB up to -1.1dB (claude_temp_test/2026-08-29-ft1311-*).
+         The element was already playing at volume 1.0, the browser's own
+         ceiling, so the only lever left was the asset itself; the bells go
+         through towerBells' volume dial (element.volume = percent/100),
+         which can only ever make a sound QUIETER than its file. The quiet
+         original stays in assets, stood down. -->
+    <audio src="../assets/sounds/countdown-loud.mp3" preload="auto"></audio>
+    <!-- FT-1311 item 3: the dock transition is the STORYTELLER's — their card
+         shrinks to the strip when the sweep starts. A seated player's surface
+         no longer rides it at all: their Hand UP / Hand DOWN pair must keep
+         ONE screen position from "nomination open" through "vote running"
+         (the real-game note: the buttons jumped exactly when a player was
+         reaching for them), so the player's whole surface is the single
+         fixed strip BELOW this transition, rendered for both phases. -->
     <transition name="vo-dock" mode="out-in">
-      <div class="overlay" v-if="!isDocked" key="card">
+      <div
+        class="overlay"
+        v-if="!session.isSpectator && !isDocked"
+        key="card"
+      >
         <p class="vo-nomination">
           <em class="blue">{{ nominator.name }}</em> nominated
           <em>{{ nominee.name }}</em>
@@ -100,11 +119,17 @@
               v-if="session.lockedVote < 1"
               title="Time per player — seconds each seat gets before the sweep moves on"
             >
+              <!-- FT-1311 item 5: half-second steps. The scrub's step prop
+                   is new (NumberScrub grew it for this control); the store
+                   keeps milliseconds, so 2.5 arrives as 2500 through the
+                   same setVotingSeconds delta it always did, and the
+                   sweep's setInterval reads it unchanged. -->
               <NumberScrub
                 class="vo-scrub"
                 :value="votingSeconds"
-                :min="1"
+                :min="0.5"
                 :max="30"
+                :step="0.5"
                 aria-label="Time per player, in seconds"
                 title="Time per player, in seconds — drag sideways to scrub, click to type"
                 @input="setVotingSeconds"
@@ -167,47 +192,10 @@
           </div>
         </template>
 
-        <template v-else-if="canVote">
-          <div class="vo-row">
-            <span class="vo-label"
-              >{{ session.votingSpeed / 1000 }} seconds between votes</span
-            >
-          </div>
-          <!-- My own hand is ONE piece of state with two positions, so it is one
-               segmented control — the plate on the group, `control-cell` on the
-               cells, lit on the one that is true — exactly the night-mode
-               switch's shape. Two separate pills, one of them greyed, made the
-               greyed one look broken rather than unselected. -->
-          <div class="vo-hands" role="group" aria-label="Your vote">
-            <button
-              class="vo-hand"
-              :class="{ on: !currentVote }"
-              :aria-pressed="String(!currentVote)"
-              @click="vote(false)"
-            >
-              <!-- User call 2026-08-28: ONE glyph for the pair — only Hand UP
-                   wears its palm; this cell is words alone. (ui-hand-down.svg
-                   stays in assets, stood down.) -->
-              Hand DOWN
-            </button>
-            <button
-              class="vo-hand"
-              :class="{ on: !!currentVote }"
-              :aria-pressed="String(!!currentVote)"
-              @click="vote(true)"
-            >
-              <!-- User call 2026-08-28 (v5): the SAME painted manicule the
-                   nominate mark wears (ui-nominate-hand.png), turned upright
-                   by CSS — not a silhouette of it. -->
-              <span class="vo-hand-ic vo-hand-nom" aria-hidden="true"></span>
-              Hand UP
-            </button>
-          </div>
-        </template>
-
-        <p class="vo-hint" v-else-if="!player">
-          Please claim a seat to vote.
-        </p>
+        <!-- FT-1311: the spectator branches that stood here (the seconds
+             label, the vo-hands pair, the claim-a-seat hint) moved to the
+             player strip below the transition — the card is the
+             storyteller's alone now. -->
       </div>
 
       <!-- THE DOCKED STRIP (FT-1074) — the card's mid-vote form. Tally big,
@@ -215,7 +203,11 @@
            Reset for the storyteller, my own hand for a seated player. It
            stands on a plain control plate rather than the disc or the scrim —
            a strip at the rim wants an edge, not a halo. -->
-      <div class="overlay vo-docked" v-else key="strip">
+      <div
+        class="overlay vo-docked"
+        v-else-if="!session.isSpectator"
+        key="strip"
+      >
         <div class="vo-tally" :class="{ 'is-majority': hasMajority }">
           <div class="vo-count" data-tally>
             <span class="vo-now">{{ voters.length }}</span>
@@ -223,41 +215,96 @@
             <span class="vo-need">{{ majority }}</span>
           </div>
         </div>
-        <template v-if="!session.isSpectator">
-          <button
-            class="vo-btn"
-            :class="{ disabled: !session.lockedVote }"
-            @click="pause"
-          >
-            {{ voteTimer ? "Pause" : "Resume" }}
-          </button>
-          <button class="vo-btn" @click="stop">Reset</button>
-        </template>
+        <button
+          class="vo-btn"
+          :class="{ disabled: !session.lockedVote }"
+          @click="pause"
+        >
+          {{ voteTimer ? "Pause" : "Resume" }}
+        </button>
+        <button class="vo-btn" @click="stop">Reset</button>
+      </div>
+    </transition>
+
+    <!-- FT-1311 item 3: THE PLAYER'S SURFACE IS ONE STRIP, ONE POSITION.
+         A seated player's Hand UP / Hand DOWN pair used to live in the
+         centre card before the vote and in the docked strip during it, so
+         it JUMPED to the rim at the exact moment the player was reaching
+         for it. Now the whole player surface stands at the dock slot from
+         the moment the nomination opens: same container, same transform,
+         both phases — zero movement by construction (the rig measures it).
+
+         The structure is deliberately identical in both phases — one
+         nomination line (nowrap, constant height), one row of tally +
+         hands — so nothing can reflow between "open" and "running". Only
+         the pace note at the line's end comes and goes, and it changes
+         the line's WIDTH, never its height or the row's centring.
+
+         My own hand is still ONE piece of state with two positions — the
+         plate on the group, `control-cell` on the cells, lit on the one
+         that is true (the night-mode switch's shape). Once my seat's vote
+         locks (or I never had one to raise), the pair stays standing at
+         full size with the lit cell frozen — `is-locked` below — rather
+         than vanishing and reflowing the strip: my choice standing still
+         IS the state, and a control that disappears mid-vote reads as a
+         bug from across the table. -->
+    <div class="overlay vo-docked vo-player" v-if="session.isSpectator">
+      <p class="vo-nomination">
+        <em class="blue">{{ nominator.name }}</em> nominated
+        <em>{{ nominee.name }}</em>
+        <span class="vo-pace" v-if="!isDocked"
+          >&middot; {{ votingSeconds }}s per seat</span
+        >
+      </p>
+      <div class="vo-player-row">
+        <div class="vo-tally" :class="{ 'is-majority': hasMajority }">
+          <div class="vo-count" data-tally>
+            <span class="vo-now">{{ voters.length }}</span>
+            <span class="vo-slash">/</span>
+            <span class="vo-need">{{ majority }}</span>
+          </div>
+        </div>
         <div
           class="vo-hands"
+          :class="{ 'is-locked': !canVote }"
           role="group"
           aria-label="Your vote"
-          v-else-if="canVote"
+          v-if="player"
+          :title="
+            canVote
+              ? ''
+              : 'Your vote is locked in — the sweep has passed your seat'
+          "
         >
           <button
             class="vo-hand"
             :class="{ on: !currentVote }"
             :aria-pressed="String(!currentVote)"
+            :aria-disabled="String(!canVote)"
             @click="vote(false)"
           >
+            <!-- User call 2026-08-28: ONE glyph for the pair — only Hand UP
+                 wears its palm; this cell is words alone. (ui-hand-down.svg
+                 stays in assets, stood down.) -->
             Hand DOWN
           </button>
           <button
             class="vo-hand"
             :class="{ on: !!currentVote }"
             :aria-pressed="String(!!currentVote)"
+            :aria-disabled="String(!canVote)"
             @click="vote(true)"
           >
+            <!-- User call 2026-08-28 (v5): the SAME painted manicule the
+                 nominate mark wears (ui-nominate-hand.png), turned upright
+                 by CSS — not a silhouette of it. -->
+            <span class="vo-hand-ic vo-hand-nom" aria-hidden="true"></span>
             Hand UP
           </button>
         </div>
+        <p class="vo-hint" v-else>Please claim a seat to vote.</p>
       </div>
-    </transition>
+    </div>
     <!-- THE COUNTDOWN, IN THE TOWER'S OWN NUMERALS (FT-1083, user call).
          Upstream counted in big saturated blue-then-red arabic digits that
          belonged to no other surface in this fork, and drew them BEHIND the
@@ -296,7 +343,7 @@
         <span class="vo-beat vo-beat-go">GO</span>
         <audio
           :autoplay="!grimoire.isMuted"
-          src="../assets/sounds/countdown.mp3"
+          src="../assets/sounds/countdown-loud.mp3"
           :muted="grimoire.isMuted"
         ></audio>
       </div>
@@ -1021,24 +1068,34 @@ export default {
   display: inline-flex;
   overflow: hidden;
 }
+// FT-1311 item 2 tunes the pair, small: the resting cells calm down to the
+// app's parchment ink (control-cell's plain white was the loudest thing on
+// the strip at rest), the glyph dims with its cell and wakes with it, and
+// the lit cell earns a real edge — a sunken well plus a purple keyline — so
+// "which way is my hand" reads from silhouette + ground, not hue alone.
+// Hand DOWN stays words alone (user call 2026-08-28: ONE glyph for the pair).
 .vo-hand {
   @include control-cell;
   font-size: 0.6em;
   font-weight: bold;
   padding: 0.5em 1.1em;
+  min-height: 2.9em;
   white-space: nowrap;
-  transition: color 150ms, background 150ms;
+  transition: color 150ms, background 150ms, box-shadow 150ms;
   display: inline-flex;
   align-items: center;
   gap: 0.5em;
+  color: #cfc4ad;
 
   /* The Hand UP glyph is the nominate manicule's own painted art
      (ui-nominate-hand.png), rotated upright — the art points right in
      file. Art, not a tinted mask, so it looks exactly like the coin's. */
   .vo-hand-ic {
-    width: 1.6em;
-    height: 1.6em;
+    width: 1.4em;
+    height: 1.4em;
     flex: 0 0 auto;
+    opacity: 0.75;
+    transition: opacity 150ms;
   }
   .vo-hand-nom {
     background: url("../assets/ui-nominate-hand.png") center / contain
@@ -1050,15 +1107,39 @@ export default {
   &:hover:not(.on) {
     background: $control-bg-hover;
     color: #fff;
+    .vo-hand-ic {
+      opacity: 1;
+    }
   }
   &.on {
     /* User call 2026-08-28: the lit cell wears the pick purple (the claim
        ask's #a78fcd family) instead of the control-on ink. */
-    background: rgba(167, 143, 205, 0.25);
-    color: #d9c8f5;
+    background: rgba(167, 143, 205, 0.28);
+    color: #e8dcfb;
+    box-shadow:
+      inset 0 0 0 1px rgba(167, 143, 205, 0.55),
+      inset 0 2px 6px rgba(0, 0, 0, 0.5);
+    .vo-hand-ic {
+      opacity: 1;
+    }
   }
   @media (pointer: coarse) {
     min-height: 40px;
+  }
+}
+
+// FT-1311 item 3: once the sweep has passed my seat (or I have no vote to
+// raise) the pair FREEZES instead of vanishing — the lit cell keeps saying
+// which way my hand stands, the dead cell drops back, and nothing reflows.
+// vote() already refuses the click (canVote guards it); this makes the
+// refusal visible.
+.vo-hands.is-locked {
+  pointer-events: none;
+  .vo-hand:not(.on) {
+    color: rgba(216, 205, 180, 0.35);
+    .vo-hand-ic {
+      opacity: 0.3;
+    }
   }
 }
 
@@ -1112,6 +1193,37 @@ export default {
       font-size: 1.1em;
     }
   }
+}
+
+// ── FT-1311 item 3: THE PLAYER'S STRIP ──────────────────────────────────────
+// The same .vo-docked plate and dock transform, standing from the moment the
+// nomination opens — it never rides the vo-dock transition, so the Hand UP /
+// Hand DOWN pair holds one screen position across "open" → "running" (the
+// rig proves the zero jump). A column of exactly two lines in both phases:
+// the nomination line on top (nowrap, one line, constant height), the
+// tally + hands row beneath. Only the pace note at the line's end differs
+// between phases, and width is the one dimension this layout lets vary.
+.vo-player {
+  flex-direction: column;
+  gap: 0.35em;
+
+  .vo-nomination {
+    white-space: nowrap;
+  }
+  .vo-pace {
+    color: #cfc4ad;
+    font-weight: normal;
+    // the gap before the middot lives here, not in template whitespace —
+    // vue-loader's condense mode eats an inter-element newline outright
+    // (measured: "Eve· 3s" with no space).
+    margin-left: 0.35em;
+  }
+}
+.vo-player-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8em;
 }
 
 // ── THE DOCK TRANSITION ─────────────────────────────────────────────────────
