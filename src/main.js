@@ -61,6 +61,10 @@ const faIcons = [
   // lab fixtures; there is no flask in the fork's own art set — the
   // Bell/BellSlash standing note applies).
   "Flask",
+  // FT-1313: the night checklist's per-row Skip — the pass-over mark beside
+  // Send (there is no skip glyph in the fork's own art set — the
+  // Bell/BellSlash standing note applies).
+  "Forward",
   // FT-1209: the Control settings tab's three row marks (Setup panel /
   // Control scheme) and the tab's own leaf mark — the person-with-a-gear,
   // distinct from the Game settings tab's plain Cog one leaf over.

@@ -61,10 +61,16 @@
            control that landed beside it says "Night" already and the pair
            was saying it twice on one line. The context FT-874 added is
            intact — it just stopped being said twice. -->
+      <!-- FT-1313 (user): "0 / 4" READ AS AN OBLIGATION — a score to finish.
+           The count now names what a storyteller actually tracks (rows still
+           OPEN, i.e. neither sent nor skipped), and the hover text says the
+           rule out loud: sending them all is never required. The folds below
+           carry the other half of the arithmetic (what was sent, what was
+           skipped, who is dead), so nothing the old fraction said is lost. -->
       <div class="phase" v-if="roster.length">
-        <span class="phase-progress"
+        <span class="phase-progress" :title="progressHint"
           ><span class="pp-label">Checklist:</span>
-          {{ progress.done }} / {{ progress.total }}</span
+          {{ progressWord }}</span
         >
         <!-- FT-882: THE DAY IS EDITABLE, and this is the whole of the undo
              the phase button does not have. A mis-tapped flip, a night
@@ -117,575 +123,654 @@
         v-else
         v-blood-scroll
       >
-        <li
-          v-for="row in roster"
-          :key="row.key"
-          class="ns-row"
-          :data-row-key="row.key"
-          :class="[
-            'team-' + (row.role.team || 'townsfolk'),
-            {
-              done: entryFor(row).done,
-              // FT-861: this row is a PERFORMANCE — the seat is being walked
-              // through a character it only thinks it has
-              performance: row.isPerformance,
-              // FT-874: the guided escape from a blocked end-night press —
-              // a brief highlight, not a permanent state
-              flash: flashing[row.key]
-            }
-          ]"
-        >
-          <!-- (FT-874's DONE CHECKBOX stood here, spanning both lines of the
-               row in the LEFT column. FT-1173 replaces it with the SEND
-               button below — same grid area, now a fixed RIGHT-hand column —
-               because the tick's job changed: a row's controls edit a local
-               draft now, and "this row is done" and "deliver what I
-               composed" became one press. Stood down per the house rule, not
-               torn out; its styles remain below under the same name.) -->
-          <span
-            v-if="false"
-            class="ns-check"
-            :class="{ checked: entryFor(row).done }"
-            :title="entryFor(row).done ? 'Done — click to reopen' : 'Mark this one done'"
-            tabindex="0"
-            role="checkbox"
-            :aria-checked="String(entryFor(row).done)"
-            @click="toggleDone(row)"
-            @keyup.enter="toggleDone(row)"
-            @keyup.space="toggleDone(row)"
+        <!-- FT-1313 (user, from a real game): THE LIST FOLDS AS IT IS WORKED.
+             One loop renders three groups — a collapsed SENT-&-SKIPPED fold at
+             the top (rows already handled leave the working list the moment
+             their button is pressed), the live rows, and a collapsed DEAD fold
+             at the bottom (seats that died keep their rows on the sheet, out
+             of the way, instead of vanishing as they did since FT-874 — see
+             the roster getter's own FT-1313 note). `renderList` interleaves
+             two pseudo-rows (`fold: true`) among the real ones so the row
+             markup below exists exactly ONCE; a fold's own row is just its
+             header button. NO DENSITY SETTING, deliberately: the fold header
+             stands in the list with its counts, one click from open, so
+             nothing is ever hidden — a setting would be a second answer to
+             the question the header already answers. -->
+        <template v-for="row in renderList">
+          <li
+            v-if="row.fold"
+            :key="row.key"
+            class="ns-fold"
+            :class="{ open: folds[row.id], dead: row.id === 'dead' }"
           >
-            <font-awesome-icon
-              :icon="entryFor(row).done ? 'check-square' : 'square'"
-            />
-          </span>
-
-          <!-- FT-1173: THE SEND BUTTON — one control, one meaning: "this row
-               is done." It spans both of the row's lines (grid-area "state",
-               now the FIXED right-hand column, so the buttons form a column
-               down rows of differing content widths).
-
-               WHAT A PRESS DOES depends on what is in front of it:
-               · edits staged (dirty) — commit the draft to the log, mark the
-                 row done, and — where the town is asking its players
-                 (mode "everyone") — the ask/answer lands on that one seat's
-                 own night surface through the delivery lane the log has
-                 always had. Nothing reached anybody while it was being
-                 composed; the drafts live in this component's own data.
-               · nothing staged — a plain done tick (and on a done row, the
-                 reopen), exactly the job the old checkbox did.
-               In storyteller-only mode there is no ask to deliver, so the
-               button honestly reads as a tick — same column, same meaning.
-               (Per FT-1107's user call the RECORD still reaches the seat's
-               own player when a row is committed in that mode — the tick is
-               about who is being ASKED, not about hiding their own log.)
-
-               ── FT-1272 (user): AND IT WILL NOT SEND AN EMPTY ANSWER. ──
-
-               A press used to deliver whatever was composed, including
-               nothing — and "nothing" reaches the player's own night surface
-               as a row with no answer on it at all, which reads to them as
-               the storyteller having answered and said nothing. The button is
-               disabled while an owed answer is missing; `sendDisabled` states
-               the predicate and `sendHint` says out loud what is missing, so
-               a greyed control never leaves the storyteller guessing.
-
-               ROWS THAT ARE TOLD NOTHING BACK ARE UNAFFECTED — the Monk, the
-               Poisoner, the Butler, the Imp have no answer control, so there
-               is nothing to be empty and they tick exactly as before.
-
-               One consequence, stated rather than discovered: with the
-               checklist set to REQUIRED (NightModeRow), End night was already
-               gated on every row being ticked, so it is now transitively
-               gated on every row being answered. That is the setting doing
-               what it says. In warn/off it stays a warning.
-
-               ── AND A SENT ROW STAYS SENT (FT-1272 item 6) ──
-
-               The button itself is never disabled on a done row: it is the
-               REOPEN, and it is the only way back into a locked row's
-               controls. See `isLocked`.
-
-               ── FT-1296 (user): AND IT ONLY SAYS "SEND" WHERE SOMETHING IS ──
-               ──                 ACTUALLY SENT.                            ──
-
-               "the imp doesn't get info from the story teller so send is the
-               wrong there. Same with poisoner and some other roles" — and the
-               other roles are the Monk and the Butler. Four rows in the
-               shipped table choose a seat and are told nothing back, so their
-               press delivers nothing and the word named an act that does not
-               happen.
-
-               The question is put to golem/nightInfo (`nightExchange`), which
-               reads it off the `by` every field has always carried — it is
-               `seatPickOwner`'s move a second time, not a role-name list here.
-               Three faces, and the row's OWN nature picks one:
-
-                 TELLS    Send / Sent, the paper plane. Something composed here
-                          reaches that seat.
-                 RECORDS  Received, the checkbox pair. The storyteller is
-                          writing down the player's own choice; the tick is the
-                          acknowledgement, and nothing leaves this browser.
-                 NEITHER  Done, the checkbox pair — the plain tick, identical
-                          to storyteller-only mode's, because that is what it
-                          is (unreachable on today's roster; see nightExchange).
-
-               WHY THE CHECKBOX PAIR AND NOT A NEW MARK. The plane means SENT
-               and only sent (FT-1211's ruling, still in force), so it cannot
-               go on a row that sends nothing. The bare tick is already the
-               DELIVERED row's done face, so borrowing it would put one glyph
-               on two meanings. `square`/`check-square` is the fork's own
-               existing "this is a tick, nothing travels" mark — it is what
-               THIS BUTTON already wears in storyteller-only mode — and it was
-               free in send mode. No new metaphor was needed.
-
-               REOPEN IS UNCHANGED ON BOTH (FT-1291): a done row of either kind
-               is never disabled, and its press is still the way back in.
-
-               ON THE CLASSES: `tickonly` widened from "the town is not asking
-               anybody" to its actual meaning — this press is a tick, nothing
-               travels — which is true of a RECORDS or NEITHER row in send mode
-               for exactly the same reason. `records` is new beside it. Both
-               are unstyled seams (the dress is carried by the glyph and by
-               `.sent`), kept so a later pass can separate the two ticks
-               without re-deriving which is which. -->
-          <button
-            type="button"
-            class="ns-send"
-            :class="{
-              sent: entryFor(row).done,
-              dirty: isDirty(row),
-              tickonly: !rowTells(row),
-              records: rowRecords(row),
-            }"
-            :disabled="sendDisabled(row)"
-            :title="sendHint(row)"
-            @click="sendRow(row)"
+            <button
+              type="button"
+              class="ns-fold-head"
+              :title="row.hint"
+              @click="toggleFold(row.id)"
+            >
+              <span class="ns-fold-caret">{{ folds[row.id] ? "▾" : "▸" }}</span>
+              <img
+                v-if="row.id === 'dead'"
+                :src="uiDead"
+                alt=""
+                class="ns-fold-mark"
+              />
+              <font-awesome-icon
+                v-else
+                icon="check-square"
+                class="ns-fold-fa"
+              />
+              <span class="ns-fold-label">{{ row.label }}</span>
+            </button>
+          </li>
+          <li
+            v-else
+            :key="row.key"
+            class="ns-row"
+            :data-row-key="row.key"
+            :class="[
+              'team-' + (row.role.team || 'townsfolk'),
+              {
+                done: entryFor(row).done,
+                // FT-861: this row is a PERFORMANCE — the seat is being walked
+                // through a character it only thinks it has
+                performance: row.isPerformance,
+                // FT-1313: passed over by the storyteller's own hand — dims
+                // like a done row; the Skip button stays bright (the way back)
+                skipped: isSkipped(row),
+                // FT-1313: a Dead-fold row — the seat no longer wakes
+                deadseat: row.isDeadSeat,
+                // FT-874: the guided escape from a blocked end-night press —
+                // a brief highlight, not a permanent state
+                flash: flashing[row.key],
+              },
+            ]"
           >
-            <font-awesome-icon :icon="sendIcon(row)" />
-            <span class="ns-send-word">{{ sendWord(row) }}</span>
-          </button>
-
-          <!-- IDENTITY (top-left): order, icon, "Role · Player" on ONE line
-               (FT-874 — was two stacked lines) plus the performance/belief
-               line when there is one. -->
-          <div class="ns-identity">
-            <span class="ns-ord" :title="'Night order ' + row.night">{{ row.order }}</span>
+            <!-- (FT-874's DONE CHECKBOX stood here, spanning both lines of the
+                 row in the LEFT column. FT-1173 replaces it with the SEND
+                 button below — same grid area, now a fixed RIGHT-hand column —
+                 because the tick's job changed: a row's controls edit a local
+                 draft now, and "this row is done" and "deliver what I
+                 composed" became one press. Stood down per the house rule, not
+                 torn out; its styles remain below under the same name.) -->
             <span
-              class="ns-icon"
-              :style="{ backgroundImage: `url(${roleIconUrl(row.isPerformance ? row.trueRole : row.role)})` }"
-            ></span>
-            <span class="ns-who">
-              <!-- FT-1034 (user call): a performance row leads with the TRUTH
-                   — the Drunk's own icon and name, then who they believe
-                   they are, then the seat. The masks line below folds away
-                   for these rows (its fact lives in the name now). -->
-              <span class="ns-name-line" v-if="row.isPerformance">
-                <b>{{ row.trueRole.name }}</b>
-                <span class="ns-sep">·</span>
-                <small>{{ row.role.name }}</small>
-                <span class="ns-sep">·</span>
-                <small>{{ row.player.name || "Open seat" }}</small>
-              </span>
-              <span class="ns-name-line" v-else>
-                <b>{{ row.role.name }}</b>
-                <span class="ns-sep">·</span>
-                <small>{{ row.player.name || "Open seat" }}</small>
-              </span>
-              <!-- FT-861: THE OTHER CHARACTER. The row names the one that
-                   ACTS in full, and the one the storyteller must not forget
-                   — because which of the two it is decides whether anything
-                   actually happens. -->
-              <!-- FT-1034: the performance masks line folded into the name above -->
-              <small class="ns-truth" v-if="row.isBelieving">
-                <font-awesome-icon icon="theater-masks" />
-                believes they are the {{ row.shownRole.name }}
-              </small>
+              v-if="false"
+              class="ns-check"
+              :class="{ checked: entryFor(row).done }"
+              :title="entryFor(row).done ? 'Done — click to reopen' : 'Mark this one done'"
+              tabindex="0"
+              role="checkbox"
+              :aria-checked="String(entryFor(row).done)"
+              @click="toggleDone(row)"
+              @keyup.enter="toggleDone(row)"
+              @keyup.space="toggleDone(row)"
+            >
+              <font-awesome-icon
+                :icon="entryFor(row).done ? 'check-square' : 'square'"
+              />
             </span>
 
-            <!-- FT-1150 (user): THE ABILITY MOVED UP HERE, onto the identity
-                 line, and the whole next line now belongs to the controls.
-                 "maybe we put the short ability description in line, with the
-                 role name and player name. then uses the whole next row for
-                 the info?"
+            <!-- FT-1173: THE SEND BUTTON — one control, one meaning: "this row
+                 is done." It spans both of the row's lines (grid-area "state",
+                 now the FIXED right-hand column, so the buttons form a column
+                 down rows of differing content widths).
 
-                 WHY IT IS THE ONE THAT YIELDS. The sentence is REFERENCE —
-                 read once on the first row that wakes, known by the third
-                 night — so it is the thing that can shrink and truncate (the
-                 tooltip still carries the official wording, FT-886). The
-                 answer controls are what a storyteller ACTS on, every night,
-                 under time pressure, and a control that truncates is just a
-                 control you cannot use. So the sentence gives up its own line
-                 and the controls take it whole.
+                 WHAT A PRESS DOES depends on what is in front of it:
+                 · edits staged (dirty) — commit the draft to the log, mark the
+                   row done, and — where the town is asking its players
+                   (mode "everyone") — the ask/answer lands on that one seat's
+                   own night surface through the delivery lane the log has
+                   always had. Nothing reached anybody while it was being
+                   composed; the drafts live in this component's own data.
+                 · nothing staged — a plain done tick (and on a done row, the
+                   reopen), exactly the job the old checkbox did.
+                 In storyteller-only mode there is no ask to deliver, so the
+                 button honestly reads as a tick — same column, same meaning.
+                 (Per FT-1107's user call the RECORD still reaches the seat's
+                 own player when a row is committed in that mode — the tick is
+                 about who is being ASKED, not about hiding their own log.)
 
-                 FT-874/882's arrangement had the two SHARING line two, which
-                 is why the controls were small: on the disc's ~370px band
-                 they were negotiating for roughly half of it and losing.
-                 Measured before this pass at 1280x800: the answer zone got
-                 188.8px of a 372px band and every information row stood 98.8px
-                 tall (three lines). See the style block's own note. -->
-            <span class="ns-reminder" :title="row.official">{{
-              row.reminder
-            }}</span>
-          </div>
+                 ── FT-1272 (user): AND IT WILL NOT SEND AN EMPTY ANSWER. ──
 
-          <!-- THE WORKING LINE (FT-882, re-tasked FT-1150). It used to hold
-               TWO children and exist to make them negotiate one line: the
-               ability sentence and the controls sat side by side where both
-               fit and the controls dropped below where they did not.
+                 A press used to deliver whatever was composed, including
+                 nothing — and "nothing" reaches the player's own night surface
+                 as a row with no answer on it at all, which reads to them as
+                 the storyteller having answered and said nothing. The button is
+                 disabled while an owed answer is missing; `sendDisabled` states
+                 the predicate and `sendHint` says out loud what is missing, so
+                 a greyed control never leaves the storyteller guessing.
 
-               There is nothing left to negotiate — the sentence moved onto
-               the identity line above, so this wrapper now holds the controls
-               alone and is simply the row's second line. It is KEPT rather
-               than folded away: it is the grid item the row's `work` area
-               names, the `.done` fade reaches through it by name, and the
-               disc's own rules hang off it. -->
-          <div class="ns-work">
-            <!-- THE ANSWER (right zone): what a storyteller records tonight.
-                 FT-862: this used to be a yes/no toggle on EVERY row — wrong
-                 for the Undertaker (a character) or the Empath (a number).
-                 golem/nightInfo's field table says which control belongs
-                 here; PLAYER-typed fields never appear a second time, they're
-                 already the SeatPickers to the left of this zone. -->
-            <div class="ns-answer">
-              <!-- FT-874: what's being recorded, stated rather than implied by
-                   the ability text — golem/nightInfo's per-character label,
-                   immediately before this row's first control. -->
-              <!-- FT-1229 (user): THE ROW'S GRAMMAR SPLITS where a row holds
-                   both halves of a night action. The seat pickers are the
-                   PLAYER'S choice (the Fortune Teller points at two seats),
-                   and the told control is what the character is TOLD back —
-                   two different speakers, so two labels: "Selects:" before
-                   the pickers, the role's own verb (usually "Learns:")
-                   before the answer. A row with only one half keeps its one
-                   label exactly as before. The labels' titles carry the
-                   provenance lesson — a gold-seamed slot arrived from the
-                   player's own hand (FT-1005's mark), a plain one is the
-                   storyteller's entry. No new chrome; the seam was already
-                   the mark.
+                 ROWS THAT ARE TOLD NOTHING BACK ARE UNAFFECTED — the Monk, the
+                 Poisoner, the Butler, the Imp have no answer control, so there
+                 is nothing to be empty and they tick exactly as before.
 
-                   ── FT-1272 (user): "Selects:" WAS WRONG, AND WRONG BY ──
-                       READING THE WRONG FACT.
+                 One consequence, stated rather than discovered: with the
+                 checklist set to REQUIRED (NightModeRow), End night was already
+                 gated on every row being ticked, so it is now transitively
+                 gated on every row being answered. That is the setting doing
+                 what it says. In warn/off it stays a warning.
 
-                   A Librarian selects nothing. A Washerwoman selects nothing.
-                   An Investigator selects nothing. The STORYTELLER decides
-                   which two players to point at and which character to name;
-                   the player sits there with their eyes shut. FT-1229 split
-                   the grammar on whether the row HAS seat slots, and the
-                   checklist draws a slot for every pointing whoever makes it,
-                   so every first-night info role was labelled as if the
-                   player had chosen its targets.
+                 ── AND A SENT ROW STAYS SENT (FT-1272 item 6) ──
 
-                   The label now asks the ROLE what kind of act its seats are
-                   — golem/nightInfo's `seatPickOwner`, off the `by` each
-                   PLAYER field has always carried — and never the role's
-                   name. See `seatsAreStorytellers` for the verb's own
-                   reasoning ("Points at:" over "Shows:"). -->
-              <span
-                v-if="splitLabels(row)"
-                class="ns-label ns-label-selects"
-                :class="{ 'by-storyteller': seatsAreStorytellers(row) }"
-                :title="selectsHint(row)"
-                >{{ seatVerb(row) }}</span
-              >
-              <span v-else-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
+                 The button itself is never disabled on a done row: it is the
+                 REOPEN, and it is the only way back into a locked row's
+                 controls. See `isLocked`.
 
-              <!-- FT-1005: a slot the seat's own player filled wears the gold
-                   seam (see .from-player below) — the quiet mark that says
-                   "their own pick" apart from the storyteller's record. The
-                   storyteller's edit clears it (setTarget). -->
-              <!-- FT-1150 (user): A SEAT PICKER SHOWS EXACTLY WHAT THE PLAYER
-                   WILL SEE — names, and nothing about anybody's character.
-                   "they shouldn't see Fake 1 is an imp, so once the player
-                   has been selected just show the player names. if it is a
-                   select player, exactly as the player will see."
+                 ── FT-1296 (user): AND IT ONLY SAYS "SEND" WHERE SOMETHING IS ──
+                 ──                 ACTUALLY SENT.                            ──
 
-                   `show-role` used to be passed `isStoryteller`, which is
-                   always true here (this component mounts for the storyteller
-                   alone), so the trigger read "1. / Fake 1 / Imp" — the
-                   seat's TRUE CHARACTER, printed inside a control whose whole
-                   job is to compose WHAT THIS PLAYER IS BEING TOLD. Wrong
-                   subject. It is the same call FT-986 already made about this
-                   control's COLOUR: a seat picker on this sheet answers what
-                   the viewer is TOLD, never what they ARE.
+                 "the imp doesn't get info from the story teller so send is the
+                 wrong there. Same with poisoner and some other roles" — and the
+                 other roles are the Monk and the Butler. Four rows in the
+                 shipped table choose a seat and are told nothing back, so their
+                 press delivers nothing and the word named an act that does not
+                 happen.
 
-                   FALSE RATHER THAN REMOVED, and the prop stays bound: the
-                   gate is a real prop on SeatPicker (default false) and
-                   writing the decision out here is what makes it reviewable.
-                   `icon-for` stays bound too — SeatPicker only ever calls it
-                   behind `show-role`, so it is inert while this is false and
-                   is one edit away from being live again.
+                 The question is put to golem/nightInfo (`nightExchange`), which
+                 reads it off the `by` every field has always carried — it is
+                 `seatPickOwner`'s move a second time, not a role-name list here.
+                 Three faces, and the row's OWN nature picks one:
 
-                   NOT SWEPT ANYWHERE ELSE. The CHARACTER picker below keeps
-                   its characters: a character IS what the Ravenkeeper and the
-                   Undertaker are shown, so showing it is the same rule, not
-                   an exception to it. And the storyteller's own bookkeeping
-                   on this row (the truth chip, the lie mask, the grimoire
-                   grant) is not a rendering of what a player receives at all,
-                   so this rule does not reach it. The grimoire itself still
-                   holds everything; this is one control not lying about its
-                   own subject. -->
-              <!-- FT-1173: every control on this line reads viewFor(row) —
-                   the stored entry with this component's own uncommitted
-                   draft laid over it. A player's arriving pick still shows
-                   (it lands in the store), the storyteller's own edits show
-                   (they land in the draft), and nothing the storyteller
-                   stages leaves this browser until the row's Send. -->
-              <SeatPicker
-                v-for="slot in row.slots"
-                :key="'seat' + slot"
-                class="ns-target"
-                :class="{ 'from-player': targetBy(row, slot - 1) === 'player' }"
-                :players="players"
-                :picked-seat="viewFor(row).targets[slot - 1]"
-                :show-role="false"
-                :icon-for="p => roleIconUrl(p.role)"
-                :disabled="isLocked(row)"
-                :title="targetHint(row, slot)"
-                @pick="seat => setTarget(row, slot - 1, seat)"
-              />
+                   TELLS    Send / Sent, the paper plane. Something composed here
+                            reaches that seat.
+                   RECORDS  Received, the checkbox pair. The storyteller is
+                            writing down the player's own choice; the tick is the
+                            acknowledgement, and nothing leaves this browser.
+                   NEITHER  Done, the checkbox pair — the plain tick, identical
+                            to storyteller-only mode's, because that is what it
+                            is (unreachable on today's roster; see nightExchange).
 
-              <!-- FT-1229: the told half's own label — see the Selects note
-                   above. The role's verb where nightInfo wrote one, plain
-                   "Learns:" where it did not. -->
-              <span
-                v-if="splitLabels(row)"
-                class="ns-label ns-label-learns"
-                :title="learnsHint(row)"
-                >{{ rowLabel(row) || "Learns:" }}</span
-              >
+                 WHY THE CHECKBOX PAIR AND NOT A NEW MARK. The plane means SENT
+                 and only sent (FT-1211's ruling, still in force), so it cannot
+                 go on a row that sends nothing. The bare tick is already the
+                 DELIVERED row's done face, so borrowing it would put one glyph
+                 on two meanings. `square`/`check-square` is the fork's own
+                 existing "this is a tick, nothing travels" mark — it is what
+                 THIS BUTTON already wears in storyteller-only mode — and it was
+                 free in send mode. No new metaphor was needed.
 
-              <template v-for="(field, fi) in extraFieldsFor(row).fields">
-                <!-- FT-1114 (user): "the yes, no can't be a tri-state
-                     toggle. it needs to be a selector drop down or the user
-                     might see the state. while the storyteller is cycling the
-                     info."
+                 REOPEN IS UNCHANGED ON BOTH (FT-1291): a done row of either kind
+                 is never disabled, and its press is still the way back in.
 
-                     THE CYCLE WAS A LEAK. Every click of the old button wrote
-                     `told.ping` straight through, and that write reaches the
-                     seat it is about — so a storyteller who meant NO and
-                     clicked twice showed the player YES on the way there.
-                     Nothing was wrong with the value that landed; the player
-                     simply saw the one before it.
-
-                     A dropdown has no way there: the list is a local view, and
-                     exactly one value is ever written — the one that was
-                     chosen. Reusing the panel's own OptionSelect rather than
-                     rolling a third control, so this row also inherits the
-                     plum the settings dropdowns just took.
-
-                     ── FT-1272, THE QUESTION THAT LIVES RIGHT HERE ──
-
-                     Asked (user): should this dropdown be disabled for the
-                     storyteller when night actions are set to EVERYONE — the
-                     players are answering for themselves, so why is the
-                     storyteller still filling it in?
-
-                     ANSWERED: NO, AND ON PURPOSE. The storyteller stays able
-                     to fill or correct any row. A player may not answer, may
-                     be absent, may misclick, may hand their phone to someone
-                     — and the storyteller is the authority on what was
-                     actually told at the table, which is the thing this row
-                     records. Taking the control away would leave the one
-                     person who KNOWS the answer unable to enter it.
-
-                     The player's own arrival is already visible without
-                     disabling anything: a slot they filled themselves wears
-                     the gold seam (FT-1005, `.from-player`), so the
-                     storyteller can see at a glance which half of the row
-                     came from the table and which is their own hand. That is
-                     the honest signal — a disabled control would have said
-                     "this is not yours", which is false.
-
-                     (The SENT-row lock below is a different rule and not an
-                     exception to this one: it is about an answer already
-                     delivered, not about whose answer it is.) -->
-                <OptionSelect
-                  v-if="kindOf(field) === 'boolean'"
-                  :key="'f' + fi"
-                  class="ns-told-sel"
-                  :class="pingClass(row)"
-                  name="ns-ping"
-                  hoist
-                  aria-label="What you told them"
-                  :options="pingOptions"
-                  :value="pingValue(row)"
-                  :disabled="isLocked(row)"
-                  :title="pingHint(row)"
-                  @input="v => setPing(row, v)"
-                />
-
-                <NumberScrub
-                  v-else-if="kindOf(field) === 'number'"
-                  :key="'f' + fi"
-                  class="ns-num"
-                  preset="night"
-                  :value="numberValue(row, field)"
-                  :min="field.min"
-                  :max="field.max"
-                  :disabled="isLocked(row)"
-                  :title="numberHint(field)"
-                  @input="n => setNumber(row, n)"
-                />
-
-                <CharacterPicker
-                  v-else-if="kindOf(field) === 'character'"
-                  :key="'f' + fi"
-                  class="ns-charpick"
-                  :roles="scriptRoles"
-                  :picked-id="viewFor(row).told.characterId"
-                  :picked-name="viewFor(row).told.characterName"
-                  :icon-for="roleIconUrl"
-                  :disabled="isLocked(row)"
-                  title="What you showed them — a character"
-                  @pick="c => setCharacter(row, c.id, c.name)"
-                />
-
-                <!-- FT-1003: the granted grimoire — the row whose information
-                     IS the whole town (the Spy, the Widow; golem/nightInfo's
-                     GRIMOIRE field, never a role-name list here). Show opens
-                     the reveal on that ONE seat's client; the pin keeps it
-                     open past the night's end and across their reconnect.
-                     Disabled while the seat is unclaimed — there is no client
-                     to show it to. -->
-                <span
-                  v-else-if="kindOf(field) === 'grimoire'"
-                  :key="'f' + fi"
-                  class="ns-grim"
-                >
-                  <button
-                    type="button"
-                    class="ns-grim-show"
-                    :class="{ on: !!grantFor(row) }"
-                    :disabled="!row.player.id"
-                    :title="grimHint(row)"
-                    @click="toggleGrimoireShown(row)"
-                  >
-                    <font-awesome-icon icon="eye" />
-                    {{ grantFor(row) ? "Shown" : "Show" }}
-                  </button>
-                  <button
-                    v-if="grantFor(row)"
-                    type="button"
-                    class="ns-grim-pin"
-                    :class="{ on: grantFor(row).pinned }"
-                    :title="pinHint(row)"
-                    @click="pinGrimoireShown(row)"
-                  >
-                    <font-awesome-icon icon="thumbtack" />
-                  </button>
-                </span>
-
-                <!-- FT-1028 (user call): "we can get rid of that for spy" —
-                     a row that already carries the GRIMOIRE field (the Spy,
-                     the Widow) has nothing left for a free-text note to say:
-                     the grimoire itself IS the answer. `told.text` stays in
-                     the stored shape untouched (the ledger's write path is
-                     unchanged); this only stops the box from rendering on
-                     exactly those rows. Every other role's fallback note
-                     still renders as before. -->
-                <input
-                  v-else-if="!isGrimoireRow(row)"
-                  :key="'f' + fi"
-                  type="text"
-                  class="ns-free"
-                  placeholder="What you told them"
-                  spellcheck="false"
-                  :disabled="isLocked(row)"
-                  :value="viewFor(row).told.text"
-                  @input="setNote(row, $event.target.value)"
-                />
-              </template>
-
-              <!-- ...and whether it was a LIE — only offered where there is
-                   information to have lied about (golem/nightInfo's
-                   mayBeFalse). Poisoner/Monk/Butler/Imp tell nothing back, so
-                   the question doesn't apply.
-
-                   FT-874 (2026-08-19, user call): THE LIAR MARK. It was a
-                   square checkbox, which says "a setting" where the row means
-                   "what you told them was not true". It is now the MASK — and
-                   the mask is not invented for it: this component already
-                   wears `theater-masks` on .ns-truth, a dozen lines up, for a
-                   seat being walked through a character it only thinks it has.
-                   Same glyph, same idea, same colour: what is shown is not
-                   what is true.
-
-                   The glyph no longer CHANGES between states (a mask is a
-                   mask), so brightness carries the state on its own — see
-                   .ns-lie: dim parchment in a pressable box when off, lit gold
-                   when on. Exactly two states, no third. -->
-              <!-- FT-1005: THE PLAYER'S OWN WORDS — their free-text choice,
-                   arrived over the wire (entry.playerText). Rendered in the
-                   same gold as the player-filled slots, quoted so it reads as
-                   speech rather than as the storyteller's own note (which
-                   stays told.text, in the free box). Never editable here —
-                   it is theirs. -->
-              <span
-                v-if="entryFor(row).playerText"
-                class="ns-player-said"
-                :title="'Entered by the player: ' + entryFor(row).playerText"
-              >
-                &ldquo;{{ entryFor(row).playerText }}&rdquo;
-              </span>
-
-              <!-- FT-1121: THE GRIMOIRE'S OWN ANSWER, beside the row.
-                   Storyteller-only like everything else in this component,
-                   and shown ONLY where golem/nightTruth can actually compute
-                   it — an uncomputable row shows nothing at all rather than
-                   an empty slot that would read as "no evil neighbours".
-
-                   It exists so a storyteller lies ON PURPOSE. The mask a few
-                   pixels to its right says WHETHER what they gave was false;
-                   this says WHAT WOULD HAVE BEEN TRUE, and it is deliberately
-                   the quieter of the two — sage rather than gold, because
-                   gold on this row means "not true" (see .ns-lie's colour
-                   note) and this is the opposite statement. The word
-                   "poisoned" / "drunk" rides it when the seat is impaired, so
-                   a lit mask beside it reads as correct play rather than as a
-                   mistake. -->
-              <span
-                v-if="truthOf(row).known"
-                class="ns-oracle"
-                :class="{ differs: verdictFor(row).differs === true }"
-                :title="truthHint(row)"
-              >
-                <span class="ns-oracle-tag">truth</span>
-                <span class="ns-oracle-val">{{ truthOf(row).display }}</span>
-                <span class="ns-oracle-imp" v-if="impairedOf(row)">{{
-                  impairedOf(row)
-                }}</span>
-              </span>
-
-              <span
-                v-if="extraFieldsFor(row).mayBeFalse"
-                class="ns-lie"
+                 ON THE CLASSES: `tickonly` widened from "the town is not asking
+                 anybody" to its actual meaning — this press is a tick, nothing
+                 travels — which is true of a RECORDS or NEITHER row in send mode
+                 for exactly the same reason. `records` is new beside it. Both
+                 are unstyled seams (the dress is carried by the glyph and by
+                 `.sent`), kept so a later pass can separate the two ticks
+                 without re-deriving which is which. -->
+            <!-- FT-1313: THE STATE CELL HOLDS TWO BUTTONS NOW — Send above,
+                 Skip below, one column (`.ns-state` took the grid area the
+                 send button held alone since FT-1173). Skip is the
+                 storyteller's explicit "not this one": no send, nothing
+                 logged, the row folds into the Sent-&-skipped group at the top
+                 of the list and stops counting toward the open count and the
+                 End-night checks. EVERY live row is skippable — skipping is
+                 the storyteller's right, so there is no per-role gate — and
+                 the same button un-skips (it stays bright inside the fold, the
+                 way the Send button stays bright on a done row). Hidden on a
+                 DONE row (a sent row's way back is the reopen, not a second
+                 control) and on a Dead-fold row (nothing there is owed, so
+                 there is nothing to skip). Skip marks live in this component
+                 + a per-town localStorage stash, never in the log and never
+                 on the wire: a skip is the storyteller declining to write,
+                 so it must not create an entry — an entry is delivered to
+                 the seat it names (FT-1272's empty-answer lesson). -->
+            <span class="ns-state">
+              <button
+                type="button"
+                class="ns-send"
                 :class="{
-                  on: lieOn(row),
-                  byhand: viewFor(row).lieBy === 'storyteller',
-                  locked: isLocked(row),
+                  sent: entryFor(row).done,
+                  dirty: isDirty(row),
+                  tickonly: !rowTells(row),
+                  records: rowRecords(row),
                 }"
-                :tabindex="isLocked(row) ? -1 : 0"
-                role="checkbox"
-                :aria-checked="String(lieOn(row))"
-                :aria-disabled="String(isLocked(row))"
-                :title="lieHint(row)"
-                @click="toggleLie(row)"
-                @keyup.enter="toggleLie(row)"
-                @keyup.space="toggleLie(row)"
+                :disabled="sendDisabled(row)"
+                :title="sendHint(row)"
+                @click="sendRow(row)"
               >
-                <font-awesome-icon icon="theater-masks" />
+                <font-awesome-icon :icon="sendIcon(row)" />
+                <span class="ns-send-word">{{ sendWord(row) }}</span>
+              </button>
+              <button
+                v-if="!row.isDeadSeat && !entryFor(row).done"
+                type="button"
+                class="ns-skip"
+                :class="{ on: isSkipped(row) }"
+                :title="skipHint(row)"
+                @click="toggleSkip(row)"
+              >
+                <font-awesome-icon icon="forward" />
+                <span class="ns-skip-word">{{
+                  isSkipped(row) ? "Skipped" : "Skip"
+                }}</span>
+              </button>
+            </span>
+
+            <!-- IDENTITY (top-left): order, icon, "Role · Player" on ONE line
+                 (FT-874 — was two stacked lines) plus the performance/belief
+                 line when there is one. -->
+            <div class="ns-identity">
+              <span class="ns-ord" :title="'Night order ' + row.night">{{ row.order }}</span>
+              <span
+                class="ns-icon"
+                :style="{ backgroundImage: `url(${roleIconUrl(row.isPerformance ? row.trueRole : row.role)})` }"
+              ></span>
+              <span class="ns-who">
+                <!-- FT-1034 (user call): a performance row leads with the TRUTH
+                     — the Drunk's own icon and name, then who they believe
+                     they are, then the seat. The masks line below folds away
+                     for these rows (its fact lives in the name now). -->
+                <span class="ns-name-line" v-if="row.isPerformance">
+                  <b>{{ row.trueRole.name }}</b>
+                  <span class="ns-sep">·</span>
+                  <small>{{ row.role.name }}</small>
+                  <span class="ns-sep">·</span>
+                  <small>{{ row.player.name || "Open seat" }}</small>
+                </span>
+                <span class="ns-name-line" v-else>
+                  <b>{{ row.role.name }}</b>
+                  <span class="ns-sep">·</span>
+                  <small>{{ row.player.name || "Open seat" }}</small>
+                </span>
+                <!-- FT-861: THE OTHER CHARACTER. The row names the one that
+                     ACTS in full, and the one the storyteller must not forget
+                     — because which of the two it is decides whether anything
+                     actually happens. -->
+                <!-- FT-1034: the performance masks line folded into the name above -->
+                <small class="ns-truth" v-if="row.isBelieving">
+                  <font-awesome-icon icon="theater-masks" />
+                  believes they are the {{ row.shownRole.name }}
+                </small>
               </span>
+
+              <!-- FT-1150 (user): THE ABILITY MOVED UP HERE, onto the identity
+                   line, and the whole next line now belongs to the controls.
+                   "maybe we put the short ability description in line, with the
+                   role name and player name. then uses the whole next row for
+                   the info?"
+
+                   WHY IT IS THE ONE THAT YIELDS. The sentence is REFERENCE —
+                   read once on the first row that wakes, known by the third
+                   night — so it is the thing that can shrink and truncate (the
+                   tooltip still carries the official wording, FT-886). The
+                   answer controls are what a storyteller ACTS on, every night,
+                   under time pressure, and a control that truncates is just a
+                   control you cannot use. So the sentence gives up its own line
+                   and the controls take it whole.
+
+                   FT-874/882's arrangement had the two SHARING line two, which
+                   is why the controls were small: on the disc's ~370px band
+                   they were negotiating for roughly half of it and losing.
+                   Measured before this pass at 1280x800: the answer zone got
+                   188.8px of a 372px band and every information row stood 98.8px
+                   tall (three lines). See the style block's own note. -->
+              <span class="ns-reminder" :title="row.official">{{
+                row.reminder
+              }}</span>
             </div>
 
-            <!-- (FT-874's ability line stood HERE, as the second child of
-                 .ns-work. FT-1150 moved it up into .ns-identity — see its
-                 own note there. Everything about it is unchanged: still ONE
-                 line, still truncated because a storyteller is SCANNING a
-                 checklist rather than reading to learn a script, still
-                 showing our short `reminder` with the OFFICIAL wording on
-                 the tooltip (FT-886/882). Only which line it rides moved.) -->
-          </div>
-        </li>
+            <!-- THE WORKING LINE (FT-882, re-tasked FT-1150). It used to hold
+                 TWO children and exist to make them negotiate one line: the
+                 ability sentence and the controls sat side by side where both
+                 fit and the controls dropped below where they did not.
+
+                 There is nothing left to negotiate — the sentence moved onto
+                 the identity line above, so this wrapper now holds the controls
+                 alone and is simply the row's second line. It is KEPT rather
+                 than folded away: it is the grid item the row's `work` area
+                 names, the `.done` fade reaches through it by name, and the
+                 disc's own rules hang off it. -->
+            <div class="ns-work">
+              <!-- THE ANSWER (right zone): what a storyteller records tonight.
+                   FT-862: this used to be a yes/no toggle on EVERY row — wrong
+                   for the Undertaker (a character) or the Empath (a number).
+                   golem/nightInfo's field table says which control belongs
+                   here; PLAYER-typed fields never appear a second time, they're
+                   already the SeatPickers to the left of this zone. -->
+              <div class="ns-answer">
+                <!-- FT-874: what's being recorded, stated rather than implied by
+                     the ability text — golem/nightInfo's per-character label,
+                     immediately before this row's first control. -->
+                <!-- FT-1229 (user): THE ROW'S GRAMMAR SPLITS where a row holds
+                     both halves of a night action. The seat pickers are the
+                     PLAYER'S choice (the Fortune Teller points at two seats),
+                     and the told control is what the character is TOLD back —
+                     two different speakers, so two labels: "Selects:" before
+                     the pickers, the role's own verb (usually "Learns:")
+                     before the answer. A row with only one half keeps its one
+                     label exactly as before. The labels' titles carry the
+                     provenance lesson — a gold-seamed slot arrived from the
+                     player's own hand (FT-1005's mark), a plain one is the
+                     storyteller's entry. No new chrome; the seam was already
+                     the mark.
+
+                     ── FT-1272 (user): "Selects:" WAS WRONG, AND WRONG BY ──
+                         READING THE WRONG FACT.
+
+                     A Librarian selects nothing. A Washerwoman selects nothing.
+                     An Investigator selects nothing. The STORYTELLER decides
+                     which two players to point at and which character to name;
+                     the player sits there with their eyes shut. FT-1229 split
+                     the grammar on whether the row HAS seat slots, and the
+                     checklist draws a slot for every pointing whoever makes it,
+                     so every first-night info role was labelled as if the
+                     player had chosen its targets.
+
+                     The label now asks the ROLE what kind of act its seats are
+                     — golem/nightInfo's `seatPickOwner`, off the `by` each
+                     PLAYER field has always carried — and never the role's
+                     name. See `seatsAreStorytellers` for the verb's own
+                     reasoning ("Points at:" over "Shows:"). -->
+                <span
+                  v-if="splitLabels(row)"
+                  class="ns-label ns-label-selects"
+                  :class="{ 'by-storyteller': seatsAreStorytellers(row) }"
+                  :title="selectsHint(row)"
+                  >{{ seatVerb(row) }}</span
+                >
+                <span v-else-if="rowLabel(row)" class="ns-label">{{ rowLabel(row) }}</span>
+
+                <!-- FT-1005: a slot the seat's own player filled wears the gold
+                     seam (see .from-player below) — the quiet mark that says
+                     "their own pick" apart from the storyteller's record. The
+                     storyteller's edit clears it (setTarget). -->
+                <!-- FT-1150 (user): A SEAT PICKER SHOWS EXACTLY WHAT THE PLAYER
+                     WILL SEE — names, and nothing about anybody's character.
+                     "they shouldn't see Fake 1 is an imp, so once the player
+                     has been selected just show the player names. if it is a
+                     select player, exactly as the player will see."
+
+                     `show-role` used to be passed `isStoryteller`, which is
+                     always true here (this component mounts for the storyteller
+                     alone), so the trigger read "1. / Fake 1 / Imp" — the
+                     seat's TRUE CHARACTER, printed inside a control whose whole
+                     job is to compose WHAT THIS PLAYER IS BEING TOLD. Wrong
+                     subject. It is the same call FT-986 already made about this
+                     control's COLOUR: a seat picker on this sheet answers what
+                     the viewer is TOLD, never what they ARE.
+
+                     FALSE RATHER THAN REMOVED, and the prop stays bound: the
+                     gate is a real prop on SeatPicker (default false) and
+                     writing the decision out here is what makes it reviewable.
+                     `icon-for` stays bound too — SeatPicker only ever calls it
+                     behind `show-role`, so it is inert while this is false and
+                     is one edit away from being live again.
+
+                     NOT SWEPT ANYWHERE ELSE. The CHARACTER picker below keeps
+                     its characters: a character IS what the Ravenkeeper and the
+                     Undertaker are shown, so showing it is the same rule, not
+                     an exception to it. And the storyteller's own bookkeeping
+                     on this row (the truth chip, the lie mask, the grimoire
+                     grant) is not a rendering of what a player receives at all,
+                     so this rule does not reach it. The grimoire itself still
+                     holds everything; this is one control not lying about its
+                     own subject. -->
+                <!-- FT-1173: every control on this line reads viewFor(row) —
+                     the stored entry with this component's own uncommitted
+                     draft laid over it. A player's arriving pick still shows
+                     (it lands in the store), the storyteller's own edits show
+                     (they land in the draft), and nothing the storyteller
+                     stages leaves this browser until the row's Send. -->
+                <SeatPicker
+                  v-for="slot in row.slots"
+                  :key="'seat' + slot"
+                  class="ns-target"
+                  :class="{ 'from-player': targetBy(row, slot - 1) === 'player' }"
+                  :players="players"
+                  :picked-seat="viewFor(row).targets[slot - 1]"
+                  :show-role="false"
+                  :icon-for="p => roleIconUrl(p.role)"
+                  :disabled="isLocked(row)"
+                  :title="targetHint(row, slot)"
+                  @pick="seat => setTarget(row, slot - 1, seat)"
+                />
+
+                <!-- FT-1229: the told half's own label — see the Selects note
+                     above. The role's verb where nightInfo wrote one, plain
+                     "Learns:" where it did not. -->
+                <span
+                  v-if="splitLabels(row)"
+                  class="ns-label ns-label-learns"
+                  :title="learnsHint(row)"
+                  >{{ rowLabel(row) || "Learns:" }}</span
+                >
+
+                <template v-for="(field, fi) in extraFieldsFor(row).fields">
+                  <!-- FT-1114 (user): "the yes, no can't be a tri-state
+                       toggle. it needs to be a selector drop down or the user
+                       might see the state. while the storyteller is cycling the
+                       info."
+
+                       THE CYCLE WAS A LEAK. Every click of the old button wrote
+                       `told.ping` straight through, and that write reaches the
+                       seat it is about — so a storyteller who meant NO and
+                       clicked twice showed the player YES on the way there.
+                       Nothing was wrong with the value that landed; the player
+                       simply saw the one before it.
+
+                       A dropdown has no way there: the list is a local view, and
+                       exactly one value is ever written — the one that was
+                       chosen. Reusing the panel's own OptionSelect rather than
+                       rolling a third control, so this row also inherits the
+                       plum the settings dropdowns just took.
+
+                       ── FT-1272, THE QUESTION THAT LIVES RIGHT HERE ──
+
+                       Asked (user): should this dropdown be disabled for the
+                       storyteller when night actions are set to EVERYONE — the
+                       players are answering for themselves, so why is the
+                       storyteller still filling it in?
+
+                       ANSWERED: NO, AND ON PURPOSE. The storyteller stays able
+                       to fill or correct any row. A player may not answer, may
+                       be absent, may misclick, may hand their phone to someone
+                       — and the storyteller is the authority on what was
+                       actually told at the table, which is the thing this row
+                       records. Taking the control away would leave the one
+                       person who KNOWS the answer unable to enter it.
+
+                       The player's own arrival is already visible without
+                       disabling anything: a slot they filled themselves wears
+                       the gold seam (FT-1005, `.from-player`), so the
+                       storyteller can see at a glance which half of the row
+                       came from the table and which is their own hand. That is
+                       the honest signal — a disabled control would have said
+                       "this is not yours", which is false.
+
+                       (The SENT-row lock below is a different rule and not an
+                       exception to this one: it is about an answer already
+                       delivered, not about whose answer it is.) -->
+                  <OptionSelect
+                    v-if="kindOf(field) === 'boolean'"
+                    :key="'f' + fi"
+                    class="ns-told-sel"
+                    :class="pingClass(row)"
+                    name="ns-ping"
+                    hoist
+                    aria-label="What you told them"
+                    :options="pingOptions"
+                    :value="pingValue(row)"
+                    :disabled="isLocked(row)"
+                    :title="pingHint(row)"
+                    @input="v => setPing(row, v)"
+                  />
+
+                  <NumberScrub
+                    v-else-if="kindOf(field) === 'number'"
+                    :key="'f' + fi"
+                    class="ns-num"
+                    preset="night"
+                    :value="numberValue(row, field)"
+                    :min="field.min"
+                    :max="field.max"
+                    :disabled="isLocked(row)"
+                    :title="numberHint(field)"
+                    @input="n => setNumber(row, n)"
+                  />
+
+                  <CharacterPicker
+                    v-else-if="kindOf(field) === 'character'"
+                    :key="'f' + fi"
+                    class="ns-charpick"
+                    :roles="scriptRoles"
+                    :picked-id="viewFor(row).told.characterId"
+                    :picked-name="viewFor(row).told.characterName"
+                    :icon-for="roleIconUrl"
+                    :disabled="isLocked(row)"
+                    title="What you showed them — a character"
+                    @pick="c => setCharacter(row, c.id, c.name)"
+                  />
+
+                  <!-- FT-1003: the granted grimoire — the row whose information
+                       IS the whole town (the Spy, the Widow; golem/nightInfo's
+                       GRIMOIRE field, never a role-name list here). Show opens
+                       the reveal on that ONE seat's client; the pin keeps it
+                       open past the night's end and across their reconnect.
+                       Disabled while the seat is unclaimed — there is no client
+                       to show it to. -->
+                  <span
+                    v-else-if="kindOf(field) === 'grimoire'"
+                    :key="'f' + fi"
+                    class="ns-grim"
+                  >
+                    <button
+                      type="button"
+                      class="ns-grim-show"
+                      :class="{ on: !!grantFor(row) }"
+                      :disabled="!row.player.id"
+                      :title="grimHint(row)"
+                      @click="toggleGrimoireShown(row)"
+                    >
+                      <font-awesome-icon icon="eye" />
+                      {{ grantFor(row) ? "Shown" : "Show" }}
+                    </button>
+                    <button
+                      v-if="grantFor(row)"
+                      type="button"
+                      class="ns-grim-pin"
+                      :class="{ on: grantFor(row).pinned }"
+                      :title="pinHint(row)"
+                      @click="pinGrimoireShown(row)"
+                    >
+                      <font-awesome-icon icon="thumbtack" />
+                    </button>
+                  </span>
+
+                  <!-- FT-1028 (user call): "we can get rid of that for spy" —
+                       a row that already carries the GRIMOIRE field (the Spy,
+                       the Widow) has nothing left for a free-text note to say:
+                       the grimoire itself IS the answer. `told.text` stays in
+                       the stored shape untouched (the ledger's write path is
+                       unchanged); this only stops the box from rendering on
+                       exactly those rows. Every other role's fallback note
+                       still renders as before. -->
+                  <input
+                    v-else-if="!isGrimoireRow(row)"
+                    :key="'f' + fi"
+                    type="text"
+                    class="ns-free"
+                    placeholder="What you told them"
+                    spellcheck="false"
+                    :disabled="isLocked(row)"
+                    :value="viewFor(row).told.text"
+                    @input="setNote(row, $event.target.value)"
+                  />
+                </template>
+
+                <!-- ...and whether it was a LIE — only offered where there is
+                     information to have lied about (golem/nightInfo's
+                     mayBeFalse). Poisoner/Monk/Butler/Imp tell nothing back, so
+                     the question doesn't apply.
+
+                     FT-874 (2026-08-19, user call): THE LIAR MARK. It was a
+                     square checkbox, which says "a setting" where the row means
+                     "what you told them was not true". It is now the MASK — and
+                     the mask is not invented for it: this component already
+                     wears `theater-masks` on .ns-truth, a dozen lines up, for a
+                     seat being walked through a character it only thinks it has.
+                     Same glyph, same idea, same colour: what is shown is not
+                     what is true.
+
+                     The glyph no longer CHANGES between states (a mask is a
+                     mask), so brightness carries the state on its own — see
+                     .ns-lie: dim parchment in a pressable box when off, lit gold
+                     when on. Exactly two states, no third. -->
+                <!-- FT-1005: THE PLAYER'S OWN WORDS — their free-text choice,
+                     arrived over the wire (entry.playerText). Rendered in the
+                     same gold as the player-filled slots, quoted so it reads as
+                     speech rather than as the storyteller's own note (which
+                     stays told.text, in the free box). Never editable here —
+                     it is theirs. -->
+                <span
+                  v-if="entryFor(row).playerText"
+                  class="ns-player-said"
+                  :title="'Entered by the player: ' + entryFor(row).playerText"
+                >
+                  &ldquo;{{ entryFor(row).playerText }}&rdquo;
+                </span>
+
+                <!-- FT-1121: THE GRIMOIRE'S OWN ANSWER, beside the row.
+                     Storyteller-only like everything else in this component,
+                     and shown ONLY where golem/nightTruth can actually compute
+                     it — an uncomputable row shows nothing at all rather than
+                     an empty slot that would read as "no evil neighbours".
+
+                     It exists so a storyteller lies ON PURPOSE. The mask a few
+                     pixels to its right says WHETHER what they gave was false;
+                     this says WHAT WOULD HAVE BEEN TRUE, and it is deliberately
+                     the quieter of the two — sage rather than gold, because
+                     gold on this row means "not true" (see .ns-lie's colour
+                     note) and this is the opposite statement. The word
+                     "poisoned" / "drunk" rides it when the seat is impaired, so
+                     a lit mask beside it reads as correct play rather than as a
+                     mistake. -->
+                <span
+                  v-if="truthOf(row).known"
+                  class="ns-oracle"
+                  :class="{ differs: verdictFor(row).differs === true }"
+                  :title="truthHint(row)"
+                >
+                  <span class="ns-oracle-tag">truth</span>
+                  <span class="ns-oracle-val">{{ truthOf(row).display }}</span>
+                  <span class="ns-oracle-imp" v-if="impairedOf(row)">{{
+                    impairedOf(row)
+                  }}</span>
+                </span>
+
+                <span
+                  v-if="extraFieldsFor(row).mayBeFalse"
+                  class="ns-lie"
+                  :class="{
+                    on: lieOn(row),
+                    byhand: viewFor(row).lieBy === 'storyteller',
+                    locked: isLocked(row),
+                  }"
+                  :tabindex="isLocked(row) ? -1 : 0"
+                  role="checkbox"
+                  :aria-checked="String(lieOn(row))"
+                  :aria-disabled="String(isLocked(row))"
+                  :title="lieHint(row)"
+                  @click="toggleLie(row)"
+                  @keyup.enter="toggleLie(row)"
+                  @keyup.space="toggleLie(row)"
+                >
+                  <font-awesome-icon icon="theater-masks" />
+                </span>
+              </div>
+
+              <!-- (FT-874's ability line stood HERE, as the second child of
+                   .ns-work. FT-1150 moved it up into .ns-identity — see its
+                   own note there. Everything about it is unchanged: still ONE
+                   line, still truncated because a storyteller is SCANNING a
+                   checklist rather than reading to learn a script, still
+                   showing our short `reminder` with the OFFICIAL wording on
+                   the tooltip (FT-886/882). Only which line it rides moved.) -->
+            </div>
+          </li>
+        </template>
       </ul>
 
       <!-- FT-862: relocated from the top bar (user call — this button means
@@ -1067,6 +1152,20 @@ export default {
       // A draft dies on Send (committed) and with the component (a redraw
       // mid-composition costs the draft, never the log).
       drafts: {},
+      // FT-1313: SKIPPED ROWS, keyed by the row's own render key (which
+      // carries the day, so a new night starts clean by construction).
+      // Component state + a per-town localStorage stash (loadSkips /
+      // persistSkips), NEVER the log: a skip is the storyteller declining
+      // to write, and an entry — even an empty one — is delivered to the
+      // seat it names (socket.js's addEntry/patchEntry subscriptions), which
+      // is exactly the "answered you with nothing" artifact FT-1272 closed.
+      // The stash is what survives a reload or the sheet standing down for a
+      // nomination; losing it would only stand the rows back up, never lose
+      // a logged word.
+      skips: {},
+      // FT-1313: the two folds' open/closed state — collapsed by default,
+      // every night, which is the whole point of a fold. View state only.
+      folds: { handled: false, dead: false },
       // FT-1067: the day-length control's furniture — same shape as
       // HostTools' own (tower snapshot + the last-set minutes, so Timed
       // returns to it rather than an arbitrary number). No new persistence:
@@ -1096,6 +1195,10 @@ export default {
     // is HostTools'/FaceHands' job on their own mount; by the time a night
     // sheet can show, a build or a reload has already run one of those).
     this.readTower();
+    // FT-1313: restore this town's skip marks for tonight (a reload, or the
+    // sheet standing down for a nomination, must not stand skipped rows back
+    // up mid-night).
+    this.loadSkips();
     window.addEventListener(TOWER_EVENT, this.readTower);
     // FT-1229: the band's height moves with the window (the disc scales),
     // so overflow is re-asked on resize as well as on every re-render.
@@ -1129,6 +1232,14 @@ export default {
           this.$store.commit("night/setDay", 1);
         }
       },
+    },
+    // FT-1313: the night moved (End night, the day scrub, a joiner syncing)
+    // — re-read the stash, which only answers for ITS day: any other night's
+    // marks come back as a clean slate. Row keys carry the day too, so even
+    // a stale in-memory map could never dim another night's rows; this just
+    // keeps the map honest.
+    "night.day"() {
+      this.loadSkips();
     },
   },
   computed: {
@@ -1193,6 +1304,93 @@ export default {
         ...row,
         key: entryId(this.night.day, row.seat, row.role.id)
       }));
+    },
+    /**
+     * FT-1313: TONIGHT'S THREE GROUPS, one pass.
+     *   handled — sent (done) or skipped: out of the way, top fold.
+     *   live    — the working list: rows still open.
+     *   dead    — the roster's isDeadSeat rows (see night.js): bottom fold.
+     * Everything else on this sheet that counts rows (the header count, the
+     * End-night gate, the ready state) reads THIS split, so the four can
+     * never disagree about what "open" means.
+     */
+    partition() {
+      const handled = [];
+      const live = [];
+      const dead = [];
+      this.roster.forEach((row) => {
+        if (row.isDeadSeat) dead.push(row);
+        else if (this.entryFor(row).done || this.isSkipped(row))
+          handled.push(row);
+        else live.push(row);
+      });
+      return { handled, live, dead };
+    },
+    /**
+     * FT-1313: what the <ul> actually renders — the two fold headers as
+     * pseudo-rows (`fold: true`) among the real ones, each followed by its
+     * rows only while open. One list so the row markup exists once.
+     */
+    renderList() {
+      const { handled, live, dead } = this.partition;
+      const out = [];
+      if (handled.length) {
+        out.push({
+          fold: true,
+          id: "handled",
+          key: "fold-handled",
+          label: this.handledFoldLabel,
+          hint:
+            "Rows already " +
+            (this.isSendMode ? "sent" : "done") +
+            " or skipped tonight — folded out of the working list. " +
+            "Open it to reopen a sent row or bring a skipped one back.",
+        });
+        if (this.folds.handled) out.push(...handled);
+      }
+      out.push(...live);
+      if (dead.length) {
+        out.push({
+          fold: true,
+          id: "dead",
+          key: "fold-dead",
+          label: "Dead · " + dead.length,
+          hint:
+            "Seats that have died — nobody wakes them, so their rows stand " +
+            "out of the way. Open the fold to read them, or to log " +
+            "something anyway.",
+        });
+        if (this.folds.dead) out.push(...dead);
+      }
+      return out;
+    },
+    /** FT-1313: the top fold's own arithmetic — "2 sent · 1 skipped". */
+    handledFoldLabel() {
+      const { handled } = this.partition;
+      const sent = handled.filter((r) => this.entryFor(r).done).length;
+      const skipped = handled.length - sent;
+      const word = this.isSendMode ? "sent" : "done";
+      const bits = [];
+      if (sent) bits.push(sent + " " + word);
+      if (skipped) bits.push(skipped + " skipped");
+      return bits.join(" · ");
+    },
+    /**
+     * FT-1313: the header count, reworded — rows still OPEN, not a score to
+     * finish. "all handled" the moment the working list empties.
+     */
+    progressWord() {
+      const { handled, live } = this.partition;
+      if (!live.length && handled.length) return "all handled";
+      return live.length + " open";
+    },
+    /** FT-1313: ...and the rule, said out loud where the number is. */
+    progressHint() {
+      return (
+        "Rows still open tonight. Sending every row is never required — " +
+        "skip any you are not doing, or just end the night; open rows " +
+        "simply stay unsent."
+      );
     },
     /** Every stored entry for tonight, by id. */
     entriesById() {
@@ -1330,15 +1528,29 @@ export default {
       // silently inert — see canFlip/uncheckedRows.
       if (!this.canFlip) {
         const n = this.uncheckedRows.length;
-        return n + (n === 1 ? " row still unchecked" : " rows still unchecked");
-      }
-      // WARN: same count, opposite promise — the press works.
-      if (this.warnUnchecked) {
-        const n = this.uncheckedRows.length;
         return (
           n +
           (n === 1 ? " row is" : " rows are") +
-          " still unchecked — ending the night anyway is allowed"
+          " still open — send or skip each one (this town has Require checks on; Skip satisfies it)"
+        );
+      }
+      // FT-1313 (user): THE WARN STATE STOPPED NAGGING. Its amber face stood
+      // down (see warnUnchecked); what survives is one neutral sentence here
+      // — a count and the rule, never a caution. Sending every row was never
+      // required, and the button must not imply otherwise.
+      if (
+        this.isNight &&
+        this.night.requireChecks === "warn" &&
+        this.uncheckedRows.length
+      ) {
+        const n = this.uncheckedRows.length;
+        return (
+          "Wake the town — the log stays on Night " +
+          this.night.day +
+          ". " +
+          n +
+          (n === 1 ? " row is" : " rows are") +
+          " still open; that is fine — open rows simply stay unsent."
         );
       }
       return this.isNight
@@ -1360,14 +1572,21 @@ export default {
       );
     },
     /** Every row checked off — the signal that flips the finish button from
-     *  quiet to obvious (never blocking; a storyteller may move on early). */
+     *  quiet to obvious (never blocking; a storyteller may move on early).
+     *  FT-1313: "checked off" now means HANDLED — sent or skipped both count,
+     *  because a skip is the storyteller's own deliberate answer to a row. */
     allChecked() {
-      return this.roster.length > 0 && this.progress.done >= this.progress.total;
+      const { handled, live } = this.partition;
+      return handled.length > 0 && live.length === 0;
     },
     /** FT-874: tonight's rows still unticked. Empty on a night nobody wakes
-     *  for (roster.length === 0) — nothing to require in that case. */
+     *  for (roster.length === 0) — nothing to require in that case.
+     *  FT-1313: "unticked" narrowed to OPEN — a skipped row was answered
+     *  ("not this one") and a Dead-fold row was never owed, so neither
+     *  blocks `required`, warns, nor flashes. The name stays: every caller
+     *  (canFlip, flipHint, flashUnchecked) wants exactly this set. */
     uncheckedRows() {
-      return this.roster.filter(row => !this.entryFor(row).done);
+      return this.partition.live;
     },
     /**
      * Can the phase button actually flip right now? Starting a night (day →
@@ -1391,13 +1610,19 @@ export default {
      * behind if it did. Drives the button's own amber mark — the pre-press
      * half of the warning, which costs no layout at all because it rides the
      * slot the finished-list tick already occupies.
+     *
+     * FT-1313 (user): STOOD DOWN TO A CONSTANT FALSE, not torn out. "End
+     * night must not nag about unsent rows" — and the amber triangle + gold
+     * plate this computed lit were the nag: a caution mark over a press that
+     * was always legitimate. The computed keeps its name and its two
+     * template callers (the icon's v-else-if, the .warn class), all inert;
+     * the `warn` SETTING keeps a voice, but it is one neutral sentence on
+     * the hover text now (see flipHint), a count and the rule, no alarm.
+     * The original condition, for whoever stands this back up:
+     *   isNight && requireChecks === "warn" && uncheckedRows.length > 0
      */
     warnUnchecked() {
-      return (
-        this.isNight &&
-        this.night.requireChecks === "warn" &&
-        this.uncheckedRows.length > 0
-      );
+      return false;
     }
   },
   methods: {
@@ -1498,6 +1723,66 @@ export default {
         Object.keys(d.told || {}).length > 0 ||
         !!d.lie
       );
+    },
+    // ── FT-1313: SKIP — the storyteller's explicit "not this one" ─────────
+    /** Is this row skipped? Storyteller-local view state, never the log. */
+    isSkipped(row) {
+      return !!this.skips[row.key];
+    },
+    /** Skip / un-skip one row. A draft in progress survives a skip — the
+     *  fold stands the row down, it never costs a composed word. */
+    toggleSkip(row) {
+      if (this.skips[row.key]) this.$delete(this.skips, row.key);
+      else this.$set(this.skips, row.key, true);
+      this.persistSkips();
+    },
+    skipHint(row) {
+      return this.isSkipped(row)
+        ? "Skipped — click to bring this row back to the working list"
+        : "Skip this one — no send, nothing logged. Skipping any row is " +
+            "always yours to do; it folds away and stops counting.";
+    },
+    /** One of the two folds clicked open or shut. */
+    toggleFold(id) {
+      this.$set(this.folds, id, !this.folds[id]);
+    },
+    /** The per-town stash key. Skips are the storyteller's own view state,
+     *  so localStorage (this browser) is exactly their scope — the same
+     *  reasoning that keeps them off the wire entirely. */
+    skipsStashKey() {
+      return "golem_night_skips:" + (this.session.sessionId || "local");
+    },
+    /** Restore tonight's skip marks — a stash for another night (or none)
+     *  answers a clean slate. Guarded: storage can be refused (private
+     *  windows), and a skip mark is never worth an error. */
+    loadSkips() {
+      let map = {};
+      try {
+        const raw = JSON.parse(
+          localStorage.getItem(this.skipsStashKey()) || "null"
+        );
+        if (raw && raw.day === this.night.day && Array.isArray(raw.keys)) {
+          raw.keys.forEach((k) => {
+            if (typeof k === "string") map[k] = true;
+          });
+        }
+      } catch (e) {
+        map = {};
+      }
+      this.skips = map;
+    },
+    persistSkips() {
+      try {
+        localStorage.setItem(
+          this.skipsStashKey(),
+          JSON.stringify({
+            day: this.night.day,
+            keys: Object.keys(this.skips),
+          })
+        );
+      } catch (e) {
+        // storage refused — the marks still hold for this tab's lifetime
+      }
     },
     /**
      * FT-1272: THE FIELDS ON THIS ROW THAT ARE AN ANSWER SOMEBODY IS OWED.
@@ -1609,6 +1894,13 @@ export default {
       // sweep) must not be able to route round the predicate.
       if (this.sendDisabled(row)) return;
       const entry = this.entryFor(row);
+      // FT-1313: a send outranks a skip — a row actually delivered stops
+      // being "passed over", so the mark clears and the fold counts it under
+      // sent, not twice.
+      if (!entry.done && this.skips[row.key]) {
+        this.$delete(this.skips, row.key);
+        this.persistSkips();
+      }
       if (!this.isDirty(row)) {
         this.write(row, { done: !entry.done });
         return;
@@ -3335,6 +3627,75 @@ $ns-team-colors: (
   }
 }
 
+// FT-1313: A FOLD'S HEADER ROW — the collapsed groups' one visible piece.
+// Dashed hairline in the sheet's own plum so it reads as furniture (a place
+// rows went) rather than as another row; the caret carries open/shut, the
+// label carries the arithmetic ("2 sent · 1 skipped", "Dead · 3").
+.ns-fold {
+  list-style: none;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+
+  .ns-fold-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #d8cdb4;
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px dashed rgba($grimoire-plum, 0.4);
+    border-radius: 5px;
+    padding: 4px 9px;
+    transition:
+      color 130ms,
+      border-color 130ms,
+      opacity 130ms;
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+      border-color: $control-edge-hover;
+      color: $control-edge-hover;
+      outline: none;
+    }
+  }
+  &.open .ns-fold-head {
+    opacity: 0.95;
+    border-style: solid;
+  }
+
+  .ns-fold-caret {
+    width: 10px;
+    text-align: left;
+  }
+  .ns-fold-mark {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    filter: grayscale(0.3);
+  }
+  .ns-fold-fa {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  .ns-fold-label {
+    flex: 1;
+    text-align: left;
+  }
+
+  @media (pointer: coarse) {
+    .ns-fold-head {
+      min-height: 40px;
+      font-size: 13px;
+    }
+  }
+}
+
 .ns-row {
   display: grid;
   // FT-874: the row redesign, user-specified — TWO lines: identity+answer,
@@ -3392,9 +3753,23 @@ $ns-team-colors: (
   // FT-1173: `.ns-send` joins `.ns-check` in the carve-out — it is the
   // control that reopens a done row, so it is the one thing that must never
   // recede with the row it finished.
-  &.done > *:not(.ns-check):not(.ns-send):not(.ns-work),
-  &.done > .ns-work > * {
+  // FT-1313: `.ns-state` joined the carve-out — the Send button lives inside
+  // it now (Send + Skip, one column), and both are exactly the controls that
+  // must never recede: Send is the done row's reopen, Skip is the skipped
+  // row's way back. The `.skipped` fade is the same statement about a row the
+  // storyteller passed over by hand — read, decided, out of the way.
+  &.done > *:not(.ns-check):not(.ns-send):not(.ns-state):not(.ns-work),
+  &.done > .ns-work > *,
+  &.skipped > *:not(.ns-check):not(.ns-send):not(.ns-state):not(.ns-work),
+  &.skipped > .ns-work > * {
     opacity: 0.45;
+  }
+  // FT-1313: a Dead-fold row — the whole row quiets, controls included:
+  // nothing on it is owed, and the fold header above it already carries the
+  // full-strength statement. Still fully usable (a storyteller may log a
+  // dead seat's row), just not competing with the living.
+  &.deadseat {
+    opacity: 0.7;
   }
   // FT-874: a row the "end night" button just pointed at — a brief pulse,
   // not a permanent state (JS clears `flashing` on a timer).
@@ -3499,9 +3874,23 @@ $ns-team-colors: (
   // glance. Colour rules unchanged from the sheet's own line: purple is
   // chrome (a thing you press); the SENT state borrows the tick's own lit
   // treatment rather than inventing a third.
-  .ns-send {
+  // FT-1313: THE STATE CELL GREW A SECOND CONTROL, so the grid area moved up
+  // one wrapper: `.ns-state` holds the cell (Send above, Skip below, one
+  // column down the row's full height) and the send button takes the cell's
+  // upper share instead of the whole area. Everything else about the send's
+  // dress is untouched.
+  .ns-state {
     grid-area: state;
     align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .ns-send {
+    flex: 1 1 auto;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -3587,6 +3976,67 @@ $ns-team-colors: (
           opacity: 0.55;
         }
       }
+    }
+  }
+
+  // FT-1313: SKIP — the quiet half of the state cell. Same plum-hairline
+  // family as the send above it (one column, one vocabulary) at a fraction
+  // of the presence: it is the "not this one" gesture, offered on every live
+  // row and never competing with the row's real action. Lit (`.on`) it wears
+  // the tick's own done treatment — the un-skip inside the fold, the one
+  // thing on a skipped row that stays full strength.
+  .ns-skip {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #d8cdb4;
+    opacity: 0.7;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba($grimoire-plum, 0.3);
+    border-radius: 4px;
+    padding: 3px 0;
+    transition:
+      color 130ms,
+      border-color 130ms,
+      background 130ms,
+      opacity 130ms;
+    svg {
+      font-size: 9px;
+      opacity: 0.55;
+    }
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+      border-color: $control-edge-hover;
+      background: rgba($grimoire-plum, 0.12);
+      color: $control-edge-hover;
+      outline: none;
+      svg {
+        opacity: 1;
+      }
+    }
+    &.on {
+      opacity: 1;
+      color: rgb(120, 105, 135);
+      border-color: rgba($grimoire-plum, 0.55);
+      svg {
+        opacity: 0.95;
+      }
+      &:hover,
+      &:focus-visible {
+        color: $control-edge-hover;
+      }
+    }
+    @media (pointer: coarse) {
+      min-height: 32px;
+      font-size: 11px;
     }
   }
 

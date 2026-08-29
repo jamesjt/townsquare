@@ -189,7 +189,23 @@ const getters = {
         // PERFORMANCE row is the character the player THINKS they have — and
         // that is right: a dead Drunk who believes they are the Ravenkeeper is
         // still walked through the Ravenkeeper's wake.
-        if (player.isDead && !deadStillWakes(role, deadTeams)) return;
+        //
+        // FT-1313 (user, from a real game): A DEAD SEAT'S ROW FOLDS INSTEAD OF
+        // VANISHING. FT-874 dropped these rows outright (`return` here), which
+        // was right about the noise and wrong about the record — a storyteller
+        // mid-night wants the dead out of the WAY, not out of EXISTENCE (who
+        // was the Poisoner again? what did the Empath used to learn?). So the
+        // row now rides the roster wearing `isDeadSeat: true`, and the sheet
+        // stands every flagged row in its own collapsed Dead fold. The flag is
+        // load-bearing for three consumers: `progress` below (a dead row is
+        // neither owed nor counted), `applyPlayerAction` below (a dead player
+        // still has no night action to enter), and the sheet's own End-night
+        // gate (open-row counts skip them). The eleven wakes-when-dead
+        // characters and the Vigormortis rule are untouched — a dead seat that
+        // genuinely ACTS still takes an ordinary live row, exactly as before.
+        const isDeadSeat = !!(
+          player.isDead && !deadStillWakes(role, deadTeams)
+        );
         // FT-886: THE TWO TEXTS OF A ROW.
         //   official — the shipped reminder, written for a table with physical
         //              tokens ("points to a player", "show the token"). Still
@@ -210,6 +226,8 @@ const getters = {
           trueRole,
           shownRole,
           isPerformance,
+          // FT-1313: the Dead fold's membership — see the note above.
+          isDeadSeat,
           // does this seat know what it is at all? (true on BOTH of a
           // believing seat's rows — the sheet says a different thing on each)
           isBelieving: believes,
@@ -393,7 +411,10 @@ const getters = {
 
   /** How much of tonight the storyteller has walked. */
   progress(state, getters) {
-    const rows = getters.roster;
+    // FT-1313: Dead-fold rows are outside the walk — nobody wakes them, so
+    // they are neither owed nor counted here (they carried no count before
+    // this pass either; they simply didn't exist).
+    const rows = getters.roster.filter((r) => !r.isDeadSeat);
     const byId = new Map(state.entries.map(e => [e.id, e]));
     let done = 0;
     rows.forEach(r => {
@@ -515,6 +536,10 @@ const actions = {
       r => r.seat === seat && r.role.id === roleId
     );
     if (!row) return;
+    // FT-1313: a dead seat's row rides the roster now (the sheet's Dead
+    // fold) — but a dead player still has no night action to enter, exactly
+    // as when the roster dropped their row and this find came back empty.
+    if (row.isDeadSeat) return;
     const id = entryId(state.day, seat, roleId);
     const existing = state.entries.find(e => e.id === id);
     // FT-1291: the sent row refuses — see the note above. Ahead of the patch
