@@ -80,9 +80,9 @@
             <template v-else-if="testView"
               >the dev ledger — test games only</template
             >
-            <!-- FT-1299: the subtitle is the page's scope line — under the
-                 towns filter it must not keep claiming the whole platform. -->
-            <template v-else-if="mineView">the towns you have sat in</template>
+            <!-- (FT-1304: the "towns you have sat in" branch retired with the
+                 mineView toggle — narrowing by town is the towns FILTER now,
+                 and the headline band carries the honest scope line.) -->
             <template v-else>every town on the platform</template>
           </p>
           <!-- FT-1236: THE DEV LEDGER'S DOOR — labs only — moved INTO the
@@ -191,7 +191,8 @@
                   <th>Seat</th>
                   <th>Player</th>
                   <th>Role</th>
-                  <th>Kind</th>
+                  <!-- FT-1304: "Type", matching the Roles table's rename. -->
+                  <th>Type</th>
                   <th>Side</th>
                   <th>Fate</th>
                 </tr>
@@ -235,10 +236,11 @@
              this page's dress: a compact dark bar of icon buttons, grouped by
              a thin divider, a toggled button filled — in this page's amber,
              not the editor's blue. Each filter icon opens a popover with a
-             search box and tri-state entries (off → include → exclude); the
-             dev-ledger flask (FT-1236, labs only) and the towns scope
-             (FT-1299, signed-in only) JOIN the bar so the page speaks one
-             filter grammar, not three generations of controls. -->
+             tri-state entries (off → include → exclude), searched from the
+             bar's own input (FT-1304); the dev-ledger flask (FT-1236, labs
+             only) rides the bar, and FT-1299's My-towns scope toggle became
+             the TOWNS filter (FT-1304, signed-in only) — one filter grammar,
+             not three generations of controls. -->
         <div
           class="rp-toolbar"
           ref="toolbar"
@@ -283,14 +285,48 @@
               <font-awesome-icon icon="user-friends" />
               <i class="rp-toolbadge" v-if="playersActive">1</i>
             </button>
+            <!-- FT-1304: THE TOWNS FILTER (user call), wearing the home mark
+                 the retired My-towns toggle wore — narrowing by town is a
+                 tri-state filter like scripts now, not a page-wide scope
+                 flip. Signed-in only, exactly as the toggle was: the entries
+                 are the towns THIS viewer has sat in (one scope=mine facts
+                 read, cached per page open — see loadMyTowns). -->
+            <button
+              class="rp-tool"
+              v-if="session.account"
+              :class="{
+                open: openFilter === 'towns',
+                armed: filterCount('towns') > 0,
+              }"
+              title="Towns — include or exclude the towns you have sat in"
+              @click="togglePop('towns')"
+            >
+              <font-awesome-icon icon="home" />
+              <i class="rp-toolbadge" v-if="filterCount('towns')">{{
+                filterCount("towns")
+              }}</i>
+            </button>
           </div>
-          <template v-if="session.labs || session.account">
+          <!-- FT-1304 (user call): THE SEARCH LIVES ON THE BAR, not inside
+               each popover — one input beside the icons it serves. It renders
+               only while a LIST popover is open (scripts / roles / towns):
+               present always, it would read as searching the games themselves;
+               beside an open list, it can only mean that list. The players
+               popover is a pair of bounds and has nothing to search. -->
+          <input
+            class="rp-toolsearch"
+            v-if="listPopOpen"
+            ref="search"
+            type="search"
+            :placeholder="'Search ' + openFilter + '…'"
+            v-model="filterSearch"
+          />
+          <template v-if="session.labs">
             <span class="rp-tooldiv"></span>
             <div class="rp-toolgroup">
               <button
                 class="rp-tool rp-tool-dev"
                 :class="{ armed: testView }"
-                v-if="session.labs"
                 :title="
                   testView
                     ? 'Showing test games (dev fixtures). Click for the real Chronicles.'
@@ -299,19 +335,6 @@
                 @click="toggleTestView"
               >
                 <font-awesome-icon icon="flask" />
-              </button>
-              <button
-                class="rp-tool"
-                :class="{ armed: mineView }"
-                v-if="session.account"
-                :title="
-                  mineView
-                    ? 'Only the towns you have sat in. Click for every town.'
-                    : 'Narrow to the towns you have sat in'
-                "
-                @click="setMineView(!mineView)"
-              >
-                <font-awesome-icon icon="home" />
               </button>
             </div>
           </template>
@@ -326,19 +349,16 @@
 
           <!-- THE POPOVERS. One at a time, under the bar; a click anywhere
                outside the bar closes them (document listener, mounted). -->
-          <div
-            class="rp-pop"
-            v-if="openFilter === 'scripts' || openFilter === 'roles'"
-          >
-            <input
-              class="rp-pop-search"
-              type="search"
-              :placeholder="
-                openFilter === 'scripts' ? 'Search scripts…' : 'Search roles…'
-              "
-              v-model="filterSearch"
-            />
-            <p class="rp-state" v-if="!popChoices.length">
+          <div class="rp-pop" v-if="listPopOpen">
+            <!-- (FT-1304: the per-popover search input stood down — the one
+                 search on the bar filters whichever of these lists is open.) -->
+            <p
+              class="rp-state"
+              v-if="openFilter === 'towns' && myTowns.loading"
+            >
+              Reading your towns…
+            </p>
+            <p class="rp-state" v-else-if="!popChoices.length">
               Nothing to filter yet.
             </p>
             <div class="rp-pop-list" v-else>
@@ -366,6 +386,10 @@
             </div>
             <p class="rp-pop-note" v-if="openFilter === 'roles'">
               Included roles must ALL be in play; excluded roles must not be.
+            </p>
+            <p class="rp-pop-note" v-else-if="openFilter === 'towns'">
+              The towns you have sat in. Included towns widen the set (a game is
+              in one town); excluded towns drop out.
             </p>
             <p class="rp-pop-note" v-else>
               Included scripts widen the set (a game is of one script); excluded
@@ -407,9 +431,9 @@
              taken over. FT-1297's Ran statistics stand HERE now, promoted
              from the retired scripts table to the headline band. -->
         <section class="rp-band">
-          <h3>
-            {{ mineView ? "Your towns together" : "Every town together" }}
-          </h3>
+          <!-- FT-1304 (user call): "Data from all towns" — and with a towns
+               filter active the count keeps it honest (see bandTitle). -->
+          <h3>{{ bandTitle }}</h3>
           <p class="rp-state" v-if="facts.loading">Consulting the archives…</p>
           <p class="rp-state" v-else-if="facts.error">
             Chronicles unavailable — server unreachable
@@ -523,7 +547,17 @@
               <thead>
                 <tr>
                   <th>Role</th>
-                  <th class="rp-word" v-if="colOn('roles', 'kind')">Kind</th>
+                  <!-- FT-1304 (user call): the column says "Type" now; the
+                       KEY stays `kind` so every browser's saved column
+                       choice keeps meaning what it meant. -->
+                  <th class="rp-word" v-if="colOn('roles', 'kind')">Type</th>
+                  <th
+                    class="rp-word"
+                    v-if="colOn('roles', 'script')"
+                    title="Scripts the filtered set saw this role in"
+                  >
+                    Script
+                  </th>
                   <th
                     v-if="colOn('roles', 'in')"
                     title="Games this role was in play"
@@ -551,6 +585,9 @@
                   <td>{{ roleNameOf(role.roleId) }}</td>
                   <td class="dim rp-word" v-if="colOn('roles', 'kind')">
                     {{ role.roleType }}
+                  </td>
+                  <td class="dim rp-word" v-if="colOn('roles', 'script')">
+                    {{ role.scripts }}
                   </td>
                   <td v-if="colOn('roles', 'in')">{{ role.games }}</td>
                   <td class="dim" v-if="colOn('roles', 'share')">
@@ -746,7 +783,14 @@ const TOP_PLAYERS = 15;
  * asked for. Each entry's title is the header's own sentence.
  */
 const ROLE_COLUMNS = [
-  { key: "kind", label: "Kind" },
+  // FT-1304: the LABEL says "Type" (user call); the KEY stays `kind` so the
+  // persisted column-switch stash (COLS_KEY) keeps meaning what it meant.
+  { key: "kind", label: "Type" },
+  {
+    key: "script",
+    label: "Script",
+    title: "Scripts the filtered set saw this role in",
+  },
   { key: "in", label: "In", title: "Games this role was in play" },
   { key: "share", label: "Share", title: "Share of the filtered set's games" },
   { key: "won", label: "Won" },
@@ -782,6 +826,7 @@ const LIST_MAX = 200;
  *   ?chronicle=1        the records page is open (App.vue re-opens it on boot)
  *   ?fs=+Name / -Name   a script include / exclude (repeatable)
  *   ?fr=+id / -id       a role include / exclude (repeatable)
+ *   ?ft=+id / -id       a town include / exclude (repeatable — FT-1304)
  *   ?fp=min-max         the players bound; either side may be empty
  *
  * URL, not localStorage, deliberately: a filtered view is a question worth
@@ -791,6 +836,7 @@ const LIST_MAX = 200;
 const URL_OPEN = "chronicle";
 const URL_SCRIPT = "fs";
 const URL_ROLE = "fr";
+const URL_TOWN = "ft";
 const URL_PLAYERS = "fp";
 
 /** Interpolated median over a numeric list, 1 decimal, or null when empty. */
@@ -889,8 +935,22 @@ export default {
       filters: {
         scripts: { include: [], exclude: [] },
         roles: { include: [], exclude: [] },
+        // FT-1304: towns are a tri-state dimension like scripts (include =
+        // OR, a game is in exactly one town; exclude = NOT). The ENTRIES
+        // offered are only the towns the signed-in viewer has sat in
+        // (myTowns below), but the predicate applies to whatever the URL
+        // hands in — a shared link filters the same set for every reader.
+        towns: { include: [], exclude: [] },
         players: { min: null, max: null },
       },
+      /**
+       * FT-1304: THE VIEWER'S OWN TOWNS — the towns popover's entry list,
+       * read once per page open (and re-read when the ledger flips): one
+       * `scope=mine` facts read, reduced to distinct town ids. This is the
+       * only survivor of FT-1299's scope=mine read — the page-wide My-towns
+       * TOGGLE it served retired in favour of this filter.
+       */
+      myTowns: { loading: false, loaded: false, ids: [] },
       /** Which filter popover is open ('scripts' | 'roles' | 'players'), or
        *  null. A gesture, not a preference — never persisted. */
       openFilter: null,
@@ -904,14 +964,11 @@ export default {
        * Never mixed — the server keeps the two ledgers disjoint.
        */
       testView: false,
-      /**
-       * FT-1299: WHOSE TOWNS the page is counting. False (the default,
-       * always) = every town — the anonymous page, unchanged. True (signed-in
-       * only; the control does not render otherwise) = `scope=mine` on every
-       * read: just the towns this viewer has sat in. Not persisted — the
-       * scope is a fact about a session's account, not about a browser.
-       */
-      mineView: false,
+      /* (FT-1304: `mineView` — FT-1299's page-wide My-towns toggle —
+       * RETIRED, user call: narrowing by town is the towns FILTER now, one
+       * grammar with scripts and roles. Its `scope=mine` read survives only
+       * as `myTowns`'s source, above. It never had a URL token, so no param
+       * maps forward.) */
       /**
        * FT-1297: the HIDDEN columns, per table — hidden rather than shown so
        * a column added later defaults to visible instead of vanishing for
@@ -1023,10 +1080,14 @@ export default {
             games: 0,
             wins: 0,
             died: 0,
+            // FT-1304: the scripts the set saw this role in — usually one,
+            // a comma-joined few when the filters mix scripts.
+            scriptSet: new Set(),
           };
           row.games += 1;
           if (at.won) row.wins += 1;
           row.died += at.died;
+          row.scriptSet.add(game.scriptName);
           rows.set(roleId, row);
         });
       });
@@ -1036,6 +1097,7 @@ export default {
           ...row,
           share: rateOf(row.games, total),
           winRate: rateOf(row.wins, row.games),
+          scripts: [...row.scriptSet].sort().join(", "),
         }))
         .sort((a, b) => b.games - a.games || (a.roleId < b.roleId ? -1 : 1));
     },
@@ -1104,11 +1166,56 @@ export default {
         )
         .sort((a, b) => b.count - a.count || (a.label < b.label ? -1 : 1));
     },
-    /** The open popover's list — scripts or roles (players has no list). */
+    /**
+     * FT-1304: the towns popover's entries — the towns the signed-in viewer
+     * has sat in (myTowns), never the whole view's towns: the filter offers
+     * YOUR towns, exactly the scope the retired toggle offered. Counts are
+     * faceted like the other dimensions — over the games the OTHER filters
+     * keep — so an entry's number is what picking it would give you.
+     */
+    townChoices() {
+      const counts = new Map();
+      this.myTowns.ids.forEach((id) => counts.set(id, 0));
+      this.facts.games.forEach((game) => {
+        if (!counts.has(game.townId)) return;
+        if (!this.inSet(game, "towns")) return;
+        counts.set(game.townId, counts.get(game.townId) + 1);
+      });
+      const q = this.filterSearch.trim().toLowerCase();
+      return [...counts.entries()]
+        .map(([id, count]) => ({ id, label: id, count }))
+        .filter((e) => !q || e.label.toLowerCase().indexOf(q) >= 0)
+        .sort((a, b) => b.count - a.count || (a.label < b.label ? -1 : 1));
+    },
+    /** The open popover's list — scripts, roles or towns (players has no
+     *  list). */
     popChoices() {
-      return this.openFilter === "scripts"
-        ? this.scriptChoices
-        : this.roleChoices;
+      if (this.openFilter === "scripts") return this.scriptChoices;
+      if (this.openFilter === "towns") return this.townChoices;
+      return this.roleChoices;
+    },
+    /** Is a LIST popover open? Gates the bar's search input and the shared
+     *  list popover (the players popover is a pair of bounds, no list). */
+    listPopOpen() {
+      return (
+        this.openFilter === "scripts" ||
+        this.openFilter === "roles" ||
+        this.openFilter === "towns"
+      );
+    },
+    /**
+     * FT-1304: the headline band's honest scope line. "Data from all towns"
+     * until a towns filter narrows it; then the count of towns the set is
+     * actually drawn from.
+     */
+    bandTitle() {
+      const inc = this.filters.towns.include.length;
+      const exc = this.filters.towns.exclude.length;
+      if (inc) return "Data from " + inc + (inc === 1 ? " town" : " towns");
+      if (exc) {
+        return "Data from all but " + exc + (exc === 1 ? " town" : " towns");
+      }
+      return "Data from all towns";
     },
     /** Is the players bound doing anything? (Its icon's armed state.) */
     playersActive() {
@@ -1121,6 +1228,7 @@ export default {
       return (
         this.filterCount("scripts") > 0 ||
         this.filterCount("roles") > 0 ||
+        this.filterCount("towns") > 0 ||
         this.playersActive
       );
     },
@@ -1199,7 +1307,9 @@ export default {
       const seq = this.factsSeq + 1;
       this.factsSeq = seq;
       this.facts = { loading: true, error: false, games: [] };
-      gameFacts(this.testView, this.mineView)
+      // (FT-1304: no `mine` scope here any more — the page always reads the
+      // whole view; narrowing by town happens client-side, as a filter.)
+      gameFacts(this.testView)
         .then((games) => {
           if (this.factsSeq !== seq) return;
           this.facts = { loading: false, error: false, games };
@@ -1218,18 +1328,14 @@ export default {
      */
     toggleTestView() {
       this.testView = !this.testView;
+      // FT-1304: the viewer's town list is per-ledger too — the dev ledger's
+      // fixture towns and the real Chronicles' towns are different worlds.
+      this.myTowns = { loading: false, loaded: false, ids: [] };
       this.reask();
+      if (this.openFilter === "towns") this.loadMyTowns();
     },
-    /**
-     * FT-1299: flip the whole page between every town and the viewer's own.
-     * The same "a different scope is a different page" rule the dev-ledger
-     * toggle follows: nothing is carried across, everything re-asks.
-     */
-    setMineView(mine) {
-      if (this.mineView === mine) return;
-      this.mineView = mine;
-      this.reask();
-    },
+    /* (FT-1304: `setMineView` retired with the toggle it served — see the
+     * `mineView` note in data(). The towns FILTER is the narrowing now.) */
     /**
      * FT-1236/FT-1299: a DIFFERENT LEDGER IS A DIFFERENT PAGE — shared by the
      * dev-ledger toggle and the towns filter. The open record and every
@@ -1248,6 +1354,33 @@ export default {
     togglePop(id) {
       this.openFilter = this.openFilter === id ? null : id;
       this.filterSearch = "";
+      // FT-1304: the towns list is fetched on first need, cached per page
+      // open; and the bar's search input takes focus with the list it serves.
+      if (this.openFilter === "towns") this.loadMyTowns();
+      if (this.openFilter) {
+        this.$nextTick(() => {
+          if (this.$refs.search) this.$refs.search.focus();
+        });
+      }
+    },
+    /**
+     * FT-1304: the towns the signed-in viewer has sat in — ONE scope=mine
+     * facts read per page open (per ledger — see toggleTestView), reduced to
+     * distinct town ids. A failed read leaves `loaded` false so the next
+     * open of the popover simply retries.
+     */
+    loadMyTowns() {
+      if (this.myTowns.loading || this.myTowns.loaded) return;
+      if (!this.session.account) return;
+      this.myTowns = { loading: true, loaded: false, ids: [] };
+      gameFacts(this.testView, true)
+        .then((games) => {
+          const ids = [...new Set(games.map((g) => g.townId))].sort();
+          this.myTowns = { loading: false, loaded: true, ids };
+        })
+        .catch(() => {
+          this.myTowns = { loading: false, loaded: false, ids: [] };
+        });
     },
     /** A click outside the filter bar closes whatever popover is open. */
     onAwayClick(e) {
@@ -1298,6 +1431,8 @@ export default {
       this.filters.scripts.exclude.splice(0);
       this.filters.roles.include.splice(0);
       this.filters.roles.exclude.splice(0);
+      this.filters.towns.include.splice(0);
+      this.filters.towns.exclude.splice(0);
       this.filters.players.min = null;
       this.filters.players.max = null;
       this.writeFiltersToUrl();
@@ -1317,10 +1452,21 @@ export default {
      *     empty set);
      *   - role includes are an AND — every included role must have been in
      *     play together (the retired "Roles together" question, absorbed);
-     *   - every exclude is a NOT, both dimensions.
+     *   - town includes are an OR (FT-1304) — a game is in exactly one town,
+     *     the scripts rule again;
+     *   - every exclude is a NOT, all dimensions.
      */
     inSet(game, skip) {
       const f = this.filters;
+      if (skip !== "towns") {
+        if (
+          f.towns.include.length &&
+          f.towns.include.indexOf(game.townId) < 0
+        ) {
+          return false;
+        }
+        if (f.towns.exclude.indexOf(game.townId) >= 0) return false;
+      }
       if (skip !== "scripts") {
         if (
           f.scripts.include.length &&
@@ -1358,6 +1504,7 @@ export default {
       };
       read(URL_SCRIPT, this.filters.scripts);
       read(URL_ROLE, this.filters.roles);
+      read(URL_TOWN, this.filters.towns);
       const fp = qs.get(URL_PLAYERS);
       if (fp) {
         const dash = fp.indexOf("-");
@@ -1370,7 +1517,9 @@ export default {
     /** State → the URL, replaceState (a filter tweak is not a history hop). */
     writeFiltersToUrl() {
       const qs = new URLSearchParams(window.location.search);
-      [URL_SCRIPT, URL_ROLE, URL_PLAYERS].forEach((k) => qs.delete(k));
+      [URL_SCRIPT, URL_ROLE, URL_TOWN, URL_PLAYERS].forEach((k) =>
+        qs.delete(k),
+      );
       qs.set(URL_OPEN, "1");
       this.filters.scripts.include.forEach((id) =>
         qs.append(URL_SCRIPT, "+" + id),
@@ -1380,6 +1529,8 @@ export default {
       );
       this.filters.roles.include.forEach((id) => qs.append(URL_ROLE, "+" + id));
       this.filters.roles.exclude.forEach((id) => qs.append(URL_ROLE, "-" + id));
+      this.filters.towns.include.forEach((id) => qs.append(URL_TOWN, "+" + id));
+      this.filters.towns.exclude.forEach((id) => qs.append(URL_TOWN, "-" + id));
       const { min, max } = this.filters.players;
       if (min !== null || max !== null) {
         qs.set(
@@ -1392,7 +1543,7 @@ export default {
     /** Strip every param this page owns — the closed page's URL honesty. */
     clearUrlFilters() {
       const qs = new URLSearchParams(window.location.search);
-      [URL_OPEN, URL_SCRIPT, URL_ROLE, URL_PLAYERS].forEach((k) =>
+      [URL_OPEN, URL_SCRIPT, URL_ROLE, URL_TOWN, URL_PLAYERS].forEach((k) =>
         qs.delete(k),
       );
       this.replaceQuery(qs);
@@ -1925,6 +2076,27 @@ h4 {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+// FT-1304 (user call): THE SEARCH RIDES THE BAR — one input beside the icons,
+// rendered only while a list popover is open (it filters that list). It took
+// the popover search's plate treatment with it (`.rp-pop-search`, stood down
+// below with a note).
+.rp-toolsearch {
+  @include control-plate;
+  width: 180px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  color: #d8cdb4;
+  padding: 4px 10px;
+  margin: 0 2px;
+
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+  &::placeholder {
+    color: rgba(216, 205, 180, 0.4);
+  }
+}
 .rp-toolclear {
   @include control-plate;
   display: inline-flex;
@@ -1961,23 +2133,8 @@ h4 {
   background: #14100d;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
-.rp-pop-search {
-  width: 100%;
-  box-sizing: border-box;
-  @include control-plate;
-  font-family: inherit;
-  font-size: 13px;
-  color: #d8cdb4;
-  padding: 5px 10px;
-  margin-bottom: 8px;
-
-  &:focus-visible {
-    @include control-focus-ring;
-  }
-  &::placeholder {
-    color: rgba(216, 205, 180, 0.4);
-  }
-}
+// (FT-1304: `.rp-pop-search` left with the in-popover input — the search
+// lives on the bar now, as `.rp-toolsearch` above.)
 .rp-pop-list {
   display: flex;
   flex-direction: column;
@@ -1985,9 +2142,11 @@ h4 {
   max-height: 300px;
   overflow-y: auto;
 }
-// A TRI-STATE ENTRY: bare (off), filled amber with a + (include), red-tinted
-// and struck with a − (exclude) — the include state is the page's own chip
-// on-state, so "counted in" reads the same everywhere.
+// A TRI-STATE ENTRY: bare (off), filled GREEN with a + (include), amber and
+// struck with a − (exclude). FT-1304 (user call): include = green, exclude =
+// yellow — "must have it" reads as a go, and the amber that used to mean
+// include now marks what is barred. The toolbar's own armed amber and the
+// dev flask's amber are untouched; this is the entries' palette only.
 .rp-pop-entry {
   display: flex;
   align-items: baseline;
@@ -2018,13 +2177,13 @@ h4 {
     white-space: nowrap;
   }
   &.in {
-    background: rgba(232, 178, 58, 0.22);
-    border-color: rgba(232, 178, 58, 0.55);
+    background: rgba(94, 179, 110, 0.22);
+    border-color: rgba(94, 179, 110, 0.55);
     color: #fff;
   }
   &.out {
-    background: rgba(210, 74, 58, 0.16);
-    border-color: rgba(210, 74, 58, 0.5);
+    background: rgba(232, 178, 58, 0.22);
+    border-color: rgba(232, 178, 58, 0.55);
 
     .rp-pop-name {
       text-decoration: line-through;
@@ -2136,13 +2295,15 @@ h4 {
 // now that the death scales left with the per-script view, so it caps the
 // way the ledger does instead of demanding a minimum.
 .rp-roles {
-  max-width: 780px;
+  // FT-1304: the Script column joined (words, sometimes a comma-joined few),
+  // so the cap grows with it — the width buys the column, never stretch.
+  max-width: 920px;
 
-  // Role and Kind read as words; everything after them is a number and lines
-  // up on the right, which the base table already does. Kind is addressed BY
-  // CLASS, not by position — FT-1297 made the columns hideable, and with Kind
-  // hidden an nth-child(2) rule would left-align whichever number inherited
-  // its seat.
+  // Role, Type and Script read as words; everything after them is a number
+  // and lines up on the right, which the base table already does. The word
+  // columns are addressed BY CLASS, not by position — FT-1297 made the
+  // columns hideable, and with one hidden an nth-child(2) rule would
+  // left-align whichever number inherited its seat.
   th.rp-word,
   td.rp-word {
     text-align: left;
