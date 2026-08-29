@@ -357,7 +357,11 @@
            DOM order, and the numeral has to land on top of the coin that is
            actually facing the viewer. Never inside `.life` again — that face
            is turned away in exactly the state this mark is now for. -->
-      <span class="seat-numeral" v-if="showSeatNumeral">{{ seatNumeral }}</span>
+      <!-- FT-1317: the numeral's SPAN moved a few siblings down, below the
+           claim overlay — same z, same paint, but now inside the overlay's
+           `:hover ~` reach so it can step aside while the claim invitation
+           is up (on seat IIII the invitation's chair interleaved with the
+           numeral's four strokes and read as a letter salad). -->
 
       <!-- Overlay icons -->
       <div class="overlay">
@@ -462,7 +466,8 @@
       >
         <template v-if="!askName">
           <!-- FT-1242: FA `chair` stood down — the seat vocabulary's own
-               chair (ui-seat.png, HostTools' Seats row) says it instead. -->
+               chair (ui-seat-front.svg since FT-1317, HostTools' Seats row)
+               says it instead. -->
           <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
           <span>{{ isSeatedElsewhere ? "Move" : "Claim" }}</span>
         </template>
@@ -481,6 +486,30 @@
           </span>
         </template>
       </div>
+
+      <!-- FT-1317: AN EMPTY SEAT SAYS SO AT REST. Until now emptiness was a
+           bare coin + the "Open" plate, and the chair invitation only
+           appeared on hover — from across the table an open seat looked like
+           any undealt one. This is the chair mark resting quietly ON the
+           empty coin, always: the claimed seat's own badge language (the
+           same art, the same FT-1283 stone ink and quiet), sat low on the
+           coin's face because the seat's Roman numeral owns the centre of
+           every roleless coin. It takes no pointer — every click falls
+           through to whatever owns the coin today — and it MUST sit AFTER
+           `.claim-overlay` in the DOM: the overlay's `:hover ~` reach is how
+           the resting chair steps aside while the big claim invitation (its
+           own chair + word) is up. Gated like the claimed badge (a live
+           session) so a local grimoire under construction is not wallpapered
+           with chairs. -->
+      <div
+        class="open-mark"
+        v-if="!player.id && session.sessionId"
+        aria-hidden="true"
+      ></div>
+
+      <!-- FT-985's numeral (see its note beside the coin) — parked HERE since
+           FT-1317 so `.claim-overlay:hover ~` can reach it. -->
+      <span class="seat-numeral" v-if="showSeatNumeral">{{ seatNumeral }}</span>
 
       <!-- ── FT-1107 (user): THE NIGHT'S OWN CLICK ON THIS COIN ───────────
            "The interaction should happen on the clock face."
@@ -547,7 +576,8 @@
            (hand left → chair right, and vice versa; pure geometry, so it
            holds even while the hand itself is hidden). -->
       <!-- FT-1244: FA `chair` stood down here too — the badge wears the
-           app's own chair (ui-seat.png) as a CSS mask, painting
+           app's own chair (ui-seat-front.svg since FT-1317) as a CSS mask,
+           painting
            `currentColor` through the art's alpha, so every colour state
            this badge has (resting white, `.you` blue, the red-to-white
            claim animation, the actor hover ink) keeps riding `color`
@@ -1071,7 +1101,8 @@
               @click="updatePlayer('id', '', true)"
               v-if="player.id && session.sessionId"
             >
-              <!-- FT-1242: FA `chair` stood down for ui-seat.png here and on
+              <!-- FT-1242: FA `chair` stood down for the app's own chair mark
+                   (uiSeat — ui-seat-front.svg since FT-1317) here and on
                    the claim rows below — one chair mark everywhere. -->
               <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
               Empty seat
@@ -1100,7 +1131,7 @@
             v-if="session.isSpectator && !(seatMoveLocked && !isOwnSeat)"
             :class="{ disabled: player.id && player.id !== session.playerId }"
           >
-            <!-- FT-1242: FA `chair` stood down for ui-seat.png (see above). -->
+            <!-- FT-1242: FA `chair` stood down for the chair mark (see above). -->
             <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
             <template v-if="!player.id">
               Claim seat
@@ -1236,7 +1267,10 @@ import {
 // same acts, plus the chair for the seat rows. The FA names they replace
 // (chair, plus, people-arrows, redo-alt, hand-point-right) stay registered in
 // main.js and stand down in place in the template.
-import uiSeat from "../assets/ui-seat.png";
+// FT-1317: ui-seat.png (a side-view chair) read as a letter H at claim size;
+// every live chair mark now wears the front-facing ui-seat-front.svg. The png
+// stays on disk (and inside the baked move/shuffle marks it was drawn into).
+import uiSeat from "../assets/ui-seat-front.svg";
 import uiNote from "../assets/ui-note.png";
 import uiMoveRole from "../assets/ui-move-role.png";
 import uiMovePlayer from "../assets/ui-move-player.png";
@@ -4630,6 +4664,67 @@ li.swap:not(.from) .player::after {
   }
 }
 
+/* FT-1317: THE RESTING CHAIR ON AN EMPTY COIN — see the template note. It is
+   the claimed seat's badge recipe verbatim (mask painted with currentColor,
+   FT-1283's stone ink and quiet, the parent's drop-shadow tracing the masked
+   shape), sat low on the coin because the Roman numeral owns the centre of
+   every roleless face. No pointer, no states — it is furniture, not a
+   control; the claim overlay above it is the control. */
+.player .open-mark {
+  position: absolute;
+  left: 0;
+  /* THE BOX IS THE COIN'S OWN SQUARE — the numeral's aspect-ratio trick,
+     for the numeral's reason: `.player` is taller than it is wide (coin +
+     name plate), so a percentage of ITS height lands things off the coin's
+     face (the first render sat the chair astride the toothed rim). The
+     chair itself is painted by the mask, low on the face, clear of the
+     numeral that owns the centre. */
+  top: -0.8%;
+  width: 100%;
+  aspect-ratio: 1;
+  z-index: 2;
+  pointer-events: none;
+  color: #9a9285;
+  opacity: 0.75;
+  filter: drop-shadow(0 0 3px black);
+  transition: opacity 200ms;
+  &::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: currentColor;
+    -webkit-mask-image: url("../assets/ui-seat-front.svg");
+    mask-image: url("../assets/ui-seat-front.svg");
+    /* `auto 26%` = the chair stands 26% of the coin tall (≈ the 28px the
+       claim invitation's own chair gets), width from the art's ratio. */
+    -webkit-mask-size: auto 26%;
+    mask-size: auto 26%;
+    -webkit-mask-position: center 78%;
+    mask-position: center 78%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+}
+/* While the big claim invitation (its own chair + word) is up, the resting
+   chair steps aside — two chairs on one coin is a stutter — and so does the
+   Roman numeral: its dark strokes sat under the invitation's chair and
+   interleaved with it (seat IIII read as a letter salad). Both spans sit
+   after the overlay in the DOM precisely so this reach works. */
+.player .claim-overlay:hover ~ .open-mark,
+.player .claim-overlay:hover ~ .seat-numeral {
+  opacity: 0;
+}
+/* On a hoverless pointer the claim overlay is ALWAYS showing (see the
+   hover:none block below), so wherever it renders the resting chair yields
+   full-time; seats with no overlay (the storyteller's view) keep it. */
+@media (hover: none) {
+  .player .claim-overlay ~ .open-mark,
+  .player .claim-overlay ~ .seat-numeral {
+    opacity: 0;
+  }
+}
+
 /* FT-1319: THE RENAME ASK — the claim ask's own dress, ON the plate.
    It is `.name`'s own child (see the template note: the plate's rendered
    box is the one place that is "on the plate" in every seat's rotated
@@ -5176,6 +5271,9 @@ html.veil-glass .circle .player .shroud:before {
     text-shadow: 0 1px 1px rgba(255, 250, 235, 0.45);
     pointer-events: none;
     user-select: none;
+    /* FT-1317: the numeral steps aside while the claim invitation is up —
+       see the .open-mark rules; this is just the fade. */
+    transition: opacity 200ms;
   }
 
   &.dead {
@@ -6113,12 +6211,18 @@ li.nominate .player .overlay .nominate-target {
    * needs no new fact to do it: `chair-right` is bound to
    * `!nominateMarkMirrored`, which IS "this seat is on the ring's right half".
    *
-   * WHICH WAY IS NATIVE. ui-seat.png is a side-view chair with its back on the
-   * left and its seat running right — it faces RIGHT, the opposite native
-   * direction to the hand's. So the flip lands on the opposite group too: a
+   * WHICH WAY IS NATIVE. ui-seat.png was a side-view chair with its back on
+   * the left and its seat running right — it faced RIGHT, the opposite native
+   * direction to the hand's. So the flip landed on the opposite group: a
    * right-half seat (centre of the clock is to its LEFT) is the one that must
    * mirror, and a left-half seat keeps the art as drawn. One class, already
    * bound, already on the right seats.
+   *
+   * FT-1317: the art is FRONT-FACING now (ui-seat-front.svg — the side view
+   * read as a letter H at small sizes) and symmetric, so the scaleX flip is
+   * a visual no-op. It stays because `chair-right` still does its FIRST job
+   * — picking the corner opposite the hand — and because the flip costs
+   * nothing and would matter again the day the art grows a facing.
    *
    * THE TRANSFORM GOES ON THE ::before, not here, and the reason is the same
    * one FT-1244 gives for putting the mask there: filters apply BEFORE
@@ -6168,7 +6272,8 @@ li.nominate .player .overlay .nominate-target {
   filter: drop-shadow(0 0 3px black);
   cursor: default;
   z-index: 2;
-  /* FT-1244: the badge is ui-seat.png worn as a mask — the ::before paints
+  /* FT-1244: the badge is the chair art worn as a mask (ui-seat-front.svg
+   * since FT-1317) — the ::before paints
    * `background-color: currentColor` THROUGH the art's alpha, so the states
    * below (and `.player.you .seat`) keep setting `color` and the chair
    * changes colour, animation included. The mask lives on the pseudo, not
@@ -6183,8 +6288,8 @@ li.nominate .player .overlay .nominate-target {
     width: 100%;
     height: 100%;
     background-color: currentColor;
-    -webkit-mask-image: url("../assets/ui-seat.png");
-    mask-image: url("../assets/ui-seat.png");
+    -webkit-mask-image: url("../assets/ui-seat-front.svg");
+    mask-image: url("../assets/ui-seat-front.svg");
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-position: center;

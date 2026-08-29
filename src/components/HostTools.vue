@@ -1764,7 +1764,9 @@ import grimoireClosed from "../assets/grimoire-cover.png";
 // top strip already wears for the script door — not a new asset; see the
 // template note on `.ht-script-mark` for why this one instance carries an
 // extra filter.
-import uiSeat from "../assets/ui-seat.png";
+// FT-1317: the side-view ui-seat.png read as a letter H at small sizes —
+// the Seats row wears the front-facing chair with every other live chair mark.
+import uiSeat from "../assets/ui-seat-front.svg";
 import uiRole from "../assets/ui-role.png";
 import uiScript from "../assets/ui-script.png";
 // FT-1196: the people shuffle wears its own baked mark — ui-seat's chair over
