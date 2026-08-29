@@ -185,6 +185,9 @@
               :aria-pressed="String(!currentVote)"
               @click="vote(false)"
             >
+              <!-- ui-hand-down.svg inline (kept in sync) — currentColor
+                   follows the cell's ink, so the lit state tints the glyph. -->
+              <svg class="vo-hand-ic" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,120v8A104,104,0,0,1,127.63,232c-54-.19-98-42.06-103.12-94.78a4,4,0,0,1,5.56-4A35.94,35.94,0,0,0,72,122.59a35.92,35.92,0,0,0,53.94,2.33,40.36,40.36,0,0,0,12.87,13A47.94,47.94,0,0,0,120,176a8,8,0,0,0,8.67,8,8.21,8.21,0,0,0,7.33-8.26A32,32,0,0,1,168,144a8,8,0,0,0,8-8.53,8.18,8.18,0,0,0-8.25-7.47H160a24,24,0,0,1-24-24V88h64A32,32,0,0,1,232,120ZM44.73,120C55.57,119.6,64,110.37,64,99.52v-23C64,65.63,55.57,56.4,44.73,56A20,20,0,0,0,24,76v24A20,20,0,0,0,44.73,120Zm56,0c10.84-.39,19.27-9.62,19.27-20.47v-47c0-10.85-8.43-20.08-19.27-20.47A20,20,0,0,0,80,52v48A20,20,0,0,0,100.73,120ZM176,52a20,20,0,0,0-20.73-20C144.43,32.4,136,41.63,136,52.48V72h36a4,4,0,0,0,4-4Z"/></svg>
               Hand DOWN
             </button>
             <button
@@ -193,6 +196,8 @@
               :aria-pressed="String(!!currentVote)"
               @click="vote(true)"
             >
+              <!-- ui-hand-up.svg inline (kept in sync). -->
+              <svg class="vo-hand-ic" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,104v50.93c0,46.2-36.85,84.55-83,85.06A83.71,83.71,0,0,1,80.6,215.4C58.79,192.33,34.15,136,34.15,136a16,16,0,0,1,6.53-22.23c7.66-4,17.1-.84,21.4,6.62l21,36.44a6.09,6.09,0,0,0,6,3.09l.12,0A8.19,8.19,0,0,0,96,151.74V32a16,16,0,0,1,16.77-16c8.61.4,15.23,7.82,15.23,16.43V104a8,8,0,0,0,8.53,8,8.17,8.17,0,0,0,7.47-8.25V88a16,16,0,0,1,16.77-16c8.61.4,15.23,7.82,15.23,16.43V112a8,8,0,0,0,8.53,8,8.17,8.17,0,0,0,7.47-8.25v-7.28c0-8.61,6.62-16,15.23-16.43A16,16,0,0,1,224,104Z"/></svg>
               Hand UP
             </button>
           </div>
@@ -1021,6 +1026,18 @@ export default {
   padding: 0.5em 1.1em;
   white-space: nowrap;
   transition: color 150ms, background 150ms;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+
+  /* The state glyphs (ui-hand-up/-down.svg inlined in the template):
+     currentColor, so the lit cell tints the hand with its own ink —
+     the glyph, not the word, is what reads at a glance. */
+  .vo-hand-ic {
+    width: 1.6em;
+    height: 1.6em;
+    flex: 0 0 auto;
+  }
 
   &:hover:not(.on) {
     background: $control-bg-hover;
