@@ -375,6 +375,11 @@
           @click="vote()"
           v-if="showGlyphVotes"
         />
+        <!-- User call 2026-08-28: a MINIATURE GLASS DISC — the face disc's
+             own material at coin size — grounds the vote mark, so the mark
+             never fights the coin's art for contrast. Revealed by the same
+             states that reveal a mark (CSS below). -->
+        <div class="vote-glass" aria-hidden="true" v-if="!showGlyphVotes"></div>
         <div
           class="vote-mark yes"
           title="Hand UP"
@@ -4424,6 +4429,7 @@ li.swap:not(.from) .player::after {
 }
 
 @import "../vars.scss";
+@import "../faceDisc.scss";
 
 .fold-enter-active,
 .fold-leave-active {
@@ -5151,6 +5157,30 @@ $belief-blood: #970000;
  * by the coins these marks sit on, so the old pair read as team marking. The
  * bone end is x.png's own outline cream, and the hand carries x.png's own
  * brush texture, so the two are still one material. */
+/* The miniature glass disc under the vote marks (user call 2026-08-28) —
+   face-disc-menu-plate is the app's one glass definition (AccountDoor and the
+   Chronicle float on the same material); round, coin-sized, below the marks
+   (their z is 2), revealed by exactly the states that reveal a mark. */
+.player .overlay .vote-glass {
+  position: absolute;
+  z-index: 1;
+  width: 92%;
+  height: 92%;
+  left: 4%;
+  top: 4%;
+  border-radius: 50%;
+  @include face-disc-menu-plate($r: 60px, $radius: 50%);
+  opacity: 0;
+  transform: scale(0.2);
+  pointer-events: none;
+  transition: all 250ms;
+}
+#townsquare.vote .player.vote-yes .overlay .vote-glass,
+#townsquare.vote .player.vote-lock .overlay .vote-glass {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .player .overlay .vote-mark {
   position: absolute;
   z-index: 2;
@@ -5165,30 +5195,29 @@ $belief-blood: #970000;
   background-repeat: no-repeat;
   background-size: contain;
 
-  // User call 2026-08-28: the coin's raised hand IS the vote button's palm
-  // (ui-hand-up.svg), and both marks wear the STONE pass — each is a MASK
-  // painted with the strip marks' own material tone (#9a9285, FT-1283's
-  // measured ink), so the pair is furniture of the app, not pasted art.
-  // The pair still changes together (FT-974b's rule): the X keeps its own
-  // silhouette (ui-vote-no.png as the mask) but is made of the same stone.
-  // Both halos go dark now — stone needs the same ground on either mark.
-  background-color: #9a9285;
-
+  // User call 2026-08-28 (v2 — "the hand is too dark, stone doesn't work"):
+  // the raised hand is the vote button's palm (ui-hand-up.svg as a MASK) but
+  // painted BONE-WHITE again; the stone ink lasted one look on the coin art.
+  // The X returns to its baked art + pale halo, untouched by the experiment.
+  // The vote-glass disc below is what grounds both marks now.
   &.yes {
+    background-color: #f2ecdf;
     mask: url("../assets/ui-hand-up.svg") center / contain no-repeat;
     -webkit-mask: url("../assets/ui-hand-up.svg") center / contain no-repeat;
     filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
   }
 
   &.no {
-    mask: url("../assets/ui-vote-no.png") center / contain no-repeat;
-    -webkit-mask: url("../assets/ui-vote-no.png") center / contain no-repeat;
-    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
+    background-image: url("../assets/ui-vote-no.png");
+    filter: drop-shadow(0 0 4px rgba(250, 245, 235, 0.9));
   }
 
-  &.yes:hover,
-  &.no:hover {
+  &.yes:hover {
     filter: drop-shadow(0 0 7px rgba(0, 0, 0, 1));
+  }
+
+  &.no:hover {
+    filter: drop-shadow(0 0 7px rgba(255, 252, 245, 1));
   }
 }
 
