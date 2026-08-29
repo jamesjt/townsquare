@@ -1567,7 +1567,14 @@ export default {
      * every level.
      */
     whisperDiscShown() {
+      // User call 2026-08-28: for a PLAYER this disc is the doorway the
+      // FT-1271 whisper mark replaced — the mark sits in the seat's own
+      // vocabulary corner (the nominate slot), so the hover disc showing
+      // beside the plate too was two doorways on one seat (the FT-1169
+      // mistake). The disc is the STORYTELLER's now; a player's seat speaks
+      // through the mark alone.
       return !!(
+        !this.session.isSpectator &&
         this.ctrlClickCoins &&
         this.addAnchor &&
         this.player.id &&
