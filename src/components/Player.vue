@@ -4351,29 +4351,42 @@ li.swap:not(.from) .player::after {
     opacity: 1;
     color: #d8cdb4;
   }
-  /* While asking the name, the overlay must not fade away under the cursor. */
+  /* While asking the name, the overlay must not fade away under the cursor.
+     User call 2026-08-28: the ask sits ON THE NAMEPLATE, not over the coin —
+     it borrows `.player > .name`'s own geometry (top/right/width below are
+     that rule's values verbatim) so the box lands exactly where the plate
+     draws, and it wears the fork's pick purple (#a78fcd, the gsel/breath
+     ink) instead of red — an invitation to type, not a warning. */
   &.asking {
     opacity: 1;
     cursor: default;
+    top: 5px;
+    right: 10%;
+    left: auto;
+    width: 120%;
+    height: auto;
+    flex-direction: row;
+    border-radius: 10px;
+    background: none;
   }
   input {
     width: 80%;
     background: rgba(0, 0, 0, 0.8);
     color: white;
-    border: 2px solid black;
+    border: 2px solid #a78fcd;
     border-radius: 6px;
     padding: 3px 6px;
     font-size: 80%;
     text-align: center;
     outline: none;
     &:focus {
-      border-color: #400;
+      border-color: #c9b3ef;
     }
   }
   .go {
     cursor: pointer;
     &:hover {
-      color: red;
+      color: #a78fcd;
     }
   }
 }
