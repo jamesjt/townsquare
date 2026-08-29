@@ -9,6 +9,11 @@
         {
           dead: player.isDead,
           marked: session.markedPlayer === index,
+          // FT-1314: this seat stands in the auto-mark tie-cross — both (or
+          // all) tied chairs keep their noose VISIBLE and struck through:
+          // tied, nobody hangs as it stands, a higher vote can still take
+          // the mark.
+          tied: isTieMarked,
           'no-vote': player.isVoteless,
           you: session.sessionId && player.id && player.id === session.playerId,
           'vote-yes': session.votes[index],
@@ -693,9 +698,16 @@
            stays behind `showSkullMarked` the way every retired glyph here
            does; the tally comes from markedVotes below and simply stays
            off the art when no count is known. -->
+      <!-- FT-1314: `.is-struck` — the tie-cross. The same noose, cancelled
+           by a bar (the vote card's own is-struck grammar): this chair tied
+           the block at the tally shown, and nobody hangs as it stands. -->
       <div class="marked">
         <font-awesome-icon icon="skull" v-if="showSkullMarked" />
-        <div class="marked-noose" v-if="!showSkullMarked">
+        <div
+          class="marked-noose"
+          :class="{ 'is-struck': isTieMarked }"
+          v-if="!showSkullMarked"
+        >
           <span class="tally" v-if="markedVotes !== null">{{
             markedVotes
           }}</span>
@@ -1295,8 +1307,21 @@ export default {
      * one). A spectator whose vote history is switched off simply wears the
      * noose alone.
      */
+    /**
+     * FT-1314: is this seat one of the tie-cross's chairs? The pair (or
+     * more) stands with markedPlayer -1 — tied at the same recorded count,
+     * every listed seat wearing the struck noose until a higher vote or the
+     * storyteller's own hand takes the block for real.
+     */
+    isTieMarked() {
+      const tie = this.session.markedTie;
+      return !!(tie && tie.seats && tie.seats.includes(this.index));
+    },
     markedVotes() {
       const session = this.session;
+      // FT-1314: a tied chair's tally is the tie's own count — the number
+      // both marks stand crossed at.
+      if (this.isTieMarked) return session.markedTie.votes;
       if (session.markedPlayer !== this.index) return null;
       if (session.nomination && session.nomination[1] === this.index) {
         return session.votes.filter(Boolean).length;
@@ -5777,6 +5802,31 @@ li.nominate .player .overlay .nominate-target {
 }
 .player.marked .marked {
   opacity: 0.85;
+}
+/* FT-1314: a tie-crossed chair keeps its noose visible too — same weight as
+ * a real mark, because the pair standing crossed IS the state being shown. */
+.player.tied .marked {
+  opacity: 0.85;
+}
+/* FT-1314: the cancelling bar — the vote card's own `is-struck` grammar
+ * (Vote.vue's noose), redrawn at seat size: the blood bar over a dark
+ * keyline, so it reads on the rope and on the coin behind it alike. Drawn
+ * on `.marked` (the full-seat box), NOT on `.marked-noose` — that element
+ * is a masked silhouette, and a pseudo-element inside it would be clipped
+ * to the rope's own pixels. Sized against the noose's 60% footprint. */
+.player.tied .marked:after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 50%;
+  height: 5%;
+  transform: translateY(-50%) rotate(-32deg);
+  border-radius: 4px;
+  background: $demon;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.8),
+    0 0 4px rgba(0, 0, 0, 0.7);
 }
 
 /* FT-1075 rider — the running nomination worn on the two coins involved.

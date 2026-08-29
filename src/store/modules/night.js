@@ -178,6 +178,20 @@ const getters = {
       acting.forEach(({ role, isPerformance }) => {
         if (!role || !role.id) return;
         if (!(role[prop] > 0)) return;
+        // FT-1314 (user ruling): with the Scarlet Woman automation ON, her
+        // conditional row does not render AT ALL — not folded, gone — and
+        // counts toward nothing (progress and the End-night gate read this
+        // roster, so dropping it here covers all of them). The automation
+        // does the row's whole job, reveal included (golem/automations'
+        // onDeath). OFF renders the row untouched. Read off the session
+        // mirror, not towerState, so a live toggle re-runs this getter.
+        if (
+          role.id === "scarletwoman" &&
+          rootState.session.automations &&
+          rootState.session.automations.autoScarletWoman
+        ) {
+          return;
+        }
         // FT-874 (2026-08-19): A DEAD SEAT DOES NOT WAKE — unless its
         // character says otherwise. The checklist is scanned under time
         // pressure and a row for a seat that cannot act is pure noise; but for

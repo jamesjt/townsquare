@@ -196,6 +196,19 @@ export const DEFAULT_TOWER = {
   // key), so no new traffic line is written anywhere from the moment the
   // host flips it. Rows already recorded stand; the setting governs minting.
   whisperTraffic: true,
+  // FT-1314: THE AUTOMATIONS — one boolean per rule the town can hand to the
+  // machine (golem/automations.js holds the vocabulary and the engine; the
+  // build panel's Automations group is the only writer). ALL DEFAULT OFF —
+  // the storyteller opts in per town. They ride this shelf because they are
+  // exactly what this object is: the town's own rules, persisted per town,
+  // synced to every client on the tower's existing frames (a spectator needs
+  // none of them to act, but the sync costs nothing and keeps one shelf).
+  autoMark: false, // a concluded vote marks/crosses the block itself
+  autoExecute: false, // End day executes the marked player
+  autoGhostVote: false, // a dead raised hand spends its ghost vote
+  autoScarletWoman: false, // the Scarlet Woman becomes the dead Demon
+  autoStarpass: false, // the Imp's self-kill passes the crown
+  autoUndertaker: false, // the Undertaker's row prefills from the gallows
 };
 
 /** The Day length scrub's bounds, in minutes (0 — Off — is set by its own
@@ -323,8 +336,17 @@ function sanitize(key, value) {
     }
     // FT-1309: whisperTraffic is the traffic line's own switch — a boolean
     // exactly like its Count-whispers sibling, so they share the coercion.
+    // FT-1314: the six automations are the same shape again — plain
+    // booleans on the same shelf (no comment between the labels; eslint's
+    // no-fallthrough reads one as an unannotated fall).
     case "whisperCounts":
     case "whisperTraffic":
+    case "autoMark":
+    case "autoExecute":
+    case "autoGhostVote":
+    case "autoScarletWoman":
+    case "autoStarpass":
+    case "autoUndertaker":
       return !!value;
     default:
       return undefined;

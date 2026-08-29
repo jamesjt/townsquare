@@ -26,6 +26,40 @@ const state = () => ({
   isVoteInProgress: false,
   voteHistory: [],
   markedPlayer: -1,
+  // FT-1314: THE TIE-CROSS — the auto-mark automation's "tied, nobody hangs
+  // as it stands": { seats: [i, …], votes: N } while two (or more) marks
+  // stand crossed at the same recorded count, null otherwise. Synced like
+  // markedPlayer (its own "markedTie" frame + the full gamestate), rendered
+  // by the seats as a struck-through noose on every listed chair. A REAL
+  // mark supersedes it (setMarkedPlayer to a seat clears it in the same
+  // commit) and the night retires it with the day (socket.js's toggleNight
+  // case) — the same lifetime the mark itself has.
+  markedTie: null,
+  // FT-1314: THE SIX AUTOMATION FLAGS, MIRRORED. The truth lives on the
+  // tower shelf (golem/towerBells — per-town persisted, synced); this copy
+  // exists because towerState is not reactive and the night roster getter
+  // has to re-run when a toggle flips (the Scarlet Woman row's hide).
+  // Written only by socket.js's TOWER_EVENT listener, from
+  // golem/automations' automationFlags().
+  automations: {
+    autoMark: false,
+    autoExecute: false,
+    autoGhostVote: false,
+    autoScarletWoman: false,
+    autoStarpass: false,
+    autoUndertaker: false,
+  },
+  // FT-1314: THE STARPASS CHOOSER, both halves of it (the grimoireGrants
+  // idiom: host ledger + player flag, neither persisted).
+  //   starpassOffer    PLAYER side — the "who inherits" ask standing on this
+  //                    client: { minions: [{seat, name}] } or null. Written
+  //                    by the socket's "starpass" direct frame; cleared by
+  //                    the player's own answer or a null frame.
+  //   starpassPending  HOST side — the playerId the chooser was sent to, ""
+  //                    when none is outstanding. Only that client's answer
+  //                    is honoured (golem/automations.onStarpassPick).
+  starpassOffer: null,
+  starpassPending: "",
   isVoteHistoryAllowed: true,
   isRolesDistributed: false,
   // FT-880: when the storyteller last called the town back (epoch ms, 0 = not
@@ -149,7 +183,72 @@ const mutations = {
       );
     }
     state.markedPlayer = index;
+    // FT-1314: A REAL MARK SUPERSEDES THE TIE-CROSS. The crossed pair means
+    // "tied, nobody hangs as it stands", and it stands only until a later
+    // higher vote — or the storyteller's own hand — puts somebody on the
+    // block for real. Cleared here, in the one gate every mark transition
+    // passes, so the host's automation and a spectator's incoming "marked"
+    // frame retire the pair identically. A -1 does NOT clear it: lifting a
+    // mark is not a verdict, and the tie itself stands with markedPlayer -1.
+    if (index >= 0 && state.markedTie) {
+      state.markedTie = null;
+    }
   },
+  /**
+   * FT-1314: the tie-cross itself — see the state note. Validated the way
+   * every synced field is: a payload that is not {seats:[ints], votes>0}
+   * reads as null, so a malformed frame can only ever CLEAR the pair.
+   */
+  setMarkedTie(state, tie) {
+    if (
+      tie &&
+      Array.isArray(tie.seats) &&
+      tie.seats.length >= 2 &&
+      tie.seats.every((s) => Number.isInteger(s) && s >= 0) &&
+      Number.isFinite(tie.votes) &&
+      tie.votes > 0
+    ) {
+      state.markedTie = {
+        seats: [...new Set(tie.seats)],
+        votes: Math.round(tie.votes),
+      };
+    } else {
+      state.markedTie = null;
+    }
+  },
+  /** FT-1314: the automation flags' reactive mirror — see the state note. */
+  setAutomations(state, flags) {
+    const next = {};
+    Object.keys(state.automations).forEach((key) => {
+      next[key] = !!(flags && flags[key]);
+    });
+    state.automations = next;
+  },
+  /** FT-1314: the "who inherits" ask landing on (or leaving) THIS client. */
+  setStarpassOffer(state, offer) {
+    if (offer && Array.isArray(offer.minions) && offer.minions.length) {
+      state.starpassOffer = {
+        minions: offer.minions
+          .filter((m) => m && Number.isInteger(m.seat))
+          .map((m) => ({ seat: m.seat, name: String(m.name || "") })),
+      };
+      if (!state.starpassOffer.minions.length) state.starpassOffer = null;
+    } else {
+      state.starpassOffer = null;
+    }
+  },
+  /**
+   * FT-1314: the dying Imp answers — the callBack idiom: the commit is the
+   * event, socket.js's subscriber is the one place it goes out (direct to
+   * the host, stamped with this client's own playerId there). The chooser
+   * stands down at the moment of the pick; the truth of what the pick DID
+   * comes back on the ordinary frames (the new character, the night row).
+   */
+  starpassAnswer(state) {
+    state.starpassOffer = null;
+  },
+  /** FT-1314: the host's outstanding chooser — see the state note. */
+  setStarpassPending: set("starpassPending"),
   setNomination: set("nomination"),
   setVoteHistoryAllowed: set("isVoteHistoryAllowed"),
   claimSeat: set("claimedSeat"),

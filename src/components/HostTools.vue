@@ -1193,6 +1193,41 @@
             />
           </span>
         </span>
+
+        <!-- ── FT-1314: THE AUTOMATIONS GROUP ──────────────────────────────
+             One checkbox per rule the storyteller hands to the machine, in
+             the settings rows' own grammar (mark + name + OptionCheck) and
+             on the tower shelf like every row above — per-town persisted,
+             synced live, ALL DEFAULT OFF. The vocabulary (labels, marks,
+             the teaching titles) lives in golem/automations.js beside the
+             engine that acts on it, so the row a storyteller reads and the
+             rule that fires can never drift. `ht-group-start` opens the
+             group the way the bell and chat families open theirs. -->
+        <span
+          v-for="(rule, ruleIndex) in automationRules"
+          :key="rule.key"
+          class="ht-set-line ht-set-line-auto"
+          :class="{ 'ht-group-start': ruleIndex === 0 }"
+        >
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                :icon="rule.icon"
+                :title="rule.title"
+              />
+              <span class="row-name" v-if="!iconsOnly">{{ rule.label }}</span>
+            </span>
+            <OptionCheck
+              :name="'auto-' + rule.key"
+              :aria-label="rule.label"
+              on-value="on"
+              :options="automationOptions(rule)"
+              :value="tower[rule.key] ? 'on' : 'off'"
+              @input="(v) => pickAutomation(rule.key, v)"
+            />
+          </span>
+        </span>
       </div>
 
       <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
@@ -1754,6 +1789,10 @@ import {
 // FT-1206: the chat levels and the plane's linger choices — the two new
 // rows offer them; the keys ride the tower shelf like every setting here.
 import { CHAT_LEVELS, WHISPER_MARK_SECS } from "../golem/chat";
+// FT-1314: the Automations group's vocabulary — one row per rule, authored
+// beside the engine that fires them (golem/automations.js) so the checkbox a
+// storyteller reads and the behaviour it arms cannot drift apart.
+import { AUTOMATION_RULES } from "../golem/automations";
 // FT-1051: the shared custom-audio machinery (one helper serving the bell
 // AND the call-back), and the call-back's own preview.
 import { probeAudioUrl, uploadAudioFile } from "../golem/customAudio";
@@ -2436,6 +2475,10 @@ export default {
         },
       ];
     },
+    /** FT-1314: the Automations group's rows — the module's own list. */
+    automationRules() {
+      return AUTOMATION_RULES;
+    },
     /** FT-1309: the Chronicle's whisper-traffic lines, on or off. */
     whisperTrafficOptions() {
       return [
@@ -2836,6 +2879,20 @@ export default {
      *  shape, one tower key over. */
     pickWhisperTraffic(v) {
       this.setTower("whisperTraffic", v === "on");
+    },
+    /** FT-1314: one automation armed or stood down — a plain tower write;
+     *  the shelf persists per town, syncs live, and the engine reads the
+     *  module's own copy at the moment each rule is judged. */
+    pickAutomation(key, v) {
+      this.setTower(key, v === "on");
+    },
+    /** FT-1314: the two-option pair OptionCheck's contract wants, built from
+     *  the rule's own authored titles. */
+    automationOptions(rule) {
+      return [
+        { value: "off", label: "Off", title: rule.offTitle },
+        { value: "on", label: "On", title: rule.onTitle },
+      ];
     },
     pickWhisperCounts(v) {
       this.setTower("whisperCounts", v === "on");
@@ -3593,6 +3650,7 @@ export default {
           return;
         }
         this.$parent.$refs.menu.distributeRoles();
+        this.beginAtNight();
         return;
       }
       if (!this.canStart) {
@@ -3606,6 +3664,25 @@ export default {
         return;
       }
       this.$parent.$refs.menu.distributeRoles();
+      this.beginAtNight();
+    },
+    /**
+     * FT-1314 (user ruling — flow, not a checkbox): "START GAME" GOES
+     * STRAIGHT INTO NIGHT 1. The deal and the first night are one act — the
+     * real game opens with the storyteller running Night 1, and the old
+     * dealt-but-daytime beat between them was a state nobody wanted to stand
+     * in. Day 1 follows Night 1, exactly as End night has always delivered
+     * it. The ordinary toggleNight commit is the whole move: it increments
+     * the day counter to 1, broadcasts the phase, writes "Night 1 falls."
+     * into the town log, and the full resync the deal schedules a tick later
+     * carries isNight + nightDay to every client on top of the live frame.
+     * Guarded for the (unreachable from this button) already-night case so a
+     * double call could never flip the town back to day.
+     */
+    beginAtNight() {
+      if (!this.grimoire.isNight) {
+        this.$store.commit("toggleNight", true);
+      }
     },
   },
 };

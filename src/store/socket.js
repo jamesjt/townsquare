@@ -75,6 +75,21 @@ import {
 // privacy rule made code — a player-bound night row NEVER carries the lie
 // mark, the done tick, or the true/shown pair (see golem/nightLog).
 import { projectEntriesFor } from "../golem/nightLog";
+// FT-1314: THE AUTOMATIONS ENGINE. Every hook below is a no-op on a
+// spectator, on an unarmed rule, or when its condition is not met — the
+// module's own header holds the whole design. This subscriber is where the
+// hooks live because it is the one place that already sees every game event
+// on the host's client.
+import {
+  automationFlags,
+  onVoteConcluded,
+  onDayEnds,
+  prefillUndertaker,
+  onDeath,
+  onNightEntry,
+  onStarpassPick,
+  retireStarpassOffer,
+} from "../golem/automations";
 
 /**
  * FT-1295: ONE REMINDER TOKEN, CUT DOWN TO WHAT A GRIMOIRE WINDOW SHOWS.
@@ -430,6 +445,27 @@ class LiveSession {
         if (!this._isSpectator) return;
         this._store.commit("session/setMarkedPlayer", params);
         break;
+      // FT-1314: the tie-cross moving — markedPlayer's own sibling frame,
+      // same one-value ST-broadcast shape. The mutation validates; a
+      // malformed payload can only ever clear the pair.
+      case "markedTie":
+        if (!this._isSpectator) return;
+        this._store.commit("session/setMarkedTie", params);
+        break;
+      // FT-1314: the starpass chooser landing on the dying Imp's client —
+      // always a direct frame from the host to that one seat (the grimoire
+      // frame's shape). A null payload stands the chooser down.
+      case "starpass":
+        if (!this._isSpectator) return;
+        this._store.commit("session/setStarpassOffer", params || null);
+        break;
+      // FT-1314: ...and the Imp's answer arriving at the host on the direct
+      // lane (the nightAction shape — the payload carries the sender's own
+      // playerId; the engine honours only the client the chooser went to).
+      case "starpassPick":
+        if (this._isSpectator) return;
+        onStarpassPick({ store: this._store, live: this }, params);
+        break;
       case "isNight":
         if (!this._isSpectator) return;
         this._store.commit("toggleNight", params);
@@ -663,6 +699,8 @@ class LiveSession {
         lockedVote: session.lockedVote,
         isVoteInProgress: session.isVoteInProgress,
         markedPlayer: session.markedPlayer,
+        // FT-1314: the tie-cross rides beside the mark it stands in for.
+        markedTie: session.markedTie,
         fabled: fabled.map((f) => (f.isCustom ? f : { id: f.id })),
         // FT-931: the ended flag + the result. A joining or reconnecting
         // client learns the town is over from this same full sync — the
@@ -715,6 +753,9 @@ class LiveSession {
       lockedVote,
       isVoteInProgress,
       markedPlayer,
+      // FT-1314: the tie-cross (absent from an older host reads as null —
+      // the mutation coerces).
+      markedTie,
       fabled,
       // FT-931: the ended flag + result — see the matching fields sendGamestate
       // now sends, above.
@@ -823,6 +864,9 @@ class LiveSession {
         isVoteInProgress,
       });
       this._store.commit("session/setMarkedPlayer", markedPlayer);
+      // FT-1314: AFTER setMarkedPlayer, never before — a real mark's commit
+      // clears any standing tie, so the pair must land second to survive.
+      this._store.commit("session/setMarkedTie", markedTie || null);
       this._store.commit("players/setFabled", {
         fabled: fabled.map((f) => this._store.state.fabled.get(f.id) || f),
       });
@@ -2165,6 +2209,28 @@ class LiveSession {
   }
 
   /**
+   * FT-1314: the tie-cross moving — the mark's own broadcast, one frame over.
+   * ST only, like every mark transition.
+   */
+  sendMarkedTie() {
+    if (this._isSpectator) return;
+    this._send("markedTie", this._store.state.session.markedTie);
+  }
+
+  /**
+   * FT-1314: the dying Imp's "who inherits" answer going up — the
+   * sendNightAction shape verbatim: direct to the host, stamped with this
+   * client's own playerId because the relay attaches no sender.
+   */
+  sendStarpassAnswer(payload) {
+    if (!this._isSpectator) return;
+    this._sendDirect("host", "starpassPick", {
+      seat: payload && payload.seat,
+      playerId: this._store.state.session.playerId,
+    });
+  }
+
+  /**
    * FT-880: CALL THE TOWN BACK. ST only.
    *
    * The lightest message in the file: no payload at all. Every client already
@@ -2481,6 +2547,16 @@ export default (store) => {
     }
   });
 
+  // FT-1314: THE AUTOMATION FLAGS' REACTIVE MIRROR. towerState is a plain
+  // module object Vue cannot watch, and the night roster getter needs to
+  // re-run when the Scarlet Woman automation flips (her row's hide). So the
+  // six flags are mirrored into session state on every tower event — a load,
+  // a host's toggle, a sync arriving — and once at boot for the defaults.
+  store.commit("session/setAutomations", automationFlags());
+  window.addEventListener(TOWER_EVENT, () => {
+    store.commit("session/setAutomations", automationFlags());
+  });
+
   // FT-1206: THE CHAT LEVEL CHANGED — on the host's own pick or on a sync
   // arriving. Rows are level-filtered at ingest (store's chatIngest), so the
   // held log answers to the OLD level and the cursor has moved past whatever
@@ -2698,6 +2774,11 @@ export default (store) => {
             nays,
           },
         );
+        // FT-1314: THE VOTE CONCLUDED — the auto-mark and ghost-vote rules
+        // judge this record. Here, after the row above, because the live
+        // tallies (session.votes) still stand for one more commit and the
+        // engine reads them; each rule gates itself on its own checkbox.
+        onVoteConcluded({ store, live: session }, rec);
         break;
       }
       case "session/nomination":
@@ -2737,6 +2818,34 @@ export default (store) => {
         break;
       case "toggleNight":
         session.setIsNight();
+        // FT-1314: THE DAY'S END IS THE AUTOMATIONS' BELL. Host only, on the
+        // genuine day→night turn, and BEFORE the phase's own housekeeping
+        // (Menu/NightSheet clear the mark one commit after this; the tie is
+        // retired just below) — so the end-day execution still finds the
+        // mark it hangs, and the Undertaker's prefill reads the execution
+        // it may have just recorded. Order inside the pair matters too:
+        // the execution writes the record the prefill wants.
+        if (!state.session.isSpectator && state.grimoire.isNight) {
+          onDayEnds({ store, live: session });
+          prefillUndertaker({ store, live: session });
+        }
+        // FT-1314: THE NIGHT RETIRES THE TIE-CROSS with the day it belongs
+        // to — every client, the same clock (a spectator reaches here on the
+        // host's isNight frame). The host's commit re-broadcasts the null;
+        // a spectator's own send is refused by the ST guard.
+        if (state.grimoire.isNight && state.session.markedTie) {
+          store.commit("session/setMarkedTie", null);
+        }
+        // FT-1314: ...and a starpass chooser nobody answered does not
+        // outlive its night. Host clears + tells the one client; a player
+        // client also stands its own copy down when day breaks (the direct
+        // "starpass" null covers a client that missed this commit).
+        if (!state.grimoire.isNight) {
+          retireStarpassOffer({ store, live: session });
+          if (state.session.starpassOffer) {
+            store.commit("session/setStarpassOffer", null);
+          }
+        }
         // FT-1003: the night ending closes every UNPINNED grimoire window —
         // host only (a spectator's ledger is empty by construction, but the
         // guard keeps the rule visible). Each commit re-enters this
@@ -2804,12 +2913,19 @@ export default (store) => {
       // (they never do today) would send nothing.
       case "night/addEntry":
         session.sendNightRows((payload && payload.playerId) || "");
+        // FT-1314: the starpass watches the log itself — a row born already
+        // sent (a player's own pick echoed, or a hand-written record) is
+        // judged the same as a patched one.
+        onNightEntry({ store, live: session }, payload);
         break;
       case "night/patchEntry": {
         const entry = state.night.entries.find(
           (e) => e.id === (payload && payload.id),
         );
         session.sendNightRows((entry && entry.playerId) || "");
+        // FT-1314: the Imp's row reaching SENT with itself among the targets
+        // is the starpass trigger — see golem/automations.onNightEntry.
+        if (entry) onNightEntry({ store, live: session }, entry);
         break;
       }
       case "night/removeEntry":
@@ -2873,6 +2989,17 @@ export default (store) => {
         }
         break;
       }
+      // FT-1314: the tie-cross rides a mutation like every mark transition —
+      // the host's write broadcasts, a spectator's incoming copy is refused
+      // by the sender's own ST guard.
+      case "session/setMarkedTie":
+        session.sendMarkedTie();
+        break;
+      // FT-1314: the dying Imp's answer — the night/playerAction idiom: the
+      // commit is the event, this is the one place it goes out.
+      case "session/starpassAnswer":
+        session.sendStarpassAnswer(payload);
+        break;
       case "players/swap":
         session.swapPlayer(payload);
         break;
@@ -2922,6 +3049,14 @@ export default (store) => {
               seat: seat >= 0 ? seat : null,
             },
           );
+          // FT-1314: EVERY DEATH PASSES THIS ONE COMMIT — execution, night
+          // kill, staged shroud, the automations' own — so this is where
+          // the Scarlet Woman rule watches for the Demon falling, and where
+          // a day-phase death of the marked player is recorded as the
+          // execution the Undertaker's prefill reads. Host only inside.
+          if (payload.value && !state.session.isSpectator && seat >= 0) {
+            onDeath({ store, live: session }, payload.player, seat);
+          }
         }
         break;
     }
