@@ -290,6 +290,37 @@ export const SETUP_LABELS = [
   },
 ];
 
+/**
+ * FT-1319: THE ADD-REMINDER PIN'S RESTING VISIBILITY — a player-facing pref,
+ * the first row of the player settings menu (PlayerSettings.vue).
+ *
+ * The pin (the note disc beside the name plate) used to exist only on the
+ * plate's hover. "Always" is the DEFAULT now: the disc stands at rest in a
+ * quiet stone register and brightens on hover, so the affordance is
+ * discoverable without a hover hunt. "On hover" is the pre-FT-1319
+ * behaviour, kept for anyone who finds the resting discs busy.
+ *
+ * Both states named out loud, per the SETUP_LABELS rule above: a checkbox
+ * would make the reader work out what the empty box means. This is a
+ * personal setting by the header's own test — a viewer would expect it to
+ * follow them to a different town — so it lives here and rides the FT-1202
+ * account sync like every other key.
+ */
+export const PIN_VISIBILITY = [
+  {
+    value: "always",
+    label: "Always",
+    title:
+      "The add-reminder pin rests visible beside every name plate, " +
+      "quiet until you hover it",
+  },
+  {
+    value: "hover",
+    label: "On hover",
+    title: "The pin appears only while the pointer rests on a name plate",
+  },
+];
+
 // ---------------------------------------------------------------------------
 // FT-1260: THE PER-MENU LAYOUTS — which seat actions each menu offers, and in
 // what order. The user: "make them open as drop down with a toggle for each
@@ -401,6 +432,8 @@ export const DEFAULT_PREFS = {
   ctrlDragRoles: true,
   ctrlDragNames: true,
   ctrlReminderHover: true,
+  // FT-1319: the pin rests VISIBLE by default — see PIN_VISIBILITY above.
+  pinVisibility: "always",
   // FT-1260: the per-menu layouts — everything on, at each menu's standing
   // order (the plate's is the vocabulary's own; the ring's is FT-1219's).
   ctrlRingLayout: defaultLayout(RING_DEFAULT_ORDER),
@@ -437,6 +470,11 @@ function sanitize(key, value) {
       return value === "off" || SEAT_SLOT_IDS.includes(value)
         ? value
         : DEFAULT_PREFS[key];
+    // FT-1319: the pin's resting visibility — one of the two named states.
+    case "pinVisibility":
+      return PIN_VISIBILITY.some((o) => o.value === value)
+        ? value
+        : DEFAULT_PREFS.pinVisibility;
     // FT-1260: the per-menu layouts — vocabulary-checked, missing slots
     // appended in that menu's default order. Always returns a NEW array.
     case "ctrlRingLayout":

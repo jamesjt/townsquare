@@ -217,23 +217,44 @@
             title="Your settings — this browser, every town"
             @click="setTab('settings')"
           />
+          <!-- FT-1319: THE COG RETURNS, FOR EVERYONE — which is exactly the
+               condition FT-1198 set when it left ("if prefs ever grow a
+               genuinely player-facing row, the gear can return for players
+               then"): the player settings menu's rows are the viewer's own
+               (the reminder pin's resting visibility; the vote timer for a
+               storyteller; FT-1318's coin art next). NOT the stood-down
+               settings-cog above — that one opened the HOST prefs section
+               and stays stood down; this one opens PlayerSettings.vue. -->
+          <img
+            :class="{ lit: playerSettingsOpen }"
+            :src="uiCog"
+            alt="Player settings"
+            title="Player settings — yours, on every screen"
+            @click="togglePlayerSettings"
+          />
           <!-- FT-1200: the mark is THE ACCOUNT DOOR now — see the entry
                strip's note. (FT-1204 took the signed-in ring off; FT-1202's
                `lit` is a different fact — the door's own panel standing open,
-               the same open-state glow every mark in this strip now wears.) -->
+               the same open-state glow every mark in this strip now wears.)
+               FT-1320: the mark drops its own MENU now (AccountMenu.vue) —
+               the account act that applies plus the change log; the account
+               door the bare click used to open is the menu's Sign in row. -->
           <img
             class="golem-mark"
-            :class="{ 'signed-in': !!session.account, lit: accountOpen }"
+            :class="{
+              'signed-in': !!session.account,
+              lit: accountMenuOpen || accountOpen,
+            }"
             :src="uiGolem"
-            alt="Golem account"
+            alt="Golem"
             :title="
               session.account
                 ? `Golem — signed in as ${
                     session.account.name || session.account.email
                   }`
-                : 'Golem — sign in'
+                : 'Golem — sign in, change log'
             "
-            @click="accountOpen = true"
+            @click="toggleAccountMenu"
           />
         </li>
 
@@ -362,20 +383,25 @@
           <!-- FT-1200: the mark is THE ACCOUNT DOOR now — see the entry
                strip's note. (FT-1204 took the signed-in ring off; FT-1202's
                `lit` is a different fact — the door's own panel standing open,
-               the same open-state glow every mark in this strip now wears.) -->
+               the same open-state glow every mark in this strip now wears.)
+               FT-1320: the same menu as the in-game copy — one mark, one
+               dropdown, both strips. -->
           <img
             class="golem-mark"
-            :class="{ 'signed-in': !!session.account, lit: accountOpen }"
+            :class="{
+              'signed-in': !!session.account,
+              lit: accountMenuOpen || accountOpen,
+            }"
             :src="uiGolem"
-            alt="Golem account"
+            alt="Golem"
             :title="
               session.account
                 ? `Golem — signed in as ${
                     session.account.name || session.account.email
                   }`
-                : 'Golem — sign in'
+                : 'Golem — sign in, change log'
             "
-            @click="accountOpen = true"
+            @click="toggleAccountMenu"
           />
         </li>
       </ul>
@@ -748,6 +774,47 @@
          own component (sign-in/sign-up/who-am-I all live there); this menu
          only owns the toggle, exactly like the marks beside it own theirs. -->
     <AccountDoor v-if="accountOpen" @close="accountOpen = false" />
+
+    <!-- FT-1319: THE PLAYER SETTINGS MENU — the strip cog's plate, every
+         viewer's own rows (the pin's resting visibility; the vote timer for
+         the storyteller; FT-1318's appearance ground). It hoists itself to
+         <body> and hangs off the cog it was opened from, PrefsMenu's own
+         arrangement — see the component. -->
+    <!-- EACH HOISTED PLATE LIVES IN ITS OWN STABLE SLOT DIV, and that is
+         load-bearing, not tidiness: these components move their root to
+         <body> on mount, so as bare siblings a patch that closes one and
+         opens another in the same flush hands Vue an insertBefore reference
+         node that is no longer in this parent — a NotFoundError that aborts
+         the whole patch (measured: the change log simply never opened while
+         the account menu was up). The slot divs never move, so every
+         sibling insertion references a real child of this element; the
+         hoisting then happens strictly inside each slot. -->
+    <div class="hoist-slot">
+      <PlayerSettings
+        v-if="playerSettingsOpen"
+        :anchor="playerSettingsAnchor"
+        @close="playerSettingsOpen = false"
+      />
+    </div>
+
+    <!-- FT-1320: THE GOLEM MARK'S MENU — sign in / sign out (riding the
+         account door and golem/account's own logout), the change log, and
+         room for the rows that come next. Same hoisted-plate idiom as the
+         settings menu above; the mark's old direct-open of the account
+         door lives on as this menu's "Sign in" row. -->
+    <div class="hoist-slot">
+      <AccountMenu
+        v-if="accountMenuOpen"
+        :anchor="accountMenuAnchor"
+        @close="accountMenuOpen = false"
+        @account="accountOpen = true"
+        @changelog="changelogOpen = true"
+      />
+    </div>
+
+    <!-- FT-1320: the change log's reading panel — data in
+         golem/changelog.js, dress in the component. -->
+    <ChangeLog v-if="changelogOpen" @close="changelogOpen = false" />
   </div>
 </template>
 
@@ -817,12 +884,24 @@ import KeyCap from "./KeyCap";
 // FT-1200: the account door the golem mark opens — sign-in, sign-up and
 // who-am-I all live in the panel; this menu only mounts and toggles it.
 import AccountDoor from "./AccountDoor";
+// FT-1319: the player settings menu — the strip cog's own plate.
+import PlayerSettings from "./PlayerSettings";
+// FT-1320: the golem mark's menu and the change log it opens.
+import AccountMenu from "./AccountMenu";
+import ChangeLog from "./ChangeLog";
 // FT-1174: the app's own dropdown — the setup panel's and the night sheet's,
 // worn here so the corner menu asks a multi-option setting the same way every
 // other surface does. Used as-is; nothing about the control changed for this.
 import OptionSelect from "./OptionSelect";
 export default {
-  components: { KeyCap, OptionSelect, AccountDoor },
+  components: {
+    KeyCap,
+    OptionSelect,
+    AccountDoor,
+    PlayerSettings,
+    AccountMenu,
+    ChangeLog,
+  },
   props: {
     // FT-1202: the guide panel's open fact — it lives in App.vue
     // (hotkeyHelpOpen; this strip only emits the open), and the lantern's
@@ -916,6 +995,16 @@ export default {
       // state only; who is signed in lives in the store (session.account).
       accountOpen: false,
       clearTimer: null,
+      // FT-1319: the player settings menu — open or not, and the strip cog
+      // it hangs from (the element, PrefsMenu's own anchor contract).
+      playerSettingsOpen: false,
+      playerSettingsAnchor: null,
+      // FT-1320: the golem mark's menu — same pair, same contract. One pair
+      // serves both strips: the anchor is whichever mark was clicked.
+      accountMenuOpen: false,
+      accountMenuAnchor: null,
+      // FT-1320: the change log's reading panel.
+      changelogOpen: false,
       // The inline ask panel (see its markup for why it exists): null, or
       // { mode, title, note, label, value, placeholder, okText, danger,
       //   allowEmpty, onOk }.
@@ -982,6 +1071,23 @@ export default {
     // Click the open tab → collapse to the toolbar; click another → switch.
     setTab(name) {
       this.tab = this.tab === name ? null : name;
+    },
+    /** FT-1319: the strip cog's own toggle — the anchor is the clicked
+     *  element (HostTools' togglePrefs idiom), so the plate hangs from the
+     *  mark that opened it without a ref that could go stale. */
+    togglePlayerSettings(ev) {
+      if (!this.playerSettingsOpen) {
+        this.playerSettingsAnchor = ev.currentTarget;
+      }
+      this.playerSettingsOpen = !this.playerSettingsOpen;
+    },
+    /** FT-1320: the golem mark's toggle — one handler for both strips; the
+     *  anchor is whichever mark was clicked. */
+    toggleAccountMenu(ev) {
+      if (!this.accountMenuOpen) {
+        this.accountMenuAnchor = ev.currentTarget;
+      }
+      this.accountMenuOpen = !this.accountMenuOpen;
     },
     // ── FT-1174: A SECTION CLOSES WHEN YOU LOOK AWAY ─────────────────────
     /**
@@ -2086,6 +2192,12 @@ export default {
      in front of it. NightSheet's `:root .sp-list.sp-list` is the same trick
      against the same problem and is the precedent for writing it this way. -->
 <style lang="scss">
+/* FT-1319/FT-1320: the hoist slots are pure anchors for Vue's patcher (see
+   the template note) — they must never take part in #controls' own layout. */
+#controls .hoist-slot {
+  display: none;
+}
+
 :root .gsel-menu.gsel-menu.hoisted {
   &[aria-label="Setup panel labels"],
   &[aria-label="Control scheme"],
@@ -2099,7 +2211,10 @@ export default {
   &[aria-label="Drag roles"],
   &[aria-label="Drag names"],
   &[aria-label="Reminder button"],
-  &[aria-label="Grimoire size"] {
+  &[aria-label="Grimoire size"],
+  /* FT-1319: the player settings plate (z 76) opens this hoisted list —
+     the same lift over its own opener the rows above needed. */
+  &[aria-label="Reminder pin"] {
     z-index: 80;
   }
 }

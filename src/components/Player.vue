@@ -795,6 +795,38 @@
         <div class="pronouns" v-if="player.pronouns">
           <span>{{ player.pronouns }}</span>
         </div>
+
+        <!-- FT-1319: RENAME FROM YOUR OWN PLATE. A seated player clicking
+             their OWN name plate opens this in-place ask (onPlateClick's
+             first branch); every other viewer's plate click is untouched —
+             the storyteller's plate menu, a spectator's inert click on
+             someone else's chair. It wears the claim ask's own dress — the
+             purple-outlined box, `.claim-overlay.asking`'s input inks —
+             and it lives INSIDE `.name` on purpose: the plate's rendered
+             box is the one place that is, by definition, "on the plate" in
+             every seat's rotated frame (the claim overlay solves the same
+             placement by restating the plate's geometry from the seat's
+             own child list; from in here nothing needs restating). Commit
+             rides the claim flow's one send path: the players/update name
+             commit, which socket.js's sendPlayerName already guards to
+             your own seat and puts on the wire — plus the same
+             `golem.playerName` stash submitClaimName writes, so the next
+             claim offers the new name too. -->
+        <div class="rename-ask" v-if="renaming" @click.stop>
+          <input
+            ref="renameInput"
+            v-model="renameValue"
+            placeholder="Your name"
+            spellcheck="false"
+            maxlength="60"
+            @click.stop
+            @keyup.enter.stop="commitRename"
+            @keyup.esc.stop="cancelRename"
+          />
+          <span class="go" @click.stop="commitRename">
+            <font-awesome-icon icon="check" />
+          </span>
+        </div>
       </div>
 
       <!-- FT-911 (fourth raising, fixed wrong twice — this is the disc that
@@ -830,9 +862,16 @@
            doorways stand regardless, so the act itself is never lost. The
            whisper disc beside it measures off the PLATE (addAnchor), not off
            this element, so it keeps its dock when this one is off. -->
+      <!-- FT-1319: the pin steps OUT of hover — `pin-rest` (the default;
+           see the computed) stands the disc up at rest in a quiet stone
+           register, brightening on the plate's hover exactly as the hidden
+           state used to reveal. The "On hover" setting (PlayerSettings.vue)
+           drops the class and the FT-923 reveal below is once again the
+           only way the disc shows. -->
       <div
         v-if="ctrlReminderHover"
         class="reminder add"
+        :class="{ 'pin-rest': pinResting }"
         :style="addAnchorStyle"
         @click="$emit('trigger', ['openReminderModal'])"
         @mouseenter="nameHover = true"
@@ -1462,6 +1501,17 @@ export default {
     ctrlReminderHover() {
       if (this.session.isSpectator) return true;
       return this.prefs.ctrlReminderHover !== false;
+    },
+    /**
+     * FT-1319: the add-reminder pin RESTS VISIBLE unless this viewer set it
+     * back to "On hover" (the player settings menu's own row — the pre-1319
+     * behaviour). Gated on `addAnchor` because the resting dress replaces
+     * the opacity gate that used to hide the disc before its first
+     * measurement landed — an unmeasured disc has no dock to stand at, so
+     * it stays hidden exactly as it always did for that one render.
+     */
+    pinResting() {
+      return this.prefs.pinVisibility !== "hover" && !!this.addAnchor;
     },
     /**
      * THE ROWS THIS SEAT OFFERS, and what each one is conditional on.
@@ -2261,6 +2311,10 @@ export default {
       // The seat menu's in-place edit: null, or { field, value }. Opened by
       // changeName / changePronouns, which used to open a browser dialog.
       edit: null,
+      // FT-1319: the own-plate rename ask is up (seated player viewer only —
+      // see onPlateClick), and the name being typed into it.
+      renaming: false,
+      renameValue: "",
       isSwap: false,
       // FT-858: the coin the seat's hover card is pinned to; null when
       // nothing is showing
@@ -2384,6 +2438,13 @@ export default {
           value: this.pendingName
         });
         this.pendingName = null;
+      }
+      // FT-1319: a rename ask open on a chair that stops being yours (swept,
+      // emptied by the host, stood up) folds rather than committing onto a
+      // seat that no longer belongs to this viewer — commitRename re-checks
+      // isOwnSeat for the race the watcher cannot see.
+      if (this.renaming && id !== this.session.playerId) {
+        this.renaming = false;
       }
     },
     // The zoom slider and a seat count change both resize every coin (and
@@ -2543,6 +2604,15 @@ export default {
       // that was just moved. Cleared by the next mousedown on the plate —
       // same lifecycle as the reminder's flag.
       if (this.plateDragged) return;
+      // FT-1319: a seated PLAYER's own plate is their rename field. First,
+      // deliberately: a spectator's plate click has always been inert
+      // (seatMenuEntries is empty for them, so the branch below refuses),
+      // and the storyteller never enters this branch (not a spectator), so
+      // their plate menu is untouched.
+      if (this.session.isSpectator && this.isOwnSeat) {
+        this.openRename();
+        return;
+      }
       if (this.ctrlNameplateClick) {
         if (this.seatMenuAnchor) this.closeSeatMenu();
         else if (this.canOpenSeatMenu()) this.openSeatMenu("plate");
@@ -3870,6 +3940,53 @@ export default {
       if (this.session.isSpectator) return;
       this.openEdit("name", this.player.name);
     },
+    // ── FT-1319: rename from your own plate ─────────────────────────────
+    /** Open the in-place ask over the plate, prefilled with the seat's
+     *  current name — the seat-edit input's own focus-and-select gesture. */
+    openRename() {
+      if (this.renaming) {
+        const el = this.$refs.renameInput;
+        if (el) el.focus();
+        return;
+      }
+      this.renaming = true;
+      this.renameValue = this.player.name || "";
+      this.$nextTick(() => {
+        const el = this.$refs.renameInput;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      });
+    },
+    cancelRename() {
+      this.renaming = false;
+    },
+    /** Commit = the claim flow's own two writes: the remembered-name stash
+     *  (`golem.playerName`, submitClaimName's key — so the next claim on
+     *  this browser offers the new name) and the players/update name commit
+     *  that socket.js's sendPlayerName carries to the table. A blank keeps
+     *  the old name, the same rule commitEdit states: an unnamed chair is
+     *  unreadable. Committed directly rather than through updatePlayer —
+     *  that method refuses "name" for a spectator wholesale, while the wire
+     *  guard for THIS write (own seat only) lives in sendPlayerName, the
+     *  same split the pendingName watcher above already relies on. */
+    commitRename() {
+      if (!this.renaming) return;
+      const value = this.renameValue.trim();
+      this.renaming = false;
+      if (!value || !this.isOwnSeat) return;
+      try {
+        localStorage.setItem("golem.playerName", value);
+      } catch (e) {
+        // storage off: the rename still lands on the seat
+      }
+      this.$store.commit("players/update", {
+        player: this.player,
+        property: "name",
+        value,
+      });
+    },
     removeReminder(reminder) {
       // FT-1117: the click at the end of a drag is the drag's tail, not a
       // request to bin the token that was just carried here. The flag is left
@@ -4446,6 +4563,52 @@ li.swap:not(.from) .player::after {
   input {
     width: 80%;
     background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border: 2px solid #a78fcd;
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 80%;
+    text-align: center;
+    outline: none;
+    &:focus {
+      border-color: #c9b3ef;
+    }
+  }
+  .go {
+    cursor: pointer;
+    &:hover {
+      color: #a78fcd;
+    }
+  }
+}
+
+/* FT-1319: THE RENAME ASK — the claim ask's own dress, ON the plate.
+   It is `.name`'s own child (see the template note: the plate's rendered
+   box is the one place that is "on the plate" in every seat's rotated
+   frame), centred over the plate and allowed to stand a little taller than
+   it. The input is `.claim-overlay.asking`'s purple-outlined box, same
+   inks (#a78fcd resting, #c9b3ef focused): an invitation to type, not a
+   warning. Its own class rather than a reuse of `.claim-overlay` because
+   that overlay renders only on an UNCLAIMED chair and carries a whole-coin
+   claim click this box must not. */
+.player > .name .rename-ask {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: white;
+  text-shadow: 0 0 4px black;
+  input {
+    width: 80%;
+    min-width: 0;
+    background: rgba(0, 0, 0, 0.85);
     color: white;
     border: 2px solid #a78fcd;
     border-radius: 6px;
@@ -6569,6 +6732,39 @@ li.nominate .player .overlay .nominate-target {
      seat's own outward vector. */
   position: absolute;
   z-index: 3;
+}
+
+/* ── FT-1319: THE PIN AT REST ────────────────────────────────────────────────
+   `pin-rest` (the "Always" setting — the default) stands the disc up without
+   waiting for the plate's hover. The resting register is the FT-1283 stone
+   treatment said for a painted disc: the chair badge got quiet by trading its
+   white ink for the strip marks' own stone (#9a9285), and this disc is baked
+   art rather than a mask, so the same quiet is spent as desaturation +
+   opacity — the glossy purple pin greys toward the furniture around it and
+   keeps just enough body to read as a dock. The plate's hover (the FT-923
+   `li.name-hover` reveal, which also covers the disc's own hover via its
+   mouseenter pair) brings the full paint back — the same brighten-on-hover
+   gesture the strip marks and the chair badge make.
+
+   The id-weighted selector is deliberate: the resting state has to outrank
+   both the base `.add` (opacity 0, pointer-events none) and the unhovered
+   frame of `.circle li.name-hover .reminder.add`, so the hover pair below
+   restates the lit values at the same weight. Coarse pointers are untouched
+   — the `display: none` above already retired the disc there (the seat
+   menu's row carries the act), and "always" must not resurrect the FT-1180
+   hub pile-up this rule exists to prevent. */
+#townsquare .circle li .reminder.add.pin-rest {
+  opacity: 0.55;
+  pointer-events: auto;
+  filter: grayscale(0.65) brightness(0.9);
+  transition:
+    opacity 200ms,
+    filter 200ms;
+}
+#townsquare .circle li.name-hover .reminder.add.pin-rest,
+#townsquare .circle li .reminder.add.pin-rest:hover {
+  opacity: 1;
+  filter: none;
 }
 
 /* FT-923: the bridge is hidden wherever the disc it serves is hidden — a
