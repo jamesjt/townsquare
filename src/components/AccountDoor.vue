@@ -34,7 +34,7 @@
       </template>
 
       <!-- ── signed out: sign in, or create an account ───────────────── -->
-      <template v-else>
+      <template v-else-if="view === 'auth'">
         <form @submit.prevent="submit">
           <label class="row">
             <span>Email</span>
@@ -87,6 +87,12 @@
             </button>
           </div>
         </form>
+        <!-- FT-1306: the way out of a forgotten password, in the swap link's
+             own muted gold — under the button, on the sign-in view only (a
+             password you are about to CHOOSE cannot be forgotten yet). -->
+        <p class="swap forgot" v-if="!creating">
+          <a @click="openForgot">Forgot password?</a>
+        </p>
         <!-- FT-1222: the account pitch — why sign in, in two sentences.
              Sits under the form on the sign-in view only; the create view
              already carries its own note. -->
@@ -104,13 +110,69 @@
           <a @click="swapMode(false)">Sign in</a>
         </p>
       </template>
+
+      <!-- ── forgotten password: the ask, one field wide ──────────────────
+           FT-1306. The panel's third face. The app's part is the ASK and
+           nothing after it: the link goes out by mail and opens the
+           platform's own reset page, so there is no code to type back in
+           here and no second step to wait for. -->
+      <template v-else-if="view === 'forgot'">
+        <form @submit.prevent="submitForgot">
+          <label class="row">
+            <span>Email</span>
+            <input
+              ref="email"
+              v-model="email"
+              type="email"
+              name="email"
+              autocomplete="email"
+              spellcheck="false"
+              required
+            />
+          </label>
+          <p class="note">
+            We'll send a link that lets you set a new password. It opens on the
+            Golem site and works once.
+          </p>
+          <p class="error" v-if="error">{{ error }}</p>
+          <div class="acts">
+            <button class="submit" type="submit" :class="{ disabled: busy }">
+              <img class="quill" :src="quill" alt="" />
+              Send reset link
+            </button>
+          </div>
+        </form>
+        <p class="swap">
+          Remembered it?
+          <a @click="backToSignIn">Sign in</a>
+        </p>
+      </template>
+
+      <!-- ── the ask was taken ────────────────────────────────────────────
+           FT-1306: the SAME words whether or not that email has an account.
+           The panel is told 200 either way and says only what it truly
+           knows — "if that email has an account" is the honest sentence,
+           and it is also the one that keeps this door from being a way to
+           ask who is registered here. -->
+      <template v-else-if="view === 'sent'">
+        <p class="note sent">
+          If that email has an account, we've sent it a reset link. Check your
+          inbox.
+        </p>
+        <p class="note">
+          Nothing arriving? Give it a minute, then look in your spam folder.
+        </p>
+        <p class="swap">
+          <a @click="backToSignIn">Back to sign in</a>
+        </p>
+      </template>
     </div>
   </div>
 </template>
 
 <script>
 import { mapState } from "vuex";
-import { login, signup, logout } from "../golem/account";
+import { login, signup, logout, forgotPassword } from "../golem/account";
 // FT-1222: the quill in its inkwell — the entry strip's own mark
 // (Menu.vue imports this same file), signing the submit button.
 import quill from "../assets/ui-chronicle.png";
@@ -118,6 +180,11 @@ import quill from "../assets/ui-chronicle.png";
 export default {
   data() {
     return {
+      // FT-1306: which face the signed-out panel is wearing — "auth" (the
+      // sign-in / create form `creating` still governs), "forgot" (the
+      // one-field ask), "sent" (the ask was taken). The signed-in view
+      // outranks all three.
+      view: "auth",
       creating: false,
       email: "",
       password: "",
@@ -131,6 +198,10 @@ export default {
     ...mapState("session", ["account"]),
     heading() {
       if (this.account) return "Your account";
+      // FT-1306: the two reset faces name themselves — the ask, then what
+      // to do next.
+      if (this.view === "forgot") return "Reset your password";
+      if (this.view === "sent") return "Check your inbox";
       // FT-1222 (user call): just "Sign In" — the golem mark that opened
       // this door already says whose account it is.
       return this.creating ? "Create your account" : "Sign In";
@@ -157,6 +228,44 @@ export default {
       this.creating = creating;
       this.error = "";
       this.focusEmail();
+    },
+    /**
+     * FT-1306: open the reset ask. The email already typed on the sign-in
+     * form carries over — the panel keeps `email` in one place, so the
+     * prefill is simply not clearing it. The password does clear: it is of
+     * no use on this face, and holding it would be holding it for nothing.
+     */
+    openForgot() {
+      this.view = "forgot";
+      this.password = "";
+      this.error = "";
+      this.focusEmail();
+    },
+    /** FT-1306: back to the door's front face from either reset view. */
+    backToSignIn() {
+      this.view = "auth";
+      this.creating = false;
+      this.error = "";
+      this.focusEmail();
+    },
+    /**
+     * FT-1306: ask for the link. A 200 is the ONLY success, and it says
+     * nothing about whether that email is known — so the panel moves to the
+     * same confirmation either way. A refusal (the rate limit's 429, a
+     * malformed 400) speaks the server's own words in the error line, and
+     * the form stays put so the ask can be made again.
+     */
+    async submitForgot() {
+      if (this.busy) return;
+      this.busy = true;
+      this.error = "";
+      try {
+        await forgotPassword(this.email);
+        this.view = "sent";
+      } catch (e) {
+        this.error = e.message || "Something went wrong — try again.";
+      }
+      this.busy = false;
     },
     /** One submit for both modes; the server's own message is the error. */
     async submit() {
@@ -278,6 +387,15 @@ form {
   margin-top: 10px;
 }
 
+// FT-1306: the confirmation is the whole point of its face, so it speaks at
+// the panel's own weight rather than the note's aside — the second line
+// under it stays a note.
+.sent {
+  margin: 6px 0 2px;
+  font-size: 95%;
+  opacity: 0.95;
+}
+
 .whoami {
   margin: 4px 0;
   text-align: center;
@@ -352,6 +470,12 @@ form {
     object-fit: contain;
     display: block;
   }
+}
+
+// FT-1306: the forgot link belongs to the button above it, not to the pitch
+// below — it sits closer than a swap line does.
+.swap.forgot {
+  margin-top: 6px;
 }
 
 .swap {

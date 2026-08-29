@@ -17,6 +17,11 @@
  *                             platform's `createAccount` feature flag — the
  *                             server's own message is what the user sees)
  *   POST /api/auth/logout  → 200 { ok: true }
+ *   POST /api/auth/forgot-password { email }
+ *                          → 200 { ok: true } ALWAYS (an unknown email gets
+ *                            the same answer a known one does — the endpoint
+ *                            never reveals who has an account)
+ *                          | 429 { message } rate-limited | 400 { message }
  *
  * WHAT IS KEPT, AND WHAT NEVER IS. The store holds `{ id, name, email }` —
  * the opaque account id, the display name, and the email FOR THE PANEL'S OWN
@@ -141,6 +146,30 @@ export async function signup(store, email, password, name) {
   const account = slim(user);
   store.commit("session/setAccount", account);
   return account;
+}
+
+/**
+ * FT-1306: ASK FOR A RESET LINK. The platform answers 200 for every
+ * well-formed email, existing or not, so neither this call nor anything the
+ * panel says with it can be used to ask whether an address has an account.
+ * The link that arrives by mail opens the PLATFORM's own reset page — the
+ * app's part ends the moment the ask is accepted, which is why nothing is
+ * committed to the store and no account argument is taken.
+ *
+ * Throws Error(server's message) on the rate-limited 429 or a malformed 400;
+ * resolves (silently) on the 200.
+ */
+export async function forgotPassword(email) {
+  const res = await fetch(`${API}/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      await messageOf(res, "Couldn't send the reset link — try again."),
+    );
+  }
 }
 
 /** Sign out. The cookie dies server-side; the store forgets either way. */
