@@ -5165,24 +5165,30 @@ $belief-blood: #970000;
   background-repeat: no-repeat;
   background-size: contain;
 
-  // each mark is thrown against its own opposite, so neither can sink into
-  // the coin: a pale halo behind the black X, a dark one behind the bone hand
+  // User call 2026-08-28: the coin's raised hand IS the vote button's palm
+  // (ui-hand-up.svg), and both marks wear the STONE pass — each is a MASK
+  // painted with the strip marks' own material tone (#9a9285, FT-1283's
+  // measured ink), so the pair is furniture of the app, not pasted art.
+  // The pair still changes together (FT-974b's rule): the X keeps its own
+  // silhouette (ui-vote-no.png as the mask) but is made of the same stone.
+  // Both halos go dark now — stone needs the same ground on either mark.
+  background-color: #9a9285;
+
   &.yes {
-    background-image: url("../assets/ui-vote-yes.png");
+    mask: url("../assets/ui-hand-up.svg") center / contain no-repeat;
+    -webkit-mask: url("../assets/ui-hand-up.svg") center / contain no-repeat;
     filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
   }
 
   &.no {
-    background-image: url("../assets/ui-vote-no.png");
-    filter: drop-shadow(0 0 4px rgba(250, 245, 235, 0.9));
+    mask: url("../assets/ui-vote-no.png") center / contain no-repeat;
+    -webkit-mask: url("../assets/ui-vote-no.png") center / contain no-repeat;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
   }
 
-  &.yes:hover {
-    filter: drop-shadow(0 0 7px rgba(0, 0, 0, 1));
-  }
-
+  &.yes:hover,
   &.no:hover {
-    filter: drop-shadow(0 0 7px rgba(255, 252, 245, 1));
+    filter: drop-shadow(0 0 7px rgba(0, 0, 0, 1));
   }
 }
 
@@ -5634,8 +5640,11 @@ li.nominate .player .overlay .nominate-target {
     position: absolute;
     width: 60%;
     height: 60%;
-    background: url("../assets/ui-noose.png") center center / contain
-      no-repeat;
+    /* Stone pass (user call 2026-08-28): same silhouette, same material as
+       the strip marks — the PNG becomes a mask painted FT-1283's ink. */
+    background-color: #9a9285;
+    mask: url("../assets/ui-noose.png") center / contain no-repeat;
+    -webkit-mask: url("../assets/ui-noose.png") center / contain no-repeat;
   }
   .tally {
     position: absolute;

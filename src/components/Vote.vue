@@ -185,9 +185,9 @@
               :aria-pressed="String(!currentVote)"
               @click="vote(false)"
             >
-              <!-- ui-hand-down.svg inline (kept in sync) — currentColor
-                   follows the cell's ink, so the lit state tints the glyph. -->
-              <svg class="vo-hand-ic" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,120v8A104,104,0,0,1,127.63,232c-54-.19-98-42.06-103.12-94.78a4,4,0,0,1,5.56-4A35.94,35.94,0,0,0,72,122.59a35.92,35.92,0,0,0,53.94,2.33,40.36,40.36,0,0,0,12.87,13A47.94,47.94,0,0,0,120,176a8,8,0,0,0,8.67,8,8.21,8.21,0,0,0,7.33-8.26A32,32,0,0,1,168,144a8,8,0,0,0,8-8.53,8.18,8.18,0,0,0-8.25-7.47H160a24,24,0,0,1-24-24V88h64A32,32,0,0,1,232,120ZM44.73,120C55.57,119.6,64,110.37,64,99.52v-23C64,65.63,55.57,56.4,44.73,56A20,20,0,0,0,24,76v24A20,20,0,0,0,44.73,120Zm56,0c10.84-.39,19.27-9.62,19.27-20.47v-47c0-10.85-8.43-20.08-19.27-20.47A20,20,0,0,0,80,52v48A20,20,0,0,0,100.73,120ZM176,52a20,20,0,0,0-20.73-20C144.43,32.4,136,41.63,136,52.48V72h36a4,4,0,0,0,4-4Z"/></svg>
+              <!-- User call 2026-08-28: ONE glyph for the pair — only Hand UP
+                   wears its palm; this cell is words alone. (ui-hand-down.svg
+                   stays in assets, stood down.) -->
               Hand DOWN
             </button>
             <button
@@ -1044,8 +1044,10 @@ export default {
     color: #fff;
   }
   &.on {
-    background: $control-on-bg;
-    color: $control-on-color;
+    /* User call 2026-08-28: the lit cell wears the pick purple (the claim
+       ask's #a78fcd family) instead of the control-on ink. */
+    background: rgba(167, 143, 205, 0.25);
+    color: #d9c8f5;
   }
   @media (pointer: coarse) {
     min-height: 40px;
