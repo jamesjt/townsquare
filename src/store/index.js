@@ -308,8 +308,17 @@ export default new Vuex.Store({
      * IT GOVERNS DEALING ONLY. An aimed placement — a drag onto a chair, the
      * tap path, the grimoire drawer — is the storyteller doing it on purpose
      * and is never refused; see RoleTray's own note.
+     *
+     * FT-1316 (user: roles all DE-selected on town open): the seed is FULL
+     * now, not empty — a fresh script opens with every character set aside
+     * and the storyteller lights the ones this game will use. The exclusion
+     * SHAPE stays exactly as argued above (Deal-only, ids that stop matching
+     * are inert); only where a fresh list starts moved. This state is
+     * session-local (never persisted, never synced), so "fresh" is every
+     * boot and every script swap — setEdition and setCustomRoles reseed the
+     * same way, since a new script is a new selection to make.
      */
-    dealExcluded: [],
+    dealExcluded: [...getRolesByEdition().keys()],
     // FT-857: which tab the script drawer opens on — "team" | "first" |
     // "other". The strip's night icon lands on "first".
     scriptDrawerView: "team",
@@ -888,6 +897,10 @@ export default new Vuex.Store({
           .filter((role) => role.team !== "fabled")
           .map((role) => [role.id, role]),
       );
+      // FT-1316: a new script is a new selection — reseed the deal exclusion
+      // FULL (all set aside) so the storyteller lights this game's cast by
+      // hand. See dealExcluded's own note in state.
+      state.dealExcluded = [...state.roles.keys()];
       // update Fabled to include custom Fabled from this script
       state.fabled = new Map([
         ...processedRoles
@@ -909,6 +922,12 @@ export default new Vuex.Store({
         state.edition = editionJSONbyId.get(edition.id);
         state.roles = getRolesByEdition(state.edition);
         state.otherTravelers = getTravelersNotInEdition(state.edition);
+        // FT-1316: a new script is a new selection — reseed the deal
+        // exclusion FULL (all set aside; see dealExcluded's note in state).
+        // Inside the known-edition branch on purpose: a custom edition's
+        // roles arrive through setCustomRoles, which reseeds off the
+        // processed list itself.
+        state.dealExcluded = [...state.roles.keys()];
       } else {
         state.edition = edition;
       }

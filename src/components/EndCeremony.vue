@@ -190,6 +190,9 @@ import {
   rayToll,
   END_CEREMONY_EVENT,
 } from "../golem/endCeremony";
+// FT-1316: the show's own switch — a tower fact ("End reveal" on the build
+// panel), synced to every client, read at the moment the end lands.
+import { towerState } from "../golem/towerBells";
 
 /** The measured dial centre, in face-pixels off `--face-cx/cy` — the same
  *  -11,-20 FaceHands carries (the art's dial is not quite at the art's
@@ -305,6 +308,23 @@ export default {
     isEnded(now, was) {
       if (!now || was || !this.armed) return;
       this.armed = false;
+      // FT-1316: the town turned the show OFF ("End reveal" on the build
+      // panel, tower-synced) — the end lands QUIETLY on every client: the
+      // settled state (result pill, grimoire reveal, the standing banner)
+      // renders exactly as a reload of an ended town already does. Said out
+      // loud for the rig, the reduced-motion beat's own idiom.
+      if (!towerState.endCeremonyOn) {
+        try {
+          window.dispatchEvent(
+            new CustomEvent(END_CEREMONY_EVENT, {
+              detail: { beat: "quiet", winner: this.storeWinner() },
+            }),
+          );
+        } catch (e) {
+          // no CustomEvent; nothing to announce to
+        }
+        return;
+      }
       if (!ceremonyAllowed(this.$store)) {
         // motion-reduced / the app's static kill-switch: no show — the
         // settled end state is already what renders. Say so for the rig.

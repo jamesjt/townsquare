@@ -361,6 +361,20 @@ export const CHAT_LEVELS = [
  *  reads it as the record of what the row was. */
 export const WHISPER_MARK_SECS = [0, 4, 8, 15];
 
+/**
+ * FT-1315: ARE WHISPERS QUIET AT THIS LEVEL — the ONE gate every whisper-
+ * metadata surface hides behind when the town has no player↔player whispers
+ * to speak of. With the level at Off or No whispers the composers already
+ * refuse the whisper itself (whisperRefusal below); this names the display
+ * consequence once so the three surfaces that render whisper METADATA — the
+ * seat's corner whisper mark (Player.vue), the Chronicle's per-pair tally
+ * and its traffic lines (ChroniclesDrawer.vue) — hide together instead of
+ * each restating the pair of level ids.
+ */
+export function whispersQuiet(level) {
+  return level === "off" || level === "no-whispers";
+}
+
 /** Are two chairs beside each other on a ring of `size` chairs, wrapping?
  *  On a two-chair ring the other chair is both neighbors at once. */
 export function seatsAdjacent(a, b, size) {

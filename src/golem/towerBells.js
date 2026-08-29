@@ -182,7 +182,14 @@ export const DEFAULT_TOWER = {
   // FT-1206: THE CHAT LEVEL — how much talking this town allows (golem/chat's
   // CHAT_LEVELS: off / no-whispers / neighbors / anyone). The player↔story-
   // teller lane stays open at every level; see chat.js for the whole rule.
-  chatLevel: "anyone",
+  //
+  // FT-1315 (user: whispers default OFF for new towns): the shipped level is
+  // "no-whispers" now — the town talks in the open until the storyteller
+  // opens the whisper lanes. ONLY THE DEFAULT MOVES (the FT-1270 rule,
+  // restated): every read path merges a town's STORED value over this key,
+  // so any town that has ever been saved keeps the level it chose; what
+  // changes is a town with no stored shelf, which now starts quiet.
+  chatLevel: "no-whispers",
   // FT-1206: THE WHISPER MARKS — how long a whisper's paper plane rests by
   // the recipient's coin, seconds; 0 is Off (nothing is even broadcast).
   whisperMarkSec: 8,
@@ -209,7 +216,25 @@ export const DEFAULT_TOWER = {
   autoScarletWoman: false, // the Scarlet Woman becomes the dead Demon
   autoStarpass: false, // the Imp's self-kill passes the crown
   autoUndertaker: false, // the Undertaker's row prefills from the gallows
+  // FT-1315: WHAT MARKS A SPENT GHOST VOTE — the host's vocabulary pick.
+  //   cowl    today's mark: the ghost-vote cowl stays on the seat, crossed
+  //           out and faded (FT-1046)
+  //   shroud  the seat's death shroud DROPS instead — a dead seat wearing
+  //           its veil still holds its vote; a bare dead seat has spent it
+  //           (the physical game's own convention, where the token flips)
+  // Synced with the rest of the tower so every client reads the same seat.
+  ghostSpentMark: "cowl",
+  // FT-1316: PLAY THE END-OF-GAME ANIMATION — the FT-1053 ceremony's own
+  // switch. On is today's behaviour; Off lands the game end QUIETLY (the
+  // settled state — result pill, grimoire reveal — renders with no show),
+  // so a storyteller can stage their own controlled reveal. Synced, so the
+  // whole town lands the same way (EndCeremony.vue's trigger reads it).
+  endCeremonyOn: true,
 };
+
+/** FT-1315: the spent-ghost-vote vocabulary — the sanitizer's whitelist and
+ *  the build-panel row's option order, one list. */
+export const GHOST_SPENT_MARKS = ["cowl", "shroud"];
 
 /** The Day length scrub's bounds, in minutes (0 — Off — is set by its own
  *  button, not by the scrub). */
@@ -339,6 +364,7 @@ function sanitize(key, value) {
     // FT-1314: the six automations are the same shape again — plain
     // booleans on the same shelf (no comment between the labels; eslint's
     // no-fallthrough reads one as an unannotated fall).
+    // FT-1316: the end-ceremony switch is a plain boolean on the same shelf.
     case "whisperCounts":
     case "whisperTraffic":
     case "autoMark":
@@ -347,7 +373,14 @@ function sanitize(key, value) {
     case "autoScarletWoman":
     case "autoStarpass":
     case "autoUndertaker":
+    case "endCeremonyOn":
       return !!value;
+    // FT-1315: the spent-vote mark is one of the two vocabularies, nothing
+    // else — the bellId/chatLevel membership shape.
+    case "ghostSpentMark":
+      return GHOST_SPENT_MARKS.includes(value)
+        ? value
+        : DEFAULT_TOWER.ghostSpentMark;
     default:
       return undefined;
   }

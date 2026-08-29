@@ -1194,6 +1194,57 @@
           </span>
         </span>
 
+        <!-- ── FT-1315/FT-1316: THE PRESENTATION PAIR ──────────────────────
+             Two vocabulary choices about how the town SHOWS what has already
+             happened, on the tower shelf like every row above (per-town
+             persisted, synced live). Ghost vote picks what marks a spent
+             ghost vote — today's crossed cowl, or the death shroud dropping
+             instead; End reveal gates the FT-1053 end-of-game ceremony so a
+             storyteller can land the end quietly and stage their own. -->
+        <span class="ht-set-line ht-set-line-ghostmark ht-group-start">
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="ghost"
+                title="What marks a spent ghost vote"
+              />
+              <span class="row-name" v-if="!iconsOnly">Ghost vote</span>
+            </span>
+            <OptionSelect
+              name="ghost-spent-mark"
+              aria-label="Spent ghost vote mark"
+              hoist
+              :options="ghostSpentOptions"
+              :value="tower.ghostSpentMark"
+              @input="pickGhostSpentMark"
+            />
+          </span>
+        </span>
+
+        <span class="ht-set-line ht-set-line-endshow">
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="theater-masks"
+                title="The end-of-game show"
+              />
+              <span class="row-name" v-if="!iconsOnly">End reveal</span>
+            </span>
+            <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
+                 above for the user's call and what it does not change). -->
+            <OptionCheck
+              name="end-ceremony"
+              aria-label="Play the end-of-game animation"
+              on-value="on"
+              :options="endCeremonyOptions"
+              :value="tower.endCeremonyOn ? 'on' : 'off'"
+              @input="pickEndCeremony"
+            />
+          </span>
+        </span>
+
         <!-- ── FT-1314: THE AUTOMATIONS GROUP ──────────────────────────────
              One checkbox per rule the storyteller hands to the machine, in
              the settings rows' own grammar (mark + name + OptionCheck) and
@@ -2479,6 +2530,39 @@ export default {
     automationRules() {
       return AUTOMATION_RULES;
     },
+    /** FT-1315: what marks a spent ghost vote — the two vocabularies. */
+    ghostSpentOptions() {
+      return [
+        {
+          value: "cowl",
+          label: "Ghost mark",
+          title:
+            "A spent vote crosses out the seat's ghost-vote mark — today's behaviour",
+        },
+        {
+          value: "shroud",
+          label: "Drop shroud",
+          title:
+            "A spent vote takes the death shroud OFF the seat — shrouded dead still hold their vote, bare dead have spent it",
+        },
+      ];
+    },
+    /** FT-1316: the end-of-game ceremony, on or off. */
+    endCeremonyOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title:
+            "The end lands quietly — no animation, just the settled result, so you can stage your own reveal",
+        },
+        {
+          value: "on",
+          label: "On",
+          title: "The end-of-game show plays on every screen when you call it",
+        },
+      ];
+    },
     /** FT-1309: the Chronicle's whisper-traffic lines, on or off. */
     whisperTrafficOptions() {
       return [
@@ -2879,6 +2963,17 @@ export default {
      *  shape, one tower key over. */
     pickWhisperTraffic(v) {
       this.setTower("whisperTraffic", v === "on");
+    },
+    /** FT-1315: the spent-ghost-vote vocabulary — a plain tower write; the
+     *  seats re-read on the tower's own event, this client and every synced
+     *  one alike. */
+    pickGhostSpentMark(v) {
+      this.setTower("ghostSpentMark", v);
+    },
+    /** FT-1316: the end-of-game show's switch — same shape; EndCeremony's
+     *  trigger reads the synced copy at the moment the end lands. */
+    pickEndCeremony(v) {
+      this.setTower("endCeremonyOn", v === "on");
     },
     /** FT-1314: one automation armed or stood down — a plain tower write;
      *  the shelf persists per town, syncs live, and the engine reads the

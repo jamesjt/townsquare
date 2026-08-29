@@ -65,6 +65,10 @@ const faIcons = [
   // Send (there is no skip glyph in the fork's own art set — the
   // Bell/BellSlash standing note applies).
   "Forward",
+  // FT-1315: the Ghost vote row's mark on the build panel's Game settings
+  // (there is no ghost in the fork's own art set as an FA-style glyph — the
+  // Bell/BellSlash standing note applies).
+  "Ghost",
   // FT-1209: the Control settings tab's three row marks (Setup panel /
   // Control scheme) and the tab's own leaf mark — the person-with-a-gear,
   // distinct from the Game settings tab's plain Cog one leaf over.

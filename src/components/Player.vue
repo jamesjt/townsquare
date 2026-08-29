@@ -15,6 +15,9 @@
           // the mark.
           tied: isTieMarked,
           'no-vote': player.isVoteless,
+          // FT-1315: the spent vote DROPS the veil when the town's tower
+          // says so (ghostSpentMark 'shroud') — see shroudLifted.
+          'shroud-lifted': shroudLifted,
           you: session.sessionId && player.id && player.id === session.playerId,
           'vote-yes': session.votes[index],
           'vote-lock': voteLocked,
@@ -604,13 +607,20 @@
            riding the same side fact (points-right mirrors with the seat),
            instead of always-right. Dead players don't nominate, so the two
            marks never want the corner at once (the vocabulary's own rule). -->
+      <!-- FT-1315: in the tower's "shroud" vocabulary the SPENT state is the
+           veil dropping (shroudLifted on the seat root), so the crossed cowl
+           stands down — two marks for one fact would say it twice. The
+           UNSPENT cowl stays in both modes (it is the mark of the vote in
+           hand, and its click is still how the host spends it); giving a
+           spent vote back keeps its door through the seat menu's own
+           ghost-vote row. -->
       <div
         class="has-vote ghost-vote"
         :class="{
           spent: player.isVoteless,
           'points-right': nominateMarkMirrored,
         }"
-        v-if="!showBallotVote && player.isDead"
+        v-if="!showBallotVote && player.isDead && !shroudLifted"
         @click="updatePlayer('isVoteless', !player.isVoteless)"
         :title="player.isVoteless ? 'Ghost vote spent' : 'Ghost vote'"
       >
@@ -1198,7 +1208,16 @@ import SeatWhisper from "./SeatWhisper";
 // FT-1206: the whisper is the Chronicle composer's own whisper — same frame
 // builder, same chatSay funnel — and the chat level's refusals are the chat's
 // own words, precomputed here for the vocabulary's guard.
-import { seatOf, viewerOf, whisperFrame, whisperRefusal } from "../golem/chat";
+import {
+  seatOf,
+  viewerOf,
+  whisperFrame,
+  whisperRefusal,
+  // FT-1315: the one whisper-metadata gate — the corner mark hides with the
+  // Chronicle's tally and traffic lines when the town's level allows no
+  // player↔player whispers at all.
+  whispersQuiet,
+} from "../golem/chat";
 // FT-1206: the chat level is a town rule on the tower shelf; this seat holds
 // the usual snapshot, refreshed on TOWER_EVENT (the FaceHands idiom).
 import { TOWER_EVENT, towerState } from "../golem/towerBells";
@@ -1746,6 +1765,11 @@ export default {
      * may be off.
      */
     whisperMarkShown() {
+      // FT-1315: the level pair (Off / No whispers) is named through the
+      // shared gate rather than only falling out of the refusal text — the
+      // corner mark, the Chronicle's tally and its traffic lines are ONE
+      // family and hide off ONE helper (golem/chat's whispersQuiet).
+      if (whispersQuiet(this.chatLevel)) return false;
       return !!(this.session.isSpectator && !this.whisperRefusalText);
     },
     /**
@@ -1758,7 +1782,24 @@ export default {
      * precisely where the hand does on the storyteller's own screen.
      */
     whisperMarkStacked() {
-      return !!this.player.isDead;
+      // FT-1315: a spent seat in the "shroud" vocabulary has no cowl in the
+      // corner (shroudLifted below), so the mark takes the corner itself.
+      return !!this.player.isDead && !this.shroudLifted;
+    },
+    /**
+     * FT-1315: THE SPENT VOTE DROPS THE SHROUD — the host's other vocabulary.
+     * With the tower's `ghostSpentMark` at "shroud", a dead seat that has
+     * spent its ghost vote takes the veil OFF instead of wearing the crossed
+     * cowl: shrouded dead = vote in hand, bare dead = vote spent (the coin's
+     * own cold-metal swap still says dead either way). True only in that
+     * mode — the shipped "cowl" mode changes nothing.
+     */
+    shroudLifted() {
+      return (
+        this.ghostSpentMark === "shroud" &&
+        !!this.player.isDead &&
+        !!this.player.isVoteless
+      );
     },
     /**
      * FT-1206: THE WHISPER DISC'S OWN BRIDGE — FT-923's lesson, paid again by
@@ -2375,6 +2416,10 @@ export default {
       // FT-1206: the town's chat level, snapshotted — a town rule off the
       // tower shelf, refreshed on TOWER_EVENT like every tower reader.
       chatLevel: towerState.chatLevel,
+      // FT-1315: what marks a SPENT ghost vote on this town's seats — "cowl"
+      // (today's crossed mark) or "shroud" (the veil drops instead). Same
+      // shelf, same snapshot idiom, same TOWER_EVENT reader as chatLevel.
+      ghostSpentMark: towerState.ghostSpentMark,
       // FT-1242: the menu rows' own marks — see the import note.
       uiSeat,
       uiNote,
@@ -2737,9 +2782,12 @@ export default {
       const run = this[entry.act];
       if (typeof run === "function") run.call(this);
     },
-    /** FT-1206: the chat level snapshot — TOWER_EVENT's reader. */
+    /** FT-1206: the chat level snapshot — TOWER_EVENT's reader.
+     *  FT-1315: the spent-ghost-vote vocabulary rides the same read — one
+     *  listener per seat, both tower facts this seat renders from. */
     readChatLevel() {
       this.chatLevel = towerState.chatLevel;
+      this.ghostSpentMark = towerState.ghostSpentMark;
     },
     /**
      * FT-1206: OPEN THE INLINE WHISPER on this seat's coin. Reached from all
@@ -4859,6 +4907,22 @@ li.swap:not(.from) .player::after {
   }
   #townsquare:not(.spectator) &.dead .shroud:hover:after {
     opacity: calc(var(--vl-opacity-adj, 75) / 100);
+  }
+
+  // FT-1315: THE SPENT VOTE DROPS THE SHROUD. In the tower's "shroud"
+  // vocabulary (`.shroud-lifted`, computed on the seat root) a dead seat
+  // that has spent its ghost vote takes the veil clean off — the bare dead
+  // coin IS the spent mark. The `.shroud` box itself stays (it is still the
+  // death toggle's click target); only the veil's paint goes, hover included
+  // — the id-weighted hover rules above would otherwise out-rank a plain
+  // class override, so the pair is restated at their own specificity.
+  &.dead.shroud-lifted .shroud:before,
+  &.dead.shroud-lifted .shroud:after {
+    opacity: 0;
+  }
+  #townsquare:not(.spectator) &.dead.shroud-lifted .shroud:hover:before,
+  #townsquare:not(.spectator) &.dead.shroud-lifted .shroud:hover:after {
+    opacity: 0;
   }
 }
 

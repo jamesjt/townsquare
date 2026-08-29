@@ -159,9 +159,19 @@ export default {
   inset: 0;
   /* ambience, never a control — the whole sky is pointer-transparent */
   pointer-events: none;
-  /* over the ring and its tokens, under the player strip (75) and every
-     menu plate (201) */
-  z-index: 70;
+  /* FT-1316 (user: the plane dove under the coins): THE SKY IS THE TOP.
+     This shipped at 70 — over the ring, under the menu plates (201) — and
+     the plates are exactly what stands ON a coin at the moment a plane
+     lands: whisper a seat from its plate and the SeatWhisper box (201) is
+     still up when the plane arrives, so the delivery slid UNDER the seat it
+     was delivering to (measured: elementsFromPoint at the rest point put
+     `seat-whisper` first — claude_temp_test/2026-08-29-ft1315-16-plane-
+     plate.mjs; the bare ring was never the problem, 70 already cleared it).
+     205 clears the whole plate family (SeatMenu / SeatRing / SeatWhisper,
+     201, the app's highest slots) — a plane is 26px of pointer-transparent
+     paper alive for a second or two, and nothing it crosses stops working
+     under it. */
+  z-index: 205;
 }
 
 .wp-plane {

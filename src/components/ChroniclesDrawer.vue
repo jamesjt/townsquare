@@ -792,6 +792,10 @@ import {
   whisperFrame,
   sayFrame,
   whisperCountsFor,
+  // FT-1315: the one whisper-metadata gate — with the level at Off or
+  // No whispers, the tally band and the traffic lines hide together with
+  // the seat's corner whisper mark (Player.vue reads the same helper).
+  whispersQuiet,
 } from "../golem/chat";
 // FT-1206: the chat level and the counts toggle ride the tower shelf — the
 // usual snapshot, refreshed on TOWER_EVENT.
@@ -1470,6 +1474,10 @@ export default {
      */
     whisperPairCounts() {
       if (!this.countsOn || this.mode !== "current") return [];
+      // FT-1315: a town whose level allows no player↔player whispers shows
+      // no whisper metadata either — the one gate the corner mark and the
+      // traffic lines share (golem/chat's whispersQuiet).
+      if (whispersQuiet(this.chatLevel)) return [];
       return whisperCountsFor(this.chat.log, this.chat.gameId);
     },
     /**
@@ -1490,6 +1498,9 @@ export default {
      */
     trafficRows() {
       if (!this.countsOn || this.mode !== "current") return [];
+      // FT-1315: the same quiet-level gate the tally above keeps — see its
+      // note; minting is separately gated in socket.js (FT-1309).
+      if (whispersQuiet(this.chatLevel)) return [];
       const anchor = this.anchorSeq;
       const live = this.chat.gameId;
       return this.chat.marks.filter((row) => {
