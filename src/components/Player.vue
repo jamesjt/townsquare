@@ -5214,22 +5214,27 @@ $belief-blood: #970000;
   transition: all 250ms;
   /* --vote-aim (user call 2026-08-28): the yes-hand rotates to point at the
      nominated seat — set inline per seat; the X never sets it, so var() falls
-     back to upright. Rotation rides INSIDE the same transform as the scale
-     states so the reveal animation keeps working. */
-  transform: scale(0.2) rotate(var(--vote-aim, 0deg));
+     back to upright. --vote-base is the art's own file orientation (the
+     manicule points right, so .yes carries -90deg). Both ride INSIDE the
+     same transform as the scale states so the reveal animation keeps
+     working. */
+  transform: scale(0.2)
+    rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
   background-position: center center;
   background-repeat: no-repeat;
   background-size: contain;
 
-  // User call 2026-08-28 (v2 — "the hand is too dark, stone doesn't work"):
-  // the raised hand is the vote button's palm (ui-hand-up.svg as a MASK) but
-  // painted BONE-WHITE again; the stone ink lasted one look on the coin art.
-  // The X returns to its baked art + pale halo, untouched by the experiment.
-  // The vote-glass disc below is what grounds both marks now.
+  // User call 2026-08-28 (v5 — "the SAME hand as the nomination"): the
+  // raised hand is ui-nominate-hand.png ITSELF — the painted accusing
+  // manicule the corner mark and the seat menu already wear — not a
+  // silhouette of it (the .svg twin is the retired geometric draft and is
+  // what earned the "ugly" verdict). The art points RIGHT in file, so the
+  // yes-mark carries --vote-base: -90deg; the aim var composes on top, so
+  // at rest it points up and during a nomination it points at the accused.
+  // The X keeps its own baked art; the vote-glass grounds both.
   &.yes {
-    background-color: #f2ecdf;
-    mask: url("../assets/ui-hand-up.svg") center / contain no-repeat;
-    -webkit-mask: url("../assets/ui-hand-up.svg") center / contain no-repeat;
+    --vote-base: -90deg;
+    background-image: url("../assets/ui-nominate-hand.png");
     filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
   }
 
@@ -5250,7 +5255,8 @@ $belief-blood: #970000;
 // other player voted yes, but is not locked yet
 #townsquare.vote .player.vote-yes .overlay .vote-mark.yes {
   opacity: 0.5;
-  transform: scale(1) rotate(var(--vote-aim, 0deg));
+  transform: scale(1)
+    rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
 }
 
 // you voted yes | a locked vote yes | a locked vote no
@@ -5258,7 +5264,8 @@ $belief-blood: #970000;
 #townsquare.vote .player.vote-lock.vote-yes .overlay .vote-mark.yes,
 #townsquare.vote .player.vote-lock:not(.vote-yes) .overlay .vote-mark.no {
   opacity: 1;
-  transform: scale(1) rotate(var(--vote-aim, 0deg));
+  transform: scale(1)
+    rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
 }
 
 // a locked vote can be clicked on by the ST
