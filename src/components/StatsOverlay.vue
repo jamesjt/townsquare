@@ -358,8 +358,15 @@
             >
               Reading your towns…
             </p>
+            <!-- FT-1305: scripts and roles list a CATALOG now (below), so
+                 their list is never empty except under a search — the
+                 "Nothing to filter yet." state is towns-only, honestly. -->
             <p class="rp-state" v-else-if="!popChoices.length">
-              Nothing to filter yet.
+              {{
+                openFilter === "towns" && !filterSearch.trim()
+                  ? "Nothing to filter yet."
+                  : "Nothing matches."
+              }}
             </p>
             <div class="rp-pop-list" v-else>
               <!-- TRI-STATE: off → include (the game must have it) → exclude
@@ -368,21 +375,45 @@
                    included role must be in play together — while script
                    includes are an OR, because scripts are practically
                    exclusive per game and demanding two at once would define
-                   an empty set. The popover's own note states which. -->
-              <button
-                v-for="entry in popChoices"
-                :key="entry.id"
-                class="rp-pop-entry"
-                :class="stateOf(openFilter, entry.id)"
-                title="Click cycles: off → must have it → must not"
-                @click="cycleFilter(openFilter, entry.id)"
-              >
-                <span class="rp-pop-mark">{{
-                  markOf(openFilter, entry.id)
-                }}</span>
-                <span class="rp-pop-name">{{ entry.label }}</span>
-                <i class="rp-chip-n">{{ entry.count }}</i>
-              </button>
+                   an empty set. The popover's own note states which.
+
+                   FT-1305 (user escalation — the popovers enumerated fact
+                   STRINGS, so a ledger of two scripts offered two entries and
+                   a rig name sat beside Trouble Brewing as an equal): the
+                   entries are the app's own CATALOGS now — the script-pick
+                   dropdown's cards for scripts, the role registry for roles,
+                   each wearing the same art those surfaces wear — grouped
+                   (roles, by team) and appended-to (a fact string no catalog
+                   knows still lists, so data never becomes unfilterable). -->
+              <template v-for="group in popGroups">
+                <p
+                  class="rp-pop-group"
+                  v-if="group.label"
+                  :key="'grp-' + group.label"
+                >
+                  {{ group.label }}
+                </p>
+                <button
+                  v-for="entry in group.entries"
+                  :key="entry.id"
+                  class="rp-pop-entry"
+                  :class="stateOf(openFilter, entry.id)"
+                  title="Click cycles: off → must have it → must not"
+                  @click="cycleFilter(openFilter, entry.id)"
+                >
+                  <span class="rp-pop-mark">{{
+                    markOf(openFilter, entry.id)
+                  }}</span>
+                  <img
+                    class="rp-pop-icon"
+                    v-if="entry.icon"
+                    :src="entry.icon"
+                    alt=""
+                  />
+                  <span class="rp-pop-name">{{ entry.label }}</span>
+                  <i class="rp-chip-n">{{ entry.count }}</i>
+                </button>
+              </template>
             </div>
             <p class="rp-pop-note" v-if="openFilter === 'roles'">
               Included roles must ALL be in play; excluded roles must not be.
@@ -423,6 +454,31 @@
               Seats at the table. Leave a side empty for no bound.
             </p>
           </div>
+        </div>
+
+        <!-- FT-1305: THE FILTER READBACK — the active question restated in
+             plain words under the bar, one chip per active entry, each with
+             its own ×. The chips wear the popover entries' own palette
+             (green = must have, amber + strike = must not), so the bar, the
+             popovers and the readback speak one grammar; clearing the last
+             chip leaves the page exactly where Clear filters would. -->
+        <div class="rp-readback" v-if="anyFilterActive">
+          <span
+            v-for="chip in filterChips"
+            :key="chip.key"
+            class="rp-fchip"
+            :class="chip.state"
+          >
+            <span class="rp-fchip-mark" v-if="chip.mark">{{ chip.mark }}</span>
+            <span class="rp-fchip-name">{{ chip.label }}</span>
+            <button
+              class="rp-fchip-x"
+              :title="'Clear: ' + chip.label"
+              @click="clearChip(chip)"
+            >
+              <font-awesome-icon icon="times" />
+            </button>
+          </span>
         </div>
 
         <!-- ── THE TOTALS BAND — always on top, computed over the set ──────
@@ -762,7 +818,14 @@ import KeyCap from "./KeyCap";
 // (FT-1301: ThinMark LEFT THIS PAGE — the user retired the small-sample
 // mark/legend treatment here. Page-level only: the shared component file
 // stands untouched for any surface that still wants it.)
-import { scriptArtFor } from "../golem/editionArt";
+import { scriptArtFor, EDITION_ICONS, edCustom } from "../golem/editionArt";
+// FT-1305: the filter popovers list the app's own CATALOGS, not the fact
+// strings — the same editions list + art the script-pick dropdown shows, the
+// gold logo its "All of Blood on the Clocktower" card wears, and the role
+// registry's token icons via the one shared icon resolver.
+import editionJSON from "../editions.json";
+import goldLogo from "../assets/gold/botc-logo-icon.png";
+import { roleIconUrl } from "../golem/roleIcon";
 import { platformStats, gameFacts, gameRecord } from "../golem/stats";
 import { catchUp } from "../golem/chat";
 import { boardsOf, logGameIdOf } from "../golem/chronicles";
@@ -775,6 +838,39 @@ import {
 } from "../golem/records";
 
 const TOP_PLAYERS = 15;
+
+/**
+ * FT-1305: THE SCRIPT CATALOG — the same list the script-pick dropdown shows
+ * (EditionModal's wbScriptCards, minus the vault shelf, which is per-browser
+ * and not a fact about recorded games). A record stores its script as a
+ * display NAME (see schema notes in golem/editionArt), so the catalog is
+ * keyed by name too. "All of Blood on the Clocktower" STAYS: it is not a
+ * meta-entry here — playing the gold script records that exact string as the
+ * game's scriptName, so it is a real, filterable script identity with its own
+ * games. Names the catalog does not know (custom/imported scripts) are
+ * APPENDED from the facts wearing the stock custom mark — the same mark the
+ * record header gives them via scriptArtFor — so no game is ever unfilterable.
+ */
+const SCRIPT_CATALOG = [
+  ...editionJSON.map((e) => ({
+    name: e.name,
+    icon: EDITION_ICONS[e.id] || edCustom,
+  })),
+  { name: "All of Blood on the Clocktower", icon: goldLogo },
+];
+
+/**
+ * FT-1305: the role popover's grouping — the sheet order every BotC surface
+ * uses (roles.json's own `team`). A fact role the registry does not know
+ * (a custom role) lands in the trailing Custom group.
+ */
+const ROLE_TEAMS = [
+  { id: "townsfolk", label: "Townsfolk" },
+  { id: "outsider", label: "Outsiders" },
+  { id: "minion", label: "Minions" },
+  { id: "demon", label: "Demons" },
+  { id: "traveler", label: "Travellers" },
+];
 
 /**
  * FT-1297's column switches, surviving FT-1301 on the tables that remain.
@@ -1122,13 +1218,15 @@ export default {
       return "The filtered set, newest first. A row opens that game's record.";
     },
     /**
-     * FT-1301: the script popover's entries. EXISTENCE comes from the whole
-     * scoped ledger — every script the view holds is offerable, always, so
-     * an exclude can be placed (or an include un-clicked) even while the
-     * other filters starve it to nothing. The COUNT beside each is FACETED:
-     * over the games the OTHER filters keep (this dimension's own filter
-     * skipped), so the number is what picking the entry would give you —
-     * 0 included, honestly.
+     * FT-1301/FT-1305: the script popover's entries. The LIST is the app's
+     * own script catalog (SCRIPT_CATALOG — the script-pick dropdown's cards,
+     * art included), in the picker's own order, every entry always offered;
+     * fact names no catalog knows (custom/imported scripts, and any name a
+     * shared URL's filter hands in) are APPENDED after it wearing the stock
+     * custom mark, so no game is ever unfilterable. The COUNT beside each is
+     * FACETED: over the games the OTHER filters keep (this dimension's own
+     * filter skipped), so the number is what picking the entry would give
+     * you — 0 included, honestly.
      */
     scriptChoices() {
       const counts = new Map();
@@ -1137,16 +1235,47 @@ export default {
         if (!this.inSet(game, "scripts")) return;
         counts.set(game.scriptName, counts.get(game.scriptName) + 1);
       });
+      const entries = [];
+      const seen = new Set();
+      SCRIPT_CATALOG.forEach((c) => {
+        seen.add(c.name);
+        entries.push({
+          id: c.name,
+          label: c.name,
+          icon: c.icon,
+          count: counts.get(c.name) || 0,
+        });
+      });
+      // the facts' own strangers, then any name only the URL's filter knows
+      const extras = new Set([
+        ...counts.keys(),
+        ...this.filters.scripts.include,
+        ...this.filters.scripts.exclude,
+      ]);
+      [...extras]
+        .filter((name) => !seen.has(name))
+        .sort()
+        .forEach((name) =>
+          entries.push({
+            id: name,
+            label: name,
+            icon: edCustom,
+            count: counts.get(name) || 0,
+          }),
+        );
       const q = this.filterSearch.trim().toLowerCase();
-      return [...counts.entries()]
-        .map(([id, count]) => ({ id, label: id, count }))
-        .filter((e) => !q || e.label.toLowerCase().indexOf(q) >= 0)
-        .sort((a, b) => b.count - a.count || (a.label < b.label ? -1 : 1));
+      return entries.filter((e) => !q || e.label.toLowerCase().indexOf(q) >= 0);
     },
-    /** The roles popover's entries — same existence-vs-count split; counts
-     *  are DISTINCT games the role was in play in. Search matches name or
-     *  id. */
-    roleChoices() {
+    /**
+     * FT-1305: the roles popover's GROUPS — the full role registry (the same
+     * source the night sheet and every token draw from), grouped by team in
+     * sheet order, each entry wearing its token icon via the shared resolver.
+     * Fact roles the registry lacks (custom roles), plus any id only the
+     * URL's filter names, land in a trailing Custom group. Counts are the
+     * faceted DISTINCT-games counts (see scriptChoices); zero-count roles
+     * list, honestly. Search matches name or id.
+     */
+    roleGroups() {
       const counts = new Map();
       this.facts.games.forEach((game) => {
         const counted = this.inSet(game, "roles");
@@ -1155,16 +1284,44 @@ export default {
           if (counted) counts.set(id, counts.get(id) + 1);
         });
       });
+      const base = this.$store.getters.rolesJSONbyId;
+      const entryOf = (id, role) => ({
+        id,
+        label: (role && role.name) || this.roleNameOf(id),
+        icon: roleIconUrl(role || { id }, base),
+        count: counts.get(id) || 0,
+      });
+      const groups = ROLE_TEAMS.map((t) => ({ label: t.label, entries: [] }));
+      const byTeam = new Map(ROLE_TEAMS.map((t, i) => [t.id, groups[i]]));
+      const custom = { label: "Custom", entries: [] };
+      const seen = new Set();
+      base.forEach((role) => {
+        seen.add(role.id);
+        (byTeam.get(role.team) || custom).entries.push(entryOf(role.id, role));
+      });
+      const extras = new Set([
+        ...counts.keys(),
+        ...this.filters.roles.include,
+        ...this.filters.roles.exclude,
+      ]);
+      [...extras]
+        .filter((id) => !seen.has(id))
+        .forEach((id) => custom.entries.push(entryOf(id, null)));
+      groups.push(custom);
       const q = this.filterSearch.trim().toLowerCase();
-      return [...counts.entries()]
-        .map(([id, count]) => ({ id, label: this.roleNameOf(id), count }))
-        .filter(
-          (e) =>
-            !q ||
-            e.label.toLowerCase().indexOf(q) >= 0 ||
-            e.id.toLowerCase().indexOf(q) >= 0,
-        )
-        .sort((a, b) => b.count - a.count || (a.label < b.label ? -1 : 1));
+      return groups
+        .map((g) => {
+          g.entries.sort((a, b) => a.label.localeCompare(b.label));
+          if (q) {
+            g.entries = g.entries.filter(
+              (e) =>
+                e.label.toLowerCase().indexOf(q) >= 0 ||
+                e.id.toLowerCase().indexOf(q) >= 0,
+            );
+          }
+          return g;
+        })
+        .filter((g) => g.entries.length);
     },
     /**
      * FT-1304: the towns popover's entries — the towns the signed-in viewer
@@ -1187,12 +1344,65 @@ export default {
         .filter((e) => !q || e.label.toLowerCase().indexOf(q) >= 0)
         .sort((a, b) => b.count - a.count || (a.label < b.label ? -1 : 1));
     },
-    /** The open popover's list — scripts, roles or towns (players has no
-     *  list). */
+    /** The open popover's flat entry list — scripts, roles or towns (players
+     *  has no list). Roles flatten their groups; this is the emptiness check
+     *  and the shared shape for anything that wants "every entry". */
     popChoices() {
       if (this.openFilter === "scripts") return this.scriptChoices;
       if (this.openFilter === "towns") return this.townChoices;
-      return this.roleChoices;
+      return this.roleGroups.reduce((all, g) => all.concat(g.entries), []);
+    },
+    /** FT-1305: the open popover's GROUPED entries — roles carry real team
+     *  groups; scripts and towns are one unlabelled group. */
+    popGroups() {
+      if (this.openFilter === "roles") return this.roleGroups;
+      return [{ label: "", entries: this.popChoices }];
+    },
+    /**
+     * FT-1305: THE READBACK CHIPS — every active filter entry, restated in
+     * plain words, in the order the URL grammar writes them. Roles print
+     * their display name (never the raw id); the players bound is one chip
+     * for whatever sides it has.
+     */
+    filterChips() {
+      const chips = [];
+      const push = (dim, state, id, label) =>
+        chips.push({
+          key: dim + ":" + state + ":" + id,
+          dim,
+          state,
+          id,
+          label,
+          mark: state === "in" ? "+" : "−",
+        });
+      ["scripts", "roles", "towns"].forEach((dim) => {
+        const labelOf =
+          dim === "roles" ? (id) => this.roleNameOf(id) : (id) => id;
+        this.filters[dim].include.forEach((id) =>
+          push(dim, "in", id, labelOf(id)),
+        );
+        this.filters[dim].exclude.forEach((id) =>
+          push(dim, "out", id, labelOf(id)),
+        );
+      });
+      const { min, max } = this.filters.players;
+      if (min !== null || max !== null) {
+        const label =
+          min !== null && max !== null
+            ? min + "–" + max + " seats"
+            : min !== null
+            ? min + "+ seats"
+            : "up to " + max + " seats";
+        chips.push({
+          key: "players",
+          dim: "players",
+          state: "in",
+          id: null,
+          label,
+          mark: "",
+        });
+      }
+      return chips;
     },
     /** Is a LIST popover open? Gates the bar's search input and the shared
      *  list popover (the players popover is a pair of bounds, no list). */
@@ -1423,6 +1633,20 @@ export default {
     setPlayersBound(side, event) {
       const n = parseInt(event.target.value, 10);
       this.filters.players[side] = Number.isFinite(n) && n > 0 ? n : null;
+      this.writeFiltersToUrl();
+    },
+    /** FT-1305: one readback chip's ×. Clearing the last chip leaves the
+     *  page exactly where Clear filters would — same state, same URL. */
+    clearChip(chip) {
+      if (chip.dim === "players") {
+        this.filters.players.min = null;
+        this.filters.players.max = null;
+      } else {
+        const list =
+          this.filters[chip.dim][chip.state === "in" ? "include" : "exclude"];
+        const at = list.indexOf(chip.id);
+        if (at >= 0) list.splice(at, 1);
+      }
       this.writeFiltersToUrl();
     },
     /** The one-click way back to the unfiltered page. */
@@ -2118,6 +2342,69 @@ h4 {
   }
 }
 
+// ── FT-1305: THE FILTER READBACK ────────────────────────────────────────────
+// The active question in plain words, chip per entry, under the bar. The
+// chips wear the popover entries' own tri-state palette — green filled for
+// "must have it", amber + struck for "must not" — so the readback and the
+// popovers are visibly the same grammar. The players bound rides as a green
+// chip too: a bound is a requirement.
+.rp-readback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -6px 0 14px;
+}
+.rp-fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 12px;
+
+  &.in {
+    background: rgba(94, 179, 110, 0.22);
+    border-color: rgba(94, 179, 110, 0.55);
+    color: #fff;
+  }
+  &.out {
+    background: rgba(232, 178, 58, 0.22);
+    border-color: rgba(232, 178, 58, 0.55);
+    color: #fff;
+
+    .rp-fchip-name {
+      text-decoration: line-through;
+      opacity: 0.8;
+    }
+  }
+}
+.rp-fchip-mark {
+  opacity: 0.9;
+}
+.rp-fchip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.6;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  &:focus-visible {
+    @include control-focus-ring;
+  }
+}
+
 // THE POPOVER — under the bar, left-aligned with it. Anchoring to the bar
 // rather than the button keeps it stable while a click re-sorts the list.
 .rp-pop {
@@ -2147,9 +2434,25 @@ h4 {
 // yellow — "must have it" reads as a go, and the amber that used to mean
 // include now marks what is barred. The toolbar's own armed amber and the
 // dev flask's amber are untouched; this is the entries' palette only.
+// FT-1305: a group header inside the list — the roles popover's team bands.
+.rp-pop-group {
+  margin: 8px 0 2px;
+  padding: 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.45;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
 .rp-pop-entry {
   display: flex;
-  align-items: baseline;
+  // FT-1305: center, not baseline — every entry carries its catalog art now
+  // (script card art / role token), and a 20px image on a text baseline
+  // hangs the row.
+  align-items: center;
   gap: 8px;
   width: 100%;
   text-align: left;
@@ -2196,6 +2499,15 @@ h4 {
   width: 10px;
   text-align: center;
   opacity: 0.9;
+}
+// FT-1305: the entry's catalog art — the script card's icon or the role's
+// token, the same images those surfaces bundle. `contain`, because edition
+// art is not square and must not be stretched to pretend it is.
+.rp-pop-icon {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 .rp-pop-note {
   margin: 8px 0 0;
