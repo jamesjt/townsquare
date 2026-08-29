@@ -57,6 +57,10 @@ export const WHISPER_MARK_EVENT = "golem:whisper-mark";
  * same fact, enforced structurally. The "Count whispers" setting gates the
  * RENDER besides (ChroniclesDrawer's trafficRows): both settings say "the
  * town may know whispering happened", and the row obeys the pair of them.
+ * FT-1309 adds the row's OWN switch — "Whisper traffic" (towerBells'
+ * `whisperTraffic`, town-synced), gated at the MINT in socket.js: Off means
+ * no client records a traffic row at all, while the plane and the tally
+ * keep answering to their own settings above.
  * A finished game publishes its real whisper rows to everyone (chat.js's
  * canSee), so the drawer shows a game's traffic rows only while that game
  * is live — the published rows supersede the memory, and nothing is said

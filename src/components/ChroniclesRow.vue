@@ -9,11 +9,15 @@
            own mark; a plain body (every pre-FT-1010 row) renders as the
            muted line it always was (upright since FT-1024).
 
-       FT-1019: a NOMINATION row is the head of the GALLOWS THREAD — its
-       tally chip is the expand handle, and the strand it unfolds holds the
-       voter roster (a spent ghost vote wears the cowl) and the arc that
-       followed: the mark, a lifted mark, the death. Rows written before the
-       roster existed have no handle and render tally-only.
+       FT-1019: a NOMINATION row is the head of the GALLOWS THREAD — the
+       strand beneath it holds the voter roster (a spent ghost vote wears
+       the cowl) and the arc that followed: the mark, a lifted mark, the
+       death. FT-1310 (user call): the thread STANDS OPEN — the fold and
+       its chevron are retired, the tally chip is a plain readout again,
+       and the roster reads as two lines, "Yes" (the raised hands) and
+       "No" (the eligible hands that stayed down; rows minted before the
+       `nays` key carry no No line). Rows written before the roster
+       existed still render tally-only.
 
        This component renders what it is handed and decides nothing about
        who may see it — that was settled at ingest (chatIngest + canSee). -->
@@ -123,29 +127,23 @@
       v-if="row.kind === 'system' && event && event.t === 'nomination'"
     >
       <!-- FT-1036 (user call): the vote tally stands on its own line at the
-     message's foot; with a roster aboard it is still the thread's
-     expand handle. -->
+     message's foot. FT-1310 (user call): it is a plain readout again —
+     the thread below stands open, so the chip is no longer its expand
+     handle (the handle classes, role, click and chevron stood down, not
+     deleted; the house rule). -->
       <span
         class="crr-tally"
         v-if="event && event.t === 'nomination'"
-        :class="{ carried: event.carried, handle: hasRoster, open }"
-        :role="hasRoster ? 'button' : null"
-        :title="
-          hasRoster
-            ? open
-              ? 'Fold the gallows thread away'
-              : 'Who raised hands, and what followed'
-            : null
-        "
-        @click="hasRoster && (open = !open)"
+        :class="{ carried: event.carried }"
       >
         <!-- FT-1242: FA `hand-paper` stood down — the raised hand a cast vote
              actually wears on a seat (ui-vote-yes.png) counts the tally. -->
         {{ event.votes }}
         <img class="crr-hand" :src="uiVoteYes" alt="votes" /> of
         {{ event.majority }}
+        <!-- FT-1310: the fold's chevron, stood down with the fold itself. -->
         <font-awesome-icon
-          v-if="hasRoster"
+          v-if="false"
           class="crr-tally-chev"
           icon="chevron-down"
         />
@@ -213,10 +211,18 @@
          who raised hands (a dead voter's spent ghost vote wears the cowl),
          then the beats that were actually recorded after it. Nothing here
          is inferred: every beat is a row the host's client wrote, and a
-         majority with no mark row shows exactly that. -->
-    <span class="crr-thread" v-if="open">
+         majority with no mark row shows exactly that.
+
+         FT-1310 (user call): the thread STANDS OPEN — no fold to click —
+         and the roster is two lines in the reader's own words: "Yes", the
+         raised hands (FT-1019's list unchanged), and "No", the eligible
+         hands that stayed down (`nays`, recorded at the conclusion since
+         FT-1310 — an older row carries no No line rather than a guessed
+         one). A voteless seat sits on neither line: it had no hand to
+         keep down. -->
+    <span class="crr-thread" v-if="hasRoster">
       <span class="crr-voters">
-        <span class="crr-thread-label">Hands</span>
+        <span class="crr-thread-label">Yes</span>
         <template v-if="event.voters.length">
           <span
             v-for="(name, i) in event.voters"
@@ -232,6 +238,20 @@
               title="A ghost vote, spent"
             />{{ name || "an unnamed seat" }}
           </span>
+        </template>
+        <span v-else class="crr-none">nobody</span>
+      </span>
+      <!-- FT-1310: the hands that stayed down. No cowl here — a No chip
+           never spent a ghost vote on this nomination, by definition. -->
+      <span class="crr-voters" v-if="hasNays">
+        <span class="crr-thread-label">No</span>
+        <template v-if="event.nays.length">
+          <span
+            v-for="(name, i) in event.nays"
+            :key="'n' + i + ':' + name"
+            class="crr-voter"
+            >{{ name || "an unnamed seat" }}</span
+          >
         </template>
         <span v-else class="crr-none">nobody</span>
       </span>
@@ -354,6 +374,10 @@ export default {
       uiSun,
       uiVoteYes,
       uiWhisper,
+      // FT-1310: STOOD DOWN — the gallows thread stands open now, so no row
+      // holds fold state any more. Kept (never deleted) as the record of the
+      // fold this row used to carry, with the chevron and the handle classes
+      // in the template above.
       open: false,
     };
   },
@@ -438,14 +462,22 @@ export default {
       return !!this.event && this.event.t === "start";
     },
     /** FT-1019: does this nomination carry a roster? Old rows do not, and
-     *  render tally-only — the chip is a handle only when there is a thread
-     *  to open. */
+     *  render tally-only. FT-1310: this is the thread's own render gate now
+     *  — the strand stands open wherever a roster is aboard. */
     hasRoster() {
       return (
         !!this.event &&
         this.event.t === "nomination" &&
         Array.isArray(this.event.voters)
       );
+    },
+    /** FT-1310: does this nomination carry the No list? Only rows minted
+     *  since the conclusion records `nays` do — an older row renders its
+     *  Yes line only, because the frames it was built from named the raised
+     *  hands and nothing else, and a No set inferred at render time from
+     *  today's ring would be a guess about that day's seats. */
+    hasNays() {
+      return this.hasRoster && Array.isArray(this.event.nays);
     },
     /** FT-1101: is this a night-block row with actions actually aboard? An
      *  empty block never renders — nightBlocksOf drops a night nobody did
@@ -488,8 +520,9 @@ export default {
       if (this.event.moment === "day1") return "Day 1";
       return "The end";
     },
-    /** The beats after the nomination — computed only while the strand is
-     *  open (the template is the only reader). */
+    /** The beats after the nomination — the template is the only reader
+     *  (FT-1310: read for every roster-bearing nomination now that the
+     *  strand stands open). */
     thread() {
       return gallowsThreadOf(this.rows || [], this.row);
     },
@@ -780,7 +813,9 @@ img.crr-beat-mark {
   &.carried {
     color: #ffb4b4;
   }
-  // FT-1019: a chip with a roster aboard is the thread's handle
+  // FT-1019: a chip with a roster aboard was the thread's handle.
+  // FT-1310: STOOD DOWN — the thread stands open, the chip is a readout;
+  // the rule stays (never deleted) so the fold could come back whole.
   &.handle {
     cursor: pointer;
     &:hover {
@@ -815,6 +850,11 @@ img.crr-beat-mark {
   flex-wrap: wrap;
   align-items: center;
   gap: 3px 6px;
+  // FT-1310: the roster is two stacked lines now (Yes, then No) — the same
+  // breath the beats below take between themselves.
+  & + & {
+    margin-top: 3px;
+  }
 }
 .crr-thread-label {
   font-family: PiratesBay, sans-serif;

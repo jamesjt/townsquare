@@ -190,6 +190,12 @@ export const DEFAULT_TOWER = {
   // running game. On by default: the plane already tells the town THAT
   // whispers happen; the tally is the same fact, kept honest in one place.
   whisperCounts: true,
+  // FT-1309: WHISPER TRAFFIC — the Chronicle's per-whisper "Ana ✈ Bea" line
+  // (FT-1263's plane's-memory row). On by default — today's behaviour; Off
+  // stops the MINT on every client (socket.js gates chatMarkTraffic on this
+  // key), so no new traffic line is written anywhere from the moment the
+  // host flips it. Rows already recorded stand; the setting governs minting.
+  whisperTraffic: true,
 };
 
 /** The Day length scrub's bounds, in minutes (0 — Off — is set by its own
@@ -315,7 +321,10 @@ function sanitize(key, value) {
       if (n <= 0) return 0;
       return Math.max(WHISPER_MARK_SEC_MIN, Math.min(WHISPER_MARK_SEC_MAX, n));
     }
+    // FT-1309: whisperTraffic is the traffic line's own switch — a boolean
+    // exactly like its Count-whispers sibling, so they share the coercion.
     case "whisperCounts":
+    case "whisperTraffic":
       return !!value;
     default:
       return undefined;

@@ -2087,7 +2087,18 @@ class LiveSession {
     // Chronicle after the plane is gone. The mutation itself refuses the
     // storyteller and the whisper's own seats: their log holds the whisper
     // row, which is already their record of this traffic.
-    this._store.commit("chatMarkTraffic", mark);
+    //
+    // FT-1309: AND THE ROW IS A HOST SETTING NOW — "Whisper traffic", a
+    // tower key synced like its siblings, gated HERE at the mint so no
+    // client records a line while it is Off. The mint runs per client from
+    // this broadcast frame, so the frame itself still crosses the wire —
+    // it drives the plane, which whisperMarkSec owns — and that is honest:
+    // this setting is about the LOG, not the wire, and whisper CONTENT was
+    // never aboard the frame either way. Rows minted before the flip stand;
+    // the setting governs minting from the moment it changes.
+    if (towerState.whisperTraffic) {
+      this._store.commit("chatMarkTraffic", mark);
+    }
     try {
       window.dispatchEvent(
         new CustomEvent(WHISPER_MARK_EVENT, { detail: mark }),
@@ -2413,6 +2424,23 @@ export default (store) => {
           .filter((p, i) => state.session.votes[i] && p.isDead)
           .map((p) => p.name)
           .filter(Boolean);
+        // FT-1310: THE NO LIST, recorded the way `ghosts` is — from the live
+        // seats at the conclusion, because the frames carry no per-player
+        // vote record (only the raised hands ride `rec.votes`). No is the
+        // seats ELIGIBLE to vote on this nomination minus the hands:
+        // eligibility here is Vote.vue's own canVote rule — a spent ghost
+        // vote (`isVoteless`) bars a seat unless the nominee is a traveler
+        // (an Exile, where every seat votes). A voteless seat is not "No",
+        // it is INELIGIBLE — it had no hand to keep down — so it appears on
+        // neither line. A dead seat with its ghost vote unspent could have
+        // raised it, and its stillness is a real No.
+        const nays = state.players.players
+          .filter(
+            (p, i) =>
+              !state.session.votes[i] &&
+              (rec.type === "Exile" || !p.isVoteless),
+          )
+          .map((p) => p.name);
         session.systemMessage(
           `${rec.nominator} nominated ${rec.nominee} — ${rec.votes.length} of ` +
             `${rec.majority} needed${carried ? ", majority reached" : ""}.`,
@@ -2426,6 +2454,10 @@ export default (store) => {
             carried,
             voters: rec.votes,
             ghosts,
+            // FT-1310: the hands that stayed down (see above). A row from
+            // before this field renders its Yes line only — the render
+            // refuses to guess a No set it was never given.
+            nays,
           },
         );
         break;

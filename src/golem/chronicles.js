@@ -50,12 +50,17 @@ export const EV_PREFIX = "EV1";
  *   revive      a shroud lifted;  detail: { name, seat }
  *   nomination  a vote concluded; detail: { nominator, nominee, type,
  *               votes: number, majority: number, carried: bool,
- *               voters: [names], ghosts: [names] }.
+ *               voters: [names], ghosts: [names], nays: [names] }.
  *               FT-1019: `voters` is WHO RAISED HANDS at the conclusion —
  *               recorded once, when the vote is recorded, never per-hand —
  *               and `ghosts` is the subset who were dead when they did (a
  *               spent ghost vote). Rows written before FT-1019 carry
  *               neither key and render tally-only.
+ *               FT-1310: `nays` is the ELIGIBLE seats whose hand stayed
+ *               down (a voteless seat sits on neither list — it had no
+ *               hand to keep down; socket.js records the set at the
+ *               conclusion, Vote.vue's own eligibility rule). A row from
+ *               before this key renders its Yes line only.
  *   execution   a seat marked for execution; detail: { name, seat }.
  *               "Marked", not "died" — the storyteller decides what a
  *               majority means, and the record must not invent an outcome

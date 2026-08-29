@@ -1162,6 +1162,37 @@
             />
           </span>
         </span>
+
+        <span class="ht-set-line ht-set-line-traffic">
+          <!-- FT-1309: WHISPER TRAFFIC — the Chronicle's per-whisper line
+             ("Ana ✈ Bea", FT-1263's plane's-memory row), its own switch at
+             last: the tally above counts the day, this row LISTS it, and a
+             town may want one without the other. Off stops the mint on
+             every client (socket.js gates chatMarkTraffic); lines already
+             recorded stand. The quill is the mark — the record being
+             written down, where the plane means SENT (FT-1211) and already
+             fronts the Whisper marks row two lines up. -->
+          <span class="tw-lead">
+            <span class="label">
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="feather-alt"
+                title="The Chronicle's whisper-traffic lines"
+              />
+              <span class="row-name" v-if="!iconsOnly">Whisper traffic</span>
+            </span>
+            <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
+                 above for the user's call and what it does not change). -->
+            <OptionCheck
+              name="whisper-traffic"
+              aria-label="Whisper traffic"
+              on-value="on"
+              :options="whisperTrafficOptions"
+              :value="tower.whisperTraffic ? 'on' : 'off'"
+              @input="pickWhisperTraffic"
+            />
+          </span>
+        </span>
       </div>
 
       <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
@@ -2405,6 +2436,23 @@ export default {
         },
       ];
     },
+    /** FT-1309: the Chronicle's whisper-traffic lines, on or off. */
+    whisperTrafficOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title:
+            "No traffic lines — the Chronicle stops logging who whispered whom",
+        },
+        {
+          value: "on",
+          label: "On",
+          title:
+            "Every whisper writes a line in the Chronicle — who whispered whom, never what",
+        },
+      ];
+    },
     /** The heading's second line: finished games in this town plus the one
      *  being built now. "" (not "0 games") while gamesCount is unknown, which
      *  is the template's actual render gate. */
@@ -2783,6 +2831,11 @@ export default {
      *  as the Day timer's Timed does. */
     setWhisperMarkMode(v) {
       this.setTower("whisperMarkSec", v === "on" ? this.whisperSecDraft : 0);
+    },
+    /** FT-1309: the traffic line's switch — the counts row's own writer
+     *  shape, one tower key over. */
+    pickWhisperTraffic(v) {
+      this.setTower("whisperTraffic", v === "on");
     },
     pickWhisperCounts(v) {
       this.setTower("whisperCounts", v === "on");
