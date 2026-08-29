@@ -197,7 +197,7 @@
               @click="vote(true)"
             >
               <!-- ui-hand-up.svg inline (kept in sync). -->
-              <svg class="vo-hand-ic" viewBox="0 0 300 420" fill="currentColor" aria-hidden="true"><g><rect x="95" y="340" width="110" height="64" rx="26"/><rect x="72" y="210" width="156" height="148" rx="46"/><rect x="76" y="76" width="38" height="180" rx="19"/><rect x="120" y="52" width="38" height="204" rx="19"/><rect x="164" y="64" width="38" height="192" rx="19"/><rect x="208" y="98" width="36" height="158" rx="18"/><rect x="8" y="212" width="116" height="46" rx="23" transform="rotate(-42 66 235)"/></g></svg>
+              <svg class="vo-hand-ic" viewBox="0 0 280 520" fill="currentColor" aria-hidden="true"><g transform="translate(0 520) rotate(-90)"><rect x="20" y="105" width="80" height="130" rx="26"/><rect x="70" y="78" width="130" height="140" rx="45"/><rect x="72" y="198" width="110" height="46" rx="23" transform="rotate(-6 127 221)"/><circle cx="195" cy="185" r="50"/><circle cx="262" cy="202" r="42"/><circle cx="320" cy="214" r="33"/><rect x="108" y="68" width="230" height="58" rx="29"/><rect x="310" y="78" width="185" height="38" rx="19"/></g></svg>
               Hand UP
             </button>
           </div>

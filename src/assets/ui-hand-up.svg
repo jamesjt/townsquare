@@ -1,24 +1,21 @@
-<!-- ui-hand-up v3 (user, 2026-08-28): the raised hand in the NOMINATE
-     HAND'S own painted language — ui-nominate-hand.svg's idiom verbatim:
-     overlapping primitives (tapered capsule fingers, palm/cuff rects, a
-     low splayed thumb), single bone tone #cfc4ae carried in-file, the
-     same swappable-art pattern. ALL FIVE fingers, open palm, fingers up.
-     Consumed two ways: as a MASK on the coin's vote mark (alpha is what
-     counts) and inlined with currentColor in Vote.vue's Hand UP cell —
-     keep the inline copy in sync when editing. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 420">
-  <g fill="#cfc4ae">
-    <!-- cuff: the wrist mass under the palm -->
-    <rect x="95" y="340" width="110" height="64" rx="26"/>
-    <!-- palm: connects cuff, four finger roots and the thumb -->
-    <rect x="72" y="210" width="156" height="148" rx="46"/>
-    <!-- four raised fingers: capsules, heights receding index→pinky -->
-    <rect x="76"  y="76"  width="38" height="180" rx="19"/>
-    <rect x="120" y="52"  width="38" height="204" rx="19"/>
-    <rect x="164" y="64"  width="38" height="192" rx="19"/>
-    <rect x="208" y="98"  width="36" height="158" rx="18"/>
-    <!-- thumb: splayed low off the palm's left edge, angled up -->
-    <rect x="8" y="212" width="116" height="46" rx="23"
-          transform="rotate(-42 66 235)"/>
+<!-- ui-hand-up v4 (user, 2026-08-28): the NOMINATE HAND ITSELF, turned to
+     point UP — ui-nominate-hand.svg's geometry verbatim inside a rotation
+     wrapper (translate(0 520) rotate(-90): right becomes up), so the two
+     marks are literally one hand in two gestures and can never drift.
+     Edit ui-nominate-hand.svg first, then re-copy its group here.
+     Same in-file bone (#cfc4ae), same swappable-art pattern. Consumed as a
+     MASK on the coin's vote mark and inlined with currentColor in
+     Vote.vue's Hand UP cell — keep the inline copy in sync. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 520">
+  <g fill="#cfc4ae" transform="translate(0 520) rotate(-90)">
+    <rect x="20" y="105" width="80" height="130" rx="26"/>
+    <rect x="70" y="78" width="130" height="140" rx="45"/>
+    <rect x="72" y="198" width="110" height="46" rx="23"
+          transform="rotate(-6 127 221)"/>
+    <circle cx="195" cy="185" r="50"/>
+    <circle cx="262" cy="202" r="42"/>
+    <circle cx="320" cy="214" r="33"/>
+    <rect x="108" y="68" width="230" height="58" rx="29"/>
+    <rect x="310" y="78" width="185" height="38" rx="19"/>
   </g>
 </svg>
