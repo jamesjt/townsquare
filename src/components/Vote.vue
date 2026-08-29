@@ -1043,7 +1043,8 @@ export default {
   .vo-hand-nom {
     background: url("../assets/ui-nominate-hand.png") center / contain
       no-repeat;
-    transform: rotate(-90deg);
+    /* the art points LEFT in file — +90 stands it up */
+    transform: rotate(90deg);
   }
 
   &:hover:not(.on) {

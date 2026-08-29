@@ -5233,7 +5233,11 @@ $belief-blood: #970000;
   // at rest it points up and during a nomination it points at the accused.
   // The X keeps its own baked art; the vote-glass grounds both.
   &.yes {
-    --vote-base: -90deg;
+    /* The painted manicule points LEFT in file (its own markup note: "the
+       art always points at the clock face", mirrored per side) — so +90
+       turns it upright, not -90 (the first cut assumed right and shipped
+       it upside-down). */
+    --vote-base: 90deg;
     background-image: url("../assets/ui-nominate-hand.png");
     filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.95));
   }
