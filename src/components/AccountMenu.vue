@@ -47,7 +47,7 @@
         title="What changed lately — the app's own change log"
         @click="act('changelog')"
       >
-        <font-awesome-icon icon="scroll" class="am-mark" />
+        <font-awesome-icon icon="bullhorn" class="am-mark" />
         Change log
       </li>
     </ul>

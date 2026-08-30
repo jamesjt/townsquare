@@ -14,7 +14,7 @@
   <div class="changelog" @click="$emit('close')">
     <div class="panel" @click.stop>
       <h3>
-        <font-awesome-icon icon="scroll" class="cl-mark" />
+        <font-awesome-icon icon="bullhorn" class="cl-mark" />
         Change log
       </h3>
       <CloseX
