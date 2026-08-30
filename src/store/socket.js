@@ -367,12 +367,17 @@ class LiveSession {
         // storage refused — the watcher lists as anonymous, nothing breaks
       }
     }
+    // FT-1350: the HOST's ping (broadcast to the whole town) carries the
+    // spectator COUNT in its third slot — the slot a player's ping uses for
+    // its name, and the host's never used. Every client's pill can then say
+    // "· N spectators" without the host-only roster travelling anywhere; an
+    // old client reading this ping ignores the extra element.
     this._send("ping", [
       this._isSpectator
         ? this._store.state.session.playerId
         : Object.keys(this._players).length,
       "latency",
-      ...(this._isSpectator ? [pingName] : []),
+      ...(this._isSpectator ? [pingName] : [this._watcherIds().length]),
     ]);
     clearTimeout(this._pingTimer);
     this._pingTimer = setTimeout(this._ping.bind(this), this._pingInterval);
@@ -1372,6 +1377,14 @@ class LiveSession {
     } else if (latency) {
       // ping to ST
       this._store.commit("session/setPing", parseInt(latency, 10));
+      // FT-1350: the host's ping carries the spectator count in the third
+      // slot (see _ping) — the pill's "· N spectators" for every client.
+      // Guarded to a real number so an old host's two-element ping (or a
+      // player's name string, which never reaches this branch anyway)
+      // changes nothing.
+      if (typeof name === "number" && isFinite(name) && name >= 0) {
+        this._store.commit("session/setSpectatorCount", name);
+      }
     }
     // update player count
     if (!this._isSpectator || playerIdOrCount) {
@@ -2005,6 +2018,35 @@ class LiveSession {
     ) {
       return;
     }
+    // FT-1350 (user): THE CHRONICLE HEARS COMINGS AND GOINGS — one quiet
+    // system line per watcher joining or leaving the town, in the sweep's
+    // own chair-freed idiom (untyped on purpose: a plain announcement
+    // renders everywhere; an unknown event type would render as raw
+    // envelope). Diffed BY ID against what the store held, so a name
+    // arriving on a later ping never re-announces anyone. A watcher who
+    // leaves the roster by SITTING DOWN has not left the town — that line
+    // says "took a seat", so a player's arrival never reads as a walkout.
+    const before = new Set(held.map((s) => s.id));
+    const after = new Set(list.map((s) => s.id));
+    const seatedNow = new Set(
+      this._store.state.players.players.map((p) => p.id).filter(Boolean),
+    );
+    list.forEach((s) => {
+      if (!before.has(s.id)) {
+        this.systemMessage(
+          `Spectating: ${s.name || "an anonymous spectator"} joined.`,
+        );
+      }
+    });
+    held.forEach((s) => {
+      if (!after.has(s.id)) {
+        this.systemMessage(
+          `Spectating: ${s.name || "an anonymous spectator"} ${
+            seatedNow.has(s.id) ? "took a seat" : "left"
+          }.`,
+        );
+      }
+    });
     this._store.commit("session/setSpectators", list);
   }
 

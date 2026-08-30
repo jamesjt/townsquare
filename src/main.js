@@ -39,6 +39,10 @@ const faIcons = [
   "CommentDots",
   "Copy",
   "Clipboard",
+  // FT-1350: the Checklist-strictness row's mark — a checklist being held to
+  // (there is no checklist glyph in the fork's own art set — the
+  // Bell/BellSlash standing note applies).
+  "ClipboardCheck",
   "Bell",
   // FT-880: the crossed bell is the refused-audio notice — a player who cannot
   // hear the call-back. (There is no bell in the fork's own art set yet; when
@@ -51,6 +55,9 @@ const faIcons = [
   "ExclamationTriangle",
   // FT-1003: the night sheet's granted-grimoire Show control.
   "Eye",
+  // FT-1350: the spectator-grimoire toggle's Hidden face (the session pill's
+  // spectator list) — the eye, closed.
+  "EyeSlash",
   "FeatherAlt",
   "Fire",
   "FileCode",

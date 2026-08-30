@@ -46,9 +46,12 @@
            because they are what the wrap was). Two selects share one line at
            every width there has ever been a measurement for.
 
-           THEY STAY SIDE BY SIDE rather than taking a row each: both settings
-           are the night checklist's — who sees it, and how hard it is enforced
-           — and neither has a word long enough to want the full width. -->
+           FT-1350 (user): THE PAIR SPLITS INTO TWO ROWS. "They stay side by
+           side" above held while the two selects shared one label; the user's
+           call is that a label crammed beside TWO controls reads as a puzzle,
+           so the enforcement select stands on its own row below, with its own
+           name — see `.nm-row-checks`. This row keeps the checklist's mark,
+           its name and the VISIBILITY select alone. -->
       <span class="nm-controls">
         <OptionSelect
           name="night-visibility"
@@ -57,23 +60,44 @@
           :value="mode"
           @input="pick"
         />
+      </span>
+    </div>
+    <small class="nm-hint">{{ hints[mode] }}</small>
+    <!-- ── FT-1350 (user): THE ENFORCEMENT ROW — the checklist's second
+         setting on its own line. "Strictness" is the row's rendered name
+         (the full "Checklist strictness" wrapped to two lines in the disc
+         pane's capped label track; one word directly under "Night checklist"
+         reads as the sub-setting it is — the row's title carries the full
+         sentence). The select itself is FT-874/FT-959's enforcement control,
+         unchanged: same options, same store write.
 
-        <!-- FT-874 tri-state (2026-08-19), FT-959 segmented (2026-08-20, user
-             call: "turn the optional/required/warn option into a 3 part
-             toggle like the off storyteller and everyone"). HOW HARD THE
-             CHECKLIST IS ENFORCED — Optional / Warn / Required — now reads
-             the SAME idiom as the mode switch to its left: one plate, three
-             cells, the chosen one lit. It replaces the single word that used
-             to cycle through the three on repeated clicks — every state is
-             reachable in one press now, the same as the switch beside it.
+         FT-874 tri-state (2026-08-19), FT-959 segmented (2026-08-20, user
+         call: "turn the optional/required/warn option into a 3 part
+         toggle like the off storyteller and everyone"). HOW HARD THE
+         CHECKLIST IS ENFORCED — Optional / Warn / Required — reads
+         the SAME idiom as the mode switch above: one plate, three
+         cells, the chosen one lit. It replaces the single word that used
+         to cycle through the three on repeated clicks — every state is
+         reachable in one press, the same as the visibility switch.
 
-             THE STATE STILL LIVES IN THE INK, not the box (2026-08-19 call,
-             carried over): the plate the cell sits in is the group's shared
-             one, same as every `.nm-opt` in this row; Warn's gold and
-             Required's red are the word's own colour, layered on top of the
-             ordinary "chosen" tint every segment in this app already wears —
-             see the style block below for why that stays true even now that
-             three options are visible at once instead of one. -->
+         THE STATE STILL LIVES IN THE INK, not the box (2026-08-19 call,
+         carried over): the plate the cell sits in is the group's shared
+         one; Warn's gold and Required's red are the word's own colour,
+         layered on top of the ordinary "chosen" tint every segment in
+         this app already wears — see the style block below. -->
+    <div class="nm-row nm-row-checks">
+      <span
+        class="label"
+        title="Checklist strictness — how hard the night checklist is enforced"
+      >
+        <font-awesome-icon
+          class="row-mark-fa"
+          icon="clipboard-check"
+          title="Checklist strictness"
+        />
+        <span class="row-name" v-if="!iconsOnly">Strictness</span>
+      </span>
+      <span class="nm-controls">
         <OptionSelect
           class="nm-sel-checks"
           name="night-checks"
@@ -84,7 +108,6 @@
         />
       </span>
     </div>
-    <small class="nm-hint">{{ hints[mode] }}</small>
   </div>
 </template>
 
@@ -378,6 +401,15 @@ export default {
     display: block;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
   }
+  // FT-1350: the enforcement row's FA mark — HostTools' own `.row-mark-fa`
+  // recipe, restated here for the same reason `.row-mark` above is.
+  .row-mark-fa {
+    width: 18px;
+    height: 18px;
+    color: rgb(154, 146, 133);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+
   // FT-1168: the row's name beside its mark — HostTools' own `.row-name`
   // recipe, restated here for the same reason `.row-mark` above is: a
   // parent's scoped styles reach a child's ROOT and nothing inside it.

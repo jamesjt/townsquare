@@ -61,3 +61,43 @@ export function applyChair(id) {
 }
 
 applyChair(stored);
+
+// ── FT-1323/FT-1350 (user): THE OPACITY DIAL ────────────────────────────────
+// How strongly the chair mark paints, published as a SECOND root var beside
+// --chair: `--chair-opacity`, worn by every consumer of the chair mask on its
+// masked pseudo — MULTIPLIED over each surface's own resting opacity (the
+// empty coin's .open-mark keeps its 0.75, the invitation its 1), so the
+// default 1.0 is exactly today's look on every surface at once. Same legacy
+// lab pattern as the pick above: localStorage, no pref plumbing.
+export const CHAIR_OPACITY_MIN = 0.2;
+export const CHAIR_OPACITY_MAX = 1;
+
+const OPACITY_KEY = "golem.chairOpacity";
+let storedOp = null;
+try {
+  storedOp = parseFloat(localStorage.getItem(OPACITY_KEY));
+} catch (e) {
+  storedOp = null;
+}
+if (!(storedOp >= CHAIR_OPACITY_MIN && storedOp <= CHAIR_OPACITY_MAX)) {
+  storedOp = 1;
+}
+
+export const chairOpacity = Vue.observable({ v: storedOp });
+
+/** Publish the dial onto the root so every chair surface follows it. */
+export function applyChairOpacity(v) {
+  const n = Math.min(
+    CHAIR_OPACITY_MAX,
+    Math.max(CHAIR_OPACITY_MIN, parseFloat(v) || 1),
+  );
+  chairOpacity.v = n;
+  document.documentElement.style.setProperty("--chair-opacity", String(n));
+  try {
+    localStorage.setItem(OPACITY_KEY, String(n));
+  } catch (e) {
+    // storage off: the dial still works for this session
+  }
+}
+
+applyChairOpacity(storedOp);

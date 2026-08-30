@@ -4668,6 +4668,8 @@ li.swap:not(.from) .player::after {
       width: 100%;
       height: 100%;
       background-color: #cfc4ae;
+      /* FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look). */
+      opacity: var(--chair-opacity, 1);
       -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
       mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
       -webkit-mask-size: contain;
@@ -4788,6 +4790,9 @@ li.swap:not(.from) .player::after {
     width: 100%;
     height: 100%;
     background-color: currentColor;
+    /* FT-1323/FT-1350: the chair lab's opacity dial — multiplied over this
+       span's own resting 0.75, so the dial's default 1 is today's look. */
+    opacity: var(--chair-opacity, 1);
     /* FT-1337: the art comes from the chair lab's root var now (chairArt.js
        paints it at startup); the incumbent stays as the fallback. */
     -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
@@ -6427,6 +6432,8 @@ li.nominate .player .overlay .nominate-target {
     width: 100%;
     height: 100%;
     background-color: currentColor;
+    /* FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look). */
+    opacity: var(--chair-opacity, 1);
     /* FT-1337: the chair lab's root var, incumbent as fallback. */
     -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
     mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
@@ -6721,6 +6728,8 @@ li.nominate .player .overlay .nominate-target {
       width: 100%;
       height: 100%;
       background-color: #cfc4ae;
+      /* FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look). */
+      opacity: var(--chair-opacity, 1);
       -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
       mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
       -webkit-mask-size: contain;

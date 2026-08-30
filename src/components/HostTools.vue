@@ -934,9 +934,14 @@
             }}</span>
           </button>
         </nav>
+        <!-- FT-1350: `v-if` — the Controls group renders its OWN pane (the
+             `.ht-prefs` box below, moved in from the retired header tab);
+             an empty `.ht-game` grid standing beside it would be a second
+             column of nothing. -->
         <div
           class="ht-game"
           ref="gameRows"
+          v-if="gameGroup !== 'controls'"
           :class="{ scrolls: gameOverflow }"
           v-blood-scroll
         >
@@ -1146,8 +1151,16 @@
                sendSpectatorGrimoire — nothing secret is put on the wire for
                a watcher while this is off). Rides the tower shelf like every
                row beside it: per-town persisted, synced live. The eye is the
-               granted-grimoire control's own mark (NightModeRow's Show). -->
-            <span class="ht-set-line ht-set-line-specgrim ht-group-start">
+               granted-grimoire control's own mark (NightModeRow's Show).
+               ── FT-1350 (user): STOOD DOWN, NOT DELETED — the setting lives
+               in the session pill's spectator list now (App.vue, its natural
+               home beside the watchers it governs), as a labeled two-state
+               button. `v-if="false"` keeps this row unreached; the tower
+               write it made is the same one the pill's button makes. -->
+            <span
+              v-if="false"
+              class="ht-set-line ht-set-line-specgrim ht-group-start"
+            >
               <span class="tw-lead">
                 <span class="label">
                   <font-awesome-icon
@@ -1175,8 +1188,13 @@
                their client offered, or anonymous), each with its Kick.
                Filed beside the setting that governs what watchers see, so
                "who watches" and "what they may see" read as one cluster.
-               Kicked is not banned — the same link walks them back in. -->
-            <span class="ht-set-line ht-set-line-watchers">
+               Kicked is not banned — the same link walks them back in.
+               ── FT-1350 (user): STOOD DOWN, NOT DELETED — the list opens
+               from the session pill's "N spectators" count now (App.vue),
+               with the grimoire toggle inside it; the storyteller-post
+               watcher cluster stays as the second door. `v-if="false"`
+               keeps this row unreached. -->
+            <span v-if="false" class="ht-set-line ht-set-line-watchers">
               <span class="tw-lead">
                 <span
                   class="label"
@@ -1547,9 +1565,15 @@
             </div>
           </template>
         </div>
-      </div>
 
-      <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
+        <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
+         FT-1350 (user): …WHICH IS THE RAIL'S FOURTH LEAF NOW. The header tab
+         stood down (see SETUP_TABS) and this box moved INSIDE the Game tab's
+         rail-and-pane wrap, rendering as the pane while the "Controls" leaf
+         is picked (prefsTab reads settingsTab + gameGroup now). Same box,
+         same rows, same golem/prefs writes — only the door moved, and the
+         re-entry face gains this door too (the rail renders there; the gear's
+         floating menu stays as the second door it always was). ──────────────
          "these options need be right above the gear. and in fact maybe we
          need to add a third tab? Script setup, game settings, and control
          settings?" — the three PERSONAL rows (Setup panel / Control scheme /
@@ -1571,34 +1595,34 @@
          `v-blood-scroll` is the fork's drip scrollbar, and the `scrolls`
          class (the sunken well + the drip's lane) lands only when the rows
          genuinely overflow, measured in measurePrefsOverflow. -->
-      <div
-        class="row ht-settings ht-prefs"
-        v-if="prefsTab"
-        ref="prefsRows"
-        :class="{ scrolls: prefsOverflow }"
-        v-blood-scroll
-      >
-        <span class="ht-set-line">
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="font"
-                title="The setup panel's dress — names beside the icons, or icons alone"
+        <div
+          class="row ht-settings ht-prefs"
+          v-if="prefsTab"
+          ref="prefsRows"
+          :class="{ scrolls: prefsOverflow }"
+          v-blood-scroll
+        >
+          <span class="ht-set-line">
+            <span class="tw-lead">
+              <span class="label">
+                <font-awesome-icon
+                  class="row-mark-fa"
+                  icon="font"
+                  title="The setup panel's dress — names beside the icons, or icons alone"
+                />
+                <span class="row-name" v-if="!iconsOnly">Setup panel</span>
+              </span>
+              <OptionSelect
+                name="prefs-setup-labels"
+                aria-label="Setup panel labels"
+                hoist
+                :options="setupLabelOptions"
+                :value="prefs.setupIconsOnly"
+                @input="setIconsOnly"
               />
-              <span class="row-name" v-if="!iconsOnly">Setup panel</span>
             </span>
-            <OptionSelect
-              name="prefs-setup-labels"
-              aria-label="Setup panel labels"
-              hoist
-              :options="setupLabelOptions"
-              :value="prefs.setupIconsOnly"
-              @input="setIconsOnly"
-            />
           </span>
-        </span>
-        <!-- FT-1213: THE CONTROL TOGGLES — the exclusive "Control scheme"
+          <!-- FT-1213: THE CONTROL TOGGLES — the exclusive "Control scheme"
              dropdown stood down for independent switches (golem/prefs'
              CONTROL_TOGGLES; the reasoning lives on that list — seven now,
              FT-1227 having split "Click coins" in two). Same Game-settings
@@ -1611,7 +1635,7 @@
              FT-1227: a row named in TOGGLE_MARKS wears the gesture's own
              baked art (the ring's move icons, the hover's pin) instead of
              its FA stand-in. -->
-        <!-- FT-1260: THE TWO MENU ROWS EXPAND. A row carrying `layoutKey`
+          <!-- FT-1260: THE TWO MENU ROWS EXPAND. A row carrying `layoutKey`
              keeps its master On/Off and gains a chevron; open, the menu's
              own list unfolds below it — every vocabulary action (from
              golem/seatActions, so a future one appears by itself), each
@@ -1625,29 +1649,33 @@
              clicks assign any one action (or Off) instead of On/Off. Those
              rows take a full line (`ht-ctrl-pick`): the columns' own rule
              is that a select carrying words cannot live in a half-cell. -->
-        <template v-for="t in controlToggles">
-          <span
-            class="ht-set-line ht-ctrl-row"
-            :key="t.key"
-            :class="{
-              'ht-ctrl-inert': t.inert,
-              'ht-ctrl-pick': !!t.action,
-              'ht-group-start': t.groupStart,
-            }"
-            :title="t.rowTitle"
-          >
-            <span class="tw-lead">
-              <span class="label">
-                <img
-                  v-if="t.mark"
-                  class="row-mark"
-                  :src="t.mark"
-                  :alt="t.label"
-                />
-                <font-awesome-icon v-else class="row-mark-fa" :icon="t.icon" />
-                <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
-              </span>
-              <!-- FT-1264 (user): the two MENU rows carry ONE control now.
+          <template v-for="t in controlToggles">
+            <span
+              class="ht-set-line ht-ctrl-row"
+              :key="t.key"
+              :class="{
+                'ht-ctrl-inert': t.inert,
+                'ht-ctrl-pick': !!t.action,
+                'ht-group-start': t.groupStart,
+              }"
+              :title="t.rowTitle"
+            >
+              <span class="tw-lead">
+                <span class="label">
+                  <img
+                    v-if="t.mark"
+                    class="row-mark"
+                    :src="t.mark"
+                    :alt="t.label"
+                  />
+                  <font-awesome-icon
+                    v-else
+                    class="row-mark-fa"
+                    :icon="t.icon"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">{{ t.label }}</span>
+                </span>
+                <!-- FT-1264 (user): the two MENU rows carry ONE control now.
                    The FT-1260 shape was an On/Off dropdown PLUS a bare
                    chevron — two controls answering one question. The single
                    selector-styled button below wears the menu's SUMMARY as
@@ -1658,7 +1686,7 @@
                    trigger at its widest face ("N buttons") so the summary
                    changing under a click cannot shift the layout —
                    OptionSelect's own FT-1088 rule, restated for one label. -->
-              <!-- FT-1268 (user): "lets make all of these a checkbox instead
+                <!-- FT-1268 (user): "lets make all of these a checkbox instead
                    of a drop down if there is only two options." THE ROW'S
                    CONTROL NOW SPLITS THREE WAYS instead of two:
                      * a PICKER row (`action`) keeps the dropdown — its list
@@ -1671,52 +1699,52 @@
                    Same `t.options` pair, same setToggle writer, same stored
                    booleans; the option list stays authored where it was so
                    the two settings surfaces keep one vocabulary. -->
-              <OptionSelect
-                v-if="t.action"
-                :name="'prefs-' + t.key"
-                :aria-label="t.label"
-                hoist
-                :options="t.options"
-                :value="prefs[t.key]"
-                @input="setToggle(t.key, $event)"
-              />
-              <OptionCheck
-                v-else-if="!t.layoutKey"
-                :name="'prefs-' + t.key"
-                :aria-label="t.label"
-                :options="t.options"
-                :value="prefs[t.key] !== false"
-                @input="setToggle(t.key, $event)"
-              />
-              <button
-                v-else
-                type="button"
-                class="ht-menu-sum"
-                :ref="'menuSum-' + t.key"
-                :class="{ open: menuListOpen === t.key }"
-                :aria-expanded="String(menuListOpen === t.key)"
-                :aria-controls="'ht-menu-list-' + t.key"
-                :aria-label="
-                  t.label + ' — choose and order this menu\'s buttons'
-                "
-                :title="
-                  menuListOpen === t.key
-                    ? 'Close this menu\'s button list'
-                    : 'Choose and order this menu\'s buttons — On/Off lives inside'
-                "
-                @click="toggleMenuList(t.key)"
-              >
-                <span class="ht-menu-sum-wrap">
-                  <span class="ht-menu-sum-label">{{ menuSummary(t) }}</span>
-                  <span class="ht-menu-sum-sizer" aria-hidden="true">{{
-                    "0 of " + menuSlots(t).length
-                  }}</span>
-                </span>
-                <font-awesome-icon icon="chevron-down" class="caret" />
-              </button>
+                <OptionSelect
+                  v-if="t.action"
+                  :name="'prefs-' + t.key"
+                  :aria-label="t.label"
+                  hoist
+                  :options="t.options"
+                  :value="prefs[t.key]"
+                  @input="setToggle(t.key, $event)"
+                />
+                <OptionCheck
+                  v-else-if="!t.layoutKey"
+                  :name="'prefs-' + t.key"
+                  :aria-label="t.label"
+                  :options="t.options"
+                  :value="prefs[t.key] !== false"
+                  @input="setToggle(t.key, $event)"
+                />
+                <button
+                  v-else
+                  type="button"
+                  class="ht-menu-sum"
+                  :ref="'menuSum-' + t.key"
+                  :class="{ open: menuListOpen === t.key }"
+                  :aria-expanded="String(menuListOpen === t.key)"
+                  :aria-controls="'ht-menu-list-' + t.key"
+                  :aria-label="
+                    t.label + ' — choose and order this menu\'s buttons'
+                  "
+                  :title="
+                    menuListOpen === t.key
+                      ? 'Close this menu\'s button list'
+                      : 'Choose and order this menu\'s buttons — On/Off lives inside'
+                  "
+                  @click="toggleMenuList(t.key)"
+                >
+                  <span class="ht-menu-sum-wrap">
+                    <span class="ht-menu-sum-label">{{ menuSummary(t) }}</span>
+                    <span class="ht-menu-sum-sizer" aria-hidden="true">{{
+                      "0 of " + menuSlots(t).length
+                    }}</span>
+                  </span>
+                  <font-awesome-icon icon="chevron-down" class="caret" />
+                </button>
+              </span>
             </span>
-          </span>
-          <!-- FT-1265 (user: "these shouldn't be an inline addition, they
+            <!-- FT-1265 (user: "these shouldn't be an inline addition, they
                should be an overlay menu like the click cog menu is"). The
                list is an OVERLAY now — it renders here for Vue's sake, but
                the menuListOpen watcher hoists it to <body> the moment it
@@ -1727,57 +1755,62 @@
                list (FT-1167) and golem/floatingPicker; the flat styles it
                wears on <body> live at the bottom of this file's style
                block, beside the reasoning. -->
-          <div
-            class="ht-menu-list"
-            :id="'ht-menu-list-' + t.key"
-            :ref="'menuList-' + t.key"
-            v-if="t.layoutKey && menuListOpen === t.key"
-            :key="t.key + ':list'"
-            :class="{ 'ht-menu-off': prefs[t.key] === false }"
-          >
-            <!-- FT-1264: the MASTER SWITCH is the list's top row — the
+            <div
+              class="ht-menu-list"
+              :id="'ht-menu-list-' + t.key"
+              :ref="'menuList-' + t.key"
+              v-if="t.layoutKey && menuListOpen === t.key"
+              :key="t.key + ':list'"
+              :class="{ 'ht-menu-off': prefs[t.key] === false }"
+            >
+              <!-- FT-1264: the MASTER SWITCH is the list's top row — the
                  whole-menu On/Off the row itself used to carry. Same writer
                  (setToggle → setPref), same pref key; the slot rows below
                  dim while it is Off but stay operable, the tab's own
                  inert-but-working grammar (ht-ctrl-inert). -->
-            <div class="ht-menu-item ht-menu-master">
-              <span class="row-name">This menu</span>
-              <!-- FT-1268: this is the dropdown the user was pointing AT
+              <div class="ht-menu-item ht-menu-master">
+                <span class="row-name">This menu</span>
+                <!-- FT-1268: this is the dropdown the user was pointing AT
                    ("lets make all of these a checkbox instead of a drop
                    down if there is only two options"). Same key, same
                    setToggle writer, same value — and the list stops being
                    a popup that opens over the popup it lives in. -->
-              <OptionCheck
-                :name="'prefs-' + t.key"
-                :aria-label="t.label + ' on or off'"
-                :options="t.options"
-                :value="prefs[t.key] !== false"
-                @input="setToggle(t.key, $event)"
-              />
-            </div>
-            <div
-              v-for="(s, i) in menuSlots(t)"
-              :key="s.id"
-              class="ht-menu-item"
-              :class="menuItemClass(t, i)"
-              :draggable="String(menuDragArm === t.key + ':' + i)"
-              @dragstart="onMenuDragStart(t, i, $event)"
-              @dragover.prevent="onMenuDragOver(t, i, $event)"
-              @drop.prevent="onMenuDrop(t)"
-              @dragend="onMenuDragEnd"
-            >
-              <span
-                class="ht-menu-grip"
-                title="Drag to reorder — the top of this list is the menu's first button"
-                @mousedown="menuDragArm = t.key + ':' + i"
-                @mouseup="menuDragArm = null"
-              ></span>
-              <img v-if="s.img" class="row-mark" :src="s.img" :alt="s.label" />
-              <font-awesome-icon v-else class="row-mark-fa" :icon="s.icon" />
-              <span class="row-name" :class="{ off: !s.on }">{{
-                s.label
-              }}</span>
-              <!-- FT-1268: the seven per-action toggles, the other half of
+                <OptionCheck
+                  :name="'prefs-' + t.key"
+                  :aria-label="t.label + ' on or off'"
+                  :options="t.options"
+                  :value="prefs[t.key] !== false"
+                  @input="setToggle(t.key, $event)"
+                />
+              </div>
+              <div
+                v-for="(s, i) in menuSlots(t)"
+                :key="s.id"
+                class="ht-menu-item"
+                :class="menuItemClass(t, i)"
+                :draggable="String(menuDragArm === t.key + ':' + i)"
+                @dragstart="onMenuDragStart(t, i, $event)"
+                @dragover.prevent="onMenuDragOver(t, i, $event)"
+                @drop.prevent="onMenuDrop(t)"
+                @dragend="onMenuDragEnd"
+              >
+                <span
+                  class="ht-menu-grip"
+                  title="Drag to reorder — the top of this list is the menu's first button"
+                  @mousedown="menuDragArm = t.key + ':' + i"
+                  @mouseup="menuDragArm = null"
+                ></span>
+                <img
+                  v-if="s.img"
+                  class="row-mark"
+                  :src="s.img"
+                  :alt="s.label"
+                />
+                <font-awesome-icon v-else class="row-mark-fa" :icon="s.icon" />
+                <span class="row-name" :class="{ off: !s.on }">{{
+                  s.label
+                }}</span>
+                <!-- FT-1268: the seven per-action toggles, the other half of
                    what the user pointed at. A checkbox also frees the row
                    of a hoisted list opening from inside a hoisted list —
                    the z-index stack `.ht-menu-list` documents (55 under
@@ -1786,36 +1819,37 @@
                    is untouched: drag is armed by `menuDragArm` on the
                    grip's own mousedown, so pressing the box cannot start a
                    reorder. -->
-              <OptionCheck
-                :name="'prefs-' + t.layoutKey + '-' + s.id"
-                :aria-label="s.label"
-                :options="menuOnOptions"
-                :value="s.on"
-                @input="setMenuOn(t, s.id, $event)"
-              />
+                <OptionCheck
+                  :name="'prefs-' + t.layoutKey + '-' + s.id"
+                  :aria-label="s.label"
+                  :options="menuOnOptions"
+                  :value="s.on"
+                  @input="setMenuOn(t, s.id, $event)"
+                />
+              </div>
             </div>
-          </div>
-        </template>
-        <span class="ht-set-line ht-group-start">
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="book-open"
-                title="The grimoire, the day's end and the bell — their size"
+          </template>
+          <span class="ht-set-line ht-group-start">
+            <span class="tw-lead">
+              <span class="label">
+                <font-awesome-icon
+                  class="row-mark-fa"
+                  icon="book-open"
+                  title="The grimoire, the day's end and the bell — their size"
+                />
+                <span class="row-name" v-if="!iconsOnly">Grimoire size</span>
+              </span>
+              <OptionSelect
+                name="prefs-grimoire-size"
+                aria-label="Grimoire size"
+                hoist
+                :options="grimoireSizeOptions"
+                :value="prefs.grimoireSize"
+                @input="pickGrimoireSize"
               />
-              <span class="row-name" v-if="!iconsOnly">Grimoire size</span>
             </span>
-            <OptionSelect
-              name="prefs-grimoire-size"
-              aria-label="Grimoire size"
-              hoist
-              :options="grimoireSizeOptions"
-              :value="prefs.grimoireSize"
-              @input="pickGrimoireSize"
-            />
           </span>
-        </span>
+        </div>
       </div>
 
       <!-- FT-1045: THE CUSTOM BELL'S SOURCE — the row only Custom shows.
@@ -2215,6 +2249,12 @@ const SETUP_TABS = [
   // identical marks on one strip would make the reader tell the tabs apart
   // by words alone. The person-with-a-gear is the same meaning with the
   // "yours" said in the mark — which is exactly this tab's line.
+  //
+  // FT-1350 (user): STOOD DOWN FROM THE STRIP — the entry stays as the
+  // record (and as the vocabulary the rail leaf inherits verbatim), but the
+  // data init filters it out: Control settings is the Game settings rail's
+  // fourth leaf now ("Controls", GAME_GROUPS below), so the header keeps
+  // Script setup / Game settings alone.
   {
     id: "prefs",
     label: "Control settings",
@@ -2255,6 +2295,17 @@ const GAME_GROUPS = [
     icon: "magic",
     title:
       "Rules the storyteller hands to the machine — each with its own switch",
+  },
+  // FT-1350 (user): the FOURTH leaf — Control settings leaves the header
+  // strip and files under the rail, below Automations. The label shortens to
+  // the rail's one-word register; the title is the retired tab's own line,
+  // kept verbatim so the town/personal boundary stays labeled. The pane it
+  // opens is the `.ht-prefs` box, moved inside the wrap (see the template).
+  {
+    key: "controls",
+    label: "Controls",
+    icon: "user-cog",
+    title: "Your own settings — this browser, every town",
   },
 ];
 
@@ -2396,13 +2447,15 @@ export default {
       // FT-888: the composition readout's static furniture
       COMP_TEAMS,
       TEAM_LABELS,
-      // FT-1168: the tabs (three since FT-1209), and which one is showing.
-      // Held in `data`, not
+      // FT-1168: the tabs (three since FT-1209; TWO since FT-1350 — the
+      // prefs entry stays in SETUP_TABS as the record, filtered here: the
+      // Control settings door is the Game rail's "Controls" leaf now), and
+      // which one is showing. Held in `data`, not
       // in the store or a stash: it is where this storyteller is looking
       // right now, not something the town or the browser is owed on the next
       // reload — and Script setup is the honest place to open, because a
       // fresh town has chairs to fill before it has rules to set.
-      setupTabs: SETUP_TABS,
+      setupTabs: SETUP_TABS.filter((t) => t.id !== "prefs"),
       setupTab: "script",
       // FT-1348: the Game settings tab's rail — its three groups, and which
       // one is showing. UNLIKE setupTab above, the pick IS owed to the next
@@ -2619,11 +2672,12 @@ export default {
     settingsTab() {
       return this.reentry || this.setupTab === "settings";
     },
-    /** FT-1209: the storyteller's OWN settings, as the third tab. Build face
-     *  only — the re-entry face renders no tab strip, and its gear opens the
-     *  floating PrefsMenu instead (see togglePrefs). */
+    /** FT-1209: the storyteller's OWN settings. FT-1350: no longer a header
+     *  tab — the Game rail's "Controls" leaf. That also opens this pane on
+     *  the RE-ENTRY face (the rail renders there; the gear's floating
+     *  PrefsMenu stays as that face's second door — see togglePrefs). */
     prefsTab() {
-      return !this.reentry && this.setupTab === "prefs";
+      return this.settingsTab && this.gameGroup === "controls";
     },
     // FT-1209: the three rows' option lists — prefs.js's own vocabulary,
     // mapped the same way PrefsMenu maps it.
@@ -3532,7 +3586,11 @@ export default {
         this.prefsOpen = !this.prefsOpen;
         return;
       }
-      this.setupTab = this.setupTab === "prefs" ? "script" : "prefs";
+      // FT-1350: the header tab stood down — the build-face shortcut (the
+      // gear renders only on re-entry today, so this is a latent door) walks
+      // the rail instead: Game settings tab, Controls leaf.
+      this.setupTab = "settings";
+      this.pickGameGroup("controls");
     },
     // FT-1209: the three rows' writers — one line each into golem/prefs, the
     // same calls PrefsMenu makes (readPrefs hears the echo like every other
@@ -4989,6 +5047,8 @@ export default {
         width: 100%;
         height: 100%;
         background-color: #cfc4ae;
+        // FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look).
+        opacity: var(--chair-opacity, 1);
         -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
         mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
         -webkit-mask-size: contain;
@@ -5690,8 +5750,10 @@ export default {
     font-weight: normal;
     opacity: 0.7;
   }
-  // THE PANE takes what the rail leaves.
-  .ht-gamewrap > .ht-game {
+  // THE PANE takes what the rail leaves. (FT-1350: `.ht-prefs` is the
+  // Controls leaf's pane in the same wrap now, so it takes the same slot.)
+  .ht-gamewrap > .ht-game,
+  .ht-gamewrap > .ht-prefs {
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -6465,7 +6527,11 @@ export default {
       // would otherwise SPREAD its lines over any slack height (the default
       // stretch), and a settings list floats apart exactly when it has room
       // to spare — the one state it should look calmest in.
-      > .row.ht-settings.ht-prefs {
+      // FT-1350: the selector followed the box — `.ht-prefs` is the
+      // gamewrap's pane now (the Controls rail leaf), one level down from
+      // the band child it was as a header tab. Every rule inside is the
+      // FT-1231 contract unchanged; only the address moved.
+      > .row.ht-settings.ht-gamewrap > .ht-prefs {
         flex-shrink: 1;
         min-height: 0;
         overflow-y: auto;
@@ -6490,7 +6556,10 @@ export default {
         // rows in this dress.
         &.scrolls {
           padding-right: 30px !important;
-          margin-left: 18px;
+          // FT-1350: 18px → 0 on the LEFT — the rail insets the pane's left
+          // edge now, exactly as `.ht-game`'s own scrolls dress reasons; the
+          // right keeps the measured 18px stand-off from the rim.
+          margin-left: 0;
           margin-right: 18px;
           // FT-1264: the well is the tab's NARROWEST dress — the margins
           // and the drip's lane leave ~300px of grid at the sizes that
@@ -6652,6 +6721,34 @@ export default {
       > .row.ht-settings.ht-gamewrap {
         flex-shrink: 1;
         min-height: 0;
+        // ── FT-1350 (user): USE THE MID-FACE ROOM ─────────────────────────
+        // The band's width is the chord at the CAP corners (0.8146·rx,
+        // faceDisc.scss's derivation) — but this wrap sits BELOW the tab
+        // strip, where the ellipse is wider: measured at 1920x1080 the
+        // chord at the wrap's top edge allows +63.7px over the band and
+        // +8.3px at its bottom CORNERS (which carry no ink in the fitted
+        // dress — rows end well left of the box's edge). The user,
+        // screenshot in hand: the settings area leaves unused room left and
+        // right inside the clock face. So the wrap takes 40 of those pixels
+        // — centered, so 20 a side — WHENEVER THE PANE WEARS THE FITTED
+        // DRESS. The `:has` gate matters: in the scroll dress the pane IS
+        // square-cornered ink (the sunken well), and its bottom-right
+        // corner already sits within ~1px of the rim at the pinched discs
+        // (probe: claude_temp_test/2026-08-30-ft1350-rig/probe-width.mjs) —
+        // widening there would push the well through the arc, so the
+        // scrolled dress keeps the band's own width.
+        &:not(:has(> .scrolls)) {
+          width: calc(var(--fd-band) + 40px);
+          align-self: center;
+          // the fitted dress's label track eases with the width: 6.6em was
+          // cut for 80% names, and "Night checklist" at full type outgrows
+          // it. (A grid cannot read its own container query, so the cap
+          // rides this — the same condition the width itself wears; on a
+          // compact-type pane the wider cap is inert, fit-content hugs.)
+          > .ht-game {
+            grid-template-columns: fit-content(8.2em) minmax(0, 1fr);
+          }
+        }
         // the band's own `> .row { flex-wrap: wrap }` two screens up would
         // fold the pane UNDER the rail — the two columns ARE the shape here,
         // so the wrap is refused and the pane pays in width instead (its
@@ -6694,26 +6791,47 @@ export default {
           // 80% every General row needs ≤297px and reads whole. One type
           // size per face, too: the groups no longer flicker between
           // dresses as the rail pick changes the pane's height.
+          //
+          // ── FT-1350 (user): …AND IT IS MEASURED, NOT UNIFORM, NOW. The
+          // wrap's +40px (above) hands the widened pane ~379px at
+          // 1920x1080, which DOES carry the full-size sentences the
+          // FT-1348 table said 339 could not. So the pane is an
+          // inline-size CONTAINER and the compact dress applies below the
+          // measured threshold: the widest full-type General row (Day
+          // timer's sentence, measured on the live build) plus the grid's
+          // own gap. Wider panes let the type breathe again; narrower ones
+          // — every disc whose pane still cannot carry the sentence —
+          // keep the 80% fallback exactly as FT-1348 cut it. The label
+          // track eases to 8.2em in the roomy dress for the same reason
+          // ("Night checklist" at full type outgrows the 6.6em cap cut
+          // for 80% names).
+          container-type: inline-size;
+          container-name: htpane;
           grid-template-columns: fit-content(6.6em) minmax(0, 1fr);
           column-gap: 10px;
           .row-name {
-            font-size: 80%;
             text-align: left;
             line-height: 1.25;
           }
-          // …reaching the night checklist's own restated name too (its 90%
-          // is scoped inside NightModeRow, where only `::v-deep` lands —
-          // that component's `.ht-game.scrolls` rule still answers for the
-          // scrolling well; this covers the disc's non-scrolling panes).
-          ::v-deep .night-mode .row-name {
-            font-size: 80%;
-            line-height: 1.25;
-          }
-          ::v-deep .gsel .trigger {
-            font-size: 80%;
-          }
-          .tw-daylen-unit {
-            font-size: 70%;
+          @container htpane (max-width: 365px) {
+            .row-name {
+              font-size: 80%;
+            }
+            // …reaching the night checklist's own restated name too (its
+            // 90% is scoped inside NightModeRow, where only `::v-deep`
+            // lands — that component's `.ht-game.scrolls` rule still
+            // answers for the scrolling well; this covers the disc's
+            // non-scrolling compact panes).
+            ::v-deep .night-mode .row-name {
+              font-size: 80%;
+              line-height: 1.25;
+            }
+            ::v-deep .gsel .trigger {
+              font-size: 80%;
+            }
+            .tw-daylen-unit {
+              font-size: 70%;
+            }
           }
 
           &.scrolls {
@@ -6929,6 +7047,8 @@ export default {
       width: 100%;
       height: 100%;
       background-color: #cfc4ae;
+      // FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look).
+      opacity: var(--chair-opacity, 1);
       -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
       mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
       -webkit-mask-size: contain;

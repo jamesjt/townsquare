@@ -138,7 +138,12 @@ const state = () => ({
   // ping; "" when it never said). Host side only, derived by socket.js from
   // its ping roster minus the seated ids — a player's client never receives
   // it. Transient like seatAccounts above: not synced, not persisted.
-  spectators: []
+  spectators: [],
+  // FT-1350: THE SPECTATOR COUNT, for everyone — the number the HOST's ping
+  // broadcasts in its third slot (socket.js), so a player's pill can say
+  // "· N spectators" without ever holding the roster above. On the host's
+  // own client the pill counts `spectators` directly and this stays 0.
+  spectatorCount: 0
 });
 
 const getters = {};
@@ -155,6 +160,12 @@ const mutations = {
   setSpectator: set("isSpectator"),
   setReconnecting: set("isReconnecting"),
   setPlayerCount: set("playerCount"),
+  // FT-1350: the broadcast spectator count (see the state note) — validated
+  // to a non-negative integer; anything else reads as 0.
+  setSpectatorCount(state, n) {
+    state.spectatorCount =
+      typeof n === "number" && isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+  },
   setPing: set("ping"),
   setVotingSpeed: set("votingSpeed"),
   setVoteInProgress: set("isVoteInProgress"),

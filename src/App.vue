@@ -269,6 +269,24 @@
           <img :src="c.src" alt="" />
           {{ c.label }}
         </button>
+        <!-- FT-1323/FT-1350 (user): the OPACITY dial — how strongly the
+             chair mark paints on every chair surface. Publishes the
+             --chair-opacity root var (chairArt.js); 1.0 is exactly today's
+             look, remembered like the chair pick itself. -->
+        <label
+          class="ch-dial"
+          title="Chair mark opacity — publishes --chair-opacity"
+        >
+          <span class="ch-dial-label">Opacity {{ chairOp.v.toFixed(2) }}</span>
+          <input
+            type="range"
+            min="0.2"
+            max="1"
+            step="0.05"
+            :value="chairOp.v"
+            @input="pickChairOpacity($event.target.value)"
+          />
+        </label>
       </div>
     </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
@@ -811,7 +829,70 @@
           · {{ session.playerCount }}
           {{ session.playerCount === 1 ? "player" : "players" }}
         </span>
+        <!-- ── FT-1350 (user): THE SPECTATOR COUNT RIDES THE PILL — for
+             everyone, 0 included (a host's number travels to every client on
+             the ping's third slot, socket.js). For the HOST it is a door:
+             clicking opens the FT-1344 watcher list — with the
+             spectator-grimoire toggle inside it, its natural home — as a
+             plate off the pill. For a player it is inert text. -->
+        <span
+          class="player-count spec-count"
+          :class="{ live: !session.isSpectator, open: pillWatchersOpen }"
+          :title="
+            session.isSpectator
+              ? 'Seatless spectators in this town'
+              : 'Who is spectating — open the list'
+          "
+          @click="togglePillWatchers"
+        >
+          · {{ spectatorCount }}
+          {{ spectatorCount === 1 ? "spectator" : "spectators" }}
+        </span>
       </span>
+      <!-- FT-1350: the pill's watcher plate — the same list/kick rows the
+           storyteller post's cluster shows (the second door FT-1344 built
+           stays standing), plus the spectator-grimoire toggle: a two-state
+           button whose label says the state plainly. Host only. -->
+      <div
+        class="pill-watch-list"
+        v-if="pillWatchersOpen && !session.isSpectator"
+      >
+        <div class="post-watch-head">{{ spectators.length }} spectating</div>
+        <button
+          type="button"
+          class="pill-grim-btn"
+          :class="{ on: specGrimOn }"
+          :title="
+            specGrimOn
+              ? 'Spectators currently see the whole grimoire — click to hide it'
+              : 'Spectators currently see the public view only — click to show them the whole grimoire'
+          "
+          @click="toggleSpectatorGrimoire"
+        >
+          <font-awesome-icon :icon="specGrimOn ? 'eye' : 'eye-slash'" />
+          <span class="pill-grim-name">Spectator grimoire</span>
+          <span class="pill-grim-state">{{
+            specGrimOn ? "Visible" : "Hidden"
+          }}</span>
+        </button>
+        <span class="post-watch-none" v-if="!spectators.length"
+          >Nobody is spectating.</span
+        >
+        <div class="post-watch-row" v-for="w in spectators" :key="w.id">
+          <span class="post-watch-name" :class="{ anon: !w.name }">{{
+            w.name || "Anonymous spectator"
+          }}</span>
+          <button
+            type="button"
+            class="post-watch-kick"
+            title="Disconnect this watcher from the town — they can rejoin by the same link"
+            @click="kickWatcher(w.id)"
+          >
+            <font-awesome-icon icon="user-slash" />
+            Kick
+          </button>
+        </div>
+      </div>
       <!-- FT-1019: the count opens the CHRONICLES on its gallows view — the
            vote-history drawer it used to raise is retired. -->
       <span
@@ -1107,7 +1188,18 @@ import { COINS, coinChoice /* , applyCoin */ } from "./golem/coinArt";
 // FT-1337: the chair lab — the coin lab's twin, but on the LEGACY pattern
 // (localStorage via applyChair, no pref): promotion to a player setting is a
 // later call. Importing the module also paints the remembered pick at startup.
-import { CHAIRS, chairChoice, applyChair } from "./golem/chairArt";
+// FT-1323/FT-1350: the lab's OPACITY dial — chairOpacity/applyChairOpacity
+// publish the --chair-opacity root var beside the pick's --chair.
+import {
+  CHAIRS,
+  chairChoice,
+  applyChair,
+  chairOpacity,
+  applyChairOpacity,
+} from "./golem/chairArt";
+// FT-1350: the pill's spectator-grimoire toggle — the same tower shelf the
+// General pane's (now stood-down) row wrote, read through the same event.
+import { towerState, setTowerField, TOWER_EVENT } from "./golem/towerBells";
 // FT-949: the drop-outside-to-unseat target, installed once here so it works
 // for the whole session — see the module for why it moved out of RoleTray.
 import { installRoleUnseat } from "./golem/roleUnseat";
@@ -1236,6 +1328,14 @@ export default {
      *  its ping roster minus the seated ids (empty on a player's client). */
     spectators() {
       return this.session.spectators || [];
+    },
+    /** FT-1350: the pill's spectator NUMBER, for every viewer. The host
+     *  counts its own roster; everyone else reads the count the host's ping
+     *  broadcasts (session.spectatorCount, socket.js's third ping slot). */
+    spectatorCount() {
+      return this.session.isSpectator
+        ? this.session.spectatorCount
+        : (this.session.spectators || []).length;
     },
     ...mapState("players", ["players"]),
     ...mapGetters("night", ["isFirstNight"]),
@@ -1663,6 +1763,10 @@ export default {
     // this file paints). The corner cog writes; everyone re-reads on the
     // event — the same one-way shape the tower's own surfaces run on.
     window.addEventListener(PREFS_EVENT, this.readPrefs);
+    // FT-1350: follow the tower — the pill's spectator-grimoire button reads
+    // a mirror of towerState (a plain module object, not reactive), refreshed
+    // on the same event every tower surface runs on.
+    window.addEventListener(TOWER_EVENT, this.readTowerGrim);
     // (The legacy webkit blood scrollbar — the --sb-trail writer and its
     // droplet spawner — was KILLED 2026-08-17 by user order. The only blood
     // scrollbar is the v-blood-scroll overlay directive.)
@@ -1716,6 +1820,7 @@ export default {
   beforeDestroy() {
     clearTimeout(this.callBackTimer);
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
+    window.removeEventListener(TOWER_EVENT, this.readTowerGrim);
   },
   data() {
     return {
@@ -1736,6 +1841,13 @@ export default {
       // FT-1344: is the post's watcher plate unfolded? Local UI state only —
       // the LIST is the store's (session.spectators, host-side).
       watchersOpen: false,
+      // FT-1350: is the PILL's watcher plate unfolded? Same contract as
+      // watchersOpen above — two doors, one list.
+      pillWatchersOpen: false,
+      // FT-1350: the tower's spectator-grimoire flag, mirrored reactively
+      // (towerState is a plain module object); readTowerGrim keeps it honest
+      // on TOWER_EVENT.
+      specGrimOn: !!towerState.spectatorGrimoire,
       // FT-1146: `statsOpen` STOOD DOWN, not removed. It raised the old
       // town-records overlay; that overlay is the Records page now and it is
       // raised by the `records` modal instead (see the template), so this flag
@@ -1825,6 +1937,9 @@ export default {
       chairLabOpen: false,
       chairOptions: CHAIRS,
       chairPick: chairChoice,
+      // FT-1323/FT-1350: the lab's opacity dial — the module's observable,
+      // held here so the readout re-renders as it is dragged.
+      chairOp: chairOpacity,
       // the drip lab
       drOpen: false,
       dripRef: dripKnobs,
@@ -1875,6 +1990,28 @@ export default {
     kickWatcher(id) {
       this.$store.commit("session/kickSpectator", id);
     },
+    /** FT-1350: the pill count's click — a door for the host, inert for
+     *  everyone else. */
+    togglePillWatchers() {
+      if (this.session.isSpectator) return;
+      this.pillWatchersOpen = !this.pillWatchersOpen;
+    },
+    /** FT-1350: the spectator-grimoire toggle, from the pill's watcher list
+     *  — the SAME tower write the General pane's stood-down row made
+     *  (per-town persisted, synced live; socket.js hears TOWER_EVENT and
+     *  sends or revokes the watchers' frames). Host only. */
+    toggleSpectatorGrimoire() {
+      if (this.session.isSpectator) return;
+      setTowerField(
+        this.session.sessionId || "",
+        "spectatorGrimoire",
+        !towerState.spectatorGrimoire,
+      );
+    },
+    /** FT-1350: the tower changed — re-read the one flag the pill paints. */
+    readTowerGrim() {
+      this.specGrimOn = !!towerState.spectatorGrimoire;
+    },
     /** Face lab: shift the background PAINT and remember it. */
     setBgOff(axis, px) {
       // H ranges wider than the two nudges: X/Y move the paint a few pixels,
@@ -1920,6 +2057,11 @@ export default {
      *  painter on purpose (legacy localStorage pattern; no pref, FT-1337). */
     pickChair(id) {
       applyChair(id);
+    },
+    /** FT-1323/FT-1350: the chair lab's opacity dial — same legacy pattern
+     *  as the pick above (localStorage, no pref). */
+    pickChairOpacity(v) {
+      applyChairOpacity(v);
     },
     // FT-1258: the Labs door — open/collapse the whole column, remembered
     // per browser so the resting choice survives a reload.
@@ -2782,6 +2924,78 @@ ul {
   .player-count {
     color: #e8ddd0;
   }
+  // FT-1350: the spectator count — inert type for a player, a DOOR for the
+  // host: the pill's own hover grammar, purple because it opens something
+  // rather than ending anything.
+  .spec-count.live {
+    cursor: pointer;
+    &:hover,
+    &.open {
+      color: rgb(167, 143, 205);
+    }
+  }
+  // FT-1350: the pill's spectator plate — opens UP off the pill (the pill
+  // rides the window's bottom edge), wearing the post plate's own dress and
+  // reusing its row vocabulary (.post-watch-*, global below).
+  .pill-watch-list {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    z-index: 5;
+    min-width: 250px;
+    // "Anonymous spectator" was ellipsizing at the post plate's 170px cap —
+    // this plate is wider, so the name track keeps the whole identity.
+    .post-watch-name {
+      max-width: 195px;
+    }
+    padding: 8px 10px;
+    background: rgba(8, 8, 10, 0.94);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 8px;
+    box-shadow: 0 0 8px black;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #fff;
+    font-size: 13px;
+    text-align: left;
+  }
+  .post-watch-none {
+    opacity: 0.6;
+    font-style: italic;
+  }
+  // FT-1350: the spectator-grimoire toggle — a labeled two-state button; the
+  // lit (purple) dress means "the grimoire is showing".
+  .pill-grim-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 9px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 6px;
+    color: #d8cdb4;
+    font: inherit;
+    font-size: 90%;
+    cursor: pointer;
+    &:hover,
+    &:focus-visible {
+      border-color: rgba(150, 130, 175, 0.75);
+      color: #fff;
+      outline: none;
+    }
+    &.on {
+      border-color: rgba(167, 143, 205, 0.85);
+      background: rgba(96, 74, 128, 0.3);
+      color: #ece4f8;
+    }
+  }
+  .pill-grim-name {
+    flex: 1 1 auto;
+  }
+  .pill-grim-state {
+    font-weight: bold;
+  }
   .copylink:hover {
     color: $control-edge-hover;
   }
@@ -3367,6 +3581,26 @@ video#background {
     &.on {
       color: #fff;
       border-color: rgba(200, 170, 90, 0.9);
+    }
+  }
+  // FT-1323/FT-1350: the opacity dial under the chair picks — the drip lab's
+  // own range-row grammar, one row.
+  .ch-dial {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 3px;
+    .ch-dial-label {
+      width: 86px;
+      opacity: 0.75;
+      font-size: 12px;
+      color: #d8cdb4;
+      white-space: nowrap;
+    }
+    input[type="range"] {
+      flex: 1;
+      min-width: 70px;
+      accent-color: rgb(167, 143, 205);
     }
   }
 }
