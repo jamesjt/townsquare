@@ -38,7 +38,15 @@
         :class="{ 'ps-inert': !hasHover }"
         :title="pinRowTitle"
       >
-        <span class="setting-name">Reminder pin</span>
+        <!-- FT-1338 (user redesign): the text label is gone — the row wears
+             the pin's own mark, the same plus the `.reminder.add` disc on
+             the seat plate paints as its `.icon` layer (Player.vue,
+             assets/icons/plus.png). The long behavior sentence stays the
+             row's title (pinRowTitle, above); "Reminder pin" is the icon's
+             own short name for a screen reader. -->
+        <span class="setting-name ps-icon-label">
+          <img class="ps-row-icon" :src="uiPin" alt="Reminder pin" />
+        </span>
         <OptionSelect
           name="ps-pin-visibility"
           aria-label="Reminder pin"
@@ -69,31 +77,40 @@
         />
       </li>
 
-      <!-- ── Timer ── FT-1333: the hour display's own menu, re-homed ──
-           (FT-1331/user correction: the "Vote timer" scrub that stood here
-           was FT-1325's misread — the vote timer is a storyteller control
-           and went home to the vote card. THIS is the timer menu the user
-           meant: the toolbar hourglass's four rows, Off / Hands / Digital /
-           Numerals, moved here whole — same rows, same wiring, the FT-1052
-           toggles with Off as the DERIVED all-clear — and the hourglass
-           itself stands down in the strip (Menu.vue). The host-vs-player
-           split rides along untouched: a storyteller's pick sets the TOWN's
-           display, a player's sets their own screen —
-           towerBells.toggleHourLayer owns that split, not this menu.) -->
-      <li class="sub-headline">Timer</li>
+      <!-- ── Timer ── FT-1333 moved the hour display's menu here whole;
+           FT-1338 (user redesign) folded its four stacked rows into ONE row,
+           the Coin art row's own shape (a label, then a strip of icons —
+           lit = on). Off is no longer a row: it is the DERIVED all-unlit
+           state FT-1052 always meant (hourAllOff, still read by
+           hourChecked below), and there is no "clear all" click any more —
+           un-picking every layer by hand reaches the same bare dial. The
+           three flags stay INDEPENDENT (FT-1052: "Hands, Digital and
+           Numerals each on/off in any combination", confirmed live in
+           towerBells.toggleHourLayer, untouched by this redesign) — each
+           icon toggles only its own layer, never the others. The
+           host-vs-player split rides along the same way: a storyteller's
+           pick sets the TOWN's display, a player's sets their own screen. -->
       <li
-        v-for="m in hourRows"
-        :key="m.id"
-        class="ps-hour-row"
-        :title="m.hint"
-        @click="pickHourMode(m.id)"
+        class="setting-row ps-timer"
+        title="The hour display's three layers, any combination — all unlit is the bare dial"
       >
-        {{ m.label }}
-        <em>
-          <font-awesome-icon
-            :icon="['fas', hourChecked(m.id) ? 'check-square' : 'square']"
-          />
-        </em>
+        <span class="setting-name">Timer</span>
+        <span class="ps-timer-row" role="group" aria-label="Timer">
+          <button
+            v-for="m in hourLayerRows"
+            :key="m.id"
+            type="button"
+            class="ps-timer-icon"
+            :class="{ on: hourChecked(m.id) }"
+            :title="m.hint"
+            :aria-label="m.label"
+            :aria-pressed="hourChecked(m.id) ? 'true' : 'false'"
+            @click="pickHourMode(m.id)"
+          >
+            <font-awesome-icon v-if="m.icon" :icon="['fas', m.icon]" />
+            <span v-else class="ps-timer-glyph">{{ m.glyph }}</span>
+          </button>
+        </span>
       </li>
 
       <!-- ── Appearance ── FT-1318: the coin dress, the lab's own looks ──
@@ -106,10 +123,10 @@
       <li class="sub-headline">Appearance</li>
       <li
         class="setting-row ps-coins"
-        title="Which coin your town wears — every coin on YOUR screen (seats, reminder tokens, bluffs) repaints; nobody else's view changes"
+        title="Which cog your town wears — every coin on YOUR screen (seats, reminder tokens, bluffs) repaints; nobody else's view changes"
       >
-        <span class="setting-name">Coin art</span>
-        <span class="ps-coin-row" role="radiogroup" aria-label="Coin art">
+        <span class="setting-name">Cog art</span>
+        <span class="ps-coin-row" role="radiogroup" aria-label="Cog art">
           <button
             v-for="c in coinOptions"
             :key="c.id"
@@ -150,19 +167,38 @@ import OptionCheck from "./OptionCheck";
 // down: a registered-but-unrendered component trips vue/no-unused-components.)
 // FT-1333: the Timer section's furniture — the toolbar hourglass menu's own
 // rows and wiring (Menu.vue's tower tab, now standing down), whole.
+// (FT-1338: HOUR_OFF left out the same way NumberScrub did above — the
+// redesign drops the derived Off row entirely, so an import kept only to
+// stand down would trip no-unused-vars.)
 import {
   HOUR_LAYERS,
-  HOUR_OFF,
   TOWER_EVENT,
   toggleHourLayer,
   effectiveHourFlags,
   hourAllOff,
 } from "../golem/towerBells";
 import uiCog from "../assets/ui-cog.png";
+// FT-1338: the Reminder pin row's icon — the same plus the seat plate's own
+// `.reminder.add` disc paints as its `.icon` layer (Player.vue), so the
+// settings row and the on-canvas pin say it with the same mark.
+import uiPin from "../assets/icons/plus.png";
 
 // the coin thumbnails — App.vue's coin lab reads the same directory the
 // same way, so the row shows exactly the art the choice will paint
 const coinThumbs = require.context("../assets/coins", false, /\.png$/);
+
+/** FT-1338: the Timer row's icon per layer. Hands wears the app's own Clock
+ *  glyph (Menu.vue's retired Timer headline wore the same mark for the same
+ *  idea); Digital wears Tv, a readout screen (newly registered in main.js'
+ *  icon library — there was no digital-readout glyph in the curated set
+ *  yet). Numerals has nothing in the registered set that reads as itself,
+ *  so it wears "XII" as text-in-a-box — the text-as-icon fallback the brief
+ *  itself sanctioned. */
+const HOUR_ICONS = {
+  clock: { icon: "clock" },
+  digital: { icon: "tv" },
+  numerals: { glyph: "XII" },
+};
 
 export default {
   name: "PlayerSettings",
@@ -176,6 +212,7 @@ export default {
   data() {
     return {
       uiCog,
+      uiPin,
       prefs: { ...prefsState },
       // Does this device have a resting pointer? The pin's whole gesture
       // lives on hover-capable screens (coarse pointers retired the disc for
@@ -184,11 +221,9 @@ export default {
       // fixed-position coordinates, refreshed by place()
       top: 0,
       left: 0,
-      // FT-1333: the Timer section's rows and this screen's current flags —
-      // Menu.vue's tower-tab furniture verbatim (the Off row ahead of the
-      // three layer toggles; a plain module object is not reactive, so
-      // readTowerMode refreshes the snapshot on TOWER_EVENT).
-      hourRows: [HOUR_OFF, ...HOUR_LAYERS],
+      // FT-1333/FT-1338: this screen's current Timer flags — a plain module
+      // object is not reactive, so readTowerMode refreshes the snapshot on
+      // TOWER_EVENT. The row list itself is the hourLayerRows computed below.
       towerHour: effectiveHourFlags(this.$store.state.session),
     };
   },
@@ -218,6 +253,12 @@ export default {
           title: "Hide the Roman numeral on every coin",
         },
       ];
+    },
+    /** FT-1338: the Timer row's three icon buttons — HOUR_LAYERS (Hands /
+     *  Digital / Numerals; Off is no longer a row) with each one's icon or
+     *  text-glyph merged in from HOUR_ICONS above. */
+    hourLayerRows() {
+      return HOUR_LAYERS.map((m) => ({ ...m, ...HOUR_ICONS[m.id] }));
     },
     pinRowTitle() {
       return this.hasHover
@@ -494,20 +535,58 @@ export default {
     opacity: 0.7;
   }
 
-  // FT-1333: the Timer section's four rows — clickable, unlike the
-  // setting-rows around them (they ARE the control: click toggles, the
-  // check answers), so they carry a pointer and the plate hover the app's
-  // glass menus use. The check keeps Menu.vue's word-left / mark-right
-  // shape inside this menu's own row box.
-  .ps-hour-row {
+  // FT-1338: the Reminder pin row's icon — label-sized, the same plus the
+  // seat plate's own add-reminder disc wears (see the template note).
+  .ps-icon-label {
+    display: inline-flex;
+    align-items: center;
+  }
+  .ps-row-icon {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+    filter: brightness(1.2) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+
+  // FT-1338: the Timer row — the Coin art row's own shape (a strip of
+  // buttons, lit = on), so the two rows read as one family. Square rather
+  // than round (these are marks, not coin faces) but the same resting/hover/
+  // on progression as .ps-coin below.
+  .ps-timer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ps-timer-icon {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
-    padding: 2px 10px;
-    &:hover {
-      background: rgba(167, 143, 205, 0.18);
+    color: #e8dfc8;
+    opacity: 0.55;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      opacity 150ms,
+      box-shadow 150ms,
+      background 150ms;
+    .ps-timer-glyph {
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
     }
-    em {
-      font-style: normal;
-      opacity: 0.9;
+    &:hover {
+      opacity: 0.85;
+    }
+    &.on {
+      opacity: 1;
+      background: rgba(96, 74, 128, 0.42);
+      box-shadow: 0 0 0 2px rgba(246, 232, 200, 0.65);
     }
   }
 

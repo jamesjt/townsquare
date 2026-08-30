@@ -119,6 +119,10 @@ const faIcons = [
   "Times",
   "TimesCircle",
   "TrashAlt",
+  // FT-1338: the Player settings Timer row's Digital icon — a readout
+  // screen (there is no digital-display glyph in the fork's own art set —
+  // the Bell/BellSlash standing note applies).
+  "Tv",
   "Undo",
   "User",
   "UserEdit",
