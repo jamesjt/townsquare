@@ -124,6 +124,10 @@ import uiNote from "../assets/ui-note.png";
 // (FT-996 made ui-ghost-cowl the one meaning of an unspent ghost vote; the
 // old hand, ui-ghost-vote-cowl, is a retiree). The row now wears the cowl.
 import uiGhostVote from "../assets/ui-ghost-cowl.png";
+// FT-1332: the execution row wears the seat grammar's own noose — the same
+// art the marked seat, the chronicle strip and the vote overlay's toggle
+// already use for "to be executed". One meaning, one mark.
+import uiNoose from "../assets/ui-noose.png";
 
 /**
  * The seat facts every guard reads. Player.vue builds one of these
@@ -155,6 +159,13 @@ import uiGhostVote from "../assets/ui-ghost-cowl.png";
  *                                   Player.vue's `isOwnSeat`, the same
  *                                   three-part identity test the "you" class
  *                                   and the coin drag already run.
+ * @property {boolean} isMarked      FT-1332: THIS seat carries the execution
+ *                                   mark (session.markedPlayer is this seat's
+ *                                   index — the same state the nomination
+ *                                   overlay's noose toggle drives).
+ * @property {boolean} isTraveler    FT-1332: the character on this coin is a
+ *                                   traveler — exiled, never executed, the
+ *                                   vote overlay's own rule (its isExile).
  * @property {boolean} isStoryteller FT-1271: the viewer is the storyteller
  *                                   (`!session.isSpectator`, the same sense
  *                                   golem/chat's `viewerOf` gives the word).
@@ -376,6 +387,39 @@ const ENTRIES = [
     hint: () => "Send this player a private message",
     guard: (f) => f.whisperRefusal || null,
     act: "openSeatWhisper",
+  },
+  {
+    /**
+     * FT-1332: THE EIGHTH SLOT — mark this seat for execution. The SAME
+     * state the nomination overlay's noose toggle drives: one mutation,
+     * `session/setMarkedPlayer` (FT-1311 made it seat-surgery-proof — it
+     * broadcasts, writes the chronicle line and clears a standing tie on
+     * its own), reached through the seat's `toggleExecutionMark`, never a
+     * parallel path. The label follows the state the way Kill/Revive's
+     * does — what the CLICK does, not what the state is — and `armed`
+     * lights the row while THIS seat is the marked one, so the menu shows
+     * where the mark stands. Marking a seat while another is marked simply
+     * moves the mark: the mutation's own semantics.
+     *
+     * A traveler is exiled, not executed — the vote overlay hides its own
+     * mark toggle for exactly this (its `isExile`) — so the row refuses
+     * there with the reason on its tooltip, per the fixed-list rule.
+     */
+    id: "execution",
+    slot: 8,
+    // The FA name is the fallback only — the row always carries the noose
+    // art below, and "skull" is already registered (the kill row's own).
+    icon: () => "skull",
+    img: () => uiNoose,
+    label: (f) => (f.isMarked ? "Cancel execution" : "Mark for execution"),
+    setLabel: "Mark for execution",
+    hint: (f) =>
+      f.isMarked
+        ? "Call it off — clear this seat's execution mark"
+        : "Mark this seat to be executed at the end of the day",
+    guard: (f) => (f.isTraveler ? "A traveler is exiled, not executed" : null),
+    armed: (f) => !!f.isMarked,
+    act: "toggleExecutionMark",
   },
 ];
 

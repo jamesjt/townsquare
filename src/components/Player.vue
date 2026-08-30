@@ -1649,6 +1649,12 @@ export default {
         // FT-1206: why this seat cannot be whispered, or null — the chat
         // level's own answer, computed once here for every surface.
         whisperRefusal: this.whisperRefusalText,
+        // FT-1332: the noose row's two facts — is THIS seat the marked one
+        // (session.markedPlayer, the exact index the vote overlay's own
+        // toggle writes), and is it a traveler (exiled, never executed —
+        // the overlay's isExile rule, restated as a seat fact).
+        isMarked: this.session.markedPlayer === this.index,
+        isTraveler: this.player.role.team === "traveler",
         // FT-1271: the two facts the own-coin rule reads, and they travel as a
         // pair because the rule is about PLAYERS — the storyteller keeps every
         // power on every seat. `isStoryteller` is the same sense golem/chat's
@@ -2833,6 +2839,19 @@ export default {
       this.closeSeatMenu();
       const run = this[entry.act];
       if (typeof run === "function") run.call(this);
+    },
+    /**
+     * FT-1332: THE MENU'S OWN NOOSE — toggle this seat's execution mark.
+     * Exactly the vote overlay's pair of writes (Vote.vue's setMarked /
+     * removeMarked): one mutation, `session/setMarkedPlayer`, which FT-1311
+     * made seat-surgery-proof and which broadcasts, writes the chronicle
+     * line and clears a standing tie on its own. Marked here → clear it;
+     * anything else (including another seat marked) → the mark comes to
+     * this seat, the mutation's own move-the-mark semantics.
+     */
+    toggleExecutionMark() {
+      const on = this.session.markedPlayer === this.index;
+      this.$store.commit("session/setMarkedPlayer", on ? -1 : this.index);
     },
     /** FT-1206: the chat level snapshot — TOWER_EVENT's reader.
      *  FT-1315: the spent-ghost-vote vocabulary rides the same read — one
@@ -4757,10 +4776,17 @@ li.swap:not(.from) .player::after {
    before, because there is no chair under it to share room with. Higher
    specificity than `.player > .seat-numeral` above (three classes vs two),
    so it wins without needing source order. */
+/* FT-1334 (user correction on FT-1328): NEUTRALIZED — the centred chair was
+   asked for; moving the numeral was not. The three declarations below stood
+   the numeral up at the coin's shoulder and shrank it; with them inert the
+   numeral renders exactly as it did before bd4ac26, centred at its full
+   size, and the accepted cost is that chair and numeral now overlap on an
+   empty coin (the user's explicit call: "ship it exactly so"). Declarations
+   commented out rather than the rule deleted, per the house rule. */
 .player .open-mark ~ .seat-numeral {
-  align-items: flex-start;
-  padding-top: 6%;
-  font-size: 1.5em;
+  /* align-items: flex-start; */
+  /* padding-top: 6%; */
+  /* font-size: 1.5em; */
 }
 
 /* FT-1319: THE RENAME ASK — the claim ask's own dress, ON the plate.

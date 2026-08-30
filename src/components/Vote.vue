@@ -109,10 +109,33 @@
             >
               {{ session.lockedVote ? "Restart the vote" : "Start the vote" }}
             </button>
-            <!-- FT-1325: the time-per-player scrub moved to Player
-                 settings (PlayerSettings.vue's "Vote timer" row, storyteller
-                 only) — FT-1319 copied it there but left this one standing
-                 too. One home for the control now. -->
+            <!-- FT-1331 (user correction, reverting FT-1325): the vote
+                 timer is a STORYTELLER control and its home is THIS card —
+                 FT-1325 read "move the timer options to settings" as this
+                 scrub, but the user meant the toolbar Timer menu's display
+                 options (FT-1333 moves those). Restored verbatim from
+                 7200a49's removal: the app's own number control, whole and
+                 half seconds (FT-1311 item 5), handing setVotingSeconds the
+                 delta that keeps the store in milliseconds. The pace the
+                 room is about to live under is readable right here, beside
+                 the button that starts it. -->
+            <span
+              class="vo-timing"
+              v-if="session.lockedVote < 1"
+              title="Time per player — seconds each seat gets before the sweep moves on"
+            >
+              <NumberScrub
+                class="vo-scrub"
+                :value="votingSeconds"
+                :min="0.5"
+                :max="30"
+                :step="0.5"
+                aria-label="Time per player, in seconds"
+                title="Time per player, in seconds — drag sideways to scrub, click to type"
+                @input="setVotingSeconds"
+              />
+              <span class="vo-unit">s</span>
+            </span>
           </div>
 
           <!-- ONE control for one piece of state. `control-toggle` is this
@@ -329,13 +352,66 @@
         ></audio>
       </div>
     </transition>
+    <!-- FT-1331 — THE SWEEP GETS A CLOCK OF ITS OWN. Until now the numerals
+         above played only in the gap between Start and the first locked hand;
+         once the sweep ran, nothing on the face said a clock was running at
+         all, and the pace itself lived only in a settings menu. This is the
+         countdown CONTINUED, one seat at a time: while the hands sweep, the
+         current seat's remaining seconds stand at the pivot in the same
+         lettering, ink and halo as the III-II-I beats (quoted at just over
+         half their size — persistent for the whole sweep, so it must not
+         shout the way a three-second overture may), restarting from the full
+         pace as each hand locks. A glance at the disc reads "the clock is
+         running" from the tick and "how long a seat gets" from the number it
+         restarts at — the lane's own bar, on both views: the tick is driven
+         off the synced lock counter + votingSpeed (see syncSweepClock), so a
+         player's browser keeps its own time between the relay's locks and no
+         new wire state is needed. Same z-order ruling as the beats (z 3,
+         over the sweeping hands — FT-1083's "numbers above the hands" — and
+         it takes no clicks); when the host pauses, the locks stop coming,
+         the seat's clock runs out and the numeral stands down — a stopped
+         clock showing nothing is the truthful face of a paused vote. -->
+    <transition name="blur">
+      <div class="vo-sweep-clock" v-if="isSweeping">
+        <span class="vo-sweep-beat" :key="sweepBeatKey">{{
+          sweepNumeral
+        }}</span>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script>
 import { mapGetters, mapState } from "vuex";
+// FT-1331: back with the restored timer control — the same scrub the seat
+// count and the night sheet's numbers use (removed by 7200a49/FT-1325,
+// which the user has since corrected: the timer belongs on this card).
+import NumberScrub from "./NumberScrub";
+
+/** FT-1331: the sweep clock counts in the dial's own numerals, like the
+ *  III-II-I beats. The timer setting runs 0.5–30s (PlayerSettings' scrub),
+ *  so tens are enough. */
+const ROMAN = [
+  [10, "X"],
+  [9, "IX"],
+  [5, "V"],
+  [4, "IV"],
+  [1, "I"],
+];
+function romanize(n) {
+  let out = "";
+  let left = Math.max(0, Math.round(n));
+  ROMAN.forEach(([v, glyph]) => {
+    while (left >= v) {
+      out += glyph;
+      left -= v;
+    }
+  });
+  return out;
+}
 
 export default {
+  components: { NumberScrub },
   computed: {
     ...mapState("players", ["players"]),
     ...mapState(["session", "grimoire"]),
@@ -354,6 +430,31 @@ export default {
      *  returns to the full card the moment the hands stand still. */
     isDocked: function () {
       return this.session.isVoteInProgress;
+    },
+    /** FT-1331 (restored from 7200a49's removal): the scrub's read — the
+     *  store keeps milliseconds, the control speaks whole and half seconds. */
+    votingSeconds: function () {
+      return this.session.votingSpeed / 1000;
+    },
+    /** FT-1331: is the per-seat clock on the face right now — the sweep is
+     *  running (a hand has locked, the vote is live) and the current seat's
+     *  seconds have not run out. The remaining-seconds guard is what stands
+     *  the clock down on a pause: the locks stop arriving, the seat's time
+     *  runs out, and a vote with no clock running shows no clock. */
+    isSweeping: function () {
+      return (
+        this.session.isVoteInProgress &&
+        this.session.lockedVote >= 1 &&
+        this.sweepRemaining > 0
+      );
+    },
+    sweepNumeral: function () {
+      return romanize(this.sweepRemaining);
+    },
+    /** Each tick recreates the span (the :key), so its settle animation
+     *  restarts — the tick IS the "clock is running" signal. */
+    sweepBeatKey: function () {
+      return this.session.lockedVote + ":" + this.sweepRemaining;
     },
     /** The bar this nomination has to clear. Same arithmetic the vote log
      *  itself uses when it records the result (session/addHistory), so the
@@ -488,8 +589,26 @@ export default {
   },
   data() {
     return {
-      voteTimer: null
+      voteTimer: null,
+      /** FT-1331: the sweep clock's own three — seconds left for the seat
+       *  under the sweep, the wall-clock moment they run out, and the
+       *  100ms reader that keeps the first honest against the second. */
+      sweepRemaining: 0,
+      sweepDeadline: 0,
+      sweepTick: null,
     };
+  },
+  /**
+   * FT-1331: the clock keys off the SYNCED facts — every browser sees
+   * lockedVote move (the host commits it, the relay carries it), so host
+   * and player clocks restart together without any new wire state.
+   */
+  watch: {
+    "session.lockedVote": "syncSweepClock",
+    "session.isVoteInProgress": "syncSweepClock"
+  },
+  beforeDestroy() {
+    clearInterval(this.sweepTick);
   },
   methods: {
     /** THE ONE START (FT-1074). The card used to carry two pre-vote buttons —
@@ -530,6 +649,42 @@ export default {
             this.$store.commit("session/setVoteInProgress", false);
           }
         }, this.session.votingSpeed);
+        // FT-1331: Resume gives the current seat a fresh window (the
+        // interval above restarts from zero), so the host's face clock
+        // restarts with it. Host-only by nature — a player's clock waits
+        // for the next synced lock, exactly as it does through the pause.
+        this.syncSweepClock();
+      }
+    },
+    /**
+     * FT-1331: (RE)START THE SEAT CLOCK — called by the watchers whenever
+     * the synced sweep state moves. A deadline + a 100ms reader rather than
+     * a 1s stepper, so a half-second pace (the scrub allows 2.5s) and a
+     * late-joining spectator's first observed lock both land on honest
+     * whole-second ceilings; the reader stands itself down at zero.
+     */
+    syncSweepClock() {
+      clearInterval(this.sweepTick);
+      this.sweepTick = null;
+      const s = this.session;
+      const sweeping =
+        s.isVoteInProgress &&
+        s.lockedVote >= 1 &&
+        s.lockedVote <= this.players.length;
+      if (!sweeping) {
+        this.sweepRemaining = 0;
+        return;
+      }
+      this.sweepDeadline = Date.now() + s.votingSpeed;
+      this.readSweepClock();
+      this.sweepTick = setInterval(this.readSweepClock, 100);
+    },
+    readSweepClock() {
+      const left = Math.ceil((this.sweepDeadline - Date.now()) / 1000);
+      this.sweepRemaining = Math.max(left, 0);
+      if (left <= 0) {
+        clearInterval(this.sweepTick);
+        this.sweepTick = null;
       }
     },
     stop() {
@@ -549,6 +704,17 @@ export default {
       if (index >= 0 && !!this.session.votes[index] !== vote) {
         this.$store.commit("session/voteSync", [index, vote]);
       }
+    },
+    /** FT-1331 (restored with the scrub): whole/half seconds in, the same
+     *  millisecond delta the original stepper fed the store. */
+    setVotingSpeed(diff) {
+      const speed = Math.round(this.session.votingSpeed + diff);
+      if (speed > 0) {
+        this.$store.commit("session/setVotingSpeed", speed);
+      }
+    },
+    setVotingSeconds(seconds) {
+      this.setVotingSpeed(seconds * 1000 - this.session.votingSpeed);
     },
     setMarked() {
       this.$store.commit("session/setMarkedPlayer", this.session.nomination[1]);
@@ -856,11 +1022,10 @@ export default {
 .vo-label {
   white-space: nowrap;
 }
-// ── NO LONGER REACHED, AND LEFT IN PLACE (FT-1325) ──────────────────────────
-// The time-per-player scrub this dressed moved to PlayerSettings.vue's own
-// "Vote timer" row — Vote.vue no longer renders a NumberScrub at all. Kept
-// per the house never-delete rule; whoever removes it should do so
-// deliberately.
+// FT-1331: BACK IN SERVICE — FT-1325 stood these two down when it removed
+// the card's scrub; the user corrected that call (the vote timer is a
+// storyteller control and lives on this card), so the scrub and its dress
+// are restored together.
 .vo-scrub {
   color: #f7f0e1;
   &:hover {
@@ -876,8 +1041,8 @@ export default {
     margin-left: 0.12em;
   }
 }
-// The scrub used to stay BESIDE the primary in both registers here; now that
-// the row holds Start alone this rule is harmless but no longer load-bearing.
+// The scrub stays BESIDE the primary in both registers (load-bearing again —
+// FT-1331 restored the scrub to this row).
 .vo-controls.vo-start-row {
   flex-wrap: nowrap;
 }
@@ -1519,6 +1684,66 @@ $vo-beat-size: 118; // the beat's cap size in face-pixels — judged on the face
 }
 .countdown .vo-beat:nth-child(4) {
   animation: vo-beat-go 1100ms normal forwards 3000ms;
+}
+
+// ── THE SWEEP CLOCK (FT-1331) ───────────────────────────────────────────────
+// The countdown continued, one seat at a time — the template note carries the
+// why. Same material as the beats (.tw-numeral quoted through the block
+// above: Times bold in face-pixels, ember-gold, dark-then-ember halo) at just
+// over HALF their size: the beats are a three-second overture and may fill
+// the face; this stands for the whole sweep and must read at a glance without
+// shouting over the hands. The shadow stack is the beats' recipe with every
+// radius scaled to the glyph — FT-1083's finding scales both ways: the dark
+// contour that cuts a 118fpx numeral out is oversized on a 64fpx one.
+// 76, up from a first-shot 64: at 64 the numeral read but did not CARRY —
+// the lane's bar is a glance from across the ring, and the extra step keeps
+// it well under the beats' 118 overture size.
+$vo-sweep-size: 76; // face-pixels — judged against the 118fpx beats
+.vo-sweep-clock {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  // The beats' own ruling (the .countdown z note above): over the card's 1
+  // and the sweeping hands' 2, in both registers — the user's "numbers above
+  // the hands" — and it takes no clicks.
+  z-index: 3;
+}
+.vo-sweep-beat {
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: calc(#{$vo-sweep-size} * var(--fpx));
+  line-height: 1;
+  letter-spacing: calc(2 * var(--fpx));
+  margin-right: calc(-2 * var(--fpx));
+  color: #ffc25a;
+  text-shadow:
+    0 calc(2 * var(--fpx)) calc(2 * var(--fpx))
+      rgba(255, 250, 235, calc(var(--ng-under, 16) / 100)),
+    0 calc(-2 * var(--fpx)) calc(2 * var(--fpx))
+      rgba(10, 5, 2, calc(var(--ng-top, 0) / 100)),
+    0 calc(4 * var(--fpx)) calc(var(--ng-drop-blur, 1) * 3 * var(--fpx))
+      rgba(0, 0, 0, calc(var(--ng-drop, 40) / 100)),
+    0 0 calc(1.5 * var(--fpx)) rgba(8, 4, 1, 0.95),
+    0 0 calc(3 * var(--fpx)) rgba(8, 4, 1, 0.9),
+    0 0 calc(6 * var(--fpx)) rgba(20, 8, 2, 0.62),
+    0 0 calc(16 * var(--fpx)) rgba(255, 170, 60, 0.66),
+    0 0 calc(36 * var(--fpx)) rgba(255, 108, 16, 0.45);
+  // Each tick recreates the span (the template :key), so this runs once per
+  // second: a small land-and-settle, the beats' own shape without their
+  // full-face travel. The restart IS the "clock is running" signal.
+  animation: vo-sweep-tick 260ms ease-out;
+}
+@keyframes vo-sweep-tick {
+  0% {
+    opacity: 0.3;
+    transform: scale(1.14);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 // Reduced motion keeps the COUNT — it is information, not decoration — and

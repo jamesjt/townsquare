@@ -82,7 +82,14 @@
                XII that briefly anchored the menu on the dial (FaceHands.vue,
                retired). The storyteller's pick sets the TOWN's display; a
                player's sets their own screen (towerBells.toggleHourLayer). -->
+          <!-- FT-1333: THE HOURGLASS STANDS DOWN — its four rows moved into
+               the Player settings menu's own Timer section
+               (PlayerSettings.vue), where the user asked the timer options
+               to live. The mark is unmounted (v-if="false"), not deleted,
+               and its tower-tab section below stands down with it — the
+               same house rule the retired cog section follows. -->
           <img
+            v-if="false"
             :src="uiHourglass"
             :class="{ lit: tab === 'tower' }"
             title="The tower — how the dial shows the hour"
@@ -415,6 +422,12 @@
              the current one checked. Rows keep the menu's own shape (word
              left, mark right, the Night-order row's check idiom) and stay
              open on a pick so the check is seen to move. -->
+        <!-- FT-1333: UNREACHABLE NOW, kept whole — the hourglass mark that
+             set `tab === 'tower'` is unmounted above and these four rows
+             moved to PlayerSettings.vue's Timer section (same rows, same
+             towerBells wiring). This copy stands down with its mark rather
+             than being deleted, per the house rule — exactly the retired
+             cog section's precedent below. -->
         <template v-if="tab === 'tower'">
           <!-- FT-1020c: the visible word is "Timer" (user call) — the tower
                naming stays internal (tab id, towerBells.js, the strip art). -->

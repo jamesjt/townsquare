@@ -4,8 +4,11 @@
        left the strip ("if prefs ever grow a genuinely player-facing row, the
        gear can return for players then"). It opens from the top strip's own
        cog (Menu.vue's player strip) for EVERY viewer — a player's rows are
-       personal prefs; the storyteller additionally gets the vote timer row,
-       one more reader of the state the Vote card already scrubs.
+       personal prefs. (FT-1331/FT-1333: the storyteller-only "Vote timer"
+       row that briefly lived here went home to the vote card — FT-1325's
+       misread of "move the timer options"; the timer menu the user meant,
+       the hour display's Off / Hands / Digital / Numerals, is the Timer
+       section below now, moved whole from the toolbar hourglass.)
 
        PLATE, HOIST AND WATCHERS ARE PrefsMenu.vue's OWN, deliberately: same
        face-disc-menu-plate glass, same body-hoist (the strip's .menu is
@@ -54,46 +57,44 @@
         class="setting-row"
         title="The Roman numeral every coin wears — turn it off to leave the resting chair alone on an empty seat"
       >
-        <span class="setting-name">Coin numerals</span>
+        <!-- (User rename, 2026-08-29: the visible label is "Cog Numerals" —
+             label text only; the pref key stays coinNumerals.) -->
+        <span class="setting-name">Cog Numerals</span>
         <OptionCheck
           name="ps-coin-numerals"
-          aria-label="Coin numerals"
+          aria-label="Cog Numerals"
           :options="numeralOptions"
           :value="prefs.coinNumerals"
           @input="setCoinNumerals"
         />
       </li>
 
-      <!-- ── Timer ── the storyteller's vote seconds, restated here ──
-           ONE MORE READER OF THE SAME STATE, not a new mechanism: the
-           NumberScrub below is the Vote card's time-per-player control
-           verbatim (same value read, same setVotingSeconds delta into
-           session/setVotingSpeed, same 0.5s grain), so the two surfaces can
-           never disagree about what the timer is. Players do not get the
-           row at all — the vote seconds are the host's synced state, and a
-           control a player cannot write is a lie in a settings menu. -->
-      <template v-if="!session.isSpectator">
-        <li class="sub-headline">Timer</li>
-        <li
-          class="setting-row"
-          title="Time per player during a vote — seconds each seat gets before the sweep moves on (the same control the vote card carries)"
-        >
-          <span class="setting-name">Vote timer</span>
-          <span class="ps-timing">
-            <NumberScrub
-              class="ps-scrub"
-              :value="votingSeconds"
-              :min="0.5"
-              :max="30"
-              :step="0.5"
-              aria-label="Vote timer, seconds per player"
-              title="Time per player, in seconds — drag sideways to scrub, click to type"
-              @input="setVotingSeconds"
-            />
-            <span class="ps-unit">s</span>
-          </span>
-        </li>
-      </template>
+      <!-- ── Timer ── FT-1333: the hour display's own menu, re-homed ──
+           (FT-1331/user correction: the "Vote timer" scrub that stood here
+           was FT-1325's misread — the vote timer is a storyteller control
+           and went home to the vote card. THIS is the timer menu the user
+           meant: the toolbar hourglass's four rows, Off / Hands / Digital /
+           Numerals, moved here whole — same rows, same wiring, the FT-1052
+           toggles with Off as the DERIVED all-clear — and the hourglass
+           itself stands down in the strip (Menu.vue). The host-vs-player
+           split rides along untouched: a storyteller's pick sets the TOWN's
+           display, a player's sets their own screen —
+           towerBells.toggleHourLayer owns that split, not this menu.) -->
+      <li class="sub-headline">Timer</li>
+      <li
+        v-for="m in hourRows"
+        :key="m.id"
+        class="ps-hour-row"
+        :title="m.hint"
+        @click="pickHourMode(m.id)"
+      >
+        {{ m.label }}
+        <em>
+          <font-awesome-icon
+            :icon="['fas', hourChecked(m.id) ? 'check-square' : 'square']"
+          />
+        </em>
+      </li>
 
       <!-- ── Appearance ── FT-1318: the coin dress, the lab's own looks ──
            THE LOOKS THEMSELVES, NOT THEIR NAMES: each button is its coin at
@@ -144,9 +145,19 @@ import OptionSelect from "./OptionSelect";
 // FT-1328: the coin-numeral row's control — a genuine on/off, OptionCheck's
 // own idiom (FT-1268), not a select.
 import OptionCheck from "./OptionCheck";
-// The vote card's own number control — the timer row is that control's
-// second mount, not a sibling implementation.
-import NumberScrub from "./NumberScrub";
+// (FT-1333: the NumberScrub import left with the "Vote timer" row — that
+// scrub went home to the vote card, FT-1331. Kept out rather than stood
+// down: a registered-but-unrendered component trips vue/no-unused-components.)
+// FT-1333: the Timer section's furniture — the toolbar hourglass menu's own
+// rows and wiring (Menu.vue's tower tab, now standing down), whole.
+import {
+  HOUR_LAYERS,
+  HOUR_OFF,
+  TOWER_EVENT,
+  toggleHourLayer,
+  effectiveHourFlags,
+  hourAllOff,
+} from "../golem/towerBells";
 import uiCog from "../assets/ui-cog.png";
 
 // the coin thumbnails — App.vue's coin lab reads the same directory the
@@ -155,7 +166,7 @@ const coinThumbs = require.context("../assets/coins", false, /\.png$/);
 
 export default {
   name: "PlayerSettings",
-  components: { OptionSelect, OptionCheck, NumberScrub },
+  components: { OptionSelect, OptionCheck },
   props: {
     /** The strip cog this menu hangs from — an element, so the plate can
      *  follow its rect across resizes instead of guessing (PrefsMenu's own
@@ -173,6 +184,12 @@ export default {
       // fixed-position coordinates, refreshed by place()
       top: 0,
       left: 0,
+      // FT-1333: the Timer section's rows and this screen's current flags —
+      // Menu.vue's tower-tab furniture verbatim (the Off row ahead of the
+      // three layer toggles; a plain module object is not reactive, so
+      // readTowerMode refreshes the snapshot on TOWER_EVENT).
+      hourRows: [HOUR_OFF, ...HOUR_LAYERS],
+      towerHour: effectiveHourFlags(this.$store.state.session),
     };
   },
   computed: {
@@ -209,8 +226,9 @@ export default {
         : "This device has no resting pointer, so the pin lives in the " +
             "seat's own menu here; the setting still follows your account";
     },
-    /** The Vote card's own read: the store keeps milliseconds, the scrub
-     *  speaks whole (and half) seconds. */
+    /** STOOD DOWN (FT-1333) — the "Vote timer" row's read; the scrub went
+     *  home to the vote card (FT-1331, user correction). Kept per the house
+     *  never-delete rule, with its two writers below. */
     votingSeconds() {
       return this.session.votingSpeed / 1000;
     },
@@ -237,6 +255,8 @@ export default {
     document.addEventListener("mousedown", this.onDocDown);
     document.addEventListener("keydown", this.onDocKey);
     window.addEventListener(PREFS_EVENT, this.readPrefs);
+    // FT-1333: the tower moved (any surface) — re-read the Timer checks.
+    window.addEventListener(TOWER_EVENT, this.readTowerMode);
   },
   beforeDestroy() {
     window.removeEventListener("resize", this.place);
@@ -244,6 +264,7 @@ export default {
     document.removeEventListener("mousedown", this.onDocDown);
     document.removeEventListener("keydown", this.onDocKey);
     window.removeEventListener(PREFS_EVENT, this.readPrefs);
+    window.removeEventListener(TOWER_EVENT, this.readTowerMode);
     if (this.$el && this.$el.parentElement === document.body) {
       this.$el.remove();
     }
@@ -304,7 +325,29 @@ export default {
     setCoinArt(id) {
       setPref("coinArt", id);
     },
-    // ── the timer row: Vote.vue's own two methods, verbatim ─────────────
+    // ── FT-1333: the Timer section — Menu.vue's tower-tab methods, whole ─
+    /** The tower moved (any surface) — re-read which layers this screen
+     *  shows (session passed so a storyteller's checks track the TOWN's
+     *  flags, never a stale player-era override — FT-1020c). */
+    readTowerMode() {
+      this.towerHour = effectiveHourFlags(this.session);
+    },
+    /** FT-1052: is this row's check on? Off is DERIVED — checked exactly
+     *  when none of the three layers are. */
+    hourChecked(id) {
+      if (id === "off") return hourAllOff(this.towerHour);
+      return !!this.towerHour[id];
+    },
+    /** One layer toggled (or Off clearing all three). towerBells owns the
+     *  host-vs-player split. */
+    pickHourMode(id) {
+      toggleHourLayer(this.session, id);
+    },
+    // ── STOOD DOWN (FT-1333) — the "Vote timer" row's two writers ────────
+    // FT-1331 (user correction) sent the vote-timer scrub home to the vote
+    // card; these were its wiring here and nothing renders them now. Kept
+    // per the house never-delete rule; whoever removes them should do so
+    // deliberately.
     setVotingSpeed(diff) {
       const speed = Math.round(this.session.votingSpeed + diff);
       if (speed > 0) {
@@ -438,7 +481,10 @@ export default {
     }
   }
 
-  // the timer row's scrub + unit, the Vote card's vo-timing pair at row scale
+  // ── NO LONGER REACHED, AND LEFT IN PLACE (FT-1333) ─────────────────────
+  // These dressed the "Vote timer" row's scrub + unit; that scrub went home
+  // to the vote card (FT-1331, user correction) and nothing here renders
+  // them. Kept per the house never-delete rule.
   .ps-timing {
     display: flex;
     align-items: center;
@@ -446,6 +492,23 @@ export default {
   }
   .ps-unit {
     opacity: 0.7;
+  }
+
+  // FT-1333: the Timer section's four rows — clickable, unlike the
+  // setting-rows around them (they ARE the control: click toggles, the
+  // check answers), so they carry a pointer and the plate hover the app's
+  // glass menus use. The check keeps Menu.vue's word-left / mark-right
+  // shape inside this menu's own row box.
+  .ps-hour-row {
+    cursor: pointer;
+    padding: 2px 10px;
+    &:hover {
+      background: rgba(167, 143, 205, 0.18);
+    }
+    em {
+      font-style: normal;
+      opacity: 0.9;
+    }
   }
 
   // FT-1198's sunken trigger, verbatim — the shared control-plate is
