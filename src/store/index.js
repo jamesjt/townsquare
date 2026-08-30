@@ -243,6 +243,11 @@ export default new Vuex.Store({
       // `toggleModal` closing whatever else was open is exactly right: this
       // is a page you go to, not a panel you raise over the town.
       records: false,
+      // FT-1341: THE CHANGE LOG, moved onto the right-hand rail — it was its
+      // own centred face-plate (FT-1320); this flag is what lets it join the
+      // drawer family's exclusive-open management instead of the local
+      // component flag it used to carry (Menu.vue's old `changelogOpen`).
+      changeLog: false,
     },
     /**
      * FT-965: THE TOWN'S ONE PERMANENT ROOM.

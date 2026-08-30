@@ -821,13 +821,15 @@
         :anchor="accountMenuAnchor"
         @close="accountMenuOpen = false"
         @account="accountOpen = true"
-        @changelog="changelogOpen = true"
+        @changelog="toggleModal('changeLog')"
       />
     </div>
 
-    <!-- FT-1320: the change log's reading panel — data in
+    <!-- FT-1341: the change log is a right drawer now, on the same rail as
+         the script and vote drawers — always mounted, its own `isOpen`
+         (store's `modals.changeLog`) decides whether it shows. Data in
          golem/changelog.js, dress in the component. -->
-    <ChangeLog v-if="changelogOpen" @close="changelogOpen = false" />
+    <ChangeLog />
   </div>
 </template>
 
@@ -1016,7 +1018,10 @@ export default {
       // serves both strips: the anchor is whichever mark was clicked.
       accountMenuOpen: false,
       accountMenuAnchor: null,
-      // FT-1320: the change log's reading panel.
+      // FT-1341: stood down, not deleted — the change log moved onto the
+      // right-hand rail and reads its own open state from the store
+      // (`modals.changeLog` via ChangeLog.vue's rightDrawer mixin), the way
+      // the script and vote drawers already do. Nothing reads this flag now.
       changelogOpen: false,
       // The inline ask panel (see its markup for why it exists): null, or
       // { mode, title, note, label, value, placeholder, okText, danger,
