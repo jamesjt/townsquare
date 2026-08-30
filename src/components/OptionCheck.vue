@@ -143,6 +143,20 @@ export default {
   // box is dark and closed whichever way it is set, and the TICK is the
   // only thing that changes.
   box-shadow: $control-toggle-well;
+  // FT-1347 (user spec): OFF must read as a BUTTON everywhere this control
+  // is used, not just where a caller happened to patch it locally. The
+  // shared plate's own edge is `$control-edge` — black — which disappears
+  // against this box's own black ground (`$control-bg`) and against every
+  // dark panel it sits on; PrefsMenu and HostTools each grew their own
+  // `.gcheck:not(.on)` override to fix exactly this, in two different
+  // colours, per caller. Moving the fix HERE, onto the component's own rest
+  // state, is what "grey border everywhere" actually means — a caller-local
+  // patch can only ever cover its one caller. Grey, not the purple hover
+  // acknowledgement below, so OFF cannot be mistaken for "about to be
+  // pressed" or for ON's own plum. Value is RoleTray's own neutral
+  // set-aside ring (`rgba(170, 170, 170, 0.65)`, FT-1335) — the app's
+  // existing "off ring" grey, not a new one.
+  border-color: rgba(170, 170, 170, 0.65);
   color: #d8cdb4;
   flex: 0 0 auto;
   display: inline-flex;

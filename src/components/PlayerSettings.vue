@@ -558,11 +558,18 @@ export default {
     gap: 6px;
   }
   .ps-timer-icon {
+    box-sizing: border-box;
     width: 26px;
     height: 26px;
     padding: 0;
     background: transparent;
-    border: none;
+    // FT-1347 (user spec): a bare glyph with no plate does not read as a
+    // button at all — it reads as loose text sitting in the row. Same grey
+    // ring `OptionCheck`'s own OFF state now wears (RoleTray's neutral
+    // set-aside ring, `rgba(170, 170, 170, 0.65)`), so this row's three
+    // buttons agree with the checklists' own toggles rather than inventing
+    // a third rest-state dress.
+    border: 1px solid rgba(170, 170, 170, 0.65);
     border-radius: 4px;
     cursor: pointer;
     color: #e8dfc8;
@@ -574,7 +581,8 @@ export default {
     transition:
       opacity 150ms,
       box-shadow 150ms,
-      background 150ms;
+      background 150ms,
+      border-color 150ms;
     .ps-timer-glyph {
       font-size: 10px;
       font-weight: bold;
@@ -586,7 +594,10 @@ export default {
     &.on {
       opacity: 1;
       background: rgba(96, 74, 128, 0.42);
-      box-shadow: 0 0 0 2px rgba(246, 232, 200, 0.65);
+      // the same plum edge `gcheck.on` wears, replacing the old cream ring
+      // (box-shadow) — lit now means the same border colour everywhere,
+      // not a fourth accent unique to this row.
+      border-color: rgba(167, 143, 205, 0.85);
     }
   }
 
