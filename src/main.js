@@ -113,6 +113,10 @@ const faIcons = [
   "SearchMinus",
   "SearchPlus",
   "Skull",
+  // FT-1348: the Game settings rail's General leaf — settings at large
+  // (there is no sliders glyph in the fork's own art set — the
+  // Bell/BellSlash standing note applies).
+  "SlidersH",
   "Square",
   // FT-860: the night sheet's phase bar wears the moon art for night and this
   // for day (there is no sun in our own asset set).

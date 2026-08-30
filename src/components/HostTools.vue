@@ -897,22 +897,59 @@
            is the last row painting through the Start button. Same ref, same
            measured class, same drip scrollbar and sunken well as the Control
            tab now (`gameOverflow`, measureTabOverflow). -->
-      <div
-        class="row ht-settings ht-game"
-        v-if="settingsTab"
-        ref="gameRows"
-        :class="{ scrolls: gameOverflow }"
-        v-blood-scroll
-      >
-        <span class="ht-set-line ht-set-line-night">
-          <!-- FT-860: the night sheet's three-state switch. Its own component so
+      <!-- ── FT-1348 (user): THE TAB BECOMES TWO COLUMNS — a left rail of
+           groups (General / Chat / Automations) and a right pane holding the
+           picked group's rows. RE-HOUSING, NOT REWRITING: every row below is
+           the same markup, the same handlers, the same tower writes it wore
+           on the single scroll; what is new is which rows RENDER (the three
+           template gates) and one reading-order move — the presentation pair
+           (Ghost vote / End reveal) files under General now, the endgame
+           folded in deliberately. The rail remembers this browser's pick
+           (pickGameGroup — localStorage, StatsOverlay's COLS_KEY idiom) and
+           wears the tab strip's own leaf vocabulary turned on its side: the
+           strip's plum rule runs down the rail's right edge and the chosen
+           leaf bleeds over it, exactly as the chosen tab bleeds over the
+           strip's bottom rule. Desktop is the audience (the user's call:
+           "don't worry about mobile for now") — the phone sheets simply let
+           this flex row wrap, rail over pane, and no more is attempted. -->
+      <div class="row ht-settings ht-gamewrap" v-if="settingsTab">
+        <nav class="ht-rail" role="tablist" aria-label="Game settings groups">
+          <button
+            v-for="g in gameGroups"
+            :key="g.key"
+            type="button"
+            class="ht-rail-item"
+            role="tab"
+            :class="{ on: gameGroup === g.key }"
+            :aria-selected="String(gameGroup === g.key)"
+            :title="g.title"
+            @click="pickGameGroup(g.key)"
+          >
+            <font-awesome-icon class="ht-rail-mark" :icon="g.icon" />
+            <span class="ht-rail-name">{{ g.label }}</span>
+            <!-- FT-1348: the folded dropdown's "N of 6" face lives on the
+                 rail leaf now — the pane shows the rules themselves. -->
+            <span class="ht-rail-sum" v-if="g.key === 'automations'">{{
+              automationSummary
+            }}</span>
+          </button>
+        </nav>
+        <div
+          class="ht-game"
+          ref="gameRows"
+          :class="{ scrolls: gameOverflow }"
+          v-blood-scroll
+        >
+          <template v-if="gameGroup === 'general'">
+            <span class="ht-set-line ht-set-line-night">
+              <!-- FT-860: the night sheet's three-state switch. Its own component so
              the setting travels with the rest of the night code. -->
-          <NightModeRow />
-        </span>
+              <NightModeRow />
+            </span>
 
-        <!-- FT-1266: the day's group opens here — air above, no header. -->
-        <span class="ht-set-line ht-set-line-bell ht-group-start">
-          <!-- FT-1087: THE DAY-BREAK BELL IS ONE SELECT — Off / One / Two /
+            <!-- FT-1266: the day's group opens here — air above, no header. -->
+            <span class="ht-set-line ht-set-line-bell ht-group-start">
+              <!-- FT-1087: THE DAY-BREAK BELL IS ONE SELECT — Off / One / Two /
              Custom — where it was two segments standing side by side, an
              On/Off pair and a which-bell trio. Every state the pair could
              reach, this list reaches — Off writes `bellOn` false and leaves
@@ -925,28 +962,28 @@
              OptionSelect.vue). Picking Off also stops anything still tolling,
              which the segment never did. Custom still opens the source row
              below. -->
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="sun"
-                title="The day-break sound"
-              />
-              <span class="row-name" v-if="!iconsOnly">Day bell</span>
+              <span class="tw-lead">
+                <span class="label">
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="sun"
+                    title="The day-break sound"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Day bell</span>
+                </span>
+                <OptionSelect
+                  name="bell-which"
+                  aria-label="Day-break bell"
+                  hoist
+                  :options="bellOptions"
+                  :value="bellChoice"
+                  @input="pickBellChoice"
+                />
+              </span>
             </span>
-            <OptionSelect
-              name="bell-which"
-              aria-label="Day-break bell"
-              hoist
-              :options="bellOptions"
-              :value="bellChoice"
-              @input="pickBellChoice"
-            />
-          </span>
-        </span>
 
-        <span class="ht-set-line ht-set-line-day">
-          <!-- ── FT-1055: THE DAY'S LENGTH — Off, or a minutes value on the
+            <span class="ht-set-line ht-set-line-day">
+              <!-- ── FT-1055: THE DAY'S LENGTH — Off, or a minutes value on the
              shared NumberScrub (the Seats row's own gesture code). TOWN
              AUTHORITY: it rides DEFAULT_TOWER's persistence and sync like
              every field beside it. At zero the day-start bell machinery
@@ -954,23 +991,23 @@
              happens: the day NEVER auto-ends; the storyteller keeps
              control. Mark, select and minutes read left to right as one
              sentence ("hourglass — Timed — 10 min") in one `.ht-set-pair`. -->
-          <span
-            class="ht-set-pair tw-day"
-            title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
-          >
-            <span class="tw-lead">
-              <span class="label">
-                <!-- FT-1058c (user): the hourglass, not the sun — this row is
+              <span
+                class="ht-set-pair tw-day"
+                title="How long a day runs before the tower calls time — the bell tolls and the countdown flashes; the day itself never ends on its own"
+              >
+                <span class="tw-lead">
+                  <span class="label">
+                    <!-- FT-1058c (user): the hourglass, not the sun — this row is
                      about time running, and the sun belongs to the day-break
                      sound above. -->
-                <font-awesome-icon
-                  class="row-mark-fa"
-                  icon="hourglass-half"
-                  title="The day's length"
-                />
-                <span class="row-name" v-if="!iconsOnly">Day timer</span>
-              </span>
-              <!-- FT-1266: THE CONTROL TRACK'S ONE ITEM. The select and the
+                    <font-awesome-icon
+                      class="row-mark-fa"
+                      icon="hourglass-half"
+                      title="The day's length"
+                    />
+                    <span class="row-name" v-if="!iconsOnly">Day timer</span>
+                  </span>
+                  <!-- FT-1266: THE CONTROL TRACK'S ONE ITEM. The select and the
                    minutes were siblings a level apart — the select inside
                    `.tw-lead` with the label, the scrub outside it — which is
                    exactly what the grid cannot place: two things wanting one
@@ -979,66 +1016,133 @@
                    ("hourglass — Off — 10 min") reads the same as it always
                    did. Whisper marks below carries the identical wrapper, and
                    Night checklist's `.nm-controls` is already one. -->
-              <span class="ht-set-ctl">
-                <!-- FT-1229: the VALUE is the stored mode now, no longer
+                  <span class="ht-set-ctl">
+                    <!-- FT-1229: the VALUE is the stored mode now, no longer
                    derived from the minutes — "Per day" keeps a length set (the
                    coming day's) and still is not "Timed". -->
-                <OptionSelect
-                  name="day-length"
-                  aria-label="Day length"
-                  hoist
-                  :options="dayLengthOptions"
-                  :value="tower.dayTimerMode"
-                  @input="setDayMode"
-                />
-                <!-- the minutes themselves — dimmed while Off, and scrubbing
+                    <OptionSelect
+                      name="day-length"
+                      aria-label="Day length"
+                      hoist
+                      :options="dayLengthOptions"
+                      :value="tower.dayTimerMode"
+                      @input="setDayMode"
+                    />
+                    <!-- the minutes themselves — dimmed while Off, and scrubbing
                    it is itself the "on" gesture (a length you are setting is a
                    length you want). -->
-                <span
-                  class="tw-daylen"
-                  :class="{ idle: !tower.dayLengthMin }"
-                  title="Minutes in a day — drag sideways to scrub, click to type"
-                >
-                  <NumberScrub
-                    class="tw-daylen-scrub"
-                    :value="tower.dayLengthMin || dayLenDraft"
-                    :min="dayLenMin"
-                    :max="dayLenMax"
-                    title="Minutes in a day — drag sideways to scrub, click to type"
-                    @input="setDayLength"
-                  />
-                  <span class="tw-daylen-unit">min</span>
+                    <span
+                      class="tw-daylen"
+                      :class="{ idle: !tower.dayLengthMin }"
+                      title="Minutes in a day — drag sideways to scrub, click to type"
+                    >
+                      <NumberScrub
+                        class="tw-daylen-scrub"
+                        :value="tower.dayLengthMin || dayLenDraft"
+                        :min="dayLenMin"
+                        :max="dayLenMax"
+                        title="Minutes in a day — drag sideways to scrub, click to type"
+                        @input="setDayLength"
+                      />
+                      <span class="tw-daylen-unit">min</span>
+                    </span>
+                  </span>
                 </span>
               </span>
             </span>
-          </span>
-        </span>
 
-        <span class="ht-set-line ht-set-line-call">
-          <!-- FT-1051: THE CALL-BACK VOICE — the same merged-select shape as
+            <span class="ht-set-line ht-set-line-call">
+              <!-- FT-1051: THE CALL-BACK VOICE — the same merged-select shape as
              the bell above it (two words, so it is the smaller control, but
              the SAME kind of control). -->
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="bell"
-                title="The call-back bell"
-              />
-              <span class="row-name" v-if="!iconsOnly">Call back</span>
+              <span class="tw-lead">
+                <span class="label">
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="bell"
+                    title="The call-back bell"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Call back</span>
+                </span>
+                <OptionSelect
+                  name="callback"
+                  aria-label="Call-back voice"
+                  hoist
+                  :options="callOptions"
+                  :value="tower.callId"
+                  @input="pickCall"
+                />
+              </span>
             </span>
-            <OptionSelect
-              name="callback"
-              aria-label="Call-back voice"
-              hoist
-              :options="callOptions"
-              :value="tower.callId"
-              @input="pickCall"
-            />
-          </span>
-        </span>
 
-        <!-- FT-1266: the talking group opens here — air above, no header.
+            <!-- ── FT-1315/FT-1316: THE PRESENTATION PAIR ──────────────────────
+             Two vocabulary choices about how the town SHOWS what has already
+             happened, on the tower shelf like every row above (per-town
+             persisted, synced live). Ghost vote picks what marks a spent
+             ghost vote — today's crossed cowl, or the death shroud dropping
+             instead; End reveal gates the FT-1053 end-of-game ceremony so a
+             storyteller can land the end quietly and stage their own.
+             FT-1348: the pair MOVED UP — it read after the talking rows on
+             the single scroll; under the rail it files with General (the
+             endgame folded in deliberately, the user's grouping). Same
+             markup, same writes. -->
+            <span class="ht-set-line ht-set-line-ghostmark ht-group-start">
+              <span class="tw-lead">
+                <span class="label">
+                  <!-- FT-1321: the seat's own unspent-ghost-vote mark (the cowl,
+                   FT-996's call) fronts the row that chooses what SPENDING
+                   one looks like — the FA ghost stood in before the fork's
+                   art carried the vocabulary itself. -->
+                  <img
+                    class="row-mark"
+                    :src="uiGhostCowl"
+                    alt="Ghost vote"
+                    title="What marks a spent ghost vote"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Ghost vote</span>
+                </span>
+                <OptionSelect
+                  name="ghost-spent-mark"
+                  aria-label="Spent ghost vote mark"
+                  hoist
+                  :options="ghostSpentOptions"
+                  :value="tower.ghostSpentMark"
+                  @input="pickGhostSpentMark"
+                />
+              </span>
+            </span>
+
+            <span class="ht-set-line ht-set-line-endshow">
+              <span class="tw-lead">
+                <span class="label">
+                  <!-- FT-1326a: the ceremony's own evil-wins emblem (the demon
+                   team glyph the end banner paints) — the FT-1321 veil read
+                   as nothing at 22px ("wtf is that?"); the tentacle had
+                   already lost the same audition as a red sliver. -->
+                  <img
+                    class="row-mark"
+                    :src="uiEndReveal"
+                    alt="End reveal"
+                    title="The end-of-game show"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">End reveal</span>
+                </span>
+                <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
+                 above for the user's call and what it does not change). -->
+                <OptionCheck
+                  name="end-ceremony"
+                  aria-label="Play the end-of-game animation"
+                  on-value="on"
+                  :options="endCeremonyOptions"
+                  :value="tower.endCeremonyOn ? 'on' : 'off'"
+                  @input="pickEndCeremony"
+                />
+              </span>
+            </span>
+          </template>
+
+          <template v-if="gameGroup === 'chat'">
+            <!-- FT-1266: the talking group opens here — air above, no header.
              AND THE WHISPER-MARKS ROW MOVES OUT OF THIS LINE into its own
              `.ht-set-line-whisper` below. The two settings shared one line
              because `.ht-set-line` was the flex WRAP UNIT (FT-1099) and this
@@ -1048,35 +1152,37 @@
              nothing about layout any more — it only meant the group's air
              landed on both settings at once. Same rows, same order, same
              handlers; one wrapper became two. -->
-        <span class="ht-set-line ht-set-line-chat ht-group-start">
-          <!-- ── FT-1206: THE CHAT LEVEL — how much talking this town allows.
+            <!-- FT-1348: `ht-group-start` came off — the row is its PANE's first
+             line now, and a pane's first row carries no group air. -->
+            <span class="ht-set-line ht-set-line-chat">
+              <!-- ── FT-1206: THE CHAT LEVEL — how much talking this town allows.
              Off / No whispers / Neighbors / Anyone (golem/chat's CHAT_LEVELS;
              neighbors are the two chairs beside yours, dead or alive). The
              player↔storyteller lane stays open at EVERY level. Rides the
              tower shelf like every row beside it: per-town persisted, synced
              live, enforced at the composers and defensively on receive. -->
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="comments"
-                title="How much the town may talk"
-              />
-              <span class="row-name" v-if="!iconsOnly">Chat</span>
+              <span class="tw-lead">
+                <span class="label">
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="comments"
+                    title="How much the town may talk"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Chat</span>
+                </span>
+                <OptionSelect
+                  name="chat-level"
+                  aria-label="Chat level"
+                  hoist
+                  :options="chatOptions"
+                  :value="tower.chatLevel"
+                  @input="pickChatLevel"
+                />
+              </span>
             </span>
-            <OptionSelect
-              name="chat-level"
-              aria-label="Chat level"
-              hoist
-              :options="chatOptions"
-              :value="tower.chatLevel"
-              @input="pickChatLevel"
-            />
-          </span>
-        </span>
 
-        <span class="ht-set-line ht-set-line-whisper">
-          <!-- FT-1206: THE WHISPER MARKS — the paper plane every browser sees
+            <span class="ht-set-line ht-set-line-whisper">
+              <!-- FT-1206: THE WHISPER MARKS — the paper plane every browser sees
              when two players whisper (metadata only: seats, never content),
              and how long it rests by the recipient's coin. Off keeps the
              wire silent. FT-1210 (user): "whisper marks should share the
@@ -1084,25 +1190,27 @@
              became the Day timer row's exact anatomy: an Off/On select plus
              the seconds on the shared NumberScrub, dimmed while Off, unit
              word trailing, all in one `.ht-set-pair`. -->
-          <span
-            class="ht-set-pair tw-whisper"
-            title="The whisper planes — how long one rests by the recipient's coin"
-          >
-            <span class="tw-lead">
-              <span class="label">
-                <font-awesome-icon
-                  class="row-mark-fa"
-                  icon="paper-plane"
-                  title="The whisper planes"
-                />
-                <span class="row-name" v-if="!iconsOnly">Whisper marks</span>
-              </span>
-              <!-- FT-1266: the control track's one item — the Day timer row's
+              <span
+                class="ht-set-pair tw-whisper"
+                title="The whisper planes — how long one rests by the recipient's coin"
+              >
+                <span class="tw-lead">
+                  <span class="label">
+                    <font-awesome-icon
+                      class="row-mark-fa"
+                      icon="paper-plane"
+                      title="The whisper planes"
+                    />
+                    <span class="row-name" v-if="!iconsOnly"
+                      >Whisper marks</span
+                    >
+                  </span>
+                  <!-- FT-1266: the control track's one item — the Day timer row's
                    own wrapper, for the same reason and with the same effect.
                    FT-1210 asked these two rows to share an anatomy; they now
                    share it down to which grid cell each piece lands in. -->
-              <span class="ht-set-ctl">
-                <!-- FT-1268 (user): "lets make all of these a checkbox
+                  <span class="ht-set-ctl">
+                    <!-- FT-1268 (user): "lets make all of these a checkbox
                      instead of a drop down if there is only two options."
                      Off/On is the clearest case there is — the row's own
                      noun plus a ticked box IS the sentence, and no list
@@ -1111,67 +1219,67 @@
                      why the control is told which one means checked); only
                      the control changed. The seconds scrub beside it is
                      untouched and still reads as the same sentence. -->
-                <OptionCheck
-                  name="whisper-marks"
-                  aria-label="Whisper marks"
-                  on-value="on"
-                  :options="whisperMarkModeOptions"
-                  :value="tower.whisperMarkSec ? 'on' : 'off'"
-                  @input="setWhisperMarkMode"
-                />
-                <!-- the seconds themselves — dimmed while Off, and scrubbing
+                    <OptionCheck
+                      name="whisper-marks"
+                      aria-label="Whisper marks"
+                      on-value="on"
+                      :options="whisperMarkModeOptions"
+                      :value="tower.whisperMarkSec ? 'on' : 'off'"
+                      @input="setWhisperMarkMode"
+                    />
+                    <!-- the seconds themselves — dimmed while Off, and scrubbing
                    is itself the "on" gesture, exactly as the Day timer's
                    minutes. -->
-                <span
-                  class="tw-daylen"
-                  :class="{ idle: !tower.whisperMarkSec }"
-                  title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
-                >
-                  <NumberScrub
-                    class="tw-daylen-scrub"
-                    :value="tower.whisperMarkSec || whisperSecDraft"
-                    :min="whisperSecMin"
-                    :max="whisperSecMax"
-                    title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
-                    @input="setWhisperMarkSec"
-                  />
-                  <span class="tw-daylen-unit">sec</span>
+                    <span
+                      class="tw-daylen"
+                      :class="{ idle: !tower.whisperMarkSec }"
+                      title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
+                    >
+                      <NumberScrub
+                        class="tw-daylen-scrub"
+                        :value="tower.whisperMarkSec || whisperSecDraft"
+                        :min="whisperSecMin"
+                        :max="whisperSecMax"
+                        title="Seconds a plane rests by the coin — drag sideways to scrub, click to type"
+                        @input="setWhisperMarkSec"
+                      />
+                      <span class="tw-daylen-unit">sec</span>
+                    </span>
+                  </span>
                 </span>
               </span>
             </span>
-          </span>
-        </span>
 
-        <span class="ht-set-line ht-set-line-counts">
-          <!-- FT-1206: COUNT WHISPERS — the Chronicle's per-pair tally for
+            <span class="ht-set-line ht-set-line-counts">
+              <!-- FT-1206: COUNT WHISPERS — the Chronicle's per-pair tally for
              the running game (who whispered whom, how many times). In the
              Chronicle, never on the clock. Each viewer's table holds what
              their own Chronicle holds: the storyteller everything, a player
              their own pairs; a finished game publishes all of it. -->
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="chart-bar"
-                title="The Chronicle's whisper tally"
-              />
-              <span class="row-name" v-if="!iconsOnly">Count whispers</span>
-            </span>
-            <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
+              <span class="tw-lead">
+                <span class="label">
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="chart-bar"
+                    title="The Chronicle's whisper tally"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Count whispers</span>
+                </span>
+                <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
                  above for the user's call and what it does not change). -->
-            <OptionCheck
-              name="whisper-counts"
-              aria-label="Count whispers"
-              on-value="on"
-              :options="whisperCountOptions"
-              :value="tower.whisperCounts ? 'on' : 'off'"
-              @input="pickWhisperCounts"
-            />
-          </span>
-        </span>
+                <OptionCheck
+                  name="whisper-counts"
+                  aria-label="Count whispers"
+                  on-value="on"
+                  :options="whisperCountOptions"
+                  :value="tower.whisperCounts ? 'on' : 'off'"
+                  @input="pickWhisperCounts"
+                />
+              </span>
+            </span>
 
-        <span class="ht-set-line ht-set-line-traffic">
-          <!-- FT-1309: WHISPER TRAFFIC — the Chronicle's per-whisper line
+            <span class="ht-set-line ht-set-line-traffic">
+              <!-- FT-1309: WHISPER TRAFFIC — the Chronicle's per-whisper line
              ("Ana ✈ Bea", FT-1263's plane's-memory row), its own switch at
              last: the tally above counts the day, this row LISTS it, and a
              town may want one without the other. Off stops the mint on
@@ -1179,90 +1287,83 @@
              recorded stand. The quill is the mark — the record being
              written down, where the plane means SENT (FT-1211) and already
              fronts the Whisper marks row two lines up. -->
-          <span class="tw-lead">
-            <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="feather-alt"
-                title="The Chronicle's whisper-traffic lines"
-              />
-              <span class="row-name" v-if="!iconsOnly">Whisper traffic</span>
-            </span>
-            <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
+              <span class="tw-lead">
+                <span class="label">
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="feather-alt"
+                    title="The Chronicle's whisper-traffic lines"
+                  />
+                  <span class="row-name" v-if="!iconsOnly"
+                    >Whisper traffic</span
+                  >
+                </span>
+                <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
                  above for the user's call and what it does not change). -->
-            <OptionCheck
-              name="whisper-traffic"
-              aria-label="Whisper traffic"
-              on-value="on"
-              :options="whisperTrafficOptions"
-              :value="tower.whisperTraffic ? 'on' : 'off'"
-              @input="pickWhisperTraffic"
-            />
-          </span>
-        </span>
-
-        <!-- ── FT-1315/FT-1316: THE PRESENTATION PAIR ──────────────────────
-             Two vocabulary choices about how the town SHOWS what has already
-             happened, on the tower shelf like every row above (per-town
-             persisted, synced live). Ghost vote picks what marks a spent
-             ghost vote — today's crossed cowl, or the death shroud dropping
-             instead; End reveal gates the FT-1053 end-of-game ceremony so a
-             storyteller can land the end quietly and stage their own. -->
-        <span class="ht-set-line ht-set-line-ghostmark ht-group-start">
-          <span class="tw-lead">
-            <span class="label">
-              <!-- FT-1321: the seat's own unspent-ghost-vote mark (the cowl,
-                   FT-996's call) fronts the row that chooses what SPENDING
-                   one looks like — the FA ghost stood in before the fork's
-                   art carried the vocabulary itself. -->
-              <img
-                class="row-mark"
-                :src="uiGhostCowl"
-                alt="Ghost vote"
-                title="What marks a spent ghost vote"
-              />
-              <span class="row-name" v-if="!iconsOnly">Ghost vote</span>
+                <OptionCheck
+                  name="whisper-traffic"
+                  aria-label="Whisper traffic"
+                  on-value="on"
+                  :options="whisperTrafficOptions"
+                  :value="tower.whisperTraffic ? 'on' : 'off'"
+                  @input="pickWhisperTraffic"
+                />
+              </span>
             </span>
-            <OptionSelect
-              name="ghost-spent-mark"
-              aria-label="Spent ghost vote mark"
-              hoist
-              :options="ghostSpentOptions"
-              :value="tower.ghostSpentMark"
-              @input="pickGhostSpentMark"
-            />
-          </span>
-        </span>
+          </template>
 
-        <span class="ht-set-line ht-set-line-endshow">
-          <span class="tw-lead">
-            <span class="label">
-              <!-- FT-1326a: the ceremony's own evil-wins emblem (the demon
-                   team glyph the end banner paints) — the FT-1321 veil read
-                   as nothing at 22px ("wtf is that?"); the tentacle had
-                   already lost the same audition as a red sliver. -->
-              <img
-                class="row-mark"
-                :src="uiEndReveal"
-                alt="End reveal"
-                title="The end-of-game show"
-              />
-              <span class="row-name" v-if="!iconsOnly">End reveal</span>
+          <!-- ── FT-1348 (user): THE AUTOMATIONS PANE — the rail's third
+             group, replacing the FT-1327 folded dropdown outright on this
+             face. One row per rule: its mark (an agnostic rule the fork's
+             own art, a role-declared rule the ROLE's token —
+             automationRules, verbatim), its name, its checkbox, and — new
+             here — the rule's one-line description made VISIBLE (each
+             rule's authored `title`, hover-only in the dropdown era).
+             Role-scoping unchanged: absent role, absent row. Same options,
+             same tower writes (pickAutomation) — the rows RE-HOUSED, not
+             rewritten. The wand fronts the rail leaf, and the "N of 6"
+             summary rides there with it. -->
+          <template v-if="gameGroup === 'automations'">
+            <span
+              v-for="rule in automationRules"
+              :key="rule.key"
+              class="ht-set-line ht-auto-row"
+            >
+              <span class="tw-lead">
+                <span class="label">
+                  <!-- FT-1321/FT-1322: every rule row wears painted art — an
+                   agnostic rule the fork's own mark for its subject (noose,
+                   death mark, ghost cowl), a role-declared rule the ROLE'S
+                   token icon, resolved in automationRules below. -->
+                  <img
+                    class="row-mark"
+                    :src="rule.mark"
+                    :alt="rule.label"
+                    :title="rule.title"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">{{
+                    rule.label
+                  }}</span>
+                </span>
+                <OptionCheck
+                  :name="'auto-' + rule.key"
+                  :aria-label="rule.label"
+                  on-value="on"
+                  :options="automationOptions(rule)"
+                  :value="tower[rule.key] ? 'on' : 'off'"
+                  @input="(v) => pickAutomation(rule.key, v)"
+                />
+              </span>
+              <!-- the rule's own sentence under its name — the grid's full-width
+               shelf, indented past the mark so it reads as the name's second
+               line. Icons-only folds it away with the names it explains. -->
+              <span class="ht-auto-desc" v-if="!iconsOnly">{{
+                rule.title
+              }}</span>
             </span>
-            <!-- FT-1268: Off/On, so a checkbox (see the Whisper marks row
-                 above for the user's call and what it does not change). -->
-            <OptionCheck
-              name="end-ceremony"
-              aria-label="Play the end-of-game animation"
-              on-value="on"
-              :options="endCeremonyOptions"
-              :value="tower.endCeremonyOn ? 'on' : 'off'"
-              @input="pickEndCeremony"
-            />
-          </span>
-        </span>
+          </template>
 
-        <!-- ── FT-1314: THE AUTOMATIONS GROUP ──────────────────────────────
+          <!-- ── FT-1314: THE AUTOMATIONS GROUP ──────────────────────────────
              One checkbox per rule the storyteller hands to the machine —
              per-town persisted on the tower shelf, synced live, ALL DEFAULT
              OFF. The vocabulary (labels, marks, the teaching titles) lives
@@ -1280,79 +1381,90 @@
              master row (there is no whole-group tower switch to put there).
              Each row keeps its FT-1321/FT-1322 mark, its teaching titles and
              its own tower write; only where the rows stand changed. -->
-        <span class="ht-set-line ht-set-line-auto ht-group-start">
-          <span class="tw-lead">
-            <span class="label">
-              <!-- FT-1326 (user): a cog reads as a SETTING, and the setting
+          <!-- FT-1348: STOOD DOWN, UNREACHED — the Automations pane above
+             replaced the folded dropdown (the rail gave the rules a whole
+             pane, so nothing needs folding). The summary trigger and the
+             hoisted list below keep their place per the house never-delete
+             rule; `automationsDropdownRetired` is a constant true, so this
+             gate never opens. -->
+          <template v-if="!automationsDropdownRetired">
+            <span class="ht-set-line ht-set-line-auto ht-group-start">
+              <span class="tw-lead">
+                <span class="label">
+                  <!-- FT-1326 (user): a cog reads as a SETTING, and the setting
                    menu's own leaf already wears one — this row means the
                    machine acting BY ITSELF, so it wears the wand instead. -->
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="magic"
-                title="Rules the storyteller hands to the machine"
-              />
-              <span class="row-name" v-if="!iconsOnly">Automations</span>
-            </span>
-            <button
-              type="button"
-              class="ht-menu-sum"
-              ref="menuSum-automations"
-              :class="{ open: menuListOpen === 'automations' }"
-              :aria-expanded="String(menuListOpen === 'automations')"
-              aria-controls="ht-menu-list-automations"
-              aria-label="Automations — choose which rules fire by themselves"
-              :title="
-                menuListOpen === 'automations'
-                  ? 'Close the rule list'
-                  : 'Choose which rules fire by themselves — each rule keeps its own switch inside'
-              "
-              @click="toggleMenuList('automations')"
-            >
-              <span class="ht-menu-sum-wrap">
-                <span class="ht-menu-sum-label">{{ automationSummary }}</span>
-                <span class="ht-menu-sum-sizer" aria-hidden="true">{{
-                  "0 of " + automationRules.length
-                }}</span>
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="magic"
+                    title="Rules the storyteller hands to the machine"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Automations</span>
+                </span>
+                <button
+                  type="button"
+                  class="ht-menu-sum"
+                  ref="menuSum-automations"
+                  :class="{ open: menuListOpen === 'automations' }"
+                  :aria-expanded="String(menuListOpen === 'automations')"
+                  aria-controls="ht-menu-list-automations"
+                  aria-label="Automations — choose which rules fire by themselves"
+                  :title="
+                    menuListOpen === 'automations'
+                      ? 'Close the rule list'
+                      : 'Choose which rules fire by themselves — each rule keeps its own switch inside'
+                  "
+                  @click="toggleMenuList('automations')"
+                >
+                  <span class="ht-menu-sum-wrap">
+                    <span class="ht-menu-sum-label">{{
+                      automationSummary
+                    }}</span>
+                    <span class="ht-menu-sum-sizer" aria-hidden="true">{{
+                      "0 of " + automationRules.length
+                    }}</span>
+                  </span>
+                  <font-awesome-icon icon="chevron-down" class="caret" />
+                </button>
               </span>
-              <font-awesome-icon icon="chevron-down" class="caret" />
-            </button>
-          </span>
-        </span>
-        <!-- the checklist — hoisted to <body> the moment it opens, exactly
+            </span>
+            <!-- the checklist — hoisted to <body> the moment it opens, exactly
              as the Control tab's lists are (the FT-1265 note above them);
              no grips, no master row (see the group note above). -->
-        <div
-          class="ht-menu-list"
-          id="ht-menu-list-automations"
-          ref="menuList-automations"
-          v-if="menuListOpen === 'automations'"
-          key="automations:list"
-        >
-          <div
-            v-for="rule in automationRules"
-            :key="rule.key"
-            class="ht-menu-item"
-          >
-            <!-- FT-1321/FT-1322: every rule row wears painted art — an
+            <div
+              class="ht-menu-list"
+              id="ht-menu-list-automations"
+              ref="menuList-automations"
+              v-if="menuListOpen === 'automations'"
+              key="automations:list"
+            >
+              <div
+                v-for="rule in automationRules"
+                :key="rule.key"
+                class="ht-menu-item"
+              >
+                <!-- FT-1321/FT-1322: every rule row wears painted art — an
                  agnostic rule the fork's own mark for its subject (noose,
                  death mark, ghost cowl), a role-declared rule the ROLE'S
                  token icon, resolved in automationRules below. -->
-            <img
-              class="row-mark"
-              :src="rule.mark"
-              :alt="rule.label"
-              :title="rule.title"
-            />
-            <span class="row-name">{{ rule.label }}</span>
-            <OptionCheck
-              :name="'auto-' + rule.key"
-              :aria-label="rule.label"
-              on-value="on"
-              :options="automationOptions(rule)"
-              :value="tower[rule.key] ? 'on' : 'off'"
-              @input="(v) => pickAutomation(rule.key, v)"
-            />
-          </div>
+                <img
+                  class="row-mark"
+                  :src="rule.mark"
+                  :alt="rule.label"
+                  :title="rule.title"
+                />
+                <span class="row-name">{{ rule.label }}</span>
+                <OptionCheck
+                  :name="'auto-' + rule.key"
+                  :aria-label="rule.label"
+                  on-value="on"
+                  :options="automationOptions(rule)"
+                  :value="tower[rule.key] ? 'on' : 'off'"
+                  @input="(v) => pickAutomation(rule.key, v)"
+                />
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -2030,6 +2142,55 @@ const SETUP_TABS = [
   },
 ];
 
+/**
+ * FT-1348 (user): THE GAME SETTINGS TAB'S RAIL — the tab stopped being one
+ * long scroll and became two columns, a left rail of groups and a right pane
+ * of the picked group's rows. The user's own grouping: what the town IS
+ * (General — the night checklist, the day's sounds and clock, the
+ * presentation pair, endgame folded in deliberately), what the town may SAY
+ * (Chat), and what the machine DOES (Automations — a real pane now, the
+ * FT-1327 folded dropdown stood down). Marks from the rows' own register:
+ * the sliders say "settings at large", Comments is the chat feature's
+ * established glyph (FT-1206), the wand is the machine acting by itself
+ * (FT-1326).
+ */
+const GAME_GROUPS = [
+  {
+    key: "general",
+    label: "General",
+    icon: "sliders-h",
+    title:
+      "The night checklist, the day's sounds and clock, how the town shows what happened",
+  },
+  {
+    key: "chat",
+    label: "Chat",
+    icon: "comments",
+    title: "What the town may say, and what trace a whisper leaves",
+  },
+  {
+    key: "automations",
+    label: "Automations",
+    icon: "magic",
+    title:
+      "Rules the storyteller hands to the machine — each with its own switch",
+  },
+];
+
+/** FT-1348: which group this browser last had open — a personal convenience,
+ *  not town state, so it rides localStorage directly (StatsOverlay's
+ *  COLS_KEY idiom) rather than the tower shelf or the account prefs. */
+const GAME_GROUP_KEY = "hostToolsGameGroup";
+function loadGameGroup() {
+  try {
+    const v = localStorage.getItem(GAME_GROUP_KEY);
+    return GAME_GROUPS.some((g) => g.key === v) ? v : "general";
+  } catch (e) {
+    // a browser refusing storage costs only the remembered pick
+    return "general";
+  }
+}
+
 // The four teams the setup table names, in the order every other surface in
 // this app states them (the reading order of a composition, best to worst).
 // Travellers are outside the table entirely — they sit beyond the base count
@@ -2162,6 +2323,18 @@ export default {
       // fresh town has chairs to fill before it has rules to set.
       setupTabs: SETUP_TABS,
       setupTab: "script",
+      // FT-1348: the Game settings tab's rail — its three groups, and which
+      // one is showing. UNLIKE setupTab above, the pick IS owed to the next
+      // reload (per this browser): a storyteller who lives in Automations
+      // should land there, so it loads from localStorage (loadGameGroup)
+      // and pickGameGroup writes it back.
+      gameGroups: GAME_GROUPS,
+      gameGroup: loadGameGroup(),
+      // FT-1348: the FT-1327 folded dropdown's stand-down latch — constant
+      // true, so the retired summary trigger + hoisted list in the template
+      // never render. Kept as a gate rather than deleted markup, per the
+      // house rule.
+      automationsDropdownRetired: true,
       // FT-1209: the strip's measured right inset — how far the tabs come in
       // off the strip's right edge so the last one stands over the gear
       // (alignTabs writes it; 0 until something is measured).
@@ -3108,6 +3281,18 @@ export default {
      *  module's own copy at the moment each rule is judged. */
     pickAutomation(key, v) {
       this.setTower(key, v === "on");
+    },
+    /** FT-1348: the rail's pick — show that group's pane and remember it for
+     *  this browser (the loadGameGroup read above the component). The
+     *  updated() hook re-asks measurePrefsOverflow by itself, so the disc's
+     *  scroll well lands or lifts with the pane's new height unasked. */
+    pickGameGroup(key) {
+      this.gameGroup = key;
+      try {
+        localStorage.setItem(GAME_GROUP_KEY, key);
+      } catch (e) {
+        // a browser refusing storage costs only the remembered pick
+      }
     },
     /** FT-1314: the two-option pair OptionCheck's contract wants, built from
      *  the rule's own authored titles. */
@@ -5293,6 +5478,109 @@ export default {
   // it. What differs between the two tabs is written under `.ht-game` after
   // this block (the compound rows' inner flex row, and the group air landing
   // on that wrapper rather than reaching the select inside it).
+  // ── FT-1348: THE GAME TAB'S TWO COLUMNS ─────────────────────────────────
+  // The wrap is the `.row` now; the rail and the pane are its two flex
+  // columns. `stretch` (overriding `.ht-settings`' center) is what hands the
+  // pane a definite height on the disc, where the band caps the wrap and the
+  // pane must scroll inside it (see the disc block's own FT-1348 note).
+  .ht-gamewrap {
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 14px;
+  }
+  // THE RAIL WEARS THE TAB STRIP'S LEAF VOCABULARY TURNED ON ITS SIDE: the
+  // strip's plum rule runs down the rail's RIGHT edge, each leaf is the
+  // same plate (dark ground, quiet plum edge, corners rounded away from the
+  // rule), and the chosen leaf is FT-1108's purple restatement of
+  // `control-lit` bleeding over the rule — the same join, rotated 90°.
+  .ht-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    border-right: 2px solid rgba(120, 105, 135, 0.45);
+  }
+  .ht-rail-item {
+    @include control-cell;
+    // the cell mixin's seam belongs to a segment; these are separate leaves
+    border-right: 0;
+    // A GRID, NOT A WRAPPING FLEX ROW — deliberately. A flex row that wraps
+    // still MEASURES as one line (max-content ignores the wrap), so the
+    // Automations leaf's second line ("0 of 6") was widening the whole rail
+    // by its own width. Explicit grid placement measures the two lines as
+    // the two lines they are: mark | name on row one, the summary under the
+    // name on row two.
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    justify-items: start;
+    text-align: left;
+    column-gap: 6px;
+    row-gap: 1px;
+    padding: 5px 10px 5px 8px;
+    font-size: 85%;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(120, 105, 135, 0.28);
+    border-right: 0;
+    border-radius: $control-radius 0 0 $control-radius;
+    color: rgba(255, 255, 255, 0.72);
+    &:hover {
+      color: #ece4f8;
+      border-color: rgba(150, 130, 175, 0.55);
+      background: rgba(150, 130, 175, 0.12);
+    }
+    &.on {
+      background: rgba(96, 74, 128, 0.42);
+      border-color: rgba(167, 143, 205, 0.85);
+      color: #ece4f8;
+      font-weight: bold;
+      // the join: a transparent right edge pulled over the rail's rule, so
+      // the line breaks at this leaf and the pane reads as its contents.
+      border-right: 2px solid transparent;
+      margin-right: -2px;
+      &:hover {
+        color: white;
+        background: rgba(96, 74, 128, 0.42);
+        border-color: rgba(167, 143, 205, 0.85);
+        border-right-color: transparent;
+      }
+    }
+    // the strip's own focus-ring override (FT-1175: purple, not the shared
+    // blood), restated for the rail's leaves.
+    &:focus-visible {
+      outline-color: rgba(150, 130, 175, 0.9);
+    }
+  }
+  .ht-rail-mark {
+    grid-column: 1;
+    width: 15px;
+    height: 15px;
+    opacity: 0.8;
+    &.svg-inline--fa {
+      width: 15px;
+      height: 15px;
+    }
+  }
+  .ht-rail-name {
+    grid-column: 2;
+  }
+  // the Automations leaf's "N of 6" face — the folded dropdown's summary
+  // (FT-1327), demoted to a second quiet line under the leaf's name.
+  .ht-rail-sum {
+    grid-column: 2;
+    font-size: 78%;
+    font-weight: normal;
+    opacity: 0.7;
+  }
+  // THE PANE takes what the rail leaves.
+  .ht-gamewrap > .ht-game {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .ht-prefs,
   .ht-game {
     // ── FT-1264: THE TAB IS A GRID — the ragged labels' actual fix ────────
@@ -5474,6 +5762,22 @@ export default {
     .ht-group-start .ht-set-ctl > .gsel,
     .ht-group-start .ht-set-ctl > .gcheck {
       margin-top: 0;
+    }
+    // ── FT-1348: THE AUTOMATIONS PANE'S DESCRIPTION SHELF ─────────────────
+    // Each rule's authored `title` sentence, visible at last (hover-only in
+    // the dropdown era). A full-width grid item — NOT part of the label
+    // cell, where its max-content width would blow the label track out and
+    // shove every checkbox to the pane's far edge — pulled up toward its
+    // own row and indented past the 22px mark + the name's 10px gap so it
+    // reads as the name's second line. Quiet ink: the description teaches;
+    // the name and the box act.
+    .ht-auto-desc {
+      grid-column: 1 / -1;
+      margin: -5px 0 3px 32px;
+      font-size: 72%;
+      line-height: 1.35;
+      opacity: 0.55;
+      text-align: left;
     }
   }
 
@@ -6161,28 +6465,61 @@ export default {
       // the same founding rule that already keeps the Control tab's two
       // PICKER rows on full lines ("a select carrying words cannot live in a
       // half-cell"). One column, and the well where one column does not fit.
-      > .row.ht-settings.ht-game {
+      //
+      // FT-1348 RESHAPED WHO SHRINKS AND WHO SCROLLS, not the contract: the
+      // tab is a rail + pane pair now, so the WRAP is the band's shrinking
+      // row and the PANE is the scroller under the drip bar — the rail
+      // stands its full (short) height beside it. The rail also means each
+      // pane holds a GROUP's rows, not all eleven, so the well lands far
+      // less often than it did; the machinery stays for the panes that
+      // still outrun a pinched band. ("No two-column dress" above meant the
+      // Control tab's half-cell PAIRING of rows — the rail is a different
+      // animal and does not touch that rule.)
+      > .row.ht-settings.ht-gamewrap {
         flex-shrink: 1;
         min-height: 0;
-        overflow-y: auto;
-        // a grid told to shrink must not SPREAD its rows over slack height
-        // (`normal` stretches auto rows); a settings list floats apart
-        // exactly when it has room to spare, the one state it should look
-        // calmest in — `.ht-prefs`'s own reasoning, same words.
-        align-content: start;
+        // the band's own `> .row { flex-wrap: wrap }` two screens up would
+        // fold the pane UNDER the rail — the two columns ARE the shape here,
+        // so the wrap is refused and the pane pays in width instead (its
+        // grid's FT-1264 shrink/ellipsis machinery absorbs the pinch).
+        flex-wrap: nowrap;
+        gap: 10px;
+        // …and the rail tightens for the band: the leaves take the well's
+        // own 80% type and shed 2px of padding — the pane's rows are what
+        // the width is for.
+        .ht-rail-item {
+          font-size: 80%;
+          padding: 4px 8px 4px 6px;
+        }
+        // …and a compound row's sentence may FOLD where the narrowed pane
+        // cannot carry it whole (measured: the whisper seconds pair ran
+        // 27px past the pane's edge at the 403px pinched band, clipping
+        // "sec"). The scrub steps under its own checkbox instead — bent
+        // beats beheaded; everywhere the pane affords the width, nothing
+        // wraps and the sentence reads exactly as before.
+        .ht-set-ctl {
+          flex-wrap: wrap;
+          row-gap: 2px;
+        }
+        > .ht-game {
+          min-height: 0;
+          overflow-y: auto;
+          // a grid told to shrink must not SPREAD its rows over slack height
+          // (`normal` stretches auto rows); a settings list floats apart
+          // exactly when it has room to spare, the one state it should look
+          // calmest in — `.ht-prefs`'s own reasoning, same words.
+          align-content: start;
 
-        &.scrolls {
-          // the drip's 30px lane, and the well coming in off the rim — the
-          // Control tab's numbers, unchanged: same box, same corner, same
-          // ellipse (see that block for the derivation).
-          padding-right: 30px !important;
-          margin-left: 18px;
-          margin-right: 18px;
-          // the well is the narrowest dress this tab has: the margins and
-          // the lane take 66px, and a compound row's control side is a
-          // select plus a scrub plus a word. So the label track caps and the
-          // names take the 80% type, exactly as the Control tab's well does
-          // — what width is left goes to the controls.
+          // FT-1348: THE COMPACT TYPE IS THE PANE'S DISC DRESS NOW, not the
+          // well's alone. On the single scroll the 80% names and capped
+          // label track came only with `.scrolls`; beside the rail the pane
+          // is ~140px narrower, and even the ROOMIEST disc's pane (339px at
+          // 1920x1080, measured) cannot carry the night checklist's or the
+          // Day timer's sentence at full type — at HEAD-of-lane the day
+          // scrub sat clipped against the pane's edge pretending to fit. At
+          // 80% every General row needs ≤297px and reads whole. One type
+          // size per face, too: the groups no longer flicker between
+          // dresses as the rail pick changes the pane's height.
           grid-template-columns: fit-content(6.6em) minmax(0, 1fr);
           column-gap: 10px;
           .row-name {
@@ -6190,11 +6527,31 @@ export default {
             text-align: left;
             line-height: 1.25;
           }
+          // …reaching the night checklist's own restated name too (its 90%
+          // is scoped inside NightModeRow, where only `::v-deep` lands —
+          // that component's `.ht-game.scrolls` rule still answers for the
+          // scrolling well; this covers the disc's non-scrolling panes).
+          ::v-deep .night-mode .row-name {
+            font-size: 80%;
+            line-height: 1.25;
+          }
           ::v-deep .gsel .trigger {
             font-size: 80%;
           }
           .tw-daylen-unit {
             font-size: 70%;
+          }
+
+          &.scrolls {
+            // the drip's 30px lane, and the well coming in off the rim — the
+            // Control tab's numbers, unchanged: same box, same corner, same
+            // ellipse (see that block for the derivation). FT-1348: the
+            // 18px side margins went with the single scroll — the rail
+            // already insets the pane's left edge, and the right keeps a
+            // slimmer stand-off so the narrower pane spends its width on
+            // rows.
+            padding-right: 30px !important;
+            margin-right: 12px;
           }
         }
       }
