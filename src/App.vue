@@ -714,15 +714,15 @@
           type="button"
           class="post-watch-btn"
           :class="{ open: watchersOpen }"
-          :title="`${spectators.length} watching — open the list`"
-          :aria-label="`${spectators.length} watching — open the list`"
+          :title="`${spectators.length} spectating — open the list`"
+          :aria-label="`${spectators.length} spectating — open the list`"
           @click="watchersOpen = !watchersOpen"
         >
           <font-awesome-icon icon="users" />
           <span class="post-watch-count">{{ spectators.length }}</span>
         </button>
         <div class="post-watch-list" v-if="watchersOpen">
-          <div class="post-watch-head">{{ spectators.length }} watching</div>
+          <div class="post-watch-head">{{ spectators.length }} spectating</div>
           <div class="post-watch-row" v-for="w in spectators" :key="w.id">
             <span class="post-watch-name" :class="{ anon: !w.name }">{{
               w.name || "Anonymous watcher"
