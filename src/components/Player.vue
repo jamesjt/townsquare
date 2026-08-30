@@ -2290,6 +2290,14 @@ export default {
       // they just tried to tap finds the words they already read in the
       // middle of the dial rather than a second, differently-worded one.
       if (this.nightPickLocked) {
+        // FT-1330: a receive-only role's coin hover says the same received
+        // sentence NightCall puts on the face — one wording, both places.
+        const call = this.nightCall;
+        if (call && call.receiveOnly) {
+          if (this.nightSlot < 0) return "Storyteller received your choice.";
+          const deed = call.received ? " " + call.received : "";
+          return "Storyteller received your choice — " + who + deed + ".";
+        }
         const stands = "The storyteller has answered — your choice stands";
         if (this.nightSlot < 0) return stands;
         return "You chose " + who + " — " + stands;
