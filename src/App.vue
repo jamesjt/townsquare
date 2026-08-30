@@ -287,6 +287,42 @@
             @input="pickChairOpacity($event.target.value)"
           />
         </label>
+        <!-- FT-1323 round 3 (user): "chair needs to be brighter still, less
+             stone maybe? more white? can we make that a slider" — one dial,
+             stone (#9a9285) at 0 to pure white at 1. Publishes --chair-ink
+             (chairArt.js); unset (today's per-surface look) until dragged. -->
+        <label class="ch-dial" title="Chair tone — publishes --chair-ink">
+          <span class="ch-dial-label">Tone {{ chairToneV.v.toFixed(2) }}</span>
+          <input
+            type="range"
+            :min="chairToneMin"
+            :max="chairToneMax"
+            step="0.05"
+            :value="chairToneV.v"
+            @input="pickChairTone($event.target.value)"
+          />
+        </label>
+        <!-- FT-1323 round 3 (user): "the size of it as slider for each place
+             it shows up" — one dial per chair surface, each publishing its
+             own --chair-size-<key> multiplier; 1.0 = today's box. -->
+        <label
+          class="ch-dial"
+          v-for="s in chairSizeSurfaces"
+          :key="s.key"
+          :title="`${s.label} size — publishes --chair-size-${s.key}`"
+        >
+          <span class="ch-dial-label"
+            >{{ s.label }} {{ chairSizeV[s.key].toFixed(2) }}</span
+          >
+          <input
+            type="range"
+            :min="chairSizeMin"
+            :max="chairSizeMax"
+            step="0.05"
+            :value="chairSizeV[s.key]"
+            @input="pickChairSize(s.key, $event.target.value)"
+          />
+        </label>
       </div>
     </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
@@ -1190,12 +1226,24 @@ import { COINS, coinChoice /* , applyCoin */ } from "./golem/coinArt";
 // later call. Importing the module also paints the remembered pick at startup.
 // FT-1323/FT-1350: the lab's OPACITY dial — chairOpacity/applyChairOpacity
 // publish the --chair-opacity root var beside the pick's --chair.
+// FT-1323 round 3: the lab's TONE dial (stone -> white, --chair-ink) and the
+// per-surface SIZE dials (--chair-size-<key>, one per place the chair shows
+// up — CHAIR_SIZE_SURFACES names them for the template's v-for).
 import {
   CHAIRS,
   chairChoice,
   applyChair,
   chairOpacity,
   applyChairOpacity,
+  chairTone,
+  applyChairTone,
+  CHAIR_TONE_MIN,
+  CHAIR_TONE_MAX,
+  chairSize,
+  applyChairSize,
+  CHAIR_SIZE_MIN,
+  CHAIR_SIZE_MAX,
+  CHAIR_SIZE_SURFACES,
 } from "./golem/chairArt";
 // FT-1350: the pill's spectator-grimoire toggle — the same tower shelf the
 // General pane's (now stood-down) row wrote, read through the same event.
@@ -1940,6 +1988,15 @@ export default {
       // FT-1323/FT-1350: the lab's opacity dial — the module's observable,
       // held here so the readout re-renders as it is dragged.
       chairOp: chairOpacity,
+      // FT-1323 round 3: the tone dial (stone -> white) and the per-surface
+      // size dials — same observable-held-here pattern as the opacity dial.
+      chairToneMin: CHAIR_TONE_MIN,
+      chairToneMax: CHAIR_TONE_MAX,
+      chairToneV: chairTone,
+      chairSizeMin: CHAIR_SIZE_MIN,
+      chairSizeMax: CHAIR_SIZE_MAX,
+      chairSizeSurfaces: CHAIR_SIZE_SURFACES,
+      chairSizeV: chairSize,
       // the drip lab
       drOpen: false,
       dripRef: dripKnobs,
@@ -2062,6 +2119,14 @@ export default {
      *  as the pick above (localStorage, no pref). */
     pickChairOpacity(v) {
       applyChairOpacity(v);
+    },
+    /** FT-1323 round 3: the chair lab's tone dial (stone -> white). */
+    pickChairTone(v) {
+      applyChairTone(v);
+    },
+    /** FT-1323 round 3: one of the chair lab's per-surface size dials. */
+    pickChairSize(key, v) {
+      applyChairSize(key, v);
     },
     // FT-1258: the Labs door — open/collapse the whole column, remembered
     // per browser so the resting choice survives a reload.
@@ -3591,7 +3656,9 @@ video#background {
     gap: 6px;
     padding: 2px 3px;
     .ch-dial-label {
-      width: 86px;
+      /* FT-1323 round 3: widened from 86px — "Claim hint 1.00" (the size
+         dials' longest label) no longer fits the opacity dial's own width. */
+      width: 96px;
       opacity: 0.75;
       font-size: 12px;
       color: #d8cdb4;

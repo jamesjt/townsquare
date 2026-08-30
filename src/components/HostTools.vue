@@ -5041,12 +5041,21 @@ export default {
       // FT-1337: the chair variant is a masked span on var(--chair) — the
       // mask on a ::before so the drop-shadow above traces the masked shape,
       // painted with the bone the baked svg carried.
+      // FT-1323 round 3: the lab's "Seats row" size dial — overrides the
+      // 22px above (two classes beats one, no !important needed), 1.0 =
+      // this same 22px box.
+      &.chair-mark {
+        width: calc(22px * var(--chair-size-seatsrow, 1));
+        height: calc(22px * var(--chair-size-seatsrow, 1));
+      }
       &.chair-mark::before {
         content: "";
         display: block;
         width: 100%;
         height: 100%;
-        background-color: #cfc4ae;
+        // FT-1323 round 3: the lab's tone dial, unset until touched so this
+        // keeps its own bone ink (#cfc4ae) on a fresh session.
+        background-color: var(--chair-ink, #cfc4ae);
         // FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look).
         opacity: var(--chair-opacity, 1);
         -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
@@ -7041,12 +7050,18 @@ export default {
     display: block;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
     // FT-1337: the chair variant — see the settings block's twin note.
+    // FT-1323 round 3: the lab's "Seats row" size dial — see the twin note.
+    &.chair-mark {
+      width: calc(22px * var(--chair-size-seatsrow, 1));
+      height: calc(22px * var(--chair-size-seatsrow, 1));
+    }
     &.chair-mark::before {
       content: "";
       display: block;
       width: 100%;
       height: 100%;
-      background-color: #cfc4ae;
+      // FT-1323 round 3: the lab's tone dial — see the twin note.
+      background-color: var(--chair-ink, #cfc4ae);
       // FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look).
       opacity: var(--chair-opacity, 1);
       -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));

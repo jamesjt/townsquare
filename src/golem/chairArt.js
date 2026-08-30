@@ -101,3 +101,127 @@ export function applyChairOpacity(v) {
 }
 
 applyChairOpacity(storedOp);
+
+// ── FT-1323 round 3 (user): THE TONE DIAL ───────────────────────────────────
+// "chair needs to be brighter still, less stone maybe? more white? can we
+// make that a slider" — one 0-1 dial from the resting stone (#9a9285) to pure
+// white, published as a THIRD root var beside --chair/--chair-opacity:
+// --chair-ink. Every chair-mask consumer's paint color reads
+// `var(--chair-ink, <its own current color>)` — and the fallback is each
+// consumer's OWN color, not one shared value, because the five surfaces
+// don't all rest at the same ink today (open-mark/seat badge sit at stone
+// #9a9285; the pm-mark spans and HostTools' Seats row sit at bone #cfc4ae).
+// So THE VAR STAYS UNSET until the user actually moves the dial — publishing
+// a computed default here would flatten the bone surfaces toward stone on
+// every fresh load, which is exactly the "untouched dial changes something"
+// bug the fallback wiring exists to avoid. Once touched (localStorage
+// remembers it, same as the pick and the opacity dial), the resolved color
+// applies uniformly everywhere, which is the point of a single root var.
+export const CHAIR_TONE_MIN = 0;
+export const CHAIR_TONE_MAX = 1;
+
+const CHAIR_TONE_STONE = [0x9a, 0x92, 0x85]; // #9a9285, the dial's floor
+const CHAIR_TONE_WHITE = [0xff, 0xff, 0xff]; // the dial's ceiling
+
+function mixChairTone(t) {
+  const [r, g, b] = CHAIR_TONE_STONE.map((c, i) =>
+    Math.round(c + (CHAIR_TONE_WHITE[i] - c) * t),
+  );
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+const TONE_KEY = "golem.chairTone";
+let storedToneRaw = null;
+try {
+  storedToneRaw = localStorage.getItem(TONE_KEY);
+} catch (e) {
+  storedToneRaw = null;
+}
+const hasStoredTone = storedToneRaw !== null;
+let storedTone = parseFloat(storedToneRaw);
+if (!(storedTone >= CHAIR_TONE_MIN && storedTone <= CHAIR_TONE_MAX)) {
+  storedTone = CHAIR_TONE_MIN;
+}
+
+export const chairTone = Vue.observable({ v: storedTone });
+
+/** Publish the tone dial onto the root — every chair-mask surface follows
+ *  it once it's set, and only once it's set (see the note above). */
+export function applyChairTone(v) {
+  const n = Math.min(CHAIR_TONE_MAX, Math.max(CHAIR_TONE_MIN, parseFloat(v)));
+  const value = Number.isFinite(n) ? n : CHAIR_TONE_MIN;
+  chairTone.v = value;
+  document.documentElement.style.setProperty(
+    "--chair-ink",
+    mixChairTone(value),
+  );
+  try {
+    localStorage.setItem(TONE_KEY, String(value));
+  } catch (e) {
+    // storage off: the dial still works for this session
+  }
+}
+
+// Only replay a PREVIOUSLY-TOUCHED tone on load — a first-ever visit leaves
+// --chair-ink unset so every surface keeps its own native color.
+if (hasStoredTone) applyChairTone(storedTone);
+
+// ── FT-1323 round 3 (user): THE SIZE DIALS, ONE PER SURFACE ────────────────
+// "the size of it as slider for each place it shows up" — the chair mark
+// does not share one box across the app (26%-of-coin on the resting mark,
+// 28px on the claim hint, 1.15em in the seat menu, 22px in HostTools' Seats
+// row), so each surface gets its OWN multiplier var, `--chair-size-<key>`,
+// 1.0 = today's box exactly. Same remembered-per-key localStorage pattern.
+export const CHAIR_SIZE_MIN = 0.5;
+export const CHAIR_SIZE_MAX = 2;
+
+// The label is what the lab shows beside the slider; the key names the CSS
+// var (`--chair-size-${key}`) and the localStorage slot.
+export const CHAIR_SIZE_SURFACES = [
+  { key: "coin", label: "Empty coin" },
+  { key: "claim", label: "Claim hint" },
+  { key: "menu", label: "Seat menu" },
+  { key: "seatsrow", label: "Seats row" },
+];
+
+const SIZE_KEY_PREFIX = "golem.chairSize.";
+
+function readStoredSize(key) {
+  let raw = null;
+  try {
+    raw = parseFloat(localStorage.getItem(SIZE_KEY_PREFIX + key));
+  } catch (e) {
+    raw = null;
+  }
+  return raw >= CHAIR_SIZE_MIN && raw <= CHAIR_SIZE_MAX ? raw : 1;
+}
+
+const initialSizes = {};
+CHAIR_SIZE_SURFACES.forEach((s) => {
+  initialSizes[s.key] = readStoredSize(s.key);
+});
+
+export const chairSize = Vue.observable(initialSizes);
+
+/** Publish one surface's size multiplier onto the root. */
+export function applyChairSize(key, v) {
+  if (!CHAIR_SIZE_SURFACES.some((s) => s.key === key)) return;
+  const n = Math.min(CHAIR_SIZE_MAX, Math.max(CHAIR_SIZE_MIN, parseFloat(v)));
+  const value = Number.isFinite(n) ? n : 1;
+  chairSize[key] = value;
+  document.documentElement.style.setProperty(
+    `--chair-size-${key}`,
+    String(value),
+  );
+  try {
+    localStorage.setItem(SIZE_KEY_PREFIX + key, String(value));
+  } catch (e) {
+    // storage off: the dial still works for this session
+  }
+}
+
+// 1.0 matches every consumer's own CSS fallback, so replaying it on load —
+// even the never-touched default — is the same no-op the opacity dial relies
+// on (unlike the tone dial above, where the fallbacks disagree with each
+// other and an eager default would actually change something).
+CHAIR_SIZE_SURFACES.forEach((s) => applyChairSize(s.key, initialSizes[s.key]));

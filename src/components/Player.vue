@@ -4659,15 +4659,19 @@ li.swap:not(.from) .player::after {
      one element, so the drop-shadow must sit on the parent to trace the
      already-masked chair (the seat badge's own FT-1244 reasoning). */
   span.pm-mark.chair-mark {
-    width: 28px;
-    height: 28px;
+    /* FT-1323 round 3: the lab's per-surface size dial — "Claim hint",
+       1.0 = this same 28px box. */
+    width: calc(28px * var(--chair-size-claim, 1));
+    height: calc(28px * var(--chair-size-claim, 1));
     filter: brightness(1.35) drop-shadow(0 0 4px black);
     &::before {
       content: "";
       display: block;
       width: 100%;
       height: 100%;
-      background-color: #cfc4ae;
+      /* FT-1323 round 3: the lab's tone dial, unset until touched so this
+         keeps its own bone ink (#cfc4ae) on a fresh session. */
+      background-color: var(--chair-ink, #cfc4ae);
       /* FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look). */
       opacity: var(--chair-opacity, 1);
       -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
@@ -4780,7 +4784,9 @@ li.swap:not(.from) .player::after {
   aspect-ratio: 1;
   z-index: 2;
   pointer-events: none;
-  color: #9a9285;
+  /* FT-1323 round 3: the chair lab's tone dial (chairArt.js) — unset until
+     touched, so a fresh session still paints the resting stone below. */
+  color: var(--chair-ink, #9a9285);
   /* User call 2026-08-30 ("still too dark even with 100% opacity"): the dial
      is ABSOLUTE on the resting chair — 1.0 paints it solid; the old muted
      rest is dial 0.75, not a baked ceiling the slider could never clear. */
@@ -4798,9 +4804,11 @@ li.swap:not(.from) .player::after {
     -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
     mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
     /* `auto 26%` = the chair stands 26% of the coin tall (≈ the 28px the
-       claim invitation's own chair gets), width from the art's ratio. */
-    -webkit-mask-size: auto 26%;
-    mask-size: auto 26%;
+       claim invitation's own chair gets), width from the art's ratio.
+       FT-1323 round 3: scaled by the lab's per-surface size dial, 1.0 =
+       this same 26%. */
+    -webkit-mask-size: auto calc(26% * var(--chair-size-coin, 1));
+    mask-size: auto calc(26% * var(--chair-size-coin, 1));
     /* FT-1328: MIDDLE of the coin's face (was `center 78%`, low). */
     -webkit-mask-position: center;
     mask-position: center;
@@ -6396,8 +6404,13 @@ li.nominate .player .overlay .nominate-target {
    *
    * Every ink state still rides `color` untouched: `.player.you`'s townsfolk
    * blue, `.actor`'s bone hover (which now genuinely BRIGHTENS, the same
-   * gesture the strip marks make), and the claim flash's red. */
-  color: #9a9285;
+   * gesture the strip marks make), and the claim flash's red.
+   *
+   * FT-1323 round 3: the RESTING ink alone reads the lab's tone dial — the
+   * `.you`/`.actor`/flash states below keep their own semantic colors
+   * untouched, since those are identity/action signals, not the stone-vs-
+   * white texture the dial governs. */
+  color: var(--chair-ink, #9a9285);
   /* FT-1271 (user): "and lets make it more subtle" — the badge read as bright
    * white beside the name plate. The quiet is spent on OPACITY rather than on
    * the ink, deliberately: every ink state this badge has is load-bearing and
@@ -6717,8 +6730,10 @@ li.nominate .player .overlay .nominate-target {
      drop-shadow traces the masked shape (FT-1244 reasoning). */
   span.pm-mark.chair-mark {
     display: inline-block;
-    width: 1.15em;
-    height: 1.15em;
+    /* FT-1323 round 3: the lab's "Seat menu" size dial, 1.0 = this same
+       1.15em box. */
+    width: calc(1.15em * var(--chair-size-menu, 1));
+    height: calc(1.15em * var(--chair-size-menu, 1));
     vertical-align: -0.2em;
     margin-right: 2px;
     filter: brightness(1.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
@@ -6727,7 +6742,9 @@ li.nominate .player .overlay .nominate-target {
       display: block;
       width: 100%;
       height: 100%;
-      background-color: #cfc4ae;
+      /* FT-1323 round 3: the lab's tone dial, unset until touched so this
+         keeps its own bone ink (#cfc4ae) on a fresh session. */
+      background-color: var(--chair-ink, #cfc4ae);
       /* FT-1323/FT-1350: the chair lab's opacity dial (1 = today's look). */
       opacity: var(--chair-opacity, 1);
       -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
