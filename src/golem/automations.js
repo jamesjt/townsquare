@@ -87,7 +87,11 @@ export const AUTOMATION_RULES = [
   {
     key: "autoGhostVote",
     label: "Ghost votes",
-    mark: require("../assets/ui-ghost-vote-cowl.png"),
+    // FT-1326b (user): the SAME cowl the Ghost vote display row wears
+    // (HostTools' uiGhostCowl, FT-996's seat mark) — the cowl-hand composite
+    // this row wore first read as a different vocabulary than the row one
+    // group up that governs the same mark.
+    mark: require("../assets/ui-ghost-cowl.png"),
     title: "A dead raised hand spends its ghost vote at the vote's close",
     offTitle:
       "Off — the storyteller spends ghost votes by hand on the seat, as always",

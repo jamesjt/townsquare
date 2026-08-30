@@ -1230,10 +1230,10 @@
         <span class="ht-set-line ht-set-line-endshow">
           <span class="tw-lead">
             <span class="label">
-              <!-- FT-1321: the draped veil (the curtain a reveal lifts)
-                   replaces the FA theater-masks stand-in. The ceremony's own
-                   tentacle was auditioned first and lost — too tall for a
-                   22px box, it rendered as a red sliver. -->
+              <!-- FT-1326a: the ceremony's own evil-wins emblem (the demon
+                   team glyph the end banner paints) — the FT-1321 veil read
+                   as nothing at 22px ("wtf is that?"); the tentacle had
+                   already lost the same audition as a red sliver. -->
               <img
                 class="row-mark"
                 :src="uiEndReveal"
@@ -1256,34 +1256,87 @@
         </span>
 
         <!-- ── FT-1314: THE AUTOMATIONS GROUP ──────────────────────────────
-             One checkbox per rule the storyteller hands to the machine, in
-             the settings rows' own grammar (mark + name + OptionCheck) and
-             on the tower shelf like every row above — per-town persisted,
-             synced live, ALL DEFAULT OFF. The vocabulary (labels, marks,
-             the teaching titles) lives in golem/automations.js beside the
-             engine that acts on it, so the row a storyteller reads and the
-             rule that fires can never drift. `ht-group-start` opens the
-             group the way the bell and chat families open theirs. -->
-        <span
-          v-for="(rule, ruleIndex) in automationRules"
-          :key="rule.key"
-          class="ht-set-line ht-set-line-auto"
-          :class="{ 'ht-group-start': ruleIndex === 0 }"
-        >
+             One checkbox per rule the storyteller hands to the machine —
+             per-town persisted on the tower shelf, synced live, ALL DEFAULT
+             OFF. The vocabulary (labels, marks, the teaching titles) lives
+             in golem/automations.js beside the engine that acts on it, so
+             the row a storyteller reads and the rule that fires can never
+             drift.
+             FT-1327 (user): the rules FOLD INTO ONE ROW — the group had
+             grown past a stack of inline lines (three agnostic rules plus
+             one per role-declared automation in the script). Same dress as
+             the Control tab's menu rows (FT-1264's `.ht-menu-sum` summary
+             trigger + the FT-1265 body-hoisted `.ht-menu-list`), riding the
+             SAME machinery (toggleMenuList / hoistMenuList / placeMenuList
+             key it by ref name, so 'automations' is just one more key) —
+             minus the drag grips (rules have no order to give) and the
+             master row (there is no whole-group tower switch to put there).
+             Each row keeps its FT-1321/FT-1322 mark, its teaching titles and
+             its own tower write; only where the rows stand changed. -->
+        <span class="ht-set-line ht-set-line-auto ht-group-start">
           <span class="tw-lead">
             <span class="label">
-              <!-- FT-1321/FT-1322: every rule row wears painted art now — an
-                   agnostic rule the fork's own mark for its subject (noose,
-                   death mark, ghost-vote hand), a role-declared rule the
-                   ROLE'S token icon, resolved in automationRules below. -->
+              <!-- the machine's own face — the cog this panel already wears
+                   for settings (uiCog), fronting the group's one row -->
               <img
                 class="row-mark"
-                :src="rule.mark"
-                :alt="rule.label"
-                :title="rule.title"
+                :src="uiCog"
+                alt="Automations"
+                title="Rules the storyteller hands to the machine"
               />
-              <span class="row-name" v-if="!iconsOnly">{{ rule.label }}</span>
+              <span class="row-name" v-if="!iconsOnly">Automations</span>
             </span>
+            <button
+              type="button"
+              class="ht-menu-sum"
+              ref="menuSum-automations"
+              :class="{ open: menuListOpen === 'automations' }"
+              :aria-expanded="String(menuListOpen === 'automations')"
+              aria-controls="ht-menu-list-automations"
+              aria-label="Automations — choose which rules fire by themselves"
+              :title="
+                menuListOpen === 'automations'
+                  ? 'Close the rule list'
+                  : 'Choose which rules fire by themselves — each rule keeps its own switch inside'
+              "
+              @click="toggleMenuList('automations')"
+            >
+              <span class="ht-menu-sum-wrap">
+                <span class="ht-menu-sum-label">{{ automationSummary }}</span>
+                <span class="ht-menu-sum-sizer" aria-hidden="true">{{
+                  "0 of " + automationRules.length
+                }}</span>
+              </span>
+              <font-awesome-icon icon="chevron-down" class="caret" />
+            </button>
+          </span>
+        </span>
+        <!-- the checklist — hoisted to <body> the moment it opens, exactly
+             as the Control tab's lists are (the FT-1265 note above them);
+             no grips, no master row (see the group note above). -->
+        <div
+          class="ht-menu-list"
+          id="ht-menu-list-automations"
+          ref="menuList-automations"
+          v-if="menuListOpen === 'automations'"
+          key="automations:list"
+        >
+          <div
+            v-for="rule in automationRules"
+            :key="rule.key"
+            class="ht-menu-item"
+          >
+            <!-- FT-1321/FT-1322: every rule row wears painted art — an
+                 agnostic rule the fork's own mark for its subject (noose,
+                 death mark, ghost cowl), a role-declared rule the ROLE'S
+                 token icon, resolved in automationRules below. -->
+            <img
+              class="row-mark"
+              :src="rule.mark"
+              :alt="rule.label"
+              :title="rule.title"
+            />
+            <span class="row-name">{{ rule.label }}</span>
             <OptionCheck
               :name="'auto-' + rule.key"
               :aria-label="rule.label"
@@ -1292,8 +1345,8 @@
               :value="tower[rule.key] ? 'on' : 'off'"
               @input="(v) => pickAutomation(rule.key, v)"
             />
-          </span>
-        </span>
+          </div>
+        </div>
       </div>
 
       <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
@@ -1785,10 +1838,16 @@ import uiSeat from "../assets/ui-seat-front.svg";
 import uiRole from "../assets/ui-role.png";
 import uiScript from "../assets/ui-script.png";
 // FT-1321: the presentation pair's marks — the seat's unspent-ghost-vote
-// cowl (FT-996) for the Ghost vote row, and the draped veil for the switch
-// that shows or hides the end-of-game ceremony (the curtain a reveal lifts).
+// cowl (FT-996) for the Ghost vote row.
+// FT-1326a (user, on the veil: "wtf is that?"): the End reveal row wears the
+// ceremony's own EVIL-WINS emblem — the demon team glyph the FT-1053e banner
+// paints — instead of ui-veil3 (a draped bridal veil that read as nothing at
+// 22px). Auditioned against the townsfolk glyph (reads as "people", not "the
+// show") and the ceremony tentacle (the FT-1321 loser — a red sliver at row
+// size); the demon head is the one silhouette that survives 22px AND is
+// already the end-of-game show's own face.
 import uiGhostCowl from "../assets/ui-ghost-cowl.png";
-import uiEndReveal from "../assets/ui-veil3.png";
+import uiEndReveal from "../assets/blood/demon-glyph.png";
 // FT-1196: the people shuffle wears its own baked mark — ui-seat's chair over
 // an opposed pair of arrows (the exchange gesture, distinct from the seat
 // menu's single-arrow moves) — instead of sharing FA `random` with the roles
@@ -2571,6 +2630,17 @@ export default {
         }),
       );
       return AUTOMATION_RULES.concat(roleRules);
+    },
+    /** FT-1327: the folded group's one face — how many rules are armed, in
+     *  menuSummary's own compact grammar ("All 6" / "3 of 6"; "0 of 6" is
+     *  the everything-off default and says so). No master switch, so no
+     *  "Off" face — the count IS the whole state. */
+    automationSummary() {
+      const rules = this.automationRules;
+      const on = rules.filter((rule) => this.tower[rule.key]).length;
+      return on === rules.length && on > 0
+        ? "All " + on
+        : on + " of " + rules.length;
     },
     /** FT-1315: what marks a spent ghost vote — the two vocabularies. */
     ghostSpentOptions() {
