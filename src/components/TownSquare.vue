@@ -189,6 +189,11 @@
          exactly one client (the dying Imp's) for as long as the host's offer
          does. Renders nothing everywhere else; see the component's header. -->
     <StarpassPick />
+
+    <!-- FT-1340: the seatless viewer's quiet banner — "claim one, or watch."
+         Lives here because the chairs it points at are this component's
+         ring; renders nothing for the storyteller or anyone seated. -->
+    <SeatlessBanner />
   </div>
 </template>
 
@@ -204,6 +209,8 @@ import WhisperPlanes from "./WhisperPlanes";
 // FT-1314: the starpass chooser — the dying Imp's "who inherits" pick,
 // rendered only while that one client holds an offer.
 import StarpassPick from "./StarpassPick";
+// FT-1340: the seatless viewer's quiet banner — claim a chair, or watch.
+import SeatlessBanner from "./SeatlessBanner";
 // Golem fork (2026-08-19): who holds the demon's bluffs — the storyteller, the
 // demon, and the Lunatic. One rule, shared with the socket's sender (and, up
 // to FT-958, the menu strip's own toggle — that mark now lives here, see
@@ -244,6 +251,7 @@ export default {
     ReminderModal,
     WhisperPlanes,
     StarpassPick,
+    SeatlessBanner,
   },
   computed: {
     ...mapGetters({ nightOrder: "players/nightOrder" }),
