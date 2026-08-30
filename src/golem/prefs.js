@@ -369,6 +369,24 @@ const RING_DEFAULT_ORDER = [
   "move-player",
 ];
 
+/**
+ * FT-1345: the plate menu's default order — the user's own pictured
+ * arrangement ("Move player, Move role, Change role, Nominate/Ghost vote,
+ * Mark for execution, Kill/Revive, Add reminder, Whisper"), replacing the
+ * vocabulary's own order as the DEFAULT. Stated as slots, exactly like
+ * RING_DEFAULT_ORDER above — nominate names the nominate/ghost-vote pair.
+ */
+const PLATE_DEFAULT_ORDER = [
+  "move-player",
+  "move-role",
+  "role",
+  "nominate",
+  "execution",
+  "kill",
+  "reminder",
+  "whisper",
+];
+
 /** A full everything-on layout: the named ids first (unknown names dropped),
  *  then whatever vocabulary slots the list left out, in vocabulary order. */
 function defaultLayout(order) {
@@ -458,9 +476,10 @@ export const DEFAULT_PREFS = {
   // other half, moved off FT-1317's low position) stands alone.
   coinNumerals: true,
   // FT-1260: the per-menu layouts — everything on, at each menu's standing
-  // order (the plate's is the vocabulary's own; the ring's is FT-1219's).
+  // order (FT-1345 gives the plate its own blessed order; the ring's is
+  // FT-1219's).
   ctrlRingLayout: defaultLayout(RING_DEFAULT_ORDER),
-  ctrlPlateLayout: defaultLayout(SEAT_SLOT_IDS),
+  ctrlPlateLayout: defaultLayout(PLATE_DEFAULT_ORDER),
 };
 
 /** The live copy every surface reads. */

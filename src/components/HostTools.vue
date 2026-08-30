@@ -2463,7 +2463,11 @@ export default {
     },
     /** FT-1260.2: what a coin click may be assigned — Off, or any one slot
      *  of the vocabulary (the nominate/ghost-vote pair is one choice; which
-     *  of the two fires follows the seat's life state, the slot's rule). */
+     *  of the two fires follows the seat's life state, the slot's rule).
+     *  FT-1346: each option carries the slot's own mark (`img`, falling back
+     *  to `icon`) — OptionSelect's new optional per-option icon pathway —
+     *  so this picker wears the same art the plate/ring menus draw for the
+     *  same action. Off is deliberately bare: there is no mark for "nothing". */
     clickActionOptions() {
       return [
         { value: "off", label: "Off", title: "This click does nothing" },
@@ -2471,6 +2475,8 @@ export default {
           value: s.id,
           label: s.label,
           title: "This click runs " + s.label,
+          img: s.img,
+          icon: s.icon,
         })),
       ];
     },

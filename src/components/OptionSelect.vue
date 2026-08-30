@@ -92,6 +92,18 @@
         @click="choose(o)"
         @mousemove="activeIndex = i"
       >
+        <!-- FT-1346: an OPTIONAL per-option mark — a caller passes `img`
+             (a baked art src) or `icon` (a Font Awesome name) on the option
+             object and it is drawn before the label; a caller that passes
+             neither (every gsel today, before this) renders exactly as
+             before. `img` wins when an option carries both, same rule
+             seatActions' own resolvers use. -->
+        <img v-if="o.img" class="gsel-opt-icon" :src="o.img" alt="" />
+        <font-awesome-icon
+          v-else-if="o.icon"
+          class="gsel-opt-icon"
+          :icon="o.icon"
+        />
         {{ o.label }}
       </div>
     </div>
@@ -543,6 +555,12 @@ export default {
     // and the closed trigger above it already does
     text-align: left;
     cursor: pointer;
+    // FT-1346: flex so an option's optional icon (see the template note)
+    // sits beside its label rather than above it. A row with no icon is one
+    // text child in a flex box — the same line it drew before this.
+    display: flex;
+    align-items: center;
+    gap: 6px;
 
     // hover AND keyboard-active are the same state on this control — the
     // pointer moves `activeIndex`, so there is only ever one highlighted row
@@ -566,6 +584,22 @@ export default {
       min-height: 40px;
       display: flex;
       align-items: center;
+    }
+
+    // FT-1346: the optional per-option mark — sized and shadowed like every
+    // other row-mark in the app (HostTools' `.row-mark` / `.row-mark-fa`),
+    // just smaller: this one sits inside an 85%-font list row, not a
+    // settings row of its own.
+    .gsel-opt-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+      &.svg-inline--fa {
+        width: 16px;
+        height: 16px;
+      }
     }
   }
 }
