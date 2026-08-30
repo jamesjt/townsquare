@@ -2124,9 +2124,18 @@ export default {
      * which cost a player their seat numbers entirely; the user's rule above
      * untied it. FT-1294 has since retired that state altogether, so this
      * reads what it always should have — is anybody sitting here.
+     *
+     * FT-1328: gated on the viewer's own `coinNumerals` pref too — a LOCAL
+     * on/off (golem/prefs, PlayerSettings.vue's Seat section) that hides the
+     * numeral on every coin it would otherwise draw, empty or seated, so a
+     * viewer who turns it off sees the empty coin's centred resting chair
+     * stand alone.
      */
     showSeatNumeral() {
-      return !(this.player.role && this.player.role.id);
+      return (
+        this.prefs.coinNumerals !== false &&
+        !(this.player.role && this.player.role.id)
+      );
     },
     seatNumeral() {
       // IIII, not IV — the clockmaker's convention (user-confirmed)
@@ -2419,7 +2428,8 @@ export default {
       // trailing click must not open the plate menu (see onPlateClick).
       plateDragged: false,
       // FT-1169: this browser's own settings, snapshot-and-refresh (see the
-      // import note). Only `controlScheme` is read here.
+      // import note). `controlScheme` is read here; FT-1328 adds
+      // `coinNumerals` (showSeatNumeral below).
       prefs: { ...prefsState },
       // FT-1169: does this device HAVE a resting pointer? Read once — it is a
       // property of the machine, not of the session — and used to fall the
@@ -4667,18 +4677,23 @@ li.swap:not(.from) .player::after {
 /* FT-1317: THE RESTING CHAIR ON AN EMPTY COIN — see the template note. It is
    the claimed seat's badge recipe verbatim (mask painted with currentColor,
    FT-1283's stone ink and quiet, the parent's drop-shadow tracing the masked
-   shape), sat low on the coin because the Roman numeral owns the centre of
-   every roleless face. No pointer, no states — it is furniture, not a
-   control; the claim overlay above it is the control. */
+   shape). No pointer, no states — it is furniture, not a control; the claim
+   overlay above it is the control.
+
+   FT-1328 (user override): CENTRED, not low. FT-1317 sat the chair low
+   because the Roman numeral owned the coin's centre; the user has since
+   asked for the chair in the middle regardless of the numeral. When the
+   numeral is also up (FT-1328's `coinNumerals` pref, on by default) it steps
+   to the upper spot above the centred chair instead — see
+   `.open-mark ~ .seat-numeral` below — and with the pref off the chair
+   simply stands alone. */
 .player .open-mark {
   position: absolute;
   left: 0;
   /* THE BOX IS THE COIN'S OWN SQUARE — the numeral's aspect-ratio trick,
      for the numeral's reason: `.player` is taller than it is wide (coin +
      name plate), so a percentage of ITS height lands things off the coin's
-     face (the first render sat the chair astride the toothed rim). The
-     chair itself is painted by the mask, low on the face, clear of the
-     numeral that owns the centre. */
+     face (the first render sat the chair astride the toothed rim). */
   top: -0.8%;
   width: 100%;
   aspect-ratio: 1;
@@ -4700,8 +4715,9 @@ li.swap:not(.from) .player::after {
        claim invitation's own chair gets), width from the art's ratio. */
     -webkit-mask-size: auto 26%;
     mask-size: auto 26%;
-    -webkit-mask-position: center 78%;
-    mask-position: center 78%;
+    /* FT-1328: MIDDLE of the coin's face (was `center 78%`, low). */
+    -webkit-mask-position: center;
+    mask-position: center;
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
   }
@@ -4723,6 +4739,20 @@ li.swap:not(.from) .player::after {
   .player .claim-overlay ~ .seat-numeral {
     opacity: 0;
   }
+}
+/* FT-1328: THE CHAIR AND THE NUMERAL SHARE AN EMPTY COIN. The chair now
+   sits in the middle (see .open-mark above) — where the numeral used to
+   stand alone — so when both are up the numeral steps to the upper spot
+   where it can breathe, instead of overlapping the chair's back. `.open-mark`
+   only renders on an unclaimed seat (its own v-if), so this reach never
+   touches a SEATED coin's numeral: that one stays centred exactly as
+   before, because there is no chair under it to share room with. Higher
+   specificity than `.player > .seat-numeral` above (three classes vs two),
+   so it wins without needing source order. */
+.player .open-mark ~ .seat-numeral {
+  align-items: flex-start;
+  padding-top: 6%;
+  font-size: 1.5em;
 }
 
 /* FT-1319: THE RENAME ASK — the claim ask's own dress, ON the plate.

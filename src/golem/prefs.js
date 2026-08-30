@@ -448,6 +448,15 @@ export const DEFAULT_PREFS = {
   // tokens, bluff coins, the belief chips — and nobody else's view. The
   // default is the app's standing look, COINS[0].
   coinArt: COINS[0].id,
+  // FT-1328: WHETHER A COIN WEARS ITS ROMAN NUMERAL — a player-facing on/off,
+  // the Seat section of PlayerSettings.vue, following the FT-1318 coinArt
+  // pattern exactly (LOCAL, this browser only, rides the account sync).
+  // Default ON: the numeral is the chair's own name (Player.vue's
+  // showSeatNumeral note) and stays visible until a viewer turns it off.
+  // Off hides it everywhere it renders — the empty-seat numeral and any
+  // seated-coin numeral — so an empty coin's centred resting chair (FT-1328's
+  // other half, moved off FT-1317's low position) stands alone.
+  coinNumerals: true,
   // FT-1260: the per-menu layouts — everything on, at each menu's standing
   // order (the plate's is the vocabulary's own; the ring's is FT-1219's).
   ctrlRingLayout: defaultLayout(RING_DEFAULT_ORDER),
@@ -462,6 +471,10 @@ export const prefsState = { ...DEFAULT_PREFS };
 function sanitize(key, value) {
   switch (key) {
     case "setupIconsOnly":
+      return !!value;
+    // FT-1328: the coin numeral toggle — a plain boolean, same shape as
+    // setupIconsOnly above.
+    case "coinNumerals":
       return !!value;
     case "controlScheme":
       return CONTROL_SCHEMES.some((s) => s.id === value)

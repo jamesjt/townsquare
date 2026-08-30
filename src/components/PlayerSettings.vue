@@ -45,6 +45,24 @@
           @input="setPinVisibility"
         />
       </li>
+      <!-- FT-1328: the coin numeral toggle — genuinely on/off, so it wears
+           OptionCheck (FT-1268's rule) rather than a two-row select. Hiding
+           it hides the Roman numeral everywhere a coin draws one (the empty
+           seat's and any seated coin's); the resting chair FT-1328 centred
+           on an empty coin then stands alone. -->
+      <li
+        class="setting-row"
+        title="The Roman numeral every coin wears — turn it off to leave the resting chair alone on an empty seat"
+      >
+        <span class="setting-name">Coin numerals</span>
+        <OptionCheck
+          name="ps-coin-numerals"
+          aria-label="Coin numerals"
+          :options="numeralOptions"
+          :value="prefs.coinNumerals"
+          @input="setCoinNumerals"
+        />
+      </li>
 
       <!-- ── Timer ── the storyteller's vote seconds, restated here ──
            ONE MORE READER OF THE SAME STATE, not a new mechanism: the
@@ -123,6 +141,9 @@ import {
 // thumbnails read the coin PNGs directly; the pick itself rides setPref.
 import { COINS } from "../golem/coinArt";
 import OptionSelect from "./OptionSelect";
+// FT-1328: the coin-numeral row's control — a genuine on/off, OptionCheck's
+// own idiom (FT-1268), not a select.
+import OptionCheck from "./OptionCheck";
 // The vote card's own number control — the timer row is that control's
 // second mount, not a sibling implementation.
 import NumberScrub from "./NumberScrub";
@@ -134,7 +155,7 @@ const coinThumbs = require.context("../assets/coins", false, /\.png$/);
 
 export default {
   name: "PlayerSettings",
-  components: { OptionSelect, NumberScrub },
+  components: { OptionSelect, OptionCheck, NumberScrub },
   props: {
     /** The strip cog this menu hangs from — an element, so the plate can
      *  follow its rect across resizes instead of guessing (PrefsMenu's own
@@ -164,6 +185,22 @@ export default {
     /** FT-1318: the Appearance row's looks — the vocabulary itself. */
     coinOptions() {
       return COINS;
+    },
+    /** FT-1328: the coin-numeral row's option pair — On/Off, the same shape
+     *  PrefsMenu's control toggles build for OptionCheck. */
+    numeralOptions() {
+      return [
+        {
+          value: true,
+          label: "On",
+          title: "Every coin wears its Roman numeral",
+        },
+        {
+          value: false,
+          label: "Off",
+          title: "Hide the Roman numeral on every coin",
+        },
+      ];
     },
     pinRowTitle() {
       return this.hasHover
@@ -250,6 +287,11 @@ export default {
     },
     setPinVisibility(v) {
       setPref("pinVisibility", v);
+    },
+    /** FT-1328: one write, golem/prefs' usual round trip (sanitize, persist,
+     *  sync, PREFS_EVENT repaint — Player.vue's showSeatNumeral reads it). */
+    setCoinNumerals(on) {
+      setPref("coinNumerals", on);
     },
     // ── FT-1318: the coin picker ─────────────────────────────────────────
     /** The look's own art, at thumb size — never a name where the thing
