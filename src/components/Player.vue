@@ -474,10 +474,12 @@
         </template>
         <!-- First claim on this browser: ask the name in place, no dialog. -->
         <template v-else>
+          <!-- FT-1342 (user): no ghost text — the box asks plainly and the
+               aria-label keeps the field named for screen readers. -->
           <input
             ref="nameInput"
             v-model="claimName"
-            placeholder="Your name"
+            aria-label="Your name"
             spellcheck="false"
             @click.stop
             @keyup.enter.stop="submitClaimName"
@@ -826,7 +828,7 @@
         @mousedown="plateDragged = false"
         @mouseenter="nameHover = true"
         @mouseleave="nameHover = false"
-        :class="{ active: isMenuOpen || !!seatMenuAnchor }"
+        :class="{ active: isMenuOpen || !!seatMenuAnchor, renaming }"
         :draggable="String(canDragPlayer)"
         @dragstart="onPlayerDragStart"
       >
@@ -854,10 +856,12 @@
              `golem.playerName` stash submitClaimName writes, so the next
              claim offers the new name too. -->
         <div class="rename-ask" v-if="renaming" @click.stop>
+          <!-- FT-1342 (user): no ghost text (it read under the typed name);
+               the aria-label keeps the field named for screen readers. -->
           <input
             ref="renameInput"
             v-model="renameValue"
-            placeholder="Your name"
+            aria-label="Your name"
             spellcheck="false"
             maxlength="60"
             @click.stop
@@ -4725,6 +4729,22 @@ li.swap:not(.from) .player::after {
       border-color: #c9b3ef;
     }
   }
+  /* FT-1342 (user: the focus must be the app's purple, not red). The
+     app-wide input chrome (App.vue, 2026-08-17 — hairline border, BLOOD-RED
+     focus glow) compiles later in the bundle AND outranks the bare `input`
+     above, so this box was resting grey and focusing red; the purple up
+     there had stopped landing. The #townsquare hop outweighs that chrome
+     decisively and restates the ask's own inks — the selected controls'
+     #a78fcd resting, #c9b3ef focused — with the focus halo gone purple too
+     (SeatWhisper's own recipe, same 0.4). */
+  #townsquare & input {
+    border: 2px solid #a78fcd;
+    box-shadow: none;
+    &:focus {
+      border-color: #c9b3ef;
+      box-shadow: 0 0 7px rgba(167, 143, 205, 0.4);
+    }
+  }
   .go {
     cursor: pointer;
     &:hover {
@@ -4832,6 +4852,16 @@ li.swap:not(.from) .player::after {
    warning. Its own class rather than a reuse of `.claim-overlay` because
    that overlay renders only on an UNCLAIMED chair and carries a whole-coin
    claim click this box must not. */
+/* FT-1342 (user: "messy" — text under the typed name): while the rename ask
+   is up, the plate's OWN rendered name (and pronouns) showed through beneath
+   the input — two names in one small box. The plate text steps aside for the
+   ask (hidden, not removed — the ask sits inside `.name`, so everything else
+   in the plate goes quiet) and returns the moment the ask closes. */
+.player > .name.renaming > span,
+.player > .name.renaming > svg,
+.player > .name.renaming > .pronouns {
+  visibility: hidden;
+}
 .player > .name .rename-ask {
   position: absolute;
   left: -4px;
@@ -4859,6 +4889,17 @@ li.swap:not(.from) .player::after {
     outline: none;
     &:focus {
       border-color: #c9b3ef;
+    }
+  }
+  /* FT-1342: the same #townsquare hop as the claim ask above — the app-wide
+     chrome was turning this box grey-then-red too; the rename keeps the
+     selected controls' purple, halo included. */
+  #townsquare & input {
+    border: 2px solid #a78fcd;
+    box-shadow: none;
+    &:focus {
+      border-color: #c9b3ef;
+      box-shadow: 0 0 7px rgba(167, 143, 205, 0.4);
     }
   }
   .go {
