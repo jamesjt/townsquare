@@ -1,0 +1,6 @@
+<!-- ui-hand-up-cuff — CANDIDATE variant of the raised hand (user reference
+     2026-08-28: an open palm with a sleeve cuff below the wrist). The palm
+     is ui-hand-up.svg's exact Phosphor geometry scaled to make room
+     (0.72, centred), with a detached rounded cuff block beneath — the gap
+     is what makes the cuff read at 24px. currentColor; 256 grid. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><g transform="translate(35.8 4) scale(0.72)"><path d="M216,104v48a88,88,0,0,1-176,0V64a16,16,0,0,1,32,0v56a8,8,0,0,0,16,0V32a16,16,0,0,1,32,0v80a8,8,0,0,0,16,0V48a16,16,0,0,1,32,0v80.67A48.08,48.08,0,0,0,128,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V104a16,16,0,0,1,32,0Z"/></g><rect x="80" y="196" width="96" height="40" rx="10"/></svg>
