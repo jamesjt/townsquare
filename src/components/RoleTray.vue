@@ -932,22 +932,19 @@ $rt-disc-closes-gate: "(min-height: 1080px)";
       background-color: rgba(96, 74, 128, 0.42);
       border-color: rgba(167, 143, 205, 0.85);
     }
-    // SET ASIDE. Not dimmed the way a disabled control is — this tile is
-    // still fully pressable and still fully draggable onto a chair, and
-    // `control-disabled`'s fade would say otherwise. Greyed and hollow: the
-    // art loses its colour (the one cue that survives at 36px), the team
-    // ring comes back on a dashed edge, and the ground goes empty.
+    // SET ASIDE (FT-1335, user spec — the FT-1175 grayscale/brightness fade
+    // read as "too faint" once FT-1316 made a fresh town open with every
+    // tile in this state). NOT DESATURATED any more: the art keeps its full
+    // colour, the ground stays empty, and the state now lives entirely in
+    // the RING — a solid neutral grey, replacing the team colour AND the
+    // dashed style, so a set-aside tile can never be mistaken for a chosen
+    // (purple) one. No hover/focus override needed here: the base `:hover`
+    // (scale + drop-shadow) and `:focus-visible` (bone ring) rules already
+    // apply and read fine over full-colour art.
     &.off {
       background-color: transparent;
-      border-style: dashed;
-      filter: grayscale(0.85) brightness(0.62);
-    }
-    // FT-1201: `:focus` -> `:focus-visible` here too, or a clicked-off coin
-    // would keep the hover glow after the pointer left (focus stays parked).
-    &.off:hover,
-    &.off:focus-visible {
-      filter: grayscale(0.85) brightness(0.62)
-        drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+      border-style: solid;
+      border-color: rgba(170, 170, 170, 0.65);
     }
 
     // ARMED FOR THE NEXT SEAT — the tap path's own momentary state, and a
