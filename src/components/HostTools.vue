@@ -1283,12 +1283,12 @@
         <span class="ht-set-line ht-set-line-auto ht-group-start">
           <span class="tw-lead">
             <span class="label">
-              <!-- the machine's own face — the cog this panel already wears
-                   for settings (uiCog), fronting the group's one row -->
-              <img
-                class="row-mark"
-                :src="uiCog"
-                alt="Automations"
+              <!-- FT-1326 (user): a cog reads as a SETTING, and the setting
+                   menu's own leaf already wears one — this row means the
+                   machine acting BY ITSELF, so it wears the wand instead. -->
+              <font-awesome-icon
+                class="row-mark-fa"
+                icon="magic"
                 title="Rules the storyteller hands to the machine"
               />
               <span class="row-name" v-if="!iconsOnly">Automations</span>
@@ -6417,6 +6417,25 @@ export default {
       width: 18px;
       height: 18px;
     }
+  }
+  // FT-1326 (user): an UNCHECKED box was reading as no box at all. The cause
+  // is not the hoist (scoped styles ride the element's own `[data-v-…]`
+  // attribute wherever it moves, so `.gcheck`'s component styles were always
+  // landing here) — it is that OptionCheck's off state is `$control-bg`
+  // (black, 70%) behind a `$control-edge` (black, 2px) plate, and THIS list's
+  // own ground is `rgba(12, 8, 16, 0.96)` — an opaque near-black, not a
+  // blurred glass a translucent box can lighten by showing more of what is
+  // behind it (PrefsMenu's own `.gcheck:not(.on)` fix leans on exactly that
+  // blur, which this flat panel does not have). Every row in every list here
+  // shares the same plate, so every one of them was equally invisible off —
+  // Automations only made it UNMISSABLE because all six of its rows start
+  // off at once, with nothing lit beside them to read as "these are boxes".
+  // The fix is the plate's own HOVER dress, held at rest instead of waiting
+  // for the pointer: the one ground+edge pair this file already uses to say
+  // "a box is here" without saying "chosen" (that stays `.on`'s plum alone).
+  .gcheck:not(.on) {
+    background: $control-bg-hover;
+    border-color: $control-edge-hover;
   }
   // the drag dress: the grabbed line dims in place (the browser carries
   // its image), and the drop slot draws a seam in the grimoire's own

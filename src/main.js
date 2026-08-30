@@ -91,6 +91,10 @@ const faIcons = [
   "Key",
   "Link",
   "Lock",
+  // FT-1326: the Game-settings Automations row's mark — the wand says "the
+  // machine acts on its own", where the cog it wore before read as a
+  // settings control (the setting menu's own leaf already wears a cog).
+  "Magic",
   "Mask",
   "MinusCircle",
   // FT-1206: the whisper's SENT face — the flying mark, the toast, the
