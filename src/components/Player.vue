@@ -4781,7 +4781,10 @@ li.swap:not(.from) .player::after {
   z-index: 2;
   pointer-events: none;
   color: #9a9285;
-  opacity: 0.75;
+  /* User call 2026-08-30 ("still too dark even with 100% opacity"): the dial
+     is ABSOLUTE on the resting chair — 1.0 paints it solid; the old muted
+     rest is dial 0.75, not a baked ceiling the slider could never clear. */
+  opacity: var(--chair-opacity, 1);
   filter: drop-shadow(0 0 3px black);
   transition: opacity 200ms;
   &::before {
@@ -4790,9 +4793,6 @@ li.swap:not(.from) .player::after {
     width: 100%;
     height: 100%;
     background-color: currentColor;
-    /* FT-1323/FT-1350: the chair lab's opacity dial — multiplied over this
-       span's own resting 0.75, so the dial's default 1 is today's look. */
-    opacity: var(--chair-opacity, 1);
     /* FT-1337: the art comes from the chair lab's root var now (chairArt.js
        paints it at startup); the incumbent stays as the fallback. */
     -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));

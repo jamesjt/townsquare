@@ -64,11 +64,11 @@ applyChair(stored);
 
 // ── FT-1323/FT-1350 (user): THE OPACITY DIAL ────────────────────────────────
 // How strongly the chair mark paints, published as a SECOND root var beside
-// --chair: `--chair-opacity`, worn by every consumer of the chair mask on its
-// masked pseudo — MULTIPLIED over each surface's own resting opacity (the
-// empty coin's .open-mark keeps its 0.75, the invitation its 1), so the
-// default 1.0 is exactly today's look on every surface at once. Same legacy
-// lab pattern as the pick above: localStorage, no pref plumbing.
+// --chair: `--chair-opacity`, worn by every consumer of the chair mask.
+// ABSOLUTE on the resting coin chair (user call 2026-08-30: 1.0 = solid —
+// the old muted rest is dial 0.75, not a baked ceiling); the other surfaces
+// rest at full strength already, so the dial reads the same everywhere.
+// Same legacy lab pattern as the pick above: localStorage, no pref plumbing.
 export const CHAIR_OPACITY_MIN = 0.2;
 export const CHAIR_OPACITY_MAX = 1;
 
