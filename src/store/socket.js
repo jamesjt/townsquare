@@ -139,6 +139,10 @@ class LiveSession {
     this._reconnectTimer = null;
     this._players = {}; // map of players connected to a session
     this._pings = {}; // map of player IDs to ping
+    // FT-1344: HOST side — what each connected client said its name was
+    // (the third element of its ping; "" until it says). Only ever read for
+    // the watcher list: a SEATED player's name lives on the seat itself.
+    this._watcherNames = {};
     // FT-1289: armed by a spectator's _onOpen, spent by the first roster that
     // arrives after it — the one-shot permission to take a chair back. See
     // _updateGamestate.
@@ -348,11 +352,27 @@ class LiveSession {
   _ping() {
     this._handlePing();
     this._lastPingSent = new Date().getTime();
+    // FT-1344: a spectator's ping carries the name this browser goes by (the
+    // same remembered name a claim rides, golem.playerName) so the host's
+    // watcher list can say WHO is watching. The relay routes a player's ping
+    // to the HOST ALONE (server/index.js's ping branch), so the name reaches
+    // no other client. Capped defensively — this string rides every 30s.
+    let pingName = "";
+    if (this._isSpectator) {
+      try {
+        pingName = (localStorage.getItem("golem.playerName") || "")
+          .trim()
+          .substr(0, 40);
+      } catch (e) {
+        // storage refused — the watcher lists as anonymous, nothing breaks
+      }
+    }
     this._send("ping", [
       this._isSpectator
         ? this._store.state.session.playerId
         : Object.keys(this._players).length,
       "latency",
+      ...(this._isSpectator ? [pingName] : []),
     ]);
     clearTimeout(this._pingTimer);
     this._pingTimer = setTimeout(this._ping.bind(this), this._pingInterval);
@@ -516,6 +536,11 @@ class LiveSession {
       // its own. Always a direct frame from the host to the swept player.
       case "swept":
         this._handleSwept(params);
+        break;
+      // FT-1344: the storyteller showed this watcher out — always a direct
+      // frame to the one client it means. See _handleKicked.
+      case "kicked":
+        this._handleKicked(params);
         break;
       case "callback":
         // FT-880: THE RECEIVER'S REFUSAL. A call-back travels storyteller →
@@ -726,6 +751,12 @@ class LiveSession {
       // the self-healing no-op revoke. Skipped on a broadcast sync: grants
       // are per-seat by construction.
       this._syncGrimoireGrant(playerId);
+      // FT-1343: ...and the spectator feed's standing truth — a seatless
+      // watcher arriving (or everyone, on the deal's own broadcast sync)
+      // gets the grimoire when the town allows it, the self-healing revoke
+      // when it does not. Sent AFTER the grant sync so a watcher's frame is
+      // the one that stands. Seated ids are filtered inside; watchers only.
+      this.sendSpectatorGrimoire(playerId);
       // FT-1005: ...and each seat's own night rows — a joiner or reconnector
       // gets their notes back on the same full sync everything else rides.
       this.sendNightRows(playerId);
@@ -1231,7 +1262,7 @@ class LiveSession {
    * @param latency
    * @private
    */
-  _handlePing([playerIdOrCount = 0, latency] = []) {
+  _handlePing([playerIdOrCount = 0, latency, name] = []) {
     const now = new Date().getTime();
     if (!this._isSpectator) {
       // FT-1312: REGISTER THE ARRIVING PING BEFORE JUDGING ANYONE. The old
@@ -1243,6 +1274,12 @@ class LiveSession {
       // to their own late pings, repeatedly.
       if (playerIdOrCount && typeof playerIdOrCount === "string") {
         this._players[playerIdOrCount] = now;
+        // FT-1344: the name the pinging client goes by, for the watcher
+        // list. Only a real string writes; an old client's two-element ping
+        // leaves whatever was known standing.
+        if (typeof name === "string") {
+          this._watcherNames[playerIdOrCount] = name.trim().substr(0, 40);
+        }
         // FT-1312: A SWEPT PLAYER'S PING IS THEIR RETURN. The "swept"
         // notice sent at sweep time is lost on a frozen tab (frames
         // delivered to a sleeping page are dropped), so it is re-offered
@@ -1275,6 +1312,8 @@ class LiveSession {
         if (now - this._players[player] > this._pingInterval * 3) {
           delete this._players[player];
           delete this._pings[player];
+          // FT-1344: a gone connection leaves the watcher ledger too.
+          delete this._watcherNames[player];
         }
       }
       // remove claimed seats from players that are no longer connected
@@ -1325,6 +1364,11 @@ class LiveSession {
           );
         }
       }
+      // FT-1344: every host-side ping pass re-derives the watcher list —
+      // registrations, the timeout sweep and the seat sweep above are the
+      // three things that change who counts as "watching". Cheap (a filter
+      // over a handful of ids) and committed only on an actual change.
+      this._syncSpectators();
     } else if (latency) {
       // ping to ST
       this._store.commit("session/setPing", parseInt(latency, 10));
@@ -1411,10 +1455,13 @@ class LiveSession {
     delete this._players[playerId];
     // FT-1312: leaving the town retires any standing swept-seat offer.
     delete this._swept[playerId];
+    // FT-1344: ...and the watcher ledger's entry, and the list with it.
+    delete this._watcherNames[playerId];
     this._store.commit(
       "session/setPlayerCount",
       Object.keys(this._players).length,
     );
+    this._syncSpectators();
   }
 
   /**
@@ -1556,6 +1603,17 @@ class LiveSession {
     // Passing the real id (registered FIRST, see _handlePing's reorder)
     // makes the claim its own proof of life.
     this._handlePing([value, 0]);
+    // FT-1343: a chair changing THIS client's standing settles its grimoire
+    // window. Sitting down: the grant ledger's own truth is re-cut for the
+    // claimant (a pinned grant survives, anything else — the spectator
+    // feed's window included — is revoked; what they already saw stays
+    // theirs, the FT-1295 memory rule). Standing up: they are a watcher now,
+    // and the feed's standing truth reaches them like any other watcher's.
+    if (index >= 0) {
+      this._syncGrimoireGrant(value);
+    } else {
+      this.sendSpectatorGrimoire(value);
+    }
   }
 
   /**
@@ -1868,19 +1926,33 @@ class LiveSession {
       this._sendDirect(playerId, "grimoire", false);
       return;
     }
+    this._sendDirect(playerId, "grimoire", this._grimoirePayload(playerId));
+  }
+
+  /**
+   * FT-1343: ONE GRIMOIRE FRAME'S PAYLOAD — the `{ seats, bluffs }` body
+   * sendGrimoire has always sent, extracted so the spectator feed below
+   * sends the SAME shape through the same client-side arrival
+   * (_updateGrimoireGrant/grantGrimoire) rather than a parallel one.
+   *
+   * @param excludeId THE OWN-SEAT RULE, and it covers the tokens as well as
+   * the character. Skipping the recipient's own chair is FT-1003's guard
+   * against a seat reading its own truth out of its own grant (a Lunatic, a
+   * Drunk); their REMINDERS would reopen that hole from the side, because
+   * the tokens are the same secret written in words — "Drunk", "Poisoned",
+   * "Is the Demon", "Red herring" sitting on their own chair. One skip,
+   * both, which is also why this is a `return` on the seat rather than two
+   * filters that could drift apart. The Spy ends up complete about the town
+   * and silent about themselves, which is the shape of every other
+   * information character in the game. A SEATLESS recipient (FT-1343's
+   * watcher) matches no seat, so the same rule hands them the whole board —
+   * they have no chair to be protected from.
+   * @private
+   */
+  _grimoirePayload(excludeId) {
     const seats = [];
     this._store.state.players.players.forEach((player, index) => {
-      // THE OWN-SEAT RULE, and it covers the tokens as well as the character.
-      // Skipping the recipient's own chair is FT-1003's guard against a seat
-      // reading its own truth out of its own grant (a Lunatic, a Drunk); their
-      // REMINDERS would reopen that hole from the side, because the tokens are
-      // the same secret written in words — "Drunk", "Poisoned", "Is the
-      // Demon", "Red herring" sitting on their own chair. One skip, both,
-      // which is also why this is a `return` on the seat rather than two
-      // filters that could drift apart. The Spy ends up complete about the
-      // town and silent about themselves, which is the shape of every other
-      // information character in the game.
-      if (player.id === playerId) return;
+      if (player.id && player.id === excludeId) return;
       if (!player.role || !player.role.id) return;
       seats.push({
         index,
@@ -1898,7 +1970,139 @@ class LiveSession {
     for (let i = 0; i < BLUFF_COUNT; i++) {
       bluffIds.push((bluffs[i] && bluffs[i].id) || "");
     }
-    this._sendDirect(playerId, "grimoire", { seats, bluffs: bluffIds });
+    return { seats, bluffs: bluffIds };
+  }
+
+  /**
+   * FT-1344: the connected clients holding NO chair — the host's ping roster
+   * minus the seated ids. The watcher list and the spectator-grimoire feed
+   * both ask this one question.
+   * @private
+   */
+  _watcherIds() {
+    const seated = new Set(
+      this._store.state.players.players.map((p) => p.id).filter(Boolean),
+    );
+    return Object.keys(this._players).filter((id) => !seated.has(id));
+  }
+
+  /**
+   * FT-1344: derive the watcher list and put it in the store when it moved —
+   * the host-only mirror the panel renders. Sorted for a stable render
+   * (named first, then by id) and compared before committing so the 30s ping
+   * cadence does not churn the panel.
+   * @private
+   */
+  _syncSpectators() {
+    if (this._isSpectator) return;
+    const list = this._watcherIds()
+      .map((id) => ({ id, name: this._watcherNames[id] || "" }))
+      .sort((a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1));
+    const held = this._store.state.session.spectators || [];
+    if (
+      held.length === list.length &&
+      held.every((s, i) => s.id === list[i].id && s.name === list[i].name)
+    ) {
+      return;
+    }
+    this._store.commit("session/setSpectators", list);
+  }
+
+  /**
+   * FT-1343: THE SPECTATOR FEED — the whole grimoire to every seatless
+   * watcher, or the standing truth to one of them. Host only, dealt only,
+   * and the town's own setting (towerState.spectatorGrimoire, the tower
+   * shelf) is THE gate: while it is off nothing secret is built, let alone
+   * sent — a watcher's "public view only" is enforced at this send layer,
+   * not by the receiving client's paint.
+   *
+   * NEVER A BROADCAST, structurally — the sendBluffs/sendGrimoire rule: each
+   * watcher is addressed by id on the direct lane, so a seated client cannot
+   * receive a watcher's frame by any path through here. A watcher who SITS
+   * DOWN stops being in `_watcherIds` and their window is settled by
+   * `_syncGrimoireGrant` on the claim (see _updateSeat); what they already
+   * saw stays theirs — the FT-1295 memory rule, unchanged.
+   *
+   * @param playerId optional — just that one watcher (a joiner's full sync,
+   * a player standing up); omitted means every current watcher. When the
+   * setting is OFF this sends the self-healing revoke instead, so a flip
+   * lands on connected watchers and a stale window always closes.
+   */
+  sendSpectatorGrimoire(playerId = "") {
+    if (this._isSpectator) return;
+    if (!this._isDealt()) return;
+    const watchers = this._watcherIds().filter(
+      (id) => !playerId || id === playerId,
+    );
+    if (!watchers.length) return;
+    const on = !!towerState.spectatorGrimoire;
+    const payload = on ? this._grimoirePayload("") : false;
+    watchers.forEach((id) => this._sendDirect(id, "grimoire", payload));
+  }
+
+  /**
+   * FT-1344: SHOW A WATCHER OUT. Host only, and only ever a seatless viewer
+   * — a seated player's removal travels the seat tools' own frames, never
+   * this one. Two independent messages, so the kick lands whichever relay is
+   * deployed:
+   *
+   *   · a direct "kicked" frame to that client — it leaves the town and says
+   *     why on the door (the FT-890 landing, reused);
+   *   · a "kick" command to the RELAY, which closes that playerId's socket
+   *     with a REASONED code-1000 close — the one signal a client already
+   *     treats as "the relay put you out — leave, don't reconnect"
+   *     (FT-1011). That half is enforced at the wire: a client that ignores
+   *     the frame is disconnected anyway. On a relay from before the branch
+   *     the command falls through to the broadcast default, which every
+   *     client's message switch ignores — the direct frame still lands.
+   *
+   * KICKED IS NOT BANNED — the fork holds no ban primitive, and none is
+   * invented here: the same invite link walks them straight back in, which
+   * is the storyteller's own social problem to solve, not the wire's.
+   */
+  kickSpectator(playerId) {
+    if (this._isSpectator || !playerId) return;
+    if (!this._watcherIds().includes(playerId)) return;
+    this._sendDirect(
+      playerId,
+      "kicked",
+      "The storyteller ended your spectating in this town.",
+    );
+    this._send("kick", playerId);
+    // the host's own bookkeeping does not wait for the bye that may never
+    // come — the list says now what the town has decided.
+    delete this._players[playerId];
+    delete this._pings[playerId];
+    delete this._watcherNames[playerId];
+    delete this._swept[playerId];
+    this._store.commit(
+      "session/setPlayerCount",
+      Object.keys(this._players).length,
+    );
+    this._syncSpectators();
+  }
+
+  /**
+   * FT-1344: the "kicked" frame landing on THIS client — the storyteller
+   * showed a watcher out, and the watcher is us. Spectator only, and only
+   * while genuinely seatless (a client that sat down in the race window is
+   * a player now; if the storyteller still means it, the relay's close —
+   * aimed at the same decision — lands regardless). Leaving is the FT-890
+   * one-call landing: the entry screen, with the reason said in the app.
+   * @private
+   */
+  _handleKicked(reason) {
+    if (!this._isSpectator) return;
+    const me = this._store.state.session.playerId;
+    if (this._store.state.players.players.some((p) => p.id && p.id === me)) {
+      return;
+    }
+    leaveTown(this._store);
+    flashHint(
+      typeof reason === "string" && reason
+        ? reason
+        : "The storyteller ended your spectating in this town.",
+    );
   }
 
   /**
@@ -1932,6 +2136,11 @@ class LiveSession {
     if (this._isSpectator) return;
     const grants = this._store.state.session.grimoireGrants || {};
     Object.keys(grants).forEach((playerId) => this.sendGrimoire(playerId));
+    // FT-1343: a live spectator feed goes stale on exactly the changes the
+    // granted windows do, so it refreshes on the same beat. Only while ON —
+    // a refresh is never the thing that closes a window (the flip and the
+    // full sync own the revoke).
+    if (towerState.spectatorGrimoire) this.sendSpectatorGrimoire();
   }
 
   /**
@@ -2572,6 +2781,20 @@ export default (store) => {
     store.dispatch("chatCatchUp");
   });
 
+  // FT-1343: THE SPECTATOR-GRIMOIRE SETTING FLIPPED — the host delivers the
+  // new truth to every connected watcher NOW (the board when it went on, the
+  // revoke when it went off) rather than on their next full sync. The same
+  // change-only tower watcher the chat level rides above; a spectator's own
+  // event (a sync arriving) is dropped by the host guard.
+  let lastSpectatorGrimoire = towerState.spectatorGrimoire;
+  window.addEventListener(TOWER_EVENT, () => {
+    if (towerState.spectatorGrimoire === lastSpectatorGrimoire) return;
+    lastSpectatorGrimoire = towerState.spectatorGrimoire;
+    const { session: s } = store.state;
+    if (!s.sessionId || s.isSpectator) return;
+    session.sendSpectatorGrimoire();
+  });
+
   // FT-1010: the live game id as last seen, for spotting the moment it
   // CHANGES. `chatSetGameId` is committed on every gamestate sync, almost
   // always with the value it already had — only an actual change means the
@@ -2805,6 +3028,12 @@ export default (store) => {
       // thing and inherits the guard.
       case "session/callBack":
         session.callBack();
+        break;
+      // FT-1344: the storyteller shows a watcher out — the callBack idiom:
+      // the commit is the event, this is the one place it goes out (the
+      // direct frame + the relay's wire-level close; host-only inside).
+      case "session/kickSpectator":
+        session.kickSpectator(payload);
         break;
       case "session/setVoteHistoryAllowed":
         session.setVoteHistoryAllowed();

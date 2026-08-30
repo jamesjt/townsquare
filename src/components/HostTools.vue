@@ -1139,6 +1139,87 @@
                 />
               </span>
             </span>
+
+            <!-- ── FT-1343: SPECTATOR GRIMOIRE — may a seatless watcher see
+               the whole board? DEFAULT OFF: a watcher gets the public view
+               only, and the gate is the host's SEND layer (socket.js's
+               sendSpectatorGrimoire — nothing secret is put on the wire for
+               a watcher while this is off). Rides the tower shelf like every
+               row beside it: per-town persisted, synced live. The eye is the
+               granted-grimoire control's own mark (NightModeRow's Show). -->
+            <span class="ht-set-line ht-set-line-specgrim ht-group-start">
+              <span class="tw-lead">
+                <span class="label">
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="eye"
+                    title="May seatless spectators see the whole grimoire?"
+                  />
+                  <span class="row-name" v-if="!iconsOnly"
+                    >Spectator grimoire</span
+                  >
+                </span>
+                <OptionCheck
+                  name="spectator-grimoire"
+                  aria-label="Spectators see the grimoire"
+                  on-value="on"
+                  :options="spectatorGrimoireOptions"
+                  :value="tower.spectatorGrimoire ? 'on' : 'off'"
+                  @input="pickSpectatorGrimoire"
+                />
+              </span>
+            </span>
+
+            <!-- ── FT-1344: WHO IS WATCHING — the host's live list of
+               seatless viewers (as far as the town knows them: the name
+               their client offered, or anonymous), each with its Kick.
+               Filed beside the setting that governs what watchers see, so
+               "who watches" and "what they may see" read as one cluster.
+               Kicked is not banned — the same link walks them back in. -->
+            <span class="ht-set-line ht-set-line-watchers">
+              <span class="tw-lead">
+                <span
+                  class="label"
+                  title="Seatless viewers connected to this town right now"
+                >
+                  <font-awesome-icon
+                    class="row-mark-fa"
+                    icon="users"
+                    title="Who is watching this town"
+                  />
+                  <span class="row-name" v-if="!iconsOnly">Watching</span>
+                </span>
+                <span class="ht-watch-list">
+                  <span class="ht-watch-none" v-if="!spectators.length"
+                    >Nobody is watching.</span
+                  >
+                  <span class="ht-watch-count" v-if="spectators.length"
+                    >{{ spectators.length }} watching</span
+                  >
+                  <span
+                    class="ht-watch-row"
+                    v-for="w in spectators"
+                    :key="w.id"
+                  >
+                    <span
+                      class="ht-watch-name"
+                      :class="{ anon: !w.name }"
+                      :title="w.name || 'Anonymous watcher'"
+                      >{{ w.name || "Anonymous watcher" }}</span
+                    >
+                    <button
+                      type="button"
+                      class="ht-watch-kick"
+                      title="Disconnect this watcher from the town — they can rejoin by the same link"
+                      @click="kickWatcher(w.id)"
+                    >
+                      <font-awesome-icon icon="user-slash" />
+                      <span v-if="!iconsOnly">Kick</span>
+                    </button>
+                  </span>
+                </span>
+              </span>
+            </span>
           </template>
 
           <template v-if="gameGroup === 'chat'">
@@ -2881,6 +2962,28 @@ export default {
         },
       ];
     },
+    /** FT-1343: may a seatless watcher see the whole grimoire? */
+    spectatorGrimoireOptions() {
+      return [
+        {
+          value: "off",
+          label: "Off",
+          title:
+            "Watchers get the public view only — no roles, no tokens, no bluffs ever reach them",
+        },
+        {
+          value: "on",
+          label: "On",
+          title:
+            "Every seatless watcher is shown the whole grimoire, live — roles, reminder tokens and the demon's bluffs",
+        },
+      ];
+    },
+    /** FT-1344: the host's live watcher list — socket.js derives it from its
+     *  ping roster minus the seated ids and mirrors it here. */
+    spectators() {
+      return this.session.spectators || [];
+    },
     /** The heading's second line: finished games in this town plus the one
      *  being built now. "" (not "0 games") while gamesCount is unknown, which
      *  is the template's actual render gate. */
@@ -3264,6 +3367,18 @@ export default {
      *  shape, one tower key over. */
     pickWhisperTraffic(v) {
       this.setTower("whisperTraffic", v === "on");
+    },
+    /** FT-1343: the spectator-grimoire switch — a plain tower write; the
+     *  socket plugin watches the flip and delivers the new truth (board or
+     *  revoke) to every connected watcher at that moment. */
+    pickSpectatorGrimoire(v) {
+      this.setTower("spectatorGrimoire", v === "on");
+    },
+    /** FT-1344: show one watcher out — the callBack idiom: the commit is
+     *  the event; the socket plugin (host-only there) sends the direct
+     *  notice and the relay's wire-level close. */
+    kickWatcher(id) {
+      this.$store.commit("session/kickSpectator", id);
     },
     /** FT-1315: the spent-ghost-vote vocabulary — a plain tower write; the
      *  seats re-read on the tower's own event, this client and every synced
@@ -5745,6 +5860,65 @@ export default {
       gap: 8px;
       min-width: 0;
       max-width: 100%;
+    }
+    // FT-1344: THE WATCHER LIST is a full-width shelf under its label — the
+    // control track is sized for a checkbox, and a name + Kick pair clipped
+    // to it lost the names (measured on the first rig pass). Spanning both
+    // tracks is the pane grid's own expander idiom; auto-placement puts the
+    // shelf on the row after the label.
+    .ht-watch-list {
+      grid-column: 1 / -1;
+      justify-self: stretch;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+      min-width: 0;
+      max-width: 100%;
+      padding-left: 24px; // filed under its label, the nested-row indent
+    }
+    .ht-watch-none,
+    .ht-watch-count {
+      font-size: 82%;
+      opacity: 0.65;
+      white-space: nowrap;
+    }
+    .ht-watch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      max-width: 100%;
+    }
+    .ht-watch-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 180px;
+      &.anon {
+        opacity: 0.6;
+        font-style: italic;
+      }
+    }
+    .ht-watch-kick {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      color: #fff;
+      font: inherit;
+      font-size: 80%;
+      cursor: pointer;
+      &:hover,
+      &:focus-visible {
+        border-color: rgba(255, 80, 80, 0.7);
+        background: rgba(80, 0, 0, 0.45);
+      }
     }
     // THE GROUP AIR LANDS ON THE WRAPPER, NOT THE SELECT INSIDE IT. The
     // shared rule above reaches `.ht-group-start .gsel`, which on a compound

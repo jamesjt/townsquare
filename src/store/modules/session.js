@@ -67,6 +67,10 @@ const state = () => ({
   // not persisted; it exists so the moment is a fact somewhere rather than only
   // a side effect inside a click handler.
   calledBackAt: 0,
+  // FT-1344: when the storyteller last kicked a watcher (epoch ms, 0 = not
+  // this session). calledBackAt's own shape and reasoning — the commit is
+  // the event; this makes the moment a fact rather than only a side effect.
+  lastKickAt: 0,
   // FT-931: THE TOWN HAS ENDED. Written only by the root `endGame` /
   // `clearEnded` mutations (store/index.js) — never here directly — because
   // ending the game also clears the grimoire grants, another module's state
@@ -128,7 +132,13 @@ const state = () => ({
   // side only; players never hold it. Resolved through each seat's live
   // `player.id` at record time (EndGameOverlay), so a stale entry from a
   // refused or abandoned claim is inert. Transient like grimoireGrants above.
-  seatAccounts: {}
+  seatAccounts: {},
+  // FT-1344: WHO IS WATCHING — the host's live list of seatless viewers,
+  // [{ id, name }] (name is what the watcher's own client offered on its
+  // ping; "" when it never said). Host side only, derived by socket.js from
+  // its ping roster minus the seated ids — a player's client never receives
+  // it. Transient like seatAccounts above: not synced, not persisted.
+  spectators: []
 });
 
 const getters = {};
@@ -322,6 +332,26 @@ const mutations = {
    */
   callBack(state) {
     state.calledBackAt = Date.now();
+  },
+  /**
+   * FT-1344: the host's live watcher list — see the state note. Validated
+   * the way every derived list is: anything that is not [{id, name}] rows
+   * reads as empty, and a malformed row is dropped rather than rendered.
+   */
+  setSpectators(state, list) {
+    state.spectators = (Array.isArray(list) ? list : [])
+      .filter((s) => s && typeof s.id === "string" && s.id)
+      .map((s) => ({ id: s.id, name: String(s.name || "") }));
+  },
+  /**
+   * FT-1344: the storyteller shows a watcher out — the callBack idiom: the
+   * commit is the event, and the socket plugin (storyteller only there) is
+   * the one place it goes out. The list itself is corrected by the host's
+   * own bookkeeping the moment the kick lands (setSpectators above), so the
+   * only state written here is the moment, calledBackAt's own shape.
+   */
+  kickSpectator(state) {
+    state.lastKickAt = Date.now();
   },
   /**
    * FT-1003: grant, revoke, or re-pin one seat's grimoire window. Host only

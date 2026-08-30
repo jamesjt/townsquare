@@ -480,6 +480,41 @@ function admitClient(ws, held) {
           }
         });
         break;
+      case '"kick"':
+        // Golem fork (FT-1344): the host shows a watcher out. The relay is
+        // the ONE participant that can actually close a socket, so the
+        // wire-enforced half of a kick lives here: a REASONED code-1000
+        // close, which is the signal a client already treats as "the relay
+        // put you out — leave, don't reconnect" (the FT-1011 contract; the
+        // duplicate-host refusal and the spam disconnect use the same one).
+        // Host-only, the callback branch's own rule: without this check a
+        // hand-written ["kick","<id>"] from any player's console could
+        // disconnect anyone it named.
+        if (ws.playerId !== "host") {
+          console.log(new Date(), ws.channel, ws.playerId, "kick refused");
+          break;
+        }
+        try {
+          const target = String(JSON.parse(data)[1] || "").toLocaleLowerCase();
+          // never the host's own socket, and never an unnamed target
+          if (!target || target === "host") break;
+          channels[ws.channel].forEach(function each(client) {
+            if (
+              client !== ws &&
+              client.readyState === WebSocket.OPEN &&
+              client.playerId === target
+            ) {
+              console.log(new Date(), ws.channel, target, "kicked by host");
+              client.close(
+                1000,
+                "The storyteller ended your spectating in this town.",
+              );
+            }
+          });
+        } catch (e) {
+          console.log("error parsing kick message JSON", e);
+        }
+        break;
       case '"direct"':
         // handle "direct" messages differently
         console.log(

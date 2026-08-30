@@ -230,6 +230,14 @@ export const DEFAULT_TOWER = {
   // so a storyteller can stage their own controlled reveal. Synced, so the
   // whole town lands the same way (EndCeremony.vue's trigger reads it).
   endCeremonyOn: true,
+  // FT-1343: SPECTATORS SEE THE GRIMOIRE — may a seatless watcher be shown
+  // the whole board (roles, reminder tokens, the demon's bluffs), live?
+  // DEFAULT OFF: a watcher gets the public view only, and nothing secret is
+  // ever put on the wire for them (the gate is the host's own send layer —
+  // socket.js's sendSpectatorGrimoire, the granted-grimoire lane reused).
+  // On, every connected seatless watcher is fed the grimoire the way a
+  // granted Spy is, and a joiner inherits it on their first full sync.
+  spectatorGrimoire: false,
 };
 
 /** FT-1315: the spent-ghost-vote vocabulary — the sanitizer's whitelist and
@@ -365,8 +373,10 @@ function sanitize(key, value) {
     // booleans on the same shelf (no comment between the labels; eslint's
     // no-fallthrough reads one as an unannotated fall).
     // FT-1316: the end-ceremony switch is a plain boolean on the same shelf.
+    // FT-1343: the spectator-grimoire switch is the same shape again.
     case "whisperCounts":
     case "whisperTraffic":
+    case "spectatorGrimoire":
     case "autoMark":
     case "autoExecute":
     case "autoGhostVote":

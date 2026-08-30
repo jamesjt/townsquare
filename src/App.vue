@@ -680,6 +680,47 @@
         <img v-else class="post-phase-mark" :src="moonMark" alt="" />
         {{ isPhaseLive ? phaseActionLabel : phaseLabel }}
       </component>
+      <!-- ── FT-1344: WHO IS WATCHING — the storyteller's live watcher
+           cluster, hanging under the phase chip. The post is the one
+           host-only surface that stands in BOTH faces (build and mid-game),
+           which is exactly when watchers matter; the Game-settings pane's
+           Watching rows are this list's build-face sibling, beside the
+           setting that governs what watchers see. Only rendered while
+           somebody is actually watching — a 0-count eye would be one more
+           mark on a column the user has already called busy. The button
+           opens a small plate naming each watcher (as far as the town knows
+           them: the name their client offered, or anonymous) with its Kick;
+           kicked is not banned — the same link walks them back in. -->
+      <div class="post-watchers" v-if="spectators.length">
+        <button
+          type="button"
+          class="post-watch-btn"
+          :class="{ open: watchersOpen }"
+          :title="`${spectators.length} watching — open the list`"
+          :aria-label="`${spectators.length} watching — open the list`"
+          @click="watchersOpen = !watchersOpen"
+        >
+          <font-awesome-icon icon="users" />
+          <span class="post-watch-count">{{ spectators.length }}</span>
+        </button>
+        <div class="post-watch-list" v-if="watchersOpen">
+          <div class="post-watch-head">{{ spectators.length }} watching</div>
+          <div class="post-watch-row" v-for="w in spectators" :key="w.id">
+            <span class="post-watch-name" :class="{ anon: !w.name }">{{
+              w.name || "Anonymous watcher"
+            }}</span>
+            <button
+              type="button"
+              class="post-watch-kick"
+              title="Disconnect this watcher from the town — they can rejoin by the same link"
+              @click="kickWatcher(w.id)"
+            >
+              <font-awesome-icon icon="user-slash" />
+              Kick
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- FT-857: the PLAYER's script drawer (right side) — the reference sheet
          and the night order in one, sharing the workbench's ScriptView. It is
@@ -1191,6 +1232,11 @@ export default {
     devLabs() {
       return this.devLabsLocal || this.session.labs;
     },
+    /** FT-1344: the host's live watcher list — socket.js derives it from
+     *  its ping roster minus the seated ids (empty on a player's client). */
+    spectators() {
+      return this.session.spectators || [];
+    },
     ...mapState("players", ["players"]),
     ...mapGetters("night", ["isFirstNight"]),
     /**
@@ -1687,6 +1733,9 @@ export default {
       // reload mid-game re-reads it here (persistence has already restored
       // the session by the time the root component's data runs).
       endGameOpen: false,
+      // FT-1344: is the post's watcher plate unfolded? Local UI state only —
+      // the LIST is the store's (session.spectators, host-side).
+      watchersOpen: false,
       // FT-1146: `statsOpen` STOOD DOWN, not removed. It raised the old
       // town-records overlay; that overlay is the Records page now and it is
       // raised by the `records` modal instead (see the template), so this flag
@@ -1819,6 +1868,12 @@ export default {
      *  writer) — re-read the snapshot the root class binding renders. */
     readPrefs() {
       this.prefs = { ...prefsState };
+    },
+    /** FT-1344: show one watcher out — the callBack idiom: the commit is
+     *  the event; the socket plugin (host-only there) sends the direct
+     *  notice and the relay's wire-level close. */
+    kickWatcher(id) {
+      this.$store.commit("session/kickSpectator", id);
     },
     /** Face lab: shift the background PAINT and remember it. */
     setBgOff(axis, px) {
@@ -3610,6 +3665,116 @@ video#background {
   width: 13px;
   height: 13px;
   color: #d8b45a;
+}
+
+// ── FT-1344: THE WATCHER CLUSTER — the post's fourth satellite, hanging
+// under the phase chip (the bell/chip idiom: absolute off the book's box,
+// flush left). The button wears the bell's round icon-plate recipe; the
+// unfolded list is a small dark plate to its right, above the ring.
+.post-watchers {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 46px);
+}
+.post-watch-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #d8cdb4;
+  border: 1px solid rgba(120, 105, 135, 0.4);
+  border-radius: 50%;
+  background: rgba(20, 16, 22, 0.9);
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    border-color 150ms,
+    color 150ms;
+  &:hover,
+  &:focus-visible,
+  &.open {
+    background: rgba(32, 24, 38, 0.95);
+    border-color: rgba(150, 130, 175, 0.75);
+    color: #fff;
+    outline: none;
+  }
+}
+.post-watch-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: #4b3565; // the book's plum — an informational badge, not blood
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+.post-watch-list {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  z-index: 5;
+  min-width: 210px;
+  padding: 8px 10px;
+  background: rgba(8, 8, 10, 0.94);
+  border: 1px solid rgba(120, 105, 135, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 0 8px black;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #fff;
+  font-size: 13px;
+  text-align: left;
+}
+.post-watch-head {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.post-watch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.post-watch-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+  &.anon {
+    opacity: 0.6;
+    font-style: italic;
+  }
+}
+.post-watch-kick {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  color: #fff;
+  font: inherit;
+  font-size: 80%;
+  cursor: pointer;
+  &:hover,
+  &:focus-visible {
+    border-color: rgba(255, 80, 80, 0.7);
+    background: rgba(80, 0, 0, 0.45);
+  }
 }
 
 // FT-1214: THE END-DAY BUTTON MOVED TO THE DISC'S FOOT — where the disc
