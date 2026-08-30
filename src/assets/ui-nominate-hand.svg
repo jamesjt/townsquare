@@ -1,36 +1,10 @@
-<!-- FT-1069c rider: the nominate mark tries again. The user's read on the
-     first cut (a manicule: fist, cuff, upright thumb): "don't love this,
-     make something closer to this" — with a reference of a hand seen from
-     the BACK, one long index leading a horizontal point, the other three
-     fingers folded UNDER in a smooth receding knuckle curve, and the thumb
-     lying LOW and tucked along that fold, not standing up. The whole gesture
-     reads flat and elongated, not a tall fist with a finger stuck on.
-     Rebuilt to that character, same pointing-right direction as before, from
-     overlapping primitives (the noose's own idiom): a two-segment tapered
-     capsule for the index (thick at the root, narrowing to the tip — the
-     "elegant" proportion the manicule lacked), three shrinking circles
-     for the folded knuckles peeking below it, a low rotated capsule for the
-     tucked thumb, and a palm/cuff pair anchoring it all to the wrist. If the
-     knuckle curve mushes at 30px, the fix is fewer/bigger circles, not a
-     smaller silhouette. Single tone #cfc4ae — the ui-noose/ui-town
-     count-icon family's bone — carried in-file, same swappable-art pattern
-     as end-tentacle-*.svg: replace this file and the seat mark wears the
-     new hand with zero code. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 280">
-  <g fill="#cfc4ae">
-    <!-- cuff: the wrist mass, hard against the palm -->
-    <rect x="20" y="105" width="80" height="130" rx="26"/>
-    <!-- palm: connects cuff, index root and the folded knuckles -->
-    <rect x="70" y="78" width="130" height="140" rx="45"/>
-    <!-- thumb: low and tucked along the fold, not upright -->
-    <rect x="72" y="198" width="110" height="46" rx="23"
-          transform="rotate(-6 127 221)"/>
-    <!-- three folded fingers: a smooth receding knuckle curve under the index -->
-    <circle cx="195" cy="185" r="50"/>
-    <circle cx="262" cy="202" r="42"/>
-    <circle cx="320" cy="214" r="33"/>
-    <!-- index: one long extended finger, tapered root to tip -->
-    <rect x="108" y="68" width="230" height="58" rx="29"/>
-    <rect x="310" y="78" width="185" height="38" rx="19"/>
-  </g>
+<!-- FT-1323 candidate: the nomination manicule from the toolbar family's
+     own set. Geometry: Font Awesome Free 5 'hand-point-left' (CC BY 4.0,
+     fontawesome.com — the set the quill/hourglass/plane already come from).
+     A classic printer's manicule: cuffed wrist, folded fingers as crisp
+     scallops, one extended index. Points LEFT in file — same native
+     direction as ui-nominate-hand.png, so it drops into the same
+     mirror/rotate math. Single bone tone in-file, swappable-art pattern. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <path fill="#cfc4ae" d="M44.8 155.826h149.234c-5.841-8.248-10.57-16.558-14.153-24.918C166.248 99.098 189.778 63.986 224 64c18.616.008 32.203 10.897 40 29.092 12.122 28.286 78.648 64.329 107.534 77.323 17.857 7.956 28.453 25.479 28.464 43.845l.002.001v171.526c0 11.812-8.596 21.897-20.269 23.703-46.837 7.25-61.76 38.483-123.731 38.315-2.724-.007-13.254.195-16 .195-50.654 0-81.574-22.122-72.6-71.263-18.597-9.297-30.738-39.486-16.45-62.315-24.645-21.177-22.639-53.896-6.299-70.944H44.8c-24.15 0-44.8-20.201-44.8-43.826 0-23.283 21.35-43.826 44.8-43.826zM440 176h48c13.255 0 24 10.745 24 24v192c0 13.255-10.745 24-24 24h-48c-13.255 0-24-10.745-24-24V200c0-13.255 10.745-24 24-24zm24 212c11.046 0 20-8.954 20-20s-8.954-20-20-20-20 8.954-20 20 8.954 20 20 20z"/>
 </svg>
