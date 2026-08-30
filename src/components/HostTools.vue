@@ -578,7 +578,14 @@
                  sees one cluster on the left (the FT-959 lesson) rather than
                  a mark and a word it can push apart. -->
             <span class="label">
-              <img class="row-mark" :src="uiSeat" alt="Seats" title="Seats" />
+              <!-- FT-1337: the chair mark reads the chair lab's var(--chair)
+                   as a mask now, so a lab pick repaints this row too. -->
+              <span
+                class="row-mark chair-mark"
+                role="img"
+                aria-label="Seats"
+                title="Seats"
+              ></span>
               <span class="row-name" v-if="!iconsOnly">Seats</span>
             </span>
             <span class="ht-seat-readout" :class="{ warn: !!seatWarn }">
@@ -1834,7 +1841,9 @@ import grimoireClosed from "../assets/grimoire-cover.png";
 // extra filter.
 // FT-1317: the side-view ui-seat.png read as a letter H at small sizes —
 // the Seats row wears the front-facing chair with every other live chair mark.
-import uiSeat from "../assets/ui-seat-front.svg";
+// FT-1337: the import stood down (commented, never deleted) — the Seats row
+// is a masked span on var(--chair) now (golem/chairArt owns the art).
+// import uiSeat from "../assets/ui-seat-front.svg";
 import uiRole from "../assets/ui-role.png";
 import uiScript from "../assets/ui-script.png";
 // FT-1321: the presentation pair's marks — the seat's unspent-ghost-vote
@@ -2217,7 +2226,8 @@ export default {
       vaultPickedId: null,
       grimoireClosed,
       // FT-936: the row-mark art
-      uiSeat,
+      // FT-1337: uiSeat stood down with its import — the Seats row reads
+      // var(--chair) as a mask now.
       uiRole,
       uiScript,
       // FT-1321: the presentation pair's marks
@@ -4664,6 +4674,24 @@ export default {
       object-fit: contain;
       display: block;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+      // FT-1337: the chair variant is a masked span on var(--chair) — the
+      // mask on a ::before so the drop-shadow above traces the masked shape,
+      // painted with the bone the baked svg carried.
+      &.chair-mark::before {
+        content: "";
+        display: block;
+        width: 100%;
+        height: 100%;
+        background-color: #cfc4ae;
+        -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+        mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-position: center;
+        mask-position: center;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+      }
     }
     // FT-1168: THE SETTING'S NAME, beside its mark, when the corner cog's
     // "Icons only" is off. It takes the label's own quiet ink (the `.label`
@@ -6357,6 +6385,22 @@ export default {
     object-fit: contain;
     display: block;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    // FT-1337: the chair variant — see the settings block's twin note.
+    &.chair-mark::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      background-color: #cfc4ae;
+      -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+      mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+      -webkit-mask-size: contain;
+      mask-size: contain;
+      -webkit-mask-position: center;
+      mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+    }
   }
   .row-mark-fa {
     width: 18px;

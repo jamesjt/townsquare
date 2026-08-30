@@ -467,8 +467,9 @@
         <template v-if="!askName">
           <!-- FT-1242: FA `chair` stood down — the seat vocabulary's own
                chair (ui-seat-front.svg since FT-1317, HostTools' Seats row)
-               says it instead. -->
-          <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
+               says it instead. FT-1337: a masked SPAN reading the chair
+               lab's var(--chair), not a baked img. -->
+          <span class="pm-mark chair-mark" aria-hidden="true"></span>
           <span>{{ isSeatedElsewhere ? "Move" : "Claim" }}</span>
         </template>
         <!-- First claim on this browser: ask the name in place, no dialog. -->
@@ -1103,8 +1104,9 @@
             >
               <!-- FT-1242: FA `chair` stood down for the app's own chair mark
                    (uiSeat — ui-seat-front.svg since FT-1317) here and on
-                   the claim rows below — one chair mark everywhere. -->
-              <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
+                   the claim rows below — one chair mark everywhere.
+                   FT-1337: worn as var(--chair) via the chair lab. -->
+              <span class="pm-mark chair-mark" aria-hidden="true"></span>
               Empty seat
             </li>
             <template v-if="!session.nomination">
@@ -1131,8 +1133,9 @@
             v-if="session.isSpectator && !(seatMoveLocked && !isOwnSeat)"
             :class="{ disabled: player.id && player.id !== session.playerId }"
           >
-            <!-- FT-1242: FA `chair` stood down for the chair mark (see above). -->
-            <img class="pm-mark" :src="uiSeat" alt="" draggable="false" />
+            <!-- FT-1242: FA `chair` stood down for the chair mark (see above).
+                 FT-1337: worn as var(--chair) via the chair lab. -->
+            <span class="pm-mark chair-mark" aria-hidden="true"></span>
             <template v-if="!player.id">
               Claim seat
             </template>
@@ -1270,7 +1273,10 @@ import {
 // FT-1317: ui-seat.png (a side-view chair) read as a letter H at claim size;
 // every live chair mark now wears the front-facing ui-seat-front.svg. The png
 // stays on disk (and inside the baked move/shuffle marks it was drawn into).
-import uiSeat from "../assets/ui-seat-front.svg";
+// FT-1337: the import stood down (commented, never deleted — the applyCoin
+// precedent): every chair mark reads var(--chair) via golem/chairArt now,
+// and ui-seat-front.svg lives on as that vocabulary's default.
+// import uiSeat from "../assets/ui-seat-front.svg";
 import uiNote from "../assets/ui-note.png";
 import uiMoveRole from "../assets/ui-move-role.png";
 import uiMovePlayer from "../assets/ui-move-player.png";
@@ -2479,7 +2485,8 @@ export default {
       // shelf, same snapshot idiom, same TOWER_EVENT reader as chatLevel.
       ghostSpentMark: towerState.ghostSpentMark,
       // FT-1242: the menu rows' own marks — see the import note.
-      uiSeat,
+      // FT-1337: uiSeat stood down with its import — the chair rows are
+      // masked spans on var(--chair) now.
       uiNote,
       uiMoveRole,
       uiMovePlayer,
@@ -4642,6 +4649,31 @@ li.swap:not(.from) .player::after {
     object-fit: contain;
     filter: brightness(1.35) drop-shadow(0 0 4px black);
   }
+  /* FT-1337: the chair is a masked SPAN now, reading the chair lab's
+     var(--chair). Same box, same bone ink the baked art carried (#cfc4ae),
+     same brighten. The mask rides a ::before — filters apply BEFORE masks on
+     one element, so the drop-shadow must sit on the parent to trace the
+     already-masked chair (the seat badge's own FT-1244 reasoning). */
+  span.pm-mark.chair-mark {
+    width: 28px;
+    height: 28px;
+    filter: brightness(1.35) drop-shadow(0 0 4px black);
+    &::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      background-color: #cfc4ae;
+      -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+      mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+      -webkit-mask-size: contain;
+      mask-size: contain;
+      -webkit-mask-position: center;
+      mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+    }
+  }
   span {
     font-family: PiratesBay, sans-serif;
     letter-spacing: 1px;
@@ -4736,8 +4768,10 @@ li.swap:not(.from) .player::after {
     width: 100%;
     height: 100%;
     background-color: currentColor;
-    -webkit-mask-image: url("../assets/ui-seat-front.svg");
-    mask-image: url("../assets/ui-seat-front.svg");
+    /* FT-1337: the art comes from the chair lab's root var now (chairArt.js
+       paints it at startup); the incumbent stays as the fallback. */
+    -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+    mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
     /* `auto 26%` = the chair stands 26% of the coin tall (≈ the 28px the
        claim invitation's own chair gets), width from the art's ratio. */
     -webkit-mask-size: auto 26%;
@@ -6352,8 +6386,9 @@ li.nominate .player .overlay .nominate-target {
     width: 100%;
     height: 100%;
     background-color: currentColor;
-    -webkit-mask-image: url("../assets/ui-seat-front.svg");
-    mask-image: url("../assets/ui-seat-front.svg");
+    /* FT-1337: the chair lab's root var, incumbent as fallback. */
+    -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+    mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-position: center;
@@ -6628,6 +6663,32 @@ li.nominate .player .overlay .nominate-target {
     vertical-align: -0.2em;
     margin-right: 2px;
     filter: brightness(1.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+  /* FT-1337: the chair rows wear the lab's var(--chair) as a masked span —
+     same box and inks as the img rule above; mask on the ::before so the
+     drop-shadow traces the masked shape (FT-1244 reasoning). */
+  span.pm-mark.chair-mark {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.2em;
+    margin-right: 2px;
+    filter: brightness(1.3) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+    &::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      background-color: #cfc4ae;
+      -webkit-mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+      mask-image: var(--chair, url("../assets/ui-seat-front.svg"));
+      -webkit-mask-size: contain;
+      mask-size: contain;
+      -webkit-mask-position: center;
+      mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+    }
   }
 }
 

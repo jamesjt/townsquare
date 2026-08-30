@@ -242,6 +242,35 @@
         </button>
       </div>
     </div>
+    <!-- the CHAIR LAB (FT-1337): the coin lab's twin, one rung down — try
+         each candidate chair mark on every seat surface live. One root CSS
+         var (see golem/chairArt), so a pick is a repaint. -->
+    <div
+      id="chair-lab"
+      :class="{ open: chairLabOpen }"
+      v-if="devLabs && labsListOpen"
+    >
+      <button
+        type="button"
+        class="fd-toggle"
+        title="Chair lab — swap the seats' chair mark live"
+        @click="chairLabOpen = !chairLabOpen"
+      >
+        Chair lab
+      </button>
+      <div class="co-rows" v-if="chairLabOpen">
+        <button
+          v-for="c in chairOptions"
+          :key="c.id"
+          class="co-pick"
+          :class="{ on: chairPick.id === c.id }"
+          @click="pickChair(c.id)"
+        >
+          <img :src="c.src" alt="" />
+          {{ c.label }}
+        </button>
+      </div>
+    </div>
     <!-- the FONT LAB: the dev dropdown that owns every lettering choice -->
     <!-- the DRIP LAB: the user's own dials for the blood scrollbar -->
     <div id="drip-lab" :class="{ open: drOpen }" v-if="devLabs && labsListOpen">
@@ -1034,6 +1063,10 @@ import tpiLogo from "./assets/tpi-logo.png";
 // lab writes the coinArt PREF now and prefs.js's own PREFS_EVENT listener is
 // what paints; nothing in this file calls the painter directly any more.
 import { COINS, coinChoice /* , applyCoin */ } from "./golem/coinArt";
+// FT-1337: the chair lab — the coin lab's twin, but on the LEGACY pattern
+// (localStorage via applyChair, no pref): promotion to a player setting is a
+// later call. Importing the module also paints the remembered pick at startup.
+import { CHAIRS, chairChoice, applyChair } from "./golem/chairArt";
 // FT-949: the drop-outside-to-unseat target, installed once here so it works
 // for the whole session — see the module for why it moved out of RoleTray.
 import { installRoleUnseat } from "./golem/roleUnseat";
@@ -1737,6 +1770,10 @@ export default {
       coinLabOpen: false,
       coinOptions: COINS,
       coinPick: coinChoice,
+      // FT-1337: the chair lab
+      chairLabOpen: false,
+      chairOptions: CHAIRS,
+      chairPick: chairChoice,
       // the drip lab
       drOpen: false,
       dripRef: dripKnobs,
@@ -1821,6 +1858,11 @@ export default {
      *  lab pick no longer reverts on reload. */
     pickCoin(id) {
       setPref("coinArt", id);
+    },
+    /** the chair lab: swap every chair mark, and remember it — the bare
+     *  painter on purpose (legacy localStorage pattern; no pref, FT-1337). */
+    pickChair(id) {
+      applyChair(id);
     },
     // FT-1258: the Labs door — open/collapse the whole column, remembered
     // per browser so the resting choice survives a reload.
@@ -3121,7 +3163,8 @@ video#background {
 // so they read as one column of dev doors rather than inventions.
 #face-lab {
   position: fixed;
-  top: 86px;
+  // FT-1337: down one rung — the chair lab stepped into the ladder above.
+  top: 110px;
   left: 0;
   z-index: 60;
   display: flex;
@@ -3218,12 +3261,66 @@ video#background {
   }
 }
 
+// FT-1337: the CHAIR LAB — the coin lab's twin, the rung right below it. It
+// borrows the coin lab's own row/pick classes wholesale: same panel, same
+// chips, different vocabulary.
+#chair-lab {
+  position: fixed;
+  top: 62px;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+
+  .fd-toggle {
+    @extend %labs-chip;
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: rgba(150, 130, 175, 0.75);
+  }
+
+  .co-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(8, 6, 10, 0.92);
+    border: 1px solid rgba(120, 105, 135, 0.45);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+  }
+  .co-pick {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 8px 3px 3px;
+    font-family: inherit;
+    font-size: 12px;
+    color: #d8cdb4;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    cursor: pointer;
+    img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+    }
+    &.on {
+      color: #fff;
+      border-color: rgba(200, 170, 90, 0.9);
+    }
+  }
+}
+
 #drip-lab {
   position: fixed;
-  // FT-1258: into the labs rail — third rung, flush left, full-name chip.
+  // FT-1258: into the labs rail — flush left, full-name chip (fourth rung
+  // since FT-1337 slid the chair lab in above).
   // The panel steps RIGHT of the chip now (flex row, like the face lab's),
   // because 30px below this chip stands the next lab's opener.
-  top: 62px;
+  top: 86px;
   left: 0;
   z-index: 96;
   font-size: 13px;
@@ -3784,7 +3881,8 @@ video#background {
   // chip below it). It keeps its column flow: its panels drop BELOW the
   // chips, and below is empty here at the rail's foot.
   // FT-1287: down one rung, for the mist lab above it. Still the foot.
-  top: 278px;
+  // FT-1337: down another — the chair lab joined the ladder up top.
+  top: 302px;
   left: 0;
   z-index: 96;
   font-size: 13px;

@@ -113,7 +113,7 @@ export default {
 // position differ.
 #mist-lab {
   position: fixed;
-  top: 254px; // FT-1258: the labs rail ladder (22px full-name chips, 24px apart)
+  top: 278px; // FT-1258 ladder (22px chips, 24px apart); FT-1337: down one for the chair lab
   left: 0;
   z-index: 60;
   display: flex;
