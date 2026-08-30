@@ -336,8 +336,29 @@ export default {
      *
      * Past tense and no apology: nothing has gone wrong here. This is the
      * ordinary end of a night action, and the line reads like the end of one.
+     *
+     * FT-1330 (user): AND ON A RECEIVE-ONLY ROW, "ANSWERED" WAS A LIE. The
+     * Poisoner picks a target and is told nothing; the Imp chooses a kill and
+     * is told nothing — nothing was answered, the storyteller only RECEIVED.
+     * So a receive-only ask (action.receiveOnly, read off the same schema
+     * fact the night sheet's own Received button reads — nightExchange's
+     * RECORDS) names what actually happened instead: "Storyteller received
+     * your choice — <target name> is Poisoned." The effect phrase is the
+     * ROLE'S OWN, authored in golem/nightInfo beside its label and line
+     * (`received`, carried here on the action), never a per-role string in
+     * this component; a receive-only role without one falls back to the
+     * generic acknowledgement. Rows that DO answer keep the FT-1291 line —
+     * for them "answered" is the truth.
      */
     sentLine() {
+      if (this.action.receiveOnly) {
+        const names = this.chosenNames.join(" & ");
+        if (!names) return "Storyteller received your choice.";
+        const effect = this.action.received;
+        return effect
+          ? "Storyteller received your choice — " + names + " " + effect + "."
+          : "Storyteller received your choice — " + names + ".";
+      }
       return "The storyteller has answered — your choice stands.";
     },
     /** The free box shows the local draft while typing, the host's echo

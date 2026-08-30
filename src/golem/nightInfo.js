@@ -128,6 +128,20 @@ export function renderableType(type) {
  *               label the same way it falls through to a bare text box —
  *               never a guessed verb.
  *   line        FT-886: THE INSTRUCTION LINE — see the section below.
+ *   received    FT-1330: THE RECEIVED-ACKNOWLEDGEMENT EFFECT PHRASE, for
+ *               RECEIVE-ONLY rows (nightExchange() === RECORDS — the player
+ *               chooses, nothing comes back). Once the storyteller ticks
+ *               Received, the player's own night surface stops saying "the
+ *               storyteller has answered" (nothing was answered) and instead
+ *               names what happened: "Storyteller received your choice —
+ *               <target name> is Poisoned." The phrase here is the predicate
+ *               after the name — "is Poisoned", "is your target" — written in
+ *               the second person to the acting player, present tense, no
+ *               trailing period. Only meaningful on RECORDS rows; a TELLS row
+ *               never reads it (its answer is the acknowledgement). A
+ *               receive-only role without one falls back to the generic
+ *               "Storyteller received your choice — <target name>." — a
+ *               missing phrase is never a broken line. Read via receivedFor().
  *   wakesWhenDead
  *               FT-874 (2026-08-19): does a seat holding this character still
  *               belong on the checklist once it is DEAD? — see the section
@@ -405,6 +419,7 @@ export const NIGHT_INFO = {
     mayBeFalse: false,
     label: "Protects:",
     line: "Not themselves; Demon only.",
+    received: "is protected tonight",
   },
   ravenkeeper: {
     wakes: ["other"],
@@ -429,6 +444,7 @@ export const NIGHT_INFO = {
     mayBeFalse: false,
     label: "Chooses master:",
     line: "Tomorrow they vote only with that player.",
+    received: "is your master",
   },
   drunk: { wakes: [], fields: [], mayBeFalse: false }, // never wakes as itself — see golem/belief's performance rows
   recluse: { wakes: [], fields: [], mayBeFalse: false }, // passive
@@ -441,6 +457,7 @@ export const NIGHT_INFO = {
     label: "Poisons:",
     // night one has nobody to recover — the only difference between the two
     line: "Poisoned to dusk tomorrow.",
+    received: "is Poisoned",
   },
   spy: {
     wakes: ["first", "other"],
@@ -472,6 +489,10 @@ export const NIGHT_INFO = {
     label: "Kills:",
     // "Kills:" already says the kill; the starpass is what the label can't say
     line: "A self-kill passes it to a Minion.",
+    // "is your target", not "dies" — the storyteller may rule otherwise (a
+    // Monk's protection, a Soldier), and the acknowledgement must not promise
+    // an outcome the night has not settled
+    received: "is your target",
   },
   // ── Trouble Brewing — Travellers ─────────────────────────────────────────
   // Line-only (see the header): both already render a seat picker off their
@@ -1134,6 +1155,11 @@ export function sanitizeAuthoredNight(raw) {
     fields,
     label: typeof raw.label === "string" ? raw.label.trim().slice(0, 40) : "",
     line: typeof raw.line === "string" ? raw.line.trim().slice(0, 200) : "",
+    // FT-1330: a forged role may author its own received-acknowledgement
+    // phrase the same way the shipped table does; absent, the generic
+    // fallback covers it (see the header's `received` note)
+    received:
+      typeof raw.received === "string" ? raw.received.trim().slice(0, 80) : "",
     mayBeFalse: !!raw.mayBeFalse,
   };
 }
@@ -1227,6 +1253,20 @@ export function lineFor(roleId, isFirstNight) {
   if (!line) return "";
   if (typeof line === "string") return line;
   return (isFirstNight ? line.first : line.other) || "";
+}
+
+/**
+ * FT-1330: the received-acknowledgement effect phrase for one character —
+ * "is Poisoned", "is your target" — or "" where none is written. "" is the
+ * signal to fall back to the generic acknowledgement ("Storyteller received
+ * your choice — <target name>."), which the caller owns; this function is
+ * only honest about whether WE have authored a phrase. Never throws, always
+ * a string. Only meaningful on receive-only rows (nightExchange() ===
+ * RECORDS); callers gate on that, not this.
+ */
+export function receivedFor(roleId) {
+  const entry = entryOf(roleId);
+  return (entry && typeof entry.received === "string" && entry.received) || "";
 }
 
 /**

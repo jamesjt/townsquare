@@ -40,6 +40,9 @@ import {
   fieldsFor,
   playerSlots,
   lineFor,
+  receivedFor,
+  nightExchange,
+  NIGHT_EXCHANGE,
 } from "./nightInfo";
 
 const LOG_KEY = "golem.nightLog";
@@ -712,6 +715,13 @@ export function tonightActionFor({ isNight, live, day, me }) {
     // their choice in words — never a picker whose slots would mean
     // something else
     freeText: !known,
+    // FT-1330: is this a RECEIVE-ONLY ask (the storyteller only records the
+    // player's choice — nothing comes back), and what the acknowledgement
+    // says once it is received. Both read off the schema so the player's
+    // post-receive line (NightCall's sentLine) can name what happened
+    // instead of claiming an answer that never travelled.
+    receiveOnly: nightExchange(role.id) === NIGHT_EXCHANGE.RECORDS,
+    received: receivedFor(role.id),
   };
 }
 

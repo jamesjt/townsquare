@@ -300,23 +300,12 @@
                  are unstyled seams (the dress is carried by the glyph and by
                  `.sent`), kept so a later pass can separate the two ticks
                  without re-deriving which is which. -->
-            <!-- FT-1313: THE STATE CELL HOLDS TWO BUTTONS NOW — Send above,
-                 Skip below, one column (`.ns-state` took the grid area the
-                 send button held alone since FT-1173). Skip is the
-                 storyteller's explicit "not this one": no send, nothing
-                 logged, the row folds into the Sent-&-skipped group at the top
-                 of the list and stops counting toward the open count and the
-                 End-night checks. EVERY live row is skippable — skipping is
-                 the storyteller's right, so there is no per-role gate — and
-                 the same button un-skips (it stays bright inside the fold, the
-                 way the Send button stays bright on a done row). Hidden on a
-                 DONE row (a sent row's way back is the reopen, not a second
-                 control) and on a Dead-fold row (nothing there is owed, so
-                 there is nothing to skip). Skip marks live in this component
-                 + a per-town localStorage stash, never in the log and never
-                 on the wire: a skip is the storyteller declining to write,
-                 so it must not create an entry — an entry is delivered to
-                 the seat it names (FT-1272's empty-answer lesson). -->
+            <!-- FT-1313 put SKIP in this cell too, stacked under Send; FT-1329
+                 (user) moved it out to the LEFT of the working line (see
+                 `.ns-work` below) — Send and Skip must not stack, and the
+                 state cell is Send's alone again, exactly the FT-1173
+                 arrangement. The `.ns-state` wrapper stays: the done/skipped
+                 fades carve it out by name. -->
             <span class="ns-state">
               <button
                 type="button"
@@ -333,19 +322,6 @@
               >
                 <font-awesome-icon :icon="sendIcon(row)" />
                 <span class="ns-send-word">{{ sendWord(row) }}</span>
-              </button>
-              <button
-                v-if="!row.isDeadSeat && !entryFor(row).done"
-                type="button"
-                class="ns-skip"
-                :class="{ on: isSkipped(row) }"
-                :title="skipHint(row)"
-                @click="toggleSkip(row)"
-              >
-                <font-awesome-icon icon="forward" />
-                <span class="ns-skip-word">{{
-                  isSkipped(row) ? "Skipped" : "Skip"
-                }}</span>
               </button>
             </span>
 
@@ -424,6 +400,41 @@
                  names, the `.done` fade reaches through it by name, and the
                  disc's own rules hang off it. -->
             <div class="ns-work">
+              <!-- FT-1313 / FT-1329: SKIP — the storyteller's explicit "not
+                   this one": no send, nothing logged, the row folds into the
+                   Sent-&-skipped group at the top of the list and stops
+                   counting toward the open count and the End-night checks.
+                   EVERY live row is skippable — skipping is the storyteller's
+                   right, so there is no per-role gate — and the same button
+                   un-skips (it stays bright inside the fold, the way the Send
+                   button stays bright on a done row). Hidden on a DONE row (a
+                   sent row's way back is the reopen, not a second control)
+                   and on a Dead-fold row (nothing there is owed, so there is
+                   nothing to skip). Skip marks live in this component + a
+                   per-town localStorage stash, never in the log and never on
+                   the wire: a skip is the storyteller declining to write, so
+                   it must not create an entry — an entry is delivered to the
+                   seat it names (FT-1272's empty-answer lesson).
+
+                   FT-1329 (user): it stood STACKED UNDER SEND in the state
+                   cell; it opens the working line now — the LEFT of the row,
+                   before the action controls, so declining a row and doing a
+                   row are two different places and Send stands alone on the
+                   right. Same button, same semantics, same dress; only the
+                   address changed. -->
+              <button
+                v-if="!row.isDeadSeat && !entryFor(row).done"
+                type="button"
+                class="ns-skip"
+                :class="{ on: isSkipped(row) }"
+                :title="skipHint(row)"
+                @click="toggleSkip(row)"
+              >
+                <font-awesome-icon icon="forward" />
+                <span class="ns-skip-word">{{
+                  isSkipped(row) ? "Skipped" : "Skip"
+                }}</span>
+              </button>
               <!-- THE ANSWER (right zone): what a storyteller records tonight.
                    FT-862: this used to be a yes/no toggle on EVERY row — wrong
                    for the Undertaker (a character) or the Empath (a number).
@@ -3754,14 +3765,17 @@ $ns-team-colors: (
   // control that reopens a done row, so it is the one thing that must never
   // recede with the row it finished.
   // FT-1313: `.ns-state` joined the carve-out — the Send button lives inside
-  // it now (Send + Skip, one column), and both are exactly the controls that
-  // must never recede: Send is the done row's reopen, Skip is the skipped
-  // row's way back. The `.skipped` fade is the same statement about a row the
+  // it, and Send is the done row's reopen, exactly the control that must
+  // never recede. The `.skipped` fade is the same statement about a row the
   // storyteller passed over by hand — read, decided, out of the way.
+  // FT-1329: Skip moved INTO `.ns-work` (the working line's left end), so the
+  // `.ns-work > *` reach now excludes it by name — Skip is the skipped row's
+  // way back and stays full strength, the same carve-out it had when it
+  // lived inside `.ns-state`.
   &.done > *:not(.ns-check):not(.ns-send):not(.ns-state):not(.ns-work),
-  &.done > .ns-work > *,
+  &.done > .ns-work > *:not(.ns-skip),
   &.skipped > *:not(.ns-check):not(.ns-send):not(.ns-state):not(.ns-work),
-  &.skipped > .ns-work > * {
+  &.skipped > .ns-work > *:not(.ns-skip) {
     opacity: 0.45;
   }
   // FT-1313: a Dead-fold row — the whole row quiets, controls included:
@@ -3874,11 +3888,11 @@ $ns-team-colors: (
   // glance. Colour rules unchanged from the sheet's own line: purple is
   // chrome (a thing you press); the SENT state borrows the tick's own lit
   // treatment rather than inventing a third.
-  // FT-1313: THE STATE CELL GREW A SECOND CONTROL, so the grid area moved up
-  // one wrapper: `.ns-state` holds the cell (Send above, Skip below, one
-  // column down the row's full height) and the send button takes the cell's
-  // upper share instead of the whole area. Everything else about the send's
-  // dress is untouched.
+  // FT-1313: THE STATE CELL GREW A SECOND CONTROL (Skip, stacked under Send),
+  // so the grid area moved up one wrapper: `.ns-state` holds the cell.
+  // FT-1329 (user) moved Skip out to the working line's left end — Send and
+  // Skip must not stack — so the cell is Send's alone again. The wrapper
+  // stays: the fades above carve it out by name, and the send still fills it.
   .ns-state {
     grid-area: state;
     align-self: stretch;
@@ -3979,12 +3993,15 @@ $ns-team-colors: (
     }
   }
 
-  // FT-1313: SKIP — the quiet half of the state cell. Same plum-hairline
-  // family as the send above it (one column, one vocabulary) at a fraction
-  // of the presence: it is the "not this one" gesture, offered on every live
-  // row and never competing with the row's real action. Lit (`.on`) it wears
-  // the tick's own done treatment — the un-skip inside the fold, the one
-  // thing on a skipped row that stays full strength.
+  // FT-1313: SKIP — same plum-hairline family as the send (one vocabulary)
+  // at a fraction of the presence: it is the "not this one" gesture, offered
+  // on every live row and never competing with the row's real action. Lit
+  // (`.on`) it wears the tick's own done treatment — the un-skip inside the
+  // fold, the one thing on a skipped row that stays full strength.
+  // FT-1329: it opens the working line now (left of the answer controls)
+  // instead of stacking under Send, so it sizes to its own word — the
+  // horizontal padding replaced the full-width `padding: 3px 0` it wore as
+  // the state cell's lower half. Dress otherwise unchanged.
   .ns-skip {
     flex: 0 0 auto;
     display: flex;
@@ -4001,7 +4018,7 @@ $ns-team-colors: (
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba($grimoire-plum, 0.3);
     border-radius: 4px;
-    padding: 3px 0;
+    padding: 3px 8px;
     transition:
       color 130ms,
       border-color 130ms,
@@ -4192,6 +4209,18 @@ $ns-team-colors: (
   .ns-work {
     grid-area: work;
     min-width: 0;
+    // FT-1329: the working line is a flex row now — Skip at its left end,
+    // then the answer zone taking the rest. `min-width: 0` on the answer is
+    // the same load-bearing override the band variant documents: without it
+    // the zone's automatic minimum is its own max-content and the wrap never
+    // runs.
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    > .ns-answer {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
   }
 
   .ns-answer {
