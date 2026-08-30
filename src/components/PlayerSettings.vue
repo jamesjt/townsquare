@@ -39,11 +39,11 @@
         :title="pinRowTitle"
       >
         <!-- FT-1338 (user redesign): the text label is gone — the row wears
-             the pin's own mark, the same plus the `.reminder.add` disc on
-             the seat plate paints as its `.icon` layer (Player.vue,
-             assets/icons/plus.png). The long behavior sentence stays the
-             row's title (pinRowTitle, above); "Reminder pin" is the icon's
-             own short name for a screen reader. -->
+             the pin's own mark, THE PIN COIN the `.reminder.add` disc on the
+             seat plate actually paints (ui-note-coin.png — user correction
+             2026-08-30: never the upstream sticker plus). The long behavior
+             sentence stays the row's title (pinRowTitle, above); "Reminder
+             pin" is the icon's own short name for a screen reader. -->
         <span class="setting-name ps-icon-label">
           <img class="ps-row-icon" :src="uiPin" alt="Reminder pin" />
         </span>
@@ -181,7 +181,7 @@ import uiCog from "../assets/ui-cog.png";
 // FT-1338: the Reminder pin row's icon — the same plus the seat plate's own
 // `.reminder.add` disc paints as its `.icon` layer (Player.vue), so the
 // settings row and the on-canvas pin say it with the same mark.
-import uiPin from "../assets/icons/plus.png";
+import uiPin from "../assets/ui-note-coin.png";
 
 // the coin thumbnails — App.vue's coin lab reads the same directory the
 // same way, so the row shows exactly the art the choice will paint

@@ -6822,7 +6822,10 @@ li.nominate .player .overlay .nominate-target {
     background-size: 100%;
     background-position: center 0;
     background-repeat: no-repeat;
-    background-image: url("../assets/icons/plus.png");
+    /* User mandate 2026-08-30 (FT-1338 correction): the upstream sticker
+       PLUS never stands for a reminder again — the bone note sheet is the
+       base face (placed reminders paint their own art inline over it). */
+    background-image: url("../assets/ui-note.png");
     transition: opacity 200ms;
   }
 
@@ -6858,9 +6861,9 @@ li.nominate .player .overlay .nominate-target {
          for ui-note.png — the same note sheet the seat vocabulary's "Add
          reminder" row now wears (golem/seatActions), so the two surfaces
          that mean "put a note on this seat" carry one mark. The base
-         `.icon` rule above keeps plus.png untouched: it is `.add`'s face
-         only through this override, and placed reminders paint their own
-         art inline over it either way.
+         `.icon` rule above wears the note sheet too since the 2026-08-30
+         user mandate (plus.png never faces a reminder); placed reminders
+         paint their own art inline over it either way.
 
          FT-1219 (user, with shot: "give the pin icon the same treatment as
          the other icons… maybe make it slightly tinted purple? so it doesn't
