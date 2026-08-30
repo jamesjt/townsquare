@@ -1327,7 +1327,9 @@ export default {
         // also what finally lets the pill step aside for the composer — the
         // dodge ChatDrawer could never have because its lane was barred from
         // this file (see its old pill-reserve note).
-        this.modals.chroniclesDrawer
+        this.modals.chroniclesDrawer ||
+        // FT-1341: the change log joined the right rail.
+        this.modals.changeLog
       );
     },
     /**
