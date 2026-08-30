@@ -97,7 +97,7 @@
       title="Retract all roles — every seat's role returns to the tray"
       @click.stop="retract"
     >
-      <font-awesome-icon icon="undo" />
+      <font-awesome-icon icon="reply" />
       <span class="ra-name" v-if="!iconsOnly">Retract</span>
     </button>
   </span>

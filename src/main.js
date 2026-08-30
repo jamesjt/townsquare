@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 const faIcons = [
   "AddressCard",
   "ArrowLeft",
+  "Reply",
   "BookOpen",
   // FT-1066b: the Day-length row's mark (FT-1058c picked it; the curated
   // list never carried it, so the icon rendered as an empty comment).
