@@ -13,7 +13,8 @@ const faIcons = [
   // FT-1066b: the Day-length row's mark (FT-1058c picked it; the curated
   // list never carried it, so the icon rendered as an empty comment).
   "HourglassHalf",
-  "BookDead",
+  // FT-1321: BookDead (the Undertaker-prefill row's stand-in) stood down —
+  // the row wears the Undertaker's own token art now (FT-1322).
   "BroadcastTower",
   "Chair",
   "ChartBar",
@@ -65,10 +66,8 @@ const faIcons = [
   // Send (there is no skip glyph in the fork's own art set — the
   // Bell/BellSlash standing note applies).
   "Forward",
-  // FT-1315: the Ghost vote row's mark on the build panel's Game settings
-  // (there is no ghost in the fork's own art set as an FA-style glyph — the
-  // Bell/BellSlash standing note applies).
-  "Ghost",
+  // FT-1315's Ghost (the Ghost vote row's stand-in) stood down with FT-1321 —
+  // the row wears the seat's own cowl mark (ui-ghost-cowl.png) now.
   // FT-1209: the Control settings tab's three row marks (Setup panel /
   // Control scheme) and the tab's own leaf mark — the person-with-a-gear,
   // distinct from the Game settings tab's plain Cog one leaf over.

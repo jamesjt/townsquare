@@ -37,20 +37,35 @@
  * sheet all keep working on whatever an automation wrote.
  */
 
-import { towerState } from "./towerBells";
+import { towerState, DEFAULT_TOWER } from "./towerBells";
 import { makeEntry, entryId } from "./nightLog";
+import rolesJSON from "../roles.json";
 
 /**
  * The vocabulary — one row per checkbox on the build panel's Automations
- * group. `key` is the tower field; `icon` is a main.js-registered
- * Font Awesome name (the same stand-in idiom every other settings row uses
- * while the fork's own art set has no glyph for it).
+ * group. `key` is the tower field; `mark` is the fork's own painted art (the
+ * same asset the rule's subject wears on the town — the noose that marks the
+ * block, the shroud-skull death mark, the ghost-vote hand), replacing the
+ * Font Awesome stand-ins of the first cut (FT-1321).
+ *
+ * FT-1322 SPLIT THIS LIST IN TWO. Only the ROLE-AGNOSTIC rules live here —
+ * the ones any script plays under. A rule that exists because one character
+ * exists (the Imp's starpass, the Scarlet Woman's succession, the
+ * Undertaker's prefill) is declared ON THE ROLE, in roles.json, as
+ * `automation: { key, hook, label, title, offTitle, onTitle }` — `key` the
+ * tower field that arms it (which must exist on DEFAULT_TOWER's shelf),
+ * `hook` the engine entry point the rule rides (onDeath, onNightEntry,
+ * prefillUndertaker — the exported functions below), the rest the row's own
+ * teaching text. The build panel renders those rows from the SELECTED
+ * SCRIPT's roles (roleAutomationRules), each wearing its role's token art,
+ * so a script without the Imp simply has no starpass row — the same
+ * role-declares-its-rule precedent FT-1120 set with `reminders[].deal`.
  */
 export const AUTOMATION_RULES = [
   {
     key: "autoMark",
     label: "Auto-mark execution",
-    icon: "vote-yea",
+    mark: require("../assets/ui-noose.png"),
     title: "A concluded vote moves the execution mark by itself",
     offTitle:
       "Off — the storyteller marks the block by hand, as always (undo: the vote card's own Mark/Cancel toggle)",
@@ -61,7 +76,7 @@ export const AUTOMATION_RULES = [
   {
     key: "autoExecute",
     label: "End-day execution",
-    icon: "skull",
+    mark: require("../assets/ui-dead.png"),
     title: "End day executes whoever stands marked",
     offTitle:
       "Off — ending the day executes nobody; the storyteller drops the shroud by hand",
@@ -72,7 +87,7 @@ export const AUTOMATION_RULES = [
   {
     key: "autoGhostVote",
     label: "Ghost votes",
-    icon: "hand-paper",
+    mark: require("../assets/ui-ghost-vote-cowl.png"),
     title: "A dead raised hand spends its ghost vote at the vote's close",
     offTitle:
       "Off — the storyteller spends ghost votes by hand on the seat, as always",
@@ -80,49 +95,68 @@ export const AUTOMATION_RULES = [
       "A dead player's raised hand at a vote's conclusion spends their ghost " +
       "vote, pass or fail. Undo: the seat's existing hand-it-back control.",
   },
-  {
-    key: "autoScarletWoman",
-    label: "Scarlet Woman",
-    icon: "theater-masks",
-    title: "The Scarlet Woman becomes the Demon when the Demon dies",
-    offTitle:
-      "Off — her conditional night row renders as always and the storyteller runs it",
-    onTitle:
-      "When the Demon dies with 5+ alive and a live Scarlet Woman seated, she " +
-      "becomes the dead Demon's character and her client is shown it; her " +
-      "night-sheet row hides. Undo: set her character back by hand.",
-  },
-  {
-    key: "autoStarpass",
-    label: "Imp starpass",
-    icon: "exchange-alt",
-    title: "The Imp's self-kill passes the crown to a Minion",
-    offTitle: "Off — the storyteller runs the starpass by hand",
-    onTitle:
-      "When the Imp's night kill targets themselves: the Imp dies and their " +
-      "client picks which live Minion inherits (no chooser when only one). " +
-      "Undo: lift the shroud and set the characters back by hand.",
-  },
-  {
-    key: "autoUndertaker",
-    label: "Undertaker prefill",
-    icon: "book-dead",
-    title: "The Undertaker's row prefills from yesterday's execution",
-    offTitle:
-      "Off — the storyteller picks what the Undertaker learns, as always",
-    onTitle:
-      "The Undertaker's night row arrives prefilled with the character of " +
-      "yesterday's executed player. The storyteller can still change it " +
-      "before sending.",
-  },
 ];
+
+/** A role's automation declaration, or null — the tolerant reader (the
+ *  `reminderDeal` idiom): only an object carrying a tower-known `key` counts,
+ *  so a homebrew declaring a key the shelf doesn't hold renders no dead
+ *  checkbox (the tower's sanitizer would drop its writes). */
+export function roleAutomation(role) {
+  const auto = role && role.automation;
+  if (!auto || typeof auto !== "object") return null;
+  if (!auto.key || !(auto.key in DEFAULT_TOWER)) return null;
+  return auto;
+}
+
+/** The base library's declared rules — every role in roles.json carrying an
+ *  automation. The FLAG enumeration below reads this (the session mirror
+ *  carries every armable key no matter the script); the PANEL never does —
+ *  it asks roleAutomationRules for the selected script's rows instead. */
+const LIBRARY_ROLE_RULES = rolesJSON
+  .map((role) => roleAutomation(role))
+  .filter(Boolean);
+
+/**
+ * The Automations rows the SELECTED SCRIPT earns — one per role in `roles`
+ * (the store's script Map) that declares an automation. Night order (the
+ * role's `otherNight`) keeps the rows where the first cut pinned them:
+ * Scarlet Woman (19), Imp (24), Undertaker (55).
+ *
+ * @param roles the store's `state.roles` Map for the selected script/edition
+ * @returns rows shaped like AUTOMATION_RULES entries plus `role` (the role
+ *   object, so the panel can resolve its token art) — no `mark`; the panel
+ *   dresses these rows in the role's own icon.
+ */
+export function roleAutomationRules(roles) {
+  const out = [];
+  (roles || new Map()).forEach((role) => {
+    const auto = roleAutomation(role);
+    if (!auto) return;
+    out.push({
+      key: auto.key,
+      label: auto.label || role.name,
+      title: auto.title || "",
+      offTitle: auto.offTitle || "",
+      onTitle: auto.onTitle || "",
+      role,
+    });
+  });
+  return out.sort(
+    (a, b) => (a.role.otherNight || 0) - (b.role.otherNight || 0),
+  );
+}
 
 /** All six flags as one plain snapshot — the session-store mirror's payload
  *  (session.automations), refreshed on every TOWER_EVENT so reactive readers
- *  (the night roster's Scarlet Woman hide) follow a live toggle. */
+ *  (the night roster's Scarlet Woman hide) follow a live toggle. Enumerates
+ *  the agnostic rules plus every LIBRARY-declared key — the full shelf,
+ *  regardless of script, exactly as the one flat list mirrored before. */
 export function automationFlags() {
   const out = {};
   AUTOMATION_RULES.forEach(({ key }) => {
+    out[key] = !!towerState[key];
+  });
+  LIBRARY_ROLE_RULES.forEach(({ key }) => {
     out[key] = !!towerState[key];
   });
   return out;

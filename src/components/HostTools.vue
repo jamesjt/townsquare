@@ -1204,9 +1204,14 @@
         <span class="ht-set-line ht-set-line-ghostmark ht-group-start">
           <span class="tw-lead">
             <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="ghost"
+              <!-- FT-1321: the seat's own unspent-ghost-vote mark (the cowl,
+                   FT-996's call) fronts the row that chooses what SPENDING
+                   one looks like — the FA ghost stood in before the fork's
+                   art carried the vocabulary itself. -->
+              <img
+                class="row-mark"
+                :src="uiGhostCowl"
+                alt="Ghost vote"
                 title="What marks a spent ghost vote"
               />
               <span class="row-name" v-if="!iconsOnly">Ghost vote</span>
@@ -1225,9 +1230,14 @@
         <span class="ht-set-line ht-set-line-endshow">
           <span class="tw-lead">
             <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                icon="theater-masks"
+              <!-- FT-1321: the draped veil (the curtain a reveal lifts)
+                   replaces the FA theater-masks stand-in. The ceremony's own
+                   tentacle was auditioned first and lost — too tall for a
+                   22px box, it rendered as a red sliver. -->
+              <img
+                class="row-mark"
+                :src="uiEndReveal"
+                alt="End reveal"
                 title="The end-of-game show"
               />
               <span class="row-name" v-if="!iconsOnly">End reveal</span>
@@ -1262,9 +1272,14 @@
         >
           <span class="tw-lead">
             <span class="label">
-              <font-awesome-icon
-                class="row-mark-fa"
-                :icon="rule.icon"
+              <!-- FT-1321/FT-1322: every rule row wears painted art now — an
+                   agnostic rule the fork's own mark for its subject (noose,
+                   death mark, ghost-vote hand), a role-declared rule the
+                   ROLE'S token icon, resolved in automationRules below. -->
+              <img
+                class="row-mark"
+                :src="rule.mark"
+                :alt="rule.label"
                 :title="rule.title"
               />
               <span class="row-name" v-if="!iconsOnly">{{ rule.label }}</span>
@@ -1769,6 +1784,11 @@ import grimoireClosed from "../assets/grimoire-cover.png";
 import uiSeat from "../assets/ui-seat-front.svg";
 import uiRole from "../assets/ui-role.png";
 import uiScript from "../assets/ui-script.png";
+// FT-1321: the presentation pair's marks — the seat's unspent-ghost-vote
+// cowl (FT-996) for the Ghost vote row, and the draped veil for the switch
+// that shows or hides the end-of-game ceremony (the curtain a reveal lifts).
+import uiGhostCowl from "../assets/ui-ghost-cowl.png";
+import uiEndReveal from "../assets/ui-veil3.png";
 // FT-1196: the people shuffle wears its own baked mark — ui-seat's chair over
 // an opposed pair of arrows (the exchange gesture, distinct from the seat
 // menu's single-arrow moves) — instead of sharing FA `random` with the roles
@@ -1845,7 +1865,11 @@ import { CHAT_LEVELS, WHISPER_MARK_SECS } from "../golem/chat";
 // FT-1314: the Automations group's vocabulary — one row per rule, authored
 // beside the engine that fires them (golem/automations.js) so the checkbox a
 // storyteller reads and the behaviour it arms cannot drift apart.
-import { AUTOMATION_RULES } from "../golem/automations";
+// FT-1322: the role-declared rules render from the SELECTED SCRIPT's roles
+// (roleAutomationRules), each row wearing its role's token art via the
+// shared resolver (golem/roleIcon) — a script without the role has no row.
+import { AUTOMATION_RULES, roleAutomationRules } from "../golem/automations";
+import { roleIconUrl } from "../golem/roleIcon";
 // FT-1051: the shared custom-audio machinery (one helper serving the bell
 // AND the call-back), and the call-back's own preview.
 import { probeAudioUrl, uploadAudioFile } from "../golem/customAudio";
@@ -2137,6 +2161,9 @@ export default {
       uiSeat,
       uiRole,
       uiScript,
+      // FT-1321: the presentation pair's marks
+      uiGhostCowl,
+      uiEndReveal,
       // FT-1196: the people shuffle's own mark
       uiShufflePlayer,
       // FT-1264: STOOD DOWN from TOGGLE_MARKS (the Click Cog row wears the
@@ -2528,9 +2555,22 @@ export default {
         },
       ];
     },
-    /** FT-1314: the Automations group's rows — the module's own list. */
+    /** FT-1314: the Automations group's rows — the module's own list.
+     *  FT-1322: the role-agnostic rules (which carry their own painted
+     *  marks), then the SELECTED SCRIPT's role-declared rules, each dressed
+     *  in its role's token art — the same icon the role's coin renders,
+     *  through the same resolver. A script without the role has no row;
+     *  `state.roles` is replaced wholesale on a script change, so this
+     *  recomputes with the selection. */
     automationRules() {
-      return AUTOMATION_RULES;
+      const baseById = this.$store.getters.rolesJSONbyId;
+      const roleRules = roleAutomationRules(this.$store.state.roles).map(
+        (rule) => ({
+          ...rule,
+          mark: roleIconUrl(rule.role, baseById),
+        }),
+      );
+      return AUTOMATION_RULES.concat(roleRules);
     },
     /** FT-1315: what marks a spent ghost vote — the two vocabularies. */
     ghostSpentOptions() {
