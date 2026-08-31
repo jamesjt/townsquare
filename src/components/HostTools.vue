@@ -96,8 +96,14 @@
 
                HOST-ONLY FOR FREE: a player never renders this panel. The
                button is NOT gated on holding a key, though — see the
-               overlay's note. -->
+               overlay's note.
+
+               FT-1348 round 3: STOOD DOWN — the passwords panel this opened
+               is the Settings rail's "Access" leaf now (accessTab, below).
+               `passButtonRetired` gates this button and the floating overlay
+               below off; kept, not deleted. -->
           <button
+            v-if="!passButtonRetired"
             type="button"
             ref="passBtn"
             class="ht-copy-link ht-pass-btn"
@@ -226,7 +232,11 @@
          (`requiresEnterPassword` / `openPasswordSet`) — there is nothing to
          render even if we wanted to — so each row states SET or NOT SET, and
          the input empties itself the moment a set succeeds. -->
-    <div class="ht-pass-menu" ref="passMenu" v-if="passOpen">
+    <div
+      class="ht-pass-menu"
+      ref="passMenu"
+      v-if="!passButtonRetired && passOpen"
+    >
       <div class="ht-pass-title">This town's passwords</div>
       <!-- The two rows are the same shape twice. Written out rather than
            v-for'd over a pair: each carries its own teaching line, its own
@@ -937,11 +947,13 @@
         <!-- FT-1350: `v-if` — the Controls group renders its OWN pane (the
              `.ht-prefs` box below, moved in from the retired header tab);
              an empty `.ht-game` grid standing beside it would be a second
-             column of nothing. -->
+             column of nothing. FT-1348 round 3: Access joins the same
+             exclusion — its own pane (`.ht-access` below) for the same
+             reason. -->
         <div
           class="ht-game"
           ref="gameRows"
-          v-if="gameGroup !== 'controls'"
+          v-if="gameGroup !== 'controls' && gameGroup !== 'access'"
           :class="{ scrolls: gameOverflow }"
           v-blood-scroll
         >
@@ -1462,43 +1474,46 @@
               </span>
             </template>
             <template v-else>
+              <!-- FT-1348 round 3 (user verdict: "thats not working, lets
+                 put it back to check boxes and make the text area for the
+                 rule wider... make the hover text the details"): the
+                 checkbox rows, restyled. NOT `.ht-set-line` any more —
+                 dropping that class opts the row out of the shared
+                 label/control grid (`.ht-game`'s `display: contents`
+                 dissolve) so it can own one full-width flex line instead,
+                 the same escape `.ht-auto-pillrow` already uses. The name
+                 grows to fill the row (`flex: 1 1 auto` on `.tw-lead`,
+                 nowrap on `.row-name`) so a six-word rule name never wraps,
+                 and the gcheck — unshrinking by its own component rule —
+                 lands flush at the row's right edge instead of hugging the
+                 shared grid's control-column x. The description line is
+                 gone from the face; it is the row's `title` now, a native
+                 hover tooltip, so the box's own on/off titles (already the
+                 detailed action text) are untouched. -->
               <span
                 v-for="rule in automationRules"
                 :key="rule.key"
-                class="ht-set-line ht-auto-row"
+                class="ht-auto-row"
+                :title="rule.title"
               >
                 <span class="tw-lead">
-                  <span class="label">
-                    <!-- FT-1321/FT-1322: every rule row wears painted art — an
-                     agnostic rule the fork's own mark for its subject (noose,
-                     death mark, ghost cowl), a role-declared rule the ROLE'S
-                     token icon, resolved in automationRules below. -->
-                    <img
-                      class="row-mark"
-                      :src="rule.mark"
-                      :alt="rule.label"
-                      :title="rule.title"
-                    />
-                    <span class="row-name" v-if="!iconsOnly">{{
-                      rule.label
-                    }}</span>
-                  </span>
-                  <OptionCheck
-                    :name="'auto-' + rule.key"
-                    :aria-label="rule.label"
-                    on-value="on"
-                    :options="automationOptions(rule)"
-                    :value="tower[rule.key] ? 'on' : 'off'"
-                    @input="(v) => pickAutomation(rule.key, v)"
-                  />
+                  <!-- FT-1321/FT-1322: every rule row wears painted art — an
+                   agnostic rule the fork's own mark for its subject (noose,
+                   death mark, ghost cowl), a role-declared rule the ROLE'S
+                   token icon, resolved in automationRules below. -->
+                  <img class="row-mark" :src="rule.mark" :alt="rule.label" />
+                  <span class="row-name" v-if="!iconsOnly">{{
+                    rule.label
+                  }}</span>
                 </span>
-                <!-- the rule's own sentence under its name — the grid's
-                 full-width shelf, indented past the mark so it reads as the
-                 name's second line. Icons-only folds it away with the names
-                 it explains. -->
-                <span class="ht-auto-desc" v-if="!iconsOnly">{{
-                  rule.title
-                }}</span>
+                <OptionCheck
+                  :name="'auto-' + rule.key"
+                  :aria-label="rule.label"
+                  on-value="on"
+                  :options="automationOptions(rule)"
+                  :value="tower[rule.key] ? 'on' : 'off'"
+                  @input="(v) => pickAutomation(rule.key, v)"
+                />
               </span>
             </template>
           </template>
@@ -1605,6 +1620,138 @@
               </div>
             </div>
           </template>
+        </div>
+
+        <!-- ── FT-1348 round 3 (user, third rider): THE ACCESS TAB ─────────────
+             The passwords panel, re-housed: same two rows, same fields, same
+             server writes (passDraft/passState/savePass/clearPass — all
+             untouched), only where they render moved — off the header's
+             floating key-button overlay (FT-1262, stood down below, kept
+             per the house never-delete rule) and onto the rail as a pane of
+             its own, the same idiom Controls already uses. The inner
+             `.ht-pass-*` classes are flat rules (see the style block's own
+             note by the original overlay), so reusing them here costs
+             nothing — only the wrapper (`.ht-access`, not `.ht-pass-menu`)
+             is new, because the popup's fixed-position/shadow/z-index chrome
+             belongs to a floating menu, not an inline pane. -->
+        <div class="row ht-settings ht-access" v-if="accessTab">
+          <div class="ht-pass-title">This town's passwords</div>
+          <div class="ht-pass-row">
+            <div class="ht-pass-head">
+              <font-awesome-icon class="row-mark-fa" icon="key" />
+              <span class="ht-pass-name">Door password</span>
+              <span
+                class="ht-pass-state"
+                :class="{ set: passState.enter === true }"
+                >{{
+                  passState.enter === null
+                    ? "checking…"
+                    : passState.enter
+                    ? "Set"
+                    : "Not set"
+                }}</span
+              >
+            </div>
+            <p class="ht-pass-teach">
+              What players must type to enter this town. Without it, anyone with
+              the link walks in.
+            </p>
+            <div class="ht-pass-do">
+              <input
+                v-model="passDraft.enter"
+                type="password"
+                spellcheck="false"
+                autocomplete="new-password"
+                :disabled="passBusy === 'enter'"
+                :placeholder="
+                  passState.enter ? 'new door password' : 'door password'
+                "
+                @keyup.enter="savePass('enter')"
+              />
+              <button
+                type="button"
+                class="ht-pass-set"
+                :disabled="passBusy === 'enter' || !passDraft.enter.trim()"
+                @click="savePass('enter')"
+              >
+                {{ passState.enter ? "Change" : "Set" }}
+              </button>
+              <button
+                type="button"
+                class="ht-pass-clear"
+                v-if="passState.enter"
+                :disabled="passBusy === 'enter'"
+                @click="clearPass('enter')"
+              >
+                Clear
+              </button>
+            </div>
+            <p
+              v-if="passNote.enter"
+              class="ht-pass-note"
+              :class="passNote.enter.kind"
+            >
+              {{ passNote.enter.text }}
+            </p>
+          </div>
+          <div class="ht-pass-row">
+            <div class="ht-pass-head">
+              <font-awesome-icon class="row-mark-fa" icon="lock" />
+              <span class="ht-pass-name">Host password</span>
+              <span
+                class="ht-pass-state"
+                :class="{ set: passState.open === true }"
+                >{{
+                  passState.open === null
+                    ? "checking…"
+                    : passState.open
+                    ? "Set"
+                    : "Not set"
+                }}</span
+              >
+            </div>
+            <p class="ht-pass-teach">
+              Your way back into the host seat from another browser. Anyone who
+              knows it can take the seat.
+            </p>
+            <div class="ht-pass-do">
+              <input
+                v-model="passDraft.open"
+                type="password"
+                spellcheck="false"
+                autocomplete="new-password"
+                :disabled="passBusy === 'open'"
+                :placeholder="
+                  passState.open ? 'new host password' : 'host password'
+                "
+                @keyup.enter="savePass('open')"
+              />
+              <button
+                type="button"
+                class="ht-pass-set"
+                :disabled="passBusy === 'open' || !passDraft.open.trim()"
+                @click="savePass('open')"
+              >
+                {{ passState.open ? "Change" : "Set" }}
+              </button>
+              <button
+                type="button"
+                class="ht-pass-clear"
+                v-if="passState.open"
+                :disabled="passBusy === 'open'"
+                @click="clearPass('open')"
+              >
+                Clear
+              </button>
+            </div>
+            <p
+              v-if="passNote.open"
+              class="ht-pass-note"
+              :class="passNote.open.kind"
+            >
+              {{ passNote.open.text }}
+            </p>
+          </div>
         </div>
 
         <!-- ── FT-1209 (user): THE CONTROL SETTINGS TAB ───────────────────────
@@ -2284,7 +2431,10 @@ const SETUP_TABS = [
   },
   {
     id: "settings",
-    label: "Game settings",
+    // FT-1348 round 3 (user, one-word rider): the tab's FACE shortens to
+    // "Settings" — the id, icon and title (and every "Game settings" in this
+    // file's comments, which still narrate the tab truthfully) are untouched.
+    label: "Settings",
     icon: "cog",
     title: "This town's own rules — the night checklist, the bells, the clock",
   },
@@ -2340,6 +2490,17 @@ const GAME_GROUPS = [
     icon: "magic",
     title:
       "Rules the storyteller hands to the machine — each with its own switch",
+  },
+  // FT-1348 round 3 (user, third rider): the FIFTH leaf — the town's
+  // passwords, re-housed from the header's floating key-button overlay
+  // (FT-1262) into the rail, below Automations and above Controls. Key mark,
+  // the same glyph the retiring header button wore.
+  {
+    key: "access",
+    label: "Access",
+    icon: "key",
+    title:
+      "The town's passwords — the door key players give, and the host seat's own",
   },
   // FT-1350 (user): the FOURTH leaf — Control settings leaves the header
   // strip and files under the rail, below Automations. The label shortens to
@@ -2514,6 +2675,12 @@ export default {
       // never render. Kept as a gate rather than deleted markup, per the
       // house rule.
       automationsDropdownRetired: true,
+      // FT-1348 round 3 (user, third rider): the header key button's
+      // stand-down latch — same shape as automationsDropdownRetired above.
+      // The passwords panel it opened re-houses on the Settings rail's new
+      // "Access" leaf (accessTab); constant true so the button and its
+      // floating overlay never render. Kept per the house never-delete rule.
+      passButtonRetired: true,
       // FT-1348 round 2: the Automations-rows lab's flag, held here so the
       // pane re-renders the moment the lab flips it.
       autoRows: autoRowsChoice,
@@ -2726,6 +2893,11 @@ export default {
      *  PrefsMenu stays as that face's second door — see togglePrefs). */
     prefsTab() {
       return this.settingsTab && this.gameGroup === "controls";
+    },
+    /** FT-1348 round 3: the Access leaf — the passwords panel's new door,
+     *  same gate shape as `prefsTab` beside it. */
+    accessTab() {
+      return this.settingsTab && this.gameGroup === "access";
     },
     // FT-1209: the three rows' option lists — prefs.js's own vocabulary,
     // mapped the same way PrefsMenu maps it.
@@ -5813,11 +5985,29 @@ export default {
     opacity: 0.7;
   }
   // THE PANE takes what the rail leaves. (FT-1350: `.ht-prefs` is the
-  // Controls leaf's pane in the same wrap now, so it takes the same slot.)
+  // Controls leaf's pane in the same wrap now, so it takes the same slot.
+  // FT-1348 round 3: `.ht-access` joins it, same reason.)
   .ht-gamewrap > .ht-game,
-  .ht-gamewrap > .ht-prefs {
+  .ht-gamewrap > .ht-prefs,
+  .ht-gamewrap > .ht-access {
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  // ── FT-1348 round 3: THE ACCESS PANE ─────────────────────────────────────
+  // Not the `.ht-prefs, .ht-game` grid below — two password rows have no
+  // label/control pair to align, they are small forms. A plain flex column,
+  // the exact rhythm `.ht-pass-menu` gave the same two rows as a popup
+  // (`gap: 10px`), minus the popup's own chrome (fixed position, min-width,
+  // dark ground, border, shadow, z-index) — this pane sits inside the rail's
+  // own box, which already supplies that.
+  .ht-access {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 15px;
+    color: rgb(230, 225, 215);
+    text-align: left;
   }
 
   .ht-prefs,
@@ -6062,13 +6252,10 @@ export default {
       margin-top: 0;
     }
     // ── FT-1348: THE AUTOMATIONS PANE'S DESCRIPTION SHELF ─────────────────
-    // Each rule's authored `title` sentence, visible at last (hover-only in
-    // the dropdown era). A full-width grid item — NOT part of the label
-    // cell, where its max-content width would blow the label track out and
-    // shove every checkbox to the pane's far edge — pulled up toward its
-    // own row and indented past the 22px mark + the name's 10px gap so it
-    // reads as the name's second line. Quiet ink: the description teaches;
-    // the name and the box act.
+    // STOOD DOWN, UNREACHED round 3 — the visible description line is the
+    // row's hover `title` now (see `.ht-auto-row` below and the template's
+    // `:title="rule.title"`), not a shelf under the name. Kept per the house
+    // never-delete rule; nothing renders `.ht-auto-desc` any more.
     .ht-auto-desc {
       grid-column: 1 / -1;
       margin: -5px 0 3px 32px;
@@ -6076,6 +6263,36 @@ export default {
       line-height: 1.35;
       opacity: 0.55;
       text-align: left;
+    }
+    // ── FT-1348 round 3: THE CHECKBOX ROWS, RESTYLED (user verdict — pills
+    // "not working", back to checkboxes) ──────────────────────────────────
+    // One full-width flex line per rule, same escape from the shared
+    // label/control grid `.ht-auto-pillrow` already uses (not `.ht-set-line`,
+    // so `.ht-game`'s `display: contents` dissolve never touches it).
+    // `.tw-lead` grows to fill the row's slack — the name gets the row's own
+    // width rather than a shared max-content track — and the gcheck, sized
+    // by its own component rule (`flex: 0 0 auto`), lands flush at the far
+    // right edge as the row's only other item. The description sentence
+    // left no visible trace; it rides the row's `title` attribute as a
+    // native hover tooltip instead (the gcheck keeps its own on/off titles
+    // untouched — two different questions, two different tooltips).
+    .ht-auto-row {
+      grid-column: 1 / -1;
+      flex: 1 1 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      .tw-lead {
+        flex: 1 1 auto;
+        min-width: 0;
+        opacity: 0.7;
+      }
+      .row-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     }
     // ── FT-1348 round 2: THE PILL ROWS ────────────────────────────────────
     // The rule's NAME is the toggle: one pill per rule, its mark riding

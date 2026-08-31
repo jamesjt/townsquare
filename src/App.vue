@@ -487,10 +487,11 @@
 
          Behind `devLabs` from the start, for the column's shared reason. -->
     <MistLab v-if="devLabs && labsListOpen" />
-    <!-- the AUTOMATIONS-ROWS LAB (FT-1348 round 2): which dress the
-         Automations pane's rule rows wear — pill toggles (the default) or
-         the checkbox rows they replaced (the swap-back the user asked to
-         keep). One flag (golem/autoRowsLab), read live by HostTools. -->
+    <!-- the AUTOMATIONS-ROWS LAB (FT-1348 round 3): which dress the
+         Automations pane's rule rows wear — the checkbox rows (the default,
+         restored round 3) or the round-2 pill toggles, kept as the lab's
+         non-default try-it state. One flag (golem/autoRowsLab), read live
+         by HostTools. -->
     <div
       id="autorows-lab"
       :class="{ open: autoRowsLabOpen }"

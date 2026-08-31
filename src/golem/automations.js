@@ -66,7 +66,10 @@ export const AUTOMATION_RULES = [
     key: "autoMark",
     label: "Auto-mark execution",
     mark: require("../assets/ui-noose.png"),
-    title: "A concluded vote moves the execution mark by itself",
+    // FT-1348 round 3 (user): the row's hover title now, tightened to
+    // subject-first/what-it-does — the label already says "Auto-mark
+    // execution", so the sentence does not restate it.
+    title: "Passed vote moves the execution mark.",
     offTitle:
       "Off — the storyteller marks the block by hand, as always (undo: the vote card's own Mark/Cancel toggle)",
     onTitle:
@@ -77,7 +80,7 @@ export const AUTOMATION_RULES = [
     key: "autoExecute",
     label: "End-day execution",
     mark: require("../assets/ui-dead.png"),
-    title: "End day executes whoever stands marked",
+    title: "End day executes the marked player.",
     offTitle:
       "Off — ending the day executes nobody; the storyteller drops the shroud by hand",
     onTitle:
@@ -92,7 +95,7 @@ export const AUTOMATION_RULES = [
     // this row wore first read as a different vocabulary than the row one
     // group up that governs the same mark.
     mark: require("../assets/ui-ghost-cowl.png"),
-    title: "A dead raised hand spends its ghost vote at the vote's close",
+    title: "Raised hand spends a dead player's ghost vote at close.",
     offTitle:
       "Off — the storyteller spends ghost votes by hand on the seat, as always",
     onTitle:

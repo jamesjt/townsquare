@@ -113,7 +113,7 @@
       "key": "autoUndertaker",
       "hook": "prefillUndertaker",
       "label": "Undertaker prefill",
-      "title": "The Undertaker's row prefills from yesterday's execution",
+      "title": "Prefills the row with yesterday's executed character.",
       "offTitle": "Off — the storyteller picks what the Undertaker learns, as always",
       "onTitle": "The Undertaker's night row arrives prefilled with the character of yesterday's executed player. The storyteller can still change it before sending."
     }
@@ -305,7 +305,7 @@
       "key": "autoScarletWoman",
       "hook": "onDeath",
       "label": "Scarlet Woman",
-      "title": "The Scarlet Woman becomes the Demon when the Demon dies",
+      "title": "Becomes the demon if the demon dies with 5+ players.",
       "offTitle": "Off — her conditional night row renders as always and the storyteller runs it",
       "onTitle": "When the Demon dies with 5+ alive and a live Scarlet Woman seated, she becomes the dead Demon's character and her client is shown it; her night-sheet row hides. Undo: set her character back by hand."
     }
@@ -341,7 +341,7 @@
       "key": "autoStarpass",
       "hook": "onNightEntry",
       "label": "Imp starpass",
-      "title": "The Imp's self-kill passes the crown to a Minion",
+      "title": "Self-kill passes Imp to a minion",
       "offTitle": "Off — the storyteller runs the starpass by hand",
       "onTitle": "When the Imp's night kill targets themselves: the Imp dies and their client picks which live Minion inherits (no chooser when only one). Undo: lift the shroud and set the characters back by hand."
     }
