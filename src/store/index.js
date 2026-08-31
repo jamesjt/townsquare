@@ -23,6 +23,9 @@ import {
 } from "../golem/chat";
 // FT-1263: a bystander's traffic row — the plane's memory in the Chronicle.
 import { TRAFFIC_KIND } from "../golem/whisperMarks";
+// FT-1349: the catch-up read is filtered server-side to the requester; the
+// storyteller of an owned town proves the role with the town's edit key.
+import { editKeyFor } from "../golem/towns";
 // FT-1206: the town's chat level rides the tower shelf; ingest reads it as a
 // plain snapshot (towerState is the module's own single copy, sanitized on
 // every write), the same way the components snapshot it.
@@ -364,9 +367,24 @@ export default new Vuex.Store({
       if (!town || state.chat.syncing) return;
       commit("chatSyncing", true);
       try {
-        const seq = await catchUp(town, state.chat.syncedSeq, (rows) => {
-          commit("chatIngest", rows);
-        });
+        // FT-1349: say who is asking — the read is filtered server-side to
+        // this requester. The viewer key is the same claim every sent line
+        // carries; the edit key travels only when this browser is the
+        // storyteller AND holds the town's key (an owned town), which is the
+        // one identity the platform can verify and what unlocks the full log.
+        const v = viewerOf(state);
+        const auth = {
+          viewer: v.key || "",
+          editKey: (v.isStoryteller && editKeyFor(town)) || "",
+        };
+        const seq = await catchUp(
+          town,
+          state.chat.syncedSeq,
+          (rows) => {
+            commit("chatIngest", rows);
+          },
+          auth,
+        );
         // The town can change under a fetch (a Back press, a hop between two
         // towns). `chatIngest` drops the rows themselves by townId; this stops
         // the OLD town's cursor being stamped onto the NEW town's empty log,

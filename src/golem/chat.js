@@ -102,14 +102,25 @@ export function chatErrorText(reason) {
 /**
  * One page of the town's log, oldest-first, strictly after `sinceSeq`.
  * Returns `{ messages, nextSeq }` exactly as the store does.
+ *
+ * FT-1349: the read is now FILTERED SERVER-SIDE to what this requester may
+ * see, so `auth` says who is asking: `viewer` is this browser's chat key (the
+ * same claim `viewerOf` builds), and `editKey` is the town's edit key when
+ * this browser is the storyteller of a town it owns — the storyteller's
+ * PROOF, which unlocks the full log the way the relay already trusts the host
+ * socket on the live frame. No auth = public lines and finished games only,
+ * which is exactly what an anonymous reader is owed.
  */
-export async function fetchLog(townId, sinceSeq = 0, limit = PAGE_LIMIT) {
+export async function fetchLog(townId, sinceSeq = 0, limit = PAGE_LIMIT, auth) {
   const qs = new URLSearchParams({
     town: townId,
     sinceSeq: String(sinceSeq),
     limit: String(limit),
   });
-  const res = await fetch(`${API}/messages?${qs}`);
+  if (auth && auth.viewer) qs.set("viewer", auth.viewer);
+  const headers =
+    auth && auth.editKey ? { "x-botc-edit-key": auth.editKey } : undefined;
+  const res = await fetch(`${API}/messages?${qs}`, { headers });
   if (!res.ok) throw new Error(`chat log failed (${res.status})`);
   return res.json();
 }
@@ -133,10 +144,15 @@ export async function fetchHead(townId) {
  * Pages are applied as they arrive rather than accumulated, so a long history
  * fills the surface progressively instead of after the last round trip.
  */
-export async function catchUp(townId, fromSeq, onPage) {
+export async function catchUp(townId, fromSeq, onPage, auth) {
   let cursor = Number.isFinite(fromSeq) && fromSeq > 0 ? fromSeq : 0;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const { messages, nextSeq } = await fetchLog(townId, cursor);
+    const { messages, nextSeq } = await fetchLog(
+      townId,
+      cursor,
+      PAGE_LIMIT,
+      auth,
+    );
     const rows = Array.isArray(messages) ? messages : [];
     if (rows.length) onPage(rows);
     const next = Number.isFinite(nextSeq) ? nextSeq : cursor;
@@ -241,11 +257,12 @@ export function seatOf(state) {
 /**
  * MAY THIS VIEWER SEE THIS ROW?
  *
- * The relay already refuses to DELIVER a whisper to a fourth socket, and that
- * is the real defence. This is the second one, and it is not redundant: the
- * catch-up read is a plain unauthenticated GET that returns every row in the
- * town, whispers included, to whoever asks. So the client is handed rows it
- * must not show, and the only question is what it does with them.
+ * The relay already refuses to DELIVER a whisper to a fourth socket, and
+ * since FT-1349 the catch-up read is filtered SERVER-SIDE too (the store only
+ * returns rows the requester may see — see fetchLog). This is the THIRD
+ * layer, and it stays: it is the rule the UI actually renders by, it covers a
+ * server that regresses, and it covers rows that arrive by any path this
+ * module did not anticipate.
  *
  * It drops them AT INGEST — before the store, before the DOM. Filtering at
  * render would leave a whisper this viewer was never party to sitting in
