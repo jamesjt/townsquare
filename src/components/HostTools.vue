@@ -1423,43 +1423,84 @@
              rewritten. The wand fronts the rail leaf, and the "N of 6"
              summary rides there with it. -->
           <template v-if="gameGroup === 'automations'">
-            <span
-              v-for="rule in automationRules"
-              :key="rule.key"
-              class="ht-set-line ht-auto-row"
-            >
-              <span class="tw-lead">
-                <span class="label">
-                  <!-- FT-1321/FT-1322: every rule row wears painted art — an
-                   agnostic rule the fork's own mark for its subject (noose,
-                   death mark, ghost cowl), a role-declared rule the ROLE'S
-                   token icon, resolved in automationRules below. -->
-                  <img
-                    class="row-mark"
-                    :src="rule.mark"
-                    :alt="rule.label"
-                    :title="rule.title"
-                  />
-                  <span class="row-name" v-if="!iconsOnly">{{
+            <!-- FT-1348 round 2 (user: "go but make it a lab option to swap
+               back"): PILL ROWS — the rule's NAME is the toggle now. One
+               pill-shaped button per rule, its mark leading inside it,
+               grey-ringed off / plum-FILLED armed (OptionCheck's own FT-1347
+               grammar — the fill is the armed read), performing the same
+               tower write the gcheck did. The description moves INLINE after
+               the pill, one quiet line, ellipsized when the pane is narrow —
+               the full sentence stays on the row's tooltip. Six rules, six
+               single lines. The checkbox rows below survive as the swap-back
+               behind the Automations-rows lab (golem/autoRowsLab), read
+               live. -->
+            <template v-if="autoPillRows">
+              <span
+                v-for="rule in automationRules"
+                :key="rule.key"
+                class="ht-auto-pillrow"
+                :title="rule.title"
+              >
+                <button
+                  type="button"
+                  class="ht-auto-pill"
+                  :class="{ armed: !!tower[rule.key] }"
+                  :aria-pressed="String(!!tower[rule.key])"
+                  :title="tower[rule.key] ? rule.onTitle : rule.offTitle"
+                  @click="
+                    pickAutomation(rule.key, tower[rule.key] ? 'off' : 'on')
+                  "
+                >
+                  <img class="pill-mark" :src="rule.mark" :alt="rule.label" />
+                  <span class="pill-name" v-if="!iconsOnly">{{
                     rule.label
                   }}</span>
-                </span>
-                <OptionCheck
-                  :name="'auto-' + rule.key"
-                  :aria-label="rule.label"
-                  on-value="on"
-                  :options="automationOptions(rule)"
-                  :value="tower[rule.key] ? 'on' : 'off'"
-                  @input="(v) => pickAutomation(rule.key, v)"
-                />
+                </button>
+                <span class="ht-auto-pilldesc" v-if="!iconsOnly">{{
+                  rule.title
+                }}</span>
               </span>
-              <!-- the rule's own sentence under its name — the grid's full-width
-               shelf, indented past the mark so it reads as the name's second
-               line. Icons-only folds it away with the names it explains. -->
-              <span class="ht-auto-desc" v-if="!iconsOnly">{{
-                rule.title
-              }}</span>
-            </span>
+            </template>
+            <template v-else>
+              <span
+                v-for="rule in automationRules"
+                :key="rule.key"
+                class="ht-set-line ht-auto-row"
+              >
+                <span class="tw-lead">
+                  <span class="label">
+                    <!-- FT-1321/FT-1322: every rule row wears painted art — an
+                     agnostic rule the fork's own mark for its subject (noose,
+                     death mark, ghost cowl), a role-declared rule the ROLE'S
+                     token icon, resolved in automationRules below. -->
+                    <img
+                      class="row-mark"
+                      :src="rule.mark"
+                      :alt="rule.label"
+                      :title="rule.title"
+                    />
+                    <span class="row-name" v-if="!iconsOnly">{{
+                      rule.label
+                    }}</span>
+                  </span>
+                  <OptionCheck
+                    :name="'auto-' + rule.key"
+                    :aria-label="rule.label"
+                    on-value="on"
+                    :options="automationOptions(rule)"
+                    :value="tower[rule.key] ? 'on' : 'off'"
+                    @input="(v) => pickAutomation(rule.key, v)"
+                  />
+                </span>
+                <!-- the rule's own sentence under its name — the grid's
+                 full-width shelf, indented past the mark so it reads as the
+                 name's second line. Icons-only folds it away with the names
+                 it explains. -->
+                <span class="ht-auto-desc" v-if="!iconsOnly">{{
+                  rule.title
+                }}</span>
+              </span>
+            </template>
           </template>
 
           <!-- ── FT-1314: THE AUTOMATIONS GROUP ──────────────────────────────
@@ -2164,6 +2205,10 @@ import { CHAT_LEVELS, WHISPER_MARK_SECS } from "../golem/chat";
 // (roleAutomationRules), each row wearing its role's token art via the
 // shared resolver (golem/roleIcon) — a script without the role has no row.
 import { AUTOMATION_RULES, roleAutomationRules } from "../golem/automations";
+// FT-1348 round 2: which dress the Automations rows wear — pill toggles or
+// the checkbox rows — set from App.vue's Automations-rows lab, read live
+// (the module's observable, same pattern as the coin/chair labs).
+import { autoRowsChoice } from "../golem/autoRowsLab";
 import { roleIconUrl } from "../golem/roleIcon";
 // FT-1051: the shared custom-audio machinery (one helper serving the bell
 // AND the call-back), and the call-back's own preview.
@@ -2469,6 +2514,9 @@ export default {
       // never render. Kept as a gate rather than deleted markup, per the
       // house rule.
       automationsDropdownRetired: true,
+      // FT-1348 round 2: the Automations-rows lab's flag, held here so the
+      // pane re-renders the moment the lab flips it.
+      autoRows: autoRowsChoice,
       // FT-1209: the strip's measured right inset — how far the tabs come in
       // off the strip's right edge so the last one stands over the gear
       // (alignTabs writes it; 0 until something is measured).
@@ -2945,6 +2993,11 @@ export default {
      *  through the same resolver. A script without the role has no row;
      *  `state.roles` is replaced wholesale on a script change, so this
      *  recomputes with the selection. */
+    /** FT-1348 round 2: pill rows unless the lab swapped back — the default
+     *  ("pills") needs no stored word, so anything but "checks" is pills. */
+    autoPillRows() {
+      return this.autoRows.v !== "checks";
+    },
     automationRules() {
       const baseById = this.$store.getters.rolesJSONbyId;
       const roleRules = roleAutomationRules(this.$store.state.roles).map(
@@ -6019,6 +6072,97 @@ export default {
     .ht-auto-desc {
       grid-column: 1 / -1;
       margin: -5px 0 3px 32px;
+      font-size: 72%;
+      line-height: 1.35;
+      opacity: 0.55;
+      text-align: left;
+    }
+    // ── FT-1348 round 2: THE PILL ROWS ────────────────────────────────────
+    // The rule's NAME is the toggle: one pill per rule, its mark riding
+    // inside, the description INLINE after it in the shelf's own quiet ink —
+    // six rules, six single lines. Not `.ht-set-line`, deliberately: the
+    // shared grid dissolves those into its two tracks (`display: contents`),
+    // and this row is ONE object spanning both. `grid-column` places it in
+    // the grid dress; `flex-basis: 100%` takes the whole line anywhere the
+    // pane still wraps as flex — each dress reads its own property and
+    // ignores the other's.
+    .ht-auto-pillrow {
+      grid-column: 1 / -1;
+      flex: 1 1 100%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    // The pill wears OptionCheck's FT-1347 off/on grammar verbatim — the
+    // grey rest ring (RoleTray's neutral set-aside, the app's one "off
+    // grey") and ON as the plum FILL + edge + lifted ink (`.gcheck.on`'s own
+    // three values): armed is a painted ground, not a brighter outline. The
+    // toggle well rides both states for the same reason the gcheck keeps it
+    // under hover — a toggle that flattens stops reading as a toggle.
+    .ht-auto-pill {
+      @include control-plate;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      min-width: 0;
+      border-radius: 999px;
+      border-color: rgba(170, 170, 170, 0.65);
+      box-shadow: $control-toggle-well;
+      padding: 2px 11px 2px 4px;
+      font-family: inherit;
+      font-size: 90%;
+      color: #d8cdb4;
+      cursor: pointer;
+      // the rule's mark, leading inside the pill — `.row-mark`'s own size
+      // and shadow so the six marks read as the same set they were on the
+      // checkbox rows, just re-plated.
+      .pill-mark {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        display: block;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+      }
+      .pill-name {
+        white-space: nowrap;
+      }
+      &:hover {
+        @include control-plate-hover;
+        box-shadow: $control-toggle-well;
+      }
+      &:focus-visible {
+        @include control-focus-ring;
+        // the settings family answers the keyboard in the book's plum, and
+        // outside the pill's edge — OptionCheck's own two overrides, for the
+        // same two reasons (see its focus note).
+        outline-color: rgba(150, 130, 175, 0.9);
+        outline-offset: 2px;
+      }
+      &.armed {
+        // the gcheck's plum, LOUDER (0.42 → 0.68): on a 24px box the tick
+        // carries the state and the fill assists; on the pill the ground IS
+        // the state, and at pane scale 0.42 over the plate's black read as a
+        // ring with a rumor — judged on the round-1 shot.
+        background: rgba(96, 74, 128, 0.68);
+        border-color: rgba(167, 143, 205, 0.85);
+        color: #ece4f8;
+        box-shadow: $control-toggle-well;
+        &:hover {
+          border-color: rgba(190, 168, 225, 0.95);
+        }
+      }
+    }
+    // The description, inline: `.ht-auto-desc`'s quiet ink on ONE line —
+    // it fills the row's slack and ellipsizes when the pane is narrow; the
+    // full sentence stays on the row's title.
+    .ht-auto-pilldesc {
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       font-size: 72%;
       line-height: 1.35;
       opacity: 0.55;

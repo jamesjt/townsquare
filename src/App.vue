@@ -487,6 +487,35 @@
 
          Behind `devLabs` from the start, for the column's shared reason. -->
     <MistLab v-if="devLabs && labsListOpen" />
+    <!-- the AUTOMATIONS-ROWS LAB (FT-1348 round 2): which dress the
+         Automations pane's rule rows wear — pill toggles (the default) or
+         the checkbox rows they replaced (the swap-back the user asked to
+         keep). One flag (golem/autoRowsLab), read live by HostTools. -->
+    <div
+      id="autorows-lab"
+      :class="{ open: autoRowsLabOpen }"
+      v-if="devLabs && labsListOpen"
+    >
+      <button
+        type="button"
+        class="fd-toggle"
+        title="Automations rows — pill toggles or the checkbox rows"
+        @click="autoRowsLabOpen = !autoRowsLabOpen"
+      >
+        Automations rows
+      </button>
+      <div class="co-rows" v-if="autoRowsLabOpen">
+        <button
+          v-for="m in autoRowModes"
+          :key="m.id"
+          class="co-pick"
+          :class="{ on: autoRowsPick.v === m.id }"
+          @click="pickAutoRows(m.id)"
+        >
+          {{ m.label }}
+        </button>
+      </div>
+    </div>
     <!-- dev labs hidden for now (user call 2026-08-18) — flip devLabs -->
     <div
       id="font-debug"
@@ -1245,6 +1274,13 @@ import {
   CHAIR_SIZE_MAX,
   CHAIR_SIZE_SURFACES,
 } from "./golem/chairArt";
+// FT-1348 round 2: the Automations-rows lab — pill toggles or the checkbox
+// rows, one persisted flag HostTools' pane reads live (see the module).
+import {
+  AUTO_ROW_MODES,
+  autoRowsChoice,
+  applyAutoRows,
+} from "./golem/autoRowsLab";
 // FT-1350: the pill's spectator-grimoire toggle — the same tower shelf the
 // General pane's (now stood-down) row wrote, read through the same event.
 import { towerState, setTowerField, TOWER_EVENT } from "./golem/towerBells";
@@ -1997,6 +2033,11 @@ export default {
       chairSizeMax: CHAIR_SIZE_MAX,
       chairSizeSurfaces: CHAIR_SIZE_SURFACES,
       chairSizeV: chairSize,
+      // FT-1348 round 2: the Automations-rows lab — the module's observable
+      // held here so the chips light with the pick.
+      autoRowsLabOpen: false,
+      autoRowModes: AUTO_ROW_MODES,
+      autoRowsPick: autoRowsChoice,
       // the drip lab
       drOpen: false,
       dripRef: dripKnobs,
@@ -2127,6 +2168,11 @@ export default {
     /** FT-1323 round 3: one of the chair lab's per-surface size dials. */
     pickChairSize(key, v) {
       applyChairSize(key, v);
+    },
+    /** FT-1348 round 2: the Automations-rows lab — pill or checkbox rows,
+     *  remembered like the chair pick (localStorage, no pref). */
+    pickAutoRows(id) {
+      applyAutoRows(id);
     },
     // FT-1258: the Labs door — open/collapse the whole column, remembered
     // per browser so the resting choice survives a reload.
@@ -4341,6 +4387,53 @@ video#background {
   }
 }
 
+// FT-1348 round 2: the AUTOMATIONS-ROWS LAB — the coin lab's shell (chip +
+// side panel + picks) minus the thumbnails: its two chips are words. Rung
+// above the font lab's foot.
+#autorows-lab {
+  position: fixed;
+  top: 302px;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+
+  .fd-toggle {
+    @extend %labs-chip;
+  }
+  &.open .fd-toggle {
+    opacity: 1;
+    border-color: rgba(150, 130, 175, 0.75);
+  }
+
+  .co-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(8, 6, 10, 0.92);
+    border: 1px solid rgba(120, 105, 135, 0.45);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+  }
+  .co-pick {
+    display: flex;
+    align-items: center;
+    padding: 3px 8px;
+    font-family: inherit;
+    font-size: 12px;
+    color: #d8cdb4;
+    background: rgba(20, 16, 22, 0.9);
+    border: 1px solid rgba(120, 105, 135, 0.4);
+    border-radius: 5px;
+    cursor: pointer;
+    &.on {
+      color: #fff;
+      border-color: rgba(200, 170, 90, 0.9);
+    }
+  }
+}
+
 /* Golem fork: the FONT LAB — the top-left dev dropdown owning every
    lettering choice. Deliberately plain: it is a debug tool. */
 #font-debug {
@@ -4350,7 +4443,8 @@ video#background {
   // chips, and below is empty here at the rail's foot.
   // FT-1287: down one rung, for the mist lab above it. Still the foot.
   // FT-1337: down another — the chair lab joined the ladder up top.
-  top: 302px;
+  // FT-1348 round 2: down another — the Automations-rows lab slots in above.
+  top: 326px;
   left: 0;
   z-index: 96;
   font-size: 13px;
