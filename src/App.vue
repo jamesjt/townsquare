@@ -774,7 +774,10 @@
            opens a small plate naming each watcher (as far as the town knows
            them: the name their client offered, or anonymous) with its Kick;
            kicked is not banned — the same link walks them back in. -->
-      <div class="post-watchers" v-if="spectators.length">
+      <!-- User call 2026-08-30: the post's watcher badge stands down — the
+           session pill's spectator count + list (FT-1350) is the one door.
+           Gated false, kept per never-delete. -->
+      <div class="post-watchers" v-if="false && spectators.length">
         <button
           type="button"
           class="post-watch-btn"
