@@ -36,6 +36,14 @@ export const CHAIRS = [
   { id: "opt4", label: "Sunburst", src: opt4 },
 ];
 
+// FT-1323 BAKE (2026-08-30, user call): the pick the user dialled in the lab
+// is now the SHIPPED default for a fresh browser — "opt2" (Wheel hub), not
+// the list's first entry. `CHAIRS[0]` stays "Current"/seat-front and stays
+// FIRST in the array (the "never retires one" comment above still holds —
+// list order is unrelated to which id a fresh browser lands on), so this is
+// named separately rather than read off `CHAIRS[0]`.
+const DEFAULT_CHAIR_ID = "opt2";
+
 const KEY = "golem.chair";
 let stored = null;
 try {
@@ -43,13 +51,13 @@ try {
 } catch (e) {
   stored = null;
 }
-if (!CHAIRS.some((c) => c.id === stored)) stored = CHAIRS[0].id;
+if (!CHAIRS.some((c) => c.id === stored)) stored = DEFAULT_CHAIR_ID;
 
 export const chairChoice = Vue.observable({ id: stored });
 
 /** Paint the choice onto the root so every chair surface follows it. */
 export function applyChair(id) {
-  const pick = CHAIRS.some((c) => c.id === id) ? id : CHAIRS[0].id;
+  const pick = CHAIRS.some((c) => c.id === id) ? id : DEFAULT_CHAIR_ID;
   chairChoice.id = pick;
   const src = CHAIRS.find((c) => c.id === pick).src;
   document.documentElement.style.setProperty("--chair", `url(${src})`);
@@ -111,14 +119,21 @@ applyChairOpacity(storedOp);
 // consumer's OWN color, not one shared value, because the five surfaces
 // don't all rest at the same ink today (open-mark/seat badge sit at stone
 // #9a9285; the pm-mark spans and HostTools' Seats row sit at bone #cfc4ae).
-// So THE VAR STAYS UNSET until the user actually moves the dial — publishing
-// a computed default here would flatten the bone surfaces toward stone on
-// every fresh load, which is exactly the "untouched dial changes something"
-// bug the fallback wiring exists to avoid. Once touched (localStorage
-// remembers it, same as the pick and the opacity dial), the resolved color
-// applies uniformly everywhere, which is the point of a single root var.
+//
+// FT-1323 BAKE (2026-08-30, user call): "0.75 ... now published by default".
+// THE UNSET-UNTIL-TOUCHED DISCIPLINE RETIRES. It existed to protect the bone
+// surfaces from being flattened toward stone by a computed default nobody
+// asked for — but 0.75 is no longer a guess, it is the value the user dialled
+// and previewed across every surface, so publishing it uniformly on a fresh
+// load is not "an untouched dial changing something", it is shipping the
+// look that was actually chosen. `--chair-ink` is now ALWAYS set (see the
+// unconditional `applyChairTone(storedTone)` call below); a browser with a
+// stored value still gets its own, because the lab remains the override.
 export const CHAIR_TONE_MIN = 0;
 export const CHAIR_TONE_MAX = 1;
+// The baked default (FT-1323 bake) — the stone→white mix a fresh browser
+// ships with, uniform on every chair-mask surface exactly as previewed.
+export const CHAIR_TONE_DEFAULT = 0.75;
 
 const CHAIR_TONE_STONE = [0x9a, 0x92, 0x85]; // #9a9285, the dial's floor
 const CHAIR_TONE_WHITE = [0xff, 0xff, 0xff]; // the dial's ceiling
@@ -137,16 +152,16 @@ try {
 } catch (e) {
   storedToneRaw = null;
 }
-const hasStoredTone = storedToneRaw !== null;
 let storedTone = parseFloat(storedToneRaw);
 if (!(storedTone >= CHAIR_TONE_MIN && storedTone <= CHAIR_TONE_MAX)) {
-  storedTone = CHAIR_TONE_MIN;
+  storedTone = CHAIR_TONE_DEFAULT;
 }
 
 export const chairTone = Vue.observable({ v: storedTone });
 
 /** Publish the tone dial onto the root — every chair-mask surface follows
- *  it once it's set, and only once it's set (see the note above). */
+ *  it. Always called (see the unconditional call below): the baked default
+ *  ships uniform ink on a fresh browser now, not an unset var. */
 export function applyChairTone(v) {
   const n = Math.min(CHAIR_TONE_MAX, Math.max(CHAIR_TONE_MIN, parseFloat(v)));
   const value = Number.isFinite(n) ? n : CHAIR_TONE_MIN;
@@ -162,16 +177,20 @@ export function applyChairTone(v) {
   }
 }
 
-// Only replay a PREVIOUSLY-TOUCHED tone on load — a first-ever visit leaves
-// --chair-ink unset so every surface keeps its own native color.
-if (hasStoredTone) applyChairTone(storedTone);
+// ALWAYS publish now (FT-1323 bake) — a fresh browser gets CHAIR_TONE_DEFAULT
+// (0.75) exactly as a stored browser gets its own remembered value; see the
+// note above the constant for why the old "leave --chair-ink unset until
+// touched" guard is gone.
+applyChairTone(storedTone);
 
 // ── FT-1323 round 3 (user): THE SIZE DIALS, ONE PER SURFACE ────────────────
 // "the size of it as slider for each place it shows up" — the chair mark
 // does not share one box across the app (26%-of-coin on the resting mark,
 // 28px on the claim hint, 1.15em in the seat menu, 22px in HostTools' Seats
-// row), so each surface gets its OWN multiplier var, `--chair-size-<key>`,
-// 1.0 = today's box exactly. Same remembered-per-key localStorage pattern.
+// row), so each surface gets its OWN multiplier var, `--chair-size-<key>`.
+// 1.0 remains each consumer's OWN box, unscaled — that is the CSS-side
+// fallback these vars are multiplied against (Player.vue etc.) and does not
+// change here.
 export const CHAIR_SIZE_MIN = 0.5;
 export const CHAIR_SIZE_MAX = 2;
 
@@ -184,6 +203,18 @@ export const CHAIR_SIZE_SURFACES = [
   { key: "seatsrow", label: "Seats row" },
 ];
 
+// FT-1323 BAKE (2026-08-30, user call): the per-surface sizes dialled in the
+// lab, published as the SHIPPED default for a fresh browser — replacing the
+// flat 1.0 every surface used to fall back to. A browser with a stored value
+// for a key still gets its own (the lab remains the override, same as the
+// chair pick and the tone dial above); only a never-touched key lands here.
+const DEFAULT_CHAIR_SIZES = {
+  coin: 2,
+  claim: 2,
+  menu: 1.35,
+  seatsrow: 1.3,
+};
+
 const SIZE_KEY_PREFIX = "golem.chairSize.";
 
 function readStoredSize(key) {
@@ -193,7 +224,9 @@ function readStoredSize(key) {
   } catch (e) {
     raw = null;
   }
-  return raw >= CHAIR_SIZE_MIN && raw <= CHAIR_SIZE_MAX ? raw : 1;
+  return raw >= CHAIR_SIZE_MIN && raw <= CHAIR_SIZE_MAX
+    ? raw
+    : DEFAULT_CHAIR_SIZES[key];
 }
 
 const initialSizes = {};
@@ -220,8 +253,9 @@ export function applyChairSize(key, v) {
   }
 }
 
-// 1.0 matches every consumer's own CSS fallback, so replaying it on load —
-// even the never-touched default — is the same no-op the opacity dial relies
-// on (unlike the tone dial above, where the fallbacks disagree with each
-// other and an eager default would actually change something).
+// ALWAYS published (FT-1323 bake) — a never-touched key now publishes its
+// own DEFAULT_CHAIR_SIZES value rather than the flat 1.0 a consumer's own
+// CSS falls back to, same as the chair pick and the tone dial above: the
+// var is always set from JS, so the CSS-side `var(--chair-size-x, 1)`
+// fallback is only ever read if this module fails to run at all.
 CHAIR_SIZE_SURFACES.forEach((s) => applyChairSize(s.key, initialSizes[s.key]));

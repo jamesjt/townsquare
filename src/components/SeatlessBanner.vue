@@ -23,10 +23,30 @@
     roster-synced guard (`players.length`) keeps it from flashing in the
     beat between joining and the first gamestate.
 
-    THE LOOK IS flashHint's (golem/hint.js) — the fork's quiet-notice
-    register: dark plate, blood border, bottom-centre — made persistent and
-    given its two affordances. z-index 90: over the ring, UNDER every modal
-    (Modal.vue holds 100) and the whisper toasts (120).
+    THE LOOK, RE-DRESSED (2026-08-30, user call — "put it in the middle of
+    the clock face, wearing the glass, purple border not red"): dead centre
+    on the disc rather than a bottom-centre plate, and its material is now
+    `face-disc-menu-plate` — the same glass the seat menu, the top-right
+    menus, the sign-in panels and the hotkey guide wear (faceDisc.scss) —
+    with `--fd-edge-color` repainted to `$control-edge-hover`, the app's
+    standard selected-control purple (controls.scss), in place of the
+    plate's own default plum hairline. `position: fixed` both centres it
+    (`#vote`'s own comment: flex/inset-free positioning on `#app` puts a
+    box's centre at the viewport centre, and the disc sits there too) and
+    satisfies the plate mixin's "must be positioned" requirement, so no
+    extra wrapper is needed.
+
+    Z-ORDER: the disc centre is also where the vote overlay (`#vote`,
+    z-index 20) and the storyteller's night ask can stand, and unlike the
+    old bottom plate this one can now share their spot. The banner reads
+    BELOW the vote overlay (z-index 15) on purpose — an active nomination is
+    the more urgent of the two and must never be obscured by a seatless
+    reminder; if a nomination opens while this banner is showing, the vote
+    card simply paints over it, and the banner is exactly where it was once
+    the nomination closes. Still over the ring's own furniture (z-index
+    1..96) at every point other than dead centre where nothing else lives,
+    and still UNDER every modal (Modal.vue holds 100) and the whisper toasts
+    (120).
   -->
   <transition name="slb">
     <div class="seatless-banner" role="status" v-if="showing">
@@ -139,23 +159,41 @@ export default {
 </script>
 
 <style scoped lang="scss">
-// flashHint's plate (golem/hint.js), persistent: dark ground, blood border,
-// bottom-centre, small type. Interactive, so pointer-events stay on.
+@import "../vars.scss";
+@import "../controls.scss";
+@import "../faceDisc.scss";
+
+// THE GLASS (2026-08-30): `face-disc-menu-plate`, the same material the seat
+// plate, the top-right menus and the hotkey guide wear — one include, no
+// copy of its numbers. `$r: 460px` matches the plate's own max-width below
+// (its blur is a fraction of this, so the frost tracks the box). `--fd-r`'s
+// sibling token `--fd-edge-color` is repainted from the plate's default plum
+// hairline to `$control-edge-hover` — the app's standard selected-control
+// purple (controls.scss) — because this is a NOTICE, not the grimoire; red
+// used to say "chosen"/urgent here and purple keeps that job everywhere
+// else in the fork.
+//
+// `position: fixed` centred by inset (top/left 50% + translate(-50%,-50%))
+// both puts the plate dead centre on the disc (see the template comment —
+// `#vote` establishes that a flex/inset-free box on `#app` centres on the
+// viewport, and a fixed box centred by transform lands the same place) AND
+// satisfies `face-disc-menu-plate`'s "must be positioned" requirement, so
+// the plate's absolutely-positioned tint/rim layers paint on this element
+// rather than leaking onto an ancestor.
 .seatless-banner {
   position: fixed;
-  bottom: 26px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 90; // over the ring, under modals (100) and toasts (120)
+  transform: translate(-50%, -50%);
+  z-index: 15; // under the vote overlay's 20 (see template comment), over
+  // the ring's own furniture, under modals (100) and toasts (120)
+  --fd-edge-color: #{$control-edge-hover};
+  @include face-disc-menu-plate($r: 460px, $radius: 10px);
   display: flex;
   align-items: center;
   gap: 14px;
-  max-width: min(92vw, 560px);
+  max-width: min(92vw, 460px);
   padding: 8px 14px;
-  background: rgba(0, 0, 0, 0.85);
-  border: 2px solid #400;
-  border-radius: 8px;
-  box-shadow: 0 0 8px black;
   color: #fff;
   font-size: 14px;
   line-height: 1.35;
@@ -189,7 +227,9 @@ export default {
   }
 }
 
-// gentle arrival/departure — a notice, not an event
+// gentle arrival/departure — a notice, not an event. The base transform is
+// now the centring one (see .seatless-banner); the offset state adds the
+// same 8px rise on top of it rather than replacing it.
 .slb-enter-active,
 .slb-leave-active {
   transition:
@@ -199,6 +239,6 @@ export default {
 .slb-enter,
 .slb-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(8px);
+  transform: translate(-50%, calc(-50% + 8px));
 }
 </style>
