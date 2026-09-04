@@ -498,11 +498,16 @@
             <p class="rp-pop-note" v-if="openFilter === 'roles'">
               Included roles must ALL be in play; excluded roles must not be.
             </p>
+            <!-- FT-1371 rider (user): the towns hint stood down — it doubled
+                 the signed-out state line, and the include/exclude mechanics
+                 read the same as scripts', which the entries teach by use.
+                 (The branch is gone from the chain, so the scripts note below
+                 names its own condition instead of riding v-else.)
             <p class="rp-pop-note" v-else-if="openFilter === 'towns'">
               The towns you have sat in. Included towns widen the set (a game is
               in one town); excluded towns drop out.
-            </p>
-            <p class="rp-pop-note" v-else>
+            </p> -->
+            <p class="rp-pop-note" v-if="openFilter === 'scripts'">
               Included scripts widen the set (a game is of one script); excluded
               scripts drop out.
             </p>
