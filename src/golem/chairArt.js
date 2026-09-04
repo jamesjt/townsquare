@@ -15,6 +15,33 @@
 // player settings is a later call, not this module's.
 import Vue from "vue";
 
+// ── FT-1368 (user, 2026-09-04): "doesn't seem like our chair lab defaults
+// went through?" — they hadn't, and the mechanism was this module's own
+// boot: every apply*() below persisted on EVERY call, including the
+// unconditional boot calls, so a browser's FIRST visit froze whatever
+// defaults were live that day into localStorage — and no later bake could
+// ever reach it. Two-part fix: (1) boot calls publish WITHOUT persisting
+// (each apply takes a `persist` flag; only the lab's own dials pass true),
+// and (2) a ONE-TIME repair below clears the chair keys any browser froze
+// under the old boot-write, stamped so it runs once. Dev call: deliberate
+// pre-stamp lab picks are cleared too — the shipped bake (wheel hub + the
+// user's dialled values) is the point, and the lab re-dials in seconds.
+const BAKE_STAMP_KEY = "golem.chairBakeV";
+const BAKE_STAMP = "2";
+try {
+  if (localStorage.getItem(BAKE_STAMP_KEY) !== BAKE_STAMP) {
+    ["golem.chair", "golem.chairOpacity", "golem.chairTone"].forEach((k) =>
+      localStorage.removeItem(k),
+    );
+    ["coin", "claim", "menu", "seatsrow"].forEach((k) =>
+      localStorage.removeItem("golem.chairSize." + k),
+    );
+    localStorage.setItem(BAKE_STAMP_KEY, BAKE_STAMP);
+  }
+} catch (e) {
+  // storage off: nothing frozen, nothing to repair
+}
+
 // the incumbent stays first and default — the lab tries chairs ON, it never
 // retires one
 import seatFront from "../assets/ui-seat-front.svg";
@@ -56,11 +83,12 @@ if (!CHAIRS.some((c) => c.id === stored)) stored = DEFAULT_CHAIR_ID;
 export const chairChoice = Vue.observable({ id: stored });
 
 /** Paint the choice onto the root so every chair surface follows it. */
-export function applyChair(id) {
+export function applyChair(id, persist = true) {
   const pick = CHAIRS.some((c) => c.id === id) ? id : DEFAULT_CHAIR_ID;
   chairChoice.id = pick;
   const src = CHAIRS.find((c) => c.id === pick).src;
   document.documentElement.style.setProperty("--chair", `url(${src})`);
+  if (!persist) return;
   try {
     localStorage.setItem(KEY, pick);
   } catch (e) {
@@ -68,7 +96,7 @@ export function applyChair(id) {
   }
 }
 
-applyChair(stored);
+applyChair(stored, false);
 
 // ── FT-1323/FT-1350 (user): THE OPACITY DIAL ────────────────────────────────
 // How strongly the chair mark paints, published as a SECOND root var beside
@@ -94,13 +122,14 @@ if (!(storedOp >= CHAIR_OPACITY_MIN && storedOp <= CHAIR_OPACITY_MAX)) {
 export const chairOpacity = Vue.observable({ v: storedOp });
 
 /** Publish the dial onto the root so every chair surface follows it. */
-export function applyChairOpacity(v) {
+export function applyChairOpacity(v, persist = true) {
   const n = Math.min(
     CHAIR_OPACITY_MAX,
     Math.max(CHAIR_OPACITY_MIN, parseFloat(v) || 1),
   );
   chairOpacity.v = n;
   document.documentElement.style.setProperty("--chair-opacity", String(n));
+  if (!persist) return;
   try {
     localStorage.setItem(OPACITY_KEY, String(n));
   } catch (e) {
@@ -108,7 +137,7 @@ export function applyChairOpacity(v) {
   }
 }
 
-applyChairOpacity(storedOp);
+applyChairOpacity(storedOp, false);
 
 // ── FT-1323 round 3 (user): THE TONE DIAL ───────────────────────────────────
 // "chair needs to be brighter still, less stone maybe? more white? can we
@@ -133,7 +162,8 @@ export const CHAIR_TONE_MIN = 0;
 export const CHAIR_TONE_MAX = 1;
 // The baked default (FT-1323 bake) — the stone→white mix a fresh browser
 // ships with, uniform on every chair-mask surface exactly as previewed.
-export const CHAIR_TONE_DEFAULT = 0.75;
+// FT-1368: 0.75 → 0.70 — the user's dialled bake (2026-09-04 screenshot).
+export const CHAIR_TONE_DEFAULT = 0.7;
 
 const CHAIR_TONE_STONE = [0x9a, 0x92, 0x85]; // #9a9285, the dial's floor
 const CHAIR_TONE_WHITE = [0xff, 0xff, 0xff]; // the dial's ceiling
@@ -162,7 +192,7 @@ export const chairTone = Vue.observable({ v: storedTone });
 /** Publish the tone dial onto the root — every chair-mask surface follows
  *  it. Always called (see the unconditional call below): the baked default
  *  ships uniform ink on a fresh browser now, not an unset var. */
-export function applyChairTone(v) {
+export function applyChairTone(v, persist = true) {
   const n = Math.min(CHAIR_TONE_MAX, Math.max(CHAIR_TONE_MIN, parseFloat(v)));
   const value = Number.isFinite(n) ? n : CHAIR_TONE_MIN;
   chairTone.v = value;
@@ -170,6 +200,7 @@ export function applyChairTone(v) {
     "--chair-ink",
     mixChairTone(value),
   );
+  if (!persist) return;
   try {
     localStorage.setItem(TONE_KEY, String(value));
   } catch (e) {
@@ -181,7 +212,7 @@ export function applyChairTone(v) {
 // (0.75) exactly as a stored browser gets its own remembered value; see the
 // note above the constant for why the old "leave --chair-ink unset until
 // touched" guard is gone.
-applyChairTone(storedTone);
+applyChairTone(storedTone, false);
 
 // ── FT-1323 round 3 (user): THE SIZE DIALS, ONE PER SURFACE ────────────────
 // "the size of it as slider for each place it shows up" — the chair mark
@@ -209,7 +240,9 @@ export const CHAIR_SIZE_SURFACES = [
 // for a key still gets its own (the lab remains the override, same as the
 // chair pick and the tone dial above); only a never-touched key lands here.
 const DEFAULT_CHAIR_SIZES = {
-  coin: 2,
+  // FT-1368: coin 2 → 1.4 — the user's dialled bake (2026-09-04 screenshot);
+  // claim stays at their dialled 2.
+  coin: 1.4,
   claim: 2,
   menu: 1.35,
   seatsrow: 1.3,
@@ -237,7 +270,7 @@ CHAIR_SIZE_SURFACES.forEach((s) => {
 export const chairSize = Vue.observable(initialSizes);
 
 /** Publish one surface's size multiplier onto the root. */
-export function applyChairSize(key, v) {
+export function applyChairSize(key, v, persist = true) {
   if (!CHAIR_SIZE_SURFACES.some((s) => s.key === key)) return;
   const n = Math.min(CHAIR_SIZE_MAX, Math.max(CHAIR_SIZE_MIN, parseFloat(v)));
   const value = Number.isFinite(n) ? n : 1;
@@ -246,6 +279,7 @@ export function applyChairSize(key, v) {
     `--chair-size-${key}`,
     String(value),
   );
+  if (!persist) return;
   try {
     localStorage.setItem(SIZE_KEY_PREFIX + key, String(value));
   } catch (e) {
@@ -258,4 +292,6 @@ export function applyChairSize(key, v) {
 // CSS falls back to, same as the chair pick and the tone dial above: the
 // var is always set from JS, so the CSS-side `var(--chair-size-x, 1)`
 // fallback is only ever read if this module fails to run at all.
-CHAIR_SIZE_SURFACES.forEach((s) => applyChairSize(s.key, initialSizes[s.key]));
+CHAIR_SIZE_SURFACES.forEach((s) =>
+  applyChairSize(s.key, initialSizes[s.key], false),
+);
