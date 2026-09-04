@@ -2867,7 +2867,16 @@ h4 {
   border-color: rgba(216, 205, 180, 0.18);
   font-size: 12px;
   width: 26px;
-  margin-right: 1px;
+  // User call 2026-09-04: the funnel FILLS the cluster — no margin inside
+  // its parent, bleeding over the enclosure's own 2px padding on its three
+  // outer sides so it reads as the cap that encapsulates the buttons, not
+  // as one more sibling. Outer corners hug the cluster's 5px radius; the
+  // inner edge is flat with its own seam against the first button.
+  align-self: stretch;
+  height: auto;
+  margin: -2px 1px -2px -2px;
+  border-radius: 4px 0 0 4px;
+  border-right: 1px solid rgba(216, 205, 180, 0.18);
 
   // it does nothing, so hovering changes nothing — the .rp-tool hover
   // treatment is a button's promise and this glyph must not make it.
