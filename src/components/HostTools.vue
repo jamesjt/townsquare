@@ -5994,6 +5994,64 @@ export default {
     min-width: 0;
   }
 
+  // ── FT-1366: THE RECTANGLE'S PINCHED STRIP ───────────────────────────────
+  // Between the phone sheets and the disc there is a desktop strip — 992px+
+  // windows still wearing the rectangle (1366x768 and 1280x800 live here) —
+  // where media.scss's type steps up to 1.1em/full but the panel's 420px cap
+  // does not move, and the rail + pane pair genuinely does not fit: measured
+  // 56-58px of overrun at full type (the Day timer's sentence beheaded at
+  // "10min", the Controls selects crushed to bare chevrons at the panel
+  // edge), 8-25px at 1.1em. Below 992px the smaller type steps fit at every
+  // width, so the strip ends there.
+  //
+  // The mend is the DISC'S OWN compact dress, restated for the rectangle:
+  // the rail tightens to 80% leaves, the PANE takes 80% type WHOLESALE (one
+  // font-size on the pane, not per-piece — the day scrub's 2.8em box, the
+  // menu summaries and the trigger faces are all em-cut, so they follow;
+  // per-piece 80% left the scrub at full type and still spilled 25px,
+  // measured on the rig's second pass), the label track takes the disc
+  // well's fit-content cap so "Hover Player Cog Menu" wraps rather than
+  // starving the control track (it was taking 196px of a 218px pane), the
+  // gaps take the disc band's own 10px, and a compound row's sentence may
+  // fold under its own first control — bent beats beheaded, the disc
+  // block's words.
+  // NOT the disc's container query: the pane cannot be an inline-size
+  // container here, because the rectangle panel is shrink-to-fit and
+  // containment zeroes the pane's width contribution — probed, the panel
+  // collapsed around its other rows and the pinch got worse
+  // (claude_temp_test/2026-09-04-ft1366-probe.mjs). A media strip states
+  // the same condition from the window, which the panel cannot feed back
+  // into. The gate lives in faceDisc.scss beside the build gate it
+  // complements.
+  @include face-disc-build-rect-pinch {
+    .ht-gamewrap {
+      gap: 10px;
+      .ht-rail-item {
+        font-size: 80%;
+        padding: 4px 8px 4px 6px;
+      }
+      > .ht-game,
+      > .ht-prefs {
+        font-size: 80%;
+        column-gap: 10px;
+        .row-name {
+          text-align: left;
+          line-height: 1.25;
+        }
+      }
+      > .ht-game {
+        grid-template-columns: fit-content(6.6em) minmax(0, 1fr);
+        .ht-set-ctl {
+          flex-wrap: wrap;
+          row-gap: 2px;
+        }
+      }
+      > .ht-prefs {
+        grid-template-columns: fit-content(6.2em) minmax(0, 1fr);
+      }
+    }
+  }
+
   // ── FT-1348 round 3: THE ACCESS PANE ─────────────────────────────────────
   // Not the `.ht-prefs, .ht-game` grid below — two password rows have no
   // label/control pair to align, they are small forms. A plain flex column,

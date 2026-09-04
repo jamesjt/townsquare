@@ -420,6 +420,31 @@ $face-disc-foot-dy: 14px;
   }
 }
 
+// ── THE BUILD RECTANGLE'S PINCHED STRIP (FT-1366) ───────────────────────────
+// The COMPLEMENT of the build gate, taken over desktop windows 992px and
+// wider: everywhere a mouse-driven window is big enough for media.scss's
+// 1.1em/full type steps (992px+) but NOT big enough for the disc, the build
+// panel keeps its rectangle — whose 420px cap does not grow with the type.
+// Measured on the FT-1366 rig (claude_temp_test/2026-09-04-ft1366-shots):
+// at 1366x768 / 1280x800 (full type, rectangle) the Game settings pane is
+// 208px wide and full-size rows overrun it by 56-58px — selects crushed to
+// bare chevrons, "All 8" beheaded at the panel edge; at 992-999px wide the
+// same rows overrun by 8-25px. At the 1em step (below 992px) everything
+// fits and this strip does nothing. The three clauses are the build gate's
+// two clauses negated, clause by clause — EDIT THEM TOGETHER: a change to
+// $face-disc-build-gate that is not mirrored here opens a crack where a
+// window wears neither dress (or both).
+$face-disc-build-rect-pinch:
+  "(pointer: fine) and (min-width: 992px) and (max-width: 999.98px), " +
+  "(pointer: fine) and (min-width: 1000px) and (max-width: 1641.98px) and (max-height: 899.98px), " +
+  "(pointer: fine) and (min-width: 1642px) and (max-height: 779.98px)";
+
+@mixin face-disc-build-rect-pinch {
+  @include face-disc-gate($face-disc-build-rect-pinch) {
+    @content;
+  }
+}
+
 // ── THE DISC ITSELF: geometry + material ────────────────────────────────────
 //
 // THE RADIUS COMES FROM THE FACE. App.vue publishes --face-cx / --face-cy /
