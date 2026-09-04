@@ -2503,6 +2503,15 @@ export default {
 // panel material, all lifted out of the Scripts workbench so both surfaces
 // read one definition. Variables and mixins only; importing adds no rules.
 @import "../surface.scss";
+// FT-1370 (user: "the style of this whole Chronicle needs an overhaul… the
+// biggest doesn't-fit is the sections, borders, and dropdowns"): the page
+// joins the tower's own material world. The bands wear the app's one glass
+// (face-disc-menu-plate — the plate AccountDoor, the corner menus and the
+// hotkeys panel float on), and every line on the page that was a generic
+// bone/white hairline speaks the settings rail's plum instead
+// (rgba(120,105,135,·) — HostTools' tab-strip seam and leaf edges, FT-1108's
+// dropdown family). Mixins only; importing adds no rules.
+@import "../faceDisc.scss";
 
 // THE PAGE, INSIDE THE SHELL.
 //
@@ -2533,6 +2542,11 @@ export default {
 // because the close × has left this header for the shell's corner.
 .rp-head {
   @include surface-head;
+  // FT-1370: the head's rule was the page's first generic hairline (the
+  // bench's white 0.15). It speaks the settings rail's plum seam now — the
+  // exact value HostTools rules its tab strip with. (The bench keeps its
+  // own; unifying the family is a follow-up call, not this pass's.)
+  border-bottom-color: rgba(120, 105, 135, 0.45);
 }
 .rp-row1 {
   @include surface-head-title-row;
@@ -2618,7 +2632,17 @@ export default {
 // surface.scss). The town still shows between the panels, which is the point.
 .rp-band,
 .rp-panel {
-  @include surface-panel;
+  // FT-1370 (the user's first-named misfit): the bands stop wearing
+  // surface-panel's white hairline on flat black and wear the tower's own
+  // panel material — face-disc-menu-plate, the SAME glass the account door,
+  // the corner menus, the hotkeys panel and the seat plate float on. $r/
+  // $radius are AccountDoor's own pair (360px/10px — the door is the glass
+  // at reading-surface size). The mixin's layers are absolutely positioned,
+  // so the band must be its own positioning box.
+  // @include surface-panel;  // stood down (FT-1370), not removed
+  position: relative;
+  @include face-disc-menu-plate($r: 360px, $radius: 10px);
+  padding: 14px 16px 16px; // surface-panel's own default, kept
 }
 .rp-band + .rp-band,
 .rp-panel {
@@ -2636,6 +2660,20 @@ export default {
   margin: 0 0 4px;
   opacity: 0.9;
   text-align: left;
+  // FT-1370: the corner menus' own headline tracking (AccountMenu's
+  // PiratesBay headline, letter-spacing 1px) — the display face at the
+  // app's own rhythm, not just its family.
+  letter-spacing: 1px;
+}
+// FT-1370: each band's header is RULED OFF from its content in the settings
+// rail's plum seam — the line HostTools draws under its tab strip — so a
+// band reads as the tower's panel (header, seam, body), not as a caption
+// floating over a table.
+.rp-band > h3,
+.rp-band > .rp-tablehead {
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(120, 105, 135, 0.45);
+  margin-bottom: 10px;
 }
 
 h4 {
@@ -2652,7 +2690,10 @@ h4 {
 .rp-state {
   margin: 0 0 10px;
   opacity: 0.55;
-  font-size: 13px;
+  // FT-1370: up a step with the tables — 13px utilitarian sans was part of
+  // the "doesn't fit" (the fork reads large everywhere else).
+  // font-size: 13px;  // stood down (FT-1370)
+  font-size: 14px;
 }
 
 // (FT-1301: `.rp-legend` left with the thin-mark legends — the user retired
@@ -2704,7 +2745,16 @@ h4 {
 // stands in a frame, like every other block on the surface — a headline band
 // with nothing around it read as text that had drifted to the top.
 .rp-figures {
-  @include surface-panel(12px 16px 14px);
+  // FT-1370: with the band itself now glass, a second surface-panel inside
+  // it would be a plate on a plate. The figures stand on an INNER ground
+  // instead — the corner menu's own headline ground (AccountMenu's
+  // rgba(0,0,0,.5)) inside a plum hairline (HostTools' 1px
+  // rgba(120,105,135,.5), the build panel's inner-edge weight).
+  // @include surface-panel(12px 16px 14px);  // stood down (FT-1370)
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(120, 105, 135, 0.5);
+  border-radius: 8px;
+  padding: 12px 16px 14px;
   list-style: none;
   display: flex;
   flex-wrap: wrap;
@@ -2787,9 +2837,15 @@ h4 {
   width: fit-content;
   padding: 4px;
   margin: 0 0 14px;
-  border: 1px solid rgba(216, 205, 180, 0.25);
-  border-radius: 6px;
-  background: rgba(10, 7, 6, 0.82);
+  // FT-1370: the bar joins the control-plate grammar — the script picker's
+  // own three values (controls.scss), the same plate the search input and
+  // the chips beside it already wear, instead of a bone hairline on its own
+  // loose brown.
+  // border: 1px solid rgba(216, 205, 180, 0.25);  // stood down (FT-1370)
+  // background: rgba(10, 7, 6, 0.82);             // stood down (FT-1370)
+  border: $control-edge-width solid $control-edge;
+  border-radius: $control-radius;
+  background: $control-bg;
 }
 .rp-toolgroup {
   display: flex;
@@ -2799,7 +2855,9 @@ h4 {
   width: 1px;
   align-self: stretch;
   margin: 2px 4px;
-  background: rgba(216, 205, 180, 0.2);
+  // FT-1370: the divider speaks plum (the rail's seam), not bone.
+  // background: rgba(216, 205, 180, 0.2);  // stood down (FT-1370)
+  background: rgba(120, 105, 135, 0.45);
 }
 .rp-tool {
   position: relative;
@@ -2818,17 +2876,29 @@ h4 {
 
   &:hover {
     opacity: 1;
-    color: #fff;
-    background: rgba(216, 205, 180, 0.12);
+    // FT-1370: the pointer acknowledgement goes purple — the setup panel's
+    // own tab-hover pair (HostTools .ht-tab, FT-1175 "purple not red"),
+    // instead of a bone wash.
+    // color: #fff; background: rgba(216, 205, 180, 0.12);  // stood down
+    color: #ece4f8;
+    background: rgba(150, 130, 175, 0.12);
   }
   &:focus-visible {
     @include control-focus-ring;
+    // FT-1108's own dropdown-family override, worn here for the same
+    // reason: these buttons OPEN lists, and the shared red ring reads as
+    // blood on a control that speaks plum.
+    outline-color: rgba(150, 130, 175, 0.9);
   }
-  // its popover is open under it
+  // its popover is open under it — the chosen state every open dropdown on
+  // the setup panel wears (FT-1108's purple restatement of control-lit),
+  // not a slightly-stronger hover wash.
   &.open {
     opacity: 1;
-    color: #fff;
-    background: rgba(216, 205, 180, 0.18);
+    // color: #fff; background: rgba(216, 205, 180, 0.18);  // stood down
+    color: #ece4f8;
+    background: rgba(96, 74, 128, 0.42);
+    border-color: rgba(167, 143, 205, 0.85);
   }
   // an ACTIVE filter is FILLED — the editor toolbar's toggled state
   &.armed {
@@ -2853,9 +2923,14 @@ h4 {
   align-items: center;
   gap: 2px;
   padding: 2px;
-  border: 1px solid rgba(216, 205, 180, 0.22);
+  // FT-1370: the enclosure's edge is the settings rail's plum (HostTools'
+  // 1px rgba(120,105,135,.5) inner edges), its ground the bench's quiet
+  // inner black — not a bone wash.
+  // border: 1px solid rgba(216, 205, 180, 0.22);  // stood down (FT-1370)
+  // background: rgba(216, 205, 180, 0.05);        // stood down (FT-1370)
+  border: 1px solid rgba(120, 105, 135, 0.5);
   border-radius: 5px;
-  background: rgba(216, 205, 180, 0.05);
+  background: rgba(0, 0, 0, 0.3);
 }
 // the funnel: a GLYPH, not a button — always plated so it reads as the
 // cluster's identity, amber-armed (with the total count riding its corner)
@@ -2863,8 +2938,13 @@ h4 {
 .rp-tool-funnel {
   cursor: default;
   opacity: 0.85;
-  background: rgba(216, 205, 180, 0.1);
-  border-color: rgba(216, 205, 180, 0.18);
+  // FT-1370: the cap's plate is the tab leaves' own ground (HostTools'
+  // rgba(0,0,0,.55)) behind the rail plum — the FT-1369 cap geometry kept,
+  // its bone tints re-inked.
+  // background: rgba(216, 205, 180, 0.1);      // stood down (FT-1370)
+  // border-color: rgba(216, 205, 180, 0.18);   // stood down (FT-1370)
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(120, 105, 135, 0.5);
   font-size: 12px;
   width: 26px;
   // User call 2026-09-04: the funnel FILLS the cluster — no margin inside
@@ -2876,14 +2956,17 @@ h4 {
   height: auto;
   margin: -2px 1px -2px -2px;
   border-radius: 4px 0 0 4px;
-  border-right: 1px solid rgba(216, 205, 180, 0.18);
+  // FT-1370: the seam against the first button is the rail plum too.
+  // border-right: 1px solid rgba(216, 205, 180, 0.18);  // stood down
+  border-right: 1px solid rgba(120, 105, 135, 0.5);
 
   // it does nothing, so hovering changes nothing — the .rp-tool hover
   // treatment is a button's promise and this glyph must not make it.
   &:hover {
     opacity: 0.85;
     color: #d8cdb4;
-    background: rgba(216, 205, 180, 0.1);
+    // background: rgba(216, 205, 180, 0.1);  // stood down (FT-1370)
+    background: rgba(0, 0, 0, 0.55);
   }
   &.armed,
   &.armed:hover {
@@ -2943,6 +3026,9 @@ h4 {
 
   &:focus-visible {
     @include control-focus-ring;
+    // (FT-1370 note: no plum override here — App.vue's app-wide field rule
+    // gives every focused input the blood border + glow, and a plum outline
+    // over that would be two voices on one edge. Fields keep the blood.)
   }
   &::placeholder {
     color: rgba(216, 205, 180, 0.4);
@@ -2987,11 +3073,16 @@ h4 {
   // whichever hand is driving.
   &.lit,
   &:hover {
-    color: #fff;
-    background: rgba(216, 205, 180, 0.12);
+    // FT-1370: the row under the cursor speaks the dropdowns' plum
+    // (OptionSelect's .gsel-opt.active pair), not a bone wash.
+    // color: #fff; background: rgba(216, 205, 180, 0.12);  // stood down
+    color: #ece4f8;
+    border-color: rgba(150, 130, 175, 0.55);
+    background: rgba(150, 130, 175, 0.12);
   }
   &:focus-visible {
     @include control-focus-ring;
+    outline-color: rgba(150, 130, 175, 0.9); // FT-1370: dropdown family
   }
   .rp-omni-minus {
     visibility: hidden;
@@ -3123,10 +3214,19 @@ h4 {
   min-width: 280px;
   max-width: 380px;
   padding: 10px;
-  border: 1px solid rgba(216, 205, 180, 0.3);
-  border-radius: 6px;
-  background: #14100d;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  // FT-1370 (the user's second-named misfit): every popover this page opens
+  // wears the settings dropdowns' own popup chrome — OptionSelect's
+  // .gsel-menu, FT-1108's "red is the blood, purple is the book" dress —
+  // instead of a plain dark box with a bone hairline. Ground, plum edge,
+  // radius and shadow are that menu's four values, verbatim.
+  // border: 1px solid rgba(216, 205, 180, 0.3);      // stood down (FT-1370)
+  // border-radius: 6px;                              // stood down (FT-1370)
+  // background: #14100d;                             // stood down (FT-1370)
+  // box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);       // stood down (FT-1370)
+  border: 2px solid rgba(120, 105, 135, 0.55);
+  border-radius: 8px;
+  background: rgba(12, 8, 16, 0.96);
+  box-shadow: 0 0 12px black;
 }
 // (FT-1304: `.rp-pop-search` left with the in-popover input — the search
 // lives on the bar now, as `.rp-toolsearch` above.)
@@ -3174,11 +3274,16 @@ h4 {
   cursor: pointer;
 
   &:hover {
-    color: #fff;
-    background: rgba(216, 205, 180, 0.1);
+    // FT-1370: the dropdowns' own hover (OptionSelect's .gsel-opt.active),
+    // not a bone wash — the green/amber tri-states below stay untouched.
+    // color: #fff; background: rgba(216, 205, 180, 0.1);  // stood down
+    color: #ece4f8;
+    border-color: rgba(150, 130, 175, 0.55);
+    background: rgba(150, 130, 175, 0.12);
   }
   &:focus-visible {
     @include control-focus-ring;
+    outline-color: rgba(150, 130, 175, 0.9); // FT-1370: dropdown family
   }
   .rp-pop-name {
     flex: 1 1 auto;
@@ -3267,7 +3372,10 @@ h4 {
   // the tallest bar (64px) + its hover count + the hanging axis labels —
   // no dead headroom above the data.
   height: 82px;
-  border-bottom: 1px solid rgba(216, 205, 180, 0.25);
+  // FT-1370: the baseline the bars stand on is a rail-plum rule now; the
+  // bars themselves keep their bone — they are data marks, not chrome.
+  // border-bottom: 1px solid rgba(216, 205, 180, 0.25);  // stood down
+  border-bottom: 1px solid rgba(120, 105, 135, 0.45);
 }
 .rp-hist-col {
   flex: 1 1 0;
@@ -3343,7 +3451,9 @@ h4 {
     top: 7px;
     height: 2px;
     border-radius: 1px;
-    background: rgba(216, 205, 180, 0.25);
+    // FT-1370: the rail's resting track, plum like every idle line here.
+    // background: rgba(216, 205, 180, 0.25);  // stood down (FT-1370)
+    background: rgba(120, 105, 135, 0.45);
   }
 }
 .rp-hist-fill {
@@ -3504,14 +3614,20 @@ h4 {
 .rp-table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 14px;
+  // FT-1370 (light touch, the user's LAST priority): type up a step toward
+  // the app's scale (the fork reads large everywhere else), rules onto the
+  // plum family. Ink hierarchy stays opacity-on-bone, as it was.
+  // font-size: 14px;  // stood down (FT-1370)
+  font-size: 15px;
 
   th {
     opacity: 0.5;
     font-weight: normal;
     text-align: left;
     padding: 3px 14px 5px 0;
-    border-bottom: 1px solid rgba(216, 205, 180, 0.2);
+    // the header rule is the rail's own seam
+    // border-bottom: 1px solid rgba(216, 205, 180, 0.2);  // stood down
+    border-bottom: 1px solid rgba(120, 105, 135, 0.45);
     white-space: nowrap;
   }
   td {
@@ -3520,7 +3636,10 @@ h4 {
     font-variant-numeric: tabular-nums;
   }
   tbody tr + tr td {
-    border-top: 1px solid rgba(216, 205, 180, 0.08);
+    // the row seam keeps the rail's hue at whisper weight (alpha tuned
+    // down from the leaf edge's .28 — 200 rows of .28 would stripe).
+    // border-top: 1px solid rgba(216, 205, 180, 0.08);  // stood down
+    border-top: 1px solid rgba(120, 105, 135, 0.16);
   }
   th:not(:first-child),
   td:not(:first-child) {
@@ -3545,8 +3664,11 @@ h4 {
   tbody tr.jump {
     cursor: pointer;
     &:hover td {
-      background: rgba(216, 205, 180, 0.09);
-      color: #fff;
+      // FT-1370: a row that opens something acknowledges the pointer in
+      // the same plum every option row now does.
+      // background: rgba(216, 205, 180, 0.09); color: #fff;  // stood down
+      background: rgba(150, 130, 175, 0.12);
+      color: #ece4f8;
     }
   }
   // the town you are standing in, marked in its own ledger
@@ -3600,7 +3722,12 @@ h4 {
 // the landing's bands wear — which script, who won, and the four facts about
 // the game, read as one block rather than as loose text above the boards.
 .rp-gamehead {
-  @include surface-panel(10px 16px 12px);
+  // FT-1370: the record's header block wears the same glass the landing's
+  // bands do now (see .rp-band above).
+  // @include surface-panel(10px 16px 12px);  // stood down (FT-1370)
+  position: relative;
+  @include face-disc-menu-plate($r: 360px, $radius: 10px);
+  padding: 10px 16px 12px;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
