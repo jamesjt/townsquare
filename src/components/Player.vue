@@ -2485,8 +2485,9 @@ export default {
       // tower shelf, refreshed on TOWER_EVENT like every tower reader.
       chatLevel: towerState.chatLevel,
       // FT-1315: what marks a SPENT ghost vote on this town's seats — "cowl"
-      // (today's crossed mark) or "shroud" (the veil drops instead). Same
-      // shelf, same snapshot idiom, same TOWER_EVENT reader as chatLevel.
+      // (the crossed mark) or "shroud" (the veil drops instead; the fresh-
+      // town default since FT-1367). Same shelf, same snapshot idiom, same
+      // TOWER_EVENT reader as chatLevel.
       ghostSpentMark: towerState.ghostSpentMark,
       // FT-1242: the menu rows' own marks — see the import note.
       // FT-1337: uiSeat stood down with its import — the chair rows are

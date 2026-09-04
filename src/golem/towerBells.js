@@ -217,13 +217,16 @@ export const DEFAULT_TOWER = {
   autoStarpass: false, // the Imp's self-kill passes the crown
   autoUndertaker: false, // the Undertaker's row prefills from the gallows
   // FT-1315: WHAT MARKS A SPENT GHOST VOTE — the host's vocabulary pick.
-  //   cowl    today's mark: the ghost-vote cowl stays on the seat, crossed
-  //           out and faded (FT-1046)
+  //   cowl    the ghost-vote cowl stays on the seat, crossed out and faded
+  //           (FT-1046)
   //   shroud  the seat's death shroud DROPS instead — a dead seat wearing
   //           its veil still holds its vote; a bare dead seat has spent it
   //           (the physical game's own convention, where the token flips)
   // Synced with the rest of the tower so every client reads the same seat.
-  ghostSpentMark: "cowl",
+  // FT-1367 (user): the DEFAULT is the shroud drop now — a fresh town wears
+  // the physical convention; a stored town keeps whatever it stored (this
+  // shelf is only the fallback under the merge, as for every key here).
+  ghostSpentMark: "shroud",
   // FT-1316: PLAY THE END-OF-GAME ANIMATION — the FT-1053 ceremony's own
   // switch. On is today's behaviour; Off lands the game end QUIETLY (the
   // settled state — result pill, grimoire reveal — renders with no show),

@@ -1096,8 +1096,9 @@
              Two vocabulary choices about how the town SHOWS what has already
              happened, on the tower shelf like every row above (per-town
              persisted, synced live). Ghost vote picks what marks a spent
-             ghost vote — today's crossed cowl, or the death shroud dropping
-             instead; End reveal gates the FT-1053 end-of-game ceremony so a
+             ghost vote — the crossed cowl, or the death shroud dropping
+             (the fresh-town default since FT-1367); End reveal gates the
+             FT-1053 end-of-game ceremony so a
              storyteller can land the end quietly and stage their own.
              FT-1348: the pair MOVED UP — it read after the talking rows on
              the single scroll; under the rail it files with General (the
@@ -2271,6 +2272,14 @@ import uiScript from "../assets/ui-script.png";
 // size); the demon head is the one silhouette that survives 22px AND is
 // already the end-of-game show's own face.
 import uiGhostCowl from "../assets/ui-ghost-cowl.png";
+// FT-1367: the Spent-ghost-vote OPTIONS wear their own pictures in the list —
+// the cowl (the seat's ghost-vote mark, `.has-vote.ghost-vote`'s art) beside
+// "Ghost mark", and the veil the dead actually wear (ui-veil3, FT-1015's
+// shipped silk — Player.vue's `.shroud` paints exactly this) beside "Drop
+// shroud". The FT-1326a audition rejected ui-veil3 as a lone 22px ROW mark;
+// here it sits BESIDE its own label, which carries the meaning — the picture
+// only has to be the same fabric the seat shows.
+import uiVeil from "../assets/ui-veil3.png";
 import uiEndReveal from "../assets/blood/demon-glyph.png";
 // FT-1196: the people shuffle wears its own baked mark — ui-seat's chair over
 // an opposed pair of arrows (the exchange gesture, distinct from the seat
@@ -3191,18 +3200,23 @@ export default {
         ? "All " + on
         : on + " of " + rules.length;
     },
-    /** FT-1315: what marks a spent ghost vote — the two vocabularies. */
+    /** FT-1315: what marks a spent ghost vote — the two vocabularies.
+     *  FT-1367: each option wears its own picture (OptionSelect's FT-1346
+     *  per-option `img` slot) — the cowl and the veil are the very arts the
+     *  seat renders, so the list SHOWS the two vocabularies it names. */
     ghostSpentOptions() {
       return [
         {
           value: "cowl",
           label: "Ghost mark",
+          img: uiGhostCowl,
           title:
-            "A spent vote crosses out the seat's ghost-vote mark — today's behaviour",
+            "A spent vote crosses out the seat's ghost-vote mark and leaves the shroud on",
         },
         {
           value: "shroud",
           label: "Drop shroud",
+          img: uiVeil,
           title:
             "A spent vote takes the death shroud OFF the seat — shrouded dead still hold their vote, bare dead have spent it",
         },
@@ -7149,34 +7163,42 @@ export default {
       > .row.ht-settings.ht-gamewrap {
         flex-shrink: 1;
         min-height: 0;
-        // ── FT-1350 (user): USE THE MID-FACE ROOM ─────────────────────────
+        // ── FT-1350 (user): USE THE MID-FACE ROOM — STOOD DOWN (FT-1367) ──
         // The band's width is the chord at the CAP corners (0.8146·rx,
         // faceDisc.scss's derivation) — but this wrap sits BELOW the tab
-        // strip, where the ellipse is wider: measured at 1920x1080 the
-        // chord at the wrap's top edge allows +63.7px over the band and
-        // +8.3px at its bottom CORNERS (which carry no ink in the fitted
-        // dress — rows end well left of the box's edge). The user,
-        // screenshot in hand: the settings area leaves unused room left and
-        // right inside the clock face. So the wrap takes 40 of those pixels
-        // — centered, so 20 a side — WHENEVER THE PANE WEARS THE FITTED
-        // DRESS. The `:has` gate matters: in the scroll dress the pane IS
-        // square-cornered ink (the sunken well), and its bottom-right
-        // corner already sits within ~1px of the rim at the pinched discs
-        // (probe: claude_temp_test/2026-08-30-ft1350-rig/probe-width.mjs) —
-        // widening there would push the well through the arc, so the
-        // scrolled dress keeps the band's own width.
-        &:not(:has(> .scrolls)) {
-          width: calc(var(--fd-band) + 40px);
-          align-self: center;
-          // the fitted dress's label track eases with the width: 6.6em was
-          // cut for 80% names, and "Night checklist" at full type outgrows
-          // it. (A grid cannot read its own container query, so the cap
-          // rides this — the same condition the width itself wears; on a
-          // compact-type pane the wider cap is inert, fit-content hugs.)
-          > .ht-game {
-            grid-template-columns: fit-content(8.2em) minmax(0, 1fr);
-          }
-        }
+        // strip, where the ellipse is wider, so FT-1350 handed the wrap
+        // +40px (centered) WHENEVER the pane wore the fitted dress, gated
+        // `:not(:has(> .scrolls))` because the scroll dress's sunken well
+        // is square-cornered ink already within ~1px of the rim at the
+        // pinched discs (probe: claude_temp_test/2026-08-30-ft1350-rig/
+        // probe-width.mjs).
+        //
+        // THAT GATE IS EXACTLY WHAT FT-1367 RETIRES: it made the wrap's
+        // OUTER BOX a function of which rail leaf is chosen. Measured at
+        // 1440x900 (probe: claude_temp_test/2026-09-04-scrollwidth-probe
+        // .mjs), the four fitted groups sat 455.4px wide at x483.3 while
+        // Controls — the one that scrolls there — sat 403.4px at x509.3:
+        // a 52px-narrower, 26px-right POP every time the pick crossed the
+        // scroll boundary (same 52/26 at 1920x1080, where only Controls
+        // scrolls). One settings surface, five leaves, two boxes.
+        //
+        // THE CONSTANT BOX IS THE SCROLLING ONE, by the safe direction:
+        // the scroll dress's geometry is the band's own width, measured
+        // safe against the rim (FT-1231's 18px stand-off derivation), and
+        // a fitted group giving up its +40 only gets NARROWER — nothing
+        // new can poke the ellipse. The rows the +40 was buying room for
+        // still fit: the pane's own container query (below) hands panes
+        // under 365px the 80% compact type, which is the dress every disc
+        // pane wore before FT-1350 widened them. Kept as the record:
+        // > &:not(:has(> .scrolls)) {
+        // >   width: calc(var(--fd-band) + 40px);
+        // >   align-self: center;
+        // >   > .ht-game {
+        // >     grid-template-columns: fit-content(8.2em) minmax(0, 1fr);
+        // >   }
+        // > }
+        // (The 8.2em label-track ease went with the width it was cut for —
+        // a 6.6em cap fits the 80% names every pane wears at band width.)
         // the band's own `> .row { flex-wrap: wrap }` two screens up would
         // fold the pane UNDER the rail — the two columns ARE the shape here,
         // so the wrap is refused and the pane pays in width instead (its
