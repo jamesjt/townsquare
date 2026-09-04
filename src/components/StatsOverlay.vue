@@ -305,12 +305,14 @@
             <!-- FT-1304: THE TOWNS FILTER (user call), wearing the home mark
                  the retired My-towns toggle wore — narrowing by town is a
                  tri-state filter like scripts now, not a page-wide scope
-                 flip. Signed-in only, exactly as the toggle was: the entries
-                 are the towns THIS viewer has sat in (one scope=mine facts
-                 read, cached per page open — see loadMyTowns). -->
+                 flip. The entries are the towns THIS viewer has sat in (one
+                 scope=mine facts read, cached per page open — loadMyTowns).
+                 FT-1371 (user, 2026-09-04): the signed-in gate came OFF the
+                 button — it hid so well it read as missing to its own
+                 designer. Everyone sees the button; signed out, the popover
+                 explains itself (the rp-state below). -->
             <button
               class="rp-tool rp-tool-dim"
-              v-if="session.account"
               :class="{
                 open: openFilter === 'towns',
                 armed: filterCount('towns') > 0,
@@ -424,9 +426,18 @@
           <div class="rp-pop" v-if="listPopOpen">
             <!-- (FT-1304: the per-popover search input stood down — the one
                  search on the bar filters whichever of these lists is open.) -->
+            <!-- FT-1371: a signed-out viewer sees the button too — the
+                 popover carries the explanation instead of the button
+                 vanishing. All towns is the resting truth either way. -->
             <p
               class="rp-state"
-              v-if="openFilter === 'towns' && myTowns.loading"
+              v-if="openFilter === 'towns' && !session.account"
+            >
+              All towns. Sign in to filter by the towns you have sat in.
+            </p>
+            <p
+              class="rp-state"
+              v-else-if="openFilter === 'towns' && myTowns.loading"
             >
               Reading your towns…
             </p>
