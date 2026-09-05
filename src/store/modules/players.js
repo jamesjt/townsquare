@@ -4,7 +4,12 @@ import { chooseLies } from "../../golem/dealLies";
 // FT-1117: ...and the deal places every reminder a character DECLARES as
 // auto-dealt (the Fortune Teller's red herring is the first). Same shape:
 // pure picker, this module only commits it.
-import { chooseDealtReminders } from "../../golem/dealReminders";
+import { chooseDealtReminders, DEALT_MARK } from "../../golem/dealReminders";
+// FT-1393: ...and the deal tells evil who evil is — the believed-team table
+// (host-side, one row per seat) and the reminder tokens that deliver it. The
+// Lunatic is fed the same dish, faked. Same shape again: pure builder,
+// this module only commits it.
+import { buildEvilInfoTable, evilInfoAdditions } from "../../golem/evilInfo";
 
 const NEWPLAYER = {
   name: "",
@@ -54,7 +59,15 @@ const NEWPLAYER = {
 const state = () => ({
   players: [],
   fabled: [],
-  bluffs: []
+  bluffs: [],
+  // FT-1393: THE BELIEVED-TEAM TABLE — host-side, one row per seat, built by
+  // the deal (golem/evilInfo.js): what each seat is due to learn about the
+  // evil team, truth-derived for real evil, fiction for the Lunatic, empty
+  // for everyone else. Rows carry a delivery state (delivered/held). This is
+  // the surface a later storyteller editor reads and rewrites; tonight the
+  // deal writes it and the reminder tokens deliver it. Never broadcast and
+  // never persisted — rebuilt by every deal.
+  evilInfo: []
 });
 
 const getters = {
@@ -202,6 +215,9 @@ const actions = {
     }
     commit("set", players);
     commit("setBluff");
+    // FT-1393: cleared characters take the believed-team table with them —
+    // its rows describe a deal that no longer exists.
+    commit("setEvilInfo");
   },
   /**
    * FT-1084: THE DEAL WRITES THE LIES TOO.
@@ -270,7 +286,34 @@ const actions = {
   dealReminders({ state, commit, rootState }) {
     if (rootState.session.isSpectator) return;
     const changes = chooseDealtReminders({ players: state.players });
-    changes.forEach(({ index, reminders }) => {
+    // FT-1393: EVIL KNOWS EVIL — the deal builds the believed-team table
+    // (golem/evilInfo.js explains the whole decision: truth rows for real
+    // evil, a fiction row for the Lunatic, empty rows for everyone else,
+    // receipt keyed off the BELIEVED team) and its delivered rows land as
+    // reminder tokens on the receiving chairs, through the same pipe the
+    // red herring takes. dealLies has ALREADY committed the beliefs by the
+    // time either caller dispatches this, so the Lunatic's believed demon
+    // is on the seat when the table reads it.
+    const table = buildEvilInfoTable({
+      players: state.players,
+      roles: rootState.roles,
+    });
+    commit("setEvilInfo", table);
+    // Merge the evil-team tokens onto whatever the declared-reminders pass
+    // decided. A seat the pass did not touch had no dealt tokens to strip
+    // (or an identical list), so its base is its current list minus any
+    // dealt mark — the same strip the pass itself opens with.
+    const lists = new Map();
+    changes.forEach(({ index, reminders }) => lists.set(index, reminders));
+    evilInfoAdditions(table).forEach(({ index, tokens }) => {
+      const player = state.players[index];
+      if (!player) return;
+      const base = lists.has(index)
+        ? lists.get(index)
+        : (player.reminders || []).filter((r) => !r || !r[DEALT_MARK]);
+      lists.set(index, [...base, ...tokens]);
+    });
+    lists.forEach((reminders, index) => {
       const player = state.players[index];
       if (!player) return;
       commit("update", { player, property: "reminders", value: reminders });
@@ -283,6 +326,8 @@ const mutations = {
     state.players = [];
     state.bluffs = [];
     state.fabled = [];
+    // FT-1393: a cleared town has no believed-team table.
+    state.evilInfo = [];
   },
   set(state, players = []) {
     state.players = players;
@@ -365,6 +410,15 @@ const mutations = {
     } else {
       state.bluffs = [];
     }
+  },
+  /**
+   * FT-1393: the believed-team table, whole. Its own mutation for the same
+   * reason setDeathMoment has one — the socket layer answers `update` by
+   * broadcasting, and this table is host bookkeeping with no business on
+   * the wire. A bare call (no rows) clears it.
+   */
+  setEvilInfo(state, rows = []) {
+    state.evilInfo = Array.isArray(rows) ? rows : [];
   },
   setFabled(state, { index, fabled } = {}) {
     if (index !== undefined) {
