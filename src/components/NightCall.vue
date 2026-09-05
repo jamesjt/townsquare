@@ -445,12 +445,13 @@ export default {
       return !!this.toldTonight && this.toldTonight.phase === "settled";
     },
     /** FT-1385: the number-role dress on the answer chips — the Chef's
-     *  numeral takes the scorch brand (empty for everyone else, so every
-     *  other role's chips render exactly as before). */
+     *  numeral takes the scorch brand, the Empath's its heart halo (empty
+     *  for everyone else, so every other role's chips render exactly as
+     *  before). */
     toldNumberDress() {
       const told = this.toldTonight;
       if (!told || !this.face) return [];
-      if (told.roleId !== "chef") return [];
+      if (told.roleId !== "chef" && told.roleId !== "empath") return [];
       return ["nf-num-" + told.roleId, { "num-settled": this.toldSettled }];
     },
     /** FT-1385: the Librarian's zero-Outsiders night — nothing delivered
@@ -1322,6 +1323,15 @@ $face-pick: #a78fcd;
   }
 }
 
+.nfs-empath {
+  border-color: rgba(255, 159, 208, 0.8);
+  color: #ffe3f1;
+  &.settled {
+    border-color: transparent;
+    color: #f2c6dd;
+  }
+}
+
 // ── FT-1385: THE CHEF'S BRAND ON THE NUMERAL ─────────────────────────────
 // The count never sits bare: the chip goes ROUND and takes the scorch —
 // seared on once at the telling (a flare of heat that cools into the held
@@ -1350,6 +1360,46 @@ $face-pick: #a78fcd;
   box-shadow: none;
   color: #f4cf95;
   animation: none;
+}
+
+// ── FT-1385: THE EMPATH'S HALO ON THE NUMERAL ────────────────────────────
+// The number takes its heart halo and beats up once with the sentence;
+// settled it dims to a dotted ring — the promise the residue repeats.
+.nf-told.nf-num-empath .nd-told {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  min-width: 1.45em;
+  padding: 0 0.28em;
+  border-radius: 50%;
+  border: 2px solid #ff9fd0;
+  color: #ffd2e8;
+  animation: nf-halo 0.9s ease-out both;
+  transition:
+    border-color 0.7s ease,
+    box-shadow 0.7s ease,
+    color 0.7s ease;
+}
+
+.nf-told.nf-num-empath.num-settled .nd-told {
+  border-style: dotted;
+  border-color: rgba(255, 159, 208, 0.6);
+  box-shadow: none;
+  color: #f2c6dd;
+  animation: none;
+}
+
+@keyframes nf-halo {
+  0% {
+    box-shadow: 0 0 0 rgba(255, 159, 208, 0);
+  }
+  40% {
+    box-shadow: 0 0 20px rgba(255, 159, 208, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 11px rgba(255, 159, 208, 0.5);
+  }
 }
 
 // the sear: one flare of heat that traces on and cools to the held glow.

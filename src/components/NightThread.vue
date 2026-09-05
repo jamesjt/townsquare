@@ -60,7 +60,7 @@
 
 <script>
 import { mapGetters, mapState } from "vuex";
-import { TOLD_ROLES } from "../golem/toldInfo";
+import { TOLD_ROLES, liveNeighbours } from "../golem/toldInfo";
 
 /** The roles whose mark strings a thread, and how its ends are chosen. */
 const THREADED = {
@@ -79,6 +79,9 @@ const TOLD_DRESS = {
   // the evidence string NEVER slacks — the tonal split from the
   // Washerwoman's line is the whole point (no sag case in lineD)
   investigator: "evidence",
+  // the heart-threads run self → each LIVE neighbour, recomputed off the
+  // players array so a death re-anchors them by itself
+  empath: "vein",
 };
 
 export default {
@@ -92,6 +95,8 @@ export default {
   },
   computed: {
     ...mapState(["session"]),
+    // FT-1385: the Empath's veins re-anchor off the live players array.
+    ...mapState("players", ["players"]),
     ...mapGetters({
       call: "night/myCall",
       shown: "night/myShownTargets",
@@ -128,17 +133,27 @@ export default {
       if (!dress) return [];
       const spec = TOLD_ROLES[told.roleId] || {};
       const out = [];
+      const settled = told.phase === "settled";
       if (spec.kind === "pair" && told.targets.length >= 2) {
         const [a, b] = told.targets;
         if (a !== b) {
-          out.push({
-            a,
-            b,
-            dress,
-            settled: told.phase === "settled",
-            key: told.rowId,
-          });
+          out.push({ a, b, dress, settled, key: told.rowId });
         }
+      }
+      // the Empath: one vein from her own chair to each LIVE neighbour —
+      // computed fresh every read, so a mid-game death re-anchors the
+      // thread to the next living seat without any event handling.
+      if (spec.kind === "neighbours") {
+        liveNeighbours(this.players, told.seat).forEach((s, i) => {
+          if (s === told.seat) return;
+          out.push({
+            a: told.seat,
+            b: s,
+            dress,
+            settled,
+            key: told.rowId + "-n" + i,
+          });
+        });
       }
       return out;
     },
@@ -200,6 +215,10 @@ export default {
       // ribbon between pages was never meant to carry weight
       if (t.dress === "ribbon") {
         sag = t.settled ? Math.min(50, len * 0.14) : Math.min(24, len * 0.06);
+      }
+      // a vein curves a little always — a living line, not a strung one
+      if (t.dress === "vein") {
+        sag = t.settled ? Math.min(32, len * 0.09) : Math.min(18, len * 0.05);
       }
       if (sag) {
         const mx = (t.x1 + t.x2) / 2;
@@ -296,6 +315,10 @@ $nt-ribbon: #e8d9a8;
 // THE INVESTIGATOR'S STRING — evidence red, hot when fresh, dried darker.
 $nt-evidence: #ff5a5a;
 $nt-evidence-dry: #c23b3b;
+
+// THE EMPATH'S VEINS — heart pink, the warmest ink on the ring and used
+// by nothing else on the square.
+$nt-vein: #ff9fd0;
 
 .nt-line {
   fill: none;
@@ -423,6 +446,35 @@ $nt-evidence-dry: #c23b3b;
     opacity: 0.75;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
       drop-shadow(0 0 3px rgba(194, 59, 59, 0.45));
+    animation: nt-hold 0.9s ease-out both;
+  }
+}
+
+// FT-1385 — the Empath's veins: each PULSES out once from her own coin to
+// a neighbour (the draw-on is the heartbeat), then rests faint and dotted
+// between nights. Night two re-runs the same beat on the same threads —
+// the phase flip back to telling replays the one-shot draw.
+.nt-vein {
+  stroke: $nt-vein;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  // one dash the length of the path: the dashoffset draw-on IS the pulse
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(255, 159, 208, 0.75));
+  animation: nt-draw 0.55s ease-out both;
+  transition:
+    d 0.9s ease,
+    stroke-width 0.9s ease,
+    opacity 0.9s ease,
+    filter 0.9s ease;
+
+  &.settled {
+    stroke-width: 1.4;
+    stroke-dasharray: 0.008 0.026;
+    opacity: 0.55;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 3px rgba(255, 159, 208, 0.4));
     animation: nt-hold 0.9s ease-out both;
   }
 }

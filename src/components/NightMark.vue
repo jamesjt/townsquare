@@ -433,6 +433,31 @@
         <circle class="ch-fleck ch-f3" cx="59" cy="-13" r="1.2" />
       </template>
     </svg>
+
+    <!-- ── EMPATH — THE HEART-THREADS' BEADS ──────────────────────────────
+         telling: a vein pulses out to each live neighbour (NightThread's
+                  half) and a heart bead lands on the neighbour's rim with
+                  one heartbeat; the pink ring names the coin.
+         settled: the ring rests dotted, the bead stays faint — and the
+                  whole dress re-runs the same beat next night on the same
+                  threads (a new row re-tells; a dead neighbour re-anchors
+                  the vein and its bead by itself). Self: a small heart at
+                  her own shoulder — what she knows, kept. -->
+    <svg v-else-if="roleId === 'empath'" viewBox="0 -24 100 124">
+      <template v-if="part === 'target'">
+        <circle class="em-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <path
+          class="em-heart"
+          d="M 50 2 C 42.5 -5.5 44 -13.5 50 -9.5 C 56 -13.5 57.5 -5.5 50 2 Z"
+        />
+      </template>
+      <template v-else>
+        <path
+          class="em-heart em-heart-self"
+          d="M 50 2 C 42.5 -5.5 44 -13.5 50 -9.5 C 56 -13.5 57.5 -5.5 50 2 Z"
+        />
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -1779,6 +1804,88 @@ $ch-char: #33200a;
 .nm-part-self.nm-chef svg {
   // the badge rests at the shoulder, a brand on the coin's crown-side
   transform: translate(24%, 6%) scale(0.9);
+}
+
+// ── THE EMPATH'S PALETTE ────────────────────────────────────────────────
+// Heart pink — the veins' own ink (NightThread), the warmest colour on
+// the ring and nothing else's.
+$em-pink: #ff9fd0;
+$em-pink-hot: #ffd2e8;
+$em-dark: #401428;
+
+.em-ring {
+  fill: none;
+  stroke: $em-pink;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(255, 159, 208, 0.75));
+  animation: ps-crawl 0.55s ease-out both;
+  transition:
+    opacity 0.7s ease,
+    stroke-width 0.7s ease,
+    filter 0.7s ease;
+}
+
+.nm-settled .em-ring {
+  stroke-width: 2;
+  stroke-dasharray: 0.012 0.028;
+  opacity: 0.68;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(255, 159, 208, 0.4));
+  animation: none;
+}
+
+// the heart bead: lands on the neighbour's rim with ONE heartbeat — two
+// quick swells inside the arrival second, then rest. Dark body, hot pink
+// rim light, the register's rule.
+.em-heart {
+  fill: $em-dark;
+  stroke: $em-pink;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 4px rgba(255, 159, 208, 0.65));
+  transform-origin: 50px -4px;
+  animation: em-beat 0.9s ease-out both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .em-heart {
+  opacity: 0.8;
+  animation: none;
+}
+
+@keyframes em-beat {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.22);
+  }
+  45% {
+    transform: scale(0.96);
+  }
+  65% {
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// her own heart — the knowledge kept at her shoulder, beating in once with
+// the same pulse and resting smaller.
+.em-heart-self {
+  stroke: $em-pink-hot;
+}
+
+.nm-part-self.nm-empath svg {
+  transform: translate(23%, 4%) rotate(10deg) scale(0.8);
 }
 
 // The information without the travel: every mark appears at rest.
