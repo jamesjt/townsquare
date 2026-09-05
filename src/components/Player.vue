@@ -538,25 +538,25 @@
       ></div>
 
       <!-- FT-985's numeral (see its note beside the coin) — parked HERE since
-           FT-1317 so `.claim-overlay:hover ~` can reach it. FT-1396 follow-up
-           (user vet): while a team badge holds this coin's centre, the
-           numeral steps to the chin, smaller — the inverse of the first cut,
-           where the badge yielded. -->
-      <span
-        class="seat-numeral"
-        :class="{ chin: teamBadge }"
-        v-if="showSeatNumeral"
-        >{{ seatNumeral }}</span
-      >
+           FT-1317 so `.claim-overlay:hover ~` can reach it. FT-1396 second
+           vet (user): while a team badge holds this coin's centre, the
+           numeral does not render AT ALL — no chin fallback. The badge is
+           the seat's whole headline on an entitled client. -->
+      <span class="seat-numeral" v-if="showSeatNumeral && !teamBadge">{{
+        seatNumeral
+      }}</span>
 
       <!-- FT-1396: EVIL SEES ITS TEAM — the teammate's team glyph resting on
            their chair, on the entitled client alone (`teamBadge` reads the
            client-local slice only this client's own direct frame fills).
            Anchored in the numeral's own square over the coin face and it
-           OWNS the centre (user vet on the first cut, which tucked it at the
-           chin): the badge is the seat's headline on an evil client, so it
-           takes the numeral's spot at the numeral's scale and a step bolder,
-           and the numeral is the one that steps to the chin (`.chin` above).
+           OWNS the centre (user vet): the badge takes the numeral's spot at
+           the numeral's scale and a step bolder, and the numeral simply does
+           not render while the badge stands (the `v-if` above — the chin
+           fallback of the first vet is retired). A role GUESS the viewer
+           pins on this chair outranks the badge — `teamBadge` computes null
+           while the guess stands, so the guess icon speaks alone and the
+           badge returns the moment the guess is cleared.
            aria-hidden ambience, no pointer — knowledge, not a control. -->
       <span class="team-badge" v-if="teamBadge" aria-hidden="true">
         <img :src="teamBadge" alt="" />
@@ -2304,9 +2304,19 @@ export default {
      * null here without knowing why. The own-chair guard restates the wire's
      * rule (a row never names its receiver) at the render, so no path can
      * ever badge the seat the viewer is sitting in.
+     *
+     * FT-1396 precedence (user vet): a role GUESS the viewer has pinned on
+     * this chair (RoleModal's spectator branch writes it client-locally into
+     * `player.role`) OUTRANKS the badge — the viewer chose to say something
+     * more specific than "evil", so the badge yields while the guess stands
+     * and returns when the guess is cleared (the clear writes the empty
+     * role, so `role.id` is the test, same as `showSeatNumeral`'s).
      */
     teamBadge() {
       if (this.player.id && this.player.id === this.session.playerId) {
+        return null;
+      }
+      if (this.player.role && this.player.role.id) {
         return null;
       }
       const entry = (this.evilBadges || []).find(
@@ -5682,27 +5692,19 @@ html.veil-glass .circle .player .shroud:before {
     /* FT-1317: the numeral steps aside while the claim invitation is up —
        see the .open-mark rules; this is just the fade. */
     transition: opacity 200ms;
-
-    /* FT-1396 follow-up (user vet) — the collision rule FLIPPED: the team
-       badge owns the coin's centre now, so when both are up it is the
-       NUMERAL that steps to the chin, smaller (the badge's own retired
-       chin geometry — flex-end plus the 7% lift off the coin's rim). */
-    &.chin {
-      align-items: flex-end;
-      padding-bottom: 7%;
-      font-size: 1.4em;
-    }
+    /* FT-1396 second vet (user): the chin fallback is retired — on a badged
+       coin the numeral does not render at all (the template's `!teamBadge`),
+       so there is no collision geometry left to style. */
   }
 
   // FT-1396 — THE EVIL-TEAM BADGE, in the numeral's own square: the same
   // absolute box, the same 0.8% lift onto the coin art's true centre, so
   // "the spot the numerals render" is literally where this anchors. It OWNS
-  // that centre (user vet on the first cut, which tucked it at the chin):
-  // 45% of the coin face — the numeral's ~2.2em presence and a step bolder —
-  // so the team read is the seat's headline at ring distance. When the
-  // numeral is up too, the numeral is the one that yields (`.seat-numeral
-  // .chin` above). It sits after the numeral in the DOM (paints over on the
-  // rare overlap) and takes no pointer, like the numeral.
+  // that centre (user vet): 45% of the coin face — the numeral's ~2.2em
+  // presence and a step bolder — so the team read is the seat's headline at
+  // ring distance, alone (the numeral doesn't render while it stands, and a
+  // pinned role guess stands the badge down — see `teamBadge`). It takes no
+  // pointer, like the numeral.
   > .team-badge {
     position: absolute;
     left: 0;
