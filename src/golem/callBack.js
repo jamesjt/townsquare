@@ -187,6 +187,11 @@ export function armCallBackAudio() {
 export function playCallBack(isMuted) {
   if (isMuted) return Promise.resolve(false);
   const a = element();
+  // FT-1379: the viewer's call-back dial (Sounds section). Set on the
+  // element before the ring; the fallback path below reuses the same
+  // element family, so the dial rides any source failure too.
+  const { prefsState } = require("./prefs");
+  a.volume = prefsState.volCallBack / 100;
   return ringCall(a).then((status) => {
     // FT-1051: the custom SOURCE died — the summons falls back to the clip
     // that ships, so a rotted link never buys the town a silent call (its
@@ -194,7 +199,10 @@ export function playCallBack(isMuted) {
     // would refuse the default identically, and a superseded play was
     // replaced, not broken.
     if (status === "failed" && a !== defaultElement()) {
-      return ringCall(defaultElement()).then((second) => second === "ok");
+      // FT-1379: the fallback element gets the same dial.
+      const d = defaultElement();
+      d.volume = a.volume;
+      return ringCall(d).then((second) => second === "ok");
     }
     return status === "ok";
   });

@@ -480,6 +480,15 @@ export const DEFAULT_PREFS = {
   // FT-1219's).
   ctrlRingLayout: defaultLayout(RING_DEFAULT_ORDER),
   ctrlPlateLayout: defaultLayout(PLATE_DEFAULT_ORDER),
+  // FT-1379 (user): PER-SOUND VOLUME, three sliders in the player settings'
+  // Sounds section — the viewer's own dial over each of the app's three
+  // voices, 0-100, multiplied onto whatever the host's settings and the
+  // mute switch already decide (a dial, never an override of Mute).
+  // voteStart defaults 80: FT-1378 trimmed the countdown a fifth, and the
+  // default IS that trim, now retunable per viewer.
+  volVoteStart: 80,
+  volDayStart: 100,
+  volCallBack: 100,
 };
 
 /** The live copy every surface reads. */
@@ -524,6 +533,15 @@ function sanitize(key, value) {
     // FT-1318: the coin dress — one of the lab's own looks, or the default.
     case "coinArt":
       return COINS.some((c) => c.id === value) ? value : DEFAULT_PREFS.coinArt;
+    // FT-1379: a volume slider — a whole percent, clamped to [0, 100].
+    case "volVoteStart":
+    case "volDayStart":
+    case "volCallBack": {
+      const n = Math.round(parseFloat(value));
+      return Number.isFinite(n)
+        ? Math.min(100, Math.max(0, n))
+        : DEFAULT_PREFS[key];
+    }
     // FT-1260: the per-menu layouts — vocabulary-checked, missing slots
     // appended in that menu's default order. Always returns a NEW array.
     case "ctrlRingLayout":

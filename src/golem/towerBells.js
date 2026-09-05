@@ -910,7 +910,16 @@ export function ringDayStart(isMuted) {
   const now = Date.now();
   if (now - lastRangAt < BELL_COOLDOWN_MS) return Promise.resolve(false);
   lastRangAt = now;
-  return play(towerState.bellId, towerState.bellVolume, isMuted);
+  // FT-1379: the viewer's day-start dial (Sounds section) multiplies onto
+  // the HOST's bell volume — the host sets the town's level, the viewer
+  // scales their own ears; Mute stays the absolute veto it always was.
+  // Late require: prefs.js is a leaf importer of this module's siblings,
+  // and the runtime read keeps the two modules' load order irrelevant.
+  const { prefsState } = require("./prefs");
+  const scaled = Math.round(
+    towerState.bellVolume * (prefsState.volDayStart / 100),
+  );
+  return play(towerState.bellId, scaled, isMuted);
 }
 
 /**

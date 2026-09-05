@@ -113,6 +113,65 @@
         </span>
       </li>
 
+      <!-- ── Sounds ── FT-1379 (user): the viewer's own volume dials — the
+           three voices the app speaks, each a 0-100 slider multiplied onto
+           whatever the host's settings and the Mute switch already decide
+           (a dial, never a Mute override). LOCAL like every row here. -->
+      <li class="sub-headline">Sounds</li>
+      <li
+        class="setting-row"
+        title="How loud the vote-start countdown plays for you"
+      >
+        <span class="setting-name">Vote start</span>
+        <span class="ps-vol">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            :value="prefs.volVoteStart"
+            aria-label="Vote start volume"
+            @input="setVol('volVoteStart', $event)"
+          />
+          <span class="ps-vol-n">{{ prefs.volVoteStart }}%</span>
+        </span>
+      </li>
+      <li
+        class="setting-row"
+        title="How loud the day-break bell rings for you — scales the host's own bell volume"
+      >
+        <span class="setting-name">Day start</span>
+        <span class="ps-vol">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            :value="prefs.volDayStart"
+            aria-label="Day start volume"
+            @input="setVol('volDayStart', $event)"
+          />
+          <span class="ps-vol-n">{{ prefs.volDayStart }}%</span>
+        </span>
+      </li>
+      <li
+        class="setting-row"
+        title="How loud the storyteller's call-back summons plays for you"
+      >
+        <span class="setting-name">Call back</span>
+        <span class="ps-vol">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            :value="prefs.volCallBack"
+            aria-label="Call back volume"
+            @input="setVol('volCallBack', $event)"
+          />
+          <span class="ps-vol-n">{{ prefs.volCallBack }}%</span>
+        </span>
+      </li>
       <!-- ── Appearance ── FT-1318: the coin dress, the lab's own looks ──
            THE LOOKS THEMSELVES, NOT THEIR NAMES: each button is its coin at
            thumb size (the same require.context the dev coin lab reads), the
@@ -350,6 +409,13 @@ export default {
     setPinVisibility(v) {
       setPref("pinVisibility", v);
     },
+    /** FT-1379: one volume dial — local mirror for the live % readout, then
+     *  golem/prefs' usual round trip. */
+    setVol(key, evt) {
+      const v = parseInt(evt.target.value, 10);
+      this.prefs[key] = v;
+      setPref(key, v);
+    },
     /** FT-1328: one write, golem/prefs' usual round trip (sanitize, persist,
      *  sync, PREFS_EVENT repaint — Player.vue's showSeatNumeral reads it). */
     setCoinNumerals(on) {
@@ -540,6 +606,26 @@ export default {
   .ps-icon-label {
     display: inline-flex;
     align-items: center;
+  }
+  // FT-1379: a volume row — the slider in the app's pick purple, the
+  // percent in quiet tabular figures so the row never jitters.
+  .ps-vol {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    input[type="range"] {
+      width: 120px;
+      accent-color: rgba(167, 143, 205, 0.9);
+      cursor: pointer;
+    }
+    .ps-vol-n {
+      font-variant-numeric: tabular-nums;
+      min-width: 3.2em;
+      text-align: right;
+      opacity: 0.7;
+      font-size: 90%;
+    }
   }
   .ps-row-icon {
     width: 15px;

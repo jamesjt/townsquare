@@ -439,6 +439,8 @@
 
 <script>
 import { mapGetters, mapState } from "vuex";
+// FT-1379: the viewer's own vote-start volume dial (Sounds section).
+import { prefsState } from "../golem/prefs";
 // FT-1331: back with the restored timer control — the same scrub the seat
 // count and the night sheet's numbers use (removed by 7200a49/FT-1325,
 // which the user has since corrected: the timer belongs on this card).
@@ -788,9 +790,10 @@ export default {
       const el = this.$refs.countdownAudio;
       if (!el) return;
       el.currentTime = 0;
-      // FT-1378 (user): ~20% down from the FT-1311 normalization — the
-      // element dial is the clean trim, one number to retune.
-      el.volume = 0.8;
+      // FT-1378 (user): ~20% down from the FT-1311 normalization.
+      // FT-1379: the trim is the viewer's own dial now — the Sounds
+      // section's vote-start slider (default 80 keeps FT-1378's level).
+      el.volume = prefsState.volVoteStart / 100;
       const p = el.play();
       // Autoplay policy can refuse (a player who has never touched the
       // page); a refused play must not become an unhandled rejection.
