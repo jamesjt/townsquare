@@ -371,7 +371,7 @@
                   page-corner folds onto the coin's shoulder — this seat is
                   a page the book has marked.
          settled: the ring rests dotted, the corner stays tucked. Self: the
-                  red bookmark ribbon hangs from the teller's own rim — the
+                  blue bookmark ribbon hangs from the teller's own rim — the
                   book closed, the place kept. (The zero-Outsiders night
                   strings no coins at all; the empty book is the centre's.)
     -->
@@ -392,7 +392,7 @@
 
     <!-- ── INVESTIGATOR — THE EVIDENCE TACKS ──────────────────────────────
          telling: a tack PINS each candidate coin — one hard press — and
-                  the red ring snaps round it; the string one component
+                  the blue ring snaps round it; the string one component
                   over snaps taut in the same breath.
          settled: nothing sweetens. The ring dries to dotted, the tack
                   HOLDS. Self: the case's wax seal cools on the teller's
@@ -1502,12 +1502,12 @@ $ww-wood-lit: #c9a86e;
 }
 
 // ── THE LIBRARIAN'S PALETTE ─────────────────────────────────────────────
-// Old parchment sepia for the book's furniture, one red ribbon — the only
-// red on any told dress but the Investigator's, and theirs is thread while
-// this is cloth.
+// Old parchment sepia for the book's furniture, one blue ribbon — the
+// townsfolk #1f65ff family (FT-1392, user rule: no town dress wears red;
+// the ribbon was the last red cloth on a good coin).
 $lb-sepia: #e8d9a8;
 $lb-page: #f3ead0;
-$lb-red: #c8452f;
+$lb-blue: #2f5ac8;
 
 .lb-ring {
   fill: none;
@@ -1580,12 +1580,12 @@ $lb-red: #c8452f;
 // kept. Slides down into place once, then hangs.
 .lb-ribbon {
   path {
-    fill: $lb-red;
+    fill: $lb-blue;
     stroke: $lb-sepia;
     stroke-width: 1.2;
     stroke-linejoin: round;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
-      drop-shadow(0 0 4px rgba(200, 69, 47, 0.5));
+      drop-shadow(0 0 4px rgba(47, 90, 200, 0.5));
   }
   animation: lb-hang 0.55s ease-out both;
   transition: opacity 0.7s ease;
@@ -1613,21 +1613,22 @@ $lb-red: #c8452f;
 }
 
 // ── THE INVESTIGATOR'S PALETTE ──────────────────────────────────────────
-// Evidence red — hot when the tack lands, dried darker at rest. Crimson
-// already means death elsewhere on the square; THIS red is thread-and-wax,
-// always worn with the tack or the seal, never bare on a coin.
-$iv-red: #ff5a5a;
-$iv-dry: #c23b3b;
-$iv-dark: #3a0f0f;
+// Evidence blue — the townsfolk team's own #1f65ff (src/vars.scss; the hot
+// ink is lighten($townsfolk, 14%), the app's standing derivation). No town
+// dress wears red (FT-1392, user rule) — the value structure is the one
+// the old red wore: hot when the tack lands, dried darker at rest.
+$iv-blue: #6695ff;
+$iv-dry: #3b63c2;
+$iv-dark: #0f1c3a;
 
 .iv-ring {
   fill: none;
-  stroke: $iv-red;
+  stroke: $iv-blue;
   stroke-width: 2.8;
   stroke-linecap: round;
   stroke-dasharray: 1;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 6px rgba(255, 90, 90, 0.75));
+    drop-shadow(0 0 6px rgba(102, 149, 255, 0.75));
   // faster than the softer roles' read-on: evidence snaps
   animation: ps-crawl 0.4s ease-out both;
   transition:
@@ -1643,7 +1644,7 @@ $iv-dark: #3a0f0f;
   stroke-dasharray: 0.012 0.028;
   opacity: 0.75;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 3px rgba(194, 59, 59, 0.45));
+    drop-shadow(0 0 3px rgba(59, 99, 194, 0.45));
   animation: none;
 }
 
@@ -1660,13 +1661,13 @@ $iv-dark: #3a0f0f;
   }
   .iv-head {
     fill: $iv-dark;
-    stroke: $iv-red;
+    stroke: $iv-blue;
     stroke-width: 1.6;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
-      drop-shadow(0 0 4px rgba(255, 90, 90, 0.65));
+      drop-shadow(0 0 4px rgba(102, 149, 255, 0.65));
   }
   .iv-glint {
-    fill: #ffd9d9;
+    fill: #d9e6ff;
     opacity: 0.9;
   }
   transform-origin: 50px 0px;
@@ -1699,15 +1700,15 @@ $iv-dark: #3a0f0f;
 .iv-seal {
   path {
     fill: $iv-dark;
-    stroke: $iv-red;
+    stroke: $iv-blue;
     stroke-width: 1.4;
     stroke-linejoin: round;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
-      drop-shadow(0 0 4px rgba(255, 90, 90, 0.55));
+      drop-shadow(0 0 4px rgba(102, 149, 255, 0.55));
   }
   .iv-boss {
     fill: none;
-    stroke: $iv-red;
+    stroke: $iv-blue;
     stroke-width: 1.2;
     opacity: 0.85;
   }

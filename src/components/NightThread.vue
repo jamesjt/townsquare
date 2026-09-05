@@ -363,9 +363,11 @@ $nt-laundry: #eaf2ff;
 // THE LIBRARIAN'S RIBBON — old-parchment sepia, the book's own ink.
 $nt-ribbon: #e8d9a8;
 
-// THE INVESTIGATOR'S STRING — evidence red, hot when fresh, dried darker.
-$nt-evidence: #ff5a5a;
-$nt-evidence-dry: #c23b3b;
+// THE INVESTIGATOR'S STRING — evidence blue (the townsfolk #1f65ff family,
+// NightMark's own investigator inks; FT-1392: no town dress wears red),
+// hot when fresh, dried darker.
+$nt-evidence: #6695ff;
+$nt-evidence-dry: #3b63c2;
 
 // THE EMPATH'S VEINS — heart pink, the warmest ink on the ring and used
 // by nothing else on the square.
@@ -483,7 +485,7 @@ $nt-vein: #ff9fd0;
   stroke-width: 2.6;
   stroke-linecap: round;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 5px rgba(255, 90, 90, 0.7));
+    drop-shadow(0 0 5px rgba(102, 149, 255, 0.7));
   animation: nt-snap 0.45s ease-out both;
   transition:
     stroke-width 0.9s ease,
@@ -496,7 +498,7 @@ $nt-vein: #ff9fd0;
     stroke-width: 1.4;
     opacity: 0.75;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-      drop-shadow(0 0 3px rgba(194, 59, 59, 0.45));
+      drop-shadow(0 0 3px rgba(59, 99, 194, 0.45));
     animation: nt-hold 0.9s ease-out both;
   }
 }

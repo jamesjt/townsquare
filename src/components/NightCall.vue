@@ -180,7 +180,7 @@
       >
       <!-- FT-1385: THE LIBRARIAN'S BOOK — open beneath the sentence while
            the telling is bright (blank pages on the zero-Outsiders night),
-           CLOSED once it settles: one soft shut, the red bookmark left
+           CLOSED once it settles: one soft shut, the blue bookmark left
            sticking out. The place is kept; the coins' page-corners say
            where. -->
       <svg
@@ -1306,11 +1306,11 @@ $face-pick: #a78fcd;
 }
 
 .nfs-investigator {
-  border-color: rgba(255, 90, 90, 0.8);
-  color: #ffd9d9;
+  border-color: rgba(102, 149, 255, 0.8);
+  color: #d9e6ff;
   &.settled {
     border-color: transparent;
-    color: #f0b9b9;
+    color: #b9c9f0;
   }
 }
 
@@ -1422,7 +1422,7 @@ $face-pick: #a78fcd;
 }
 
 // ── FT-1385: THE LIBRARIAN'S BOOK ────────────────────────────────────────
-// Sepia furniture, one red ribbon — NightMark's own librarian inks, so the
+// Sepia furniture, one blue ribbon — NightMark's own librarian inks, so the
 // book, the page-corners on the coins and the ribbon between them read as
 // one object. Open at the telling (fans up once), closed at the settle
 // (the template swap IS the shut; the closed group's one fade is the soft
@@ -1459,7 +1459,7 @@ $face-pick: #a78fcd;
     opacity: 0.65;
   }
   .bk-mark {
-    fill: #c8452f;
+    fill: #2f5ac8;
     stroke: #e8d9a8;
     stroke-width: 0.8;
     stroke-linejoin: round;
