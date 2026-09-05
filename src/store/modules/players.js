@@ -223,11 +223,15 @@ const actions = {
    * traffic of its own — the deal a beat later sends the finished set, down
    * the one proven private path each of them already had.
    */
-  dealLies({ state, commit, rootState }) {
+  dealLies({ state, commit, rootState }, { keepBluffs = false } = {}) {
     if (rootState.session.isSpectator) return;
+    // FT-1383: the Start path keeps the storyteller's staged bluffs (only
+    // empty or newly-illegal slots refill); the drawer's deliberate
+    // re-deal keeps its full re-roll by not passing the flag.
     const { bluffs, beliefs } = chooseLies({
       players: state.players,
       roles: rootState.roles,
+      keepBluffs: keepBluffs ? state.bluffs : null,
     });
     beliefs.forEach(({ index, role }) => {
       const player = state.players[index];

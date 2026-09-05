@@ -98,7 +98,7 @@ function scriptRoles(roles) {
  *   `role: null` meaning "clear it" (a seat that no longer holds a believing
  *   character, or one the script has nothing legal left for).
  */
-export function chooseLies({ players = [], roles } = {}) {
+export function chooseLies({ players = [], roles, keepBluffs = null } = {}) {
   const pool = scriptRoles(roles);
   const inPlay = new Set();
   players.forEach((player) => {
@@ -107,6 +107,18 @@ export function chooseLies({ players = [], roles } = {}) {
   // Drawn once across both halves — see the file header on why the Drunk's
   // belief and the demon's bluffs must not name the same character.
   const taken = new Set();
+  // FT-1383 (user, audited 2026-09-04): STAGED BLUFFS SURVIVE THE START.
+  // `keepBluffs` is the storyteller's already-chosen set (the Start path
+  // passes it; the drawer's deliberate re-deal does not) — a filled slot is
+  // KEPT unless the deal just put that character into play, and its id
+  // seeds `taken` so neither the belief half nor a refilled slot can
+  // duplicate it. Before this, Start re-rolled all three over whatever the
+  // storyteller had staged (players/dealLies via Menu.distributeRoles —
+  // the audit's rig watched soldier/mayor/saint become a fresh draw).
+  const kept = Array.isArray(keepBluffs) ? keepBluffs : [];
+  kept.forEach((b) => {
+    if (b && b.id && !inPlay.has(b.id)) taken.add(b.id);
+  });
   const free = (team) =>
     shuffled(
       pool.filter(
@@ -166,7 +178,14 @@ export function chooseLies({ players = [], roles } = {}) {
   );
   const bluffs = [];
   for (let i = 0; i < BLUFF_COUNT; i++) {
-    const pick = spare[i];
+    // FT-1383: a staged slot stands unless the deal made it illegal (the
+    // character is in play now); only empty/illegal slots draw fresh.
+    const held = kept[i];
+    if (held && held.id && !inPlay.has(held.id)) {
+      bluffs.push(held);
+      continue;
+    }
+    const pick = spare.shift();
     if (pick) taken.add(pick.id);
     bluffs.push(pick || {});
   }

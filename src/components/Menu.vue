@@ -1344,7 +1344,10 @@ export default {
       // carries the finished set down the private paths it already had.
       // Defaults only — the storyteller changes either afterwards exactly
       // as before, and the next deal rolls a fresh set.
-      this.$store.dispatch("players/dealLies");
+      // FT-1383: Start RESPECTS staged bluffs — only empty (or
+      // newly-in-play) slots draw fresh. The drawer's re-deal path keeps
+      // the full re-roll; this call is the one the user presses Start on.
+      this.$store.dispatch("players/dealLies", { keepBluffs: true });
       // FT-1117: ...and every reminder a seated character declares as
       // auto-dealt — the Fortune Teller's red herring lands on a good seat
       // here instead of being hunted down in the picker after every deal.
