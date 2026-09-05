@@ -34,6 +34,13 @@
     shoulder — the Monk's halo hovers ABOVE the rim before it lands.
     pointer-events are off on everything: the mark never intercepts the tap
     it is decorating.
+
+    FT-1386 (user-vetted): every FULL-CIRCLE mark that circles a character
+    — beads, seep rings, ember ticks, the seal rings — draws OUTSIDE the
+    coin's rim (r=55 on the rim's 50, spilling past the viewBox onto the
+    dark cloth; overflow is visible the whole way up, nothing clips).
+    Accents that sit ON the face (slashes, bubbles, drips, eyes, halos,
+    pegs, tacks, seals, badges, the pentagram) stay where they are.
   -->
   <!--
     FT-1385 adds the TOLD-INFORMATION states beside the three above. The
@@ -63,11 +70,12 @@
                  bell, then holds as a solid ring + a soft dome of light. -->
     <svg v-if="roleId === 'monk'" viewBox="0 -24 100 124">
       <template v-if="state === 'invite'">
-        <!-- r=38: INSIDE the coin's own gear teeth (which live at the rim
-             and are the same brass as a bead at r=45 — measured invisible,
-             first probe shot). On the coin's darker inner field the beads
-             read. -->
-        <circle class="mk-beads" cx="50" cy="50" r="38" />
+        <!-- r=55: OUTSIDE the coin's rim (FT-1386, user-vetted). A ring
+             that circles a character sits on the dark table cloth, not on
+             the face — the old inside placement (r=38) was ducking the
+             brass gear teeth at the rim, and out here there is no brass to
+             vanish against. -->
+        <circle class="mk-beads" cx="50" cy="50" r="55" />
       </template>
       <template v-else-if="state === 'staged'">
         <g class="mk-hover">
@@ -79,7 +87,7 @@
       </template>
       <template v-else-if="state === 'sealed'">
         <!-- the bell-flash: one expanding ring that burns out -->
-        <circle class="mk-toll" cx="50" cy="50" r="45" />
+        <circle class="mk-toll" cx="50" cy="50" r="55" />
         <!-- the dome of light, held -->
         <path
           class="mk-dome"
@@ -87,8 +95,8 @@
         />
         <!-- the halo, landed on the rim -->
         <ellipse class="mk-halo mk-landed" cx="50" cy="2" rx="19" ry="5.5" />
-        <!-- the solid ring the seal holds as -->
-        <circle class="mk-seal-ring" cx="50" cy="50" r="45" />
+        <!-- the solid ring the seal holds as — outside the rim (FT-1386) -->
+        <circle class="mk-seal-ring" cx="50" cy="50" r="55" />
       </template>
     </svg>
 
@@ -101,8 +109,8 @@
                  STILL; the drips harden; the skull wisp fades in last. -->
     <svg v-else-if="roleId === 'poisoner'" viewBox="0 -24 100 124">
       <template v-if="state === 'invite'">
-        <circle class="ps-seep-ring" cx="50" cy="50" r="38" />
-        <circle class="ps-bead" cx="50" cy="50" r="38" pathLength="1" />
+        <circle class="ps-seep-ring" cx="50" cy="50" r="55" />
+        <circle class="ps-bead" cx="50" cy="50" r="55" pathLength="1" />
       </template>
       <template v-else-if="state === 'staged'">
         <path class="ps-arc" d="M 14 34 A 38 38 0 0 1 86 34" pathLength="1" />
@@ -114,7 +122,7 @@
         <circle class="ps-bubble ps-b3" cx="67.5" cy="34" r="1.6" />
       </template>
       <template v-else-if="state === 'sealed'">
-        <circle class="ps-seal-ring" cx="50" cy="50" r="41" pathLength="1" />
+        <circle class="ps-seal-ring" cx="50" cy="50" r="55" pathLength="1" />
         <path class="ps-drip ps-hard ps-d1" d="M 30 22 q 1.5 9 0 15" />
         <path class="ps-drip ps-hard ps-d2" d="M 50 13 q -1 12 0.5 21" />
         <path class="ps-drip ps-hard ps-d3" d="M 68 20 q 1 7 -0.5 12" />
@@ -242,14 +250,14 @@
         />
       </template>
       <template v-else-if="state === 'staged'">
-        <circle class="im-rune-arc" cx="50" cy="50" r="41" pathLength="1" />
+        <circle class="im-rune-arc" cx="50" cy="50" r="55" pathLength="1" />
         <path class="im-slash im-s1" d="M 36 18 q 4 22 -2 48" pathLength="1" />
         <path class="im-slash im-s2" d="M 52 14 q 3 24 -1 54" pathLength="1" />
         <path class="im-slash im-s3" d="M 66 18 q 2 20 -2 46" pathLength="1" />
       </template>
       <template v-else-if="state === 'sealed'">
-        <circle class="im-flare" cx="50" cy="50" r="41" />
-        <circle class="im-rune-ring" cx="50" cy="50" r="41" pathLength="1" />
+        <circle class="im-flare" cx="50" cy="50" r="55" />
+        <circle class="im-rune-ring" cx="50" cy="50" r="55" pathLength="1" />
         <path
           class="im-penta"
           d="M 50 20 L 67.6 74.3 L 21.5 40.7 L 78.5 40.7 L 32.4 74.3 Z"
@@ -333,7 +341,7 @@
                   at the teller's own shoulder — the knowledge kept. -->
     <svg v-else-if="roleId === 'washerwoman'" viewBox="0 -24 100 124">
       <template v-if="part === 'target'">
-        <circle class="ww-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <circle class="ww-ring" cx="50" cy="50" r="55" pathLength="1" />
         <g class="ww-peg">
           <path
             d="M 46.5 6 L 46.5 -8 A 3.5 3.5 0 0 1 53.5 -8 L 53.5 6
@@ -369,7 +377,7 @@
     -->
     <svg v-else-if="roleId === 'librarian'" viewBox="0 -24 100 124">
       <template v-if="part === 'target'">
-        <circle class="lb-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <circle class="lb-ring" cx="50" cy="50" r="55" pathLength="1" />
         <g class="lb-corner">
           <path class="lb-fold" d="M 70 0 L 93 0 L 93 23 Z" />
           <path class="lb-crease" d="M 70 0 L 93 23" />
@@ -391,7 +399,7 @@
                   own rim — the dossier stamped, kept all game. -->
     <svg v-else-if="roleId === 'investigator'" viewBox="0 -24 100 124">
       <template v-if="part === 'target'">
-        <circle class="iv-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <circle class="iv-ring" cx="50" cy="50" r="55" pathLength="1" />
         <g class="iv-tack">
           <path class="iv-pin" d="M 50 -1 L 50 7" />
           <circle class="iv-head" cx="50" cy="-5" r="4.6" />
@@ -445,7 +453,7 @@
                   her own shoulder — what she knows, kept. -->
     <svg v-else-if="roleId === 'empath'" viewBox="0 -24 100 124">
       <template v-if="part === 'target'">
-        <circle class="em-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <circle class="em-ring" cx="50" cy="50" r="55" pathLength="1" />
         <path
           class="em-heart"
           d="M 50 2 C 42.5 -5.5 44 -13.5 50 -9.5 C 56 -13.5 57.5 -5.5 50 2 Z"
@@ -485,16 +493,17 @@ const HAS_ART = [
  *  ever wearing the wrong scaffold. */
 const TOLD_STATES = ["telling", "settled"];
 
-/** The Imp's state-1 ember ticks — twelve short radial strokes at r≈40,
- *  precomputed once (they are the same on every coin). */
+/** The Imp's state-1 ember ticks — twelve short radial strokes at r≈55,
+ *  just outside the coin's rim (FT-1386), precomputed once (they are the
+ *  same on every coin). */
 const EMBER_TICKS = (() => {
   const ticks = [];
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
-    const x1 = 50 + 37 * Math.cos(a);
-    const y1 = 50 + 37 * Math.sin(a);
-    const x2 = 50 + 43 * Math.cos(a);
-    const y2 = 50 + 43 * Math.sin(a);
+    const x1 = 50 + 52 * Math.cos(a);
+    const y1 = 50 + 52 * Math.sin(a);
+    const x2 = 50 + 58 * Math.cos(a);
+    const y2 = 50 + 58 * Math.sin(a);
     ticks.push(
       `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`,
     );
@@ -587,8 +596,9 @@ export default {
 $mk-gold: #ffe9b0;
 $mk-gold-hot: #fff6dc;
 
-// state 1 — the rosary beads. Dotted ring just inside the rim, breathing by
-// opacity. THE ONE LOOP THIS FILE IS ALLOWED (the invite breathe).
+// state 1 — the rosary beads. Dotted ring just outside the rim (FT-1386),
+// breathing by opacity. THE ONE LOOP THIS FILE IS ALLOWED (the invite
+// breathe).
 .mk-beads {
   fill: none;
   stroke: $mk-gold-hot;
