@@ -67,7 +67,15 @@ const state = () => ({
   // the surface a later storyteller editor reads and rewrites; tonight the
   // deal writes it and the reminder tokens deliver it. Never broadcast and
   // never persisted — rebuilt by every deal.
-  evilInfo: []
+  evilInfo: [],
+  // FT-1396: THE BADGES THIS CLIENT WAS TOLD — client-local, player-side:
+  // `{ index, team }` per teammate chair, fed ONLY by this client's own
+  // direct "evilTeam" frame (store/socket.js sendEvilTeam — the bluffs
+  // discipline: content reaches exactly the seats the believed-team table
+  // entitles, an empty frame is "you hold none"). The host's copy stays
+  // empty (the grimoire already says more), and nothing persists it — a
+  // reload gets it back on the same full sync the bluffs ride.
+  evilBadges: []
 });
 
 const getters = {
@@ -218,6 +226,12 @@ const actions = {
     // FT-1393: cleared characters take the believed-team table with them —
     // its rows describe a deal that no longer exists.
     commit("setEvilInfo");
+    // FT-1396: ...and the badges a player's client was holding. This action
+    // is the one Play again already reaches on every client (the host
+    // dispatches it directly; a spectator's clearEnded resync dispatches it
+    // in _updateGamestate — the FT-1389 residue door), so knowledge dies
+    // with the game it belonged to, on the same clock the roles do.
+    commit("setEvilBadges");
   },
   /**
    * FT-1084: THE DEAL WRITES THE LIES TOO.
@@ -328,6 +342,9 @@ const mutations = {
     state.fabled = [];
     // FT-1393: a cleared town has no believed-team table.
     state.evilInfo = [];
+    // FT-1396: ...and no badges — leaving a town takes them along (the same
+    // "a town is a room" rule the chat log and the claimed seat follow).
+    state.evilBadges = [];
   },
   set(state, players = []) {
     state.players = players;
@@ -419,6 +436,16 @@ const mutations = {
    */
   setEvilInfo(state, rows = []) {
     state.evilInfo = Array.isArray(rows) ? rows : [];
+  },
+  /**
+   * FT-1396: the badge list this client holds — written only by the direct
+   * "evilTeam" frame's handler (and the two clears above). Its own mutation
+   * for the setEvilInfo/setDeathMoment reason: the socket layer answers
+   * `update` by broadcasting, and who is on whose team must never ride that
+   * path. A bare call (no list) clears it.
+   */
+  setEvilBadges(state, badges = []) {
+    state.evilBadges = Array.isArray(badges) ? badges : [];
   },
   setFabled(state, { index, fabled } = {}) {
     if (index !== undefined) {

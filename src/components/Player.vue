@@ -541,6 +541,24 @@
            FT-1317 so `.claim-overlay:hover ~` can reach it. -->
       <span class="seat-numeral" v-if="showSeatNumeral">{{ seatNumeral }}</span>
 
+      <!-- FT-1396: EVIL SEES ITS TEAM — the teammate's team glyph resting on
+           their chair, on the entitled client alone (`teamBadge` reads the
+           client-local slice only this client's own direct frame fills).
+           Anchored in the numeral's own square over the coin face; while the
+           numeral is ALSO up (every roleless coin with the pref on — the
+           common case on a player's view) the badge steps down to the coin's
+           chin, one consistent offset, so the two never fight for the
+           centre. aria-hidden ambience, no pointer — knowledge, not a
+           control. -->
+      <span
+        class="team-badge"
+        :class="{ beside: showSeatNumeral }"
+        v-if="teamBadge"
+        aria-hidden="true"
+      >
+        <img :src="teamBadge" alt="" />
+      </span>
+
       <!-- ── FT-1107 (user): THE NIGHT'S OWN CLICK ON THIS COIN ───────────
            "The interaction should happen on the clock face."
 
@@ -1300,6 +1318,10 @@ import SeatRing from "./SeatRing";
 // FT-1384: the night marks' art — each acting character's invitation /
 // staged / sealed dress on the coin, one renderer for all of them.
 import NightMark from "./NightMark";
+// FT-1396: the evil-team badge a teammate's chair wears on an entitled
+// client — the same team glyphs the town-square stats row and the script
+// view already speak, never a new pictogram.
+import { teamGlyph } from "../golem/glyphs";
 // FT-1385: which coins a telling acknowledges (the pair, the neighbours),
 // and which told roles' dress has landed (the shared TOLD_ART registry —
 // an undressed role's seats render exactly as before this card).
@@ -1407,7 +1429,9 @@ export default {
     }
   },
   computed: {
-    ...mapState("players", ["players"]),
+    // FT-1396: `evilBadges` — the team badges THIS client was told (fed only
+    // by its own direct "evilTeam" frame; empty on every untold client).
+    ...mapState("players", ["players", "evilBadges"]),
     // FT-1112: `chat` joins them for one field — `chat.gameId`, the town's
     // current game as the storyteller named it (see gameUnderway below).
     ...mapState(["grimoire", "session", "chat"]),
@@ -2266,6 +2290,26 @@ export default {
         this.prefs.coinNumerals !== false &&
         !(this.player.role && this.player.role.id)
       );
+    },
+    /**
+     * FT-1396: THE TEAM BADGE THIS CHAIR WEARS on this client — evil seeing
+     * its own team. The glyph src (minion or demon — golem/glyphs, the same
+     * art the stats row speaks), or null for the overwhelming majority of
+     * chairs on the overwhelming majority of clients. Reads the client-local
+     * `evilBadges` slice, which only this client's own direct frame ever
+     * fills — so a good seat, a spectator and the storyteller all compute
+     * null here without knowing why. The own-chair guard restates the wire's
+     * rule (a row never names its receiver) at the render, so no path can
+     * ever badge the seat the viewer is sitting in.
+     */
+    teamBadge() {
+      if (this.player.id && this.player.id === this.session.playerId) {
+        return null;
+      }
+      const entry = (this.evilBadges || []).find(
+        b => b && b.index === this.index
+      );
+      return entry ? teamGlyph(entry.team) : null;
     },
     seatNumeral() {
       // IIII, not IV — the clockmaker's convention (user-confirmed)
@@ -5635,6 +5679,45 @@ html.veil-glass .circle .player .shroud:before {
     /* FT-1317: the numeral steps aside while the claim invitation is up —
        see the .open-mark rules; this is just the fade. */
     transition: opacity 200ms;
+  }
+
+  // FT-1396 — THE EVIL-TEAM BADGE, in the numeral's own square: the same
+  // absolute box, the same 0.8% lift onto the coin art's true centre, so
+  // "the spot the numerals render" is literally where this anchors. Centred
+  // when it stands alone; `.beside` (the numeral is up too — every roleless
+  // coin with the pref on) drops the glyph to the coin's chin at a smaller
+  // size — ONE consistent offset, never a per-seat judgement, so a ring of
+  // badges reads as a ring. It sits after the numeral in the DOM (paints
+  // over on the rare overlap) and takes no pointer, like the numeral.
+  > .team-badge {
+    position: absolute;
+    left: 0;
+    top: -0.8%;
+    width: 100%;
+    aspect-ratio: 1;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    user-select: none;
+
+    img {
+      width: 32%;
+      // the glyphs are flat team colour (golem/glyphs) — the dark halo is
+      // what keeps them legible on the parchment coin, the stats row's own
+      // drop-shadow idiom at coin scale
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.75));
+    }
+
+    &.beside {
+      align-items: flex-end;
+
+      img {
+        width: 25%;
+        margin-bottom: 7%;
+      }
+    }
   }
 
   &.dead {

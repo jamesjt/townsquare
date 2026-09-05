@@ -21,6 +21,10 @@ import { beliefOf } from "../golem/belief";
 // seat and the Lunatic's. `believesDemon` is the same test the clock face and
 // the menu strip use, so the sender cannot drift from the viewer.
 import { believesDemon, BLUFF_COUNT } from "../golem/bluffs";
+// FT-1396: evil sees its team on the chairs — the believed-team table's rows
+// (FT-1393) become per-seat badge lists, delivered on the bluffs' own
+// direct-only discipline (see sendEvilTeam).
+import { evilInfoBadges } from "../golem/evilInfo";
 // FT-880: the town summons. The sound is bundled in every client, so the
 // message carries nothing and this is the only import it needs.
 import { playCallBack } from "../golem/callBack";
@@ -572,6 +576,12 @@ class LiveSession {
       case "bluffs":
         this._updateBluffs(params);
         break;
+      // FT-1396: this seat's evil-team badges — always a direct frame to one
+      // seat (see sendEvilTeam; the broadcast shape does not exist), and an
+      // empty list means "you hold none".
+      case "evilTeam":
+        this._updateEvilTeam(params);
+        break;
       // FT-1003: the granted grimoire opening or closing on THIS client —
       // always a direct frame to one seat, never a broadcast (see
       // sendGrimoire for why that shape cannot exist).
@@ -758,6 +768,10 @@ class LiveSession {
       // its own channel, never inside the gamestate blob — that blob goes to
       // everyone, and this must not.
       this.sendBluffs(playerId);
+      // FT-1396: ...and their evil-team badges, for exactly the bluffs'
+      // reason — a reconnecting or joining seat gets its standing knowledge
+      // back on the same full sync, down its own direct-only channel.
+      this.sendEvilTeam(playerId);
       // FT-1003: ...and where a granted grimoire is settled for an arriving
       // client — a PINNED grant is re-delivered, an unpinned one is revoked
       // (it does not survive its holder's reconnect), and everyone else gets
@@ -1099,6 +1113,14 @@ class LiveSession {
       this._sendBelief(player, index);
       return;
     }
+    // FT-1396: WHO IS ON WHOSE TEAM IS NEVER BROADCAST — the believedRole
+    // refusal's sibling. Neither name is a per-seat property today (the
+    // table is host bookkeeping with its own mutation, the badges a
+    // client-local slice fed by its own direct frame), so nothing reaches
+    // this line — but a future caller committing either through
+    // players/update would otherwise fall through to the broadcast below,
+    // and this rule must be a guard, not a convention.
+    if (property === "evilBadges" || property === "evilInfo") return;
     if (property === "role") {
       // FT-871: the gamestate is a PARALLEL array to the roster, rebuilt on
       // its own schedule — it can be shorter than the seating for a beat after
@@ -1166,6 +1188,10 @@ class LiveSession {
     // sends one — refusing it here means a future sender cannot create the
     // leak by accident either.
     if (property === "believedRole") return;
+    // FT-1396: the same refusal for the team-badge names — badges land only
+    // through their own "evilTeam" frame (sanitized in _updateEvilTeam),
+    // never as a player property off the generic channel.
+    if (property === "evilBadges" || property === "evilInfo") return;
     // FT-1312: breadcrumb — OUR OWN chair just emptied on a frame from the
     // host. Which path did it (sweep vs storyteller) is said by whether a
     // direct "swept" frame follows; this line is the constant.
@@ -1664,6 +1690,11 @@ class LiveSession {
     // 2026-08-19: the deal is also the moment the demon is told what they may
     // claim. Same beat as the characters, so the two never arrive apart.
     this.sendBluffs();
+    // FT-1396: ...and the moment evil is shown WHO evil is, on the chairs.
+    // The believed-team table is already committed at this instant — both
+    // deal paths dispatch players/dealReminders BEFORE this mutation — so
+    // the badges ride the same beat as the characters and the bluffs.
+    this.sendEvilTeam();
   }
 
   /**
@@ -1789,6 +1820,10 @@ class LiveSession {
     // The seat's character just moved, which is the only thing that decides
     // whether it holds bluffs. One chair, same message.
     this.sendBluffs(player.id);
+    // FT-1396: ...and whether it holds team badges — a claimed chair gets
+    // the deal's standing row (or the empty clear) through the same beat,
+    // so a demon who sits down a minute late still sees their minions.
+    this.sendEvilTeam(player.id);
   }
 
   /**
@@ -1888,6 +1923,85 @@ class LiveSession {
         {};
       this._store.commit("players/setBluff", { index, role });
     }
+  }
+
+  /**
+   * FT-1396: EVIL SEES ITS TEAM ON THE CHAIRS — each entitled seat is told
+   * which chairs hold its teammates, as `{ index, team }` badges the client
+   * paints at the numeral's spot (Player.vue). The TEAM, never the role:
+   * the first night's rules show the demon who the minions ARE, not what
+   * they are playing.
+   *
+   * NEVER A BROADCAST, structurally — sendBluffs' rule verbatim: this only
+   * ever builds the `{playerId: [command, params]}` map the relay splits
+   * per recipient, so the shape that could hand the town the evil team does
+   * not exist rather than being guarded against. And like the bluffs, EVERY
+   * SEATED PLAYER GETS A MESSAGE: seats whose table row is empty get an
+   * EMPTY list, which is how a chair that stops being entitled (a re-deal
+   * that moved the evil, a cleared board mid-game) loses what it was
+   * holding — an empty list carries nothing, so the extra recipients learn
+   * nothing from being written to.
+   *
+   * WHAT EACH SEAT GETS IS ITS BELIEVED-TEAM ROW, truth and fiction through
+   * one pipe (golem/evilInfo.evilInfoBadges): the demon's row badges the
+   * real minions, a minion's row the other minions and the demon, and the
+   * LUNATIC's fiction row badges their fake minions on the good chairs the
+   * deal pinned them to — identical data over an identical path, so the
+   * fed dish stays indistinguishable from the real one. A row never names
+   * its own receiver, so no seat can read its own team off its own frame.
+   *
+   * Spectators and the storyteller receive nothing by construction — the
+   * map is keyed off claimed seats alone.
+   *
+   * @param playerId optional — only that one seat (a joiner, a chair that
+   *                 just changed hands); omitted means every claimed seat.
+   */
+  sendEvilTeam(playerId = "") {
+    if (this._isSpectator) return;
+    // The same guard _sendBelief and sendBluffs carry: before the deal
+    // there is no knowledge to hand out, and the table committed by the
+    // deal's own dealReminders beat stays off the wire until the deal
+    // itself sends (see the players/setEvilInfo subscriber case).
+    if (!this._isDealt()) return;
+    const perSeat = evilInfoBadges(this._store.state.players.evilInfo);
+    const message = {};
+    this._store.state.players.players.forEach((player, index) => {
+      if (!player.id) return;
+      if (playerId && player.id !== playerId) return;
+      const row = perSeat.find((r) => r.index === index);
+      message[player.id] = ["evilTeam", row ? row.badges : []];
+    });
+    if (Object.keys(message).length) {
+      this._send("direct", message);
+    }
+  }
+
+  /**
+   * FT-1396: the badge list arriving at the one client entitled to it.
+   * Player only — the storyteller's own grimoire already says more, and
+   * their copy must never be written from the wire. Rebuilt entry by entry
+   * rather than trusted as it stands (the _reminderForWire discipline):
+   * only a real seat index and one of the two team words land, and the
+   * receiver's OWN chair is dropped — rows never name their receiver, and
+   * this asserts it on the client too.
+   * @param list `[{ index, team }]`, or an empty array meaning "you hold
+   *             none"
+   * @private
+   */
+  _updateEvilTeam(list) {
+    if (!this._isSpectator) return;
+    const me = this._store.state.session.playerId;
+    const players = this._store.state.players.players;
+    const badges = [];
+    (Array.isArray(list) ? list : []).forEach((entry) => {
+      if (!entry || typeof entry.index !== "number") return;
+      if (entry.team !== "minion" && entry.team !== "demon") return;
+      const seat = players[entry.index];
+      if (!seat) return;
+      if (me && seat.id === me) return;
+      badges.push({ index: entry.index, team: entry.team });
+    });
+    this._store.commit("players/setEvilBadges", badges);
   }
 
   /**
@@ -3275,6 +3389,16 @@ export default (store) => {
       // clock face's coins) inherits the delivery for free.
       case "players/setBluff":
         session.sendBluffs();
+        break;
+      // FT-1396: the believed-team table changed — a re-deal rebuilding it,
+      // or a cleared board emptying it — so each seat's badge frame follows.
+      // Silent at Start by sendEvilTeam's own _isDealt guard (the table is
+      // committed BEFORE session/distributeRoles, whose handler above sends
+      // the first set — the dealLies ordering discipline); LIVE on the
+      // drawer's mid-game re-deal, where a stale badge would otherwise
+      // outlive the row that placed it.
+      case "players/setEvilInfo":
+        session.sendEvilTeam();
         break;
       case "session/setMarkedPlayer": {
         session.setMarked(payload);
