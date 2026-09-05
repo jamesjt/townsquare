@@ -538,24 +538,27 @@
       ></div>
 
       <!-- FT-985's numeral (see its note beside the coin) — parked HERE since
-           FT-1317 so `.claim-overlay:hover ~` can reach it. -->
-      <span class="seat-numeral" v-if="showSeatNumeral">{{ seatNumeral }}</span>
+           FT-1317 so `.claim-overlay:hover ~` can reach it. FT-1396 follow-up
+           (user vet): while a team badge holds this coin's centre, the
+           numeral steps to the chin, smaller — the inverse of the first cut,
+           where the badge yielded. -->
+      <span
+        class="seat-numeral"
+        :class="{ chin: teamBadge }"
+        v-if="showSeatNumeral"
+        >{{ seatNumeral }}</span
+      >
 
       <!-- FT-1396: EVIL SEES ITS TEAM — the teammate's team glyph resting on
            their chair, on the entitled client alone (`teamBadge` reads the
            client-local slice only this client's own direct frame fills).
-           Anchored in the numeral's own square over the coin face; while the
-           numeral is ALSO up (every roleless coin with the pref on — the
-           common case on a player's view) the badge steps down to the coin's
-           chin, one consistent offset, so the two never fight for the
-           centre. aria-hidden ambience, no pointer — knowledge, not a
-           control. -->
-      <span
-        class="team-badge"
-        :class="{ beside: showSeatNumeral }"
-        v-if="teamBadge"
-        aria-hidden="true"
-      >
+           Anchored in the numeral's own square over the coin face and it
+           OWNS the centre (user vet on the first cut, which tucked it at the
+           chin): the badge is the seat's headline on an evil client, so it
+           takes the numeral's spot at the numeral's scale and a step bolder,
+           and the numeral is the one that steps to the chin (`.chin` above).
+           aria-hidden ambience, no pointer — knowledge, not a control. -->
+      <span class="team-badge" v-if="teamBadge" aria-hidden="true">
         <img :src="teamBadge" alt="" />
       </span>
 
@@ -5679,16 +5682,27 @@ html.veil-glass .circle .player .shroud:before {
     /* FT-1317: the numeral steps aside while the claim invitation is up —
        see the .open-mark rules; this is just the fade. */
     transition: opacity 200ms;
+
+    /* FT-1396 follow-up (user vet) — the collision rule FLIPPED: the team
+       badge owns the coin's centre now, so when both are up it is the
+       NUMERAL that steps to the chin, smaller (the badge's own retired
+       chin geometry — flex-end plus the 7% lift off the coin's rim). */
+    &.chin {
+      align-items: flex-end;
+      padding-bottom: 7%;
+      font-size: 1.4em;
+    }
   }
 
   // FT-1396 — THE EVIL-TEAM BADGE, in the numeral's own square: the same
   // absolute box, the same 0.8% lift onto the coin art's true centre, so
-  // "the spot the numerals render" is literally where this anchors. Centred
-  // when it stands alone; `.beside` (the numeral is up too — every roleless
-  // coin with the pref on) drops the glyph to the coin's chin at a smaller
-  // size — ONE consistent offset, never a per-seat judgement, so a ring of
-  // badges reads as a ring. It sits after the numeral in the DOM (paints
-  // over on the rare overlap) and takes no pointer, like the numeral.
+  // "the spot the numerals render" is literally where this anchors. It OWNS
+  // that centre (user vet on the first cut, which tucked it at the chin):
+  // 45% of the coin face — the numeral's ~2.2em presence and a step bolder —
+  // so the team read is the seat's headline at ring distance. When the
+  // numeral is up too, the numeral is the one that yields (`.seat-numeral
+  // .chin` above). It sits after the numeral in the DOM (paints over on the
+  // rare overlap) and takes no pointer, like the numeral.
   > .team-badge {
     position: absolute;
     left: 0;
@@ -5703,20 +5717,11 @@ html.veil-glass .circle .player .shroud:before {
     user-select: none;
 
     img {
-      width: 32%;
+      width: 45%;
       // the glyphs are flat team colour (golem/glyphs) — the dark halo is
       // what keeps them legible on the parchment coin, the stats row's own
-      // drop-shadow idiom at coin scale
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.75));
-    }
-
-    &.beside {
-      align-items: flex-end;
-
-      img {
-        width: 25%;
-        margin-bottom: 7%;
-      }
+      // drop-shadow idiom scaled up with the glyph
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.8));
     }
   }
 
