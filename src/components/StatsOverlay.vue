@@ -269,7 +269,7 @@
                 armed: filterCount('scripts') > 0,
               }"
               title="Script — include or exclude scripts"
-              @click="togglePop('scripts')"
+              @click="togglePop('scripts', $event)"
             >
               <font-awesome-icon icon="scroll" />
               <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
@@ -284,7 +284,7 @@
                 armed: filterCount('roles') > 0,
               }"
               title="Roles — games must (or must not) have them in play"
-              @click="togglePop('roles')"
+              @click="togglePop('roles', $event)"
             >
               <font-awesome-icon icon="theater-masks" />
               <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
@@ -296,7 +296,7 @@
               class="rp-tool rp-tool-dim"
               :class="{ open: openFilter === 'players', armed: playersActive }"
               title="Players — bound the seats at the table"
-              @click="togglePop('players')"
+              @click="togglePop('players', $event)"
             >
               <font-awesome-icon icon="user-friends" />
               <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
@@ -318,7 +318,7 @@
                 armed: filterCount('towns') > 0,
               }"
               title="Towns — include or exclude the towns you have sat in"
-              @click="togglePop('towns')"
+              @click="togglePop('towns', $event)"
             >
               <font-awesome-icon icon="home" />
               <font-awesome-icon class="rp-tool-caret" icon="chevron-down" />
@@ -423,7 +423,11 @@
 
           <!-- THE POPOVERS. One at a time, under the bar; a click anywhere
                outside the bar closes them (document listener, mounted). -->
-          <div class="rp-pop" v-if="listPopOpen">
+          <div
+            class="rp-pop"
+            v-if="listPopOpen"
+            :style="{ left: popLeft + 'px' }"
+          >
             <!-- (FT-1304: the per-popover search input stood down — the one
                  search on the bar filters whichever of these lists is open.) -->
             <!-- FT-1371: a signed-out viewer sees the button too — the
@@ -524,7 +528,11 @@
                OPEN — both parked is no bound at all, exactly what the empty
                boxes used to mean. The selected span tints the include green
                and out-of-range bars dim, the readback chip's own grammar. -->
-          <div class="rp-pop rp-pop-players" v-if="openFilter === 'players'">
+          <div
+            class="rp-pop rp-pop-players"
+            v-if="openFilter === 'players'"
+            :style="{ left: popLeft + 'px' }"
+          >
             <p class="rp-state" v-if="!seatHistogram.bars.length">
               No games to graph.
             </p>
@@ -1183,6 +1191,9 @@ export default {
        * TOGGLE it served retired in favour of this filter.
        */
       myTowns: { loading: false, loaded: false, ids: [] },
+      /** FT-1373: the open popover's left edge — the opening button's own
+       *  offset in the bar, so the pop reads as that button's dropdown. */
+      popLeft: 0,
       /** Which filter popover is open ('scripts' | 'roles' | 'players'), or
        *  null. A gesture, not a preference — never persisted. */
       openFilter: null,
@@ -1931,8 +1942,19 @@ export default {
     },
     // ── FT-1301: the filter grammar ─────────────────────────────────────────
     /** Open one filter's popover (closing any other); a second click closes. */
-    togglePop(id) {
+    togglePop(id, evt) {
       this.openFilter = this.openFilter === id ? null : id;
+      // FT-1373 (user): the popover is a DROPDOWN FROM ITS BUTTON — flush
+      // under the bar, left edge anchored to the button that opened it
+      // (clamped so a wide popover never overruns the bar's right edge).
+      if (this.openFilter && evt && evt.currentTarget) {
+        const bar = this.$refs.toolbar;
+        const max = bar ? Math.max(0, bar.offsetWidth - 380) : 0;
+        this.popLeft = Math.max(
+          0,
+          Math.min(evt.currentTarget.offsetLeft, max),
+        );
+      }
       // FT-1308: opening a browse popover stands the suggestions down (the
       // query keeps; typing again brings them back) — the two surfaces never
       // stand open together. FT-1304's search-focus went with the coupling.
@@ -3246,7 +3268,8 @@ h4 {
 // rather than the button keeps it stable while a click re-sorts the list.
 .rp-pop {
   position: absolute;
-  top: calc(100% + 6px);
+  // FT-1373 (user): flush — a dropdown directly from its button, no gap.
+  top: 100%;
   left: 0;
   z-index: 5;
   min-width: 280px;
