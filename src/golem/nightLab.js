@@ -363,7 +363,13 @@ function syncEntries(store) {
       done: true,
     };
   } else {
-    const staged = store.getters["night/myStagedTargets"];
+    // the actor's OWN staged pick, read off the raw stage rather than the
+    // getter — the getter answers through myCall, which is null in the
+    // storyteller perspective, and the ledger must carry what the player
+    // actually pointed at, not the canned fallback
+    const st = store.state.night.staging;
+    const staged =
+      st.roleId === role.id && st.targets.some((t) => t >= 0) ? st.targets : [];
     const picks = staged.length ? staged : cannedPicks(playerSlots(role.id));
     patch = {
       targets: picks.slice(),
