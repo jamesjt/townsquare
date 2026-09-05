@@ -125,12 +125,34 @@
                  sweep is waiting to be recorded, "Record vote" below takes
                  the emphasis and this demotes to a plain plate — never two
                  primaries on one card. -->
+            <!-- FT-1378 (user): the seconds live INSIDE the button, at the
+                 label's own size — one control reading "Start the vote · 3 s"
+                 where the number is still the scrub. Its span swallows the
+                 click so a scrub gesture never starts the vote. -->
             <button
               class="vo-btn vo-start"
               :class="{ 'is-primary': !willRecord }"
               @click="countdown"
             >
               {{ session.lockedVote ? "Restart the vote" : "Start the vote" }}
+              <span
+                class="vo-timing vo-timing-in"
+                v-if="session.lockedVote < 1"
+                @click.stop
+                title="Time per player — seconds each seat gets before the sweep moves on"
+              >
+                <NumberScrub
+                  class="vo-scrub"
+                  :value="votingSeconds"
+                  :min="0.5"
+                  :max="30"
+                  :step="0.5"
+                  aria-label="Time per player, in seconds"
+                  title="Time per player, in seconds — drag sideways to scrub, click to type"
+                  @input="setVotingSeconds"
+                />
+                <span class="vo-unit">s</span>
+              </span>
             </button>
             <!-- FT-1331 (user correction, reverting FT-1325): the vote
                  timer is a STORYTELLER control and its home is THIS card —
@@ -142,6 +164,8 @@
                  delta that keeps the store in milliseconds. The pace the
                  room is about to live under is readable right here, beside
                  the button that starts it. -->
+            <!-- (FT-1378: the standalone scrub moved inside the button
+                 above — this outer copy stood down.)
             <span
               class="vo-timing"
               v-if="session.lockedVote < 1"
@@ -158,7 +182,7 @@
                 @input="setVotingSeconds"
               />
               <span class="vo-unit">s</span>
-            </span>
+            </span> -->
           </div>
 
           <!-- ONE control for one piece of state. `control-toggle` is this
@@ -186,7 +210,11 @@
                and a second "cancel" button sitting greyed out whenever nobody
                is marked would rebuild that mistake. `aria-pressed` continues
                to carry the held position for a screen reader. -->
-          <div class="vo-controls" v-if="!isExile">
+          <!-- FT-1378 (user): the mark button LEFT the pre-vote card —
+               "execution mark happens after the vote." The act lives in the
+               post-vote flow (auto-mark, FT-1314) and both seat menus
+               (FT-1332); the toggle stands down here, kept per never-delete. -->
+          <div class="vo-controls" v-if="false && !isExile">
             <button
               class="vo-btn vo-mark"
               :class="{ on: isMarked }"
@@ -760,6 +788,9 @@ export default {
       const el = this.$refs.countdownAudio;
       if (!el) return;
       el.currentTime = 0;
+      // FT-1378 (user): ~20% down from the FT-1311 normalization — the
+      // element dial is the clean trim, one number to retune.
+      el.volume = 0.8;
       const p = el.play();
       // Autoplay policy can refuse (a player who has never touched the
       // page); a refused play must not become an unhandled rejection.
@@ -1252,6 +1283,37 @@ export default {
     background: rgba(84, 70, 43, 0.94);
     border-color: #efe3c6;
     color: #fff;
+  }
+}
+// FT-1378 (user): the START button is PURPLE, not the gold — FT-1108's
+// chosen-purple pair (the settings rail's lit leaf), scoped to the start
+// control alone; Record vote keeps the gold primary.
+.vo-btn.vo-start.is-primary {
+  background: rgba(96, 74, 128, 0.55);
+  border-color: rgba(167, 143, 205, 0.85);
+  color: #ece4f8;
+  box-shadow: 0 0 14px rgba(167, 143, 205, 0.2);
+
+  &:hover:not(.disabled) {
+    background: rgba(112, 88, 148, 0.65);
+    border-color: rgba(190, 168, 224, 0.95);
+    color: #fff;
+  }
+}
+// FT-1378: the in-button scrub wears the label's own size — the button is
+// one sentence, not a sentence with a footnote.
+.vo-btn.vo-start {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+
+  .vo-timing-in {
+    font-size: inherit;
+    color: inherit;
+
+    .vo-scrub {
+      font-size: inherit;
+    }
   }
 }
 
