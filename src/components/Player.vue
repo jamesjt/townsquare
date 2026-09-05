@@ -58,9 +58,20 @@
           // character wear its own art on the same scaffold.
           'night-invite': nightInvite,
           'night-staged': nightPickable && nightSlot >= 0 && !nightLocked,
+          // FT-1385: the told-information dress — this coin is one the
+          // standing telling points at (a candidate pair, the Empath's
+          // neighbours) or the told player's own chair (the residue's home).
+          // `told-settled` is the two-beat grammar's second beat: the bright
+          // telling has eased into the quiet persistent trace.
+          'told-target': toldPart === 'target',
+          'told-self': toldPart === 'self',
+          'told-settled': !!toldPart && told.phase === 'settled',
           'night-sealed': nightPickable && nightSlot >= 0 && nightLocked
         },
         nightPickable && nightCall ? 'night-role-' + nightCall.role.id : '',
+        // FT-1385: which role's told dress this coin wears — the glow map
+        // in the style block reads it beside told-target/told-self.
+        toldPart ? 'told-role-' + told.roleId : '',
         player.role.team
       ]"
     >
@@ -588,6 +599,24 @@
           :state="nightMarkState"
         />
         <span class="np-mark" v-if="nightPickMark">{{ nightPickMark }}</span>
+      </div>
+
+      <!-- ── FT-1385: THE TOLD MARK — knowledge worn on the coin ──────────
+           The told-information roles' dress: the telling's acknowledgement
+           on the coins the information points at (the candidate pair, the
+           Empath's neighbours) and the residue's home on the told player's
+           own chair. NOT inside .night-pick — these roles have no slots, so
+           that overlay never mounts for them, which is exactly the audit's
+           candidate-coin gap; and the residue must outlive the night, while
+           .night-pick lives only inside the ask. Pure ambience: pointer
+           events off, no handler, nothing to intercept. Renders on the told
+           player's client alone (told reads their own delivered rows). -->
+      <div class="told-mark" v-if="toldPart" aria-hidden="true">
+        <NightMark
+          :role-id="told.roleId"
+          :state="told.phase"
+          :part="toldPart"
+        />
       </div>
 
       <!-- Claimed seat icon.
@@ -1271,6 +1300,10 @@ import SeatRing from "./SeatRing";
 // FT-1384: the night marks' art — each acting character's invitation /
 // staged / sealed dress on the coin, one renderer for all of them.
 import NightMark from "./NightMark";
+// FT-1385: which coins a telling acknowledges (the pair, the neighbours),
+// and which told roles' dress has landed (the shared TOLD_ART registry —
+// an undressed role's seats render exactly as before this card).
+import { toldSeats, TOLD_ART } from "../golem/toldInfo";
 // FT-1206: the seat's own whisper — the ONE inline input all three schemes
 // end their whisper gesture in (the plate's row, the ring's coin, the click
 // scheme's plate-side disc). See SeatWhisper.vue for the shape.
@@ -1399,7 +1432,28 @@ export default {
       nightShown: "night/myShownTargets",
       nightLocked: "night/myCallLocked",
       nightComplete: "night/myStageComplete",
+      // FT-1385: the standing telling for this client's own told-information
+      // role — null for everyone else. Persists past the night's end, which
+      // is the residue's whole point.
+      told: "night/myTold",
     }),
+    /**
+     * FT-1385: this coin's place in the standing telling, or "".
+     *   target  the telling points at this seat (a candidate of the pair, a
+     *           neighbour of the Empath) — the acknowledgement the audit
+     *           proved missing.
+     *   self    the told player's own chair — where the residue lives.
+     * Self wins nothing over target: a seat cannot be both (toldSeats never
+     * returns the teller's own chair for the roles that name seats, and the
+     * Empath's neighbours exclude her by construction).
+     */
+    toldPart() {
+      const told = this.told;
+      if (!told || !TOLD_ART.includes(told.roleId)) return "";
+      if (toldSeats(told, this.players).includes(this.index)) return "target";
+      if (this.index === told.seat) return "self";
+      return "";
+    },
     /** Retired with the night checklist (user call 2026-08-18) — flip to
      *  `this.grimoire.isNightOrder` to bring the seat badges back. */
     showNightBadges() {
@@ -4734,6 +4788,40 @@ $night-seal-glow: (
     > .night-pick:hover {
       box-shadow: none;
       background: none;
+    }
+  }
+}
+
+/* ── FT-1385: THE TOLD MARKS ─────────────────────────────────────────────
+   The told-information roles' dress on the coins: the box NightMark draws
+   in (the coin's square, the .night-pick geometry, but pointer-dead — a
+   mark on knowledge is never a control), and the coin's own halo while the
+   telling is bright. The halo is the telling's voice and the SVG ring is
+   the residue's: once `told-settled` lands, the glow stands down and the
+   dotted ring in the mark is what persists — quiet, readable, all game. */
+.player .told-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  pointer-events: none;
+  /* over the coin and the seat marks, under the claim overlay (10) and the
+     night pick (12) — ambience, never in anything's way */
+  z-index: 6;
+}
+
+$told-glow: (
+  washerwoman: rgba(234, 242, 255, 0.9),
+);
+
+@each $role, $glow in $told-glow {
+  .player.told-target.told-role-#{$role}:not(.told-settled),
+  .player.told-self.told-role-#{$role}:not(.told-settled) {
+    > .token,
+    > .life {
+      filter: drop-shadow(0 0 9px $glow);
     }
   }
 }

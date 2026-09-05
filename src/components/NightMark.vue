@@ -35,10 +35,25 @@
     pointer-events are off on everything: the mark never intercepts the tap
     it is decorating.
   -->
+  <!--
+    FT-1385 adds the TOLD-INFORMATION states beside the three above. The
+    told roles (washerwoman, librarian, investigator, chef, empath) choose
+    nothing — they are TOLD — so their grammar has two beats, not three:
+
+      telling  the storyteller's Send landed: the information arrives in
+               the role's own language. One arrival motion (≤1s), then a
+               bright held pose.
+      settled  the residue: effects expire, knowledge does not. The dress
+               eases to a quiet dotted trace that persists all game.
+
+    `part` says which coin this mark stands on: "target" (a coin the
+    information points at — the candidate pair, the Empath's neighbours)
+    or "self" (the told player's own chair, the residue's home).
+  -->
   <span
     v-if="hasArt"
     class="nm"
-    :class="['nm-' + state, 'nm-' + roleId]"
+    :class="['nm-' + state, 'nm-' + roleId, part ? 'nm-part-' + part : '']"
     aria-hidden="true"
   >
     <!-- ── MONK — THE HALO (protection descends) ─────────────────────────
@@ -301,10 +316,56 @@
         <path class="rk-glint" :d="star(58, -6, 3.4)" />
       </template>
     </svg>
+
+    <!-- ══ THE TOLD-INFORMATION MARKS (FT-1385) ═══════════════════════════
+         Two states each (telling / settled), two parts (target / self).
+         The RING is every target coin's shared grammar — solid and lit at
+         the telling, dotted at rest — so "the information points HERE" is
+         one shape in five inks; the role's own object (peg, page-corner,
+         tack, heart, scorch) is what tells the five apart. -->
+
+    <!-- ── WASHERWOMAN — THE LAUNDRY LINE'S PEGS ──────────────────────────
+         telling: the ring strings itself round each candidate coin and a
+                  clothespin drops onto the crown with a wooden click; soap
+                  bubbles rise once and pop.
+         settled: the ring eases to a dotted thread, the bubbles are gone,
+                  the peg STAYS clamped on the rim. Self: a small peg rests
+                  at the teller's own shoulder — the knowledge kept. -->
+    <svg v-else-if="roleId === 'washerwoman'" viewBox="0 -24 100 124">
+      <template v-if="part === 'target'">
+        <circle class="ww-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <g class="ww-peg">
+          <path
+            d="M 46.5 6 L 46.5 -8 A 3.5 3.5 0 0 1 53.5 -8 L 53.5 6
+               L 51.8 6 L 51.8 -2 L 48.2 -2 L 48.2 6 Z"
+          />
+          <circle class="ww-spring" cx="50" cy="-5" r="1.3" />
+        </g>
+        <template v-if="state === 'telling'">
+          <circle class="ww-bubble ww-b1" cx="38" cy="14" r="2.4" />
+          <circle class="ww-bubble ww-b2" cx="58" cy="9" r="1.8" />
+          <circle class="ww-bubble ww-b3" cx="66" cy="18" r="1.4" />
+        </template>
+      </template>
+      <template v-else>
+        <g class="ww-peg ww-peg-self">
+          <path
+            d="M 46.5 6 L 46.5 -8 A 3.5 3.5 0 0 1 53.5 -8 L 53.5 6
+               L 51.8 6 L 51.8 -2 L 48.2 -2 L 48.2 6 Z"
+          />
+          <circle class="ww-spring" cx="50" cy="-5" r="1.3" />
+        </g>
+      </template>
+    </svg>
   </span>
 </template>
 
 <script>
+// FT-1385: the told-information roles whose two-beat dress has landed —
+// ONE registry for every surface (golem/toldInfo's TOLD_ART), so a coin
+// mark cannot land without its thread and sentence or vice versa.
+import { TOLD_ART } from "../golem/toldInfo";
+
 /** The roles whose art has landed — grows one commit at a time (FT-1384's
  *  role-by-role order: monk, poisoner, fortuneteller, butler, imp,
  *  ravenkeeper). Everything else renders nothing and keeps the app's
@@ -317,6 +378,11 @@ const HAS_ART = [
   "imp",
   "ravenkeeper",
 ];
+
+/** The told states — the two-beat grammar's own words, disjoint from the
+ *  choosing states above so one component can serve both without a role
+ *  ever wearing the wrong scaffold. */
+const TOLD_STATES = ["telling", "settled"];
 
 /** The Imp's state-1 ember ticks — twelve short radial strokes at r≈40,
  *  precomputed once (they are the same on every coin). */
@@ -342,14 +408,25 @@ export default {
       type: String,
       required: true,
     },
-    /** "invite" | "staged" | "sealed" — Player.vue's nightMarkState. */
+    /** "invite" | "staged" | "sealed" — Player.vue's nightMarkState — or a
+     *  told state: "telling" | "settled" (FT-1385). */
     state: {
       type: String,
       required: true,
     },
+    /** FT-1385, told states only: "target" (a coin the information points
+     *  at) or "self" (the told player's own chair). Empty on the choosing
+     *  states, which have no parts. */
+    part: {
+      type: String,
+      default: "",
+    },
   },
   computed: {
     hasArt() {
+      if (TOLD_STATES.includes(this.state)) {
+        return TOLD_ART.includes(this.roleId);
+      }
       return HAS_ART.includes(this.roleId) && !!this.state;
     },
     EMBER_TICKS() {
@@ -1188,6 +1265,128 @@ $rk-violet-hot: #e6dcff;
   100% {
     opacity: 0.35;
     transform: scale(0.85);
+  }
+}
+
+// ═══ THE TOLD-INFORMATION PALETTES (FT-1385) ════════════════════════════
+// Two beats each: the telling arrives once (≤1s) and holds bright; the
+// settled residue is dotted, dimmer, and PERSISTS — the transition between
+// the two rides plain CSS transitions on the same elements, so the ease
+// from bright to quiet is a settle, not a swap.
+
+// ── THE WASHERWOMAN'S PALETTE ───────────────────────────────────────────
+// Laundry white — soap-pale, cooler than the Monk's white-gold: clean
+// linen on brass, nothing else on the square speaks it.
+$ww-white: #eaf2ff;
+$ww-wood: #3a2c1a;
+$ww-wood-lit: #c9a86e;
+
+// the candidate ring: strings itself on at the telling (the draw-on), goes
+// dotted-slack at rest. The dash pattern flip is covered by the opacity
+// ease, so the settle reads as the line relaxing.
+.ww-ring {
+  fill: none;
+  stroke: $ww-white;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(234, 242, 255, 0.8));
+  animation: ps-crawl 0.6s ease-out both;
+  transition:
+    opacity 0.7s ease,
+    stroke-width 0.7s ease,
+    filter 0.7s ease;
+}
+
+.nm-settled .ww-ring {
+  stroke-width: 2;
+  stroke-dasharray: 0.012 0.028;
+  opacity: 0.72;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(234, 242, 255, 0.45));
+  animation: none;
+}
+
+// the peg: a wooden clothespin clamped on the coin's crown — dark body,
+// pale rim light (the register's rule). The telling drops it in with one
+// click of overshoot; at rest it simply holds, a touch quieter.
+.ww-peg {
+  path {
+    fill: $ww-wood;
+    stroke: $ww-wood-lit;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(234, 242, 255, 0.5));
+  }
+  .ww-spring {
+    fill: $ww-white;
+  }
+  animation: ww-clamp 0.5s ease-in both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .ww-peg {
+  opacity: 0.85;
+  animation: none;
+}
+
+@keyframes ww-clamp {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(1.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// the teller's own peg — the residue's home mark, resting at the coin's
+// shoulder, smaller and off-square like a peg left on the line.
+.ww-peg-self {
+  transform-origin: 50px 0px;
+  animation: ww-clamp 0.5s ease-in both;
+}
+
+.nm-part-self.nm-washerwoman svg {
+  // the whole self mark rides at the shoulder rather than the crown
+  transform: translate(24%, 4%) rotate(24deg) scale(0.72);
+}
+
+// soap: three bubbles rise once and pop — telling only, gone at rest
+// (the template drops them with the state, so nothing loops).
+.ww-bubble {
+  fill: none;
+  stroke: $ww-white;
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 3px rgba(234, 242, 255, 0.8));
+  opacity: 0;
+  animation: ww-soap 0.9s ease-out 0.35s both;
+  &.ww-b2 {
+    animation-delay: 0.5s;
+  }
+  &.ww-b3 {
+    animation-delay: 0.65s;
+  }
+}
+
+@keyframes ww-soap {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  35% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
   }
 }
 

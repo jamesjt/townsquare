@@ -161,6 +161,20 @@
           >{{ a.text }}</span
         >
       </span>
+      <!-- FT-1385: THE TELLING'S SENTENCE — the told-information roles'
+           answer arrives wearing its meaning: "one of these two is the
+           Chef" under the delivered chip, pointing at the two coins the
+           marks have just acknowledged. Settles with the rest of the dress
+           into the residue's smaller line, which NAMES the pair — the
+           sentence a player re-reads at four in the morning. Tonight's
+           telling only: the face is the night's own surface, and an older
+           night's residue lives on the coins, not here. -->
+      <span
+        class="nf-sentence"
+        v-if="toldSentenceText"
+        :class="['nfs-' + told.roleId, { settled: toldSettled }]"
+        >{{ toldSentenceText }}</span
+      >
     </template>
     <!-- ── THE BAND / SECTION FORM (FT-1005, FT-1101) ───────────────────── -->
     <template v-else>
@@ -258,6 +272,9 @@ import { mapState } from "vuex";
 import SeatPicker from "./SeatPicker";
 import moonFull from "../assets/moon-full.png";
 import { roleIconUrl } from "../golem/roleIcon";
+// FT-1385: the told-information dress — the sentence the telling wears in
+// the centre, the seats it acknowledges, and which roles' dress has landed.
+import { toldSentence, toldSeats, TOLD_ART } from "../golem/toldInfo";
 
 /** FT-1272: the teams this face has a colour for (see `.nf-role`'s SCSS map —
  *  the two must stay in step, and they are both built off vars.scss's tokens).
@@ -362,6 +379,34 @@ export default {
     /** Confirmed on this side, or answered on the host's — THE lock. */
     locked() {
       return this.$store.getters["night/myCallLocked"];
+    },
+    /** FT-1385: the standing telling (night/myTold), or null. */
+    told() {
+      return this.$store.getters["night/myTold"];
+    },
+    /** FT-1385: TONIGHT'S telling for THIS ask, dressed — or null. The day
+     *  gate is what keeps the Empath's night-one sentence off night two's
+     *  face while the new ask still stands unanswered. */
+    toldTonight() {
+      const told = this.told;
+      if (!told || !TOLD_ART.includes(told.roleId)) return null;
+      if (told.roleId !== this.action.role.id) return null;
+      if (told.day !== this.$store.state.night.day) return null;
+      return told;
+    },
+    toldSettled() {
+      return !!this.toldTonight && this.toldTonight.phase === "settled";
+    },
+    /** The telling's own words — bright at the telling, the smaller
+     *  pair-naming line once settled. Empty when there is no telling. */
+    toldSentenceText() {
+      const told = this.toldTonight;
+      if (!told || !this.face) return "";
+      const names = toldSeats(told, this.players).map((seat) => {
+        const p = this.players[seat];
+        return (p && p.name) || "Seat " + (seat + 1);
+      });
+      return toldSentence(told, names, this.toldSettled);
     },
     /**
      * FT-1291: ...and what the player is TOLD about it. One short sentence, in
@@ -1116,6 +1161,67 @@ $face-pick: #a78fcd;
         0 0 4px black,
         0 0 10px black;
     }
+  }
+}
+
+// ── FT-1385: THE TELLING'S SENTENCE ──────────────────────────────────────
+//
+// The told-information roles' answer, wearing its meaning: an italic line
+// in a stitched oval under the delivered chip while the telling is bright
+// ("one of these two is the Chef"), stepping down to small quiet type that
+// NAMES the pair once the dress settles ("one of Dee & Hal — the Chef").
+// The pill border takes each role's own ink (the per-role classes below)
+// so the sentence, the coin rings and the thread read as one act. The
+// transition carries the step-down — the settle is a relaxation, not a
+// swap.
+.nf-sentence {
+  font-size: 84%;
+  font-style: italic;
+  color: #f6dfbd;
+  padding: 0 12px 1px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 220, 174, 0.75);
+  background: rgba(0, 0, 0, 0.35);
+  margin-top: 3px;
+  opacity: 0;
+  animation: nfs-arrive 0.5s ease-out 0.25s both;
+  transition:
+    font-size 0.7s ease,
+    opacity 0.7s ease,
+    border-color 0.7s ease,
+    background 0.7s ease,
+    color 0.7s ease;
+
+  // the residue's line: smaller, unboxed, quiet — but still the one line
+  // that names the pair, so it stays comfortably readable.
+  &.settled {
+    font-size: 72%;
+    border-color: transparent;
+    background: transparent;
+    opacity: 0.78;
+    animation: none;
+  }
+}
+
+@keyframes nfs-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// each told role's ink on the pill — the same hex family the coin marks
+// and the thread wear (NightMark / NightThread), per role as art lands.
+.nfs-washerwoman {
+  border-color: rgba(234, 242, 255, 0.8);
+  color: #f4f8ff;
+  &.settled {
+    border-color: transparent;
+    color: #dfe9fb;
   }
 }
 

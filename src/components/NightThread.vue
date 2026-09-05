@@ -7,8 +7,9 @@
     seats' rendered coins, pointer-transparent, pure ambience.
 
     WHO SEES IT: the ACTOR alone. Everything it reads is this client's own
-    staged/echoed picks (night/myShownTargets) — a bystander's client holds
-    none of this state, so there is nothing here to hide from them.
+    staged/echoed picks (night/myShownTargets) and own delivered tellings
+    (night/myTold) — a bystander's client holds none of this state, so
+    there is nothing here to hide from them.
 
     THE DRESSES (per acting role, as their art lands):
       fortuneteller  the scrying thread ("star") — starlight strung between
@@ -21,29 +22,45 @@
                      and the bow cinches on the master's coin (NightMark's
                      half of the act).
 
-    Re-measured on every relevant change and on resize; the line is drawn in
-    viewport pixels exactly as the planes fly in them.
+    ── FT-1385: AND THE TOLD-INFORMATION LINES ──────────────────────────────
+    The first-night told roles string threads too, but theirs are TWO-BEAT
+    (telling → settled residue) and PERSIST past the night's end — knowledge
+    does not expire, so the overlay no longer assumes one thread or one
+    grammar. `threads` is a measured LIST now; the FT-1384 call thread is
+    simply its first entry when one stands.
+      washerwoman    the laundry line ("laundry") — pegged between the two
+                     candidate coins. Telling: the line strings itself on,
+                     barely sagging. Settled: it eases SLACK and dotted —
+                     washing left out overnight — and stays all game.
+
+    Re-measured on every relevant change and on resize; the lines are drawn
+    in viewport pixels exactly as the planes fly in them.
   -->
-  <div class="night-thread" aria-hidden="true" v-if="thread">
+  <div class="night-thread" aria-hidden="true" v-if="threads.length">
     <svg :style="svgStyle" :viewBox="viewBox" preserveAspectRatio="none">
-      <path
-        class="nt-line"
-        :class="['nt-' + thread.dress, { sealed: thread.sealed }]"
-        :d="lineD"
-        pathLength="1"
-      />
-      <path
-        v-if="thread.sealed && thread.dress === 'star'"
-        class="nt-pulse"
-        :d="lineD"
-        pathLength="1"
-      />
+      <template v-for="t in threads">
+        <path
+          class="nt-line"
+          :class="['nt-' + t.dress, { sealed: t.sealed, settled: t.settled }]"
+          :key="t.key"
+          :d="lineD(t)"
+          pathLength="1"
+        />
+        <path
+          v-if="t.sealed && t.dress === 'star'"
+          class="nt-pulse"
+          :key="t.key + '-pulse'"
+          :d="lineD(t)"
+          pathLength="1"
+        />
+      </template>
     </svg>
   </div>
 </template>
 
 <script>
 import { mapGetters, mapState } from "vuex";
+import { TOLD_ROLES } from "../golem/toldInfo";
 
 /** The roles whose mark strings a thread, and how its ends are chosen. */
 const THREADED = {
@@ -53,12 +70,19 @@ const THREADED = {
   butler: { from: "self", to: "pick0", dress: "cord" },
 };
 
+/** FT-1385: the told roles whose telling strings lines, keyed by the line's
+ *  dress. Pair roles run one line between the delivered candidates; the
+ *  Empath (a later commit) runs one from her own chair to each neighbour. */
+const TOLD_DRESS = {
+  washerwoman: "laundry",
+};
+
 export default {
   name: "NightThread",
   data() {
     return {
-      // the measured line, or null while there is nothing to string
-      thread: null,
+      // the measured lines, empty while there is nothing to string
+      threads: [],
       raf: 0,
     };
   },
@@ -68,8 +92,9 @@ export default {
       call: "night/myCall",
       shown: "night/myShownTargets",
       locked: "night/myCallLocked",
+      told: "night/myTold",
     }),
-    /** The ends this role wants, as seat indexes — or null. */
+    /** The FT-1384 call thread's ends, as seat indexes — or null. */
     ends() {
       if (!this.call) return null;
       const spec = THREADED[this.call.role.id];
@@ -86,6 +111,38 @@ export default {
       if (!Number.isInteger(b) || b < 0 || b === a) return null;
       return { a, b, dress: spec.dress };
     },
+    /**
+     * FT-1385: the standing telling's lines, as seat-index pairs. Pair
+     * roles: candidate to candidate, one line, exactly the coins the marks
+     * acknowledge. Nothing while the role has no thread dress (the Chef's
+     * count points at nobody).
+     */
+    toldEnds() {
+      const told = this.told;
+      if (!told) return [];
+      const dress = TOLD_DRESS[told.roleId];
+      if (!dress) return [];
+      const spec = TOLD_ROLES[told.roleId] || {};
+      const out = [];
+      if (spec.kind === "pair" && told.targets.length >= 2) {
+        const [a, b] = told.targets;
+        if (a !== b) {
+          out.push({
+            a,
+            b,
+            dress,
+            settled: told.phase === "settled",
+            key: told.rowId,
+          });
+        }
+      }
+      return out;
+    },
+    /** One string the watcher can diff — re-measuring on every getter touch
+     *  would thrash the DOM reads for nothing. */
+    threadInputs() {
+      return JSON.stringify([this.ends, this.locked, this.toldEnds]);
+    },
     viewBox() {
       return `0 0 ${this.vw} ${this.vh}`;
     },
@@ -93,34 +150,14 @@ export default {
       return { width: this.vw + "px", height: this.vh + "px" };
     },
     vw() {
-      return (this.thread && this.thread.vw) || 0;
+      return (this.threads.length && this.threads[0].vw) || 0;
     },
     vh() {
-      return (this.thread && this.thread.vh) || 0;
-    },
-    /**
-     * The drawn line. A star thread is straight in both states; a cord SAGS
-     * while staged (a quadratic bow toward the floor, deeper the longer the
-     * span, capped so a cross-ring cord does not drag through the hub) and
-     * snaps dead straight at the seal.
-     */
-    lineD() {
-      const t = this.thread;
-      if (!t) return "";
-      const from = `M ${t.x1} ${t.y1}`;
-      if (t.dress === "cord" && !t.sealed) {
-        const mx = (t.x1 + t.x2) / 2;
-        const my = (t.y1 + t.y2) / 2;
-        const len = Math.hypot(t.x2 - t.x1, t.y2 - t.y1);
-        const sag = Math.min(60, len * 0.18);
-        return `${from} Q ${mx} ${my + sag} ${t.x2} ${t.y2}`;
-      }
-      return `${from} L ${t.x2} ${t.y2}`;
+      return (this.threads.length && this.threads[0].vh) || 0;
     },
   },
   watch: {
-    ends: "measure",
-    locked: "measure",
+    threadInputs: "measure",
   },
   mounted() {
     window.addEventListener("resize", this.onResize);
@@ -139,6 +176,29 @@ export default {
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame(this.measure);
     },
+    /**
+     * One drawn line. A star thread is straight in both states; a cord SAGS
+     * while staged (a quadratic bow toward the floor, deeper the longer the
+     * span, capped so a cross-ring cord does not drag through the hub) and
+     * snaps dead straight at the seal. A laundry line sags a LITTLE at the
+     * telling and goes properly slack once settled — the opposite journey
+     * from the cord's, because nothing here ever pulls taut again.
+     */
+    lineD(t) {
+      const from = `M ${t.x1} ${t.y1}`;
+      let sag = 0;
+      const len = Math.hypot(t.x2 - t.x1, t.y2 - t.y1);
+      if (t.dress === "cord" && !t.sealed) sag = Math.min(60, len * 0.18);
+      if (t.dress === "laundry") {
+        sag = t.settled ? Math.min(70, len * 0.2) : Math.min(30, len * 0.08);
+      }
+      if (sag) {
+        const mx = (t.x1 + t.x2) / 2;
+        const my = (t.y1 + t.y2) / 2;
+        return `${from} Q ${mx} ${my + sag} ${t.x2} ${t.y2}`;
+      }
+      return `${from} L ${t.x2} ${t.y2}`;
+    },
     /** The center of one seat's coin, in viewport pixels — the planes' own
      *  read, unchanged. */
     coinCenter(seat) {
@@ -150,29 +210,40 @@ export default {
       return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
     },
     measure() {
-      const ends = this.ends;
-      if (!ends) {
-        this.thread = null;
+      const wanted = [];
+      if (this.ends) {
+        wanted.push({
+          ...this.ends,
+          sealed: this.locked,
+          settled: false,
+          key: "call",
+        });
+      }
+      this.toldEnds.forEach((e) => wanted.push({ sealed: false, ...e }));
+      if (!wanted.length) {
+        this.threads = [];
         return;
       }
       // next tick: the picked coin's own marks may still be mounting
       this.$nextTick(() => {
-        const from = this.coinCenter(ends.a);
-        const to = this.coinCenter(ends.b);
-        if (!from || !to) {
-          this.thread = null;
-          return;
-        }
-        this.thread = {
-          x1: from.x,
-          y1: from.y,
-          x2: to.x,
-          y2: to.y,
-          vw: window.innerWidth,
-          vh: window.innerHeight,
-          sealed: this.locked,
-          dress: ends.dress,
-        };
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const out = [];
+        wanted.forEach((w) => {
+          const from = this.coinCenter(w.a);
+          const to = this.coinCenter(w.b);
+          if (!from || !to) return;
+          out.push({
+            ...w,
+            x1: from.x,
+            y1: from.y,
+            x2: to.x,
+            y2: to.y,
+            vw,
+            vh,
+          });
+        });
+        this.threads = out;
       });
     },
   },
@@ -206,6 +277,9 @@ $nt-star-hot: #f4eeff;
 // THE BUTLER'S RIBBON — champagne cord, warmer and rounder than starlight.
 $nt-cord: #e8c98f;
 $nt-cord-hot: #ffe9c4;
+
+// THE WASHERWOMAN'S LINE — laundry white, NightMark's own soap-pale ink.
+$nt-laundry: #eaf2ff;
 
 .nt-line {
   fill: none;
@@ -251,6 +325,58 @@ $nt-cord-hot: #ffe9c4;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
       drop-shadow(0 0 6px rgba(255, 233, 196, 0.85));
     animation: nt-snap 0.4s ease-out both;
+  }
+}
+
+// FT-1385 — the laundry line: strings itself on at the telling (the same
+// one-shot draw the marks use), long-dashed like line with washing on it;
+// settled it hangs slack (the sag is in the path), dotted and dimmer, and
+// simply stays. The transition covers the dash flip so the settle reads as
+// the line relaxing rather than being swapped.
+.nt-laundry {
+  stroke: $nt-laundry;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.03 0.015;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(234, 242, 255, 0.7));
+  animation: nt-draw 0.7s ease-out both;
+  transition:
+    d 0.9s ease,
+    stroke-width 0.9s ease,
+    opacity 0.9s ease,
+    filter 0.9s ease;
+
+  &.settled {
+    stroke-width: 1.6;
+    stroke-dasharray: 0.008 0.026;
+    opacity: 0.65;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 3px rgba(234, 242, 255, 0.4));
+    animation: nt-hold 0.9s ease-out both;
+  }
+}
+
+// the telling's draw-on: the line strings itself end to end, once.
+@keyframes nt-draw {
+  from {
+    opacity: 0.9;
+    stroke-dashoffset: 1;
+  }
+  to {
+    opacity: 0.9;
+    stroke-dashoffset: 0;
+  }
+}
+
+// the residue simply stands — the class flip replays animations, so the
+// settled state's is a plain fade to its own held opacity.
+@keyframes nt-hold {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 0.65;
   }
 }
 

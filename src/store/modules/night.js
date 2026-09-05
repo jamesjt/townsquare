@@ -75,6 +75,8 @@ import { beliefOf, isBelieving } from "../../golem/belief";
 // DEAD — see that file's WAKING WHEN DEAD section for the eleven and the sweep
 // that found them.
 import { lineFor, deadStillWakes, deadWakeTeams } from "../../golem/nightInfo";
+// FT-1385: the told-information roles — who they are, what a telling is.
+import { TOLD_ROLES, isToldRow, toldTargets } from "../../golem/toldInfo";
 
 const state = () => ({
   // user call 2026-08-18: a fresh town shares. See DEFAULT_MODE's note for
@@ -141,7 +143,21 @@ const state = () => ({
   // ever on this seat's own row — it is what closes this seat's picker once
   // the answer has gone out. Transient by design: not persisted, emptied with
   // the frame that says so.
-  playerNight: { live: false, rows: [] }
+  playerNight: { live: false, rows: [] },
+  // FT-1385: THE TELLINGS THIS CLIENT HAS BEEN GIVEN — client-local
+  // bookkeeping for the two-beat told grammar (telling → residue).
+  //   stamps   rowId → Date.now() when this client FIRST saw the row sent.
+  //            The stamp is what makes the arrival animation play once: a
+  //            re-delivered frame with the same sent row re-stamps nothing.
+  //   settled  rowId → true once the bright telling pose has eased into the
+  //            residue (the socket plugin schedules the flip TOLD_HOLD_MS
+  //            after the stamp — see _updateNightRows). Reactive state
+  //            rather than a per-component timer so the coins, the threads
+  //            and the centre sentence settle on the same beat.
+  // A reopen (the row arriving with sent false) clears both — the telling
+  // retracts, and a re-send tells again from the top. Never persisted: on a
+  // reload the standing rows re-arrive and the telling simply replays.
+  told: { stamps: {}, settled: {} }
 });
 
 const getters = {
@@ -513,6 +529,43 @@ const getters = {
     return !!(row && row.sent);
   },
 
+  /**
+   * FT-1385: THE STANDING TELLING — the latest sent row for this client's
+   * own told-information role, dressed with its phase. Null for everyone
+   * else: the storyteller, a bystander, a role that chooses.
+   *
+   * DELIBERATELY NOT GATED ON `myCall` OR THE PHASE: knowledge persists.
+   * The residue must go on rendering after the night ends (myCall goes null
+   * at dawn) and into every later day — the rows themselves persist in
+   * playerNight, so this getter answers from them alone. The Empath's newer
+   * night simply outranks the older one (highest day wins), which is the
+   * "re-runs the same beat" rule.
+   */
+  myTold(state, getters, rootState) {
+    if (!rootState.session.isSpectator) return null;
+    const me =
+      rootState.players.players.find(
+        (p) => p.id && p.id === rootState.session.playerId,
+      ) || null;
+    const roleId = me && me.role && me.role.id;
+    if (!roleId || !TOLD_ROLES[roleId]) return null;
+    const rows = state.playerNight.rows.filter(
+      (r) => r.roleId === roleId && isToldRow(r),
+    );
+    if (!rows.length) return null;
+    const row = rows.reduce((a, b) => (b.day > a.day ? b : a));
+    return {
+      roleId,
+      rowId: row.id,
+      day: row.day,
+      seat: row.seat,
+      targets: toldTargets(row),
+      characterName: row.characterName || "",
+      number: row.number,
+      phase: state.told.settled[row.id] ? "settled" : "telling",
+    };
+  },
+
   /** How much of tonight the storyteller has walked. */
   progress(state, getters) {
     // FT-1313: Dead-fold rows are outside the walk — nobody wakes them, so
@@ -772,9 +825,48 @@ const mutations = {
         state.staging = { day: 0, roleId: "", targets: [], confirmed: false };
       }
     }
+    // FT-1385: THE TELLING'S STAMP. A told role's row arriving SENT is the
+    // delivery moment — stamped once (a re-delivered frame re-stamps
+    // nothing, so the arrival animation cannot replay on idle re-sends), and
+    // swept back out when the row arrives reopened (sent false) so the
+    // dress retracts with the answer it was dressing. Fresh objects rather
+    // than key writes: Vue 2 cannot see a key added to a held object.
+    {
+      const stamps = { ...state.told.stamps };
+      const settled = { ...state.told.settled };
+      let changed = false;
+      next.forEach((r) => {
+        if (isToldRow(r)) {
+          if (!stamps[r.id]) {
+            stamps[r.id] = Date.now();
+            changed = true;
+          }
+        } else if (r.id && (stamps[r.id] || settled[r.id])) {
+          delete stamps[r.id];
+          delete settled[r.id];
+          changed = true;
+        }
+      });
+      if (changed) state.told = { stamps, settled };
+    }
     state.playerNight = {
       live: !!live,
       rows: next,
+    };
+  },
+
+  /**
+   * FT-1385: the bright telling eases into the residue — flipped by the
+   * socket plugin's timer, TOLD_HOLD_MS after the row's stamp (see
+   * _updateNightRows for why the schedule lives there and not here: a
+   * mutation must not set timers). A row already swept (reopened) settles
+   * nothing.
+   */
+  settleTold(state, rowId) {
+    if (!state.told.stamps[rowId] || state.told.settled[rowId]) return;
+    state.told = {
+      stamps: state.told.stamps,
+      settled: { ...state.told.settled, [rowId]: true },
     };
   },
 

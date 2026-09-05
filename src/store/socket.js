@@ -50,6 +50,9 @@ import {
 // host's own record of when this town was dealt (golem/stats.js), and it is
 // already the thing App.vue trusts for "a game is underway here".
 import { dealTimeFor } from "../golem/stats";
+// FT-1385: how long a telling holds its bright pose before settling — the
+// settle schedule lives in _updateNightRows.
+import { TOLD_HOLD_MS } from "../golem/toldInfo";
 // FT-1020: the storyteller's tower (hour display, hand motion, day-start
 // bell) rides the full gamestate sync. FT-1045 adds one live frame on top:
 // a tower CHANGE now broadcasts as it happens (see TOWER_EVENT below) —
@@ -2333,6 +2336,26 @@ class LiveSession {
   _updateNightRows(params) {
     if (!this._isSpectator) return;
     this._store.commit("night/setPlayerNight", params || {});
+    // FT-1385: SCHEDULE THE SETTLE. A telling holds its bright pose for
+    // TOLD_HOLD_MS from its stamp, then eases into the residue — and the
+    // flip is a store commit so every surface (coins, threads, the centre
+    // sentence) settles on the same beat. The schedule lives here rather
+    // than in the mutation (mutations must not set timers) and here rather
+    // than in a component (a surface that happened to be unmounted must not
+    // be able to strand the others in the telling). settleTold itself
+    // refuses a row that was reopened meanwhile, so a stale timer is a
+    // no-op; the timer set is what keeps one row from being scheduled twice.
+    const told = this._store.state.night.told;
+    this._toldTimers = this._toldTimers || new Set();
+    Object.keys(told.stamps).forEach((rowId) => {
+      if (told.settled[rowId] || this._toldTimers.has(rowId)) return;
+      this._toldTimers.add(rowId);
+      const wait = Math.max(0, told.stamps[rowId] + TOLD_HOLD_MS - Date.now());
+      setTimeout(() => {
+        this._toldTimers.delete(rowId);
+        this._store.commit("night/settleTold", rowId);
+      }, wait);
+    });
   }
 
   /**
