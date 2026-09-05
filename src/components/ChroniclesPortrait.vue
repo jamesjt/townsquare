@@ -103,11 +103,15 @@ export default {
     onKeyup(e) {
       if (e.key === "Escape") this.close();
     },
-    /** Seat i's spot on the ring — top seat first, clockwise, the same
-     *  arrangement the town square deals its chairs in. */
+    /** Seat i's spot on the ring — the LIVE ring's own convention (FT-1376,
+     *  user: "the last seat should be at 12 o'clock, the first seat the one
+     *  past it"): the town square rotates seat i to (i+1)·360/n, so the
+     *  LAST seat stands at the top and seat 1 sits clockwise past it. This
+     *  portrait drew i·360/n — seat 1 at the top — and every recap ring
+     *  disagreed with the table it was a picture of. */
     seatStyle(i) {
       const n = this.board.seats.length || 1;
-      const angle = -Math.PI / 2 + (i / n) * 2 * Math.PI;
+      const angle = -Math.PI / 2 + ((i + 1) / n) * 2 * Math.PI;
       return {
         left: 50 + 41 * Math.cos(angle) + "%",
         top: 50 + 41 * Math.sin(angle) + "%",
