@@ -44,14 +44,23 @@
           // coin's).
           'night-target': nightPickable,
           'night-chosen': nightSlot >= 0,
-          // FT-1291: ...and the storyteller has sent their answer, so the
-          // ring is a READOUT now and not a control. The two classes above
-          // both stay: a chosen coin must go on wearing its ring after the
-          // send, because those picks are what the answer was about and
-          // taking the marks away at the moment the answer arrives would
-          // leave the player unable to see what they had chosen.
-          'night-sent': nightPickLocked
+          // FT-1291: ...and the choice is closed (the player's own Confirm,
+          // or the storyteller's answer — FT-1384 widened it), so the ring
+          // is a READOUT now and not a control. The two classes above both
+          // stay: a chosen coin must go on wearing its ring after the lock,
+          // because those picks are what the answer is about and taking the
+          // marks away at that moment would leave the player unable to see
+          // what they had chosen.
+          'night-sent': nightPickLocked,
+          // FT-1384: the three dress states of the night's marks — state 1's
+          // breathing invitation on every coin, a staged (movable) pick, and
+          // the confirmed seal. The role class beside them is what lets each
+          // character wear its own art on the same scaffold.
+          'night-invite': nightInvite,
+          'night-staged': nightPickable && nightSlot >= 0 && !nightLocked,
+          'night-sealed': nightPickable && nightSlot >= 0 && nightLocked
         },
+        nightPickable && nightCall ? 'night-role-' + nightCall.role.id : '',
         player.role.team
       ]"
     >
@@ -565,6 +574,19 @@
         :title="nightPickTitle"
         @click.stop="nightPick"
       >
+        <!-- FT-1384: the role's own night mark — the breathing invitation,
+             the staged settle, the confirmed seal — as an SVG overlay in the
+             coin's round box. A separate component so the six characters'
+             art lives in one place instead of swelling this file; it renders
+             nothing for a role without authored art (the purple ring idiom
+             below still dresses those), and it is aria-hidden ambience: the
+             coin's own title above carries the words. FIRST in the box so
+             the slot numeral paints over it, never under. -->
+        <NightMark
+          v-if="nightMarkState"
+          :role-id="nightCall.role.id"
+          :state="nightMarkState"
+        />
         <span class="np-mark" v-if="nightPickMark">{{ nightPickMark }}</span>
       </div>
 
@@ -1246,6 +1268,9 @@ import {
 // they share is golem/seatActions, which is the LIST and not the box.
 import SeatMenu from "./SeatMenu";
 import SeatRing from "./SeatRing";
+// FT-1384: the night marks' art — each acting character's invitation /
+// staged / sealed dress on the coin, one renderer for all of them.
+import NightMark from "./NightMark";
 // FT-1206: the seat's own whisper — the ONE inline input all three schemes
 // end their whisper gesture in (the plate's row, the ring's coin, the click
 // scheme's plate-side disc). See SeatWhisper.vue for the shape.
@@ -1335,6 +1360,7 @@ const SPLATS = splatCtx
 
 export default {
   components: {
+    NightMark,
     RoleHoverCard,
     SeatMenu,
     SeatRing,
@@ -1365,6 +1391,14 @@ export default {
       // the shared definition (night/myCallSent) so the coins and the words on
       // the face cannot disagree about whether tonight's choice is still open.
       nightSent: "night/myCallSent",
+      // FT-1384: the STAGED view of tonight. `nightShown` is what a coin
+      // displays (staged while choosing, the host's echo once sent);
+      // `nightLocked` is THE lock (confirmed on this side, or answered on the
+      // host's); `nightComplete` gates the state-1 invitation off once every
+      // slot is staged. All shared with the face — same getters, one truth.
+      nightShown: "night/myShownTargets",
+      nightLocked: "night/myCallLocked",
+      nightComplete: "night/myStageComplete",
     }),
     /** Retired with the night checklist (user call 2026-08-18) — flip to
      *  `this.grimoire.isNightOrder` to bring the seat badges back. */
@@ -2308,13 +2342,33 @@ export default {
      * send is whether the overlay ANSWERS, which is one class and one guard.
      */
     nightPickLocked() {
-      return this.nightPickable && this.nightSent;
+      // FT-1384: the lock widened from "the storyteller has sent" to "the
+      // choice is closed on this client" — which now happens at the player's
+      // own Confirm, before any answer travels back. Same getter as the face.
+      return this.nightPickable && this.nightLocked;
     },
-    /** The slot this seat is sitting in, or -1. The HOST's record, never a
-     *  local guess — an unanswered or refused tap leaves the coin dark. */
+    /** The slot this seat is sitting in, or -1.
+     *  FT-1384: the STAGED pick while the player is choosing (a tap lands
+     *  instantly — nothing rides the wire yet), and the HOST's record once
+     *  the choice has gone out (the FT-1107 echo-is-truth rule, resumed at
+     *  the moment there is an echo to trust). */
     nightSlot() {
       if (!this.nightPickable) return -1;
-      return this.nightTargets.indexOf(this.index);
+      return this.nightShown.indexOf(this.index);
+    },
+    /** FT-1384: state 1 — the night is asking and the pick is not complete,
+     *  so every coin breathes its role-themed invitation. Stops the moment
+     *  the last slot is staged (the invitation's question is answered) and
+     *  on the lock. */
+    nightInvite() {
+      return this.nightPickable && !this.nightLocked && !this.nightComplete;
+    },
+    /** FT-1384: the mark this coin hands NightMark — one word per state so
+     *  the art component stays a renderer, never a second rules engine. */
+    nightMarkState() {
+      if (this.nightSlot >= 0) return this.nightLocked ? "sealed" : "staged";
+      if (this.nightInvite) return "invite";
+      return "";
     },
     /** FT-1107: the order mark a picked coin wears — "1"/"2" while the
      *  character has more than one choice to make, and nothing at all when it
@@ -2332,17 +2386,28 @@ export default {
       // they just tried to tap finds the words they already read in the
       // middle of the dial rather than a second, differently-worded one.
       if (this.nightPickLocked) {
-        // FT-1330: a receive-only role's coin hover says the same received
-        // sentence NightCall puts on the face — one wording, both places.
-        const call = this.nightCall;
-        if (call && call.receiveOnly) {
-          if (this.nightSlot < 0) return "Storyteller received your choice.";
-          const deed = call.received ? " " + call.received : "";
-          return "Storyteller received your choice — " + who + deed + ".";
+        // FT-1384 (house rule): the FT-1330 receive-only receipt sentences
+        // STAND DOWN — the role's own seal on the coin is the receipt now,
+        // and the words say only that the choice is sealed. Kept, commented,
+        // per the never-delete rule:
+        //
+        //   const call = this.nightCall;
+        //   if (call && call.receiveOnly) {
+        //     if (this.nightSlot < 0) return "Storyteller received your choice.";
+        //     const deed = call.received ? " " + call.received : "";
+        //     return "Storyteller received your choice — " + who + deed + ".";
+        //   }
+        //
+        // An ANSWERED row keeps the FT-1291 sentence — for those roles the
+        // answer genuinely travelled and "answered" is the truth.
+        if (this.nightSent && this.nightCall && !this.nightCall.receiveOnly) {
+          const stands = "The storyteller has answered — your choice stands";
+          if (this.nightSlot < 0) return stands;
+          return "You chose " + who + " — " + stands;
         }
-        const stands = "The storyteller has answered — your choice stands";
-        if (this.nightSlot < 0) return stands;
-        return "You chose " + who + " — " + stands;
+        const sealed = "Your choice is sealed until the storyteller asks again";
+        if (this.nightSlot < 0) return sealed;
+        return "You chose " + who + " — " + sealed;
       }
       return this.nightSlot >= 0
         ? "You chose " + who + " — tap again to take it back"
@@ -3820,30 +3885,24 @@ export default {
     nightPick() {
       const call = this.nightCall;
       if (!call || !call.slots) return;
-      // FT-1291: a sent row does not take picks. The host refuses it too
+      // FT-1291: a locked row does not take picks — and FT-1384 widened the
+      // lock to the player's own Confirm. The host refuses a sent row too
       // (night/applyPlayerAction) and that is the authority — this is here so
       // the tap dies where the player made it rather than travelling to be
       // turned down, and so the overlay's inertness is a fact about the
       // handler and not only about a CSS class somebody could later change.
       if (this.nightPickLocked) return;
-      const cur = this.nightTargets;
-      const targets = new Array(call.slots).fill(null);
-      const at = cur.indexOf(this.index);
-      if (at >= 0) {
-        targets[at] = -1;
-      } else {
-        let slot = -1;
-        for (let i = 0; i < call.slots; i++) {
-          if (!Number.isInteger(cur[i]) || cur[i] < 0) {
-            slot = i;
-            break;
-          }
-        }
-        targets[slot < 0 ? call.slots - 1 : slot] = this.index;
-      }
-      this.$store.commit("night/playerAction", {
+      // FT-1384: THE TAP STAGES, NOTHING SENDS. The slot logic (first empty
+      // slot takes it, same coin gives it back, full replaces the last)
+      // moved whole into night/stagePick; the wire commit this method used
+      // to make is the centre Confirm's job now (NightCall.confirm), so a
+      // player can move a pick around the ring all night and the host hears
+      // exactly one frame — the confirmed one.
+      this.$store.commit("night/stagePick", {
+        day: this.$store.state.night.day,
         roleId: call.role.id,
-        targets,
+        slots: call.slots,
+        seat: this.index,
       });
     },
     /** FT-1006: open the belief picker for this seat — the same modal the
@@ -4645,6 +4704,32 @@ li.swap:not(.from) .player::after {
   }
   .player.night-sent.night-chosen > .night-pick {
     box-shadow: inset 0 0 0 4px #a78fcd;
+  }
+}
+
+/* ── FT-1384: THE AUTHORED SEALS ─────────────────────────────────────────
+   Roles whose night marks have landed in NightMark.vue, with each seal's own
+   glow. On a SEALED coin the purple pick dress stands down — ring, wash and
+   halo — because the role's own seal is the mark now, and two rings saying
+   "chosen" in two colours is the exact double-speak FT-1167 cleaned up. The
+   STAGED state keeps the purple: that is still "the one you are choosing",
+   and the concept strips wear it under the hovering mark. Un-authored
+   characters are untouched — no class here matches them. */
+$night-seal-glow: (
+  monk: rgba(255, 233, 176, 0.85),
+);
+
+@each $role, $glow in $night-seal-glow {
+  .player.night-target.night-sealed.night-role-#{$role} {
+    > .token,
+    > .life {
+      filter: drop-shadow(0 0 9px $glow);
+    }
+    > .night-pick,
+    > .night-pick:hover {
+      box-shadow: none;
+      background: none;
+    }
   }
 }
 

@@ -107,6 +107,29 @@ const state = () => ({
   // way but End night; only the commit — or the storyteller removing the
   // entry — clears it.
   staged: [],
+  // FT-1384: THE STAGED PICK — this client's own night choice, held LOCALLY
+  // until the centre Confirm sends it. Before this card a tap on a coin was
+  // the send (FT-1107's nightPick committed playerAction directly); now the
+  // tap only STAGES, the pick can be moved freely, and the one commit that
+  // reaches the wire is the Confirm's.
+  //
+  // CLIENT-LOCAL BY CONSTRUCTION, the FT-1173 staged-deaths precedent: none
+  // of the staging mutations appears in socket.js's subscription table, so a
+  // merely-intended pick never crosses the wire — the host (and through them
+  // the storyteller's sheet) learns of a choice when Confirm commits
+  // playerAction, and not a frame sooner.
+  //
+  //   day / roleId   which ask this stage belongs to. A stage for another
+  //                  night or another character is stale and reads as empty
+  //                  (the getters check, stagePick resets) — no cleanup hook
+  //                  needed when the phase flips.
+  //   targets        slot-aligned seat indexes, -1 for an empty slot — the
+  //                  same shape the host records, so Confirm can send it
+  //                  whole.
+  //   confirmed      the player pressed Confirm: the choice is sealed on
+  //                  this side until the storyteller reopens (see
+  //                  setPlayerNight's reopen sweep) or the night moves on.
+  staging: { day: 0, roleId: "", targets: [], confirmed: false },
   // FT-1005: A PLAYER'S OWN NIGHT ROWS, AS DELIVERED — the receiving half of
   // the host's "night" frame, and the ONLY night data a spectator client ever
   // holds. `live` is the host's actual sharing verdict (their mode is
@@ -402,6 +425,73 @@ const getters = {
   },
 
   /**
+   * FT-1384: does the standing stage belong to TONIGHT'S ask? Stale stages
+   * (another night, another character) read as absent rather than being
+   * cleaned up — the same no-migration idiom the persistence layer uses.
+   * @private (a helper for the four getters below; components read those)
+   */
+  myStageLive(state, getters) {
+    const call = getters.myCall;
+    if (!call) return false;
+    const st = state.staging;
+    return st.day === state.day && st.roleId === call.role.id;
+  },
+
+  /** FT-1384: the seats this client has STAGED tonight, slot-aligned, -1 for
+   *  an empty slot — or [] when nothing tonight is staged. Local intention,
+   *  never the host's record; `myShownTargets` below decides which of the
+   *  two a surface displays. */
+  myStagedTargets(state, getters) {
+    if (!getters.myStageLive) return [];
+    return state.staging.targets;
+  },
+
+  /** FT-1384: every slot staged — the Confirm's own gate. The Fortune Teller
+   *  confirms once BOTH picks are staged; a one-slot role the moment its one
+   *  is. False for a control-less (freeText) ask, which has no slots. */
+  myStageComplete(state, getters) {
+    const call = getters.myCall;
+    if (!call || !call.slots) return false;
+    const t = getters.myStagedTargets;
+    if (t.length < call.slots) return false;
+    for (let i = 0; i < call.slots; i++) {
+      if (!Number.isInteger(t[i]) || t[i] < 0) return false;
+    }
+    return true;
+  },
+
+  /** FT-1384: this client pressed Confirm tonight — the pick has been sent
+   *  and is sealed on this side until the storyteller reopens. */
+  myConfirmed(state, getters) {
+    return getters.myStageLive && state.staging.confirmed;
+  },
+
+  /**
+   * FT-1384: IS TONIGHT'S CHOICE CLOSED ON THIS CLIENT? The one lock
+   * predicate every surface reads (the FT-1101 rule that put myCall here):
+   * closed the moment the player confirms — not only when the storyteller's
+   * answer lands — and open again when a reopen clears both flags.
+   */
+  myCallLocked(state, getters) {
+    return getters.myConfirmed || getters.myCallSent;
+  },
+
+  /**
+   * FT-1384: THE TARGETS A SURFACE DISPLAYS — staged while the player is
+   * still choosing, the HOST's record once the choice has gone out (the
+   * FT-1107 echo-is-truth rule resumes at exactly the moment there is an
+   * echo to trust). Between Confirm and the echo landing, the staged picks
+   * stand in so the marks cannot flicker off mid-seal.
+   */
+  myShownTargets(state, getters) {
+    const staged = getters.myStagedTargets;
+    if (!getters.myCallLocked) return staged;
+    const echoed = getters.myCallTargets;
+    if (echoed.some((t) => Number.isInteger(t) && t >= 0)) return echoed;
+    return staged.length ? staged : echoed;
+  },
+
+  /**
    * FT-1291: HAS THE STORYTELLER ANSWERED THIS SEAT AND SENT IT?
    *
    * The one question the ring and the face both have to ask before offering a
@@ -667,10 +757,74 @@ const mutations = {
    * leak — one named key crossed, everything else still refused by default.
    */
   setPlayerNight(state, { live, rows } = {}) {
+    const next = (Array.isArray(rows) ? rows : []).map(projectPlayerRow);
+    // FT-1384: THE REOPEN SWEEP. A confirmed choice is sealed until the
+    // storyteller re-asks, and the re-ask has exactly one wire shape: a row
+    // this client held as SENT arriving with `sent` false (the Send button's
+    // other job, FT-1291). Watched here — the one place every night frame
+    // lands — rather than in a component, so a seal cannot survive a reopen
+    // just because a particular surface wasn't mounted to notice it.
+    if (state.staging.confirmed) {
+      const wasSent = new Set(
+        state.playerNight.rows.filter((r) => r.sent).map((r) => r.id)
+      );
+      if (next.some((r) => wasSent.has(r.id) && !r.sent)) {
+        state.staging = { day: 0, roleId: "", targets: [], confirmed: false };
+      }
+    }
     state.playerNight = {
       live: !!live,
-      rows: (Array.isArray(rows) ? rows : []).map(projectPlayerRow)
+      rows: next,
     };
+  },
+
+  /**
+   * FT-1384: TAP A COIN, STAGE A PLAYER — the night tap's whole job now.
+   * The slot logic is FT-1107's nightPick, moved verbatim from Player.vue:
+   * the same coin again gives the pick back, the first empty slot takes a
+   * new one, and with every slot full a tap REPLACES the last — a Fortune
+   * Teller who picked wrong on their second choice points somewhere else
+   * rather than un-picking first. It reads and writes the LOCAL stage;
+   * nothing here touches the wire (see the staging state note).
+   *
+   * A stale stage (another night, another character) is reset on the way in,
+   * and a confirmed one refuses — the seal is the whole point of confirming,
+   * and Player.vue's guard is the courtesy while this is the truth.
+   */
+  stagePick(state, { day, roleId, slots, seat }) {
+    if (!roleId || !(slots > 0) || !Number.isInteger(seat)) return;
+    const stale = state.staging.day !== day || state.staging.roleId !== roleId;
+    if (!stale && state.staging.confirmed) return;
+    const cur = stale ? [] : state.staging.targets;
+    const targets = new Array(slots).fill(-1);
+    for (let i = 0; i < slots; i++) {
+      if (Number.isInteger(cur[i]) && cur[i] >= 0) targets[i] = cur[i];
+    }
+    const at = targets.indexOf(seat);
+    if (at >= 0) {
+      targets[at] = -1;
+    } else {
+      let slot = targets.findIndex((t) => t < 0);
+      if (slot < 0) slot = slots - 1;
+      targets[slot] = seat;
+    }
+    state.staging = { day, roleId, targets, confirmed: false };
+  },
+
+  /** FT-1384: the Confirm pressed — the stage seals. The caller (NightCall's
+   *  confirm) commits playerAction beside this; the two are separate commits
+   *  because playerAction is the WIRE event (socket.js's table) and this is
+   *  local state, and a wire event that also mutated staging would put a
+   *  send inside a mutation the subscription table replays. */
+  confirmStage(state) {
+    if (!state.staging.roleId) return;
+    state.staging = { ...state.staging, confirmed: true };
+  },
+
+  /** FT-1384: take the stage back out (phase housekeeping; unused by the
+   *  ordinary flow, which relies on staleness — see the state note). */
+  resetStage(state) {
+    state.staging = { day: 0, roleId: "", targets: [], confirmed: false };
   },
 
   /**

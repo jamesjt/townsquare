@@ -846,8 +846,12 @@ export default {
 
     // `::v-deep` because the input belongs to NightCall's template and so
     // wears NightCall's scope id, not this file's — a plain descendant
-    // selector here would never match it.
-    ::v-deep input {
+    // selector here would never match it. FT-1384: the centre Confirm is the
+    // second control this plate has ever carried, and it re-arms the same
+    // way — everything else on the plate stays words, and the ring stays
+    // the control it has been since FT-1107.
+    ::v-deep input,
+    ::v-deep .nf-confirm {
       pointer-events: auto;
     }
 

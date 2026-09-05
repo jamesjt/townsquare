@@ -92,7 +92,10 @@
            night sheet argues against at its own ping dropdown; the ring goes
            quiet at the same moment these words change, so the player is told
            why rather than left tapping. -->
-      <span class="nf-ask" :class="{ settled: sent }" v-if="action.slots">{{
+      <!-- FT-1384: `settled` follows the shared lock, not only the send —
+           the line stands down to its quiet parchment voice the moment the
+           choice seals, whichever side sealed it. -->
+      <span class="nf-ask" :class="{ settled: locked }" v-if="action.slots">{{
         askLine
       }}</span>
       <span class="nf-chosen" v-if="action.slots && chosenNames.length">
@@ -100,6 +103,21 @@
           n
         }}</span>
       </span>
+      <!-- FT-1384: THE CONFIRM — the player's commit, standing where the
+           vote hands stand (the face centre; .vo-solo's slot, one surface
+           over). It exists only in the window between "every slot staged"
+           and "sealed": before that there is nothing to confirm, after it
+           there is nothing left to press. Pressing it is the ONE wire event
+           of the whole choice — the staged picks go up as today's
+           playerAction frame, the role's seal plays on the coins, and the
+           choice locks until the storyteller re-asks. -->
+      <button
+        class="nf-confirm"
+        v-if="action.slots && stageComplete && !locked"
+        @click="confirm"
+      >
+        Confirm
+      </button>
       <!-- The universal fallback: no seats to point at, so their own words.
            A plain `v-if`, not a `v-else-if` on the row above — `freeText` is
            by construction only ever true when there are no player slots (both
@@ -329,6 +347,22 @@ export default {
     sent() {
       return !!(this.row && this.row.sent);
     },
+    /** FT-1384: the staged view — all four read the night module's own
+     *  getters (the FT-1101 one-truth rule), so the face and the coins can
+     *  never disagree about what is staged, complete, or sealed. */
+    stagedTargets() {
+      return this.$store.getters["night/myStagedTargets"];
+    },
+    stageComplete() {
+      return this.$store.getters["night/myStageComplete"];
+    },
+    confirmed() {
+      return this.$store.getters["night/myConfirmed"];
+    },
+    /** Confirmed on this side, or answered on the host's — THE lock. */
+    locked() {
+      return this.$store.getters["night/myCallLocked"];
+    },
     /**
      * FT-1291: ...and what the player is TOLD about it. One short sentence, in
      * the app's own voice, saying the two things a locked control has to say —
@@ -351,15 +385,29 @@ export default {
      * for them "answered" is the truth.
      */
     sentLine() {
-      if (this.action.receiveOnly) {
-        const names = this.chosenNames.join(" & ");
-        if (!names) return "Storyteller received your choice.";
-        const effect = this.action.received;
-        return effect
-          ? "Storyteller received your choice — " + names + " " + effect + "."
-          : "Storyteller received your choice — " + names + ".";
-      }
+      // FT-1384 (house rule): the FT-1330 receive-only receipt sentences
+      // STAND DOWN — the storyteller's tick on a receive-only row causes no
+      // player-side change at all now; the role's own seal (played at the
+      // player's Confirm) is the receipt, and the sealed line below is the
+      // one wording both moments share. Kept, commented, per never-delete:
+      //
+      //   if (this.action.receiveOnly) {
+      //     const names = this.chosenNames.join(" & ");
+      //     if (!names) return "Storyteller received your choice.";
+      //     const effect = this.action.received;
+      //     return effect
+      //       ? "Storyteller received your choice — " + names + " " + effect + "."
+      //       : "Storyteller received your choice — " + names + ".";
+      //   }
+      if (this.action.receiveOnly || !this.sent) return this.sealedLine;
       return "The storyteller has answered — your choice stands.";
+    },
+    /** FT-1384: the sealed choice's one sentence — said at Confirm and
+     *  unchanged by the storyteller's tick (ST-received is not a player-side
+     *  state). Present tense, no apology: sealing is the ordinary end of a
+     *  night action now. */
+    sealedLine() {
+      return "Your choice is sealed until the storyteller asks again.";
     },
     /** The free box shows the local draft while typing, the host's echo
      *  otherwise. */
@@ -377,7 +425,13 @@ export default {
      * lit coins readable at a glance without counting round the clock.
      */
     chosenNames() {
-      const targets = (this.row && this.row.targets) || [];
+      // FT-1384 (face form): the STAGED picks, so the chips move with the
+      // player's taps before anything is sent — and the host's record once
+      // the choice has gone out, which is what myShownTargets already
+      // decides. The band form keeps its delivered-row read.
+      const targets = this.face
+        ? this.$store.getters["night/myShownTargets"]
+        : (this.row && this.row.targets) || [];
       const out = [];
       targets.forEach((seat) => {
         if (!Number.isInteger(seat) || seat < 0) return;
@@ -397,13 +451,21 @@ export default {
      * two lines tall and a "done!" is a line that says nothing.
      */
     askLine() {
-      // FT-1291: THE SENT ROW'S LINE COMES FIRST, ahead of every count — the
-      // counts are instructions and there is nothing left to instruct. This
-      // is the third state the original note said would never exist, and it
-      // earns the place the other two shared because it is not a "done!": it
-      // is the reason the ring stopped answering.
-      if (this.sent) return this.sentLine;
+      // FT-1291: THE CLOSED ROW'S LINE COMES FIRST, ahead of every count —
+      // the counts are instructions and there is nothing left to instruct.
+      // FT-1384 widened the gate from `sent` to the shared lock: the line
+      // lands at the player's own Confirm now, and sentLine itself decides
+      // between "answered" (a role the storyteller answers) and "sealed"
+      // (a receive-only role, or an answer still to come).
+      if (this.locked) return this.sentLine;
       const left = this.slotsLeft;
+      // FT-1384: every slot staged and nothing sent — the one moment the
+      // face's job is to point at the Confirm standing right below it.
+      if (this.stageComplete) {
+        return this.action.slots > 1
+          ? "Confirm — or select a cog to change one."
+          : "Confirm — or select another cog to change it.";
+      }
       // ONE LINE, ALWAYS. The hub's vertical budget is the gap between the
       // counts and the seat at six o'clock; a wrapped instruction pushed the
       // storyteller's answer down behind that coin (measured at 1280x900,
@@ -477,6 +539,29 @@ export default {
      *  a later caller must not be able to route round the predicate. The host
      *  refuses it anyway — that is the truth; this only keeps the client from
      *  sending a frame it already knows will be turned down. */
+    /**
+     * FT-1384: THE CONFIRM PRESSED — the whole choice goes up as ONE frame.
+     *
+     * The payload is exactly the frame a single tap used to send (FT-1005's
+     * slot-aligned targets; the host merge, the belief check on the way in,
+     * the echo back — all untouched), carrying every staged slot at once.
+     * Two commits, deliberately separate: playerAction is the WIRE event
+     * (socket.js's subscription table sends on it) and confirmStage is the
+     * local seal — a wire event that also mutated staging would put a send
+     * inside state the table replays.
+     *
+     * The guard is the same belt the other write paths keep: the button's
+     * own v-if is the courtesy, this is the fact, and the host's refusal of
+     * a sent row remains the authority.
+     */
+    confirm() {
+      if (this.locked || !this.stageComplete) return;
+      this.$store.commit("night/playerAction", {
+        roleId: this.action.role.id,
+        targets: this.stagedTargets.slice(0, this.action.slots),
+      });
+      this.$store.commit("night/confirmStage");
+    },
     pickSeat(i, seat) {
       if (this.sent) return;
       const targets = new Array(this.action.slots).fill(null);
@@ -1031,6 +1116,51 @@ $face-pick: #a78fcd;
         0 0 4px black,
         0 0 10px black;
     }
+  }
+}
+
+// ── FT-1384: THE CONFIRM — large, at the face centre ─────────────────────
+//
+// It stands where the vote hands stand (Vote.vue's .vo-solo slot, the other
+// surface that puts a player's commit at the dial's middle), and it is the
+// LOUDEST control this face ever carries, because it is the only one: the
+// display face at .vo-solo's own 2em scale, on the pick ink's plate. The
+// pick ink and not the gold, for FT-1272's reason — purple is what "the one
+// you are choosing" already means on this square, and this button is that
+// choice becoming final. pointer-events restated because TownInfo's plate
+// switches them off wholesale and re-arms only the controls (its ::v-deep
+// rule names this class).
+.nf-confirm {
+  pointer-events: auto;
+  margin-top: 7px;
+  padding: 0.05em 0.75em 0.12em;
+  font-family: PiratesBay, sans-serif;
+  font-size: 200%;
+  letter-spacing: 2px;
+  color: #f0dcae;
+  cursor: pointer;
+  background: rgba(24, 15, 34, 0.82);
+  border: 2px solid $face-pick;
+  border-radius: 12px;
+  text-shadow:
+    0 0 4px black,
+    0 0 10px black;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.75),
+    0 0 16px rgba(167, 143, 205, 0.45);
+  transition:
+    box-shadow 150ms,
+    background 150ms,
+    color 150ms;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    color: #fff;
+    background: rgba(167, 143, 205, 0.22);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.75),
+      0 0 22px rgba(167, 143, 205, 0.75);
   }
 }
 
