@@ -116,6 +116,42 @@
         </g>
       </template>
     </svg>
+
+    <!-- ── FORTUNE TELLER — THE SCRYING THREAD (two coins, one question) ──
+         invite: sparkles wink in and out around every legal coin.
+         staged: a starlight crescent veils each picked coin; the dotted
+                 thread between the two is NightThread.vue's (it lives
+                 between coins, not on one).
+         sealed: the eye opens on the coin and stays open; the thread burns
+                 solid one component over. -->
+    <svg v-else-if="roleId === 'fortuneteller'" viewBox="0 -24 100 124">
+      <template v-if="state === 'invite'">
+        <path class="ft-spark ft-s1" :d="star(15, 26, 3.2)" />
+        <path class="ft-spark ft-s2" :d="star(84, 20, 2.6)" />
+        <path class="ft-spark ft-s3" :d="star(74, 82, 3)" />
+        <path class="ft-spark ft-s4" :d="star(22, 76, 2.2)" />
+      </template>
+      <template v-else-if="state === 'staged'">
+        <!-- a lune hugging the coin's upper-left rim: the outer arc rides
+             the coin's own circle (r≈44 on c 50,50), the inner arc cuts
+             back shallower (r=33), so the veil is thickest at its middle —
+             a real crescent, not a hairline (the first draw measured
+             invisible under the staged ring). -->
+        <path
+          class="ft-crescent"
+          d="M 19 19 A 44 44 0 0 0 10 63 A 33 33 0 0 1 19 19 Z"
+        />
+        <path class="ft-spark ft-held ft-s1" :d="star(20, 14, 2.8)" />
+        <path class="ft-spark ft-held ft-s3" :d="star(9, 68, 2.2)" />
+      </template>
+      <template v-else-if="state === 'sealed'">
+        <g class="ft-eye">
+          <path class="ft-lid" d="M 32 8 Q 50 -6 68 8 Q 50 22 32 8 Z" />
+          <circle class="ft-iris" cx="50" cy="8" r="4.6" />
+          <circle class="ft-pupil" cx="50" cy="8" r="2" />
+        </g>
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -124,7 +160,7 @@
  *  role-by-role order: monk, poisoner, fortuneteller, butler, imp,
  *  ravenkeeper). Everything else renders nothing and keeps the app's
  *  standing purple idiom. */
-const HAS_ART = ["monk", "poisoner"];
+const HAS_ART = ["monk", "poisoner", "fortuneteller"];
 
 export default {
   name: "NightMark",
@@ -142,6 +178,19 @@ export default {
   computed: {
     hasArt() {
       return HAS_ART.includes(this.roleId) && !!this.state;
+    },
+  },
+  methods: {
+    /** A four-point star path at (cx, cy), radius r — the Fortune Teller's
+     *  sparkles. Geometry in the template stays declarative; only the shape
+     *  maths lives here. */
+    star(cx, cy, r) {
+      const w = r * 0.28;
+      return (
+        `M ${cx} ${cy - r} L ${cx + w} ${cy - w} L ${cx + r} ${cy} ` +
+        `L ${cx + w} ${cy + w} L ${cx} ${cy + r} L ${cx - w} ${cy + w} ` +
+        `L ${cx - r} ${cy} L ${cx - w} ${cy - w} Z`
+      );
     },
   },
 };
@@ -475,6 +524,97 @@ $ps-dark: #24350f;
   to {
     opacity: 0.92;
     transform: translateY(0);
+  }
+}
+
+// ── THE FORTUNE TELLER'S PALETTE ────────────────────────────────────────
+// Starlight — the thread's own pale violet-white (NightThread.vue), so the
+// coin marks and the line between them read as one act.
+$ft-star: #d9ccff;
+$ft-star-hot: #f4eeff;
+
+// state 1 — sparkles wink in and out around the coin. The state-1 loop.
+.ft-spark {
+  fill: $ft-star-hot;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 4px rgba(217, 204, 255, 0.85));
+  animation: ft-wink 2s ease-in-out infinite;
+  &.ft-s2 {
+    animation-delay: 0.5s;
+  }
+  &.ft-s3 {
+    animation-delay: 1s;
+  }
+  &.ft-s4 {
+    animation-delay: 1.5s;
+  }
+}
+
+@keyframes ft-wink {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+// staged sparkles hold still beside the crescent — no loop at rest.
+.ft-spark.ft-held {
+  animation: mk-seal-hold 0.4s ease-out 0.3s both;
+}
+
+// state 2 — the crescent veils the picked coin's shoulder, one settle-in.
+.ft-crescent {
+  fill: $ft-star;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(217, 204, 255, 0.8));
+  animation: ft-veil 0.6s ease-out both;
+}
+
+@keyframes ft-veil {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 0.92;
+    transform: translateY(0);
+  }
+}
+
+// state 3 — the eye OPENS and stays open: lids part (a scaleY unfold), the
+// iris arrives with them. Dark pupil, hot rim — the register's rule.
+.ft-eye {
+  transform-origin: 50px 8px;
+  animation: ft-open 0.55s ease-out 0.2s both;
+
+  .ft-lid {
+    fill: rgba(20, 14, 40, 0.85);
+    stroke: $ft-star-hot;
+    stroke-width: 1.6;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 6px rgba(244, 238, 255, 0.8));
+  }
+  .ft-iris {
+    fill: $ft-star;
+  }
+  .ft-pupil {
+    fill: #14092c;
+  }
+}
+
+@keyframes ft-open {
+  from {
+    opacity: 0;
+    transform: scaleY(0.1);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
   }
 }
 

@@ -4718,6 +4718,7 @@ li.swap:not(.from) .player::after {
 $night-seal-glow: (
   monk: rgba(255, 233, 176, 0.85),
   poisoner: rgba(143, 227, 60, 0.75),
+  fortuneteller: rgba(217, 204, 255, 0.85),
 );
 
 @each $role, $glow in $night-seal-glow {

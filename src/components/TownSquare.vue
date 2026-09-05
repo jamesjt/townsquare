@@ -185,6 +185,12 @@
          pointer-transparent ambience. -->
     <WhisperPlanes />
 
+    <!-- FT-1384: the night thread — the one night mark strung BETWEEN two
+         coins (the Fortune Teller's scrying thread), on the actor's own
+         client alone. Same idiom as the planes above: geometry read fresh
+         off this ring's coins, pointer-transparent ambience. -->
+    <NightThread />
+
     <!-- FT-1314: the starpass chooser — "who inherits the Imp?", standing on
          exactly one client (the dying Imp's) for as long as the host's offer
          does. Renders nothing everywhere else; see the component's header. -->
@@ -206,6 +212,9 @@ import RoleModal from "./modals/RoleModal";
 // FT-1206: the whisper planes — the metadata-only public trace of a
 // player↔player whisper, flying between this ring's own coins.
 import WhisperPlanes from "./WhisperPlanes";
+// FT-1384: the night thread — the between-coins night mark (the Fortune
+// Teller's scrying thread), actor-side only.
+import NightThread from "./NightThread";
 // FT-1314: the starpass chooser — the dying Imp's "who inherits" pick,
 // rendered only while that one client holds an offer.
 import StarpassPick from "./StarpassPick";
@@ -250,6 +259,7 @@ export default {
     RoleModal,
     ReminderModal,
     WhisperPlanes,
+    NightThread,
     StarpassPick,
     SeatlessBanner,
   },
