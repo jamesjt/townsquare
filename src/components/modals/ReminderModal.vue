@@ -1,6 +1,7 @@
 <template>
   <Modal
     v-if="modals.reminder && availableReminders.length && players[playerIndex]"
+    class="reminder-picker"
     @close="toggleModal('reminder')"
   >
     <!-- WRITE THE NOTE HERE, never prompt(). A browser dialog is silently
@@ -60,6 +61,44 @@
           <span class="text">{{ reminder.name }}</span>
         </li>
       </ul>
+      <!-- FT-1393: THE SCRIPT'S ROLE ICONS, grouped and labeled by type, so
+           the storyteller can drop ANY role's token on a chair by hand — a
+           minion marker on the demon, a fake demon on the Lunatic, whatever
+           the night calls for. These are the SAME tokens the deal's
+           evil-info seeding places (golem/evilInfo.js's roleToken), so a
+           hand-placed one and a dealt one are the same object on the seat. -->
+      <div
+        class="role-group"
+        v-for="group in roleTokenGroups"
+        :key="group.team"
+      >
+        <h4 class="rg-label">{{ group.label }}</h4>
+        <ul class="reminders">
+          <li
+            v-for="token in group.tokens"
+            class="reminder"
+            :class="[token.role]"
+            :key="'role ' + token.role"
+            @click="addReminder(token)"
+          >
+            <span
+              class="icon"
+              :style="{
+                backgroundImage: `url(${
+                  token.image && grimoire.isImageOptIn
+                    ? token.image
+                    : require(
+                        '../../assets/icons/' +
+                          (token.imageAlt || token.role) +
+                          '.png',
+                      )
+                })`,
+              }"
+            ></span>
+            <span class="text">{{ token.name }}</span>
+          </li>
+        </ul>
+      </div>
     </template>
   </Modal>
 </template>
@@ -69,6 +108,9 @@ import Modal from "./Modal";
 import { mapMutations, mapState } from "vuex";
 // FT-1117: a reminder entry may be a plain string or an authored object.
 import { reminderName } from "../../golem/dealReminders";
+// FT-1393: the role-icon groups below place the same token object the deal's
+// evil-info seeding builds — one builder, so the two can never drift.
+import { roleToken } from "../../golem/evilInfo";
 
 /**
  * Helper function that maps a reminder name with a role-based object that provides necessary visual data.
@@ -147,6 +189,27 @@ export default {
       reminders.push({ role: "evil", name: "Evil" });
       reminders.push({ role: "custom", name: "Custom note" });
       return reminders;
+    },
+    /**
+     * FT-1393: every character on the current script as a placeable role
+     * token, grouped and labeled by type. Travellers are left out — they
+     * are added mid-game through their own flow, never marked onto a chair.
+     * Empty groups are filtered HERE so the template never pairs v-if with
+     * v-for.
+     */
+    roleTokenGroups() {
+      const groups = [
+        { team: "townsfolk", label: "Townsfolk", tokens: [] },
+        { team: "outsider", label: "Outsider", tokens: [] },
+        { team: "minion", label: "Minion", tokens: [] },
+        { team: "demon", label: "Demon", tokens: [] },
+      ];
+      this.$store.state.roles.forEach((role) => {
+        if (!role || !role.id) return;
+        const group = groups.find((g) => g.team === role.team);
+        if (group) group.tokens.push(roleToken(role));
+      });
+      return groups.filter((group) => group.tokens.length);
     },
     ...mapState(["modals", "grimoire"]),
     ...mapState("players", ["players"])
@@ -341,5 +404,32 @@ ul.reminders .reminder {
   &:hover {
     transform: scale(1.2);
   }
+}
+
+// FT-1393: a group's label — the same small uppercase treatment the note
+// panel's field label wears, sitting flush left above its row of tokens.
+.role-group {
+  width: 100%;
+
+  .rg-label {
+    margin: 12px 0 2px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0.6;
+    text-align: left;
+  }
+}
+</style>
+
+<style lang="scss">
+// FT-1393: UNSCOPED, deliberately — the scroller is Modal.vue's own `.slot`,
+// which a scoped rule cannot reach. The class rides the backdrop (component
+// class passthrough, the workbench's idiom). With the script's full role
+// roster now in the picker the list outgrows the dialog on every real
+// script, and the slot is the element that has to scroll.
+.modal-backdrop.reminder-picker .modal > .slot {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 </style>
