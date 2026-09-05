@@ -428,10 +428,12 @@
                  search on the bar filters whichever of these lists is open.) -->
             <!-- FT-1371: a signed-out viewer sees the button too — the
                  popover carries the explanation instead of the button
-                 vanishing. All towns is the resting truth either way. -->
+                 vanishing. FT-1372: signed out WITH local traces, the
+                 browser's own visited towns list instead (loadMyTowns);
+                 this line is the no-traces case only. -->
             <p
               class="rp-state"
-              v-if="openFilter === 'towns' && !session.account"
+              v-if="openFilter === 'towns' && !session.account && !popChoices.length"
             >
               All towns. Sign in to filter by the towns you have sat in.
             </p>
@@ -2020,7 +2022,27 @@ export default {
      */
     loadMyTowns() {
       if (this.myTowns.loading || this.myTowns.loaded) return;
-      if (!this.session.account) return;
+      if (!this.session.account) {
+        // FT-1372 (user: "shouldn't my local storage allow me to see some
+        // towns?") — signed out, the browser's own per-town traces are the
+        // list: every town this browser ever sat in wrote a tower stash
+        // and/or a phase clock (golem.tower.<id> / golem.phaseStart.<id>,
+        // towerBells' own keys). No identity, no server read — the account
+        // list stays the cross-device answer, this is the this-browser one.
+        const ids = new Set();
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            if (k.startsWith("golem.tower.")) ids.add(k.slice(12));
+            else if (k.startsWith("golem.phaseStart.")) ids.add(k.slice(17));
+          }
+        } catch (e) {
+          // storage off: the signed-out line below is the honest answer
+        }
+        this.myTowns = { loading: false, loaded: true, ids: [...ids].sort() };
+        return;
+      }
       this.myTowns = { loading: true, loaded: false, ids: [] };
       gameFacts(this.testView, true)
         .then((games) => {
