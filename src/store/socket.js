@@ -92,6 +92,11 @@ import {
   onNightEntry,
   onStarpassPick,
   retireStarpassOffer,
+  // FT-1389: the fired-starpass memory is module-level and keyed by entry id
+  // (d{day}:s{seat}:{role}), which a fresh game in the same town REUSES — so
+  // it is forgotten where a game genuinely ends for this tab: Play again
+  // (clearEnded) and a town change (setSessionId), both below.
+  resetStarpass,
 } from "../golem/automations";
 
 /**
@@ -2909,6 +2914,9 @@ export default (store) => {
   store.subscribe(({ type, payload }, state) => {
     switch (type) {
       case "session/setSessionId":
+        // FT-1389: another town, another game — the fired-starpass ids of
+        // the last one must not suppress this one's (same-shaped ids).
+        resetStarpass();
         if (state.session.sessionId) {
           session.connect(state.session.sessionId);
         } else {
@@ -3204,6 +3212,11 @@ export default (store) => {
       // the broadcast arrives.
       case "endGame":
       case "clearEnded":
+        // FT-1389: Play again means the LAST game's starpass memory is
+        // spent — its entry ids come back verbatim in the next game.
+        // clearEnded only: an ENDED game keeps its memory while its log
+        // still stands (a late patch must not re-fire on the result screen).
+        if (type === "clearEnded") resetStarpass();
         session.sendGamestate();
         break;
       // FT-882: the night sheet's day scrub. It rides a mutation like every

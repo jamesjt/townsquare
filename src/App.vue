@@ -1328,6 +1328,9 @@ import {
   clearDealt,
   clearDevGame,
 } from "./golem/stats";
+// FT-1389: Play again forgets the town's execution record beside its deal
+// stash — the record matches on day alone, and a fresh game reuses the days.
+import { clearExecution } from "./golem/automations";
 // FT-1059: clearPhaseStart joins Play again's day-counter reset — the phase
 // clock's own wall-clock stamp is the OTHER piece of session state that
 // outlives the game it was timing (see towerBells.js's header on the fix).
@@ -2420,11 +2423,32 @@ export default {
      * game in a town inherited the last one's tally.
      */
     playAgain() {
+      // FT-1389: THE PHASE RESETS FIRST, directly (resetNight — never the
+      // incrementing toggleNight, whose subscriber is the phase bell). A
+      // game that ENDED at night otherwise hands the next game a town where
+      // night already stands: Start's beginAtNight sees isNight true, skips
+      // its toggleNight, and game two loses Night 1's increment and
+      // chronicle line. Committed before clearEnded so the full resync that
+      // mutation triggers carries the fresh phase + day to every client.
+      this.$store.commit("resetNight");
+      // FT-1389: THE WHOLE NIGHT LOG GOES, not just the counter. Entry ids
+      // are d{day}:s{seat}:{role} and a fresh game in the same town reuses
+      // all three, so game one's rows read as game two's (a Night-1 sheet
+      // opening with handled rows, a stale sent row standing on a player's
+      // client) — and the STAGED-DEATHS queue rides the same stash, so game
+      // one's uncommitted kill fired on game two's first End night. setLog
+      // rather than setDay resets all three fields in one commit; the
+      // persistence subscriber stashes the emptied log and the socket
+      // subscriber re-sends every claimed seat's (now empty) rows.
+      this.$store.commit("night/setLog", { day: 0, entries: [], staged: [] });
       this.$store.commit("clearEnded");
       this.$store.dispatch("players/clearRoles");
-      // The counter lives in the NIGHT module (`night.day`), which is what
-      // `toggleNight` bumps — not in session, where the ended flag sits.
-      this.$store.commit("night/setDay", 0);
+      // FT-1389: the vote drawer's record is the LAST game's — cleared here
+      // exactly as entering a town clears it (Menu/Intro), and the commit's
+      // socket case broadcasts the clear, so no client's drawer mixes games
+      // and the auto-mark's recorded-votes lookup (which matches by nominee
+      // NAME) cannot judge game two by game one's tallies.
+      this.$store.commit("session/clearVoteHistory");
       // FT-1059: the phase clock's own wall-clock stamp is session state
       // too, keyed on (town, phaseKey) — and the fresh game's first phase
       // lands on the exact same key ("d:0") the last game's did. Left
@@ -2442,6 +2466,26 @@ export default {
       // FT-1236: and the dev/test mark with it — the fresh build earns its
       // own classification from its own gestures.
       clearDevGame(this.session.sessionId);
+      // FT-1389: the EXECUTION RECORD dies with the game it belongs to. It
+      // matches on day alone (automations' executionFor), and a fresh game
+      // reuses the same day numbers — left standing, game one's hanged
+      // prefilled game two's Undertaker with an execution that never
+      // happened.
+      clearExecution(this.session.sessionId);
+      // FT-1389: ...and the night sheet's SKIP marks, stashed by day under
+      // the same collision (a short game one ends before its stash goes
+      // stale, and game two's Night 1 is day 1 again — the skipped rows
+      // fold themselves back out of the fresh working list). The key shape
+      // is NightSheet's skipsStashKey; cleared here beside the other
+      // per-town stashes rather than routed through a sheet that may not
+      // be mounted.
+      try {
+        localStorage.removeItem(
+          "golem_night_skips:" + (this.session.sessionId || "local"),
+        );
+      } catch (e) {
+        // storage refused — nothing was stashed to leak
+      }
       this.building = true;
       this.reentry = false;
     },

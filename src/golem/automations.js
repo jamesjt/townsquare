@@ -223,6 +223,25 @@ export function executionFor(townId, day) {
   return rec;
 }
 
+/**
+ * FT-1389: forget one town's execution — Play again's call, beside its
+ * clearDealt. The record matches on day alone (executionFor above), and a
+ * fresh game in the same town reuses the same day numbers, so game one's
+ * hanged would prefill game two's Undertaker as if the town had executed
+ * someone it never touched.
+ */
+export function clearExecution(townId) {
+  if (!townId) return;
+  const stash = readExecStash();
+  if (!(townId in stash)) return;
+  delete stash[townId];
+  try {
+    localStorage.setItem(EXEC_KEY, JSON.stringify(stash));
+  } catch (e) {
+    // storage off: nothing was persisted to forget
+  }
+}
+
 /* ── SMALL SHARED READS ─────────────────────────────────────────────────── */
 
 /** Is this client the acting host of a live town? Every entry point gates on
@@ -584,6 +603,18 @@ export function onDeath({ store, live }, player, seat) {
 /** Rows this session has already starpassed on — a patched row must not
  *  re-fire when a later edit grazes it. */
 const firedStarpass = new Set();
+
+/**
+ * FT-1389: forget which rows have starpassed. The set is module-level, so
+ * without this a tab that hosts two games in one town would silently
+ * suppress game two's starpass on any entry id game one already fired
+ * (ids are d{day}:s{seat}:{role} and a fresh game reuses all three).
+ * Called from socket.js's subscriber where `clearEnded` (Play again) and
+ * a town change (`session/setSessionId`) land.
+ */
+export function resetStarpass() {
+  firedStarpass.clear();
+}
 
 export function onNightEntry({ store, live }, entry) {
   if (!hosting(store)) return;

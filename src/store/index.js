@@ -463,6 +463,22 @@ export default new Vuex.Store({
       }
     },
     /**
+     * FT-1389: PLAY AGAIN's phase reset — isNight to FALSE, nothing else.
+     * Deliberately NOT `toggleNight`: that commit's socket subscriber is
+     * the phase BELL (the "Day X breaks." chronicle line, the automations,
+     * the starpass retirement, the isNight broadcast), and a game being
+     * reset is not a phase turning. Left un-reset, a game that ENDED at
+     * night carried isNight into the next game — whose Start saw night
+     * already standing, skipped its toggleNight, and lost Night 1's
+     * increment and chronicle line (HostTools.beginAtNight's guard).
+     * Not in the socket table on purpose: playAgain commits this before
+     * `clearEnded`, whose full gamestate resync carries the fresh
+     * isNight + nightDay to every client in the one sync they already get.
+     */
+    resetNight(state) {
+      state.grimoire.isNight = false;
+    },
+    /**
      * FT-931: THE TOWN ENDS. The host declared a winner (EndGameOverlay);
      * this is the one commit every client applies — the host's own, and a
      * spectator's when it arrives over the wire (socket.js commits this
