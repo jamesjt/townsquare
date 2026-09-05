@@ -18,17 +18,20 @@
         v-for="role in teamRoles"
         :class="[role.team, role.selected ? 'selected' : '']"
         :key="role.id"
-        @click="role.selected = role.selected ? 0 : 1"
+        @click="toggleRole(role)"
       >
         <Token :role="role" />
         <font-awesome-icon icon="exclamation-triangle" v-if="role.setup" />
         <div class="buttons" v-if="allowDup">
           <font-awesome-icon
             icon="minus-circle"
-            @click.stop="role.selected--"
+            @click.stop="nudgeRole(role, -1)"
           />
           <span>{{ role.selected > 1 ? "x" + role.selected : "" }}</span>
-          <font-awesome-icon icon="plus-circle" @click.stop="role.selected++" />
+          <font-awesome-icon
+            icon="plus-circle"
+            @click.stop="nudgeRole(role, 1)"
+          />
         </div>
       </li>
     </ul>
@@ -91,7 +94,16 @@ export default {
     return {
       uiDeal,
       roleSelection: {},
-      game: gameJSON
+      game: gameJSON,
+      // FT-1394: the auto-pick used to run ONCE, at page load (this component
+      // mounts immediately — the v-if sits on the inner Modal). A town grown
+      // from 5 to 7 afterwards kept the stale 5-role pick, which still passed
+      // the assign guard (5 <= 7) and dealt 5 of 7 seats, silently short.
+      // These two track WHEN the current selection was made and whether the
+      // storyteller has touched it since, so opening the modal can refresh
+      // the pick without stomping deliberate hand edits.
+      handEdited: false,
+      pickedFor: 0
     };
   },
   computed: {
@@ -145,6 +157,17 @@ export default {
     ...mapGetters({ nonTravelers: "players/nonTravelers" })
   },
   methods: {
+    // FT-1394: hand edits flow through these two so the modal knows the
+    // storyteller has shaped the selection (a fresh auto-pick on open would
+    // otherwise throw their choices away).
+    toggleRole(role) {
+      role.selected = role.selected ? 0 : 1;
+      this.handEdited = true;
+    },
+    nudgeRole(role, delta) {
+      role.selected += delta;
+      this.handEdited = true;
+    },
     selectRandomRoles() {
       this.roleSelection = {};
       this.roles.forEach(role => {
@@ -176,6 +199,10 @@ export default {
           }
         }
       });
+      // FT-1394: a fresh auto-pick supersedes any hand edits and is stamped
+      // with the seat count it was built for.
+      this.handEdited = false;
+      this.pickedFor = playerCount;
     },
     assignRoles() {
       // FT-1387: the button greys but the click still lands here — refusing
@@ -222,6 +249,36 @@ export default {
   watch: {
     roles() {
       this.selectRandomRoles();
+    },
+    /**
+     * FT-1394: refresh the auto-pick when the modal OPENS, not just once at
+     * mount — the mount-time pick froze the composition at the load-time
+     * seat count (grow 5 → 7 and the stale 5-role pick still passed the
+     * assign guard, dealing 7 seats only 5 roles). The pick is kept ONLY
+     * when the storyteller hand-edited it AND the seat count it was built
+     * for still matches; a seat-count change always re-picks, because a
+     * selection sized for a different town is exactly the stale state this
+     * fix exists to clear.
+     */
+    "modals.roles"(open) {
+      if (!open) return;
+      if (
+        !this.handEdited ||
+        this.pickedFor !== Math.max(5, this.nonTravelers)
+      ) {
+        this.selectRandomRoles();
+      }
+    },
+    /**
+     * FT-1394: the town can grow or shrink while the modal stands open (a
+     * player joins mid-setup) — the composition target just changed, so
+     * re-pick even over hand edits; the counts row is already showing the
+     * new totals.
+     */
+    nonTravelers() {
+      if (this.modals.roles) {
+        this.selectRandomRoles();
+      }
     },
     /**
      * FT-946: turning Duplicates OFF can leave a role selected from while it
