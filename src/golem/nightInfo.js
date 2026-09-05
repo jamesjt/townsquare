@@ -339,7 +339,7 @@ export const NIGHT_INFO = {
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "A Townsfolk and two players — one is it.",
+    line: "You learn that one of two players is a specific townsfolk.",
   },
   librarian: {
     wakes: ["first"],
@@ -351,7 +351,7 @@ export const NIGHT_INFO = {
     mayBeFalse: true,
     label: "Learns:",
     // the zero case is the whole reason this one differs from its neighbours
-    line: "An Outsider and two players, or zero if none.",
+    line: "You learn that one of two players is a specific outsider.",
   },
   investigator: {
     wakes: ["first"],
@@ -362,7 +362,7 @@ export const NIGHT_INFO = {
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "A Minion and two players — one is it.",
+    line: "You learn that one of two players is a specific minion.",
   },
   chef: {
     wakes: ["first"],
@@ -376,7 +376,7 @@ export const NIGHT_INFO = {
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many pairs of evil players sit together.",
+    line: "You learn how many pairs of evil players there are.",
   },
   empath: {
     wakes: ["first", "other"],
@@ -390,7 +390,7 @@ export const NIGHT_INFO = {
     ],
     mayBeFalse: true,
     label: "Learns:",
-    line: "How many of their 2 live neighbours are evil.",
+    line: "Each night, you learn how many of your alive neighbors are evil.",
   },
   fortuneteller: {
     wakes: ["first", "other"],
@@ -411,14 +411,14 @@ export const NIGHT_INFO = {
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: true,
     label: "Learns executed was:",
-    line: "Only if a player was executed today.",
+    line: "If a player was executed today you learn their role.",
   },
   monk: {
     wakes: ["other"],
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
     label: "Protects:",
-    line: "Not themselves; Demon only.",
+    line: "Protect another player from the Demon.",
     received: "is protected tonight",
   },
   ravenkeeper: {
@@ -431,7 +431,7 @@ export const NIGHT_INFO = {
     label: "Learns:",
     // the row exists ONLY for a dead seat — the line has said so all along
     wakesWhenDead: true,
-    line: "Only if they died tonight. They choose.",
+    line: "Choose a player. If you die tonight you learn their role.",
   },
   virgin: { wakes: [], fields: [], mayBeFalse: false }, // day ability — never reaches a night row
   slayer: { wakes: [], fields: [], mayBeFalse: false }, // day ability
@@ -443,7 +443,7 @@ export const NIGHT_INFO = {
     fields: [{ type: FIELD_TYPES.PLAYER, by: FIELD_OWNERS.PLAYER }],
     mayBeFalse: false,
     label: "Chooses master:",
-    line: "Tomorrow they vote only with that player.",
+    line: "Tomorrow your vote only counts if the selected player also votes.",
     received: "is your master",
   },
   drunk: { wakes: [], fields: [], mayBeFalse: false }, // never wakes as itself — see golem/belief's performance rows
@@ -456,7 +456,7 @@ export const NIGHT_INFO = {
     mayBeFalse: false,
     label: "Poisons:",
     // night one has nobody to recover — the only difference between the two
-    line: "Poisoned to dusk tomorrow.",
+    line: "Poison a player until dusk.",
     received: "is Poisoned",
   },
   spy: {
@@ -478,7 +478,7 @@ export const NIGHT_INFO = {
     fields: [{ type: FIELD_TYPES.CHARACTER, by: FIELD_OWNERS.STORYTELLER }],
     mayBeFalse: false, // "you are now the Demon" is a state transition, not corruptible info
     label: "Becomes:",
-    line: "If the Demon died, 5+ alive.",
+    line: "If the demon dies and there are 5+ players, become the demon.",
   },
   baron: { wakes: [], fields: [], mayBeFalse: false }, // setup-only, never wakes
   // ── Trouble Brewing — Demon ──────────────────────────────────────────────
@@ -488,7 +488,7 @@ export const NIGHT_INFO = {
     mayBeFalse: false, // chooses a kill, told nothing back — the Demon's OWN first-night reveal is GROUP_INFO.demon, below
     label: "Kills:",
     // "Kills:" already says the kill; the starpass is what the label can't say
-    line: "A self-kill passes it to a Minion.",
+    line: "Target yourself to make a minion the Imp.",
     // "is your target", not "dies" — the storyteller may rule otherwise (a
     // Monk's protection, a Soldier), and the acknowledgement must not promise
     // an outcome the night has not settled
