@@ -566,7 +566,10 @@ export default new Vuex.Store({
      * being one. The payload is `{ seats, bluffs }`:
      *
      *   seats   [{ index, role, reminders }] — every seat the grimoire has
-     *           something to say about, with the tokens laid beside it
+     *           something to say about, with the tokens laid beside it.
+     *           FT-1381: `role` may be null — a role-less chair that carries
+     *           tokens, or a character the client could not resolve; the
+     *           tokens are owned either way, the coin is not written.
      *   bluffs  the demon's three, as resolved role objects
      *
      * WHAT A GRANT WRITES, IT OWNS. `reminders` is set for every seat in the
@@ -587,7 +590,12 @@ export default new Vuex.Store({
       (seats || []).forEach(({ index, role, reminders }) => {
         const player = state.players.players[index];
         if (!player) return;
-        player.role = role;
+        // FT-1381: a null role is a seat the grant speaks about for its
+        // TOKENS only — a role-less chair carrying tokens, or a character
+        // this client could not resolve (socket.js's _updateGrimoireGrant).
+        // The coin is left as the holder has it (their own guess, or empty);
+        // writing `null` over it would crash every `player.role.id` read.
+        if (role) player.role = role;
         player.reminders = reminders || [];
       });
       if (Array.isArray(bluffs)) {

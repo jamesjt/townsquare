@@ -1922,11 +1922,19 @@ class LiveSession {
    * frame carries them), and `sendBluffs` is left exactly as it was: no new
    * sender, no widened predicate, nothing to re-argue.
    *
-   * WHICH SEATS THE GRIMOIRE SPEAKS ABOUT: those holding a character. A seat
-   * with no character is one the grant is silent about, so the holder keeps
-   * whatever they remember there — the same rule the recipient's own chair
-   * gets, and the reason `grantGrimoire` can safely own every field of the
-   * seats it DOES name.
+   * WHICH SEATS THE GRIMOIRE SPEAKS ABOUT: those holding a character — and,
+   * since FT-1381, those holding TOKENS. The old rule was characters only,
+   * and the user caught its hole from a real game: "they aren't seeing all
+   * of the reminder tokens" — a token on a chair with no character (an empty
+   * chair used as a scratchpad, a seat cleared mid-game) simply never
+   * travelled, because the seat carrying it was skipped whole. A grimoire is
+   * its tokens as much as its characters, so a role-less seat WITH tokens now
+   * rides in the frame as `{ index, roleId: "", reminders }` — tokens spoken,
+   * character silent (there is none to speak). A seat with NEITHER character
+   * nor tokens stays out of the frame, so the holder keeps whatever they
+   * remember there — the same rule the recipient's own chair gets, and the
+   * reason `grantGrimoire` can safely own every field of the seats it DOES
+   * name.
    *
    * @param playerId REQUIRED — the one seat this frame is for.
    */
@@ -1966,17 +1974,17 @@ class LiveSession {
     const seats = [];
     this._store.state.players.players.forEach((player, index) => {
       if (player.id && player.id === excludeId) return;
-      if (!player.role || !player.role.id) return;
-      seats.push({
-        index,
-        roleId: player.role.id,
-        // Sent VERBATIM (minus the deal's own bookkeeping — see
-        // `_reminderForWire`) rather than as names to look up: the receiving
-        // client resolves a token's art from `image`/`imageAlt`/`role`, and an
-        // id it cannot resolve — a bluff's role, a custom character out of its
-        // edition — would land as a broken require rather than a token.
-        reminders: (player.reminders || []).map(_reminderForWire),
-      });
+      // Sent VERBATIM (minus the deal's own bookkeeping — see
+      // `_reminderForWire`) rather than as names to look up: the receiving
+      // client resolves a token's art from `image`/`imageAlt`/`role`, and an
+      // id it cannot resolve — a bluff's role, a custom character out of its
+      // edition — would land as a broken require rather than a token.
+      const reminders = (player.reminders || []).map(_reminderForWire);
+      const roleId = (player.role && player.role.id) || "";
+      // FT-1381: a seat with neither a character nor a token is the one the
+      // grant is silent about (see the header) — everything else speaks.
+      if (!roleId && !reminders.length) return;
+      seats.push({ index, roleId, reminders });
     });
     const bluffs = this._store.state.players.bluffs || [];
     const bluffIds = [];
@@ -2190,7 +2198,12 @@ class LiveSession {
    * only — the storyteller's own grimoire is the authority and is never
    * written from the wire. Roles resolve here, the same session-then-global
    * lookup _updateGamestate uses; an id this client cannot resolve is skipped
-   * rather than rendered as a blank coin.
+   * rather than rendered as a blank coin — the COIN is skipped, that is, not
+   * the chair (FT-1381): the seat's TOKENS are display objects needing no
+   * lookup, so they land either way. A seat with `roleId: ""` (a role-less
+   * chair carrying tokens — see _grimoirePayload) is the same case on
+   * purpose: tokens applied, the holder's own guess about the chair's
+   * character left standing.
    *
    * FT-1295: the open payload is `{ seats, bluffs }` (see sendGrimoire) and
    * anything that is not that shape is the close. Reminders arrive already
@@ -2209,10 +2222,14 @@ class LiveSession {
     const seats = [];
     payload.seats.forEach((seat) => {
       if (!seat || typeof seat.index !== "number") return;
-      const role =
-        this._store.state.roles.get(seat.roleId) ||
-        this._store.getters.rolesJSONbyId.get(seat.roleId);
-      if (!role) return;
+      // FT-1381: `role` may come out null — a role-less chair's tokens, or a
+      // character this client cannot resolve. Either way the tokens still
+      // land; only the coin write is withheld (see grantGrimoire).
+      const role = seat.roleId
+        ? this._store.state.roles.get(seat.roleId) ||
+          this._store.getters.rolesJSONbyId.get(seat.roleId) ||
+          null
+        : null;
       seats.push({
         index: seat.index,
         role,
