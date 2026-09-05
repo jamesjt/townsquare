@@ -392,8 +392,15 @@
              never fights the coin's art for contrast. Revealed by the same
              states that reveal a mark (CSS below). -->
         <div class="vote-glass" aria-hidden="true" v-if="!showGlyphVotes"></div>
+        <!-- FT-1377: `aim-flip` — on the half of the circle where the aimed
+             rotation would land the manicule belly-up, the art mirrors
+             across its own pointing axis (the nominate mark's scaleX idiom,
+             here scaleY because the flip happens in the art's pre-rotation
+             frame where the hand points along X). Same direction, thumb
+             side up, at every angle. See voteAimFlipped. -->
         <div
           class="vote-mark yes"
+          :class="{ 'aim-flip': voteAimFlipped }"
           title="Hand UP"
           :style="{ '--vote-aim': voteAimDeg + 'deg' }"
           @click="vote()"
@@ -1713,6 +1720,25 @@ export default {
       const dx = Math.sin(b) - Math.sin(a);
       const dy = -Math.cos(b) - -Math.cos(a);
       return Math.round((Math.atan2(dx, -dy) * 180) / Math.PI);
+    },
+    /**
+     * FT-1377 (user screenshot: a locked hand pointing into the ring's
+     * right half reads BELLY-UP): whether the locked yes-hand needs the
+     * mirror. The art points LEFT in file, so an aim with any RIGHTWARD
+     * component (voteAimDeg in (0°, 180°) — atan2's convention here is
+     * 0 = straight up, positive = clockwise) has been rotated more than a
+     * quarter turn from the art's own orientation and lands thumb-down.
+     * Mirroring across the pointing axis (scaleY(-1) in the pre-rotation
+     * frame — the CSS rule) keeps the direction and rights the thumb —
+     * the nominate mark's own point-at-the-face idiom, applied to the aim
+     * instead of the seat side. The half was CONFIRMED IN THE RIG, not
+     * trusted from this derivation (four-direction shots + a transform-
+     * determinant read; claude_temp_test/2026-09-04-ft1377-shots/) — this
+     * art's orientation has burned three sessions.
+     */
+    voteAimFlipped() {
+      const aim = this.voteAimDeg;
+      return aim > 0 && aim < 180;
     },
     /**
      * FT-1206: MAY THIS VIEWER WHISPER THIS SEAT — null, or the reason not,
@@ -5814,6 +5840,16 @@ $belief-blood: #970000;
   opacity: 1;
   transform: scale(1)
     rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg)));
+}
+// FT-1377: the aimed hand, MIRRORED — see voteAimFlipped. scaleY(-1) sits
+// LAST in the chain, i.e. first in the art's own frame, where the manicule
+// points along X: it flips across the pointing axis, so the direction the
+// composed rotation set is untouched and only the thumb side swaps. Applies
+// only under .vote-lock, the one state where the aim participates at all —
+// the resting/raised states rotate by the base alone and are never flipped.
+#townsquare.vote .player.vote-lock.vote-yes .overlay .vote-mark.yes.aim-flip {
+  transform: scale(1)
+    rotate(calc(var(--vote-base, 0deg) + var(--vote-aim, 0deg))) scaleY(-1);
 }
 #townsquare.vote .player.vote-lock:not(.vote-yes) .overlay .vote-mark.no {
   opacity: 1;

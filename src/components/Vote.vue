@@ -60,8 +60,23 @@
          ceiling, so the only lever left was the asset itself; the bells go
          through towerBells' volume dial (element.volume = percent/100),
          which can only ever make a sound QUIETER than its file. The quiet
-         original stays in assets, stood down. -->
-    <audio src="../assets/sounds/countdown-loud.mp3" preload="auto"></audio>
+         original stays in assets, stood down.
+
+         FT-1377 (real-game report: "the countdown sound keeps playing"):
+         this preloader is now the ONE element that plays. The countdown
+         block below used to carry its own `:autoplay` twin, which replayed
+         on every remount of that block — and the block remounts on every
+         return to `lockedVote 0` while a vote is in progress, whether or
+         not a new countdown genuinely started. Playback is explicit now:
+         playCountdownOnce() below fires on the RISING EDGE of the
+         countdown phase (isCountdownPhase, false → true), so one vote
+         start is one play — a deliberate "Restart the vote" is a new
+         edge and rightly replays; a remount alone no longer can. -->
+    <audio
+      ref="countdownAudio"
+      src="../assets/sounds/countdown-loud.mp3"
+      preload="auto"
+    ></audio>
     <!-- FT-1324 (user correction, reverting FT-1311 item 3): that pass put
          a seated player's Hand UP / Hand DOWN pair in one fixed strip at the
          dock slot for both phases — the WRONG location. Restored to where
@@ -73,7 +88,15 @@
          location" that is also jump-free. What FT-1311 item 3 fixed WITHIN
          each location stays: once the sweep passes my seat (or I never had
          a vote to raise) the pair freezes in place — dimmed, `is-locked`
-         below — instead of vanishing and reflowing. -->
+         below — instead of vanishing and reflowing.
+
+         FT-1377 OVERRULES the jump (user call, from live games): on a
+         PLAYER client the pair must sit mid-face and never move from where
+         it starts. The mechanism is one flag, not new markup: isDocked is
+         storyteller-only now, so for a player this transition simply never
+         fires — the card (and the pair on it) stands at the face centre
+         through nomination, countdown, sweep and lock, and the docked
+         strip below is the storyteller's alone. -->
     <transition name="vo-dock" mode="out-in">
       <div class="overlay" v-if="!isDocked" key="card">
         <p class="vo-nomination">
@@ -345,8 +368,13 @@
         <span class="vo-beat">II</span>
         <span class="vo-beat">I</span>
         <span class="vo-beat vo-beat-go">GO</span>
+        <!-- FT-1377: STOOD DOWN — this was the autoplay-on-mount element,
+             and autoplay-on-mount is the replay bug: any remount of this
+             block replayed the clip. The preloader element at the top of
+             the template plays instead, once per countdown edge
+             (playCountdownOnce). Kept per the house never-delete rule. -->
         <audio
-          :autoplay="!grimoire.isMuted"
+          v-if="false"
           src="../assets/sounds/countdown-loud.mp3"
           :muted="grimoire.isMuted"
         ></audio>
@@ -427,9 +455,22 @@ export default {
      *  circle — for exactly as long as the sweep runs. `setVoteInProgress`
      *  is flipped on by countdown()/start() and off by stop(), by the sweep
      *  completing, and (for everyone) by the relay's own sync, so the strip
-     *  returns to the full card the moment the hands stand still. */
+     *  returns to the full card the moment the hands stand still.
+     *
+     *  FT-1377 (user call, overruling FT-1324's restore): the dock is the
+     *  STORYTELLER'S alone now. A seated player's card — and the Hand
+     *  UP / Hand DOWN pair on it — holds the centre of the face for the
+     *  whole vote: nomination open, countdown, sweeping, locked. On a
+     *  player client this is simply never true, so the card never leaves,
+     *  nothing remounts, and the pair cannot move from where it starts.
+     *  (FT-1324 accepted the card↔strip jump as the price of the pair
+     *  living in both containers; the user has since ruled the pair's
+     *  position outranks the dock.) `vo-live` rides this same flag, so on
+     *  a player client the sweeping hands stay UNDER the standing card —
+     *  a scarlet shaft through the tally was the exact unreadability
+     *  FT-976 fixed; the tips still reach the seats unobscured. */
     isDocked: function () {
-      return this.session.isVoteInProgress;
+      return this.session.isVoteInProgress && !this.session.isSpectator;
     },
     /** FT-1331 (restored from 7200a49's removal): the scrub's read — the
      *  store keeps milliseconds, the control speaks whole and half seconds. */
@@ -447,6 +488,13 @@ export default {
         this.session.lockedVote >= 1 &&
         this.sweepRemaining > 0
       );
+    },
+    /** FT-1377: the three seconds the III-II-I beats (and their sound) own —
+     *  after Start, before the first hand locks. The WATCHER on this is the
+     *  countdown clip's one trigger: it plays on the rising edge and only
+     *  there, so remounts of the beat block can never replay it. */
+    isCountdownPhase: function () {
+      return this.session.isVoteInProgress && !this.session.lockedVote;
     },
     sweepNumeral: function () {
       return romanize(this.sweepRemaining);
@@ -605,10 +653,18 @@ export default {
    */
   watch: {
     "session.lockedVote": "syncSweepClock",
-    "session.isVoteInProgress": "syncSweepClock"
+    "session.isVoteInProgress": "syncSweepClock",
+    // FT-1377: the countdown clip's one trigger — see isCountdownPhase.
+    isCountdownPhase: "playCountdownOnce"
   },
   beforeDestroy() {
     clearInterval(this.sweepTick);
+    // FT-1377: the vote timer must not outlive the component. A nomination
+    // can close under a live interval (a nominated seat removed mid-vote
+    // aborts the nomination from TownSquare, unmounting this component),
+    // and an interval left running here keeps committing lock/progress
+    // state against a vote that no longer exists.
+    clearInterval(this.voteTimer);
   },
   methods: {
     /** THE ONE START (FT-1074). The card used to carry two pre-vote buttons —
@@ -619,6 +675,17 @@ export default {
      *  before the first hand locks. start() below is unchanged and is now
      *  reached only as this countdown's own completion. */
     countdown() {
+      // FT-1377 — THE REMOUNT CULPRIT, found by rig (claude_temp_test/
+      // 2026-09-04-ft1377-audio-diagnose.log, phase 9): this method used to
+      // assign voteTimer WITHOUT clearing what it held, so a second press
+      // before the countdown ended (the button stays clickable for the
+      // ~240ms dock transition) ORPHANED the pending 4s interval. The
+      // orphan then called start() every 4 seconds forever: the sweep
+      // reset to seat 1 on each firing, isVoteInProgress was re-asserted
+      // even after the nomination closed, and every recovery press
+      // remounted the old autoplay block — "the countdown sound keeps
+      // playing". One clearInterval makes a double press idempotent.
+      clearInterval(this.voteTimer);
       this.$store.commit("session/lockVote", 0);
       this.$store.commit("session/setVoteInProgress", true);
       this.voteTimer = setInterval(() => {
@@ -678,6 +745,25 @@ export default {
       this.sweepDeadline = Date.now() + s.votingSpeed;
       this.readSweepClock();
       this.sweepTick = setInterval(this.readSweepClock, 100);
+    },
+    /**
+     * FT-1377: ONE vote start, ONE play. Fired by the isCountdownPhase
+     * watcher on its rising edge only — the moment Start (or a deliberate
+     * Restart) takes the vote to `in progress, nothing locked`. The clip
+     * plays from its top on the always-mounted preloader element, so a
+     * remount of the beat block — the old `:autoplay` trigger — plays
+     * nothing. Mute is honored at the moment of the edge, the same gate
+     * the old `:autoplay="!grimoire.isMuted"` binding applied.
+     */
+    playCountdownOnce(entering) {
+      if (!entering || this.grimoire.isMuted) return;
+      const el = this.$refs.countdownAudio;
+      if (!el) return;
+      el.currentTime = 0;
+      const p = el.play();
+      // Autoplay policy can refuse (a player who has never touched the
+      // page); a refused play must not become an unhandled rejection.
+      if (p && p.catch) p.catch(() => {});
     },
     readSweepClock() {
       const left = Math.ceil((this.sweepDeadline - Date.now()) / 1000);
