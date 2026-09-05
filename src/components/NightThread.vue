@@ -199,31 +199,52 @@ export default {
      * One drawn line. A star thread is straight in both states; a cord SAGS
      * while staged (a quadratic bow toward the floor, deeper the longer the
      * span, capped so a cross-ring cord does not drag through the hub) and
-     * snaps dead straight at the seal. A laundry line sags a LITTLE at the
-     * telling and goes properly slack once settled — the opposite journey
-     * from the cord's, because nothing here ever pulls taut again.
+     * snaps dead straight at the seal.
+     *
+     * FT-1385: THE TOLD LINES BOW AWAY FROM THE HUB instead of toward the
+     * floor — a chord between far seats runs straight through the centre
+     * plate and its sentence (measured: the Washerwoman's top-to-bottom
+     * line crossed the face), and the concept strips route every line
+     * around the OUTSIDE of the hub. The bow is the dress's own drape
+     * (deeper once settled — the slack), raised further only when the
+     * chord actually crosses the hub's circle. The Investigator's stays
+     * the shallowest — taut evidence, never slack — but even taut string
+     * is pinned round the case, not through it.
      */
     lineD(t) {
       const from = `M ${t.x1} ${t.y1}`;
-      let sag = 0;
       const len = Math.hypot(t.x2 - t.x1, t.y2 - t.y1);
-      if (t.dress === "cord" && !t.sealed) sag = Math.min(60, len * 0.18);
-      if (t.dress === "laundry") {
-        sag = t.settled ? Math.min(70, len * 0.2) : Math.min(30, len * 0.08);
-      }
-      // the ribbon drapes — gentler than laundry in both states, because a
-      // ribbon between pages was never meant to carry weight
-      if (t.dress === "ribbon") {
-        sag = t.settled ? Math.min(50, len * 0.14) : Math.min(24, len * 0.06);
-      }
-      // a vein curves a little always — a living line, not a strung one
-      if (t.dress === "vein") {
-        sag = t.settled ? Math.min(32, len * 0.09) : Math.min(18, len * 0.05);
-      }
-      if (sag) {
+      if (t.dress === "cord" && !t.sealed) {
         const mx = (t.x1 + t.x2) / 2;
         const my = (t.y1 + t.y2) / 2;
+        const sag = Math.min(60, len * 0.18);
         return `${from} Q ${mx} ${my + sag} ${t.x2} ${t.y2}`;
+      }
+      const DRAPE = {
+        laundry: [0.09, 0.2],
+        ribbon: [0.06, 0.14],
+        evidence: [0.04, 0.04],
+        vein: [0.05, 0.09],
+      };
+      const drape = DRAPE[t.dress];
+      if (drape && len) {
+        const base = Math.min(70, len * drape[t.settled ? 1 : 0]);
+        const mx = (t.x1 + t.x2) / 2;
+        const my = (t.y1 + t.y2) / 2;
+        // the chord's unit normal, pointed AWAY from the ring's centre
+        let nx = -(t.y2 - t.y1) / len;
+        let ny = (t.x2 - t.x1) / len;
+        if (nx * (mx - t.cx) + ny * (my - t.cy) < 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+        // how close the chord passes to the centre, and how much more bow
+        // it needs to clear the hub (the quadratic's midpoint moves half
+        // the control offset, hence the ×2)
+        const d = Math.abs(nx * (t.x1 - t.cx) + ny * (t.y1 - t.cy));
+        const clear = Math.max(0, 2 * (t.hubR + 16 - d));
+        const bow = Math.max(base, Math.min(clear, t.hubR * 1.5));
+        return `${from} Q ${mx + nx * bow} ${my + ny * bow} ${t.x2} ${t.y2}`;
       }
       return `${from} L ${t.x2} ${t.y2}`;
     },
@@ -256,17 +277,32 @@ export default {
       this.$nextTick(() => {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
+        // the ring's centre and an approximate hub radius, for the told
+        // lines' route-around-the-face bow (see lineD). 0.62 of the seat
+        // ring's radius tracks the face disc closely enough at every zoom
+        // (measured against the rendered plate at 1280×900).
+        const ring = document.querySelector("#townsquare .circle");
+        const rb = ring && ring.getBoundingClientRect();
+        const cx = rb ? rb.left + rb.width / 2 : vw / 2;
+        const cy = rb ? rb.top + rb.height / 2 : vh / 2;
         const out = [];
         wanted.forEach((w) => {
           const from = this.coinCenter(w.a);
           const to = this.coinCenter(w.b);
           if (!from || !to) return;
+          const ringR =
+            (Math.hypot(from.x - cx, from.y - cy) +
+              Math.hypot(to.x - cx, to.y - cy)) /
+            2;
           out.push({
             ...w,
             x1: from.x,
             y1: from.y,
             x2: to.x,
             y2: to.y,
+            cx,
+            cy,
+            hubR: ringR * 0.62,
             vw,
             vh,
           });
