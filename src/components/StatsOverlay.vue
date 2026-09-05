@@ -472,15 +472,29 @@
                    (roles, by team) and appended-to (a fact string no catalog
                    knows still lists, so data never becomes unfilterable). -->
               <template v-for="group in popGroups">
-                <p
+                <!-- FT-1374 (user): a labeled group FOLDS on its header —
+                     the header is a button now, its chevron says which way,
+                     and Travellers start folded (popFolded). -->
+                <button
+                  type="button"
                   class="rp-pop-group"
+                  :class="{ folded: popFolded[group.label] }"
                   v-if="group.label"
                   :key="'grp-' + group.label"
+                  @click="
+                    $set(popFolded, group.label, !popFolded[group.label])
+                  "
                 >
                   {{ group.label }}
-                </p>
+                  <font-awesome-icon
+                    class="rp-pop-group-chev"
+                    icon="chevron-down"
+                  />
+                </button>
                 <button
-                  v-for="entry in group.entries"
+                  v-for="entry in group.entries.filter(
+                    () => !popFolded[group.label],
+                  )"
                   :key="entry.id"
                   class="rp-pop-entry"
                   :class="stateOf(openFilter, entry.id)"
@@ -1194,6 +1208,10 @@ export default {
       /** FT-1373: the open popover's left edge — the opening button's own
        *  offset in the bar, so the pop reads as that button's dropdown. */
       popLeft: 0,
+      /** FT-1374 (user): which role-team groups are folded in the roles
+       *  popover. Travellers start folded (they rarely matter to a filter
+       *  question); a gesture per page open, never persisted. */
+      popFolded: { Travellers: true },
       /** Which filter popover is open ('scripts' | 'roles' | 'players'), or
        *  null. A gesture, not a preference — never persisted. */
       openFilter: null,
@@ -3295,7 +3313,12 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 300px;
+  // FT-1374 (user: "why isn't this longer, height doesn't need to be
+  // fixed does it?") — the cap follows the WINDOW now, not a constant:
+  // room for the whole catalog on a tall screen, scrolling only when the
+  // viewport genuinely runs out (the bar sits ~120px from the top; 78vh
+  // leaves the popover clear of the window's foot at every size tried).
+  max-height: 78vh;
   overflow-y: auto;
 }
 // A TRI-STATE ENTRY: bare (off), filled GREEN with a + (include), amber and
@@ -3311,6 +3334,30 @@ h4 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.45;
+  // FT-1374: the header is a FOLD BUTTON now — the p's dress kept, the
+  // button's own chrome stripped; the chevron lies flat when open and
+  // turns to point right when the group is folded.
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.8;
+  }
+  .rp-pop-group-chev {
+    font-size: 8px;
+    transition: transform 150ms;
+  }
+  &.folded .rp-pop-group-chev {
+    transform: rotate(-90deg);
+  }
 
   &:first-child {
     margin-top: 0;
