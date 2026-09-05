@@ -248,6 +248,59 @@
         <circle class="im-ember im-e4" cx="44" cy="-6" r="1.4" />
       </template>
     </svg>
+
+    <!-- ── RAVENKEEPER — THE WING WREATH (the ravens choose a roost) ─────
+         The dead actor's mark: this ask only exists for a seat that died
+         tonight, and the machinery already knows it (deadStillWakes).
+         invite: lone feathers drift and tumble slowly past the legal coins.
+         staged: the feathers flutter DOWN and settle one by one on the
+                 chosen rim, staggered, then rest.
+         sealed: the wings FOLD shut around the coin — both sides sweep up
+                 and lock — and the moon-eye glints once. -->
+    <svg v-else-if="roleId === 'ravenkeeper'" viewBox="0 -24 100 124">
+      <template v-if="state === 'invite'">
+        <g class="rk-drift rk-f1">
+          <path class="rk-feather" :d="feather(16, 18)" />
+        </g>
+        <g class="rk-drift rk-f2">
+          <path class="rk-feather" :d="feather(84, 10)" />
+        </g>
+        <g class="rk-drift rk-f3">
+          <path class="rk-feather" :d="feather(70, 78)" />
+        </g>
+      </template>
+      <template v-else-if="state === 'staged'">
+        <g class="rk-settle rk-f1">
+          <path class="rk-feather" :d="feather(20, 26)" />
+        </g>
+        <g class="rk-settle rk-f2">
+          <path class="rk-feather" :d="feather(80, 26)" />
+        </g>
+        <g class="rk-settle rk-f3">
+          <path class="rk-feather" :d="feather(32, 84)" />
+        </g>
+        <g class="rk-settle rk-f4">
+          <path class="rk-feather" :d="feather(68, 84)" />
+        </g>
+      </template>
+      <template v-else-if="state === 'sealed'">
+        <g class="rk-wing rk-wl">
+          <path class="rk-pleat" d="M 46 92 Q 12 84 6 50" />
+          <path class="rk-pleat" d="M 46 92 Q 18 84 14 60" />
+          <path class="rk-pleat" d="M 46 92 Q 24 84 22 68" />
+        </g>
+        <g class="rk-wing rk-wr">
+          <path class="rk-pleat" d="M 54 92 Q 88 84 94 50" />
+          <path class="rk-pleat" d="M 54 92 Q 82 84 86 60" />
+          <path class="rk-pleat" d="M 54 92 Q 76 84 78 68" />
+        </g>
+        <path
+          class="rk-moon"
+          d="M 50 -9 A 8.5 8.5 0 1 0 50 8 A 11 11 0 0 1 50 -9 Z"
+        />
+        <path class="rk-glint" :d="star(58, -6, 3.4)" />
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -256,7 +309,14 @@
  *  role-by-role order: monk, poisoner, fortuneteller, butler, imp,
  *  ravenkeeper). Everything else renders nothing and keeps the app's
  *  standing purple idiom. */
-const HAS_ART = ["monk", "poisoner", "fortuneteller", "butler", "imp"];
+const HAS_ART = [
+  "monk",
+  "poisoner",
+  "fortuneteller",
+  "butler",
+  "imp",
+  "ravenkeeper",
+];
 
 /** The Imp's state-1 ember ticks — twelve short radial strokes at r≈40,
  *  precomputed once (they are the same on every coin). */
@@ -306,6 +366,14 @@ export default {
         `M ${cx} ${cy - r} L ${cx + w} ${cy - w} L ${cx + r} ${cy} ` +
         `L ${cx + w} ${cy + w} L ${cx} ${cy + r} L ${cx - w} ${cy + w} ` +
         `L ${cx - r} ${cy} L ${cx - w} ${cy - w} Z`
+      );
+    },
+    /** A slender feather at (cx, cy) — a leaf body with a spine, drifting
+     *  point-down. One path so a group transform moves it whole. */
+    feather(cx, cy) {
+      return (
+        `M ${cx} ${cy} q 3.4 -6 1.6 -14 q -5.4 6.4 -1.6 14 Z ` +
+        `M ${cx} ${cy} l 1 -13`
       );
     },
   },
@@ -652,6 +720,10 @@ $ft-star-hot: #f4eeff;
 // state 1 — sparkles wink in and out around the coin. The state-1 loop.
 .ft-spark {
   fill: $ft-star-hot;
+  // scale around the star's own centre, not the SVG origin — without this
+  // a wink at (84,20) would slide toward the corner as it shrank
+  transform-box: fill-box;
+  transform-origin: center;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
     drop-shadow(0 0 4px rgba(217, 204, 255, 0.85));
   animation: ft-wink 2s ease-in-out infinite;
@@ -979,6 +1051,143 @@ $im-deep: #d24a12;
   100% {
     opacity: 0;
     transform: translateY(-9px);
+  }
+}
+
+// ── THE RAVENKEEPER'S PALETTE ───────────────────────────────────────────
+// Moonlit violet — a dead seat's mark, so it is the coolest and quietest of
+// the six: violet feathers, a pale moon, one glint.
+$rk-violet: #a48ce0;
+$rk-violet-hot: #e6dcff;
+
+.rk-feather {
+  fill: rgba(46, 32, 84, 0.8);
+  stroke: $rk-violet;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 4px rgba(164, 140, 224, 0.6));
+}
+
+// state 1 — lone feathers drift and tumble slowly past the coin. The
+// state-1 loop, staggered so the fall never reads as one object.
+.rk-drift {
+  animation: rk-drift 3s ease-in-out infinite;
+  &.rk-f2 {
+    animation-delay: 1s;
+  }
+  &.rk-f3 {
+    animation-delay: 2s;
+  }
+}
+
+@keyframes rk-drift {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) rotate(-8deg);
+  }
+  30% {
+    opacity: 0.95;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px) rotate(10deg);
+  }
+}
+
+// state 2 — the feathers flutter DOWN and settle one by one on the chosen
+// rim (staggered ease-out), then REST — the no-loop rule.
+.rk-settle {
+  animation: rk-settle 0.5s ease-out both;
+  &.rk-f2 {
+    animation-delay: 0.15s;
+  }
+  &.rk-f3 {
+    animation-delay: 0.3s;
+  }
+  &.rk-f4 {
+    animation-delay: 0.45s;
+  }
+}
+
+@keyframes rk-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) rotate(-14deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+// state 3 — the wings FOLD shut around the coin: both pleated sides sweep
+// up from the foot and lock, and the moon-eye glints once above.
+.rk-pleat {
+  fill: none;
+  stroke: $rk-violet;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(164, 140, 224, 0.7));
+}
+
+.rk-wing {
+  transform-origin: 50px 92px;
+  animation: rk-fold 0.6s ease-out both;
+}
+
+.rk-wl {
+  --rk-from: 32deg;
+}
+.rk-wr {
+  --rk-from: -32deg;
+}
+
+@keyframes rk-fold {
+  from {
+    opacity: 0;
+    transform: rotate(var(--rk-from, 0deg));
+  }
+  to {
+    opacity: 0.95;
+    transform: rotate(0deg);
+  }
+}
+
+.rk-moon {
+  fill: $rk-violet-hot;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(230, 220, 255, 0.8));
+  opacity: 0;
+  animation: nm-arrive 0.4s ease-out 0.5s both;
+}
+
+// the glint — ONCE, then it dies back to a faint watchful point.
+.rk-glint {
+  fill: white;
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.95));
+  opacity: 0;
+  animation: rk-glint 0.55s ease-out 0.7s both;
+}
+
+@keyframes rk-glint {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
   }
 }
 

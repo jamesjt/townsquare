@@ -4721,6 +4721,7 @@ $night-seal-glow: (
   fortuneteller: rgba(217, 204, 255, 0.85),
   butler: rgba(232, 201, 143, 0.8),
   imp: rgba(255, 154, 61, 0.8),
+  ravenkeeper: rgba(164, 140, 224, 0.85),
 );
 
 @each $role, $glow in $night-seal-glow {
