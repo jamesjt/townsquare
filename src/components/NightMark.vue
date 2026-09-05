@@ -208,6 +208,46 @@
         <path class="bt-spark" :d="star(90, 10, 3.4)" />
       </template>
     </svg>
+
+    <!-- ── IMP — THE RUNE CLAW (the kill is signed) ──────────────────────
+         invite: ember ticks flicker on every live coin — the Imp's OWN coin
+                 included, deliberately: that door is the starpass.
+         staged: three claw slashes rake IN one after another; the rune arc
+                 traces itself and stays OPEN.
+         sealed: the rune SNAPS shut — full circle, the pentagram flares —
+                 and embers drift up and die. -->
+    <svg v-else-if="roleId === 'imp'" viewBox="0 -24 100 124">
+      <template v-if="state === 'invite'">
+        <path
+          v-for="(t, i) in EMBER_TICKS"
+          :key="'et' + i"
+          class="im-tick"
+          :class="'im-t' + (i % 4)"
+          :d="t"
+        />
+      </template>
+      <template v-else-if="state === 'staged'">
+        <circle class="im-rune-arc" cx="50" cy="50" r="41" pathLength="1" />
+        <path class="im-slash im-s1" d="M 36 18 q 4 22 -2 48" pathLength="1" />
+        <path class="im-slash im-s2" d="M 52 14 q 3 24 -1 54" pathLength="1" />
+        <path class="im-slash im-s3" d="M 66 18 q 2 20 -2 46" pathLength="1" />
+      </template>
+      <template v-else-if="state === 'sealed'">
+        <circle class="im-flare" cx="50" cy="50" r="41" />
+        <circle class="im-rune-ring" cx="50" cy="50" r="41" pathLength="1" />
+        <path
+          class="im-penta"
+          d="M 50 20 L 67.6 74.3 L 21.5 40.7 L 78.5 40.7 L 32.4 74.3 Z"
+        />
+        <path class="im-slash im-hard im-s1" d="M 36 18 q 4 22 -2 48" />
+        <path class="im-slash im-hard im-s2" d="M 52 14 q 3 24 -1 54" />
+        <path class="im-slash im-hard im-s3" d="M 66 18 q 2 20 -2 46" />
+        <circle class="im-ember im-e1" cx="34" cy="6" r="1.7" />
+        <circle class="im-ember im-e2" cx="52" cy="0" r="2" />
+        <circle class="im-ember im-e3" cx="66" cy="8" r="1.4" />
+        <circle class="im-ember im-e4" cx="44" cy="-6" r="1.4" />
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -216,7 +256,24 @@
  *  role-by-role order: monk, poisoner, fortuneteller, butler, imp,
  *  ravenkeeper). Everything else renders nothing and keeps the app's
  *  standing purple idiom. */
-const HAS_ART = ["monk", "poisoner", "fortuneteller", "butler"];
+const HAS_ART = ["monk", "poisoner", "fortuneteller", "butler", "imp"];
+
+/** The Imp's state-1 ember ticks — twelve short radial strokes at r≈40,
+ *  precomputed once (they are the same on every coin). */
+const EMBER_TICKS = (() => {
+  const ticks = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
+    const x1 = 50 + 37 * Math.cos(a);
+    const y1 = 50 + 37 * Math.sin(a);
+    const x2 = 50 + 43 * Math.cos(a);
+    const y2 = 50 + 43 * Math.sin(a);
+    ticks.push(
+      `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`,
+    );
+  }
+  return ticks;
+})();
 
 export default {
   name: "NightMark",
@@ -234,6 +291,9 @@ export default {
   computed: {
     hasArt() {
       return HAS_ART.includes(this.roleId) && !!this.state;
+    },
+    EMBER_TICKS() {
+      return EMBER_TICKS;
     },
   },
   methods: {
@@ -771,6 +831,155 @@ $bt-cord-hot: #ffe9c4;
   filter: drop-shadow(0 0 4px rgba(255, 233, 196, 0.9));
   opacity: 0;
   animation: ps-surface 0.35s ease-out 0.4s both;
+}
+
+// ── THE IMP'S PALETTE ───────────────────────────────────────────────────
+// Ember orange — fire, not blood: crimson already means death and the
+// bluffs mask on this square, and the rune is a signature, not a wound.
+$im-ember: #ff9a3d;
+$im-ember-hot: #ffc76e;
+$im-deep: #d24a12;
+
+// state 1 — ember ticks flicker round the rim. The state-1 loop, staggered
+// four ways so the ring smoulders rather than blinking in unison.
+.im-tick {
+  fill: none;
+  stroke: $im-ember;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 4px rgba(255, 154, 61, 0.75));
+  animation: im-flicker 2s ease-in-out infinite;
+  &.im-t1 {
+    animation-delay: 0.5s;
+  }
+  &.im-t2 {
+    animation-delay: 1s;
+  }
+  &.im-t3 {
+    animation-delay: 1.5s;
+  }
+}
+
+@keyframes im-flicker {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+// state 2 — the claw: three slashes rake IN one after another, and the rune
+// arc traces itself but stays OPEN (the circle is the seal's to close).
+.im-slash {
+  fill: none;
+  stroke: $im-deep;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 4px rgba(255, 154, 61, 0.65));
+  animation: ps-crawl 0.3s ease-in both;
+  &.im-s2 {
+    animation-delay: 0.18s;
+  }
+  &.im-s3 {
+    animation-delay: 0.36s;
+  }
+}
+
+.im-rune-arc {
+  fill: none;
+  stroke: $im-ember;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  // 72% of the circle: an open arc, unmistakably unfinished
+  stroke-dasharray: 0.72 0.28;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(255, 154, 61, 0.7));
+  opacity: 0;
+  animation: nm-arrive 0.5s ease-out 0.5s both;
+}
+
+@keyframes nm-arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+
+// state 3 — the SNAP: the circle closes in one fast sweep, the pentagram
+// flares with it, one bright ring of light burns out, and the embers drift
+// up and die. Then everything holds still.
+.im-rune-ring {
+  fill: none;
+  stroke: $im-ember;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 7px rgba(255, 154, 61, 0.8));
+  animation: ps-sweep 0.45s ease-in both;
+}
+
+.im-penta {
+  fill: none;
+  stroke: $im-ember-hot;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(255, 199, 110, 0.8));
+  opacity: 0;
+  animation: nm-arrive 0.35s ease-out 0.4s both;
+}
+
+.im-flare {
+  fill: none;
+  stroke: $im-ember-hot;
+  stroke-width: 3;
+  transform-origin: 50px 50px;
+  animation: mk-toll-once 0.6s ease-out 0.4s both;
+}
+
+.im-slash.im-hard {
+  stroke: $im-ember;
+  animation: mk-seal-hold 0.3s ease-out both;
+}
+
+.im-ember {
+  fill: $im-ember-hot;
+  filter: drop-shadow(0 0 3px rgba(255, 199, 110, 0.9));
+  opacity: 0;
+  animation: im-rise 0.8s ease-out 0.5s both;
+  &.im-e2 {
+    animation-delay: 0.6s;
+  }
+  &.im-e3 {
+    animation-delay: 0.7s;
+  }
+  &.im-e4 {
+    animation-delay: 0.8s;
+  }
+}
+
+// up, and out — the embers are the one sealed element that ENDS dark,
+// because an ember that holds is a lamp, not a death.
+@keyframes im-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-9px);
+  }
 }
 
 // The information without the travel: every mark appears at rest.
