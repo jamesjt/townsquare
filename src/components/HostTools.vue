@@ -4479,6 +4479,13 @@ export default {
           this.rolesAssigned < this.players.length &&
           this.coreSeats.every((p) => p.id)
         ) {
+          // FT-1387: under 5 non-traveler seats the roles modal's own
+          // `v-if` never renders it — toggling the flag looked like a dead
+          // click. Say why instead.
+          if (this.$store.getters["players/nonTravelers"] < 5) {
+            flashHint("Add seats — a game needs at least 5 players.");
+            return;
+          }
           this.toggleModal("roles");
         }
         return;

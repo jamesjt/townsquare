@@ -76,6 +76,9 @@ import { mapGetters, mapMutations, mapState } from "vuex";
 import { placedCount } from "../../golem/duplicates";
 // FT-1242: the assign button wears the deal's own hand (RoleActions' mark).
 import uiDeal from "../../assets/ui-deal.png";
+// FT-1387: a refused Assign click speaks instead of the greyed button
+// swallowing it in silence.
+import { flashHint } from "../../golem/hint";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -175,6 +178,14 @@ export default {
       });
     },
     assignRoles() {
+      // FT-1387: the button greys but the click still lands here — refusing
+      // (too many selected, or none) used to be silent. Say the counts.
+      if (this.selectedRoles > this.nonTravelers || !this.selectedRoles) {
+        flashHint(
+          `Select ${this.nonTravelers} characters — you have ${this.selectedRoles}.`,
+        );
+        return;
+      }
       if (this.selectedRoles <= this.nonTravelers && this.selectedRoles) {
         // generate list of selected roles and randomize it
         const roles = Object.values(this.roleSelection)

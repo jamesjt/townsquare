@@ -277,6 +277,8 @@ import bottomSheet from "../golem/bottomSheet";
 // characters" picker (RolesModal) so the two surfaces can never disagree on
 // what is already in play.
 import { placedCount as sharedPlacedCount } from "../golem/duplicates";
+// FT-1387: a composition-starved Deal speaks instead of no-opping in silence.
+import { flashHint } from "../golem/hint";
 
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 // the cursor has to rest on a row before its card appears — running the list
@@ -705,6 +707,14 @@ export default {
       // herring is part of a dealt board too, and a re-deal from here re-draws
       // its seat rather than stacking a second one beside the first.
       this.$store.dispatch("players/dealReminders");
+      // FT-1387: a composition-starved deal fills what it can — a seat still
+      // roleless here means a re-click would no-op silently. Same sentence
+      // the shift-Start path speaks (HostTools.start, FT-1387's sibling).
+      if (this.players.some((p) => p.role.team !== "traveler" && !p.role.id)) {
+        flashHint(
+          "The script can't cast every seat — add characters or remove seats.",
+        );
+      }
     },
     /** Reshuffle the SEATED roles among their own chairs. */
     shuffleSeated() {
