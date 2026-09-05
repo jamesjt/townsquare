@@ -100,43 +100,30 @@
       </template>
     </svg>
 
-    <!-- ── POISONER — THE SEEP (venom takes the rim) ─────────────────────
+    <!-- ── POISONER — THE MIASMA (venom haunts the coin) ─────────────────
          invite: a sick-green seep ring breathes on every legal coin, one
                  bright bead slowly circling it (the state-1 loop).
-         staged: venom crawls over the chosen coin's crown — an arc seeps on
-                 once, three drips run down and HOLD, mid-crawl.
-         sealed: the seep completes the circle in one smooth sweep and goes
-                 STILL; the drips harden; the skull wisp fades in last. -->
+         staged: a sick-green glow wakes BEHIND the chosen coin — the v3
+                 miasma's behind-coin aura, foot fog and motes dropped
+                 (FT-1395, user-picked). One fade-in (≤1s), then it HOLDS.
+         sealed: one DEEPER-green circle closes round the coin in a single
+                 sweep, outside the rim (FT-1386), and goes STILL; the
+                 staged glow stays underneath, dimmed. -->
     <svg v-else-if="roleId === 'poisoner'" viewBox="0 -24 100 124">
       <template v-if="state === 'invite'">
         <circle class="ps-seep-ring" cx="50" cy="50" r="55" />
         <circle class="ps-bead" cx="50" cy="50" r="55" pathLength="1" />
       </template>
       <template v-else-if="state === 'staged'">
-        <path class="ps-arc" d="M 14 34 A 38 38 0 0 1 86 34" pathLength="1" />
-        <path class="ps-drip ps-d1" d="M 30 22 q 1.5 9 0 15" pathLength="1" />
-        <path class="ps-drip ps-d2" d="M 50 13 q -1 12 0.5 21" pathLength="1" />
-        <path class="ps-drip ps-d3" d="M 68 20 q 1 7 -0.5 12" pathLength="1" />
-        <circle class="ps-bubble ps-b1" cx="30" cy="39" r="1.8" />
-        <circle class="ps-bubble ps-b2" cx="50.5" cy="36" r="2.2" />
-        <circle class="ps-bubble ps-b3" cx="67.5" cy="34" r="1.6" />
+        <!-- the aura hugs the rim (stroke centred just inside it) so the
+             blur leaks out past the coin's edge — light seen from BEHIND
+             the coin, never a wash over its face -->
+        <circle class="ps-aura" cx="50" cy="50" r="53" />
+        <path class="ps-aura-low" d="M 6.3 80 A 53 53 0 0 0 93.7 80" />
       </template>
       <template v-else-if="state === 'sealed'">
+        <circle class="ps-aura ps-aura-dim" cx="50" cy="50" r="53" />
         <circle class="ps-seal-ring" cx="50" cy="50" r="55" pathLength="1" />
-        <path class="ps-drip ps-hard ps-d1" d="M 30 22 q 1.5 9 0 15" />
-        <path class="ps-drip ps-hard ps-d2" d="M 50 13 q -1 12 0.5 21" />
-        <path class="ps-drip ps-hard ps-d3" d="M 68 20 q 1 7 -0.5 12" />
-        <!-- the skull wisp — dark body, hot green rim light, last to arrive -->
-        <g class="ps-skull">
-          <path
-            d="M 50 -18 a 7.5 7 0 0 1 7.5 7 c 0 3 -1.6 4.6 -3.2 5.6
-               l 0 2.6 a 1.4 1.4 0 0 1 -1.4 1.4 l -5.8 0 a 1.4 1.4 0 0 1
-               -1.4 -1.4 l 0 -2.6 c -1.6 -1 -3.2 -2.6 -3.2 -5.6 a 7.5 7 0
-               0 1 7.5 -7 z"
-          />
-          <circle class="ps-eye" cx="47" cy="-10.5" r="1.7" />
-          <circle class="ps-eye" cx="53" cy="-10.5" r="1.7" />
-        </g>
       </template>
     </svg>
 
@@ -747,7 +734,9 @@ $mk-gold-hot: #fff6dc;
 // be mistaken for anything benign.
 $ps-green: #8fe33c;
 $ps-green-hot: #c8ff6e;
-$ps-dark: #24350f;
+// the seal's ink — DEEPER than the staged glow (the user's pick: the
+// confirmation is the darker circle, not a brighter flash)
+$ps-green-deep: #4a8d1e;
 
 // state 1 — the seep ring breathes, and one bright bead slowly rounds it.
 .ps-seep-ring {
@@ -779,55 +768,61 @@ $ps-dark: #24350f;
   }
 }
 
-// state 2 — the crawl-on: the crown arc seeps in first, the drips run down
-// after it, the bubbles surface last. Everything lands inside a second and
-// HOLDS mid-crawl (the no-loop rule for a decision at rest).
-.ps-arc {
+// state 2 — the miasma (FT-1395, the user-picked v3 aura): a soft toxic
+// glow rises BEHIND the chosen coin — a heavily blurred ring hugging the
+// rim, weighted low the way the concept shot read. One fade-in, then it
+// HOLDS (the no-loop rule for a decision at rest).
+.ps-aura {
   fill: none;
   stroke: $ps-green;
-  stroke-width: 4;
+  stroke-width: 9;
   stroke-linecap: round;
-  stroke-dasharray: 1;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 6px rgba(143, 227, 60, 0.75));
-  animation: ps-crawl 0.55s ease-out both;
+  filter: blur(4px);
+  opacity: 0;
+  animation: ps-haze-in 0.7s ease-out both;
 }
 
-.ps-drip {
-  fill: none;
-  stroke: $ps-green;
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-dasharray: 1;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 4px rgba(143, 227, 60, 0.65));
-  animation: ps-crawl 0.5s ease-in 0.35s both;
-  &.ps-d2 {
-    animation-delay: 0.45s;
+@keyframes ps-haze-in {
+  from {
+    opacity: 0;
   }
-  &.ps-d3 {
-    animation-delay: 0.55s;
+  to {
+    opacity: 0.42;
   }
 }
 
+// the lower reach glows hotter — the venom pools where the coin meets the
+// cloth, the shot's read without its detached foot-fog band
+.ps-aura-low {
+  fill: none;
+  stroke: $ps-green-hot;
+  stroke-width: 10;
+  stroke-linecap: round;
+  filter: blur(3px);
+  opacity: 0;
+  animation: ps-haze-low 0.7s ease-out 0.15s both;
+}
+
+@keyframes ps-haze-low {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 0.6;
+    transform: translateY(0);
+  }
+}
+
+// ps-crawl and ps-surface outlived the seep dress they were drawn for —
+// the Imp's slashes, the Washerwoman's ring and the Butler's spark still
+// ride them.
 @keyframes ps-crawl {
   from {
     stroke-dashoffset: 1;
   }
   to {
     stroke-dashoffset: 0;
-  }
-}
-
-.ps-bubble {
-  fill: $ps-green-hot;
-  opacity: 0;
-  animation: ps-surface 0.35s ease-out 0.75s both;
-  &.ps-b2 {
-    animation-delay: 0.85s;
-  }
-  &.ps-b3 {
-    animation-delay: 0.95s;
   }
 }
 
@@ -842,17 +837,17 @@ $ps-dark: #24350f;
   }
 }
 
-// state 3 — the seal: one smooth sweep closes the circle and goes STILL.
-// The drips arrive already hardened (brighter, no crawl); the skull wisp
-// fades in last, dark-bodied with the hot rim doing the reading.
+// state 3 — the seal: one DEEPER-green circle closes round the coin in a
+// single sweep and goes STILL; the staged aura holds on underneath,
+// dimmed, so the poisoned air never snaps off at the Confirm.
 .ps-seal-ring {
   fill: none;
-  stroke: $ps-green;
-  stroke-width: 3.2;
+  stroke: $ps-green-deep;
+  stroke-width: 3.8;
   stroke-linecap: round;
   stroke-dasharray: 1;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 8px rgba(143, 227, 60, 0.8));
+    drop-shadow(0 0 6px rgba(74, 141, 30, 0.8));
   animation: ps-sweep 0.8s ease-in-out both;
 }
 
@@ -867,35 +862,16 @@ $ps-dark: #24350f;
   }
 }
 
-.ps-hard {
-  stroke: $ps-green-hot;
-  stroke-width: 2.8;
-  animation: mk-seal-hold 0.3s ease-out 0.5s both;
+.ps-aura-dim {
+  animation: ps-haze-dim 0.6s ease-out both;
 }
 
-.ps-skull {
-  path {
-    fill: $ps-dark;
-    stroke: $ps-green-hot;
-    stroke-width: 1.4;
-    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9))
-      drop-shadow(0 0 4px rgba(200, 255, 110, 0.7));
-  }
-  .ps-eye {
-    fill: $ps-green-hot;
-  }
-  opacity: 0;
-  animation: ps-wisp 0.45s ease-out 0.75s both;
-}
-
-@keyframes ps-wisp {
+@keyframes ps-haze-dim {
   from {
     opacity: 0;
-    transform: translateY(4px);
   }
   to {
-    opacity: 0.92;
-    transform: translateY(0);
+    opacity: 0.22;
   }
 }
 
