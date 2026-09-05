@@ -1292,6 +1292,15 @@ $face-pick: #a78fcd;
   }
 }
 
+.nfs-investigator {
+  border-color: rgba(255, 90, 90, 0.8);
+  color: #ffd9d9;
+  &.settled {
+    border-color: transparent;
+    color: #f0b9b9;
+  }
+}
+
 // ── FT-1385: THE LIBRARIAN'S BOOK ────────────────────────────────────────
 // Sepia furniture, one red ribbon — NightMark's own librarian inks, so the
 // book, the page-corners on the coins and the ribbon between them read as

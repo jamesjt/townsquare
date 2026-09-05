@@ -76,6 +76,9 @@ const THREADED = {
 const TOLD_DRESS = {
   washerwoman: "laundry",
   librarian: "ribbon",
+  // the evidence string NEVER slacks — the tonal split from the
+  // Washerwoman's line is the whole point (no sag case in lineD)
+  investigator: "evidence",
 };
 
 export default {
@@ -290,6 +293,10 @@ $nt-laundry: #eaf2ff;
 // THE LIBRARIAN'S RIBBON — old-parchment sepia, the book's own ink.
 $nt-ribbon: #e8d9a8;
 
+// THE INVESTIGATOR'S STRING — evidence red, hot when fresh, dried darker.
+$nt-evidence: #ff5a5a;
+$nt-evidence-dry: #c23b3b;
+
 .nt-line {
   fill: none;
   opacity: 0;
@@ -389,6 +396,33 @@ $nt-ribbon: #e8d9a8;
     opacity: 0.6;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
       drop-shadow(0 0 3px rgba(232, 217, 168, 0.4));
+    animation: nt-hold 0.9s ease-out both;
+  }
+}
+
+// FT-1385 — the Investigator's evidence string: SNAPS taut between the two
+// pinned coins at the telling and NEVER slacks — the Washerwoman's line
+// eases, this one does not; that is the tonal split. Settled it only
+// THINS and dries darker, still dead straight, still solid.
+.nt-evidence {
+  stroke: $nt-evidence;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(255, 90, 90, 0.7));
+  animation: nt-snap 0.45s ease-out both;
+  transition:
+    stroke-width 0.9s ease,
+    stroke 0.9s ease,
+    opacity 0.9s ease,
+    filter 0.9s ease;
+
+  &.settled {
+    stroke: $nt-evidence-dry;
+    stroke-width: 1.4;
+    opacity: 0.75;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 3px rgba(194, 59, 59, 0.45));
     animation: nt-hold 0.9s ease-out both;
   }
 }

@@ -381,6 +381,34 @@
         </g>
       </template>
     </svg>
+
+    <!-- ── INVESTIGATOR — THE EVIDENCE TACKS ──────────────────────────────
+         telling: a tack PINS each candidate coin — one hard press — and
+                  the red ring snaps round it; the string one component
+                  over snaps taut in the same breath.
+         settled: nothing sweetens. The ring dries to dotted, the tack
+                  HOLDS. Self: the case's wax seal cools on the teller's
+                  own rim — the dossier stamped, kept all game. -->
+    <svg v-else-if="roleId === 'investigator'" viewBox="0 -24 100 124">
+      <template v-if="part === 'target'">
+        <circle class="iv-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <g class="iv-tack">
+          <path class="iv-pin" d="M 50 -1 L 50 7" />
+          <circle class="iv-head" cx="50" cy="-5" r="4.6" />
+          <circle class="iv-glint" cx="48.4" cy="-6.6" r="1.2" />
+        </g>
+      </template>
+      <template v-else>
+        <g class="iv-seal">
+          <path
+            d="M 50 -7 c 5 -3.4 9.6 -0.6 9.9 3.4 c 0.4 4.4 -3.4 6.4 -5.4 6.9
+               c 2 1.5 1 3.4 -1.2 3.2 c -2.4 -0.2 -7.6 0.6 -9.6 -1.4
+               c -2.8 -2.8 -3 -7.6 -0.4 -10.1 c 2 -1.9 4.4 -2.4 6.7 -2 z"
+          />
+          <circle class="iv-boss" cx="50" cy="-1" r="3.4" />
+        </g>
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -1523,6 +1551,120 @@ $lb-red: #c8452f;
 .nm-part-self.nm-librarian svg {
   // the ribbon rides at the shoulder, a bookmark's own slight lean
   transform: translate(22%, 2%) rotate(14deg) scale(0.8);
+}
+
+// ── THE INVESTIGATOR'S PALETTE ──────────────────────────────────────────
+// Evidence red — hot when the tack lands, dried darker at rest. Crimson
+// already means death elsewhere on the square; THIS red is thread-and-wax,
+// always worn with the tack or the seal, never bare on a coin.
+$iv-red: #ff5a5a;
+$iv-dry: #c23b3b;
+$iv-dark: #3a0f0f;
+
+.iv-ring {
+  fill: none;
+  stroke: $iv-red;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(255, 90, 90, 0.75));
+  // faster than the softer roles' read-on: evidence snaps
+  animation: ps-crawl 0.4s ease-out both;
+  transition:
+    opacity 0.7s ease,
+    stroke 0.7s ease,
+    stroke-width 0.7s ease,
+    filter 0.7s ease;
+}
+
+.nm-settled .iv-ring {
+  stroke: $iv-dry;
+  stroke-width: 2;
+  stroke-dasharray: 0.012 0.028;
+  opacity: 0.75;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(194, 59, 59, 0.45));
+  animation: none;
+}
+
+// the tack: a pinhead over the coin's crown with its pin pressed into the
+// rim. One HARD press at the telling (scale overshoot in, no bounce out);
+// at rest it holds — tacks do not soften.
+.iv-tack {
+  .iv-pin {
+    fill: none;
+    stroke: $iv-dry;
+    stroke-width: 2;
+    stroke-linecap: round;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  }
+  .iv-head {
+    fill: $iv-dark;
+    stroke: $iv-red;
+    stroke-width: 1.6;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(255, 90, 90, 0.65));
+  }
+  .iv-glint {
+    fill: #ffd9d9;
+    opacity: 0.9;
+  }
+  transform-origin: 50px 0px;
+  animation: iv-press 0.4s ease-in both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .iv-tack {
+  opacity: 0.88;
+  animation: none;
+}
+
+@keyframes iv-press {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1.4);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(0.5px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// the teller's own wax seal — pressed once at the telling, cooled at rest.
+// Dark wax body, hot red rim light, an embossed boss at its middle.
+.iv-seal {
+  path {
+    fill: $iv-dark;
+    stroke: $iv-red;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(255, 90, 90, 0.55));
+  }
+  .iv-boss {
+    fill: none;
+    stroke: $iv-red;
+    stroke-width: 1.2;
+    opacity: 0.85;
+  }
+  transform-origin: 50px -1px;
+  animation: iv-press 0.45s ease-in both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .iv-seal {
+  opacity: 0.82;
+  animation: none;
+}
+
+.nm-part-self.nm-investigator svg {
+  // the seal rides the shoulder — a stamp on the case, not a crown
+  transform: translate(23%, 3%) rotate(-12deg) scale(0.85);
 }
 
 // The information without the travel: every mark appears at rest.
