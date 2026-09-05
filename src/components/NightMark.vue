@@ -152,6 +152,62 @@
         </g>
       </template>
     </svg>
+
+    <!-- ── BUTLER — THE CORD (deference, tied off) ───────────────────────
+         invite: a loose ribbon bow sways at every legal coin's shoulder.
+         staged: the bow waits, loose-knotted, on the master's coin — the
+                 slack cord running from the Butler's own chair is
+                 NightThread.vue's half of the act.
+         sealed: the cord snaps taut and the bow CINCHES shut here, with one
+                 sparkle. -->
+    <svg v-else-if="roleId === 'butler'" viewBox="0 -24 100 124">
+      <template v-if="state === 'invite'">
+        <g class="bt-bow bt-sway">
+          <path
+            class="bt-loop"
+            d="M 78 22 C 70 10, 58 15, 65 24 C 69 29, 74 26, 78 22 Z"
+          />
+          <path
+            class="bt-loop"
+            d="M 78 22 C 86 10, 98 15, 91 24 C 87 29, 82 26, 78 22 Z"
+          />
+          <path class="bt-tail" d="M 76 24 q -2 8 -6 11" />
+          <path class="bt-tail" d="M 80 24 q 2 8 6 11" />
+          <circle class="bt-knot" cx="78" cy="22" r="2.2" />
+        </g>
+      </template>
+      <template v-else-if="state === 'staged'">
+        <g class="bt-bow bt-loose">
+          <path
+            class="bt-loop"
+            d="M 78 22 C 70 10, 58 15, 65 24 C 69 29, 74 26, 78 22 Z"
+          />
+          <path
+            class="bt-loop"
+            d="M 78 22 C 86 10, 98 15, 91 24 C 87 29, 82 26, 78 22 Z"
+          />
+          <path class="bt-tail" d="M 76 24 q -2 8 -6 11" />
+          <path class="bt-tail" d="M 80 24 q 2 8 6 11" />
+          <circle class="bt-knot" cx="78" cy="22" r="2.2" />
+        </g>
+      </template>
+      <template v-else-if="state === 'sealed'">
+        <g class="bt-bow bt-cinched">
+          <path
+            class="bt-loop"
+            d="M 78 22 C 72 13, 63 17, 68 24 C 71 28, 75 25, 78 22 Z"
+          />
+          <path
+            class="bt-loop"
+            d="M 78 22 C 84 13, 93 17, 88 24 C 85 28, 81 25, 78 22 Z"
+          />
+          <path class="bt-tail" d="M 76 24 q -1.5 6 -4.5 8" />
+          <path class="bt-tail" d="M 80 24 q 1.5 6 4.5 8" />
+          <circle class="bt-knot" cx="78" cy="22" r="2.4" />
+        </g>
+        <path class="bt-spark" :d="star(90, 10, 3.4)" />
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -160,7 +216,7 @@
  *  role-by-role order: monk, poisoner, fortuneteller, butler, imp,
  *  ravenkeeper). Everything else renders nothing and keeps the app's
  *  standing purple idiom. */
-const HAS_ART = ["monk", "poisoner", "fortuneteller"];
+const HAS_ART = ["monk", "poisoner", "fortuneteller", "butler"];
 
 export default {
   name: "NightMark",
@@ -616,6 +672,105 @@ $ft-star-hot: #f4eeff;
     opacity: 1;
     transform: scaleY(1);
   }
+}
+
+// ── THE BUTLER'S PALETTE ────────────────────────────────────────────────
+// Champagne ribbon — NightThread's cord colours, so the bow on the coin and
+// the cord reaching it read as one piece of ribbon.
+$bt-cord: #e8c98f;
+$bt-cord-hot: #ffe9c4;
+
+.bt-bow {
+  .bt-loop {
+    fill: rgba(58, 40, 16, 0.75);
+    stroke: $bt-cord;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(232, 201, 143, 0.6));
+  }
+  .bt-tail {
+    fill: none;
+    stroke: $bt-cord;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+  }
+  .bt-knot {
+    fill: $bt-cord-hot;
+  }
+}
+
+// state 1 — the bow sways gently at the coin's shoulder. The state-1 loop.
+.bt-sway {
+  transform-origin: 78px 22px;
+  animation: bt-sway 2s ease-in-out infinite alternate;
+}
+
+@keyframes bt-sway {
+  from {
+    transform: rotate(-7deg);
+    opacity: 0.65;
+  }
+  to {
+    transform: rotate(7deg);
+    opacity: 1;
+  }
+}
+
+// state 2 — the bow settles on the master, loose, and holds.
+.bt-loose {
+  transform-origin: 78px 22px;
+  animation: bt-settle 0.6s ease-out both;
+}
+
+@keyframes bt-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+// state 3 — the CINCH: the bow snaps a size smaller and brightens, one
+// crack, in step with the cord going taut one component over.
+.bt-cinched {
+  transform-origin: 78px 22px;
+  animation: bt-cinch 0.4s ease-out both;
+
+  .bt-loop {
+    stroke: $bt-cord-hot;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 6px rgba(255, 233, 196, 0.85));
+  }
+  .bt-tail {
+    stroke: $bt-cord-hot;
+  }
+}
+
+@keyframes bt-cinch {
+  0% {
+    transform: scale(1.25);
+    opacity: 0.5;
+  }
+  55% {
+    transform: scale(0.94);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.bt-spark {
+  fill: $bt-cord-hot;
+  filter: drop-shadow(0 0 4px rgba(255, 233, 196, 0.9));
+  opacity: 0;
+  animation: ps-surface 0.35s ease-out 0.4s both;
 }
 
 // The information without the travel: every mark appears at rest.

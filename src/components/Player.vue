@@ -4719,6 +4719,7 @@ $night-seal-glow: (
   monk: rgba(255, 233, 176, 0.85),
   poisoner: rgba(143, 227, 60, 0.75),
   fortuneteller: rgba(217, 204, 255, 0.85),
+  butler: rgba(232, 201, 143, 0.8),
 );
 
 @each $role, $glow in $night-seal-glow {
