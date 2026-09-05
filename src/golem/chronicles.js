@@ -398,6 +398,89 @@ export function boardsOf(rows, gameId) {
   return out;
 }
 
+/**
+ * FT-1375: HOW EACH SEAT DIED, inferred from the game's own log rows — the
+ * record's roster says WHEN a seat died (deathDay/deathPhase, FT-1163) but
+ * deliberately never WHY ("the app records THAT a seat died, never why" —
+ * socket.js's death row). The log knows more than the record does, honestly:
+ *
+ *   executed   a `death` row landing while an execution MARK stood on that
+ *              same seat/name — the same arc gallowsThreadOf walks, read
+ *              from the mark's side. The mark clears on `unmark` and on any
+ *              phase turn (the day expiring), exactly as the town's does.
+ *   demon      a seat the RECORD says died at night N, where the game's
+ *              published night log (`nights` row for day N — public only
+ *              after game end, FT-1101) shows a line whose seat holds a
+ *              demon (per the record's own roleType) choosing that player
+ *              by name. The demon's recorded pick + the death the same
+ *              night is the record's own claim, not a guess.
+ *
+ * Anything else stays UNATTRIBUTED — no "probably", no default. A revive
+ * clears the seat's inference (a later death re-earns or doesn't), and a
+ * later unmarked death overwrites an earlier "executed" (last death wins,
+ * matching the record's own final-state discipline).
+ *
+ * @param rows    the town's log rows (ascending)
+ * @param gameId  the log-side game id (logGameIdOf)
+ * @param seats   the RECORD's seats (seatNo 1-based, roleType, playerName,
+ *                deathDay, deathPhase, survived)
+ * @returns a plain object: seatNo -> "executed" | "demon" (absent = unknown)
+ */
+export function fatesOf(rows, gameId, seats) {
+  const out = {};
+  const nightsByDay = new Map();
+  let mark = null; // { name, seat } — the standing execution mark
+  (rows || []).forEach((row) => {
+    if (!gameId || row.gameId !== gameId || row.kind !== "system") return;
+    const ev = decodeEvent(row.body);
+    if (!ev) return;
+    if (ev.t === "phase") {
+      mark = null; // the day expired; the night falling clears the mark
+    } else if (ev.t === "execution") {
+      mark = { name: ev.name, seat: ev.seat };
+    } else if (ev.t === "unmark") {
+      if (mark && mark.name === ev.name) mark = null;
+    } else if (ev.t === "nights") {
+      if (typeof ev.day === "number" && Array.isArray(ev.lines)) {
+        nightsByDay.set(ev.day, ev.lines);
+      }
+    } else if (ev.t === "revive") {
+      if (typeof ev.seat === "number") delete out[ev.seat + 1];
+    } else if (ev.t === "death") {
+      if (typeof ev.seat !== "number") return;
+      const seatNo = ev.seat + 1;
+      if (mark && (mark.seat === ev.seat || mark.name === ev.name)) {
+        out[seatNo] = "executed";
+      } else {
+        delete out[seatNo]; // last death wins; this one is unattributed so far
+      }
+    }
+  });
+  // The demon pass — over the RECORD's own night deaths, so a shroud dropped
+  // after dawn still matches the moment the record actually stored.
+  const demonSeats = new Set(
+    (seats || [])
+      .filter((s) => s && s.roleType === "demon")
+      .map((s) => s.seatNo),
+  );
+  (seats || []).forEach((s) => {
+    if (!s || s.survived || out[s.seatNo]) return;
+    if (s.deathPhase !== "night" || typeof s.deathDay !== "number") return;
+    const lines = nightsByDay.get(s.deathDay);
+    if (!lines) return;
+    const chosen = lines.some(
+      (l) =>
+        l &&
+        typeof l.seat === "number" &&
+        demonSeats.has(l.seat + 1) &&
+        Array.isArray(l.chose) &&
+        l.chose.includes(s.playerName),
+    );
+    if (chosen) out[s.seatNo] = "demon";
+  });
+  return out;
+}
+
 /** FT-1037: a game's winner from its own `end` row — for a game the log
  *  holds but the records API never got. */
 export function winnerOf(rows, gameId) {

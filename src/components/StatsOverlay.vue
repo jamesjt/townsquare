@@ -185,27 +185,93 @@
                large portrait was measured at, and each ring already paints
                its own opaque plate, which is the frame it needs. -->
           <div class="rp-panel rp-rosterwrap" v-if="pick.game.seats">
+            <!-- FT-1375 (user call): the roster's columns go behind a GEAR —
+                 the tables' own column switch (rp-colbtn/COLS_KEY idiom)
+                 wearing an icon at the panel's top right, as asked. Type
+                 defaults HIDDEN: the role's own team ink says it now. -->
+            <button
+              class="rp-colbtn rp-gearbtn"
+              :class="{ on: colsOpen.roster }"
+              title="Choose which columns the roster shows"
+              @click="colsOpen.roster = !colsOpen.roster"
+            >
+              <font-awesome-icon icon="cog" />
+            </button>
+            <div class="rp-chips rp-colchips" v-if="colsOpen.roster">
+              <button
+                v-for="col in rosterColumns"
+                :key="col.key"
+                class="rp-chip"
+                :class="{ on: colOn('roster', col.key) }"
+                :title="col.title"
+                @click="toggleCol('roster', col.key)"
+              >
+                {{ col.label }}
+              </button>
+            </div>
             <table class="rp-table rp-roster">
               <thead>
                 <tr>
                   <th>Seat</th>
-                  <th>Player</th>
-                  <th>Role</th>
+                  <th class="rp-word" v-if="colOn('roster', 'player')">
+                    Player
+                  </th>
+                  <th class="rp-word" v-if="colOn('roster', 'role')">Role</th>
                   <!-- FT-1304: "Type", matching the Roles table's rename. -->
-                  <th>Type</th>
-                  <th>Side</th>
-                  <th>Fate</th>
+                  <th class="rp-word" v-if="colOn('roster', 'type')">Type</th>
+                  <th v-if="colOn('roster', 'side')">Side</th>
+                  <th v-if="colOn('roster', 'fate')">Fate</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="seat in pick.game.seats" :key="seat.seatNo">
                   <td>{{ seat.seatNo }}</td>
-                  <td>{{ seat.playerName }}</td>
-                  <td>{{ roleNameOf(seat.roleIdFinal) }}</td>
-                  <td>{{ seat.roleType }}</td>
-                  <td :class="seat.teamAtEnd">{{ seat.teamAtEnd }}</td>
-                  <td :class="seat.survived ? 'lived' : 'died'">
-                    {{ seat.survived ? "lived" : "died" }}
+                  <td class="rp-word" v-if="colOn('roster', 'player')">
+                    {{ seat.playerName }}
+                  </td>
+                  <!-- FT-1375 (user call): the role wears its own token art
+                       (the registry's, via the one shared resolver — the
+                       filter popover's entries' own icons) and its TEAM ink
+                       (vars.scss's team tokens, the app's one team
+                       vocabulary, lifted for this glass like the role and
+                       edition modals lift it). -->
+                  <td
+                    class="rp-word rp-rolecell"
+                    v-if="colOn('roster', 'role')"
+                  >
+                    <img
+                      class="rp-roleicon"
+                      :src="roleArtOf(seat.roleIdFinal)"
+                      alt=""
+                    />
+                    <span
+                      class="rp-rolename"
+                      :class="'team-' + teamClassOf(seat.roleType)"
+                      >{{ roleNameOf(seat.roleIdFinal) }}</span
+                    >
+                  </td>
+                  <td class="rp-word" v-if="colOn('roster', 'type')">
+                    {{ seat.roleType }}
+                  </td>
+                  <td v-if="colOn('roster', 'side')" :class="seat.teamAtEnd">
+                    {{ seat.teamAtEnd }}
+                  </td>
+                  <!-- FT-1375 (user call): Fate says WHEN and HOW — the
+                       moment from the record's own deathDay/deathPhase
+                       (FT-1163), the source inferred from the town log
+                       (fatesOf). Only what is known prints: an unrecorded
+                       moment stays plain "died", never a guess. -->
+                  <td
+                    v-if="colOn('roster', 'fate')"
+                    :class="seat.survived ? 'lived' : 'died'"
+                  >
+                    <template v-if="seat.survived">lived</template>
+                    <template v-else>
+                      <span class="rp-diedword">died</span
+                      ><span class="rp-fatemeta" v-if="fateMetaOf(seat)">
+                        · {{ fateMetaOf(seat) }}</span
+                      >
+                    </template>
                   </td>
                 </tr>
               </tbody>
@@ -893,9 +959,15 @@
           <table class="rp-table rp-ledger">
             <thead>
               <tr>
-                <th>Ended</th>
-                <th v-if="colOn('games', 'town')">Town</th>
-                <th v-if="colOn('games', 'script')">Script</th>
+                <!-- FT-1375 (user call): the date goes LAST — Ended moved
+                     from the first column to the far end, header and cells
+                     alike. Still the one always-on column (no storage key
+                     minted, so every saved column choice keeps meaning what
+                     it meant); the word columns are addressed BY CLASS now
+                     (the rp-roles discipline), since with Ended gone from
+                     the front the old nth-child seats no longer hold. -->
+                <th class="rp-word" v-if="colOn('games', 'town')">Town</th>
+                <th class="rp-word" v-if="colOn('games', 'script')">Script</th>
                 <th v-if="colOn('games', 'seats')">Seats</th>
                 <th
                   v-if="colOn('games', 'nights')"
@@ -910,6 +982,7 @@
                   Ran
                 </th>
                 <th v-if="colOn('games', 'winner')">Winner</th>
+                <th>Ended</th>
               </tr>
             </thead>
             <tbody>
@@ -922,9 +995,12 @@
                 title="Open this game's record"
                 @click="openPick(game.id)"
               >
-                <td>{{ whenLabel(game.endedAt) }}</td>
-                <td v-if="colOn('games', 'town')">{{ game.townId }}</td>
-                <td v-if="colOn('games', 'script')">{{ game.scriptName }}</td>
+                <td class="rp-word rp-town" v-if="colOn('games', 'town')">
+                  {{ game.townId }}
+                </td>
+                <td class="rp-word" v-if="colOn('games', 'script')">
+                  {{ game.scriptName }}
+                </td>
                 <td v-if="colOn('games', 'seats')">{{ game.playerCount }}</td>
                 <td
                   v-if="colOn('games', 'nights')"
@@ -942,6 +1018,7 @@
                 >
                   {{ game.winningTeam === "good" ? "Good" : "Evil" }}
                 </td>
+                <td>{{ whenLabel(game.endedAt) }}</td>
               </tr>
             </tbody>
           </table>
@@ -979,7 +1056,9 @@ import goldLogo from "../assets/gold/botc-logo-icon.png";
 import { roleIconUrl } from "../golem/roleIcon";
 import { platformStats, gameFacts, gameRecord } from "../golem/stats";
 import { catchUp } from "../golem/chat";
-import { boardsOf, logGameIdOf } from "../golem/chronicles";
+// FT-1375: `fatesOf` rides the same log read the boards already make — how
+// each dead seat died, where the log honestly knows (executed / demon kill).
+import { boardsOf, fatesOf, logGameIdOf } from "../golem/chronicles";
 import {
   knownTownIds,
   crossTownGames,
@@ -1025,9 +1104,10 @@ const ROLE_TEAMS = [
 
 /**
  * FT-1297's column switches, surviving FT-1301 on the tables that remain.
- * The first column of each (the role's name; the game's Ended instant) is
- * deliberately not here: a table of unlabelled rows is not a view anyone
- * asked for. Each entry's title is the header's own sentence.
+ * One column of each (the role's name; the game's Ended instant — at the far
+ * END since FT-1375, user call) is deliberately not here: a table of
+ * unlabelled rows is not a view anyone asked for. Each entry's title is the
+ * header's own sentence.
  */
 const ROLE_COLUMNS = [
   // FT-1304: the LABEL says "Type" (user call); the KEY stays `kind` so the
@@ -1051,6 +1131,21 @@ const GAME_COLUMNS = [
   { key: "nights", label: "Nights", title: "Nights the town reached" },
   { key: "ran", label: "Ran", title: "Wall-clock length" },
   { key: "winner", label: "Winner" },
+];
+/**
+ * FT-1375 (user call): the roster's own column switch — the gear at the
+ * record panel's top right. Seat stays always-on (the anchor column, the
+ * tables' own rule). TYPE DEFAULTS HIDDEN: the role's team ink says it now —
+ * seeded in data() rather than here, because the stash stores HIDDEN keys
+ * and a brand-new table entry must not un-hide it for a browser that never
+ * chose (restorePrefs only overwrites the seed when a saved choice exists).
+ */
+const ROSTER_COLUMNS = [
+  { key: "player", label: "Player" },
+  { key: "role", label: "Role" },
+  { key: "type", label: "Type", title: "The role's class — its ink says it" },
+  { key: "side", label: "Side" },
+  { key: "fate", label: "Fate", title: "Lived or died — and when and how" },
 ];
 
 // The page's persisted preference — which columns. Best-effort localStorage
@@ -1257,15 +1352,23 @@ export default {
        * every browser that ever saved a choice. Persisted (COLS_KEY).
        * FT-1301: the tables are `roles` and `games` now; a stash still
        * carrying the retired scripts table's keys is filtered on restore.
+       * FT-1375: `roster` joined (the record's roster gear) — its `type`
+       * key is SEEDED HIDDEN, the one deliberate exception to "a new column
+       * defaults to visible": the role's team ink carries the class now,
+       * and a saved roster choice in the stash still wins (restorePrefs).
        */
-      colsHidden: { roles: [], games: [] },
+      colsHidden: { roles: [], games: [], roster: ["type"] },
       /** Whether each table's column chips are unfolded. Not persisted — an
        *  open control is a gesture, not a preference. */
-      colsOpen: { roles: false, games: false },
+      colsOpen: { roles: false, games: false, roster: false },
       /** The opened record: {id, loading, game} or null for the landing. */
       pick: null,
       /** That record's board portraits, read out of its town's log. */
       boards: { loading: false, start: null, day1: null, end: null },
+      /** FT-1375: how each dead seat died, where the town log knows —
+       *  seatNo -> "executed" | "demon" (fatesOf). Computed from the same
+       *  log read the boards ride; empty when the log has no bridge. */
+      fates: {},
     };
   },
   computed: {
@@ -1285,6 +1388,10 @@ export default {
     },
     gameColumns() {
       return GAME_COLUMNS;
+    },
+    /** FT-1375: the roster gear's chips. */
+    rosterColumns() {
+      return ROSTER_COLUMNS;
     },
     /**
      * FT-1301: THE SET — the games the filters keep, in the server's own
@@ -2448,8 +2555,12 @@ export default {
         const legal = {
           roles: ROLE_COLUMNS.map((c) => c.key),
           games: GAME_COLUMNS.map((c) => c.key),
+          // FT-1375: the roster joined the stash. Its ABSENCE keeps the
+          // seeded default (type hidden); a saved array — even an empty
+          // one — is the browser's own choice and wins verbatim.
+          roster: ROSTER_COLUMNS.map((c) => c.key),
         };
-        ["roles", "games"].forEach((table) => {
+        ["roles", "games", "roster"].forEach((table) => {
           if (!Array.isArray(raw[table])) return;
           this.colsHidden[table] = raw[table].filter(
             (key) => legal[table].indexOf(key) >= 0,
@@ -2520,6 +2631,7 @@ export default {
       if (!id) return;
       this.pick = { id, loading: true, game: null };
       this.boards = { loading: true, start: null, day1: null, end: null };
+      this.fates = {};
       gameRecord(id)
         .then((game) => {
           if (!this.pick || this.pick.id !== id) return;
@@ -2535,6 +2647,7 @@ export default {
     closePick() {
       this.pick = null;
       this.boards = { loading: false, start: null, day1: null, end: null };
+      this.fates = {};
     },
     /**
      * A game's two portraits. They are NOT part of the games record — they
@@ -2556,6 +2669,9 @@ export default {
             return;
           }
           this.boards = { loading: false, ...boardsOf(rows, logGameId) };
+          // FT-1375: the same rows also say HOW each seat died, where the
+          // log knows (the execution arc; the demon's published pick).
+          this.fates = fatesOf(rows, logGameId, game.seats);
         })
         .catch(() => {
           this.boards = { loading: false, start: null, day1: null, end: null };
@@ -2569,6 +2685,46 @@ export default {
         this.$store.state.roles.get(id) ||
         this.$store.getters.rolesJSONbyId.get(id);
       return (role && role.name) || id;
+    },
+    /** FT-1375: a role id's token art — the shared resolver the filter
+     *  popover's entries already use, loaded-edition first so a forged
+     *  character's inline art wins when the town is standing in one. */
+    roleArtOf(id) {
+      const base = this.$store.getters.rolesJSONbyId;
+      const role = this.$store.state.roles.get(id) || base.get(id) || { id };
+      return roleIconUrl(role, base);
+    },
+    /** FT-1375: the record's role class → the app's team-token class. The
+     *  records API spells it "traveller" (double L, its BotC taxonomy);
+     *  vars.scss's team tokens spell "traveler" — one bridge, here. */
+    teamClassOf(roleType) {
+      return roleType === "traveller" ? "traveler" : roleType;
+    },
+    /**
+     * FT-1375: what follows "died" in the Fate cell — " · night 3 — executed"
+     * and every honest subset of it. The MOMENT is the record's own
+     * deathDay/deathPhase (FT-1163; day 0 = the shroud fell before the town
+     * ever reached night); the SOURCE is the log inference (fatesOf). Null
+     * when neither is known — the cell stays plain "died", never a guess.
+     */
+    fateMetaOf(seat) {
+      if (!seat || seat.survived) return null;
+      let moment = "";
+      if (typeof seat.deathDay === "number" && seat.deathPhase) {
+        moment =
+          seat.deathDay === 0
+            ? "before night 1"
+            : seat.deathPhase + " " + seat.deathDay;
+      }
+      const source = this.fates[seat.seatNo];
+      const word =
+        source === "executed"
+          ? "executed"
+          : source === "demon"
+          ? "demon kill"
+          : "";
+      if (moment && word) return moment + " — " + word;
+      return moment || word || null;
     },
   },
 };
@@ -3760,10 +3916,14 @@ h4 {
 .rp-ledger {
   max-width: 1180px;
 
-  th:nth-child(2),
-  th:nth-child(3),
-  td:nth-child(2),
-  td:nth-child(3) {
+  // FT-1375: Ended moved to the far end (user call), so the word columns
+  // stopped being addressable by seat — they wear `.rp-word` now, the
+  // rp-roles discipline (nth-child would left-align whichever column
+  // inherited the seat once one is hidden).
+  // th:nth-child(2), th:nth-child(3),
+  // td:nth-child(2), td:nth-child(3) { … }  // stood down (FT-1375)
+  th.rp-word,
+  td.rp-word {
     text-align: left;
     padding-left: 0;
     padding-right: 14px;
@@ -3779,8 +3939,9 @@ h4 {
       color: #ece4f8;
     }
   }
-  // the town you are standing in, marked in its own ledger
-  tbody tr.here td:nth-child(2) {
+  // the town you are standing in, marked in its own ledger — by class since
+  // FT-1375 (the town cell is hideable; a positional mark would wander).
+  tbody tr.here td.rp-town {
     color: #e8b23a;
   }
 }
@@ -3789,18 +3950,55 @@ h4 {
   // FT-1188: the gap to the boards above belongs to the PANEL around it now
   // (`.rp-rosterwrap`), not to the table inside it.
   margin-top: 0;
-  max-width: 780px;
+  // FT-1375: the Fate column carries a sentence now ("died · night 3 —
+  // executed") and the Role column an icon — the cap grows with them.
+  max-width: 880px;
 
-  th:nth-child(2),
-  th:nth-child(3),
-  th:nth-child(4),
-  td:nth-child(2),
-  td:nth-child(3),
-  td:nth-child(4) {
+  // FT-1375: by class, not by seat — the roster's columns hide behind the
+  // gear now, and nth-child would restyle whichever column slid into the
+  // vacated position (the same reasoning as .rp-roles).
+  // th:nth-child(2..4), td:nth-child(2..4) { … }  // stood down (FT-1375)
+  th.rp-word,
+  td.rp-word {
     text-align: left;
     padding-left: 0;
     padding-right: 14px;
   }
+}
+
+// FT-1375: the roster's Role cell — the token art riding WITH the name as
+// one object (the record header's icon idiom), the name in its team's own
+// ink. The 22% lift is the role/edition modals' rank: this glass reads at
+// their depth, not the chronicle rows' darker plate (see vars.scss).
+.rp-rolecell {
+  white-space: nowrap;
+}
+.rp-roleicon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.rp-rolename {
+  vertical-align: middle;
+  @include team-ink(22%);
+}
+
+// FT-1375: the roster gear — the tables' own Columns plate wearing an icon,
+// standing in the panel's top-right corner (the panel is already its own
+// positioning box for the glass mixin's layers).
+.rp-gearbtn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
 }
 
 .good {
@@ -3814,6 +4012,12 @@ h4 {
 }
 .died {
   opacity: 0.5;
+  // FT-1375: the strike moved onto the WORD — the cell carries the moment
+  // and the source now ("died · night 3 — executed"), and striking a
+  // sentence made the new facts the least legible thing in their own cell.
+  // text-decoration: line-through;  // stood down (FT-1375)
+}
+.rp-diedword {
   text-decoration: line-through;
 }
 
