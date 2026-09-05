@@ -4816,6 +4816,7 @@ $told-glow: (
   washerwoman: rgba(234, 242, 255, 0.9),
   librarian: rgba(232, 217, 168, 0.85),
   investigator: rgba(255, 90, 90, 0.8),
+  chef: rgba(255, 179, 71, 0.8),
 );
 
 @each $role, $glow in $told-glow {

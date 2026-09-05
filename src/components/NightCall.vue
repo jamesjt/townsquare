@@ -152,7 +152,10 @@
            Fortune Teller's "Yes", the Empath's number, the character an
            Undertaker was shown — read where the question was asked, so
            nothing has to be opened to hear it. -->
-      <span class="nf-told" v-if="answer.length">
+      <!-- FT-1385: `toldNumberDress` — a told COUNT role's numeral wears
+           its role's own ring (the Chef's scorch brand): the number never
+           sits bare again. -->
+      <span class="nf-told" v-if="answer.length" :class="toldNumberDress">
         <span
           class="nd-told"
           v-for="(a, i) in answer"
@@ -440,6 +443,15 @@ export default {
     },
     toldSettled() {
       return !!this.toldTonight && this.toldTonight.phase === "settled";
+    },
+    /** FT-1385: the number-role dress on the answer chips — the Chef's
+     *  numeral takes the scorch brand (empty for everyone else, so every
+     *  other role's chips render exactly as before). */
+    toldNumberDress() {
+      const told = this.toldTonight;
+      if (!told || !this.face) return [];
+      if (told.roleId !== "chef") return [];
+      return ["nf-num-" + told.roleId, { "num-settled": this.toldSettled }];
     },
     /** FT-1385: the Librarian's zero-Outsiders night — nothing delivered
      *  means nobody is it: the book opens on blank pages. */
@@ -1298,6 +1310,64 @@ $face-pick: #a78fcd;
   &.settled {
     border-color: transparent;
     color: #f0b9b9;
+  }
+}
+
+.nfs-chef {
+  border-color: rgba(255, 179, 71, 0.8);
+  color: #ffe9c9;
+  &.settled {
+    border-color: transparent;
+    color: #f0d5a8;
+  }
+}
+
+// ── FT-1385: THE CHEF'S BRAND ON THE NUMERAL ─────────────────────────────
+// The count never sits bare: the chip goes ROUND and takes the scorch —
+// seared on once at the telling (a flare of heat that cools into the held
+// ring), a dotted char mark once settled. Ring + words + pair-mark on the
+// coin are one object; this is the ring's centre half.
+.nf-told.nf-num-chef .nd-told {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  min-width: 1.45em;
+  padding: 0 0.28em;
+  border-radius: 50%;
+  border: 2px solid #ffb347;
+  color: #ffd98a;
+  animation: nf-sear 0.9s ease-out both;
+  transition:
+    border-color 0.7s ease,
+    box-shadow 0.7s ease,
+    color 0.7s ease;
+}
+
+.nf-told.nf-num-chef.num-settled .nd-told {
+  border-style: dotted;
+  border-color: rgba(255, 179, 71, 0.65);
+  box-shadow: none;
+  color: #f4cf95;
+  animation: none;
+}
+
+// the sear: one flare of heat that traces on and cools to the held glow.
+@keyframes nf-sear {
+  0% {
+    box-shadow:
+      0 0 0 rgba(255, 179, 71, 0),
+      inset 0 0 0 rgba(255, 179, 71, 0);
+  }
+  45% {
+    box-shadow:
+      0 0 22px rgba(255, 179, 71, 0.95),
+      inset 0 0 12px rgba(255, 179, 71, 0.55);
+  }
+  100% {
+    box-shadow:
+      0 0 12px rgba(255, 179, 71, 0.55),
+      inset 0 0 7px rgba(255, 179, 71, 0.3);
   }
 }
 

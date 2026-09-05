@@ -409,6 +409,30 @@
         </g>
       </template>
     </svg>
+
+    <!-- ── CHEF — THE SCORCH BADGE ────────────────────────────────────────
+         The count points at nobody the Chef can see into, so the whole
+         dress lives on her OWN coin (part self; toldSeats returns no
+         targets) and in the centre, where the numeral takes the brand.
+         telling: the scorch ring SEARS on around the pair-mark — two
+                  touching coins, the thing the number counts — with ember
+                  flecks lifting once.
+         settled: the flames die first; the brand cools to a dotted scorch
+                  and stays as the badge, permanent. -->
+    <svg v-else-if="roleId === 'chef'" viewBox="0 -24 100 124">
+      <g class="ch-badge">
+        <circle class="ch-scorch" cx="50" cy="-4" r="12.5" pathLength="1" />
+        <g class="ch-pair">
+          <circle cx="45.6" cy="-4" r="4.1" />
+          <circle cx="54.4" cy="-4" r="4.1" />
+        </g>
+      </g>
+      <template v-if="state === 'telling'">
+        <circle class="ch-fleck ch-f1" cx="42" cy="-14" r="1.5" />
+        <circle class="ch-fleck ch-f2" cx="51" cy="-18" r="1.8" />
+        <circle class="ch-fleck ch-f3" cx="59" cy="-13" r="1.2" />
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -1665,6 +1689,96 @@ $iv-dark: #3a0f0f;
 .nm-part-self.nm-investigator svg {
   // the seal rides the shoulder — a stamp on the case, not a crown
   transform: translate(23%, 3%) rotate(-12deg) scale(0.85);
+}
+
+// ── THE CHEF'S PALETTE ──────────────────────────────────────────────────
+// Kitchen-fire orange — warmer and fatter than the Imp's ember (a hearth,
+// not a signature), and the only told dress with no thread: the badge and
+// the branded numeral are the whole act.
+$ch-ember: #ffb347;
+$ch-ember-hot: #ffd98a;
+$ch-char: #33200a;
+
+// the badge whole: seared on once, then held; cooled at rest.
+.ch-badge {
+  animation: ch-sear-in 0.45s ease-out both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .ch-badge {
+  opacity: 0.85;
+  animation: none;
+}
+
+@keyframes ch-sear-in {
+  from {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// the scorch ring — a ring of heat tracing itself at the telling, a
+// dotted char mark at rest.
+.ch-scorch {
+  fill: none;
+  stroke: $ch-ember;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(255, 179, 71, 0.8));
+  animation: ps-crawl 0.5s ease-out both;
+  transition:
+    opacity 0.7s ease,
+    stroke-width 0.7s ease,
+    filter 0.7s ease;
+}
+
+.nm-settled .ch-scorch {
+  stroke-width: 1.6;
+  stroke-dasharray: 0.02 0.045;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(255, 179, 71, 0.45));
+  animation: none;
+}
+
+// the pair-mark — two touching coins, the thing the count counts: char
+// bodies, hot rims, deliberately TOUCHING (side-by-side is the rule).
+.ch-pair circle {
+  fill: $ch-char;
+  stroke: $ch-ember-hot;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(255, 217, 138, 0.6));
+}
+
+.nm-settled .ch-pair circle {
+  stroke: $ch-ember;
+}
+
+// ember flecks — lift once at the telling and die dark (the Imp's rule:
+// an ember that holds is a lamp). The template drops them at rest.
+.ch-fleck {
+  fill: $ch-ember-hot;
+  filter: drop-shadow(0 0 3px rgba(255, 217, 138, 0.9));
+  opacity: 0;
+  animation: im-rise 0.8s ease-out 0.35s both;
+  &.ch-f2 {
+    animation-delay: 0.45s;
+  }
+  &.ch-f3 {
+    animation-delay: 0.55s;
+  }
+}
+
+.nm-part-self.nm-chef svg {
+  // the badge rests at the shoulder, a brand on the coin's crown-side
+  transform: translate(24%, 6%) scale(0.9);
 }
 
 // The information without the travel: every mark appears at rest.
