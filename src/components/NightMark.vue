@@ -143,9 +143,9 @@
     <!-- ── FORTUNE TELLER — THE SCRYING THREAD (two coins, one question) ──
          invite: sparkles wink in and out around every legal coin.
          staged: a starlight crescent veils each picked coin; the dotted
-                 thread between the two is NightThread.vue's (it lives
-                 between coins, not on one).
-         sealed: the eye opens on the coin and stays open; the thread burns
+                 threads from her OWN coin to each pick are NightThread.vue's
+                 (FT-1388 — they live between coins, not on one).
+         sealed: the eye opens on the coin and stays open; the threads burn
                  solid one component over. -->
     <svg v-else-if="roleId === 'fortuneteller'" viewBox="0 -24 100 124">
       <template v-if="state === 'invite'">

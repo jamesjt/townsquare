@@ -12,9 +12,12 @@
     there is nothing here to hide from them.
 
     THE DRESSES (per acting role, as their art lands):
-      fortuneteller  the scrying thread ("star") — starlight strung between
-                     the TWO picked coins. Staged: a dotted shimmer. Sealed:
-                     the thread burns solid, one pulse travelling its length.
+      fortuneteller  the scrying threads ("star") — TWO lines of starlight,
+                     each anchored at the Fortune Teller's OWN coin and run
+                     out to one pick (FT-1388, user-vetted: she is asking
+                     about each of them, the picks are not asking about
+                     each other). Staged: dotted shimmers. Sealed: the
+                     threads burn solid, one pulse travelling each length.
       butler         the cord ("cord") — deference, tied off: it runs from
                      the Butler's OWN coin to the staged master, SLACK (a
                      sagging curve, the pendulum ease of an unmade promise).
@@ -62,12 +65,19 @@
 import { mapGetters, mapState } from "vuex";
 import { TOLD_ROLES, liveNeighbours } from "../golem/toldInfo";
 
-/** The roles whose mark strings a thread, and how its ends are chosen. */
+/** The roles whose mark strings threads, and how each line's ends are
+ *  chosen — one entry per line, so a role may run several (FT-1388). */
 const THREADED = {
-  // the Fortune Teller's two picks are the two ends
-  fortuneteller: { from: "pick0", to: "pick1", dress: "star" },
+  // the Fortune Teller: one thread from her OWN coin to EACH pick
+  fortuneteller: {
+    pairs: [
+      ["self", "pick0"],
+      ["self", "pick1"],
+    ],
+    dress: "star",
+  },
   // the Butler's cord runs from their own chair to the staged master
-  butler: { from: "self", to: "pick0", dress: "cord" },
+  butler: { pairs: [["self", "pick0"]], dress: "cord" },
 };
 
 /** FT-1385: the told roles whose telling strings lines, keyed by the line's
@@ -103,22 +113,28 @@ export default {
       locked: "night/myCallLocked",
       told: "night/myTold",
     }),
-    /** The FT-1384 call thread's ends, as seat indexes — or null. */
+    /** The FT-1384 call threads' ends, as seat-index pairs — one entry per
+     *  standable line (a Fortune Teller with one pick staged already runs
+     *  that one thread; the second joins when the second pick lands). */
     ends() {
-      if (!this.call) return null;
+      if (!this.call) return [];
       const spec = THREADED[this.call.role.id];
-      if (!spec) return null;
+      if (!spec) return [];
       const seatOf = (key) => {
         if (key === "pick0") return this.pick(0);
         if (key === "pick1") return this.pick(1);
         if (key === "self") return this.session.claimedSeat;
         return -1;
       };
-      const a = seatOf(spec.from);
-      const b = seatOf(spec.to);
-      if (!Number.isInteger(a) || a < 0) return null;
-      if (!Number.isInteger(b) || b < 0 || b === a) return null;
-      return { a, b, dress: spec.dress };
+      const out = [];
+      spec.pairs.forEach(([from, to], i) => {
+        const a = seatOf(from);
+        const b = seatOf(to);
+        if (!Number.isInteger(a) || a < 0) return;
+        if (!Number.isInteger(b) || b < 0 || b === a) return;
+        out.push({ a, b, dress: spec.dress, key: "call-" + i });
+      });
+      return out;
     },
     /**
      * FT-1385: the standing telling's lines, as seat-index pairs. Pair
@@ -196,10 +212,10 @@ export default {
       this.raf = requestAnimationFrame(this.measure);
     },
     /**
-     * One drawn line. A star thread is straight in both states; a cord SAGS
-     * while staged (a quadratic bow toward the floor, deeper the longer the
-     * span, capped so a cross-ring cord does not drag through the hub) and
-     * snaps dead straight at the seal.
+     * One drawn line. A star thread rides the hub-avoiding bow in both
+     * states (FT-1388); a cord SAGS while staged (a quadratic bow toward
+     * the floor, deeper the longer the span, capped so a cross-ring cord
+     * does not drag through the hub) and snaps dead straight at the seal.
      *
      * FT-1385: THE TOLD LINES BOW AWAY FROM THE HUB instead of toward the
      * floor — a chord between far seats runs straight through the centre
@@ -225,6 +241,10 @@ export default {
         ribbon: [0.06, 0.14],
         evidence: [0.04, 0.04],
         vein: [0.05, 0.09],
+        // FT-1388: the scrying threads ride the same hub-avoiding bow —
+        // near-straight starlight, raised only where a line to the far
+        // side of the ring would cut through the centre plate.
+        star: [0.05, 0.05],
       };
       const drape = DRAPE[t.dress];
       if (drape && len) {
@@ -260,14 +280,9 @@ export default {
     },
     measure() {
       const wanted = [];
-      if (this.ends) {
-        wanted.push({
-          ...this.ends,
-          sealed: this.locked,
-          settled: false,
-          key: "call",
-        });
-      }
+      this.ends.forEach((e) =>
+        wanted.push({ ...e, sealed: this.locked, settled: false }),
+      );
       this.toldEnds.forEach((e) => wanted.push({ sealed: false, ...e }));
       if (!wanted.length) {
         this.threads = [];
