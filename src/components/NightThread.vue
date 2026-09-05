@@ -75,6 +75,7 @@ const THREADED = {
  *  Empath (a later commit) runs one from her own chair to each neighbour. */
 const TOLD_DRESS = {
   washerwoman: "laundry",
+  librarian: "ribbon",
 };
 
 export default {
@@ -192,6 +193,11 @@ export default {
       if (t.dress === "laundry") {
         sag = t.settled ? Math.min(70, len * 0.2) : Math.min(30, len * 0.08);
       }
+      // the ribbon drapes — gentler than laundry in both states, because a
+      // ribbon between pages was never meant to carry weight
+      if (t.dress === "ribbon") {
+        sag = t.settled ? Math.min(50, len * 0.14) : Math.min(24, len * 0.06);
+      }
       if (sag) {
         const mx = (t.x1 + t.x2) / 2;
         const my = (t.y1 + t.y2) / 2;
@@ -281,6 +287,9 @@ $nt-cord-hot: #ffe9c4;
 // THE WASHERWOMAN'S LINE — laundry white, NightMark's own soap-pale ink.
 $nt-laundry: #eaf2ff;
 
+// THE LIBRARIAN'S RIBBON — old-parchment sepia, the book's own ink.
+$nt-ribbon: #e8d9a8;
+
 .nt-line {
   fill: none;
   opacity: 0;
@@ -353,6 +362,33 @@ $nt-laundry: #eaf2ff;
     opacity: 0.65;
     filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
       drop-shadow(0 0 3px rgba(234, 242, 255, 0.4));
+    animation: nt-hold 0.9s ease-out both;
+  }
+}
+
+// FT-1385 — the Librarian's ribbon: unspools between the two candidates at
+// the telling (long ribbon-dashes, warmer and softer than the laundry
+// line); settled it rests dotted sepia — the ribbon left between pages.
+.nt-ribbon {
+  stroke: $nt-ribbon;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 0.05 0.012;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 5px rgba(232, 217, 168, 0.65));
+  animation: nt-draw 0.7s ease-out both;
+  transition:
+    d 0.9s ease,
+    stroke-width 0.9s ease,
+    opacity 0.9s ease,
+    filter 0.9s ease;
+
+  &.settled {
+    stroke-width: 1.6;
+    stroke-dasharray: 0.008 0.026;
+    opacity: 0.6;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 3px rgba(232, 217, 168, 0.4));
     animation: nt-hold 0.9s ease-out both;
   }
 }

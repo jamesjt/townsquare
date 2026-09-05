@@ -175,6 +175,50 @@
         :class="['nfs-' + told.roleId, { settled: toldSettled }]"
         >{{ toldSentenceText }}</span
       >
+      <!-- FT-1385: THE LIBRARIAN'S BOOK — open beneath the sentence while
+           the telling is bright (blank pages on the zero-Outsiders night),
+           CLOSED once it settles: one soft shut, the red bookmark left
+           sticking out. The place is kept; the coins' page-corners say
+           where. -->
+      <svg
+        class="nf-book"
+        v-if="toldBook"
+        viewBox="0 0 60 30"
+        :class="{ settled: toldSettled }"
+        aria-hidden="true"
+      >
+        <template v-if="!toldSettled">
+          <g class="bk-open">
+            <path
+              class="bk-page"
+              d="M 30 24 Q 16 28 4 20 L 4 8 Q 16 15 30 11 Z"
+            />
+            <path
+              class="bk-page"
+              d="M 30 24 Q 44 28 56 20 L 56 8 Q 44 15 30 11 Z"
+            />
+            <path class="bk-spine" d="M 30 11 L 30 24" />
+            <template v-if="!toldZero">
+              <path class="bk-lines" d="M 9 13 Q 18 17 26 15" />
+              <path class="bk-lines" d="M 34 15 Q 42 17 51 13" />
+            </template>
+          </g>
+        </template>
+        <template v-else>
+          <g class="bk-closed">
+            <path
+              class="bk-cover"
+              d="M 8 10 L 52 10 Q 54 10 54 12 L 54 22 Q 54 24 52 24
+                 L 8 24 Q 6 24 6 22 L 6 12 Q 6 10 8 10 Z"
+            />
+            <path class="bk-pages" d="M 8 13.5 L 52 13.5" />
+            <path
+              class="bk-mark"
+              d="M 42 10 L 42 3 L 45 6.5 L 48 3 L 48 10 Z"
+            />
+          </g>
+        </template>
+      </svg>
     </template>
     <!-- ── THE BAND / SECTION FORM (FT-1005, FT-1101) ───────────────────── -->
     <template v-else>
@@ -396,6 +440,20 @@ export default {
     },
     toldSettled() {
       return !!this.toldTonight && this.toldTonight.phase === "settled";
+    },
+    /** FT-1385: the Librarian's zero-Outsiders night — nothing delivered
+     *  means nobody is it: the book opens on blank pages. */
+    toldZero() {
+      const told = this.toldTonight;
+      return !!told && !told.targets.length && !told.characterName;
+    },
+    /** The Librarian's book renders under her sentence, both beats. */
+    toldBook() {
+      return (
+        this.face &&
+        !!this.toldTonight &&
+        this.toldTonight.roleId === "librarian"
+      );
     },
     /** The telling's own words — bright at the telling, the smaller
      *  pair-naming line once settled. Empty when there is no telling. */
@@ -1222,6 +1280,96 @@ $face-pick: #a78fcd;
   &.settled {
     border-color: transparent;
     color: #dfe9fb;
+  }
+}
+
+.nfs-librarian {
+  border-color: rgba(232, 217, 168, 0.8);
+  color: #f3ead0;
+  &.settled {
+    border-color: transparent;
+    color: #e8dcb8;
+  }
+}
+
+// ── FT-1385: THE LIBRARIAN'S BOOK ────────────────────────────────────────
+// Sepia furniture, one red ribbon — NightMark's own librarian inks, so the
+// book, the page-corners on the coins and the ribbon between them read as
+// one object. Open at the telling (fans up once), closed at the settle
+// (the template swap IS the shut; the closed group's one fade is the soft
+// thump), the bookmark left out.
+.nf-book {
+  width: 60px;
+  height: 30px;
+  margin-top: 2px;
+  overflow: visible;
+
+  .bk-page,
+  .bk-cover {
+    fill: rgba(58, 46, 20, 0.85);
+    stroke: #e8d9a8;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(232, 217, 168, 0.5));
+  }
+  .bk-page {
+    fill: rgba(243, 234, 208, 0.28);
+  }
+  .bk-spine,
+  .bk-pages {
+    fill: none;
+    stroke: #e8d9a8;
+    stroke-width: 1.2;
+    opacity: 0.85;
+  }
+  .bk-lines {
+    fill: none;
+    stroke: #f3ead0;
+    stroke-width: 0.9;
+    opacity: 0.65;
+  }
+  .bk-mark {
+    fill: #c8452f;
+    stroke: #e8d9a8;
+    stroke-width: 0.8;
+    stroke-linejoin: round;
+  }
+
+  .bk-open {
+    animation: bk-fan 0.55s ease-out both;
+  }
+  .bk-closed {
+    animation: bk-shut 0.45s ease-in both;
+  }
+  &.settled {
+    opacity: 0.8;
+  }
+}
+
+@keyframes bk-fan {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scaleY(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes bk-shut {
+  0% {
+    opacity: 0.4;
+    transform: scaleY(1.3);
+  }
+  70% {
+    opacity: 1;
+    transform: scaleY(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
   }
 }
 

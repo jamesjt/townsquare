@@ -357,6 +357,30 @@
         </g>
       </template>
     </svg>
+
+    <!-- ── LIBRARIAN — THE BOOKMARK'S PAGE-CORNERS ────────────────────────
+         telling: the sepia ring reads itself round each candidate and a
+                  page-corner folds onto the coin's shoulder — this seat is
+                  a page the book has marked.
+         settled: the ring rests dotted, the corner stays tucked. Self: the
+                  red bookmark ribbon hangs from the teller's own rim — the
+                  book closed, the place kept. (The zero-Outsiders night
+                  strings no coins at all; the empty book is the centre's.)
+    -->
+    <svg v-else-if="roleId === 'librarian'" viewBox="0 -24 100 124">
+      <template v-if="part === 'target'">
+        <circle class="lb-ring" cx="50" cy="50" r="45" pathLength="1" />
+        <g class="lb-corner">
+          <path class="lb-fold" d="M 70 0 L 93 0 L 93 23 Z" />
+          <path class="lb-crease" d="M 70 0 L 93 23" />
+        </g>
+      </template>
+      <template v-else>
+        <g class="lb-ribbon">
+          <path d="M 46.5 -8 L 53.5 -8 L 53.5 16 L 50 10.5 L 46.5 16 Z" />
+        </g>
+      </template>
+    </svg>
   </span>
 </template>
 
@@ -1388,6 +1412,117 @@ $ww-wood-lit: #c9a86e;
     opacity: 0;
     transform: translateY(-10px);
   }
+}
+
+// ── THE LIBRARIAN'S PALETTE ─────────────────────────────────────────────
+// Old parchment sepia for the book's furniture, one red ribbon — the only
+// red on any told dress but the Investigator's, and theirs is thread while
+// this is cloth.
+$lb-sepia: #e8d9a8;
+$lb-page: #f3ead0;
+$lb-red: #c8452f;
+
+.lb-ring {
+  fill: none;
+  stroke: $lb-sepia;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 6px rgba(232, 217, 168, 0.75));
+  animation: ps-crawl 0.6s ease-out both;
+  transition:
+    opacity 0.7s ease,
+    stroke-width 0.7s ease,
+    filter 0.7s ease;
+}
+
+.nm-settled .lb-ring {
+  stroke-width: 2;
+  stroke-dasharray: 0.012 0.028;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(232, 217, 168, 0.4));
+  animation: none;
+}
+
+// the page-corner: a dog-ear tucked onto the coin's shoulder — the fold is
+// a pale triangle, the crease its one drawn line. The telling folds it on
+// (a small rotate from the fold's own corner); at rest it stays tucked.
+.lb-corner {
+  .lb-fold {
+    fill: rgba(58, 46, 20, 0.82);
+    stroke: $lb-page;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(243, 234, 208, 0.55));
+  }
+  .lb-crease {
+    fill: none;
+    stroke: $lb-page;
+    stroke-width: 1;
+    opacity: 0.8;
+  }
+  transform-origin: 93px 0px;
+  animation: lb-tuck 0.55s ease-out both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .lb-corner {
+  opacity: 0.85;
+  animation: none;
+}
+
+@keyframes lb-tuck {
+  0% {
+    opacity: 0;
+    transform: rotate(-24deg);
+  }
+  75% {
+    opacity: 1;
+    transform: rotate(4deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(0deg);
+  }
+}
+
+// the teller's own ribbon — the bookmark hanging from the rim, the place
+// kept. Slides down into place once, then hangs.
+.lb-ribbon {
+  path {
+    fill: $lb-red;
+    stroke: $lb-sepia;
+    stroke-width: 1.2;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))
+      drop-shadow(0 0 4px rgba(200, 69, 47, 0.5));
+  }
+  animation: lb-hang 0.55s ease-out both;
+  transition: opacity 0.7s ease;
+}
+
+.nm-settled .lb-ribbon {
+  opacity: 0.85;
+  animation: none;
+}
+
+@keyframes lb-hang {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nm-part-self.nm-librarian svg {
+  // the ribbon rides at the shoulder, a bookmark's own slight lean
+  transform: translate(22%, 2%) rotate(14deg) scale(0.8);
 }
 
 // The information without the travel: every mark appears at rest.

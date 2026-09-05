@@ -4814,6 +4814,7 @@ $night-seal-glow: (
 
 $told-glow: (
   washerwoman: rgba(234, 242, 255, 0.9),
+  librarian: rgba(232, 217, 168, 0.85),
 );
 
 @each $role, $glow in $told-glow {

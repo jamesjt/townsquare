@@ -52,7 +52,7 @@ export const TOLD_ROLES = {
  * data, not art); this list is what the SURFACES read, so an undressed
  * role renders exactly as it did before this card.
  */
-export const TOLD_ART = ["washerwoman"];
+export const TOLD_ART = ["washerwoman", "librarian"];
 
 /**
  * How long the bright telling pose holds before easing into the residue.
