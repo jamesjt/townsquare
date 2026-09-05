@@ -50,6 +50,27 @@
         <font-awesome-icon icon="bullhorn" class="am-mark" />
         Change log
       </li>
+      <!-- FT-1398: THE NIGHT LAB — preview any role's night art on a ring of
+           fake seats, no town needed. DISABLED inside a live town, and that
+           is the deliberate (safer) half of the strictly-local contract: the
+           lab only ever runs on a client with no session — the socket only
+           connects on session/setSessionId, which the lab never commits —
+           so a lab state cannot reach a relay by construction. Auto-exiting
+           the session from a preview row was the rejected alternative: a
+           destructive act has no business behind a "have a look" button. -->
+      <li
+        class="am-act"
+        :class="{ 'am-inert': inTown }"
+        :title="
+          inTown
+            ? 'Night lab — leave the town first: the lab is a client-local preview and never runs beside a live session'
+            : 'Night lab — preview any role\'s night art on a ring of fake seats; client-local, no town needed'
+        "
+        @click="nightLab"
+      >
+        <font-awesome-icon icon="cloud-moon" class="am-mark" />
+        Night lab
+      </li>
     </ul>
   </div>
 </template>
@@ -77,6 +98,10 @@ export default {
   computed: {
     account() {
       return this.$store.state.session.account;
+    },
+    /** FT-1398: in a live town the Night lab row goes inert — see its note. */
+    inTown() {
+      return !!this.$store.state.session.sessionId;
     },
     posStyle() {
       return { top: this.top + "px", left: this.left + "px" };
@@ -132,6 +157,14 @@ export default {
     act(what) {
       this.$emit(what);
       this.$emit("close");
+    },
+    /** FT-1398: the Night lab's door — an act row like the others, except
+     *  it refuses (rather than hides) inside a town so the reason is
+     *  readable on hover. The guard here is the courtesy; golem/nightLab's
+     *  canEnter is the fact. */
+    nightLab() {
+      if (this.inTown) return;
+      this.act("nightlab");
     },
     async signOut() {
       this.$emit("close");
@@ -205,6 +238,15 @@ export default {
     transition: color 250ms;
     &:hover {
       color: red;
+    }
+  }
+  // FT-1398: a row that currently refuses (the Night lab inside a live
+  // town) — half-lit, no red promise on hover; the title says why.
+  .am-act.am-inert {
+    opacity: 0.4;
+    cursor: default;
+    &:hover {
+      color: white;
     }
   }
   .am-mark {

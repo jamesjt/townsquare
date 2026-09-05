@@ -487,6 +487,12 @@
 
          Behind `devLabs` from the start, for the column's shared reason. -->
     <MistLab v-if="devLabs && labsListOpen" />
+    <!-- FT-1398: THE NIGHT LAB's control strip — NOT part of the dev column
+         and not behind `devLabs`: it is opened from the golem mark's menu
+         (AccountMenu → Menu.openNightLab) and renders only while the lab
+         runs (its root v-if reads golem/nightLab's observable). Mounted
+         unconditionally so the door and the strip cannot drift apart. -->
+    <NightLab />
     <!-- the AUTOMATIONS-ROWS LAB (FT-1348 round 3): which dress the
          Automations pane's rule rows wear — the checkbox rows (the default,
          restored round 3) or the round-2 pill toggles, kept as the lab's
@@ -1226,6 +1232,10 @@ import StatsPlateLab from "./components/StatsPlateLab";
 // so this pair does not come out together; one day the lab goes and the
 // curve stays. See src/golem/nightMist.js.
 import MistLab from "./components/MistLab";
+// FT-1398: the Night lab — preview any role's night art on a ring of fake
+// seats, client-local (no town, no relay). Model in src/golem/nightLab.js;
+// opened from the golem mark's menu, closed from its own strip.
+import NightLab from "./components/NightLab";
 // FT-1287: the night mist's growth. `publishNightMist` is the ONE writer of
 // the `--mist-*` custom properties — the shipped curve here, the lab's
 // override through the same call — and on night 0/1 with no lab it writes
@@ -1402,6 +1412,7 @@ export default {
     NumeralGlowLab,
     StatsPlateLab,
     MistLab,
+    NightLab,
     Gradients,
   },
   computed: {

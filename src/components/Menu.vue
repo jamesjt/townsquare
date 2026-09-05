@@ -822,6 +822,7 @@
         @close="accountMenuOpen = false"
         @account="accountOpen = true"
         @changelog="toggleModal('changeLog')"
+        @nightlab="openNightLab"
       />
     </div>
 
@@ -904,6 +905,10 @@ import PlayerSettings from "./PlayerSettings";
 // FT-1320: the golem mark's menu and the change log it opens.
 import AccountMenu from "./AccountMenu";
 import ChangeLog from "./ChangeLog";
+// FT-1398: the Night lab's door — the model owns the guard (canEnter: never
+// inside a live town) and the whole enter/restore lifecycle; this strip only
+// asks. The strip that controls the running lab is NightLab.vue, in App.vue.
+import { enter as enterNightLab } from "../golem/nightLab";
 // FT-1174: the app's own dropdown — the setup panel's and the night sheet's,
 // worn here so the corner menu asks a multi-option setting the same way every
 // other surface does. Used as-is; nothing about the control changed for this.
@@ -1106,6 +1111,12 @@ export default {
         this.accountMenuAnchor = ev.currentTarget;
       }
       this.accountMenuOpen = !this.accountMenuOpen;
+    },
+    /** FT-1398: the golem menu's Night lab row — hand the store to the
+     *  model; its own canEnter refuses inside a live town (the row is
+     *  already inert there, this is the belt behind the courtesy). */
+    openNightLab() {
+      enterNightLab(this.$store);
     },
     // ── FT-1174: A SECTION CLOSES WHEN YOU LOOK AWAY ─────────────────────
     /**
